@@ -357,7 +357,9 @@ main(int argc, char* argv[]) {
   {
     TaskVariantRegistrar registrar(TREE_SPACE_TASK_ID, "tree_space");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    Runtime::preregister_task_variant<tree_space_task<3>>(registrar, "tree_space");
+    Runtime::preregister_task_variant<tree_space_task<3>>(
+      registrar,
+      "tree_space");
   }
 
   Runtime::register_custom_serdez_op<tree_serdez>(SID_TREE);
