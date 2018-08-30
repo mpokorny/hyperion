@@ -25,54 +25,54 @@ enum SerdezIDs {
   SID_VRECT = 2,
 };
 
-template <typename COORD_T>
+typedef Tree<coord_t> TreeL;
+
 class tree_serdez {
 public:
-  typedef Tree<COORD_T> FIELD_TYPE;
+  typedef TreeL FIELD_TYPE;
 
   static const size_t MAX_SERIALIZED_SIZE = std::numeric_limits<size_t>::max();
 
   static size_t
-  serialized_size(const Tree<COORD_T>& val) {
+  serialized_size(const TreeL& val) {
     return val.serialized_size();
   }
 
   static size_t
-  serialize(const Tree<COORD_T>& val, void *buffer) {
+  serialize(const TreeL& val, void *buffer) {
     return val.serialize(reinterpret_cast<char*>(buffer));
   }
 
   static size_t
-  deserialize(Tree<COORD_T>& val, const void *buffer) {
-    val = std::move(
-      Tree<COORD_T>::deserialize(static_cast<const char*>(buffer)));
+  deserialize(TreeL& val, const void *buffer) {
+    val = TreeL::deserialize(static_cast<const char*>(buffer));
     return *reinterpret_cast<const size_t *>(buffer);
   }
 
   static void
-  destroy(Tree<COORD_T>&) {
+  destroy(TreeL&) {
   }
 };
 
-template <int DIM, typename COORD_T>
+template <int DIM>
 class vrect_serdez {
 public:
-  typedef std::vector<Rect<DIM, COORD_T>> FIELD_TYPE;
+  typedef std::vector<Rect<DIM>> FIELD_TYPE;
 
   static const size_t MAX_SERIALIZED_SIZE = std::numeric_limits<size_t>::max();
 
   static size_t
-  serialized_size(const std::vector<Rect<DIM, COORD_T>>& val) {
-    return val.size() * sizeof(Rect<DIM, COORD_T>) + sizeof(size_t);
+  serialized_size(const std::vector<Rect<DIM>>& val) {
+    return val.size() * sizeof(Rect<DIM>) + sizeof(size_t);
   }
 
   static size_t
-  serialize(const std::vector<Rect<DIM, COORD_T>>& val, void *buffer) {
+  serialize(const std::vector<Rect<DIM>>& val, void *buffer) {
     unsigned char *b = reinterpret_cast<unsigned char *>(buffer);
     size_t vlen = val.size();
     *reinterpret_cast<size_t *>(b) = vlen;
     b += sizeof(vlen);
-    size_t rectsz = sizeof(Rect<DIM, COORD_T>);
+    size_t rectsz = sizeof(Rect<DIM>);
     for (size_t i = 0; i < vlen; ++i) {
       memcpy(b, &val[i], rectsz);
       b += rectsz;
@@ -81,42 +81,41 @@ public:
   }
 
   static size_t
-  deserialize(std::vector<Rect<DIM, COORD_T>>& val, const void *buffer) {
+  deserialize(std::vector<Rect<DIM>>& val, const void *buffer) {
     const unsigned char *b = reinterpret_cast<const unsigned char *>(buffer);
     size_t vlen = *reinterpret_cast<const size_t *>(b);
     b += sizeof(vlen);
-    size_t rectsz = sizeof(Rect<DIM, COORD_T>);
+    size_t rectsz = sizeof(Rect<DIM>);
     val.clear();
     for (size_t i = 0; i < vlen; ++i) {
-      val.push_back(*reinterpret_cast<const Rect<DIM, COORD_T> *>(b));
+      val.push_back(*reinterpret_cast<const Rect<DIM> *>(b));
       b += rectsz;
     }
     return serialized_size(val);
   }
 
   static void
-  destroy(std::vector<Rect<DIM, COORD_T>>&) {
+  destroy(std::vector<Rect<DIM>>&) {
   }
 };
 
-template <int DIM, typename COORD_T, typename CB>
-std::vector<Rect<DIM, COORD_T>>
+template <int DIM, typename CB>
+std::vector<Rect<DIM>>
 offspring_rects(
-  coord_t n,
+  ssize_t n,
   CB cbfn,
   Context ctx,
   Runtime* runtime) {
 
-  Rect<1, coord_t> child_is_rect =
-    Rect<1>(Point<1>(0), Point<1>(n - 1));
-  IndexSpaceT<1, coord_t> child_is =
+  Rect<1> child_is_rect = Rect<1>(Point<1>(0), Point<1>(n - 1));
+  IndexSpaceT<1> child_is =
     runtime->create_index_space(ctx, child_is_rect);
 
   FieldSpace child_input_fs = runtime->create_field_space(ctx);
   {
     auto fa = runtime->create_field_allocator(ctx, child_input_fs);
-    fa.allocate_field(sizeof(Rect<DIM, COORD_T>), FID_ENVELOPE);
-    fa.allocate_field(sizeof(Tree<COORD_T>), FID_TREE, SID_TREE);
+    fa.allocate_field(sizeof(Rect<DIM>), FID_ENVELOPE);
+    fa.allocate_field(sizeof(TreeL), FID_TREE, SID_TREE);
   }
   LogicalRegion child_input_lr =
     runtime->create_logical_region(ctx, child_is, child_input_fs);
@@ -125,7 +124,7 @@ offspring_rects(
   {
     auto fa = runtime->create_field_allocator(ctx, child_output_fs);
     fa.allocate_field(
-      sizeof(std::vector<Rect<DIM, COORD_T>>),
+      sizeof(std::vector<Rect<DIM>>),
       FID_VRECT,
       SID_VRECT);
   }
@@ -143,17 +142,17 @@ offspring_rects(
   PhysicalRegion input_region = runtime->map_region(ctx, input_launcher);
   const FieldAccessor<
     WRITE_DISCARD,
-    Rect<DIM, COORD_T>,
+    Rect<DIM>,
     1,
     coord_t,
-    Realm::AffineAccessor<Rect<DIM, COORD_T>,1,coord_t>,
+    Realm::AffineAccessor<Rect<DIM>,1,coord_t>,
     false> acc_rect(input_region, FID_ENVELOPE);
   const FieldAccessor<
     WRITE_DISCARD,
-    Tree<COORD_T>,
+    TreeL,
     1,
     coord_t,
-    Realm::AffineAccessor<Tree<COORD_T>,1,coord_t>,
+    Realm::AffineAccessor<TreeL,1,coord_t>,
     false> acc_tree(input_region, FID_TREE);
   for (coord_t i = 0; i < n; ++i)
     cbfn(i, acc_rect[i], acc_tree[i]);
@@ -193,7 +192,7 @@ offspring_rects(
   runtime->destroy_logical_partition(ctx, child_output_lp);
   runtime->destroy_index_space(ctx, child_cs);
 
-  std::vector<Rect<DIM, COORD_T>> result;
+  std::vector<Rect<DIM>> result;
   RegionRequirement output_req(
     child_output_lr,
     READ_ONLY,
@@ -204,15 +203,15 @@ offspring_rects(
   PhysicalRegion output_region = runtime->map_region(ctx, output_launcher);
   const FieldAccessor<
     READ_ONLY,
-    std::vector<Rect<DIM, COORD_T>>,
+    std::vector<Rect<DIM>>,
     1,
     coord_t,
-    Realm::AffineAccessor<std::vector<Rect<DIM, COORD_T>>,1,coord_t>,
+    Realm::AffineAccessor<std::vector<Rect<DIM>>,1,coord_t>,
     false> acc_is(output_region, FID_VRECT);
 
   auto result_in = std::back_inserter(result);
   for (coord_t i = 0; i < n; ++i) {
-    const std::vector<Rect<DIM, COORD_T>>& vr = acc_is[i];
+    const std::vector<Rect<DIM>>& vr = acc_is[i];
     std::copy(
       vr.begin(),
       vr.end(),
@@ -228,7 +227,7 @@ offspring_rects(
   return result;
 }
 
-template <int DIM, typename COORD_T>
+template <int DIM>
 void
 tree_space_task(
   const Task* task,
@@ -238,24 +237,24 @@ tree_space_task(
 
   const FieldAccessor<
     READ_ONLY,
-    Rect<DIM, COORD_T>,
+    Rect<DIM>,
     1,
     coord_t,
-    Realm::AffineAccessor<Rect<DIM, COORD_T>,1,coord_t>,
+    Realm::AffineAccessor<Rect<DIM>,1,coord_t>,
     false> envelopes(regions[0], FID_ENVELOPE);
   const FieldAccessor<
     READ_ONLY,
-    Tree<COORD_T>,
+    TreeL,
     1,
     coord_t,
-    Realm::AffineAccessor<Tree<COORD_T>,1,coord_t>,
+    Realm::AffineAccessor<TreeL,1,coord_t>,
     false> trees(regions[0], FID_TREE);
   const FieldAccessor<
     WRITE_DISCARD,
-    std::vector<Rect<DIM, COORD_T>>,
+    std::vector<Rect<DIM>>,
     1,
     coord_t,
-    Realm::AffineAccessor<std::vector<Rect<DIM, COORD_T>>,1,coord_t>,
+    Realm::AffineAccessor<std::vector<Rect<DIM>>,1,coord_t>,
     false> domains(regions[1], FID_VRECT);
 
   Rect<1> rect = runtime->get_index_space_domain(
@@ -263,57 +262,61 @@ tree_space_task(
     task->regions[0].region.get_index_space());
 
   for (PointInRectIterator<1> pir(rect); pir(); pir++) {
-    const Rect<DIM, COORD_T>& envelope = envelopes[*pir];
-    const Tree<COORD_T>& tree = trees[*pir];
+    const Rect<DIM>& envelope = envelopes[*pir];
+    const TreeL& tree = trees[*pir];
 
     auto tree_rect = tree.envelope();
     assert(tree_rect.size() <= DIM);
-    COORD_T tree_rect_lo[DIM], tree_rect_hi[DIM];
-    COORD_T fixd = DIM - tree_rect.size();
-    for (COORD_T i = 0; i < fixd; ++i) {
+    coord_t tree_rect_lo[DIM], tree_rect_hi[DIM];
+    size_t fixd = DIM - tree_rect.size();
+    for (size_t i = 0; i < fixd; ++i) {
       tree_rect_lo[i] = envelope.lo[i];
       tree_rect_hi[i] = envelope.hi[i];
     }
-    for (COORD_T i = 0; i < tree_rect.size(); ++i)
+    for (size_t i = 0; i < tree_rect.size(); ++i)
       std::tie(tree_rect_lo[i + fixd], tree_rect_hi[i + fixd]) = tree_rect[i];
     if (tree.is_array()) {
-      std::cout << "construct array";
-      const char *sep = " (";
-      for (COORD_T i = 0; i < DIM; ++i) {
-        std::cout << sep << tree_rect_lo[i];
-        sep = ",";
-      }
-      sep = ")-(";
-      for (COORD_T i = 0; i < DIM; ++i) {
-        std::cout << sep << tree_rect_hi[i];
-        sep = ",";
-      }
-      std::cout << ")" << std::endl;
       domains[*pir] =
-        {Rect<DIM, COORD_T>(
-            Point<DIM, COORD_T>(tree_rect_lo),
-            Point<DIM, COORD_T>(tree_rect_hi))};
+        {Rect<DIM>(Point<DIM>(tree_rect_lo), Point<DIM>(tree_rect_hi))};
     } else {
       auto children = tree.children();
-      domains[*pir] = offspring_rects<DIM, COORD_T>(
+      domains[*pir] = offspring_rects<DIM>(
         children.size(),
-        [&](Point<1, coord_t> chidx,
-            Rect<DIM, COORD_T>& rect,
-            Tree<COORD_T>& tr) {
-          COORD_T i, n;
-          Tree<COORD_T> t;
+        [&](Point<1> chidx, Rect<DIM>& rect, TreeL& tr) {
+          coord_t i, n;
+          TreeL t;
           std::tie(i, n, t) = children[chidx];
           tree_rect_lo[fixd] = i;
           tree_rect_hi[fixd] = i + n - 1;
-          rect = Rect<DIM, COORD_T> (
-            Point<DIM, COORD_T>(tree_rect_lo),
-            Point<DIM, COORD_T>(tree_rect_hi));
+          rect = Rect<DIM>(Point<DIM>(tree_rect_lo), Point<DIM>(tree_rect_hi));
           tr = t;
         },
         ctx,
         runtime);
     }
   }
+}
+
+template <int DIM>
+IndexSpaceT<DIM>
+tree_index_space(const TreeL& tree, Context ctx, Runtime* runtime) {
+  auto rank = tree.rank();
+  assert(rank);
+  assert(rank.value() == DIM);
+  std::vector<Rect<DIM>> domain =
+    offspring_rects<DIM>(
+      1,
+      [&](Point<1>, Rect<DIM>& rect, TreeL& tr) {
+        auto env = tree.envelope();
+        coord_t tree_rect_lo[DIM], tree_rect_hi[DIM];
+        for (size_t i = 0; i < DIM; ++i)
+          std::tie(tree_rect_lo[i], tree_rect_hi[i]) = env[i];
+        rect = Rect<DIM>(Point<DIM>(tree_rect_lo), Point<DIM>(tree_rect_hi));
+        tr = tree;
+      },
+      ctx,
+      runtime);
+  return runtime->create_index_space(ctx, domain);
 }
 
 void
@@ -323,31 +326,15 @@ top_level_task(
   Context ctx,
   Runtime* runtime) {
 
-  Tree<coord_t> t02(2);
-  Tree<coord_t> t03(3);
-  Tree<coord_t> t1({{0, 3, t02}, {6, 2, t03}});
-  Tree<coord_t> tree({{10, 2, t1}, {20, 1, t1}});
+  TreeL t02(2);
+  TreeL t03(3);
+  TreeL t1({{0, 3, t02}, {6, 2, t03}});
+  TreeL tree({{10, 2, t1}, {20, 1, t1}});
 
-  std::vector<Rect<3, coord_t>> domain =
-    offspring_rects<3, coord_t>(
-      1,
-      [&](Point<1, coord_t>, Rect<3, coord_t>& rect, Tree<coord_t>& tr) {
-        auto env = tree.envelope();
-        coord_t tree_rect_lo[3], tree_rect_hi[3];
-        for (coord_t i = 0; i < 3; ++i)
-          std::tie(tree_rect_lo[i], tree_rect_hi[i]) = env[i];
-        rect = Rect<3, coord_t>(
-          Point<3, coord_t>(tree_rect_lo),
-          Point<3, coord_t>(tree_rect_hi));
-        tr = tree;
-      },
-      ctx,
-      runtime);
-  IndexSpaceT<3, coord_t> index_space =
-    runtime->create_index_space(ctx, domain);
-  DomainT<3, coord_t> is_domain =
+  IndexSpaceT<3> index_space = tree_index_space<3>(tree, ctx, runtime);
+  DomainT<3> domain =
     runtime->get_index_space_domain(ctx, index_space);
-  for (PointInDomainIterator<3, coord_t> pid(is_domain); pid(); pid++)
+  for (PointInDomainIterator<3> pid(domain); pid(); pid++)
     std::cout << "(" << pid[0]
               << "," << pid[1]
               << "," << pid[2]
@@ -370,11 +357,11 @@ main(int argc, char* argv[]) {
   {
     TaskVariantRegistrar registrar(TREE_SPACE_TASK_ID, "tree_space");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    Runtime::preregister_task_variant<tree_space_task<3,coord_t>>(registrar, "tree_space");
+    Runtime::preregister_task_variant<tree_space_task<3>>(registrar, "tree_space");
   }
 
-  Runtime::register_custom_serdez_op<tree_serdez<coord_t>>(SID_TREE);
-  Runtime::register_custom_serdez_op<vrect_serdez<3, coord_t>>(SID_VRECT);
+  Runtime::register_custom_serdez_op<tree_serdez>(SID_TREE);
+  Runtime::register_custom_serdez_op<vrect_serdez<3>>(SID_VRECT);
 
   return Runtime::start(argc, argv);
 }
