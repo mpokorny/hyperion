@@ -1,46 +1,626 @@
 #ifndef GRDLY_TABLE_H_
 #define GRDLY_TABLE_H_
 
+#include <vector>
+
 #include "legion.h"
 #include "Tree.h"
 
 namespace grdly {
 
+
+class ColumnSpace {
+
+public:
+
+  static void
+  add_fields(
+    const Legion::FieldSpace& fs,
+    Legion::Context ctx,
+    Legion::Runtime *runtime);
+};
+
 // class Axis {
 // public:
 //   typedef ... COORDINATE_T;
-//   size_t MAX_COORDINATE_SIZE=...;
 //   const std::vector<COORDINATE_T>& coordinates() const {}
 // };
 
 typedef Legion::coord_t coord_t;
 typedef Tree<coord_t> TreeL;
 
-template <typename AXIS, typename ...AXES>
-class Table {
+template <int DIM, typename... AXES>
+class RowSpace {
+
 public:
+
+  Legion::IndexSpaceT<DIM>
+  index_space(Legion::Context ctx, Legion::Runtime* runtime);
+
+protected:
+
+  TreeL m_tree;
 
 };
 
-template <typename AXIS0, typename AXIS1, typename AXIS2>
-class Table<AXIS0, AXIS1, AXIS2> {
+template <
+  typename AXIS0,
+  typename AXIS1,
+  typename AXIS2,
+  typename AXIS3,
+  typename AXIS4,
+  typename AXIS5,
+  typename AXIS6,
+  typename AXIS7>
+class RowSpace<8, AXIS0, AXIS1, AXIS2, AXIS3, AXIS4, AXIS5, AXIS6, AXIS7> {
+
 public:
 
-  Table(const TreeL& tree, AXIS0 axis0, AXIS1 axis1, AXIS2 axis2)
-    : m_axis0(axis0)
-    , m_axis1(axis1)
-    , m_axis2(axis2) {
+  RowSpace(
+    const TreeL& tree,
+    AXIS0&& axis0,
+    AXIS1&& axis1,
+    AXIS2&& axis2,
+    AXIS3&& axis3,
+    AXIS4&& axis4,
+    AXIS5&& axis5,
+    AXIS6&& axis6,
+    AXIS7&& axis7)
+    : m_tree(tree)
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1))
+    , m_axis2(std::forward<AXIS2>(axis2))
+    , m_axis3(std::forward<AXIS3>(axis3))
+    , m_axis4(std::forward<AXIS4>(axis4))
+    , m_axis5(std::forward<AXIS5>(axis5))
+    , m_axis6(std::forward<AXIS6>(axis6))
+    , m_axis7(std::forward<AXIS7>(axis7)){
 
-    auto rank = tree.rank();
-    assert(rank && rank.value() == 3);
-    auto env = tree.envelope();
+    assert(is_valid());
+  }
+
+  RowSpace(
+    TreeL&& tree,
+    AXIS0&& axis0,
+    AXIS1&& axis1,
+    AXIS2&& axis2,
+    AXIS3&& axis3,
+    AXIS4&& axis4,
+    AXIS5&& axis5,
+    AXIS6&& axis6,
+    AXIS7&& axis7)
+    : m_tree(std::move(tree))
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1))
+    , m_axis2(std::forward<AXIS2>(axis2))
+    , m_axis3(std::forward<AXIS3>(axis3))
+    , m_axis4(std::forward<AXIS4>(axis4))
+    , m_axis5(std::forward<AXIS5>(axis5))
+    , m_axis6(std::forward<AXIS6>(axis6))
+    , m_axis7(std::forward<AXIS7>(axis7)){
+
+    assert(is_valid());
+  }
+
+  std::tuple<
+    typename AXIS0::COORDINATE_T,
+    typename AXIS1::COORDINATE_T,
+    typename AXIS2::COORDINATE_T,
+    typename AXIS3::COORDINATE_T,
+    typename AXIS4::COORDINATE_T,
+    typename AXIS5::COORDINATE_T,
+    typename AXIS6::COORDINATE_T,
+    typename AXIS7::COORDINATE_T>
+  coordinates(
+    coord_t i0,
+    coord_t i1,
+    coord_t i2,
+    coord_t i3,
+    coord_t i4,
+    coord_t i5,
+    coord_t i6,
+    coord_t i7) const {
+    return {m_axis0.coordinates()[i0],
+        m_axis1.coordinates()[i1],
+        m_axis2.coordinates()[i2],
+        m_axis3.coordinates()[i3],
+        m_axis4.coordinates()[i4],
+        m_axis5.coordinates()[i5],
+        m_axis6.coordinates()[i6],
+        m_axis7.coordinates()[i7]};
+  }
+
+  Legion::IndexSpaceT<8>
+  index_space(Legion::Context ctx, Legion::Runtime* runtime) {
+    return tree_index_space(m_tree, ctx, runtime);
+  }
+
+protected:
+
+  bool
+  is_valid() const {
+    auto rank = m_tree.rank();
+    if (rank && rank.value() != 8)
+      return false;
+    auto env = m_tree.envelope();
     size_t hi;
     std::tie(std::ignore, hi) = env[0];
-    assert(hi < axis0.coordinates().size());
+    if (hi >= m_axis0.coordinates().size())
+      return false;
     std::tie(std::ignore, hi) = env[1];
-    assert(hi < axis1.coordinates().size());
+    if (hi >= m_axis1.coordinates().size())
+      return false;
     std::tie(std::ignore, hi) = env[2];
-    assert(hi < axis2.coordinates().size());
+    if (hi >= m_axis2.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[3];
+    if (hi >= m_axis3.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[4];
+    if (hi >= m_axis4.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[5];
+    if (hi >= m_axis5.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[6];
+    if (hi >= m_axis6.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[7];
+    return hi < m_axis7.coordinates().size();
+  }
+
+  TreeL m_tree;
+  AXIS0 m_axis0;
+  AXIS1 m_axis1;
+  AXIS2 m_axis2;
+  AXIS3 m_axis3;
+  AXIS4 m_axis4;
+  AXIS5 m_axis5;
+  AXIS6 m_axis6;
+  AXIS7 m_axis7;
+};
+
+template <
+  typename AXIS0,
+  typename AXIS1,
+  typename AXIS2,
+  typename AXIS3,
+  typename AXIS4,
+  typename AXIS5,
+  typename AXIS6>
+class RowSpace<7, AXIS0, AXIS1, AXIS2, AXIS3, AXIS4, AXIS5, AXIS6> {
+
+public:
+
+  RowSpace(
+    const TreeL& tree,
+    AXIS0&& axis0,
+    AXIS1&& axis1,
+    AXIS2&& axis2,
+    AXIS3&& axis3,
+    AXIS4&& axis4,
+    AXIS5&& axis5,
+    AXIS6&& axis6)
+    : m_tree(tree)
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1))
+    , m_axis2(std::forward<AXIS2>(axis2))
+    , m_axis3(std::forward<AXIS3>(axis3))
+    , m_axis4(std::forward<AXIS4>(axis4))
+    , m_axis5(std::forward<AXIS5>(axis5))
+    , m_axis6(std::forward<AXIS6>(axis6)) {
+
+    assert(is_valid());
+  }
+
+  RowSpace(
+    TreeL&& tree,
+    AXIS0&& axis0,
+    AXIS1&& axis1,
+    AXIS2&& axis2,
+    AXIS3&& axis3,
+    AXIS4&& axis4,
+    AXIS5&& axis5,
+    AXIS6&& axis6)
+    : m_tree(std::move(tree))
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1))
+    , m_axis2(std::forward<AXIS2>(axis2))
+    , m_axis3(std::forward<AXIS3>(axis3))
+    , m_axis4(std::forward<AXIS4>(axis4))
+    , m_axis5(std::forward<AXIS5>(axis5))
+    , m_axis6(std::forward<AXIS6>(axis6)) {
+
+    assert(is_valid());
+  }
+
+  std::tuple<
+    typename AXIS0::COORDINATE_T,
+    typename AXIS1::COORDINATE_T,
+    typename AXIS2::COORDINATE_T,
+    typename AXIS3::COORDINATE_T,
+    typename AXIS4::COORDINATE_T,
+    typename AXIS5::COORDINATE_T,
+    typename AXIS6::COORDINATE_T>
+  coordinates(
+    coord_t i0,
+    coord_t i1,
+    coord_t i2,
+    coord_t i3,
+    coord_t i4,
+    coord_t i5,
+    coord_t i6) const {
+    return {m_axis0.coordinates()[i0],
+        m_axis1.coordinates()[i1],
+        m_axis2.coordinates()[i2],
+        m_axis3.coordinates()[i3],
+        m_axis4.coordinates()[i4],
+        m_axis5.coordinates()[i5],
+        m_axis6.coordinates()[i6]};
+  }
+
+  Legion::IndexSpaceT<7>
+  index_space(Legion::Context ctx, Legion::Runtime* runtime) {
+    return tree_index_space(m_tree, ctx, runtime);
+  }
+
+protected:
+
+  bool
+  is_valid() const {
+    auto rank = m_tree.rank();
+    if (rank && rank.value() != 7)
+      return false;
+    auto env = m_tree.envelope();
+    size_t hi;
+    std::tie(std::ignore, hi) = env[0];
+    if (hi >= m_axis0.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[1];
+    if (hi >= m_axis1.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[2];
+    if (hi >= m_axis2.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[3];
+    if (hi >= m_axis3.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[4];
+    if (hi >= m_axis4.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[5];
+    if (hi >= m_axis5.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[6];
+    return hi < m_axis6.coordinates().size();
+  }
+
+  TreeL m_tree;
+  AXIS0 m_axis0;
+  AXIS1 m_axis1;
+  AXIS2 m_axis2;
+  AXIS3 m_axis3;
+  AXIS4 m_axis4;
+  AXIS5 m_axis5;
+  AXIS6 m_axis6;
+};
+
+template <
+  typename AXIS0,
+  typename AXIS1,
+  typename AXIS2,
+  typename AXIS3,
+  typename AXIS4,
+  typename AXIS5>
+class RowSpace<6, AXIS0, AXIS1, AXIS2, AXIS3, AXIS4, AXIS5> {
+
+public:
+
+  RowSpace(
+    const TreeL& tree,
+    AXIS0&& axis0,
+    AXIS1&& axis1,
+    AXIS2&& axis2,
+    AXIS3&& axis3,
+    AXIS4&& axis4,
+    AXIS5&& axis5)
+    : m_tree(tree)
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1))
+    , m_axis2(std::forward<AXIS2>(axis2))
+    , m_axis3(std::forward<AXIS3>(axis3))
+    , m_axis4(std::forward<AXIS4>(axis4))
+    , m_axis5(std::forward<AXIS5>(axis5)) {
+
+    assert(is_valid());
+  }
+
+  RowSpace(
+    TreeL&& tree,
+    AXIS0&& axis0,
+    AXIS1&& axis1,
+    AXIS2&& axis2,
+    AXIS3&& axis3,
+    AXIS4&& axis4,
+    AXIS5&& axis5)
+    : m_tree(std::move(tree))
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1))
+    , m_axis2(std::forward<AXIS2>(axis2))
+    , m_axis3(std::forward<AXIS3>(axis3))
+    , m_axis4(std::forward<AXIS4>(axis4))
+    , m_axis5(std::forward<AXIS5>(axis5)) {
+
+    assert(is_valid());
+  }
+
+  std::tuple<
+    typename AXIS0::COORDINATE_T,
+    typename AXIS1::COORDINATE_T,
+    typename AXIS2::COORDINATE_T,
+    typename AXIS3::COORDINATE_T,
+    typename AXIS4::COORDINATE_T,
+    typename AXIS5::COORDINATE_T>
+  coordinates(
+    coord_t i0,
+    coord_t i1,
+    coord_t i2,
+    coord_t i3,
+    coord_t i4,
+    coord_t i5) const {
+    return {m_axis0.coordinates()[i0],
+        m_axis1.coordinates()[i1],
+        m_axis2.coordinates()[i2],
+        m_axis3.coordinates()[i3],
+        m_axis4.coordinates()[i4],
+        m_axis5.coordinates()[i5]};
+  }
+
+  Legion::IndexSpaceT<6>
+  index_space(Legion::Context ctx, Legion::Runtime* runtime) {
+    return tree_index_space(m_tree, ctx, runtime);
+  }
+
+protected:
+
+  bool
+  is_valid() const {
+    auto rank = m_tree.rank();
+    if (rank && rank.value() != 6)
+      return false;
+    auto env = m_tree.envelope();
+    size_t hi;
+    std::tie(std::ignore, hi) = env[0];
+    if (hi >= m_axis0.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[1];
+    if (hi >= m_axis1.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[2];
+    if (hi >= m_axis2.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[3];
+    if (hi >= m_axis3.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[4];
+    if (hi >= m_axis4.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[5];
+    return hi < m_axis5.coordinates().size();
+  }
+
+  TreeL m_tree;
+  AXIS0 m_axis0;
+  AXIS1 m_axis1;
+  AXIS2 m_axis2;
+  AXIS3 m_axis3;
+  AXIS4 m_axis4;
+  AXIS5 m_axis5;
+};
+
+template <
+  typename AXIS0,
+  typename AXIS1,
+  typename AXIS2,
+  typename AXIS3,
+  typename AXIS4>
+class RowSpace<5, AXIS0, AXIS1, AXIS2, AXIS3, AXIS4> {
+
+public:
+
+  RowSpace(
+    const TreeL& tree,
+    AXIS0&& axis0,
+    AXIS1&& axis1,
+    AXIS2&& axis2,
+    AXIS3&& axis3,
+    AXIS4&& axis4)
+    : m_tree(tree)
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1))
+    , m_axis2(std::forward<AXIS2>(axis2))
+    , m_axis3(std::forward<AXIS3>(axis3))
+    , m_axis4(std::forward<AXIS4>(axis4)) {
+
+    assert(is_valid());
+  }
+
+  RowSpace(
+    TreeL&& tree,
+    AXIS0&& axis0,
+    AXIS1&& axis1,
+    AXIS2&& axis2,
+    AXIS3&& axis3,
+    AXIS4&& axis4)
+    : m_tree(std::move(tree))
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1))
+    , m_axis2(std::forward<AXIS2>(axis2))
+    , m_axis3(std::forward<AXIS3>(axis3))
+    , m_axis4(std::forward<AXIS4>(axis4)) {
+
+    assert(is_valid());
+  }
+
+  std::tuple<
+    typename AXIS0::COORDINATE_T,
+    typename AXIS1::COORDINATE_T,
+    typename AXIS2::COORDINATE_T,
+    typename AXIS3::COORDINATE_T,
+    typename AXIS4::COORDINATE_T>
+  coordinates(
+    coord_t i0,
+    coord_t i1,
+    coord_t i2,
+    coord_t i3,
+    coord_t i4) const {
+    return {m_axis0.coordinates()[i0],
+        m_axis1.coordinates()[i1],
+        m_axis2.coordinates()[i2],
+        m_axis3.coordinates()[i3],
+        m_axis4.coordinates()[i4]};
+  }
+
+  Legion::IndexSpaceT<5>
+  index_space(Legion::Context ctx, Legion::Runtime* runtime) {
+    return tree_index_space(m_tree, ctx, runtime);
+  }
+
+protected:
+
+  bool
+  is_valid() const {
+    auto rank = m_tree.rank();
+    if (rank && rank.value() != 5)
+      return false;
+    auto env = m_tree.envelope();
+    size_t hi;
+    std::tie(std::ignore, hi) = env[0];
+    if (hi >= m_axis0.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[1];
+    if (hi >= m_axis1.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[2];
+    if (hi >= m_axis2.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[3];
+    if (hi >= m_axis3.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[4];
+    return hi < m_axis4.coordinates().size();
+  }
+
+  TreeL m_tree;
+  AXIS0 m_axis0;
+  AXIS1 m_axis1;
+  AXIS2 m_axis2;
+  AXIS3 m_axis3;
+  AXIS4 m_axis4;
+};
+
+template <typename AXIS0, typename AXIS1, typename AXIS2, typename AXIS3>
+class RowSpace<4, AXIS0, AXIS1, AXIS2, AXIS3> {
+
+public:
+
+  RowSpace(
+    const TreeL& tree,
+    AXIS0&& axis0,
+    AXIS1&& axis1,
+    AXIS2&& axis2,
+    AXIS3&& axis3)
+    : m_tree(tree)
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1))
+    , m_axis2(std::forward<AXIS2>(axis2))
+    , m_axis3(std::forward<AXIS3>(axis3)) {
+
+    assert(is_valid());
+  }
+
+  RowSpace(
+    TreeL&& tree,
+    AXIS0&& axis0,
+    AXIS1&& axis1,
+    AXIS2&& axis2,
+    AXIS3&& axis3)
+    : m_tree(std::move(tree))
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1))
+    , m_axis2(std::forward<AXIS2>(axis2))
+    , m_axis3(std::forward<AXIS3>(axis3)) {
+
+    assert(is_valid());
+  }
+
+  std::tuple<
+    typename AXIS0::COORDINATE_T,
+    typename AXIS1::COORDINATE_T,
+    typename AXIS2::COORDINATE_T,
+    typename AXIS3::COORDINATE_T>
+  coordinates(coord_t i0, coord_t i1, coord_t i2, coord_t i3) const {
+    return {m_axis0.coordinates()[i0],
+        m_axis1.coordinates()[i1],
+        m_axis2.coordinates()[i2],
+        m_axis3.coordinates()[i3]};
+  }
+
+  Legion::IndexSpaceT<4>
+  index_space(Legion::Context ctx, Legion::Runtime* runtime) {
+    return tree_index_space(m_tree, ctx, runtime);
+  }
+
+protected:
+
+  bool
+  is_valid() const {
+    auto rank = m_tree.rank();
+    if (rank && rank.value() != 4)
+      return false;
+    auto env = m_tree.envelope();
+    size_t hi;
+    std::tie(std::ignore, hi) = env[0];
+    if (hi >= m_axis0.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[1];
+    if (hi >= m_axis1.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[2];
+    if (hi >= m_axis2.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[3];
+    return hi < m_axis3.coordinates().size();
+  }
+
+  TreeL m_tree;
+  AXIS0 m_axis0;
+  AXIS1 m_axis1;
+  AXIS2 m_axis2;
+  AXIS3 m_axis3;
+};
+
+template <typename AXIS0, typename AXIS1, typename AXIS2>
+class RowSpace<3, AXIS0, AXIS1, AXIS2> {
+
+public:
+
+  RowSpace(const TreeL& tree, AXIS0&& axis0, AXIS1&& axis1, AXIS2&& axis2)
+    : m_tree(tree)
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1))
+    , m_axis2(std::forward<AXIS2>(axis2)) {
+
+    assert(is_valid());
+  }
+
+  RowSpace(TreeL&& tree, AXIS0&& axis0, AXIS1&& axis1, AXIS2&& axis2)
+    : m_tree(std::move(tree))
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1))
+    , m_axis2(std::forward<AXIS2>(axis2)) {
+
+    assert(is_valid());
   }
 
   std::tuple<
@@ -49,33 +629,59 @@ public:
     typename AXIS2::COORDINATE_T>
   coordinates(coord_t i0, coord_t i1, coord_t i2) const {
     return {m_axis0.coordinates()[i0],
-            m_axis1.coordinates()[i1],
-            m_axis2.coordinates()[i2]};
+        m_axis1.coordinates()[i1],
+        m_axis2.coordinates()[i2]};
   }
 
-private:
+  Legion::IndexSpaceT<3>
+  index_space(Legion::Context ctx, Legion::Runtime* runtime) {
+    return tree_index_space(m_tree, ctx, runtime);
+  }
 
+protected:
+
+  bool
+  is_valid() const {
+    auto rank = m_tree.rank();
+    if (rank && rank.value() != 3)
+      return false;
+    auto env = m_tree.envelope();
+    size_t hi;
+    std::tie(std::ignore, hi) = env[0];
+    if (hi >= m_axis0.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[1];
+    if (hi >=  m_axis1.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[2];
+    return hi < m_axis2.coordinates().size();
+  }
+
+  TreeL m_tree;
   AXIS0 m_axis0;
   AXIS1 m_axis1;
   AXIS2 m_axis2;
 };
 
 template <typename AXIS0, typename AXIS1>
-class Table<AXIS0, AXIS1> {
+class RowSpace<2, AXIS0, AXIS1> {
+
 public:
 
-  Table(const TreeL& tree, AXIS0 axis0, AXIS1 axis1)
-    : m_axis0(axis0)
-    , m_axis1(axis1) {
+  RowSpace(const TreeL& tree, AXIS0&& axis0, AXIS1&& axis1)
+    : m_tree(tree)
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1)) {
 
-    auto rank = tree.rank();
-    assert(rank && rank.value() == 2);
-    auto env = tree.envelope();
-    size_t hi;
-    std::tie(std::ignore, hi) = env[0];
-    assert(hi < axis0.coordinates().size());
-    std::tie(std::ignore, hi) = env[1];
-    assert(hi < axis1.coordinates().size());
+    assert(is_valid());
+  }
+
+  RowSpace(TreeL&& tree, AXIS0&& axis0, AXIS1&& axis1)
+    : m_tree(std::move(tree))
+    , m_axis0(std::forward<AXIS0>(axis0))
+    , m_axis1(std::forward<AXIS1>(axis1)) {
+
+    assert(is_valid());
   }
 
   std::tuple<typename AXIS0::COORDINATE_T, typename AXIS1::COORDINATE_T>
@@ -83,24 +689,48 @@ public:
     return {m_axis0.coordinates()[i0], m_axis1.coordinates()[i1]};
   }
 
-private:
+  Legion::IndexSpaceT<3>
+  index_space(Legion::Context ctx, Legion::Runtime* runtime) {
+    return tree_index_space(m_tree, ctx, runtime);
+  }
 
+protected:
+
+  bool
+  is_valid() const {
+    auto rank = m_tree.rank();
+    if (rank && rank.value() != 2)
+      return false;
+    auto env = m_tree.envelope();
+    size_t hi;
+    std::tie(std::ignore, hi) = env[0];
+    if (hi >= m_axis0.coordinates().size())
+      return false;
+    std::tie(std::ignore, hi) = env[1];
+    return hi < m_axis1.coordinates().size();
+  }
+
+  TreeL m_tree;
   AXIS0 m_axis0;
   AXIS1 m_axis1;
 };
 
 template <typename AXIS0>
-class Table<AXIS0> {
+class RowSpace<1, AXIS0> {
 public:
 
-  Table(const TreeL& tree, const AXIS0& axis0)
-    : m_axis0(axis0) {
+  RowSpace(const TreeL& tree, AXIS0&& axis0)
+    : m_tree(tree)
+    , m_axis0(std::forward<AXIS0>(axis0)) {
 
-    auto rank = tree.rank();
-    assert(rank && rank.value() == 1);
-    size_t hi;
-    std::tie(std::ignore, hi) = tree.envelope()[0];
-    assert(hi < axis0.coordinates().size());
+    assert(is_valid());
+  }
+
+  RowSpace(TreeL&& tree, AXIS0&& axis0)
+    : m_tree(std::move(tree))
+    , m_axis0(std::forward<AXIS0>(axis0)) {
+
+    assert(is_valid());
   }
 
   const typename AXIS0::COORDINATE_T
@@ -108,53 +738,70 @@ public:
     return m_axis0.coordinates()[i];
   }
 
-  Legion::LogicalRegionT<1>
-  lr_axis0(Legion::Context ctx, Legion::Runtime* runtime) {
-    Legion::IndexSpaceT<1> is =
-      runtime->create_index_space(
-        ctx,
-        Legion::Rect<1>(0, m_axis0.coordinates.size() - 1));
-
-    Legion::FieldSpace fs = runtime->create_field_space(ctx);
-    {
-      auto fa = runtime->create_field_allocator(ctx, fs);
-      fa.allocate_field(AXIS0::MAX_COORDINATE_SIZE, m_coord0_id);
-      fa.allocate_field(sizeof(Legion::Rect<1>), m_subspace0_id);
-    }
-    Legion::LogicalRegionT<1> result =
-      runtime->create_logical_region(ctx, is, fs);
-    Legion::RegionRequirement req(result, WRITE_DISCARD, EXCLUSIVE, result);
-    req.add_field(m_coord0_id);
-    req.add_field(m_subspace0_id);
-    Legion::InlineLauncher launcher(req);
-    Legion::PhysicalRegion region = runtime->map_region(ctx, launcher);
-    const Legion::FieldAccessor<
-      WRITE_DISCARD,
-      typename AXIS0::COORDINATE_T,
-      1,
-      coord_t,
-      Realm::AffineAccessor<typename AXIS0::COORDINATE_T,1,coord_t>,
-      false> acc_coord(region, m_coord0_id);
-    const Legion::FieldAccessor<
-      WRITE_DISCARD,
-      Legion::Rect<1>,
-      1,
-      coord_t,
-      Realm::AffineAccessor<Legion::Rect<1>,1,coord_t>,
-      false> acc_subspace(region, m_subspace0_id);
-    for (Legion::PointInRectIterator<1> pir(is); pir(); pir++) {
-      acc_coord[*pir] = m_axis0.coordinates[*pir];
-      acc_subspace[*pir] = Legion::Rect<1>(*pir, *pir);
-    }
-    runtime->unmap_region(ctx, region);
-    return result;
+  Legion::IndexSpaceT<1>
+  index_space(Legion::Context ctx, Legion::Runtime* runtime) {
+    return tree_index_space(m_tree, ctx, runtime);
   }
 
-  static const int m_coord0_id = 1;
-  static const int m_subspace0_id = 2;
-private:
+protected:
 
+  bool
+  is_valid() const {
+    auto rank = m_tree.rank();
+    if (rank && rank.value() != 1)
+      return false;
+    size_t hi;
+    std::tie(std::ignore, hi) = m_tree.envelope()[0];
+    return hi < m_axis0.coordinates().size();
+  }
+
+  TreeL m_tree;
   AXIS0 m_axis0;
+};
+
+template <int DIM, typename COLSPACE, typename ROWSPACE>
+class Table
+  : public COLSPACE
+  , public ROWSPACE {
+
+public:
+
+  using ROWSPACE::ROWSPACE;
+
+  Legion::LogicalRegionT<DIM>
+  logicalRegion(Legion::Context ctx, Legion::Runtime* runtime) {
+    Legion::IndexSpaceT<DIM> is = ROWSPACE::index_space(ctx, runtime);
+    auto fs = runtime->create_field_space(ctx);
+    COLSPACE::add_fields(fs, ctx, runtime);
+    return runtime->create_logical_region(ctx, is, fs);
+  }
+
+};
+
+class MSMainColumnSpace
+  : public ColumnSpace {
+
+public:
+
+  static void
+  add_fields(
+    const Legion::FieldSpace& fs,
+    Legion::Context ctx,
+    Legion::Runtime *runtime) {
+
+    auto fa = runtime->create_field_allocator(ctx, fs);
+    // TODO: add fields
+  }
+
+};
+
+template <int DIM, typename ROWSPACE>
+class MSMainTable
+  : public Table<DIM, MSMainColumnSpace, ROWSPACE> {
+
+public:
+
+  using Table<DIM, MSMainColumnSpace, ROWSPACE>::Table;
 };
 
 } // end namespace grdly
