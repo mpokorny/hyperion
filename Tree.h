@@ -1,5 +1,5 @@
-#ifndef GRDLY_TREE_H_
-#define GRDLY_TREE_H_
+#ifndef LEGMS_TREE_H_
+#define LEGMS_TREE_H_
 
 #include <algorithm>
 #include <limits>
@@ -11,7 +11,7 @@
 #include <tuple>
 #include <vector>
 
-namespace grdly {
+namespace legms {
 
 
 template <typename COORD_T=int>
@@ -401,9 +401,9 @@ private:
   std::vector<std::tuple<COORD_T, COORD_T, Tree>> m_children;
 };
 
-} // end namespace grdly
+} // end namespace legms
 
-#endif // GRDLY_TREE_H_
+#endif // LEGMS_TREE_H_
 
 // Local Variables:
 // mode: c++

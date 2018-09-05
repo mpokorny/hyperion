@@ -1,11 +1,11 @@
-#ifndef GRDLY_GRIDS_H_
-#define GRDLY_GRIDS_H_
+#ifndef LEGMS_GRIDS_H_
+#define LEGMS_GRIDS_H_
 
 #include <tuple>
 
 #include "legion.h"
 
-namespace grdly {
+namespace legms {
 
 constexpr void
 bb(
@@ -115,9 +115,9 @@ block_partition_and_extend(
   return std::make_tuple(disjoint_ip, extended_ip);
 };
 
-} // end namespace grdly
+} // end namespace legms
 
-#endif // GRDLY_GRIDS_H_
+#endif // LEGMS_GRIDS_H_
 
 // Local Variables:
 // mode: c++

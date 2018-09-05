@@ -4,7 +4,7 @@
 #include "Grids.h"
 #include "Tree.h"
 
-using namespace grdly;
+using namespace legms;
 using namespace Legion;
 
 enum TaskIDs {
@@ -108,9 +108,9 @@ tree_space_task(
       Point<DIM, COORD_T>(tree_rect_lo),
       Point<DIM, COORD_T>(tree_rect_hi));
     IndexSpace<DIM, COORD_T> is = runtime->create_index_space(ctx, array);
-    
+
   } else {
-  
+
   }
 }
 

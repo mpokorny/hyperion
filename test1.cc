@@ -6,7 +6,7 @@
 #include "legion.h"
 #include "Tree.h"
 
-using namespace grdly;
+using namespace legms;
 using namespace Legion;
 
 enum TaskIDs {

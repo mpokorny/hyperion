@@ -1,12 +1,12 @@
-#ifndef GRDLY_TABLE_H_
-#define GRDLY_TABLE_H_
+#ifndef LEGMS_TABLE_H_
+#define LEGMS_TABLE_H_
 
 #include <vector>
 
 #include "legion.h"
 #include "Tree.h"
 
-namespace grdly {
+namespace legms {
 
 
 class ColumnSpace {
@@ -804,9 +804,9 @@ public:
   using Table<DIM, MSMainColumnSpace, ROWSPACE>::Table;
 };
 
-} // end namespace grdly
+} // end namespace legms
 
-#endif // GRDLY_TABLE_H_
+#endif // LEGMS_TABLE_H_
 
 // Local Variables:
 // mode: c++
