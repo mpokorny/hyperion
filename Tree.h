@@ -13,7 +13,6 @@
 
 namespace legms {
 
-
 template <typename COORD_T=int>
 class Tree {
 
@@ -33,9 +32,7 @@ public:
       ch.end(),
       std::back_inserter(ch1),
       [&end](auto& c) {
-        COORD_T n;
-        Tree t;
-        std::tie(n, t) = c;
+        auto& [n, t] = c;
         COORD_T last_end = end;
         end += n;
         return std::make_tuple(last_end, n, t);
@@ -64,16 +61,16 @@ public:
 
   bool
   is_array() const {
-    COORD_T i, n;
+    if (m_children.size() == 0)
+      return false;
+    COORD_T i;
     Tree t0;
-    std::tie(i, n, t0)= m_children[0];
+    std::tie(i, std::ignore, t0)= m_children[0];
     if (!(t0 == Tree() || t0.is_array()))
       return false;
     COORD_T prev_end = i;
     for (auto& ch : m_children) {
-      COORD_T lo, n;
-      Tree t;
-      std::tie(lo, n, t) = ch;
+      auto& [lo, n, t] = ch;
       if (lo != prev_end || t != t0)
         return false;
       prev_end = lo + n;
@@ -118,8 +115,7 @@ public:
         std::numeric_limits<COORD_T>::max(),
         std::numeric_limits<COORD_T>::min()),
       [](const auto& acc, const auto& ch) {
-        COORD_T min, max;
-        std::tie(min, max) = acc;
+        auto& [min, max] = acc;
         COORD_T lo, n, hi;
         std::tie(lo, n, std::ignore) = ch;
         hi = lo + n - 1;
@@ -169,33 +165,132 @@ public:
   envelope() const {
     std::vector<std::tuple<COORD_T, COORD_T>> result;
     if (is_array()) {
-      auto shp = array_shape(m_children);
-      std::transform(
-        shp.begin(),
-        shp.end(),
-        std::back_inserter(result),
-        [](auto& d) {
-          return std::make_tuple(0, d - 1);
-        });
-    } else {
+      result = array_shape(m_children);
+    } else if (m_children.size() > 0) {
       result.emplace_back(
-        std::get<0>(*m_children.begin()),
-        std::get<0>(*m_children.rbegin()));
+        std::numeric_limits<COORD_T>::max(),
+        std::numeric_limits<COORD_T>::min());
       std::for_each(
         m_children.begin(),
         m_children.end(),
         [&result](const auto& ch){
-          COORD_T lo, n, hi;
-          Tree t;
-          std::tie(lo, n, t) = ch;
-          hi = lo + n - 1;
-          COORD_T rlo, rhi;
-          std::tie(rlo, rhi) = result[0];
+          auto& [lo, n, t] = ch;
+          COORD_T hi = lo + n - 1;
+          auto& [rlo, rhi] = result[0];
           result[0] = {std::min(rlo, lo), std::max(rhi, hi)};
           extend_envelope(t, result);
         });
     }
     return result;
+  }
+
+  template <
+    typename F,
+    class = std::enable_if_t<
+      std::is_same_v<
+        std::optional<Tree<COORD_T>>,
+        std::invoke_result_t<F, const std::vector<COORD_T>&>>>>
+  Tree
+  grow_leaves_at(F&& fn) const {
+    return grow_at({}, std::forward<F>(fn));
+  }
+
+  Tree
+  grow_leaves(const Tree& sprout) const {
+    // this could be implemented in terms using grow_leaves_at(), however the
+    // following implementation is more efficient since the 'sprout' value is
+    // fixed
+    std::vector<std::tuple<COORD_T, COORD_T, Tree>> sprouted;
+    std::transform(
+        m_children.begin(),
+        m_children.end(),
+        std::back_inserter(sprouted),
+        [&sprout](auto& ch) {
+          auto& [i, n, t] = ch;
+          if (t != Tree())
+            return std::make_tuple(i, n, t.grow_leaves(sprout));
+          else
+            return std::make_tuple(i, n, sprout);
+        });
+    return Tree(sprouted);
+  }
+
+  Tree
+  pruned(size_t to_height) const {
+    if (height() <= to_height)
+      return *this;
+    std::vector<std::tuple<COORD_T, COORD_T, Tree>> trimmed;
+    std::transform(
+      m_children.begin(),
+      m_children.end(),
+      std::back_inserter(trimmed),
+      [&to_height](auto& ch) {
+        auto& [i, n, t] = ch;
+        if (to_height > 0)
+          return std::make_tuple(i, n, t.pruned(to_height - 1));
+        return std::make_tuple(i, n, Tree());
+      });
+    return Tree(trimmed);
+  }
+
+  Tree
+  merged_with(const Tree& tree) const {
+    if (tree == Tree() || *this == tree)
+      return *this;
+    if (*this == Tree())
+      return tree;
+    std::vector<std::tuple<COORD_T, COORD_T, Tree>> newch;
+    auto ch = m_children.begin();
+    auto ch_end = m_children.end();
+    auto tch = tree.children().begin();
+    auto tch_end = tree.children().end();
+    COORD_T i, n, it, nt;
+    Tree t, tt;
+    if (ch != ch_end)
+      std::tie(i, n, t) = *ch;
+    if (tch != tch_end)
+      std::tie(it, nt, tt) = *tch;
+    while (ch != ch_end || tch != tch_end) {
+      if (ch == ch_end || (tch != tch_end && it + nt <= i)) {
+        newch.emplace_back(it, nt, tt);
+        ++tch;
+        if (tch != tch_end)
+          std::tie(it, nt, tt) = *tch;
+      } else if (tch == tch_end || (ch != ch_end && i + n <= it)) {
+        newch.emplace_back(i, n, t);
+        ++ch;
+        if (ch != ch_end)
+          std::tie(i, n, t) = *ch;
+      } else {
+        if (i < it) {
+          newch.emplace_back(i, it - i, t);
+          n -= it - i;
+          i = it;
+        } else if (it < i) {
+          newch.emplace_back(it, i - it, tt);
+          nt -= i - it;
+          it = i;
+        }
+        COORD_T bi = i;
+        COORD_T bn = std::min(n, nt);
+        newch.emplace_back(bi, bn, t.merged_with(tt));
+        i = bi + bn;
+        n -= bn;
+        it = bi + bn;
+        nt -= bn;
+        if (n == 0) {
+          ++ch;
+          if (ch != ch_end)
+            std::tie(i, n, t) = *ch;
+        } else {
+          assert(nt == 0);
+          ++tch;
+          if (tch != tch_end)
+            std::tie(it, nt, tt) = *tch;
+        }
+      }
+    }
+    return Tree(newch);
   }
 
   size_t
@@ -214,9 +309,7 @@ public:
     char* start = buff;
     buff += sizeof(size_t);
     for (auto& ch : m_children) {
-      COORD_T i, n;
-      Tree t;
-      std::tie(i, n, t) = ch;
+      auto& [i, n, t] = ch;
       *reinterpret_cast<COORD_T *>(buff) = i;
       buff += sizeof(COORD_T);
       *reinterpret_cast<COORD_T *>(buff) = n;
@@ -259,41 +352,45 @@ public:
     unsigned indent) const {
 
     oss << "{";
-    ++indent;
-    if (is_leaf()) {
-      COORD_T i, n;
-      auto ch = m_children.begin();
-      std::tie(i, n, std::ignore) = *ch;
-      oss << i << "~" << i + n - 1;
-      ++ch;
-      std::for_each(
-        ch,
-        m_children.end(),
-        [&oss](const auto& c) {
-          COORD_T i, n;
-          std::tie(i, n, std::ignore) = c;
-          oss << "," << i << "~" << i + n - 1;
-        });
-    } else {
-      const char* sep = "";
-      std::for_each(
-        m_children.begin(),
-        m_children.end(),
-        [&sep, &oss, &with_linebreaks, &indent](const auto& ch) {
-          COORD_T i, n;
-          Tree t;
-          std::tie(i, n, t) = ch;
-          oss << sep;
-          if (with_linebreaks && *sep != '\0') {
-            oss << std::endl;
-            oss << std::string(indent, ' ');
-          }
-          std::string si = std::to_string(i) + "~" + std::to_string(i + n - 1);
-          oss << "(" << si << ",";
-          t.to_sstream(oss, with_linebreaks, indent + si.size() + 2);
-          oss << ")";
-          sep = ",";
-        });
+    if (*this != Tree()) {
+      ++indent;
+      if (is_leaf()) {
+        COORD_T i, n;
+        auto ch = m_children.begin();
+        std::tie(i, n, std::ignore) = *ch;
+        oss << i << "~" << i + n - 1;
+        ++ch;
+        std::for_each(
+          ch,
+          m_children.end(),
+          [&oss](const auto& c) {
+            COORD_T i, n;
+            std::tie(i, n, std::ignore) = c;
+            oss << "," << i << "~" << i + n - 1;
+          });
+      } else {
+        const char* sep = "";
+        std::for_each(
+          m_children.begin(),
+          m_children.end(),
+          [&sep, &oss, &with_linebreaks, &indent](const auto& ch) {
+            auto& [i, n, t] = ch;
+            oss << sep;
+            if (with_linebreaks && *sep != '\0') {
+              oss << std::endl;
+              oss << std::string(indent, ' ');
+            }
+            std::string si =
+              std::to_string(i) + "~" + std::to_string(i + n - 1);
+            oss << "(" << si;
+            if (t != Tree()) {
+              oss << ",";
+              t.to_sstream(oss, with_linebreaks, indent + si.size() + 2);
+            }
+            oss << ")";
+            sep = ",";
+          });
+      }
     }
     oss << "}";
   }
@@ -308,19 +405,24 @@ protected:
   static std::vector<std::tuple<COORD_T, COORD_T, Tree>>
   compact(const std::vector<std::tuple<COORD_T, COORD_T, Tree>>& seq) {
     std::vector<std::tuple<COORD_T, COORD_T, Tree>> result;
-    if (seq.size() > 0)
+    if (seq.size() > 0) {
+      std::vector<std::tuple<COORD_T, COORD_T, Tree>> sorted = seq;
+      std::sort(
+        sorted.begin(),
+        sorted.end(),
+        [](auto& b0, auto& b1) {
+          return std::get<0>(b0) < std::get<1>(b1);
+        });
       return
         std::accumulate(
-          seq.begin(),
-          seq.end(),
+          sorted.begin(),
+          sorted.end(),
           result,
           [](auto& compacted, const auto& ch) {
             if (compacted.empty()) {
               compacted.push_back(ch);
             } else {
-              COORD_T i = 0, n = 0;
-              Tree t;
-              std::tie(i, n, t) = ch;
+              auto& [i, n, t] = ch;
               auto& lastc = compacted.back();
               COORD_T* lasti = &std::get<0>(lastc);
               COORD_T* lastn = &std::get<1>(lastc);
@@ -328,7 +430,6 @@ protected:
               if (i < *lasti + *lastn)
                 throw std::invalid_argument("Child blocks are overlapping");
               if (i == *lasti + *lastn
-                  && (lastt->m_children.size() == 0 || lastt->is_array())
                   && *lastt == t)
                 *lastn += n;
               else
@@ -336,37 +437,31 @@ protected:
             }
             return compacted;
           });
+    }
     return result;
-  }
-
-  static std::tuple<COORD_T, Tree>
-  peel_top(const std::vector<std::tuple<COORD_T, COORD_T, Tree>>& ch) {
-    COORD_T last_n;
-    Tree last_t;
-    std::tie(std::ignore, last_n, last_t) = *ch.rbegin();
-    return std::make_tuple(last_n, last_t);
   }
 
   static void
   array_dims(
     const std::vector<std::tuple<COORD_T, COORD_T, Tree>>& ch,
-    std::back_insert_iterator<std::vector<COORD_T>> shape) {
+    std::back_insert_iterator<
+    std::vector<std::tuple<COORD_T, COORD_T>>> shape) {
 
-    COORD_T n;
+    COORD_T i, n;
     Tree t;
-    std::tie(n, t) = peel_top(ch);
-    *shape = n;
+    std::tie(i, n, t) = ch[0];
+    *shape = std::make_tuple(i, i + n - 1);
     while (t != Tree()) {
-      std::tie(n, t) = peel_top(t.children());
+      std::tie(i, n, t) = t.children()[0];
       ++shape;
-      *shape = n;
+      *shape = std::make_tuple(i, i + n - 1);
     }
   }
 
-  static std::vector<COORD_T>
+  static std::vector<std::tuple<COORD_T, COORD_T>>
   array_shape(const std::vector<std::tuple<COORD_T, COORD_T, Tree>>& ch) {
 
-    std::vector<COORD_T> result;
+    std::vector<std::tuple<COORD_T, COORD_T>> result;
     array_dims(ch, std::back_inserter(result));
     return result;
   }
@@ -383,9 +478,8 @@ protected:
     auto te = tenv.begin();
     auto te_end = tenv.end();
     while (r != r_end && te != te_end) {
-      COORD_T rlo, rhi, telo, tehi;
-      std::tie(rlo, rhi) = *r;
-      std::tie(telo, tehi) = *te;
+      auto& [rlo, rhi] = *r;
+      auto& [telo, tehi] = *te;
       *r = {std::min(rlo, telo), std::max(rhi, tehi)};
       ++r;
       ++te;
@@ -394,6 +488,42 @@ protected:
       env.push_back(*te);
       ++te;
     }
+  }
+
+  template <
+    typename F,
+    class = std::enable_if_t<
+      std::is_same_v<
+        std::optional<Tree<COORD_T>>,
+        std::invoke_result_t<F, const std::vector<COORD_T>&>>>>
+  Tree
+  grow_at(const std::vector<COORD_T>& here, F&& fn) const {
+    std::vector<std::tuple<COORD_T, COORD_T, Tree>> sprouted;
+    std::for_each(
+      m_children.begin(),
+      m_children.end(),
+      [&here, &fn, &sprouted](auto& ch) {
+        auto& [i, n, t] = ch;
+        std::vector<COORD_T> coords = here;
+        if (t == Tree()) {
+          for (COORD_T j = 0; j < n; ++j) {
+            coords.push_back(i + j);
+            std::optional<Tree> ch = fn(coords);
+            if (ch)
+              sprouted.push_back({i + j, 1, ch.value()});
+            else
+              sprouted.push_back({i + j, 1, t});
+            coords.pop_back();
+          }
+        } else {
+          for (COORD_T j = 0; j < n; ++j) {
+            coords.push_back(i + j);
+            sprouted.push_back({i + j, 1, t.grow_at(coords, fn)});
+            coords.pop_back();
+          }
+        }
+      });
+    return Tree(sprouted);
   }
 
 private:
