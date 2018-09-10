@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "legion.h"
-#include "Tree.h"
+#include "IndexTree.h"
 
 using namespace legms;
 using namespace Legion;
@@ -27,32 +27,32 @@ enum SerdezIDs {
   SID_TREE = 1,
 };
 
-typedef Tree<coord_t> TreeL;
+typedef IndexTree<coord_t> IndexTreeL;
 
 class tree_serdez {
 public:
-  typedef TreeL FIELD_TYPE;
+  typedef IndexTreeL FIELD_TYPE;
 
   static const size_t MAX_SERIALIZED_SIZE = std::numeric_limits<size_t>::max();
 
   static size_t
-  serialized_size(const TreeL& val) {
+  serialized_size(const IndexTreeL& val) {
     return val.serialized_size();
   }
 
   static size_t
-  serialize(const TreeL& val, void *buffer) {
+  serialize(const IndexTreeL& val, void *buffer) {
     return val.serialize(reinterpret_cast<char*>(buffer));
   }
 
   static size_t
-  deserialize(TreeL& val, const void *buffer) {
-    val = TreeL::deserialize(static_cast<const char*>(buffer));
+  deserialize(IndexTreeL& val, const void *buffer) {
+    val = IndexTreeL::deserialize(static_cast<const char*>(buffer));
     return *reinterpret_cast<const size_t *>(buffer);
   }
 
   static void
-  destroy(TreeL&) {
+  destroy(IndexTreeL&) {
   }
 };
 
@@ -61,14 +61,14 @@ IndexSpaceT<DIM>
 offspring_index_space(ssize_t n, CB cbfn, Context ctx, Runtime* runtime);
 
 template <int DIM>
-class TreeSpaceTask
+class IndexTreeSpaceTask
   : public IndexTaskLauncher {
 public:
 
   constexpr static const char * const TASK_NAME = "tree_space";
   static const int TASK_ID = TREE_SPACE_TASK_ID;
 
-  TreeSpaceTask(
+  IndexTreeSpaceTask(
     LogicalPartition child_input_lp,
     LogicalPartition child_output_lp,
     LogicalRegion child_input_lr,
@@ -116,10 +116,10 @@ public:
       false> envelopes(regions[0], FID_ENVELOPE);
     const FieldAccessor<
       READ_ONLY,
-      TreeL,
+      IndexTreeL,
       1,
       coord_t,
-      Realm::AffineAccessor<TreeL,1,coord_t>,
+      Realm::AffineAccessor<IndexTreeL,1,coord_t>,
       false> trees(regions[0], FID_TREE);
     const FieldAccessor<
       WRITE_DISCARD,
@@ -135,7 +135,7 @@ public:
 
     for (PointInRectIterator<1> pir(rect); pir(); pir++) {
       const Rect<DIM>& envelope = envelopes[*pir];
-      const TreeL& tree = trees[*pir];
+      const IndexTreeL& tree = trees[*pir];
 
       auto tree_rect = tree.envelope();
       assert(tree_rect.size() <= DIM);
@@ -155,9 +155,9 @@ public:
         auto children = tree.children();
         ispaces[*pir] = offspring_index_space<DIM>(
           children.size(),
-          [&](Point<1> chidx, Rect<DIM>& rect, TreeL& tr) {
+          [&](Point<1> chidx, Rect<DIM>& rect, IndexTreeL& tr) {
             coord_t i, n;
-            TreeL t;
+            IndexTreeL t;
             std::tie(i, n, t) = children[chidx];
             tree_rect_lo[fixd] = i;
             tree_rect_hi[fixd] = i + n - 1;
@@ -208,10 +208,10 @@ public:
       false> acc_rect(region, FID_ENVELOPE);
     const FieldAccessor<
       WRITE_DISCARD,
-      TreeL,
+      IndexTreeL,
       1,
       coord_t,
-      Realm::AffineAccessor<TreeL,1,coord_t>,
+      Realm::AffineAccessor<IndexTreeL,1,coord_t>,
       false> acc_tree(region, FID_TREE);
     for (coord_t i = 0; i < m_nch; ++i)
       cbfn(i, acc_rect[i], acc_tree[i]);
@@ -318,11 +318,11 @@ public:
 };
 
 template <int DIM, int COLOR_DIM>
-class PartitionTreeTask
+class PartitionIndexTreeTask
   : public InlineLauncher {
 public:
 
-  PartitionTreeTask(LogicalRegionT<DIM> lr, IndexSpaceT<COLOR_DIM> colors)
+  PartitionIndexTreeTask(LogicalRegionT<DIM> lr, IndexSpaceT<COLOR_DIM> colors)
     : InlineLauncher(
       RegionRequirement(
         lr,
@@ -376,7 +376,7 @@ offspring_index_space(ssize_t n, CB cbfn, Context ctx, Runtime* runtime) {
   {
     auto fa = runtime->create_field_allocator(ctx, child_input_fs);
     fa.allocate_field(sizeof(Rect<DIM>), FID_ENVELOPE);
-    fa.allocate_field(sizeof(TreeL), FID_TREE, SID_TREE);
+    fa.allocate_field(sizeof(IndexTreeL), FID_TREE, SID_TREE);
   }
   LogicalRegion child_input_lr =
     runtime->create_logical_region(ctx, child_is, child_input_fs);
@@ -397,7 +397,7 @@ offspring_index_space(ssize_t n, CB cbfn, Context ctx, Runtime* runtime) {
     runtime->get_logical_partition(ctx, child_input_lr, child_ip);
   LogicalPartition child_output_lp =
     runtime->get_logical_partition(ctx, child_output_lr, child_ip);
-  TreeSpaceTask<DIM> tree_space(
+  IndexTreeSpaceTask<DIM> tree_space(
     child_input_lp,
     child_output_lp,
     child_input_lr,
@@ -422,14 +422,14 @@ offspring_index_space(ssize_t n, CB cbfn, Context ctx, Runtime* runtime) {
 
 template <int DIM>
 IndexSpaceT<DIM>
-tree_index_space(const TreeL& tree, Context ctx, Runtime* runtime) {
+tree_index_space(const IndexTreeL& tree, Context ctx, Runtime* runtime) {
   auto rank = tree.rank();
   assert(rank);
   assert(rank.value() == DIM);
   return
     offspring_index_space<DIM>(
       1,
-      [&](Point<1>, Rect<DIM>& rect, TreeL& tr) {
+      [&](Point<1>, Rect<DIM>& rect, IndexTreeL& tr) {
         auto env = tree.envelope();
         coord_t tree_rect_lo[DIM], tree_rect_hi[DIM];
         for (size_t i = 0; i < DIM; ++i)
@@ -454,10 +454,10 @@ public:
     Context ctx,
     Runtime *runtime) {
 
-    TreeL t02(2);
-    TreeL t03(3);
-    TreeL t1({{0, 3, t02}, {6, 2, t03}});
-    TreeL tree({{10, 2, t1}, {20, 1, t1}});
+    IndexTreeL t02(2);
+    IndexTreeL t03(3);
+    IndexTreeL t1({{0, 3, t02}, {6, 2, t03}});
+    IndexTreeL tree({{10, 2, t1}, {20, 1, t1}});
 
     IndexSpaceT<3> index_space = tree_index_space<3>(tree, ctx, runtime);
     DomainT<3> domain =
@@ -478,7 +478,7 @@ public:
 
     IndexSpaceT<1> colors = runtime->create_index_space(ctx, Rect<1>{0, 1});
 
-    PartitionTreeTask partitioner(lr, colors);
+    PartitionIndexTreeTask partitioner(lr, colors);
     IndexPartitionT<3> partition =
       partitioner.dispatch(
         [](PointInDomainIterator<3>& pid) {
@@ -509,7 +509,7 @@ main(int argc, char* argv[]) {
 
   Runtime::set_top_level_task_id(TopLevelTask::TASK_ID);
   TopLevelTask::register_task();
-  TreeSpaceTask<3>::register_task();
+  IndexTreeSpaceTask<3>::register_task();
   ReportIndexesTask<3, 1>::register_task();
 
   Runtime::register_custom_serdez_op<tree_serdez>(SID_TREE);

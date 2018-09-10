@@ -1,5 +1,5 @@
-#ifndef LEGMS_TREE_H_
-#define LEGMS_TREE_H_
+#ifndef LEGMS_INDEX_TREE_H_
+#define LEGMS_INDEX_TREE_H_
 
 #include <algorithm>
 #include <limits>
@@ -14,19 +14,19 @@
 namespace legms {
 
 template <typename COORD_T=int>
-class Tree {
+class IndexTree {
 
 public:
 
-  Tree() {}
+  IndexTree() {}
 
-  Tree(COORD_T n)
-    : m_children({{0, n, Tree()}}) {
+  IndexTree(COORD_T n)
+    : m_children({{0, n, IndexTree()}}) {
   }
 
-  Tree(const std::vector<std::tuple<COORD_T, Tree> >& ch) {
+  IndexTree(const std::vector<std::tuple<COORD_T, IndexTree> >& ch) {
     COORD_T end = 0;
-    std::vector<std::tuple<COORD_T, COORD_T, Tree>> ch1;
+    std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> ch1;
     std::transform(
       ch.begin(),
       ch.end(),
@@ -40,21 +40,43 @@ public:
     m_children = std::move(compact(ch1));
   }
 
-  Tree(const std::vector<std::tuple<COORD_T, COORD_T, Tree> >& ch)
+  IndexTree(const std::vector<std::tuple<COORD_T, COORD_T, IndexTree> >& ch)
     : m_children(compact(ch)) {
   }
 
   bool
-  operator==(const Tree& other) const {
+  operator==(const IndexTree& other) const {
     return m_children == other.m_children;
   }
 
   bool
-  operator!=(const Tree& other) const {
+  operator!=(const IndexTree& other) const {
     return !operator==(other);
   }
 
-  const std::vector<std::tuple<COORD_T, COORD_T, Tree>>&
+  bool
+  less_than(const IndexTree& other) const {
+    bool other_empty = other == IndexTree();
+    bool result;
+    if (*this == IndexTree())
+      result = !other_empty;
+    else if (other_empty)
+      result = false;
+    else {
+      auto& [ie, ne, te] = m_children[m_children.size() - 1];
+      auto jch = other.children();
+      auto& [j0, jn0, jt0]= jch[0];
+      if (ie + ne <= j0)
+        result = true;
+      else if (jn0 == 1 && jch.size() == 1 && ie + ne - 1 == j0)
+        result = te.less_than(jt0);
+      else
+        result = false;
+    }
+    return result;
+  }
+
+  const std::vector<std::tuple<COORD_T, COORD_T, IndexTree>>&
   children() const {
     return m_children;
   }
@@ -64,9 +86,9 @@ public:
     if (m_children.size() == 0)
       return false;
     COORD_T i;
-    Tree t0;
+    IndexTree t0;
     std::tie(i, std::ignore, t0)= m_children[0];
-    if (!(t0 == Tree() || t0.is_array()))
+    if (!(t0 == IndexTree() || t0.is_array()))
       return false;
     COORD_T prev_end = i;
     for (auto& ch : m_children) {
@@ -84,7 +106,7 @@ public:
       m_children.begin(),
       m_children.end(),
       [](const auto& ch) {
-        return std::get<2>(ch) == Tree();
+        return std::get<2>(ch) == IndexTree();
       });
   }
 
@@ -99,7 +121,7 @@ public:
         0,
         [](size_t acc, const auto& ch) {
           COORD_T n;
-          Tree t;
+          IndexTree t;
           std::tie(std::ignore, n, t) = ch;
           return acc + n * t.size();
         });
@@ -138,7 +160,7 @@ public:
           m_children.end(),
           0,
           [](unsigned hmax, const auto& ch) {
-            Tree t;
+            IndexTree t;
             std::tie(std::ignore, std::ignore, t) = ch;
             return std::max(hmax, t.height());
           });
@@ -150,7 +172,7 @@ public:
       return 1;
     auto ch = m_children.begin();
     auto end = m_children.end();
-    Tree t;
+    IndexTree t;
     std::tie(std::ignore, std::ignore, t) = *ch;
     std::optional<unsigned> result = t.rank();
     while (result && ++ch != end) {
@@ -188,38 +210,38 @@ public:
     typename F,
     class = std::enable_if_t<
       std::is_same_v<
-        std::optional<Tree<COORD_T>>,
+        std::optional<IndexTree<COORD_T>>,
         std::invoke_result_t<F, const std::vector<COORD_T>&>>>>
-  Tree
+  IndexTree
   grow_leaves_at(F&& fn) const {
     return grow_at({}, std::forward<F>(fn));
   }
 
-  Tree
-  grow_leaves(const Tree& sprout) const {
+  IndexTree
+  grow_leaves(const IndexTree& sprout) const {
     // this could be implemented in terms using grow_leaves_at(), however the
     // following implementation is more efficient since the 'sprout' value is
     // fixed
-    std::vector<std::tuple<COORD_T, COORD_T, Tree>> sprouted;
+    std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> sprouted;
     std::transform(
         m_children.begin(),
         m_children.end(),
         std::back_inserter(sprouted),
         [&sprout](auto& ch) {
           auto& [i, n, t] = ch;
-          if (t != Tree())
+          if (t != IndexTree())
             return std::make_tuple(i, n, t.grow_leaves(sprout));
           else
             return std::make_tuple(i, n, sprout);
         });
-    return Tree(sprouted);
+    return IndexTree(sprouted);
   }
 
-  Tree
+  IndexTree
   pruned(size_t to_height) const {
     if (height() <= to_height)
       return *this;
-    std::vector<std::tuple<COORD_T, COORD_T, Tree>> trimmed;
+    std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> trimmed;
     std::transform(
       m_children.begin(),
       m_children.end(),
@@ -228,69 +250,77 @@ public:
         auto& [i, n, t] = ch;
         if (to_height > 0)
           return std::make_tuple(i, n, t.pruned(to_height - 1));
-        return std::make_tuple(i, n, Tree());
+        return std::make_tuple(i, n, IndexTree());
       });
-    return Tree(trimmed);
+    return IndexTree(trimmed);
   }
 
-  Tree
-  merged_with(const Tree& tree) const {
-    if (tree == Tree() || *this == tree)
+  IndexTree
+  merged_with(const IndexTree& tree) const {
+    if (tree == IndexTree() || *this == tree)
       return *this;
-    if (*this == Tree())
+    if (*this == IndexTree())
       return tree;
-    std::vector<std::tuple<COORD_T, COORD_T, Tree>> newch;
-    auto ch = m_children.begin();
-    auto ch_end = m_children.end();
-    auto tch = tree.children().begin();
-    auto tch_end = tree.children().end();
-    COORD_T i, n, it, nt;
-    Tree t, tt;
-    if (ch != ch_end)
-      std::tie(i, n, t) = *ch;
-    if (tch != tch_end)
-      std::tie(it, nt, tt) = *tch;
-    while (ch != ch_end || tch != tch_end) {
-      if (ch == ch_end || (tch != tch_end && it + nt <= i)) {
-        newch.emplace_back(it, nt, tt);
-        ++tch;
-        if (tch != tch_end)
-          std::tie(it, nt, tt) = *tch;
-      } else if (tch == tch_end || (ch != ch_end && i + n <= it)) {
-        newch.emplace_back(i, n, t);
-        ++ch;
-        if (ch != ch_end)
-          std::tie(i, n, t) = *ch;
-      } else {
-        if (i < it) {
-          newch.emplace_back(i, it - i, t);
-          n -= it - i;
-          i = it;
-        } else if (it < i) {
-          newch.emplace_back(it, i - it, tt);
-          nt -= i - it;
-          it = i;
-        }
-        COORD_T bi = i;
-        COORD_T bn = std::min(n, nt);
-        newch.emplace_back(bi, bn, t.merged_with(tt));
-        i = bi + bn;
-        n -= bn;
-        it = bi + bn;
-        nt -= bn;
-        if (n == 0) {
+    std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> newch;
+    if (less_than(tree)) {
+      newch = m_children;
+      std::copy(
+        tree.children().begin(),
+        tree.children().end(),
+        std::back_inserter(newch));
+    } else {
+      auto ch = m_children.begin();
+      auto ch_end = m_children.end();
+      auto tch = tree.children().begin();
+      auto tch_end = tree.children().end();
+      COORD_T i, n, it, nt;
+      IndexTree t, tt;
+      if (ch != ch_end)
+        std::tie(i, n, t) = *ch;
+      if (tch != tch_end)
+        std::tie(it, nt, tt) = *tch;
+      while (ch != ch_end || tch != tch_end) {
+        if (ch == ch_end || (tch != tch_end && it + nt <= i)) {
+          newch.emplace_back(it, nt, tt);
+          ++tch;
+          if (tch != tch_end)
+            std::tie(it, nt, tt) = *tch;
+        } else if (tch == tch_end || (ch != ch_end && i + n <= it)) {
+          newch.emplace_back(i, n, t);
           ++ch;
           if (ch != ch_end)
             std::tie(i, n, t) = *ch;
         } else {
-          assert(nt == 0);
-          ++tch;
-          if (tch != tch_end)
-            std::tie(it, nt, tt) = *tch;
+          if (i < it) {
+            newch.emplace_back(i, it - i, t);
+            n -= it - i;
+            i = it;
+          } else if (it < i) {
+            newch.emplace_back(it, i - it, tt);
+            nt -= i - it;
+            it = i;
+          }
+          COORD_T bi = i;
+          COORD_T bn = std::min(n, nt);
+          newch.emplace_back(bi, bn, t.merged_with(tt));
+          i = bi + bn;
+          n -= bn;
+          it = bi + bn;
+          nt -= bn;
+          if (n == 0) {
+            ++ch;
+            if (ch != ch_end)
+              std::tie(i, n, t) = *ch;
+          } else {
+            assert(nt == 0);
+            ++tch;
+            if (tch != tch_end)
+              std::tie(it, nt, tt) = *tch;
+          }
         }
       }
     }
-    return Tree(newch);
+    return IndexTree(newch);
   }
 
   size_t
@@ -298,7 +328,7 @@ public:
     size_t result = sizeof(size_t);
     for (auto& ch : m_children) {
       result += 2 * sizeof(COORD_T);
-      const Tree& t = std::get<2>(ch);
+      const IndexTree& t = std::get<2>(ch);
       result += t.serialized_size();
     }
     return result;
@@ -320,12 +350,12 @@ public:
     return *reinterpret_cast<size_t *>(start);
   }
 
-  static Tree
+  static IndexTree
   deserialize(const char *buff) {
     size_t sz = *reinterpret_cast<const size_t *>(buff);
     const void *end = buff + sz;
     buff += sizeof(size_t);
-    std::vector<std::tuple<COORD_T, COORD_T, Tree>> children;
+    std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> children;
     while (buff != end) {
       COORD_T i = *reinterpret_cast<const COORD_T *>(buff);
       buff += sizeof(COORD_T);
@@ -335,7 +365,7 @@ public:
       children.emplace_back(i, n, deserialize(buff));
       buff = next;
     }
-    return Tree(children);
+    return IndexTree(children);
   }
 
   std::string
@@ -352,7 +382,7 @@ public:
     unsigned indent) const {
 
     oss << "{";
-    if (*this != Tree()) {
+    if (*this != IndexTree()) {
       ++indent;
       if (is_leaf()) {
         COORD_T i, n;
@@ -383,7 +413,7 @@ public:
             std::string si =
               std::to_string(i) + "~" + std::to_string(i + n - 1);
             oss << "(" << si;
-            if (t != Tree()) {
+            if (t != IndexTree()) {
               oss << ",";
               t.to_sstream(oss, with_linebreaks, indent + si.size() + 2);
             }
@@ -398,15 +428,15 @@ public:
 protected:
 
   void
-  swap(Tree& other) {
+  swap(IndexTree& other) {
     std::swap(m_children, other.m_children);
   }
 
-  static std::vector<std::tuple<COORD_T, COORD_T, Tree>>
-  compact(const std::vector<std::tuple<COORD_T, COORD_T, Tree>>& seq) {
-    std::vector<std::tuple<COORD_T, COORD_T, Tree>> result;
+  static std::vector<std::tuple<COORD_T, COORD_T, IndexTree>>
+  compact(const std::vector<std::tuple<COORD_T, COORD_T, IndexTree>>& seq) {
+    std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> result;
     if (seq.size() > 0) {
-      std::vector<std::tuple<COORD_T, COORD_T, Tree>> sorted = seq;
+      std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> sorted = seq;
       std::sort(
         sorted.begin(),
         sorted.end(),
@@ -426,11 +456,10 @@ protected:
               auto& lastc = compacted.back();
               COORD_T* lasti = &std::get<0>(lastc);
               COORD_T* lastn = &std::get<1>(lastc);
-              Tree* lastt = &std::get<2>(lastc);
+              IndexTree* lastt = &std::get<2>(lastc);
               if (i < *lasti + *lastn)
                 throw std::invalid_argument("Child blocks are overlapping");
-              if (i == *lasti + *lastn
-                  && *lastt == t)
+              if (i == *lasti + *lastn && *lastt == t)
                 *lastn += n;
               else
                 compacted.push_back(ch);
@@ -443,15 +472,15 @@ protected:
 
   static void
   array_dims(
-    const std::vector<std::tuple<COORD_T, COORD_T, Tree>>& ch,
+    const std::vector<std::tuple<COORD_T, COORD_T, IndexTree>>& ch,
     std::back_insert_iterator<
     std::vector<std::tuple<COORD_T, COORD_T>>> shape) {
 
     COORD_T i, n;
-    Tree t;
+    IndexTree t;
     std::tie(i, n, t) = ch[0];
     *shape = std::make_tuple(i, i + n - 1);
-    while (t != Tree()) {
+    while (t != IndexTree()) {
       std::tie(i, n, t) = t.children()[0];
       ++shape;
       *shape = std::make_tuple(i, i + n - 1);
@@ -459,7 +488,7 @@ protected:
   }
 
   static std::vector<std::tuple<COORD_T, COORD_T>>
-  array_shape(const std::vector<std::tuple<COORD_T, COORD_T, Tree>>& ch) {
+  array_shape(const std::vector<std::tuple<COORD_T, COORD_T, IndexTree>>& ch) {
 
     std::vector<std::tuple<COORD_T, COORD_T>> result;
     array_dims(ch, std::back_inserter(result));
@@ -468,7 +497,7 @@ protected:
 
   static void
   extend_envelope(
-    const Tree& t,
+    const IndexTree& t,
     std::vector<std::tuple<COORD_T, COORD_T>>& env) {
 
     auto r = env.begin();
@@ -494,21 +523,21 @@ protected:
     typename F,
     class = std::enable_if_t<
       std::is_same_v<
-        std::optional<Tree<COORD_T>>,
+        std::optional<IndexTree<COORD_T>>,
         std::invoke_result_t<F, const std::vector<COORD_T>&>>>>
-  Tree
+  IndexTree
   grow_at(const std::vector<COORD_T>& here, F&& fn) const {
-    std::vector<std::tuple<COORD_T, COORD_T, Tree>> sprouted;
+    std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> sprouted;
     std::for_each(
       m_children.begin(),
       m_children.end(),
       [&here, &fn, &sprouted](auto& ch) {
         auto& [i, n, t] = ch;
         std::vector<COORD_T> coords = here;
-        if (t == Tree()) {
+        if (t == IndexTree()) {
           for (COORD_T j = 0; j < n; ++j) {
             coords.push_back(i + j);
-            std::optional<Tree> ch = fn(coords);
+            std::optional<IndexTree> ch = fn(coords);
             if (ch)
               sprouted.push_back({i + j, 1, ch.value()});
             else
@@ -523,17 +552,108 @@ protected:
           }
         }
       });
-    return Tree(sprouted);
+    return IndexTree(sprouted);
   }
 
 private:
 
-  std::vector<std::tuple<COORD_T, COORD_T, Tree>> m_children;
+  std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> m_children;
+};
+
+template <typename COORD_T>
+class IndexTreeIterator {
+public:
+
+  IndexTreeIterator(const IndexTree<COORD_T>& tree, COORD_T stride = 0)
+    : m_current(0) {
+    m_tree_coords.push_back({});
+    gather_coords(tree, m_tree_coords);
+    m_tree_coords.pop_back();
+    COORD_T i, n;
+    std::tie(i, n, std::ignore) = tree.children().back();
+    m_stride = std::max(i + n, stride);
+  }
+
+  IndexTreeIterator&
+  operator++() {
+    ++m_current;
+    if (m_current == m_tree_coords.size()) {
+      m_current = 0;
+      std::for_each(
+        m_tree_coords.begin(),
+        m_tree_coords.end(),
+        [this](auto& cs) {
+          cs[0] += m_stride;
+        });
+    }
+    return *this;
+  }
+
+  IndexTreeIterator
+  operator++(int) {
+    IndexTreeIterator result = *this;
+    ++m_current;
+    if (m_current == m_tree_coords.size()) {
+      m_current = 0;
+      std::for_each(
+        m_tree_coords.begin(),
+        m_tree_coords.end(),
+        [this](auto& cs) {
+          cs[0] += m_stride;
+        });
+    }
+    return result;
+  }
+
+  const std::vector<COORD_T>&
+  operator*() const {
+    return m_tree_coords[m_current];
+  }
+
+private:
+
+  static void
+  gather_coords(
+    const IndexTree<COORD_T>& tree,
+    std::vector<std::vector<COORD_T>>& coords) {
+
+    std::for_each(
+      tree.children().begin(),
+      tree.children().end(),
+      [&coords](auto& ch) {
+        auto& [i, n, t] = ch;
+        if (t == IndexTree<COORD_T>()) {
+          std::vector<COORD_T> last = coords.back();
+          coords.pop_back();
+          last.push_back(i);
+          COORD_T& b = last.back();
+          for (COORD_T j = 0; j < n; ++j) {
+            coords.push_back(last);
+            ++b;
+          }
+          last.pop_back();
+          coords.push_back(last);
+        } else {
+          coords.back().push_back(i);
+          for (COORD_T j = 0; j < n; ++j) {
+            gather_coords(t, coords);
+            ++coords.back().back();
+          }
+          coords.back().pop_back();
+        }
+      });
+  }
+
+  std::vector<std::vector<COORD_T>> m_tree_coords;
+
+  size_t m_current;
+
+  COORD_T m_stride;
 };
 
 } // end namespace legms
 
-#endif // LEGMS_TREE_H_
+#endif // LEGMS_INDEX_TREE_H_
 
 // Local Variables:
 // mode: c++

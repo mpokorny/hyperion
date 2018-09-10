@@ -2,7 +2,7 @@
 #include <vector>
 
 #include "Grids.h"
-#include "Tree.h"
+#include "IndexTree.h"
 
 using namespace legms;
 using namespace Legion;
@@ -80,7 +80,7 @@ struct tree_space_args {
 };
 #define SIZEOF_TREE_SPACE_ARGS(d, n) (\
     sizeof(tree_space_args<d>) + n * sizeof(size_t))
-// FIXME: parametrize index size of Tree
+// FIXME: parametrize index size of IndexTree
 
 template <int DIM>
 void
@@ -92,7 +92,7 @@ tree_space_task(
 
   const struct tree_space_args<DIM, COORD_T> *args =
     (const tree_space_args<DIM, COORD_T>*)task->args;
-  Tree<COORD_T> tree = Tree<COORD_T>::deserialize(args->tree);
+  IndexTree<COORD_T> tree = IndexTree<COORD_T>::deserialize(args->tree);
   if (tree.is_array()) {
     auto tree_rect = tree.envelope();
     assert(tree_rect.size() <= DIM);
@@ -181,7 +181,8 @@ top_level_task(
   runtime->destroy_index_space(ctx, disjoint_color_space);
 
   // tree index space test
-  Tree t = Tree({{2, Tree({{1, Tree(2)}, {2, Tree(3)}})}});
+  IndexTree t =
+    IndexTree({{2, IndexTree({{1, IndexTree(2)}, {2, IndexTree(3)}})}});
   IndexSpace tree_is = tree_index_space<3>(t, ctx, runtime);
   FieldSpace tree_fs = runtime->create_field_space(ctx);
   {
