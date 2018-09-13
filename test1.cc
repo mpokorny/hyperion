@@ -441,6 +441,52 @@ tree_index_space(const IndexTreeL& tree, Context ctx, Runtime* runtime) {
       runtime);
 }
 
+template <>
+IndexSpaceT<1>
+tree_index_space(const IndexTreeL& tree, Context ctx, Runtime* runtime) {
+  auto rank = tree.rank();
+  assert(rank);
+  assert(rank.value() == 1);
+  return
+    offspring_index_space<1>(
+      1,
+      [&](Point<1>, Rect<1>& rect, IndexTreeL& tr) {
+        auto env = tree.envelope();
+        coord_t tree_rect_lo, tree_rect_hi;
+        std::tie(tree_rect_lo, tree_rect_hi) = env[0];
+        rect = Rect<1>(Point<1>(tree_rect_lo), Point<1>(tree_rect_hi));
+        tr = tree;
+      },
+      ctx,
+      runtime);
+}
+
+IndexSpace
+tree_index_space(const IndexTreeL& tree, Context ctx, Runtime* runtime) {
+  auto rank = tree.rank();
+  assert(rank);
+  switch(rank.value()) {
+  case 1:
+    return tree_index_space<1>(tree, ctx, runtime);
+  case 2:
+    return tree_index_space<2>(tree, ctx, runtime);
+  case 3:
+    return tree_index_space<3>(tree, ctx, runtime);
+  case 4:
+    return tree_index_space<4>(tree, ctx, runtime);
+  case 5:
+    return tree_index_space<5>(tree, ctx, runtime);
+  case 6:
+    return tree_index_space<6>(tree, ctx, runtime);
+  case 7:
+    return tree_index_space<7>(tree, ctx, runtime);
+  case 8:
+    return tree_index_space<8>(tree, ctx, runtime);
+  default:
+    assert(false);
+  }
+}
+
 class TopLevelTask {
 public:
 
