@@ -8,8 +8,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include <casacore/casa/Utilities/DataType.h>
-
 #include "legion.h"
 
 #include "WithKeywordsBuilder.h"
@@ -39,19 +37,25 @@ public:
     return m_name;
   }
 
-  template <typename ColGen>
-  void
-  add_column(ColGen generator) {
-    add_column(generator(m_row_index_shape));
-  }
+  // template <typename ColGen>
+  // void
+  // add_column(ColGen generator) {
+  //   add_column(generator(m_row_index_shape));
+  // }
 
   void
   add_column(std::unique_ptr<ColumnBuilder>&& col) {
     assert(col->row_index_shape() == m_row_index_shape);
-    assert(m_columns.size() == 0
-           || (std::get<1>(*m_columns.begin())->row_index_tree()
-               == col->row_index_tree()));
     assert(m_columns.count(col->name()) == 0);
+    if (m_columns.size() > 0) {
+      auto h = std::min(m_columns[m_max_rank_column]->rank(), col->rank()) - 1;
+      assert(m_columns[m_max_rank_column]->index_tree().pruned(h)
+             == col->index_tree().pruned(h));
+      if (col->rank() > m_columns[m_max_rank_column]->rank())
+        m_max_rank_column = col->name();
+    } else {
+      m_max_rank_column = col->name();
+    }
     m_columns[col->name()] = std::move(col);
   }
 
@@ -68,13 +72,18 @@ public:
       });
   }
 
+  void
+  add_row() {
+    add_row(std::unordered_map<std::string, std::any>());
+  }
+
   std::unordered_set<std::string>
   column_names() const {
     std::unordered_set<std::string> result;
     std::transform(
       m_columns.begin(),
       m_columns.end(),
-      std::back_inserter(result),
+      std::inserter(result, result.end()),
       [](auto& nm_col) {
         return std::get<0>(nm_col);
       });
@@ -88,6 +97,8 @@ protected:
   std::unordered_map<std::string, std::unique_ptr<ColumnBuilder>> m_columns;
 
   IndexTreeL m_row_index_shape;
+
+  std::string m_max_rank_column;
 };
 
 
@@ -103,3 +114,4 @@ protected:
 // indent-tabs-mode: nil
 // coding: utf-8
 // End:
+

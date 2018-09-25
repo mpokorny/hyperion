@@ -4,8 +4,10 @@
 #include <any>
 #include <cassert>
 #include <numeric>
+#include <optional>
 #include <vector>
 
+#include <casacore/casa/aipstype.h>
 #include <casacore/casa/Utilities/DataType.h>
 #include "legion.h"
 
@@ -26,7 +28,7 @@ public:
     unsigned row_rank,
     unsigned element_rank,
     const IndexTreeL& row_index_shape,
-    const IndexTreeL& index_tree)
+    std::optional<Legion::FieldID> fid = std::nullopt)
     : WithKeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
@@ -34,11 +36,12 @@ public:
     , m_rank(row_rank + element_rank)
     , m_row_index_shape(row_index_shape)
     , m_row_index_iterator(row_index_shape)
-    , m_index_tree(index_tree) {
+    , m_fid(fid) {
 
-    assert(index_tree == IndexTreeL()
-           || index_tree.rank().value_or(0) == m_rank);
     assert(row_index_shape.rank().value_or(0) == row_rank);
+  }
+
+  virtual ~ColumnBuilder() {
   }
 
   const std::string&
@@ -49,11 +52,6 @@ public:
   casacore::DataType
   datatype() const {
     return m_datatype;
-  }
-
-  const IndexTreeL
-  row_index_tree() const {
-    return m_index_tree.pruned(m_row_rank - 1);
   }
 
   const IndexTreeL&
@@ -76,6 +74,11 @@ public:
     return m_row_rank;
   }
 
+  std::optional<Legion::FieldID>
+  field_id() const {
+    return m_fid;
+  }
+
   virtual void
   add_row(const std::any&) = 0;
 
@@ -87,13 +90,13 @@ protected:
     ++m_row_index_iterator;
     IndexTreeL result =
       std::accumulate(
-        row_index.rend(),
         row_index.rbegin(),
+        row_index.rend(),
         element_tree,
         [](const auto& t, const auto& i) {
           return IndexTreeL({{i, 1, t}});
         });
-    m_index_tree = std::move(m_index_tree.merged_with(result));
+    m_index_tree = m_index_tree.merged_with(result);
   }
 
 private:
@@ -111,6 +114,8 @@ private:
   IndexTreeIterator<Legion::coord_t> m_row_index_iterator;
 
   IndexTreeL m_index_tree;
+
+  std::optional<Legion::FieldID> m_fid;
 };
 
 template <int ROWDIM>
@@ -122,9 +127,17 @@ public:
     const std::string& name,
     casacore::DataType datatype,
     const IndexTreeL& row_index_shape,
-    const IndexTreeL& index_tree)
-    : ColumnBuilder(name, datatype, ROWDIM, 0, row_index_shape, index_tree) {
+    std::optional<Legion::FieldID> fid = std::nullopt)
+    : ColumnBuilder(
+      name,
+      datatype,
+      ROWDIM,
+      0,
+      row_index_shape,
+      fid) {
   }
+
+  virtual ~ScalarColumnBuilder() {}
 
   void
   add_row(const std::any&) override {
@@ -141,25 +154,26 @@ public:
     const std::string& name,
     casacore::DataType datatype,
     const IndexTreeL& row_index_shape,
-    const IndexTreeL& index_tree)
+    std::optional<Legion::FieldID> fid = std::nullopt)
     : ColumnBuilder(
       name,
       datatype,
       ROWDIM,
       ARRAYDIM,
       row_index_shape,
-      index_tree) {
+      fid) {
   }
+
+  virtual ~ArrayColumnBuilder() {}
 
   void
   add_row(const std::any& args) override {
     auto ary = row_dimensions(args);
-    auto a = ary.rbegin();
     IndexTreeL t =
       std::accumulate(
-        a + 1,
+        ary.rbegin(),
         ary.rend(),
-        *a,
+        IndexTreeL(),
         [](const auto& t, const auto& d) {
           return IndexTreeL({{d, t}});
         });
@@ -184,3 +198,4 @@ protected:
 // indent-tabs-mode: nil
 // coding: utf-8
 // End:
+

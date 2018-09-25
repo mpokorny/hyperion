@@ -137,7 +137,8 @@ public:
         std::numeric_limits<COORD_T>::max(),
         std::numeric_limits<COORD_T>::min()),
       [](const auto& acc, const auto& ch) {
-        auto& [min, max] = acc;
+        COORD_T min, max;
+        std::tie(min, max) = acc;
         COORD_T lo, n, hi;
         std::tie(lo, n, std::ignore) = ch;
         hi = lo + n - 1;
@@ -662,3 +663,4 @@ private:
 // indent-tabs-mode: nil
 // coding: utf-8
 // End:
+
