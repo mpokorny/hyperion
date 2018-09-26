@@ -18,24 +18,24 @@ enum {
   TOP_LEVEL_TASK_ID,
 };
 
-class ChanFreqColumnBuilder
-  : public ArrayColumnBuilder<1,1> {
-public:
+// class ChanFreqColumnBuilder
+//   : public ArrayColumnBuilder<1> {
+// public:
 
-  ChanFreqColumnBuilder()
-    : ArrayColumnBuilder(
-      "CHAN_FREQ",
-      casacore::DataType::TpDouble,
-      IndexTreeL(1)) {
-  }
+//   ChanFreqColumnBuilder()
+//     : ArrayColumnBuilder(
+//       "CHAN_FREQ",
+//       casacore::DataType::TpDouble,
+//       IndexTreeL(1)) {
+//   }
 
-protected:
+// protected:
 
-  std::array<size_t, 1>
-  row_dimensions(const std::any& arg) override {
-    return {std::any_cast<size_t>(arg)};
-  }
-};
+//   std::array<size_t, 1>
+//   row_dimensions(const std::any& arg) override {
+//     return {std::any_cast<size_t>(arg)};
+//   }
+// };
 
 class TopLevelTask
 {
@@ -60,22 +60,18 @@ public:
       IndexTreeL(1));
 
     spectral_window_table_builder.add_column(
-      std::make_unique<ScalarColumnBuilder<1>>(
-        "NUM_CHAN",
-        casacore::DataType::TpInt,
-        IndexTreeL(1)));
+      ScalarColumnBuilder::generator<casacore::Int>("NUM_CHAN"));
     spectral_window_table_builder.add_column(
-      std::make_unique<ScalarColumnBuilder<1>>(
-        "TOTAL_BANDWIDTH",
-        casacore::DataType::TpDouble,
-        IndexTreeL(1)));
+      ScalarColumnBuilder::generator<casacore::Double>("TOTAL_BANDWIDTH"));
     spectral_window_table_builder.add_column(
-      std::make_unique<ScalarColumnBuilder<1>>(
-        "ASSOC_SPW_ID",
-        casacore::DataType::TpArrayInt,
-        IndexTreeL(1)));
+      ScalarColumnBuilder::generator<std::vector<casacore::Int>>(
+        "ASSOC_SPW_ID"));
     spectral_window_table_builder.add_column(
-      std::make_unique<ChanFreqColumnBuilder>());
+      ArrayColumnBuilder<1>::generator<casacore::Double>(
+        "CHAN_FREQ",
+        [](const std::any& arg) -> std::array<size_t, 1> {
+          return {std::any_cast<size_t>(arg)};
+        }));
     spectral_window_table_builder.add_row(
       {{"CHAN_FREQ", static_cast<size_t>(256)}});
     spectral_window_table_builder.add_row(

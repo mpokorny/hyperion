@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cassert>
 #include <memory>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -37,12 +38,6 @@ public:
     return m_name;
   }
 
-  // template <typename ColGen>
-  // void
-  // add_column(ColGen generator) {
-  //   add_column(generator(m_row_index_shape));
-  // }
-
   void
   add_column(std::unique_ptr<ColumnBuilder>&& col) {
     assert(col->row_index_shape() == m_row_index_shape);
@@ -57,6 +52,17 @@ public:
       m_max_rank_column = col->name();
     }
     m_columns[col->name()] = std::move(col);
+  }
+
+  template <
+    typename ColGen,
+    typename = std::enable_if_t<
+      std::is_base_of_v<
+        ColumnBuilder,
+        typename std::invoke_result_t<ColGen,const IndexTreeL>::element_type>>>
+  void
+  add_column(ColGen generator) {
+    add_column(generator(m_row_index_shape));
   }
 
   void

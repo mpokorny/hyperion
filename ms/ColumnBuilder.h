@@ -3,6 +3,8 @@
 
 #include <any>
 #include <cassert>
+#include <functional>
+#include <memory>
 #include <numeric>
 #include <optional>
 #include <vector>
@@ -118,24 +120,29 @@ private:
   std::optional<Legion::FieldID> m_fid;
 };
 
-template <int ROWDIM>
 class ScalarColumnBuilder
   : public ColumnBuilder {
 public:
 
-  ScalarColumnBuilder(
+    ScalarColumnBuilder(
+      const std::string& name,
+      casacore::DataType datatype,
+      const IndexTreeL& row_index_shape,
+      std::optional<Legion::FieldID> fid = std::nullopt)
+      : ColumnBuilder(
+        name,
+        datatype,
+        row_index_shape.rank().value(),
+        0,
+        row_index_shape,
+        fid) {
+    }
+
+  template <typename T>
+  static auto
+  generator(
     const std::string& name,
-    casacore::DataType datatype,
-    const IndexTreeL& row_index_shape,
-    std::optional<Legion::FieldID> fid = std::nullopt)
-    : ColumnBuilder(
-      name,
-      datatype,
-      ROWDIM,
-      0,
-      row_index_shape,
-      fid) {
-  }
+    std::optional<Legion::FieldID> fid = std::nullopt);
 
   virtual ~ScalarColumnBuilder() {}
 
@@ -145,7 +152,7 @@ public:
   }
 };
 
-template <int ROWDIM, int ARRAYDIM>
+template <int ARRAYDIM>
 class ArrayColumnBuilder
   : public ColumnBuilder {
 public:
@@ -154,21 +161,30 @@ public:
     const std::string& name,
     casacore::DataType datatype,
     const IndexTreeL& row_index_shape,
+    std::function<std::array<size_t, ARRAYDIM>(const std::any&)> row_dimensions,
     std::optional<Legion::FieldID> fid = std::nullopt)
     : ColumnBuilder(
       name,
       datatype,
-      ROWDIM,
+      row_index_shape.rank().value(),
       ARRAYDIM,
       row_index_shape,
-      fid) {
+      fid)
+    , m_row_dimensions(row_dimensions) {
   }
 
   virtual ~ArrayColumnBuilder() {}
 
+  template <typename T>
+  static auto
+  generator(
+    const std::string& name,
+    std::function<std::array<size_t, ARRAYDIM>(const std::any&)> row_dimensions,
+    std::optional<Legion::FieldID> fid = std::nullopt);
+
   void
   add_row(const std::any& args) override {
-    auto ary = row_dimensions(args);
+    auto ary = m_row_dimensions(args);
     IndexTreeL t =
       std::accumulate(
         ary.rbegin(),
@@ -180,11 +196,12 @@ public:
     set_next_row(t);
   }
 
-protected:
+private:
 
-  virtual std::array<size_t, ARRAYDIM>
-  row_dimensions(const std::any&) = 0;
+  std::function<std::array<size_t, ARRAYDIM>(const std::any&)> m_row_dimensions;
 };
+
+#include "ColumnBuilder.inl"
 
 } // end namespace ms
 } // end namespace legms
