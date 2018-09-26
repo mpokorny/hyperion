@@ -7,6 +7,7 @@
 
 #include "IndexTree.h"
 #include "Column.h"
+#include "SpectralWindowTable.h"
 #include "Table.h"
 #include "TableReadTask.h"
 
@@ -36,27 +37,8 @@ public:
     TreeIndexSpace::register_tasks(runtime);
     FillProjectionsTasks::register_tasks(runtime);
 
-    TableBuilder spectral_window_table_builder(
-      "SPECTRAL_WINDOW",
-      IndexTreeL(1));
-
-    spectral_window_table_builder.add_scalar_column<casacore::Int>(
-      "NUM_CHAN");
-    spectral_window_table_builder.add_scalar_column<casacore::Double>(
-      "TOTAL_BANDWIDTH");
-    spectral_window_table_builder.add_scalar_column<std::vector<casacore::Int>>(
-      "ASSOC_SPW_ID");
-    spectral_window_table_builder.add_array_column<1, casacore::Double>(
-      "CHAN_FREQ",
-      [](const std::any& arg) -> std::array<size_t, 1> {
-        return {std::any_cast<size_t>(arg)};
-      });
-    spectral_window_table_builder.add_row(
-      {{"CHAN_FREQ", static_cast<size_t>(256)}});
-    spectral_window_table_builder.add_row(
-      {{"CHAN_FREQ", static_cast<size_t>(1)}});
-
-    Table spectral_window_table(spectral_window_table_builder);
+    std::experimental::filesystem::path ms_path = "foo.ms";
+    SpectralWindowTable spectral_window_table(ms_path);
     std::cout << "name: "
               << spectral_window_table.name() << std::endl;
     std::cout << "columns: ";
@@ -68,10 +50,8 @@ public:
       [](auto& nm) { std::cout << nm << " "; });
     std::cout << std::endl;
 
-    std::experimental::filesystem::path table_path = "foo.ms";
-    table_path /= spectral_window_table.name();
     TableReadTask spectral_window_read_task(
-      table_path,
+      spectral_window_table.path(),
       spectral_window_table,
       colnames);
     auto lr_fids = spectral_window_read_task.dispatch(ctx, runtime);
