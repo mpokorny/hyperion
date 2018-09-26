@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <functional>
 #include <memory>
 #include <type_traits>
 #include <unordered_map>
@@ -38,31 +39,26 @@ public:
     return m_name;
   }
 
+  template <typename T>
   void
-  add_column(std::unique_ptr<ColumnBuilder>&& col) {
-    assert(col->row_index_shape() == m_row_index_shape);
-    assert(m_columns.count(col->name()) == 0);
-    if (m_columns.size() > 0) {
-      auto h = std::min(m_columns[m_max_rank_column]->rank(), col->rank()) - 1;
-      assert(m_columns[m_max_rank_column]->index_tree().pruned(h)
-             == col->index_tree().pruned(h));
-      if (col->rank() > m_columns[m_max_rank_column]->rank())
-        m_max_rank_column = col->name();
-    } else {
-      m_max_rank_column = col->name();
-    }
-    m_columns[col->name()] = std::move(col);
+  add_scalar_column(
+    const std::string& name,
+    std::optional<Legion::FieldID> fid = std::nullopt) {
+
+    add_column(
+      ScalarColumnBuilder::generator<T>(name, fid)(m_row_index_shape));
   }
 
-  template <
-    typename ColGen,
-    typename = std::enable_if_t<
-      std::is_base_of_v<
-        ColumnBuilder,
-        typename std::invoke_result_t<ColGen,const IndexTreeL>::element_type>>>
+  template <int DIM, typename T>
   void
-  add_column(ColGen generator) {
-    add_column(generator(m_row_index_shape));
+  add_array_column(
+    const std::string& name,
+    std::function<std::array<size_t, DIM>(const std::any&)> row_dimensions,
+    std::optional<Legion::FieldID> fid = std::nullopt) {
+
+    add_column(
+      ArrayColumnBuilder<DIM>::template generator<T>(name, row_dimensions, fid)(
+        m_row_index_shape));
   }
 
   void
@@ -97,6 +93,22 @@ public:
   }
 
 protected:
+
+  void
+  add_column(std::unique_ptr<ColumnBuilder>&& col) {
+    assert(col->row_index_shape() == m_row_index_shape);
+    assert(m_columns.count(col->name()) == 0);
+    if (m_columns.size() > 0) {
+      auto h = std::min(m_columns[m_max_rank_column]->rank(), col->rank()) - 1;
+      assert(m_columns[m_max_rank_column]->index_tree().pruned(h)
+             == col->index_tree().pruned(h));
+      if (col->rank() > m_columns[m_max_rank_column]->rank())
+        m_max_rank_column = col->name();
+    } else {
+      m_max_rank_column = col->name();
+    }
+    m_columns[col->name()] = std::move(col);
+  }
 
   std::string m_name;
 

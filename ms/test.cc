@@ -18,25 +18,6 @@ enum {
   TOP_LEVEL_TASK_ID,
 };
 
-// class ChanFreqColumnBuilder
-//   : public ArrayColumnBuilder<1> {
-// public:
-
-//   ChanFreqColumnBuilder()
-//     : ArrayColumnBuilder(
-//       "CHAN_FREQ",
-//       casacore::DataType::TpDouble,
-//       IndexTreeL(1)) {
-//   }
-
-// protected:
-
-//   std::array<size_t, 1>
-//   row_dimensions(const std::any& arg) override {
-//     return {std::any_cast<size_t>(arg)};
-//   }
-// };
-
 class TopLevelTask
 {
 public:
@@ -59,19 +40,17 @@ public:
       "SPECTRAL_WINDOW",
       IndexTreeL(1));
 
-    spectral_window_table_builder.add_column(
-      ScalarColumnBuilder::generator<casacore::Int>("NUM_CHAN"));
-    spectral_window_table_builder.add_column(
-      ScalarColumnBuilder::generator<casacore::Double>("TOTAL_BANDWIDTH"));
-    spectral_window_table_builder.add_column(
-      ScalarColumnBuilder::generator<std::vector<casacore::Int>>(
-        "ASSOC_SPW_ID"));
-    spectral_window_table_builder.add_column(
-      ArrayColumnBuilder<1>::generator<casacore::Double>(
-        "CHAN_FREQ",
-        [](const std::any& arg) -> std::array<size_t, 1> {
-          return {std::any_cast<size_t>(arg)};
-        }));
+    spectral_window_table_builder.add_scalar_column<casacore::Int>(
+      "NUM_CHAN");
+    spectral_window_table_builder.add_scalar_column<casacore::Double>(
+      "TOTAL_BANDWIDTH");
+    spectral_window_table_builder.add_scalar_column<std::vector<casacore::Int>>(
+      "ASSOC_SPW_ID");
+    spectral_window_table_builder.add_array_column<1, casacore::Double>(
+      "CHAN_FREQ",
+      [](const std::any& arg) -> std::array<size_t, 1> {
+        return {std::any_cast<size_t>(arg)};
+      });
     spectral_window_table_builder.add_row(
       {{"CHAN_FREQ", static_cast<size_t>(256)}});
     spectral_window_table_builder.add_row(
