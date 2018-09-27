@@ -65,57 +65,60 @@ public:
     Legion::DomainT<DIM> reg_domain,
     const Legion::PhysicalRegion& region) {
 
-#define READ_COL(dt, typ)                                         \
-    casacore::DataType::Tp##dt:                                   \
-      switch (col_desc.trueDataType()) {                          \
-      case casacore::DataType::Tp##dt:                            \
-        read_scalar_column<DIM, typ>(                             \
-          table, col_desc, row_index_shape, reg_domain, region);  \
-        break;                                                    \
-      case casacore::DataType::TpArray##dt:                       \
-        read_array_column<DIM, typ>(                              \
-          table, col_desc, row_index_shape, reg_domain, region);  \
-        break;                                                    \
-      default:                                                    \
-        assert(false);                                            \
-      }                                                           \
-    break;                                                        \
-    case casacore::DataType::TpArray##dt:                         \
-      switch (col_desc.trueDataType()) {                          \
-      case casacore::DataType::TpArray##dt:                       \
-        read_vector_column<DIM, typ>(                             \
-          table, col_desc, row_index_shape, reg_domain, region);  \
-        break;                                                    \
-      default:                                                    \
-        assert(false);                                            \
+#define READ_COL(dt)                                                    \
+    casacore::DataType::Tp##dt:                                         \
+      switch (col_desc.trueDataType()) {                                \
+      case casacore::DataType::Tp##dt:                                  \
+        read_scalar_column<DIM, DataType<casacore::DataType::Tp##dt>::  \
+                           ValueType>(                                  \
+          table, col_desc, row_index_shape, reg_domain, region); \
+        break;                                                          \
+      case casacore::DataType::TpArray##dt:                             \
+        read_array_column<DIM, DataType<casacore::DataType::Tp##dt>::   \
+                          ValueType>(                                   \
+          table, col_desc, row_index_shape, reg_domain, region); \
+        break;                                                          \
+      default:                                                          \
+        assert(false);                                                  \
+      }                                                                 \
+    break;                                                              \
+    case casacore::DataType::TpArray##dt:                               \
+      switch (col_desc.trueDataType()) {                                \
+      case casacore::DataType::TpArray##dt:                             \
+        read_vector_column<DIM, DataType<casacore::DataType::Tp##dt>::  \
+                           ValueType>(                                  \
+          table, col_desc, row_index_shape, reg_domain, region); \
+        break;                                                          \
+      default:                                                          \
+        assert(false);                                                  \
       }
 
     switch (lr_datatype) {
-    case READ_COL(Bool, casacore::Bool)
+    case READ_COL(Bool)
       break;
-    case READ_COL(Char, casacore::Char)
+    case READ_COL(Char)
       break;
-    case READ_COL(UChar, casacore::uChar)
+    case READ_COL(UChar)
       break;
-    case READ_COL(Short, casacore::Short)
+    case READ_COL(Short)
       break;
-    case READ_COL(UShort, casacore::uShort)
+    case READ_COL(UShort)
       break;
-    case READ_COL(Int, casacore::Int)
+    case READ_COL(Int)
       break;
-    case READ_COL(UInt, casacore::uInt)
+    case READ_COL(UInt)
       break;
     // case READ_COL(Int64, casacore::Int64)
     //   break;
-    case READ_COL(Float, casacore::Float)
+    case READ_COL(Float)
       break;
-    case READ_COL(Double, casacore::Double)
+    case READ_COL(Double)
       break;
-    case READ_COL(Complex, casacore::Complex)
+    case READ_COL(Complex)
       break;
-    case READ_COL(DComplex, casacore::DComplex)
+    case READ_COL(DComplex)
       break;
-    case READ_COL(String, casacore::String)
+    case READ_COL(String)
       break;
     default:
       assert(false);
@@ -162,12 +165,15 @@ public:
          pid++) {
       for (size_t i = 0; i < DIM; ++i)
         pt[i] = pid[i];
-      auto rn =
-        Table::row_number(row_index_shape, pt.begin(), pt.end());
+      auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end());
       if (row_number != rn) {
         row_number = rn;
         col.get(row_number, col_value);
       }
+      // the call to field_init() is a workaround, done to avoid a segfault that
+      // occurs when a zero-length string is assigned to a field; TODO: is there
+      // a better solution?
+      field_init(values[*pid]);
       values[*pid] = col_value;
     }
   }
@@ -217,8 +223,7 @@ public:
            pid++) {
         for (size_t i = 0; i < DIM; ++i)
           pt[i] = pid[i];
-        auto rn =
-          Table::row_number(row_index_shape, pt.begin(), pt.end());
+        auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end());
         if (row_number != rn) {
           row_number = rn;
           col.get(row_number, col_array, true);
@@ -236,8 +241,7 @@ public:
            pid++) {
         for (size_t i = 0; i < DIM; ++i)
           pt[i] = pid[i];
-        auto rn =
-          Table::row_number(row_index_shape, pt.begin(), pt.end());
+        auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end());
         if (row_number != rn) {
           row_number = rn;
           col.get(row_number, col_array, true);
@@ -255,8 +259,7 @@ public:
            pid++) {
         for (size_t i = 0; i < DIM; ++i)
           pt[i] = pid[i];
-        auto rn =
-          Table::row_number(row_index_shape, pt.begin(), pt.end());
+        auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end());
         if (row_number != rn) {
           row_number = rn;
           col.get(row_number, col_array, true);
@@ -273,8 +276,7 @@ public:
            pid++) {
         for (size_t i = 0; i < DIM; ++i)
           pt[i] = pid[i];
-        auto rn =
-          Table::row_number(row_index_shape, pt.begin(), pt.end());
+        auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end());
         if (row_number != rn) {
           row_number = rn;
           col.get(row_number, col_array, true);
@@ -332,8 +334,7 @@ public:
          pid++) {
       for (size_t i = 0; i < DIM; ++i)
         pt[i] = pid[i];
-      auto rn =
-        Table::row_number(row_index_shape, pt.begin(), pt.end());
+      auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end());
       if (row_number != rn) {
         row_number = rn;
         col.get(row_number, col_array, true);
@@ -357,7 +358,16 @@ private:
 
   Legion::LogicalRegion m_lr;
 
+  template <typename T>
+  static inline void field_init(T&) {}
+
 };
+
+template <> inline
+void
+TableReadTask::field_init<casacore::String>(casacore::String& str) {
+  str.resize(1);
+}
 
 } // end namespace ms
 } // end namespace legms

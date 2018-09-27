@@ -254,7 +254,294 @@ add_field(
   Legion::FieldAllocator fa,
   Legion::FieldID field_id = AUTO_GENERATE_ID);
 
-}
+template <casacore::DataType T>
+struct DataType {
+
+  //typedef X ValueType;
+};
+
+template <>
+struct DataType<casacore::DataType::TpBool> {
+  typedef casacore::Bool ValueType;
+  constexpr static int serdez_id = 0;
+};
+
+template <>
+struct DataType<casacore::DataType::TpArrayBool> {
+  typedef std::vector<casacore::Bool> ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_BOOL_V_SID;
+};
+
+template <>
+struct DataType<casacore::DataType::TpChar> {
+  typedef casacore::Char ValueType;
+  constexpr static int serdez_id = 0;
+};
+
+template <>
+struct DataType<casacore::DataType::TpArrayChar> {
+  typedef std::vector<casacore::Char> ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_CHAR_V_SID;
+};
+
+template <>
+struct DataType<casacore::DataType::TpUChar> {
+  typedef casacore::uChar ValueType;
+  constexpr static int serdez_id = 0;
+};
+
+template <>
+struct DataType<casacore::DataType::TpArrayUChar> {
+  typedef std::vector<casacore::uChar> ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_CHAR_V_SID;
+};
+
+template <>
+struct DataType<casacore::DataType::TpShort> {
+  typedef casacore::Short ValueType;
+  constexpr static int serdez_id = 0;
+};
+
+template <>
+struct DataType<casacore::DataType::TpArrayShort> {
+  typedef std::vector<casacore::Short> ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_SHORT_V_SID;
+};
+
+template <>
+struct DataType<casacore::DataType::TpUShort> {
+  typedef casacore::uShort ValueType;
+  constexpr static int serdez_id = 0;
+};
+
+template <>
+struct DataType<casacore::DataType::TpArrayUShort> {
+  typedef std::vector<casacore::uShort> ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_SHORT_V_SID;
+};
+
+template <>
+struct DataType<casacore::DataType::TpInt> {
+  typedef casacore::Int ValueType;
+  constexpr static int serdez_id = 0;
+};
+
+template <>
+struct DataType<casacore::DataType::TpArrayInt> {
+  typedef std::vector<casacore::Int> ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_INT_V_SID;
+};
+
+template <>
+struct DataType<casacore::DataType::TpUInt> {
+  typedef casacore::uInt ValueType;
+  constexpr static int serdez_id = 0;
+};
+
+template <>
+struct DataType<casacore::DataType::TpArrayUInt> {
+  typedef std::vector<casacore::uInt> ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_INT_V_SID;
+};
+
+template <>
+struct DataType<casacore::DataType::TpFloat> {
+  typedef casacore::Float ValueType;
+  constexpr static int serdez_id = 0;
+};
+
+template <>
+struct DataType<casacore::DataType::TpArrayFloat> {
+  typedef std::vector<casacore::Float> ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_FLOAT_V_SID;
+};
+
+template <>
+struct DataType<casacore::DataType::TpDouble> {
+  typedef casacore::Double ValueType;
+  constexpr static int serdez_id = 0;
+};
+
+template <>
+struct DataType<casacore::DataType::TpArrayDouble> {
+  typedef std::vector<casacore::Double> ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_DOUBLE_V_SID;
+};
+
+template <>
+struct DataType<casacore::DataType::TpComplex> {
+  typedef casacore::Complex ValueType;
+  constexpr static int serdez_id = 0;
+};
+
+template <>
+struct DataType<casacore::DataType::TpArrayComplex> {
+  typedef std::vector<casacore::Complex> ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_COMPLEX_V_SID;
+};
+
+template <>
+struct DataType<casacore::DataType::TpDComplex> {
+  typedef casacore::DComplex ValueType;
+  constexpr static int serdez_id = 0;
+};
+
+template <>
+struct DataType<casacore::DataType::TpArrayDComplex> {
+  typedef std::vector<casacore::DComplex> ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_DCOMPLEX_V_SID;
+};
+
+template <>
+struct DataType<casacore::DataType::TpString> {
+  typedef casacore::String ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_STRING_SID;
+};
+
+template <>
+struct DataType<casacore::DataType::TpArrayString> {
+  typedef std::vector<casacore::String> ValueType;
+  constexpr static int serdez_id = SerdezManager::CASACORE_STRING_ARRAY_SID;
+};
+
+template <typename T>
+struct ValueType {
+  // constexpr static const casacore::DataType DataType;
+};
+
+template <>
+struct ValueType<casacore::Bool> {
+  constexpr static casacore::DataType DataType = casacore::DataType::TpBool;
+};
+
+template <>
+struct ValueType<std::vector<casacore::Bool>> {
+  constexpr static casacore::DataType DataType =
+    casacore::DataType::TpArrayBool;
+};
+
+template <>
+struct ValueType<casacore::Char> {
+  constexpr static casacore::DataType DataType = casacore::DataType::TpChar;
+};
+
+template <>
+struct ValueType<std::vector<casacore::Char>> {
+  constexpr static casacore::DataType DataType =
+    casacore::DataType::TpArrayChar;
+};
+
+template <>
+struct ValueType<casacore::uChar> {
+  constexpr static casacore::DataType DataType = casacore::DataType::TpUChar;
+};
+
+template <>
+struct ValueType<std::vector<casacore::uChar>> {
+  constexpr static casacore::DataType DataType =
+    casacore::DataType::TpArrayUChar;
+};
+
+template <>
+struct ValueType<casacore::Short> {
+  constexpr static casacore::DataType DataType = casacore::DataType::TpShort;
+};
+
+template <>
+struct ValueType<std::vector<casacore::Short>> {
+  constexpr static casacore::DataType DataType =
+    casacore::DataType::TpArrayShort;
+};
+
+template <>
+struct ValueType<casacore::uShort> {
+  constexpr static casacore::DataType DataType = casacore::DataType::TpUShort;
+};
+
+template <>
+struct ValueType<std::vector<casacore::uShort>> {
+  constexpr static casacore::DataType DataType =
+    casacore::DataType::TpArrayUShort;
+};
+
+template <>
+struct ValueType<casacore::Int> {
+  constexpr static casacore::DataType DataType = casacore::DataType::TpInt;
+};
+
+template <>
+struct ValueType<std::vector<casacore::Int>> {
+  constexpr static casacore::DataType DataType =
+    casacore::DataType::TpArrayInt;
+};
+
+template <>
+struct ValueType<casacore::uInt> {
+  constexpr static casacore::DataType DataType = casacore::DataType::TpUInt;
+};
+
+template <>
+struct ValueType<std::vector<casacore::uInt>> {
+  constexpr static casacore::DataType DataType =
+    casacore::DataType::TpArrayUInt;
+};
+
+template <>
+struct ValueType<casacore::Float> {
+  constexpr static casacore::DataType DataType = casacore::DataType::TpFloat;
+};
+
+template <>
+struct ValueType<std::vector<casacore::Float>> {
+  constexpr static casacore::DataType DataType =
+    casacore::DataType::TpArrayFloat;
+};
+
+template <>
+struct ValueType<casacore::Double> {
+  constexpr static casacore::DataType DataType = casacore::DataType::TpDouble;
+};
+
+template <>
+struct ValueType<std::vector<casacore::Double>> {
+  constexpr static casacore::DataType DataType =
+    casacore::DataType::TpArrayDouble;
+};
+
+template <>
+struct ValueType<casacore::Complex> {
+  constexpr static casacore::DataType DataType = casacore::DataType::TpComplex;
+};
+
+template <>
+struct ValueType<std::vector<casacore::Complex>> {
+  constexpr static casacore::DataType DataType =
+    casacore::DataType::TpArrayComplex;
+};
+
+template <>
+struct ValueType<casacore::DComplex> {
+  constexpr static casacore::DataType DataType = casacore::DataType::TpDComplex;
+};
+
+template <>
+struct ValueType<std::vector<casacore::DComplex>> {
+  constexpr static casacore::DataType DataType =
+    casacore::DataType::TpArrayDComplex;
+};
+
+template <>
+struct ValueType<casacore::String> {
+  constexpr static casacore::DataType DataType = casacore::DataType::TpString;
+};
+
+template <>
+struct ValueType<std::vector<casacore::String>> {
+  constexpr static casacore::DataType DataType =
+    casacore::DataType::TpArrayString;
+};
+
+} // end namespace legms
 
 #endif // LEGMS_MS_UTILITY_H_
 

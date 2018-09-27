@@ -12,127 +12,91 @@ legms::add_field(
 
   Legion::FieldID result;
 
+#define ALLOC_FLD(tp)                           \
+  tp:                                           \
+    result = fa.allocate_field(                 \
+      sizeof(DataType<tp>::ValueType),          \
+      field_id,                                 \
+      DataType<tp>::serdez_id);
+
   switch (datatype) {
 
-  case casacore::DataType::TpBool:
-    result = fa.allocate_field(sizeof(casacore::Bool), field_id);
+  case ALLOC_FLD(casacore::DataType::TpBool)
     break;
 
-  case casacore::DataType::TpArrayBool:
-    result = fa.allocate_field(
-      sizeof(std::vector<casacore::Bool>),
-      field_id,
-      SerdezManager::CASACORE_BOOL_V_SID);
+  case ALLOC_FLD(casacore::DataType::TpArrayBool)
     break;
 
-  case casacore::DataType::TpChar:
-  case casacore::DataType::TpUChar:
-    result = fa.allocate_field(sizeof(casacore::Char), field_id);
+  case ALLOC_FLD(casacore::DataType::TpChar)
     break;
 
-  case casacore::DataType::TpArrayChar:
-  case casacore::DataType::TpArrayUChar:
-    result = fa.allocate_field(
-      sizeof(std::vector<casacore::Char>),
-      field_id,
-      SerdezManager::CASACORE_CHAR_V_SID);
+  case ALLOC_FLD(casacore::DataType::TpArrayChar)
     break;
 
-  case casacore::DataType::TpShort:
-  case casacore::DataType::TpUShort:
-    result = fa.allocate_field(sizeof(casacore::Short), field_id);
+  case ALLOC_FLD(casacore::DataType::TpUChar)
     break;
 
-  case casacore::DataType::TpArrayShort:
-  case casacore::DataType::TpArrayUShort:
-    result = fa.allocate_field(
-      sizeof(std::vector<casacore::Short>),
-      field_id,
-      SerdezManager::CASACORE_SHORT_V_SID);
+  case ALLOC_FLD(casacore::DataType::TpArrayUChar)
     break;
 
-  case casacore::DataType::TpInt:
-  case casacore::DataType::TpUInt:
-    result = fa.allocate_field(sizeof(casacore::Int), field_id);
+  case ALLOC_FLD(casacore::DataType::TpShort)
     break;
 
-  case casacore::DataType::TpArrayInt:
-  case casacore::DataType::TpArrayUInt:
-    result = fa.allocate_field(
-      sizeof(std::vector<casacore::Int>),
-      field_id,
-      SerdezManager::CASACORE_INT_V_SID);
+  case ALLOC_FLD(casacore::DataType::TpArrayShort)
     break;
 
-  // case casacore::DataType::TpInt64:
-  //   // case casacore::DataType::TpUInt64:
-  //   result = fa.allocate_field(sizeof(casacore::Int64), field_id);
+  case ALLOC_FLD(casacore::DataType::TpUShort)
+    break;
+
+  case ALLOC_FLD(casacore::DataType::TpArrayUShort)
+    break;
+
+  case ALLOC_FLD(casacore::DataType::TpInt)
+    break;
+
+  case ALLOC_FLD(casacore::DataType::TpArrayInt)
+    break;
+
+  case ALLOC_FLD(casacore::DataType::TpUInt)
+    break;
+
+  case ALLOC_FLD(casacore::DataType::TpArrayUInt)
+    break;
+
+  // case ALLOC_FLD(casacore::DataType::TpInt64)
   //   break;
 
-  // case casacore::DataType::TpArrayInt64:
-  //   // case casacore::DataType::TpArrayUInt64:
-  //   result = fa.allocate_field(
-  //     sizeof(std::vector<casacore::Int64>),
-  //     field_id,
-  //     SerdezManager::CASACORE_INT64_V_SID);
+  // case ALLOC_FLD(casacore::DataType::TpArrayInt64)
   //   break;
 
-  case casacore::DataType::TpFloat:
-    result = fa.allocate_field(sizeof(casacore::Float), field_id);
+  case ALLOC_FLD(casacore::DataType::TpFloat)
     break;
 
-  case casacore::DataType::TpArrayFloat:
-    result = fa.allocate_field(
-      sizeof(std::vector<casacore::Float>),
-      field_id,
-      SerdezManager::CASACORE_FLOAT_V_SID);
+  case ALLOC_FLD(casacore::DataType::TpArrayFloat)
     break;
 
-  case casacore::DataType::TpDouble:
-    result = fa.allocate_field(sizeof(casacore::Double), field_id);
+  case ALLOC_FLD(casacore::DataType::TpDouble)
     break;
 
-  case casacore::DataType::TpArrayDouble:
-    result = fa.allocate_field(
-      sizeof(std::vector<casacore::Double>),
-      field_id,
-      SerdezManager::CASACORE_DOUBLE_V_SID);
+  case ALLOC_FLD(casacore::DataType::TpArrayDouble)
     break;
 
-  case casacore::DataType::TpComplex:
-    result = fa.allocate_field(sizeof(casacore::Complex), field_id);
+  case ALLOC_FLD(casacore::DataType::TpComplex)
     break;
 
-  case casacore::DataType::TpArrayComplex:
-    result = fa.allocate_field(
-      sizeof(std::vector<casacore::Complex>),
-      field_id,
-      SerdezManager::CASACORE_COMPLEX_V_SID);
+  case ALLOC_FLD(casacore::DataType::TpArrayComplex)
     break;
 
-  case casacore::DataType::TpDComplex:
-    result = fa.allocate_field(sizeof(casacore::DComplex), field_id);
+  case ALLOC_FLD(casacore::DataType::TpDComplex)
     break;
 
-  case casacore::DataType::TpArrayDComplex:
-    result = fa.allocate_field(
-      sizeof(std::vector<casacore::DComplex>),
-      field_id,
-      SerdezManager::CASACORE_DCOMPLEX_V_SID);
+  case ALLOC_FLD(casacore::DataType::TpArrayDComplex)
     break;
 
-  case casacore::DataType::TpString:
-    result = fa.allocate_field(
-      sizeof(casacore::String),
-      field_id,
-      SerdezManager::CASACORE_STRING_SID);
+  case ALLOC_FLD(casacore::DataType::TpString)
     break;
 
-  case casacore::DataType::TpArrayString:
-    result = fa.allocate_field(
-      sizeof(std::vector<casacore::String>),
-      field_id,
-      SerdezManager::CASACORE_STRING_ARRAY_SID);
+  case ALLOC_FLD(casacore::DataType::TpArrayString)
     break;
 
   case casacore::DataType::TpQuantity:
@@ -151,6 +115,9 @@ legms::add_field(
     assert(false);
     break;
   }
+
+#undef ALLOC_FLD
+
   return result;
 }
 

@@ -1,4 +1,4 @@
-#define GENERATORS(t, dt)                                               \
+#define GENERATORS(t)                                               \
   template <> inline                                                    \
   auto                                                                  \
   ScalarColumnBuilder::generator<casacore::t>(                          \
@@ -9,7 +9,7 @@
       [=](const IndexTreeL& row_index_shape) {                          \
       return std::make_unique<ScalarColumnBuilder>(                     \
         name,                                                           \
-        casacore::DataType::Tp##dt,                                     \
+        ValueType<casacore::t>::DataType,                               \
         row_index_shape,                                                \
         fid);                                                           \
     };                                                                  \
@@ -24,24 +24,24 @@
     [=](const IndexTreeL& row_index_shape) {                            \
       return std::make_unique<ScalarColumnBuilder>(                     \
         name,                                                           \
-        casacore::DataType::TpArray##dt,                                \
+        ValueType<std::vector<casacore::t>>::DataType,                  \
         row_index_shape,                                                \
         fid);                                                           \
     };                                                                  \
   }
 
-GENERATORS(Bool, Bool)
-GENERATORS(Char, Char)
-GENERATORS(uChar, UChar)
-GENERATORS(Short, Short)
-GENERATORS(uShort, UShort)
-GENERATORS(Int, Int)
-GENERATORS(uInt, UInt)
-GENERATORS(Float, Float)
-GENERATORS(Double, Double)
-GENERATORS(Complex, Complex)
-GENERATORS(DComplex, DComplex)
-GENERATORS(String, String)
+GENERATORS(Bool)
+GENERATORS(Char)
+GENERATORS(uChar)
+GENERATORS(Short)
+GENERATORS(uShort)
+GENERATORS(Int)
+GENERATORS(uInt)
+GENERATORS(Float)
+GENERATORS(Double)
+GENERATORS(Complex)
+GENERATORS(DComplex)
+GENERATORS(String)
 
 
 template <> template<> inline
