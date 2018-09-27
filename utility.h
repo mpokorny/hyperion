@@ -7,6 +7,8 @@
 #include <mutex>
 #include <numeric>
 
+#include <casacore/casa/aipstype.h>
+#include <casacore/casa/BasicSL/String.h>
 #include <casacore/casa/Utilities/DataType.h>
 #include "legion.h"
 #include "IndexTree.h"
@@ -40,23 +42,27 @@ public:
   static size_t
   serialize(const S& val, void *buffer) {
     size_t result = serialized_size(val);
-    auto nch = val.size();
+    size_type nch = val.size();
     memcpy(static_cast<size_type *>(buffer), &nch, sizeof(nch));
-    value_type* chbuf =
-      reinterpret_cast<value_type *>(static_cast<size_type *>(buffer) + 1);
-    memcpy(chbuf, val.data(), result - sizeof(size_type));
+    if (nch > 0) {
+      value_type* chbuf =
+        reinterpret_cast<value_type *>(static_cast<size_type *>(buffer) + 1);
+      memcpy(chbuf, val.data(), result - sizeof(size_type));
+    }
     return result;
   }
 
   static size_t
   deserialize(S& val, const void *buffer) {
     size_type nch = *static_cast<const size_type *>(buffer);
-    val.reserve(nch);
-    auto buf = const_cast<value_type*>(val.data());
-    std::memcpy(
-      buf,
-      reinterpret_cast<const void*>(static_cast<const size_type *>(buffer) + 1),
-      nch * sizeof(value_type));
+    val.clear();
+    if (nch > 0) {
+      val.reserve(nch);
+      val.append(
+        reinterpret_cast<const value_type*>(
+          static_cast<const size_type *>(buffer) + 1),
+        nch);
+    }
     return serialized_size(val);
   }
 
@@ -217,7 +223,7 @@ public:
         Legion::Runtime::register_custom_serdez_op<
           string_serdez<casacore::String>>(CASACORE_STRING_SID);
         Legion::Runtime::register_custom_serdez_op<
-          string_array_serdez<std::vector<casacore::String>>>(
+          string_array_serdez<casacore::String>>(
             CASACORE_STRING_ARRAY_SID);
       });
   }
