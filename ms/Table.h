@@ -257,6 +257,13 @@ public:
     return std::get<1>(*m_columns.begin())->row_index_shape();
   }
 
+  bool
+  is_empty() const {
+    return
+      m_columns.size() == 0
+      || std::get<1>(*m_columns.begin())->index_tree() == IndexTreeL();
+  }
+
   size_t
   row_number(const std::vector<Legion::coord_t>& index) const {
     return row_number(row_index_shape(), index.begin(), index.end());
