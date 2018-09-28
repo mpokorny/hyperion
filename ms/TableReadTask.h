@@ -17,11 +17,12 @@ namespace legms {
 namespace ms {
 
 struct TableReadTaskArgs {
+  static const unsigned MAX_COLUMNS = 40;
   char table_path[80];
   char table_name[80];
-  char column_names[8][20];
-  unsigned column_ranks[8];
-  casacore::DataType column_datatypes[8];
+  char column_names[MAX_COLUMNS][20];
+  unsigned column_ranks[MAX_COLUMNS];
+  casacore::DataType column_datatypes[MAX_COLUMNS];
   unsigned char ser_row_index_shape[];
 };
 

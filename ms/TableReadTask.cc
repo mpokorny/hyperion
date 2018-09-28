@@ -25,8 +25,7 @@ TableReadTask::dispatch(Legion::Context ctx, Legion::Runtime* runtime) {
   std::strcpy(args->table_path, m_table_path.c_str());
   assert(m_table.name().size() < sizeof(args->table_name));
   std::strcpy(args->table_name, m_table.name().c_str());
-  assert(m_column_names.size()
-         < sizeof(args->column_names) / sizeof(args->column_names[0]));
+  assert(m_column_names.size() <= TableReadTaskArgs::MAX_COLUMNS);
   for (size_t i = 0; i < m_column_names.size(); ++i) {
     assert(m_column_names[i].size() < sizeof(args->column_names[0]));
     std::strcpy(args->column_names[i], m_column_names[i].c_str());
