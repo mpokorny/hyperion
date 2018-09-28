@@ -7,9 +7,9 @@
 
 #include "IndexTree.h"
 #include "Column.h"
-#include "SpectralWindowTable.h"
 #include "Table.h"
 #include "TableReadTask.h"
+#include "ReadOnlyTable.h"
 
 namespace fs = std::experimental::filesystem;
 
@@ -35,74 +35,84 @@ public:
     Runtime* runtime) {
 
     auto input_args = Runtime::get_input_args();
-
-    fs::path table_path = fs::path(input_args.argv[1]);
-    fs::path ms_path = table_path.parent_path();
-    std::string table_name = table_path.filename();
-
-    if (table_name != "SPECTRAL_WINDOW") {
-      std::cerr << "Column '" << table_name << "' is unsupported" << std::endl;
-      return;
-    }
-
+    std::optional<fs::path> table_path;
     std::vector<std::string> colnames;
-    for (auto i = 2; i < input_args.argc; ++i)
-      colnames.push_back(input_args.argv[i]);
+    for (auto i = 1; i < input_args.argc; ++i) {
+      if (*input_args.argv[i] == '-') {
+        ++i;// skip option argument
+      } else if (!table_path) {
+        table_path = fs::path(input_args.argv[i]);
+      } else {
+        if (strcmp(input_args.argv[i], "*") == 0) {
+          colnames.clear();
+          colnames.push_back(input_args.argv[i]);
+          break;
+        }
+        colnames.push_back(input_args.argv[i]);
+      }
+    }
+    fs::path ms_path = table_path.value().parent_path();
+    std::string table_name = table_path.value().filename();
 
     TableReadTask::register_task(runtime);
     TreeIndexSpace::register_tasks(runtime);
     FillProjectionsTasks::register_tasks(runtime);
 
-    SpectralWindowTable spectral_window_table(ms_path);
-    std::cout << "name: "
-              << spectral_window_table.name() << std::endl;
-    std::cout << "columns: ";
-    std::for_each (
-      colnames.begin(),
-      colnames.end(),
-      [](auto& nm) { std::cout << nm << " "; });
-    std::cout << std::endl;
+    std::unique_ptr<Table> table(new ROTable(table_path.value()));
+    std::cout << "table name: "
+              << table->name() << std::endl;
+    if (table->is_empty()) {
+      std::cout << "Empty table" << std::endl;
+      return;
+    }
+    if (colnames[0] == "*") {
+      colnames.clear();
+      auto cols = table->column_names();
+      std::copy(cols.begin(), cols.end(), std::back_inserter(colnames));
+    }
 
-    TableReadTask spectral_window_read_task(
-      spectral_window_table.path(),
-      spectral_window_table,
-      colnames);
-    auto lr_fids = spectral_window_read_task.dispatch(ctx, runtime);
-    for (size_t i = 0; i < colnames.size(); ++i) {
+    auto end_present_colnames =
+      std::remove_if(
+        colnames.begin(),
+        colnames.end(),
+        [cols=table->column_names()](auto& nm) {
+          return cols.count(nm) == 0;
+        });
+    if (end_present_colnames != colnames.end()) {
+      std::cout << "Empty columns: " << *end_present_colnames;
+      std::for_each(
+        end_present_colnames + 1,
+        colnames.end(),
+        [](auto &nm) {
+          std::cout << ", " << nm;
+        });
+      std::cout << std::endl;
+    }
+
+    TableReadTask table_read_task(
+      table_path.value(),
+      *table,
+      colnames.begin(),
+      end_present_colnames);
+    auto row_index_shape = table->row_index_shape();
+    auto lr_fids = table_read_task.dispatch(ctx, runtime);
+    for (size_t i = 0; i < lr_fids.size(); ++i) {
       std::cout << colnames[i] << ":" << std::endl;
       auto& [lr, fid] = lr_fids[i];
       auto launcher = InlineLauncher(
         RegionRequirement(lr, READ_ONLY, EXCLUSIVE, lr));
       launcher.add_field(fid);
       PhysicalRegion pr = runtime->map_region(ctx, launcher);
-      auto col = spectral_window_table.column(colnames[i]);
+      auto col = table->column(colnames[i]);
       switch (col->rank()) {
       case 1:
-        show<1>(
-          runtime,
-          pr,
-          lr,
-          fid,
-          col,
-          spectral_window_table.row_index_shape());
+        show<1>(runtime, pr, lr, fid, col, row_index_shape);
         break;
       case 2:
-        show<2>(
-          runtime,
-          pr,
-          lr,
-          fid,
-          col,
-          spectral_window_table.row_index_shape());
+        show<2>(runtime, pr, lr, fid, col, row_index_shape);
         break;
       case 3:
-        show<3>(
-          runtime,
-          pr,
-          lr,
-          fid,
-          col,
-          spectral_window_table.row_index_shape());
+        show<3>(runtime, pr, lr, fid, col, row_index_shape);
         break;
       default:
         assert(false);
@@ -162,6 +172,7 @@ public:
           pt[i] = pid[i];                                               \
         auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end()); \
         if (rn != row_number) {                                         \
+          row_number = rn;                                              \
           oss << ")" << std::endl << "([" << pid[0];                    \
           for (size_t i = 1; i < row_rank; ++i)                         \
             oss << "," << pid[i];                                       \
@@ -201,6 +212,7 @@ public:
           pt[i] = pid[i];                                               \
         auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end()); \
         if (rn != row_number) {                                         \
+          row_number = rn;                                              \
           oss << ")" << std::endl << "([" << pid[0];                    \
           for (size_t i = 1; i < row_rank; ++i)                         \
             oss << "," << pid[i];                                       \
@@ -261,13 +273,24 @@ usage() {
 int
 main(int argc, char** argv) {
 
-  if (argc < 3) {
+  int app_argc = 0;
+  std::optional<int> dir_arg;
+  for (int i = 1; i < argc; ++i) {
+    if (*argv[i] != '-') {
+      if (!dir_arg)
+        dir_arg = i;
+      ++app_argc;
+    } else {
+      ++i; // skip option argument
+    }
+  }
+  if (app_argc < 2) {
     usage();
     return 1;
   }
-  auto arg1_fs_status = fs::status(argv[1]);
+  auto arg1_fs_status = fs::status(argv[dir_arg.value()]);
   if (!fs::is_directory(arg1_fs_status)) {
-    std::cout << "directory '" << argv[1]
+    std::cout << "directory '" << argv[dir_arg.value()]
               << "' does not exist"
               << std::endl;
     usage();

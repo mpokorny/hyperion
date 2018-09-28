@@ -1,4 +1,4 @@
-#define GENERATORS(t)                                               \
+#define GENERATORS(t)                                                   \
   template <> inline                                                    \
   auto                                                                  \
   ScalarColumnBuilder::generator<casacore::t>(                          \
@@ -7,12 +7,12 @@
                                                                         \
     return                                                              \
       [=](const IndexTreeL& row_index_shape) {                          \
-      return std::make_unique<ScalarColumnBuilder>(                     \
-        name,                                                           \
-        ValueType<casacore::t>::DataType,                               \
-        row_index_shape,                                                \
-        fid);                                                           \
-    };                                                                  \
+        return std::make_unique<ScalarColumnBuilder>(                   \
+          name,                                                         \
+          ValueType<casacore::t>::DataType,                             \
+          row_index_shape,                                              \
+          fid);                                                         \
+      };                                                                \
   }                                                                     \
   template <> inline                                                    \
   auto                                                                  \
@@ -21,14 +21,66 @@
     std::optional<Legion::FieldID> fid) {                               \
                                                                         \
     return                                                              \
-    [=](const IndexTreeL& row_index_shape) {                            \
-      return std::make_unique<ScalarColumnBuilder>(                     \
-        name,                                                           \
-        ValueType<std::vector<casacore::t>>::DataType,                  \
-        row_index_shape,                                                \
-        fid);                                                           \
-    };                                                                  \
+      [=](const IndexTreeL& row_index_shape) {                          \
+        return std::make_unique<ScalarColumnBuilder>(                   \
+          name,                                                         \
+          ValueType<std::vector<casacore::t>>::DataType,                \
+          row_index_shape,                                              \
+          fid);                                                         \
+      };                                                                \
+  }                                                                     \
+  template <> template<> inline                                         \
+  auto                                                                  \
+  ArrayColumnBuilder<1>::generator<casacore::t>(                        \
+    const std::string& name,                                            \
+    std::function<std::array<size_t, 1>(const std::any&)> row_dimensions, \
+    std::optional<Legion::FieldID> fid) {                               \
+                                                                        \
+    return                                                              \
+      [=](const IndexTreeL& row_index_shape) {                          \
+        return std::make_unique<ArrayColumnBuilder<1>>(                 \
+          name,                                                         \
+          ValueType<casacore::t>::DataType,                             \
+          row_index_shape,                                              \
+          row_dimensions,                                               \
+          fid);                                                         \
+      };                                                                \
+  }\
+  template <> template<> inline                                         \
+  auto                                                                  \
+  ArrayColumnBuilder<2>::generator<casacore::t>(                        \
+    const std::string& name,                                            \
+    std::function<std::array<size_t, 2>(const std::any&)> row_dimensions, \
+    std::optional<Legion::FieldID> fid) {                               \
+                                                                        \
+    return                                                              \
+      [=](const IndexTreeL& row_index_shape) {                          \
+        return std::make_unique<ArrayColumnBuilder<2>>(                 \
+          name,                                                         \
+          ValueType<casacore::t>::DataType,                             \
+          row_index_shape,                                              \
+          row_dimensions,                                               \
+          fid);                                                         \
+      };                                                                \
+  }\
+  template <> template<> inline                                         \
+  auto                                                                  \
+  ArrayColumnBuilder<3>::generator<casacore::t>(                        \
+    const std::string& name,                                            \
+    std::function<std::array<size_t, 3>(const std::any&)> row_dimensions, \
+    std::optional<Legion::FieldID> fid) {                               \
+                                                                        \
+    return                                                              \
+      [=](const IndexTreeL& row_index_shape) {                          \
+        return std::make_unique<ArrayColumnBuilder<3>>(                 \
+          name,                                                         \
+          ValueType<casacore::t>::DataType,                             \
+          row_index_shape,                                              \
+          row_dimensions,                                               \
+          fid);                                                         \
+      };                                                                \
   }
+
 
 GENERATORS(Bool)
 GENERATORS(Char)
@@ -42,26 +94,6 @@ GENERATORS(Double)
 GENERATORS(Complex)
 GENERATORS(DComplex)
 GENERATORS(String)
-
-
-template <> template<> inline
-auto
-ArrayColumnBuilder<1>::generator<casacore::Double>(
-  const std::string& name,
-  std::function<std::array<size_t, 1>(const std::any&)> row_dimensions,
-  std::optional<Legion::FieldID> fid) {
-
-  return
-    [=](const IndexTreeL& row_index_shape) {
-      return std::make_unique<ArrayColumnBuilder<1>>(
-        name,
-        casacore::DataType::TpDouble,
-        row_index_shape,
-        row_dimensions,
-        fid);
-    };
-}
-
 
 #undef GENERATORS
 

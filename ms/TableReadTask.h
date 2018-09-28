@@ -32,14 +32,16 @@ public:
   static Legion::TaskID TASK_ID;
   static constexpr const char* TASK_NAME = "table_read_task";
 
+  template <typename Iter, typename EndIter>
   TableReadTask(
     const std::string& table_path,
     const Table& table,
-    const std::vector<std::string>& colnames,
+    Iter colname_iter,
+    EndIter end_colname_iter,
     std::optional<Legion::IndexPartition> ipart = std::nullopt)
     : m_table_path(table_path)
     , m_table(table)
-    , m_column_names(colnames)
+    , m_column_names(colname_iter, end_colname_iter)
     , m_index_partition(ipart) {
   }
 
@@ -174,7 +176,7 @@ public:
       // the call to field_init() is a workaround, done to avoid a segfault that
       // occurs when a zero-length string is assigned to a field; TODO: is there
       // a better solution?
-      field_init(values[*pid]);
+      field_init(values[*pid], col_value);
       values[*pid] = col_value;
     }
   }
@@ -360,14 +362,15 @@ private:
   Legion::LogicalRegion m_lr;
 
   template <typename T>
-  static inline void field_init(T&) {}
+  static inline void field_init(T&, const T&) {}
 
 };
 
 template <> inline
 void
-TableReadTask::field_init<casacore::String>(casacore::String& str) {
-  str.resize(1);
+TableReadTask::field_init<casacore::String>(
+  casacore::String& fld, const casacore::String& val) {
+  fld.resize(std::max(val.size(), static_cast<casacore::String::size_type>(1)));
 }
 
 } // end namespace ms
