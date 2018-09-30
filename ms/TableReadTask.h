@@ -17,12 +17,11 @@ namespace legms {
 namespace ms {
 
 struct TableReadTaskArgs {
-  static const unsigned MAX_COLUMNS = 40;
   char table_path[80];
   char table_name[80];
-  char column_names[MAX_COLUMNS][20];
-  unsigned column_ranks[MAX_COLUMNS];
-  casacore::DataType column_datatypes[MAX_COLUMNS];
+  char column_name[20];
+  unsigned column_rank;
+  casacore::DataType column_datatype;
   unsigned char ser_row_index_shape[];
 };
 
@@ -358,8 +357,6 @@ private:
   std::vector<std::string> m_column_names;
 
   std::optional<Legion::IndexPartition> m_index_partition;
-
-  Legion::LogicalRegion m_lr;
 
   template <typename T>
   static inline void field_init(T&, const T&) {}

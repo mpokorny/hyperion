@@ -1,87 +1,94 @@
+#include <algorithm>
 #include "TableReadTask.h"
 
 using namespace legms::ms;
 
-Legion::TaskID TableReadTask::TASK_ID = 0;
+using namespace Legion;
+
+TaskID TableReadTask::TASK_ID = 0;
 
 void
-TableReadTask::register_task(Legion::Runtime* runtime) {
+TableReadTask::register_task(Runtime* runtime) {
   TASK_ID = runtime->generate_library_task_ids("legms::TableReadTask", 1);
-  Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
-  registrar.add_constraint(
-    Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
+  TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
+  registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
   runtime->register_task_variant<base_impl>(registrar);
 }
 
-std::vector<std::tuple<Legion::LogicalRegion, Legion::FieldID>>
-TableReadTask::dispatch(Legion::Context ctx, Legion::Runtime* runtime) {
+std::vector<std::tuple<LogicalRegion, FieldID>>
+TableReadTask::dispatch(Context ctx, Runtime* runtime) {
 
   size_t ser_row_index_shape_size =
     index_tree_serdez::serialized_size(m_table.row_index_shape());
   size_t args_size = sizeof(TableReadTaskArgs) + ser_row_index_shape_size;
-  std::unique_ptr<TableReadTaskArgs> args(
+  std::unique_ptr<TableReadTaskArgs> arg_template(
     static_cast<TableReadTaskArgs*>(::operator new(args_size)));
-  assert(m_table_path.size() < sizeof(args->table_path));
-  std::strcpy(args->table_path, m_table_path.c_str());
-  assert(m_table.name().size() < sizeof(args->table_name));
-  std::strcpy(args->table_name, m_table.name().c_str());
-  assert(m_column_names.size() <= TableReadTaskArgs::MAX_COLUMNS);
-  for (size_t i = 0; i < m_column_names.size(); ++i) {
-    assert(m_column_names[i].size() < sizeof(args->column_names[0]));
-    std::strcpy(args->column_names[i], m_column_names[i].c_str());
-    auto col = m_table.column(m_column_names[i]);
-    args->column_ranks[i] = col->rank();
-    args->column_datatypes[i] = col->datatype();
-  }
+  assert(m_table_path.size() < sizeof(arg_template->table_path));
+  std::strcpy(arg_template->table_path, m_table_path.c_str());
+  assert(m_table.name().size() < sizeof(arg_template->table_name));
+  std::strcpy(arg_template->table_name, m_table.name().c_str());
   index_tree_serdez::serialize(
     m_table.row_index_shape(),
-    args->ser_row_index_shape);
+    arg_template->ser_row_index_shape);
+
+  std::vector<std::unique_ptr<TableReadTaskArgs>> args;
+  std::transform(
+    m_column_names.begin(),
+    m_column_names.end(),
+    std::back_inserter(args),
+    [this, &arg_template, args_size](auto& nm) {
+      std::unique_ptr<TableReadTaskArgs> result(
+        static_cast<TableReadTaskArgs*>(::operator new(args_size)));
+      memcpy(result.get(), arg_template.get(), args_size);
+      assert(nm.size() < sizeof(result->column_name));
+      std::strcpy(result->column_name, nm.c_str());
+      auto col = m_table.column(nm);
+      result->column_rank = col->rank();
+      result->column_datatype = col->datatype();
+      return result;
+    });
 
   auto result = m_table.logical_regions(ctx, runtime, m_column_names);
+
   if (m_index_partition) {
     auto ip = m_index_partition.value();
     auto ips =
       m_table.index_partitions(ctx, runtime, ip, m_column_names);
-    std::vector<Legion::LogicalPartition> lps;
-    for (size_t i = 0; i < result.size(); ++i)
-      lps.push_back(
-        runtime->get_logical_partition(
-          ctx,
-          std::get<0>(result[i]), ips[i]));
-
-    auto launcher = Legion::IndexTaskLauncher(
-      TASK_ID,
-      runtime->get_index_partition_color_space(ctx, ip),
-      Legion::TaskArgument(args.get(), args_size),
-      Legion::ArgumentMap());
-    for (size_t i = 0; i < lps.size(); ++i) {
-      auto& [lr, fid] = result[i];
-      Legion::RegionRequirement req(lps[i], 0, WRITE_DISCARD, EXCLUSIVE, lr);
-      req.add_field(fid);
-      launcher.add_region_requirement(req);
-    }
-    runtime->execute_index_space(ctx, launcher);
-  } else {
-    auto launcher = Legion::TaskLauncher(
-      TASK_ID,
-      Legion::TaskArgument(args.get(), args_size));
+    auto cs = runtime->get_index_partition_color_space(ctx, ip);
     for (size_t i = 0; i < result.size(); ++i) {
+      auto launcher = IndexTaskLauncher(
+        TASK_ID,
+        cs,
+        TaskArgument(args[i].get(), args_size),
+        ArgumentMap());
       auto& [lr, fid] = result[i];
-      Legion::RegionRequirement req(lr, WRITE_DISCARD, EXCLUSIVE, lr);
+      LogicalPartition lp = runtime->get_logical_partition(ctx, lr, ips[i]);
+      RegionRequirement req(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr);
       req.add_field(fid);
       launcher.add_region_requirement(req);
+      runtime->execute_index_space(ctx, launcher);
     }
-    runtime->execute_task(ctx, launcher);
+  } else {
+    for (size_t i = 0; i < result.size(); ++i) {
+      auto launcher = TaskLauncher(
+        TASK_ID,
+        TaskArgument(args[i].get(), args_size));
+      auto& [lr, fid] = result[i];
+      RegionRequirement req(lr, WRITE_DISCARD, EXCLUSIVE, lr);
+      req.add_field(fid);
+      launcher.add_region_requirement(req);
+      runtime->execute_task(ctx, launcher);
+    }
   }
   return result;
 }
 
 void
 TableReadTask::base_impl(
-  const Legion::Task* task,
-  const std::vector<Legion::PhysicalRegion>& regions,
-  Legion::Context ctx,
-  Legion::Runtime *runtime) {
+  const Task* task,
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime *runtime) {
 
   const TableReadTaskArgs* args =
     static_cast<const TableReadTaskArgs*>(task->args);
@@ -89,47 +96,44 @@ TableReadTask::base_impl(
   index_tree_serdez::deserialize(row_index_shape, args->ser_row_index_shape);
   casacore::Table table(args->table_path, casacore::TableLock::NoLocking);
   auto tdesc = table.tableDesc();
-  // TODO: one task per column?
-  for (size_t i = 0; i < regions.size(); ++i) {
-    auto cdesc = tdesc[args->column_names[i]];
-    switch (args->column_ranks[i]) {
-    case 1:
-      read_column<1>(
-        table,
-        cdesc,
-        row_index_shape,
-        args->column_datatypes[i],
-        runtime->get_index_space_domain(
-          ctx,
-          task->regions[i].region.get_index_space()),
-        regions[i]);
-      break;
-    case 2:
-      read_column<2>(
-        table,
-        cdesc,
-        row_index_shape,
-        args->column_datatypes[i],
-        runtime->get_index_space_domain(
-          ctx,
-          task->regions[i].region.get_index_space()),
-        regions[i]);
-      break;
-    case 3:
-      read_column<3>(
-        table,
-        cdesc,
-        row_index_shape,
-        args->column_datatypes[i],
-        runtime->get_index_space_domain(
-          ctx,
-          task->regions[i].region.get_index_space()),
-        regions[i]);
-      break;
-    default:
-      assert(false);
-      break;
-    }
+  auto cdesc = tdesc[args->column_name];
+  switch (args->column_rank) {
+  case 1:
+    read_column<1>(
+      table,
+      cdesc,
+      row_index_shape,
+      args->column_datatype,
+      runtime->get_index_space_domain(
+        ctx,
+        task->regions[0].region.get_index_space()),
+      regions[0]);
+    break;
+  case 2:
+    read_column<2>(
+      table,
+      cdesc,
+      row_index_shape,
+      args->column_datatype,
+      runtime->get_index_space_domain(
+        ctx,
+        task->regions[0].region.get_index_space()),
+      regions[0]);
+    break;
+  case 3:
+    read_column<3>(
+      table,
+      cdesc,
+      row_index_shape,
+      args->column_datatype,
+      runtime->get_index_space_domain(
+        ctx,
+        task->regions[0].region.get_index_space()),
+      regions[0]);
+    break;
+  default:
+    assert(false);
+    break;
   }
 }
 
