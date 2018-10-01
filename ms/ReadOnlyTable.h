@@ -13,31 +13,11 @@
 namespace legms {
 namespace ms {
 
-template <typename T>
 class ReadOnlyTable
   : public Table {
 public:
 
-  ReadOnlyTable(const std::experimental::filesystem::path& path)
-    : Table(T::builder(path / T::table_name))
-    , m_path(path / T::table_name) {
-  }
-
-  const std::experimental::filesystem::path&
-  path() const {
-    return m_path;
-  }
-
-private:
-
-  std::experimental::filesystem::path m_path;
-};
-
-class ROTable
-  : public Table {
-public:
-
-  ROTable(
+  ReadOnlyTable(
     const std::experimental::filesystem::path& path)
     : Table(builder(path))
     , m_ms_path(path.parent_path())

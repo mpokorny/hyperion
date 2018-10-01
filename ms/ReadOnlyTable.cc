@@ -7,7 +7,7 @@
 using namespace legms::ms;
 
 TableBuilder
-ROTable::builder(const std::experimental::filesystem::path& path) {
+ReadOnlyTable::builder(const std::experimental::filesystem::path& path) {
 
   casacore::Table table(
     casacore::String(path),

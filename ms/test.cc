@@ -58,7 +58,7 @@ public:
     TreeIndexSpace::register_tasks(runtime);
     FillProjectionsTasks::register_tasks(runtime);
 
-    std::unique_ptr<Table> table(new ROTable(table_path.value()));
+    std::unique_ptr<Table> table(new ReadOnlyTable(table_path.value()));
     std::cout << "table name: "
               << table->name() << std::endl;
     if (table->is_empty()) {
