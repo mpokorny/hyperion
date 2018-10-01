@@ -105,18 +105,25 @@ ROTable::builder(const std::experimental::filesystem::path& path) {
     array_names.begin(),
     array_names.end(),
     std::inserter(args, args.end()),
-    [&table](auto& nm) {
-      return std::make_pair(
-        nm,
-        std::make_pair(0u, casacore::TableColumn(table, nm)));
+    [&table, &tdesc](auto& nm) {
+      SizeArgs sa;
+      const casacore::IPosition& shp = tdesc[nm].shape();
+      if (shp.empty()) {
+        sa.tcol = std::make_shared<casacore::TableColumn>(table, nm);
+        sa.row = 0;
+      } else {
+        sa.shape = shp;
+      }
+      return std::make_pair(nm, sa);
     });
 
   auto nrow = table.nrow();
   for (unsigned i = 0; i < nrow; ++i) {
     for (auto& arg : args) {
       auto ap = &std::get<1>(arg);
-      auto ic = std::any_cast<std::pair<unsigned, casacore::TableColumn>>(ap);
-      std::get<0>(*ic) = i;
+      auto sap = std::any_cast<SizeArgs>(ap);
+      if (sap->tcol)
+        sap->row = i;
     }
     result.add_row(args);
   }

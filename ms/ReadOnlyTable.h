@@ -65,14 +65,20 @@ private:
   builder(
     const std::experimental::filesystem::path& path);
 
+  struct SizeArgs {
+    std::shared_ptr<casacore::TableColumn> tcol;
+    unsigned row;
+    casacore::IPosition shape;
+  };
+
   template <int DIM>
   static std::array<size_t, DIM>
   size(const std::any& args) {
-    auto rn_col =
-      std::any_cast<std::pair<unsigned, casacore::TableColumn>>(args);
-    auto shape = std::get<1>(rn_col).shape(std::get<0>(rn_col));
-    assert(shape.size() == DIM);
     std::array<size_t, DIM> result;
+    auto sa = std::any_cast<SizeArgs>(args);
+    const casacore::IPosition& shape =
+      (sa.tcol ? sa.tcol->shape(sa.row) : sa.shape);
+    assert(shape.size() == DIM);
     shape.copy(result.begin());
     return result;
   }
