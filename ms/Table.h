@@ -1,7 +1,7 @@
 #ifndef LEGMS_MS_TABLE_H_
 #define LEGMS_MS_TABLE_H_
 
-#include <algorithm>
+
 #include <cassert>
 #include <memory>
 #include <unordered_map>
@@ -221,21 +221,7 @@ class Table
   : public WithKeywords {
 public:
 
-  Table(const TableBuilder& builder)
-    : WithKeywords(builder.keywords())
-    , m_name(builder.name()) {
-
-    assert(builder.m_columns.size() > 0);
-    std::transform(
-      builder.m_columns.begin(),
-      builder.m_columns.end(),
-      std::inserter(m_columns, m_columns.end()),
-      [](auto& cb) {
-        return std::make_pair(
-          cb.first,
-          std::shared_ptr<Column>(new Column(*cb.second)));
-      });
-  }
+  Table(const TableBuilder& builder);
 
   const std::string&
   name() const {
@@ -270,17 +256,7 @@ public:
   }
 
   std::unordered_set<std::string>
-  column_names() const {
-    std::unordered_set<std::string> result;
-    std::transform(
-      m_columns.begin(),
-      m_columns.end(),
-      std::inserter(result, result.end()),
-      [](auto& col) {
-        return col.first;
-      });
-    return result;
-  }
+  column_names() const;
 
   std::shared_ptr<Column>
   column(const std::string& name) const {
@@ -288,18 +264,7 @@ public:
   }
 
   std::shared_ptr<Column>
-  column(Legion::FieldID fid) const {
-    auto ncp = std::find_if(
-      m_columns.begin(),
-      m_columns.end(),
-      [&fid](auto& nc) {
-        return std::get<1>(nc)->field_id().value_or(fid - 1) == fid;
-      });
-    if (ncp != m_columns.end())
-      return std::get<1>(*ncp);
-    else
-      return std::shared_ptr<Column>();
-  }
+  column(Legion::FieldID fid) const;
 
   std::optional<Legion::IndexSpace>
   index_space(Legion::Context ctx, Legion::Runtime* runtime) const {
@@ -310,94 +275,14 @@ public:
   logical_regions(
     Legion::Context ctx,
     Legion::Runtime* runtime,
-    const std::vector<std::string>& colnames) const {
-
-    std::vector<std::tuple<Legion::LogicalRegion, Legion::FieldID>> result;
-    std::transform(
-      colnames.begin(),
-      colnames.end(),
-      std::back_inserter(result),
-      [this, &ctx, runtime](auto& colname) {
-        auto fs = runtime->create_field_space(ctx);
-        auto fa = runtime->create_field_allocator(ctx, fs);
-        auto col = column(colname);
-        auto fid = col->add_field(runtime, fs, fa);
-        return std::make_tuple(
-          runtime->create_logical_region(
-            ctx,
-            col->index_space(ctx, runtime).value(),
-            fs),
-          std::move(fid));
-      });
-    return result;
-  }
+    const std::vector<std::string>& colnames) const;
 
   std::vector<Legion::IndexPartition>
   index_partitions(
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const Legion::IndexPartition& ipart,
-    const std::vector<std::string>& colnames) const {
-
-    auto is = index_space(ctx, runtime).value();
-
-    assert(runtime->get_parent_index_space(ctx, ipart) == is);
-
-    std::set<unsigned> ranks;
-    std::transform(
-      colnames.begin(),
-      colnames.end(),
-      std::inserter(ranks, ranks.end()),
-      [this](auto& colname) { return column(colname)->rank(); });
-    auto fs = runtime->create_field_space(ctx);
-    auto fa = runtime->create_field_allocator(ctx, fs);
-    std::for_each(
-      ranks.begin(),
-      ranks.end(),
-      [&fa](auto r) {
-        switch (r) {
-        case 1:
-          fa.allocate_field(sizeof(Legion::Point<1>), 1);
-          break;
-        case 2:
-          fa.allocate_field(sizeof(Legion::Point<2>), 2);
-          break;
-        case 3:
-          fa.allocate_field(sizeof(Legion::Point<3>), 3);
-          break;
-        default:
-          assert(false);
-          break;
-        }
-      });
-    auto proj_lr = runtime->create_logical_region(ctx, is, fs);
-    auto proj_lp = runtime->get_logical_partition(ctx, proj_lr, ipart);
-    initialize_projections(ctx, runtime, proj_lr, proj_lp);
-
-    auto reg_rank = runtime->get_index_space_depth(ctx, is);
-    auto color_space =
-      runtime->get_index_partition_color_space_name(ctx, ipart);
-    std::vector<Legion::IndexPartition> result;
-    std::transform(
-      colnames.begin(),
-      colnames.end(),
-      std::back_inserter(result),
-      [&, this](auto& colname) {
-        auto col = column(colname);
-        auto rank = col->rank();
-        if (rank < reg_rank)
-          return runtime->create_partition_by_image(
-            ctx,
-            col->index_space(ctx, runtime).value(),
-            proj_lp,
-            proj_lr,
-            rank,
-            color_space);
-        else
-          return ipart;
-      });
-    return result;
-  }
+    const std::vector<std::string>& colnames) const;
 
   template <typename IndexIter, typename IndexIterEnd>
   static size_t
@@ -449,42 +334,7 @@ protected:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     Legion::LogicalRegion lr,
-    Legion::LogicalPartition lp) {
-
-    auto launch_space =
-      runtime->get_index_partition_color_space_name(
-        ctx,
-        lp.get_index_partition());
-    auto reg_rank = runtime->get_index_space_depth(ctx, lr.get_index_space());
-    std::set<Legion::FieldID> fids;
-    runtime->get_field_space_fields(ctx, lr.get_field_space(), fids);
-    switch (reg_rank) {
-    case 1:
-      break;
-
-    case 2:
-      if (fids.count(1) > 0) {
-        FillProjectionsTask<1, 2> f1(lr, lp, launch_space);
-        f1.dispatch(ctx, runtime);
-      }
-      break;
-
-    case 3:
-      if (fids.count(1) > 0) {
-        FillProjectionsTask<1, 3> f1(lr, lp, launch_space);
-        f1.dispatch(ctx, runtime);
-      }
-      if (fids.count(2) > 0) {
-        FillProjectionsTask<2, 3> f2(lr, lp, launch_space);
-        f2.dispatch(ctx, runtime);
-      }
-      break;
-
-    default:
-      assert(false);
-      break;
-    }
-  }
+    Legion::LogicalPartition lp);
 
   std::string m_name;
 
