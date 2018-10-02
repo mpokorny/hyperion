@@ -18,8 +18,10 @@ class ReadOnlyTable
 public:
 
   ReadOnlyTable(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
     const std::experimental::filesystem::path& path)
-    : Table(builder(path))
+    : Table(ctx, runtime, builder(path))
     , m_ms_path(path.parent_path())
     , m_table_name(path.filename()) {
   }

@@ -225,7 +225,21 @@ class Table
   : public WithKeywords {
 public:
 
-  Table(const TableBuilder& builder);
+  Table(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const TableBuilder& builder);
+
+  virtual ~Table() {
+    std::for_each(
+      m_logical_regions.begin(),
+      m_logical_regions.end(),
+      [this](auto& nm_lr_fid) {
+        m_runtime->destroy_logical_region(
+          m_context,
+          std::get<0>(std::get<1>(nm_lr_fid)));
+      });
+  }
 
   const std::string&
   name() const {
@@ -275,25 +289,18 @@ public:
   }
 
   std::optional<Legion::IndexSpace>
-  index_space(Legion::Context ctx, Legion::Runtime* runtime) const;
+  index_space() const;
 
   std::vector<std::tuple<Legion::LogicalRegion, Legion::FieldID>>
-  logical_regions(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::vector<std::string>& colnames) const;
+  logical_regions(const std::vector<std::string>& colnames) const;
 
   std::vector<Legion::IndexPartition>
   index_partitions(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
     const Legion::IndexPartition& ipart,
     const std::vector<std::string>& colnames) const;
 
   std::tuple<std::vector<Legion::IndexPartition>, Legion::IndexPartition>
   row_block_index_partitions(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
     const std::optional<Legion::IndexPartition>& ipart,
     const std::vector<std::string>& colnames,
     size_t block_size) const;
@@ -331,6 +338,16 @@ public:
     return result;
   }
 
+  Legion::Context
+  context() const {
+    return m_context;
+  }
+
+  Legion::Runtime*
+  runtime() const {
+    return m_runtime;
+  }
+
 protected:
 
   std::unordered_map<std::string, std::shared_ptr<Column>>::const_iterator
@@ -353,6 +370,14 @@ protected:
   std::string m_name;
 
   std::unordered_map<std::string, std::shared_ptr<Column>> m_columns;
+
+  Legion::Context m_context;
+
+  Legion::Runtime* m_runtime;
+
+  mutable std::unordered_map<
+    std::string,
+    std::tuple<Legion::LogicalRegion, Legion::FieldID>> m_logical_regions;
 };
 
 } // end namespace ms

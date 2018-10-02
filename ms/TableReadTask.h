@@ -50,7 +50,7 @@ public:
   register_task(Legion::Runtime* runtime);
 
   std::vector<std::tuple<Legion::LogicalRegion, Legion::FieldID>>
-  dispatch(Legion::Context ctx, Legion::Runtime* runtime);
+  dispatch();
 
   static void
   base_impl(

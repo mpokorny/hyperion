@@ -16,7 +16,7 @@ TableReadTask::register_task(Runtime* runtime) {
 }
 
 std::vector<std::tuple<LogicalRegion, FieldID>>
-TableReadTask::dispatch(Context ctx, Runtime* runtime) {
+TableReadTask::dispatch() {
 
   size_t ser_row_index_shape_size =
     index_tree_serdez::serialized_size(m_table->row_index_shape());
@@ -48,15 +48,14 @@ TableReadTask::dispatch(Context ctx, Runtime* runtime) {
       return result;
     });
 
-  auto result = m_table->logical_regions(ctx, runtime, m_column_names);
+  auto result = m_table->logical_regions(m_column_names);
   auto [ips, ip] =
     m_table->row_block_index_partitions(
-      ctx,
-      runtime,
       m_index_partition,
       m_column_names,
       m_block_length);
-  auto cs = runtime->get_index_partition_color_space(ctx, ip);
+  auto cs =
+    m_table->runtime()->get_index_partition_color_space(m_table->context(), ip);
   for (size_t i = 0; i < result.size(); ++i) {
     auto launcher = IndexTaskLauncher(
       TASK_ID,
@@ -64,11 +63,12 @@ TableReadTask::dispatch(Context ctx, Runtime* runtime) {
       TaskArgument(args[i].get(), args_size),
       ArgumentMap());
     auto& [lr, fid] = result[i];
-    LogicalPartition lp = runtime->get_logical_partition(ctx, lr, ips[i]);
+    LogicalPartition lp =
+      m_table->runtime()->get_logical_partition(m_table->context(), lr, ips[i]);
     RegionRequirement req(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr);
     req.add_field(fid);
     launcher.add_region_requirement(req);
-    runtime->execute_index_space(ctx, launcher);
+    m_table->runtime()->execute_index_space(m_table->context(), launcher);
   }
   return result;
 }

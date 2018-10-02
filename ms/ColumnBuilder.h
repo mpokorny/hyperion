@@ -42,9 +42,6 @@ public:
     assert(row_index_shape.rank().value_or(0) == row_rank);
   }
 
-  virtual ~ColumnBuilder() {
-  }
-
   const std::string&
   name() const {
     return m_name;

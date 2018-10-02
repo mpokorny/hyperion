@@ -5,17 +5,24 @@ using namespace legms::ms;
 using namespace Legion;
 using namespace std;
 
-Table::Table(const TableBuilder& builder)
+Table::Table(
+  Legion::Context ctx,
+  Legion::Runtime* runtime,
+  const TableBuilder& builder)
   : WithKeywords(builder.keywords())
-  , m_name(builder.name()) {
+  , m_name(builder.name())
+  , m_context(ctx)
+  , m_runtime(runtime) {
 
   assert(builder.m_columns.size() > 0);
   transform(
     builder.m_columns.begin(),
     builder.m_columns.end(),
     inserter(m_columns, m_columns.end()),
-    [](auto& cb) {
-      return make_pair(cb.first, shared_ptr<Column>(new Column(*cb.second)));
+    [this](auto& cb) {
+      return make_pair(
+        cb.first,
+        shared_ptr<Column>(new Column(m_context, m_runtime, *cb.second)));
     });
 }
 
@@ -33,14 +40,12 @@ Table::column_names() const {
 }
 
 std::optional<IndexSpace>
-Table::index_space(Context ctx, Runtime* runtime) const {
-  return std::get<1>(*max_rank_column())->index_space(ctx, runtime);
+Table::index_space() const {
+  return std::get<1>(*max_rank_column())->index_space();
 }
 
 vector<tuple<LogicalRegion, FieldID>>
 Table::logical_regions(
-  Context ctx,
-  Runtime* runtime,
   const vector<string>& colnames) const {
 
   vector<tuple<LogicalRegion, FieldID>> result;
@@ -48,32 +53,33 @@ Table::logical_regions(
     colnames.begin(),
     colnames.end(),
     back_inserter(result),
-    [this, &ctx, runtime](auto& colname) {
-      auto fs = runtime->create_field_space(ctx);
-      auto fa = runtime->create_field_allocator(ctx, fs);
-      auto col = column(colname);
-      auto fid = col->add_field(runtime, fs, fa);
-      return
-        make_tuple(
-          runtime->create_logical_region(
-            ctx,
-            col->index_space(ctx, runtime).value(),
-            fs),
-          move(fid));
+    [this](auto& colname) {
+      if (m_logical_regions.count(colname) == 0) {
+        auto fs = m_runtime->create_field_space(m_context);
+        auto fa = m_runtime->create_field_allocator(m_context, fs);
+        auto col = column(colname);
+        auto fid = col->add_field(fs, fa);
+        m_logical_regions[colname] =
+          make_tuple(
+            m_runtime->create_logical_region(
+              m_context,
+              col->index_space().value(),
+              fs),
+            move(fid));
+      }
+      return m_logical_regions[colname];
     });
   return result;
 }
 
 vector<IndexPartition>
 Table::index_partitions(
-  Context ctx,
-  Runtime* runtime,
   const IndexPartition& ipart,
   const vector<string>& colnames) const {
 
-  auto is = index_space(ctx, runtime).value();
+  auto is = index_space().value();
 
-  assert(runtime->get_parent_index_space(ctx, ipart) == is);
+  assert(m_runtime->get_parent_index_space(m_context, ipart) == is);
 
   set<unsigned> ranks;
   transform(
@@ -81,9 +87,9 @@ Table::index_partitions(
     colnames.end(),
     inserter(ranks, ranks.end()),
     [this](auto& colname) { return column(colname)->rank(); });
-  auto fs = runtime->create_field_space(ctx);
+  auto fs = m_runtime->create_field_space(m_context);
   {
-    auto fa = runtime->create_field_allocator(ctx, fs);
+    auto fa = m_runtime->create_field_allocator(m_context, fs);
     for_each(
       ranks.begin(),
       ranks.end(),
@@ -104,14 +110,14 @@ Table::index_partitions(
         }
       });
   }
-  auto proj_lr = runtime->create_logical_region(ctx, is, fs);
-  auto proj_lp = runtime->get_logical_partition(ctx, proj_lr, ipart);
-  initialize_projections(ctx, runtime, proj_lr, proj_lp);
-  runtime->destroy_field_space(ctx, fs);
+  auto proj_lr = m_runtime->create_logical_region(m_context, is, fs);
+  auto proj_lp = m_runtime->get_logical_partition(m_context, proj_lr, ipart);
+  initialize_projections(m_context, m_runtime, proj_lr, proj_lp);
+  m_runtime->destroy_field_space(m_context, fs);
 
   unsigned  reg_rank = is.get_dim();
   auto color_space =
-    runtime->get_index_partition_color_space_name(ctx, ipart);
+    m_runtime->get_index_partition_color_space_name(m_context, ipart);
   vector<IndexPartition> result;
   transform(
     colnames.begin(),
@@ -121,9 +127,9 @@ Table::index_partitions(
       auto col = column(colname);
       auto rank = col->rank();
       if (rank < reg_rank)
-        return runtime->create_partition_by_image(
-          ctx,
-          col->index_space(ctx, runtime).value(),
+        return m_runtime->create_partition_by_image(
+          m_context,
+          col->index_space().value(),
           proj_lp,
           proj_lr,
           rank,
@@ -132,24 +138,23 @@ Table::index_partitions(
         return ipart;
     });
   //runtime->destroy_logical_partition(ctx, proj_lp);
-  runtime->destroy_logical_region(ctx, proj_lr);
-  runtime->destroy_index_space(ctx, color_space);
+  m_runtime->destroy_logical_region(m_context, proj_lr);
+  m_runtime->destroy_index_space(m_context, color_space);
   return result;
 }
 
 std::tuple<std::vector<IndexPartition>, IndexPartition>
 Table::row_block_index_partitions(
-  Context ctx,
-  Runtime* runtime,
   const std::optional<IndexPartition>& ipart,
   const vector<std::string>& colnames,
   size_t block_size) const {
 
-  FieldSpace block_fs = runtime->create_field_space(ctx);
-  auto fa = runtime->create_field_allocator(ctx, block_fs);
+  FieldSpace block_fs = m_runtime->create_field_space(m_context);
+  auto fa = m_runtime->create_field_allocator(m_context, block_fs);
   auto block_fid = fa.allocate_field(sizeof(Point<1>));
-  auto is = index_space(ctx, runtime).value();
-  LogicalRegion block_lr = runtime->create_logical_region(ctx, is, block_fs);
+  auto is = index_space().value();
+  LogicalRegion block_lr =
+    m_runtime->create_logical_region(m_context, is, block_fs);
   InlineLauncher block_launcher(
     RegionRequirement(
       block_lr,
@@ -157,11 +162,11 @@ Table::row_block_index_partitions(
       EXCLUSIVE,
       block_lr));
   block_launcher.add_field(block_fid);
-  PhysicalRegion block_pr = runtime->map_region(ctx, block_launcher);
+  PhysicalRegion block_pr = m_runtime->map_region(m_context, block_launcher);
   switch (is.get_dim()) {
   case 1: {
     const FieldAccessor<WRITE_DISCARD, Point<1>, 1> blocks(block_pr, block_fid);
-    for (PointInDomainIterator<1> pid(runtime->get_index_space_domain(is));
+    for (PointInDomainIterator<1> pid(m_runtime->get_index_space_domain(is));
          pid();
          pid++)
       blocks[*pid] = *pid / block_size;
@@ -169,7 +174,7 @@ Table::row_block_index_partitions(
   }
   case 2: {
     const FieldAccessor<WRITE_DISCARD, Point<1>, 2> blocks(block_pr, block_fid);
-    for (PointInDomainIterator<2> pid(runtime->get_index_space_domain(is));
+    for (PointInDomainIterator<2> pid(m_runtime->get_index_space_domain(is));
          pid();
          pid++) {
       std::array<coord_t, 2> idx{pid[0], pid[1]};
@@ -181,7 +186,7 @@ Table::row_block_index_partitions(
   }
   case 3: {
     const FieldAccessor<WRITE_DISCARD, Point<1>, 3> blocks(block_pr, block_fid);
-    for (PointInDomainIterator<3> pid(runtime->get_index_space_domain(is));
+    for (PointInDomainIterator<3> pid(m_runtime->get_index_space_domain(is));
          pid();
          pid++) {
       std::array<coord_t, 3> idx{pid[0], pid[1], pid[2]};
@@ -195,13 +200,13 @@ Table::row_block_index_partitions(
     assert(false);
     break;
   }
-  runtime->unmap_region(ctx, block_pr);
+  m_runtime->unmap_region(m_context, block_pr);
   auto num_blocks = (num_rows() + block_size - 1) / block_size;
   IndexSpace block_color_space =
-    runtime->create_index_space(ctx, Rect<1>(0, num_blocks - 1));
+    m_runtime->create_index_space(m_context, Rect<1>(0, num_blocks - 1));
   IndexPartition block_partition =
-    runtime->create_partition_by_field(
-      ctx,
+    m_runtime->create_partition_by_field(
+      m_context,
       block_lr,
       block_lr,
       block_fid,
@@ -210,18 +215,14 @@ Table::row_block_index_partitions(
   if (ipart) {
     map<IndexSpace, IndexPartition> all_partitions;
     all_partitions[block_color_space] = IndexPartition::NO_PART;
-    runtime->create_cross_product_partitions(
-      ctx,
+    m_runtime->create_cross_product_partitions(
+      m_context,
       block_partition,
       ipart.value(),
       all_partitions);
 
     auto projected_partitions =
-      index_partitions(
-        ctx,
-        runtime,
-        all_partitions[block_color_space],
-        colnames);
+      index_partitions(all_partitions[block_color_space], colnames);
     result =
       std::make_tuple(
         projected_partitions,
@@ -229,7 +230,7 @@ Table::row_block_index_partitions(
   } else {
     result =
       std::make_tuple(
-        index_partitions(ctx, runtime, block_partition, colnames),
+        index_partitions(block_partition, colnames),
         block_partition);
   }
   return result;

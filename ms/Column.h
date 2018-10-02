@@ -18,7 +18,10 @@ class Column
   : public WithKeywords {
 public:
 
-  Column(const ColumnBuilder& builder)
+  Column(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const ColumnBuilder& builder)
     : WithKeywords(builder.keywords())
     , m_name(builder.name())
     , m_datatype(builder.datatype())
@@ -26,11 +29,31 @@ public:
     , m_rank(builder.rank())
     , m_num_rows(builder.num_rows())
     , m_row_index_shape(builder.row_index_shape())
-    , m_index_tree(builder.index_tree()) {
+    , m_index_tree(builder.index_tree())
+    , m_context(ctx)
+    , m_runtime(runtime) {
+  }
+
+  Column(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const ColumnBuilder& builder,
+    const IndexTreeL& index_tree)
+    : WithKeywords(builder.keywords())
+    , m_name(builder.name())
+    , m_datatype(builder.datatype())
+    , m_row_rank(builder.row_rank())
+    , m_rank(builder.rank())
+    , m_num_rows(builder.num_rows())
+    , m_row_index_shape(builder.row_index_shape())
+    , m_index_tree(index_tree)
+    , m_context(ctx)
+    , m_runtime(runtime) {
   }
 
   virtual ~Column() {
-    //FIXME: should destroy m_index_space
+    if (m_index_space)
+      m_runtime->destroy_index_space(m_context, m_index_space.value());
   }
 
   const std::string&
@@ -69,20 +92,18 @@ public:
   }
 
   std::optional<Legion::IndexSpace>
-  index_space(Legion::Context ctx, Legion::Runtime* runtime) const {
+  index_space() const {
     if (!m_index_space)
-      m_index_space = legms::tree_index_space(m_index_tree, ctx, runtime);
+      m_index_space =
+        legms::tree_index_space(m_index_tree, m_context, m_runtime);
     return m_index_space;
   }
 
   Legion::FieldID
-  add_field(
-    Legion::Runtime *runtime,
-    Legion::FieldSpace fs,
-    Legion::FieldAllocator fa) const {
+  add_field(Legion::FieldSpace fs, Legion::FieldAllocator fa) const {
 
     auto result = legms::add_field(m_datatype, fa);
-    runtime->attach_name(fs, result, name().c_str());
+    m_runtime->attach_name(fs, result, name().c_str());
     return result;
   }
 
@@ -98,11 +119,15 @@ private:
 
   size_t m_num_rows;
 
-  mutable std::optional<Legion::IndexSpace> m_index_space;
-
   IndexTreeL m_row_index_shape;
 
   IndexTreeL m_index_tree;
+
+  Legion::Context m_context;
+
+  Legion::Runtime* m_runtime;
+
+  mutable std::optional<Legion::IndexSpace> m_index_space;
 };
 
 } // end namespace ms

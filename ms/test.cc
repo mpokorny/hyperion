@@ -58,7 +58,8 @@ public:
     TreeIndexSpace::register_tasks(runtime);
     FillProjectionsTasks::register_tasks(runtime);
 
-    std::shared_ptr<Table> table(new ReadOnlyTable(table_path.value()));
+    std::shared_ptr<Table> table(
+      new ReadOnlyTable(ctx, runtime, table_path.value()));
     std::cout << "table name: "
               << table->name() << std::endl;
     if (table->is_empty()) {
@@ -96,7 +97,7 @@ public:
       end_present_colnames,
       10000);
     auto row_index_shape = table->row_index_shape();
-    auto lr_fids = table_read_task.dispatch(ctx, runtime);
+    auto lr_fids = table_read_task.dispatch();
     for (size_t i = 0; i < lr_fids.size(); ++i) {
       std::cout << colnames[i] << ":" << std::endl;
       auto& [lr, fid] = lr_fids[i];
