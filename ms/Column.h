@@ -26,8 +26,7 @@ public:
     , m_rank(builder.rank())
     , m_num_rows(builder.num_rows())
     , m_row_index_shape(builder.row_index_shape())
-    , m_index_tree(builder.index_tree())
-    , m_fid(builder.field_id()) {
+    , m_index_tree(builder.index_tree()) {
   }
 
   virtual ~Column() {
@@ -64,11 +63,6 @@ public:
     return m_rank;
   }
 
-  std::optional<Legion::FieldID>
-  field_id() const {
-    return m_fid;
-  }
-
   size_t
   num_rows() const {
     return m_num_rows;
@@ -87,8 +81,7 @@ public:
     Legion::FieldSpace fs,
     Legion::FieldAllocator fa) const {
 
-    auto result =
-      legms::add_field(m_datatype, fa, m_fid.value_or(AUTO_GENERATE_ID));
+    auto result = legms::add_field(m_datatype, fa);
     runtime->attach_name(fs, result, name().c_str());
     return result;
   }
@@ -110,8 +103,6 @@ private:
   IndexTreeL m_row_index_shape;
 
   IndexTreeL m_index_tree;
-
-  std::optional<Legion::FieldID> m_fid;
 };
 
 } // end namespace ms

@@ -274,9 +274,6 @@ public:
     return m_columns.at(name);
   }
 
-  std::shared_ptr<Column>
-  column(Legion::FieldID fid) const;
-
   std::optional<Legion::IndexSpace>
   index_space(Legion::Context ctx, Legion::Runtime* runtime) const;
 

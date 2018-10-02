@@ -32,20 +32,6 @@ Table::column_names() const {
   return result;
 }
 
-shared_ptr<Column>
-Table::column(FieldID fid) const {
-  auto ncp = find_if(
-    m_columns.begin(),
-    m_columns.end(),
-    [&fid](auto& nc) {
-      return get<1>(nc)->field_id().value_or(fid - 1) == fid;
-    });
-  if (ncp != m_columns.end())
-    return get<1>(*ncp);
-  else
-    return shared_ptr<Column>();
-}
-
 std::optional<IndexSpace>
 Table::index_space(Context ctx, Runtime* runtime) const {
   return std::get<1>(*max_rank_column())->index_space(ctx, runtime);

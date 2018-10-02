@@ -41,23 +41,19 @@ public:
 
   template <typename T>
   void
-  add_scalar_column(
-    const std::string& name,
-    std::optional<Legion::FieldID> fid = std::nullopt) {
+  add_scalar_column(const std::string& name) {
 
-    add_column(
-      ScalarColumnBuilder::generator<T>(name, fid)(m_row_index_shape));
+    add_column(ScalarColumnBuilder::generator<T>(name)(m_row_index_shape));
   }
 
   template <int DIM, typename T>
   void
   add_array_column(
     const std::string& name,
-    std::function<std::array<size_t, DIM>(const std::any&)> row_dimensions,
-    std::optional<Legion::FieldID> fid = std::nullopt) {
+    std::function<std::array<size_t, DIM>(const std::any&)> row_dimensions) {
 
     add_column(
-      ArrayColumnBuilder<DIM>::template generator<T>(name, row_dimensions, fid)(
+      ArrayColumnBuilder<DIM>::template generator<T>(name, row_dimensions)(
         m_row_index_shape));
   }
 

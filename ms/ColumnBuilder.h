@@ -29,8 +29,7 @@ public:
     casacore::DataType datatype,
     unsigned row_rank,
     unsigned element_rank,
-    const IndexTreeL& row_index_shape,
-    std::optional<Legion::FieldID> fid = std::nullopt)
+    const IndexTreeL& row_index_shape)
     : WithKeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
@@ -38,8 +37,7 @@ public:
     , m_rank(row_rank + element_rank)
     , m_num_rows(0)
     , m_row_index_shape(row_index_shape)
-    , m_row_index_iterator(row_index_shape)
-    , m_fid(fid) {
+    , m_row_index_iterator(row_index_shape) {
 
     assert(row_index_shape.rank().value_or(0) == row_rank);
   }
@@ -75,11 +73,6 @@ public:
   unsigned
   row_rank() const {
     return m_row_rank;
-  }
-
-  std::optional<Legion::FieldID>
-  field_id() const {
-    return m_fid;
   }
 
   size_t
@@ -125,8 +118,6 @@ private:
   IndexTreeIterator<Legion::coord_t> m_row_index_iterator;
 
   IndexTreeL m_index_tree;
-
-  std::optional<Legion::FieldID> m_fid;
 };
 
 class ScalarColumnBuilder
@@ -136,22 +127,18 @@ public:
     ScalarColumnBuilder(
       const std::string& name,
       casacore::DataType datatype,
-      const IndexTreeL& row_index_shape,
-      std::optional<Legion::FieldID> fid = std::nullopt)
+      const IndexTreeL& row_index_shape)
       : ColumnBuilder(
         name,
         datatype,
         row_index_shape.rank().value(),
         0,
-        row_index_shape,
-        fid) {
+        row_index_shape) {
     }
 
   template <typename T>
   static auto
-  generator(
-    const std::string& name,
-    std::optional<Legion::FieldID> fid = std::nullopt);
+  generator(const std::string& name);
 
   virtual ~ScalarColumnBuilder() {}
 
@@ -170,15 +157,13 @@ public:
     const std::string& name,
     casacore::DataType datatype,
     const IndexTreeL& row_index_shape,
-    std::function<std::array<size_t, ARRAYDIM>(const std::any&)> row_dimensions,
-    std::optional<Legion::FieldID> fid = std::nullopt)
+    std::function<std::array<size_t, ARRAYDIM>(const std::any&)> row_dimensions)
     : ColumnBuilder(
       name,
       datatype,
       row_index_shape.rank().value(),
       ARRAYDIM,
-      row_index_shape,
-      fid)
+      row_index_shape)
     , m_row_dimensions(row_dimensions) {
   }
 
@@ -188,8 +173,8 @@ public:
   static auto
   generator(
     const std::string& name,
-    std::function<std::array<size_t, ARRAYDIM>(const std::any&)> row_dimensions,
-    std::optional<Legion::FieldID> fid = std::nullopt);
+    std::function<std::array<size_t, ARRAYDIM>(const std::any&)>
+    row_dimensions);
 
   void
   add_row(const std::any& args) override {
