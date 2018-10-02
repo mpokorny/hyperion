@@ -385,4 +385,3 @@ TableReadTask::field_init<casacore::String>(
 // fill-column: 80
 // indent-tabs-mode: nil
 // End:
-

@@ -96,29 +96,32 @@ Table::index_partitions(
     inserter(ranks, ranks.end()),
     [this](auto& colname) { return column(colname)->rank(); });
   auto fs = runtime->create_field_space(ctx);
-  auto fa = runtime->create_field_allocator(ctx, fs);
-  for_each(
-    ranks.begin(),
-    ranks.end(),
-    [&fa](auto r) {
-      switch (r) {
-      case 1:
-        fa.allocate_field(sizeof(Point<1>), 1);
-        break;
-      case 2:
-        fa.allocate_field(sizeof(Point<2>), 2);
-        break;
-      case 3:
-        fa.allocate_field(sizeof(Point<3>), 3);
-        break;
-      default:
-        assert(false);
-        break;
-      }
-    });
+  {
+    auto fa = runtime->create_field_allocator(ctx, fs);
+    for_each(
+      ranks.begin(),
+      ranks.end(),
+      [&fa](auto r) {
+        switch (r) {
+        case 1:
+          fa.allocate_field(sizeof(Point<1>), 1);
+          break;
+        case 2:
+          fa.allocate_field(sizeof(Point<2>), 2);
+          break;
+        case 3:
+          fa.allocate_field(sizeof(Point<3>), 3);
+          break;
+        default:
+          assert(false);
+          break;
+        }
+      });
+  }
   auto proj_lr = runtime->create_logical_region(ctx, is, fs);
   auto proj_lp = runtime->get_logical_partition(ctx, proj_lr, ipart);
   initialize_projections(ctx, runtime, proj_lr, proj_lp);
+  runtime->destroy_field_space(ctx, fs);
 
   unsigned  reg_rank = is.get_dim();
   auto color_space =
@@ -142,6 +145,9 @@ Table::index_partitions(
       else
         return ipart;
     });
+  //runtime->destroy_logical_partition(ctx, proj_lp);
+  runtime->destroy_logical_region(ctx, proj_lr);
+  runtime->destroy_index_space(ctx, color_space);
   return result;
 }
 
@@ -283,6 +289,7 @@ Table::initialize_projections(
     assert(false);
     break;
   }
+  //runtime->destroy_index_space(ctx, launch_space);
 }
 
 // Local Variables:
@@ -291,4 +298,3 @@ Table::initialize_projections(
 // fill-column: 80
 // indent-tabs-mode: nil
 // End:
-

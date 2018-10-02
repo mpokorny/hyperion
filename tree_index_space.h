@@ -374,7 +374,14 @@ public:
     for (Legion::coord_t i = 0; i < m_nch; ++i)
       ispaces.push_back(acc_ispace[i]);
     runtime->unmap_region(ctx, region);
-    return runtime->union_index_spaces(ctx, ispaces);;
+    Legion::IndexSpaceT<DIM> result = runtime->union_index_spaces(ctx, ispaces);
+    std::for_each(
+      ispaces.begin(),
+      ispaces.end(),
+      [&ctx, runtime](auto& is) {
+        runtime->destroy_index_space(ctx, is);
+      });
+    return result;
   }
 
   ssize_t m_nch;
@@ -563,5 +570,4 @@ tree_index_space(
 // c-basic-offset: 2
 // fill-column: 80
 // indent-tabs-mode: nil
-// coding: utf-8
 // End:

@@ -47,7 +47,10 @@ public:
         auto fid = legms::add_field(dt, fa);
         runtime->attach_name(fs, fid, nm.c_str());
       });
-    return runtime->create_logical_region(ctx, is, fs);
+    Legion::LogicalRegion result = runtime->create_logical_region(ctx, is, fs);
+    runtime->destroy_field_space(ctx, fs);
+    runtime->destroy_index_space(ctx, is);
+    return result;
   }
 
 private:
@@ -67,6 +70,4 @@ private:
 // c-basic-offset: 2
 // fill-column: 80
 // indent-tabs-mode: nil
-// coding: utf-8
 // End:
-

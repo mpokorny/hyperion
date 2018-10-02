@@ -137,4 +137,3 @@ ReadOnlyTable::builder(const std::experimental::filesystem::path& path) {
 // fill-column: 80
 // indent-tabs-mode: nil
 // End:
-

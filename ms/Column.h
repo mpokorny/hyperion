@@ -30,6 +30,10 @@ public:
     , m_fid(builder.field_id()) {
   }
 
+  virtual ~Column() {
+    //FIXME: should destroy m_index_space
+  }
+
   const std::string&
   name() const {
     return m_name;
