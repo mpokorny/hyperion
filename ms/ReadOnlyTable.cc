@@ -136,5 +136,5 @@ ReadOnlyTable::builder(const std::experimental::filesystem::path& path) {
 // c-basic-offset: 2
 // fill-column: 80
 // indent-tabs-mode: nil
-// coding: utf-8
 // End:
+

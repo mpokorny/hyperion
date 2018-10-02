@@ -19,16 +19,16 @@ std::vector<std::tuple<LogicalRegion, FieldID>>
 TableReadTask::dispatch(Context ctx, Runtime* runtime) {
 
   size_t ser_row_index_shape_size =
-    index_tree_serdez::serialized_size(m_table.row_index_shape());
+    index_tree_serdez::serialized_size(m_table->row_index_shape());
   size_t args_size = sizeof(TableReadTaskArgs) + ser_row_index_shape_size;
   std::unique_ptr<TableReadTaskArgs> arg_template(
     static_cast<TableReadTaskArgs*>(::operator new(args_size)));
   assert(m_table_path.size() < sizeof(arg_template->table_path));
   std::strcpy(arg_template->table_path, m_table_path.c_str());
-  assert(m_table.name().size() < sizeof(arg_template->table_name));
-  std::strcpy(arg_template->table_name, m_table.name().c_str());
+  assert(m_table->name().size() < sizeof(arg_template->table_name));
+  std::strcpy(arg_template->table_name, m_table->name().c_str());
   index_tree_serdez::serialize(
-    m_table.row_index_shape(),
+    m_table->row_index_shape(),
     arg_template->ser_row_index_shape);
 
   std::vector<std::unique_ptr<TableReadTaskArgs>> args;
@@ -42,43 +42,33 @@ TableReadTask::dispatch(Context ctx, Runtime* runtime) {
       memcpy(result.get(), arg_template.get(), args_size);
       assert(nm.size() < sizeof(result->column_name));
       std::strcpy(result->column_name, nm.c_str());
-      auto col = m_table.column(nm);
+      auto col = m_table->column(nm);
       result->column_rank = col->rank();
       result->column_datatype = col->datatype();
       return result;
     });
 
-  auto result = m_table.logical_regions(ctx, runtime, m_column_names);
-
-  if (m_index_partition) {
-    auto ip = m_index_partition.value();
-    auto ips =
-      m_table.index_partitions(ctx, runtime, ip, m_column_names);
-    auto cs = runtime->get_index_partition_color_space(ctx, ip);
-    for (size_t i = 0; i < result.size(); ++i) {
-      auto launcher = IndexTaskLauncher(
-        TASK_ID,
-        cs,
-        TaskArgument(args[i].get(), args_size),
-        ArgumentMap());
-      auto& [lr, fid] = result[i];
-      LogicalPartition lp = runtime->get_logical_partition(ctx, lr, ips[i]);
-      RegionRequirement req(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr);
-      req.add_field(fid);
-      launcher.add_region_requirement(req);
-      runtime->execute_index_space(ctx, launcher);
-    }
-  } else {
-    for (size_t i = 0; i < result.size(); ++i) {
-      auto launcher = TaskLauncher(
-        TASK_ID,
-        TaskArgument(args[i].get(), args_size));
-      auto& [lr, fid] = result[i];
-      RegionRequirement req(lr, WRITE_DISCARD, EXCLUSIVE, lr);
-      req.add_field(fid);
-      launcher.add_region_requirement(req);
-      runtime->execute_task(ctx, launcher);
-    }
+  auto result = m_table->logical_regions(ctx, runtime, m_column_names);
+  auto [ips, ip] =
+    m_table->row_block_index_partitions(
+      ctx,
+      runtime,
+      m_index_partition,
+      m_column_names,
+      m_block_length);
+  auto cs = runtime->get_index_partition_color_space(ctx, ip);
+  for (size_t i = 0; i < result.size(); ++i) {
+    auto launcher = IndexTaskLauncher(
+      TASK_ID,
+      cs,
+      TaskArgument(args[i].get(), args_size),
+      ArgumentMap());
+    auto& [lr, fid] = result[i];
+    LogicalPartition lp = runtime->get_logical_partition(ctx, lr, ips[i]);
+    RegionRequirement req(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr);
+    req.add_field(fid);
+    launcher.add_region_requirement(req);
+    runtime->execute_index_space(ctx, launcher);
   }
   return result;
 }
@@ -142,5 +132,5 @@ TableReadTask::base_impl(
 // c-basic-offset: 2
 // fill-column: 80
 // indent-tabs-mode: nil
-// coding: utf-8
 // End:
+

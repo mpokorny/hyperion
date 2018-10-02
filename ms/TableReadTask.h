@@ -34,13 +34,15 @@ public:
   template <typename Iter, typename EndIter>
   TableReadTask(
     const std::string& table_path,
-    const Table& table,
+    const std::shared_ptr<Table>& table,
     Iter colname_iter,
     EndIter end_colname_iter,
+    size_t block_length,
     std::optional<Legion::IndexPartition> ipart = std::nullopt)
     : m_table_path(table_path)
     , m_table(table)
     , m_column_names(colname_iter, end_colname_iter)
+    , m_block_length(block_length)
     , m_index_partition(ipart) {
   }
 
@@ -352,9 +354,11 @@ private:
 
   std::string m_table_path;
 
-  Table m_table;
+  const std::shared_ptr<Table> m_table;
 
   std::vector<std::string> m_column_names;
+
+  size_t m_block_length;
 
   std::optional<Legion::IndexPartition> m_index_partition;
 
@@ -380,5 +384,5 @@ TableReadTask::field_init<casacore::String>(
 // c-basic-offset: 2
 // fill-column: 80
 // indent-tabs-mode: nil
-// coding: utf-8
 // End:
+

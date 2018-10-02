@@ -24,6 +24,7 @@ public:
     , m_datatype(builder.datatype())
     , m_row_rank(builder.row_rank())
     , m_rank(builder.rank())
+    , m_num_rows(builder.num_rows())
     , m_row_index_shape(builder.row_index_shape())
     , m_index_tree(builder.index_tree())
     , m_fid(builder.field_id()) {
@@ -64,6 +65,11 @@ public:
     return m_fid;
   }
 
+  size_t
+  num_rows() const {
+    return m_num_rows;
+  }
+
   std::optional<Legion::IndexSpace>
   index_space(Legion::Context ctx, Legion::Runtime* runtime) const {
     if (!m_index_space)
@@ -93,6 +99,8 @@ private:
 
   unsigned m_rank;
 
+  size_t m_num_rows;
+
   mutable std::optional<Legion::IndexSpace> m_index_space;
 
   IndexTreeL m_row_index_shape;
@@ -112,6 +120,4 @@ private:
 // c-basic-offset: 2
 // fill-column: 80
 // indent-tabs-mode: nil
-// coding: utf-8
 // End:
-

@@ -42,8 +42,7 @@ public:
 private:
 
   static TableBuilder
-  builder(
-    const std::experimental::filesystem::path& path);
+  builder(const std::experimental::filesystem::path& path);
 
   struct SizeArgs {
     std::shared_ptr<casacore::TableColumn> tcol;
@@ -76,5 +75,5 @@ private:
 // c-basic-offset: 2
 // fill-column: 80
 // indent-tabs-mode: nil
-// coding: utf-8
 // End:
+

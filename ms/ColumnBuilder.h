@@ -36,6 +36,7 @@ public:
     , m_datatype(datatype)
     , m_row_rank(row_rank)
     , m_rank(row_rank + element_rank)
+    , m_num_rows(0)
     , m_row_index_shape(row_index_shape)
     , m_row_index_iterator(row_index_shape)
     , m_fid(fid) {
@@ -81,6 +82,11 @@ public:
     return m_fid;
   }
 
+  size_t
+  num_rows() const {
+    return m_num_rows;
+  }
+
   virtual void
   add_row(const std::any&) = 0;
 
@@ -90,6 +96,7 @@ protected:
   set_next_row(const IndexTreeL& element_tree) {
     auto row_index = *m_row_index_iterator;
     ++m_row_index_iterator;
+    ++m_num_rows;
     IndexTreeL result =
       std::accumulate(
         row_index.rbegin(),
@@ -110,6 +117,8 @@ private:
   unsigned m_row_rank;
 
   unsigned m_rank;
+
+  size_t m_num_rows;
 
   IndexTreeL m_row_index_shape;
 
@@ -213,6 +222,4 @@ private:
 // c-basic-offset: 2
 // fill-column: 80
 // indent-tabs-mode: nil
-// coding: utf-8
 // End:
-

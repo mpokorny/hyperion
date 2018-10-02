@@ -42,6 +42,7 @@ public:
   FillProjectionsTask(
     Legion::LogicalRegion lr,
     Legion::LogicalPartition lp,
+    Legion::FieldID fid,
     Legion::IndexSpace launch_space)
     : Legion::IndexTaskLauncher(
       TASK_ID,
@@ -51,6 +52,7 @@ public:
 
     add_region_requirement(
       Legion::RegionRequirement(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr));
+    add_field(0, fid);
   }
 
   void
@@ -112,6 +114,7 @@ public:
   FillProjectionsTask(
     Legion::LogicalRegion lr,
     Legion::LogicalPartition lp,
+    Legion::FieldID fid,
     Legion::IndexSpace launch_space)
     : Legion::IndexTaskLauncher(
       TASK_ID,
@@ -121,6 +124,7 @@ public:
 
     add_region_requirement(
       Legion::RegionRequirement(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr));
+    add_field(0, fid);
   }
 
   void
@@ -251,6 +255,13 @@ public:
   }
 
   size_t
+  num_rows() const {
+    if (m_columns.size() == 0)
+      return 0;
+    return std::get<1>(*m_columns.begin())->num_rows();
+  }
+
+  size_t
   row_number(const std::vector<Legion::coord_t>& index) const {
     return row_number(row_index_shape(), index.begin(), index.end());
   }
@@ -267,9 +278,7 @@ public:
   column(Legion::FieldID fid) const;
 
   std::optional<Legion::IndexSpace>
-  index_space(Legion::Context ctx, Legion::Runtime* runtime) const {
-    return std::get<1>(*max_rank_column())->index_space(ctx, runtime);
-  }
+  index_space(Legion::Context ctx, Legion::Runtime* runtime) const;
 
   std::vector<std::tuple<Legion::LogicalRegion, Legion::FieldID>>
   logical_regions(
@@ -283,6 +292,14 @@ public:
     Legion::Runtime* runtime,
     const Legion::IndexPartition& ipart,
     const std::vector<std::string>& colnames) const;
+
+  std::tuple<std::vector<Legion::IndexPartition>, Legion::IndexPartition>
+  row_block_index_partitions(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const std::optional<Legion::IndexPartition>& ipart,
+    const std::vector<std::string>& colnames,
+    size_t block_size) const;
 
   template <typename IndexIter, typename IndexIterEnd>
   static size_t
@@ -351,6 +368,4 @@ protected:
 // c-basic-offset: 2
 // fill-column: 80
 // indent-tabs-mode: nil
-// coding: utf-8
 // End:
-
