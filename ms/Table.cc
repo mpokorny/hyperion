@@ -1,5 +1,6 @@
 #include <algorithm>
 #include "Table.h"
+#include "FillProjectionsTask.h"
 
 using namespace legms::ms;
 using namespace Legion;

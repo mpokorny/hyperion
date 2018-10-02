@@ -10,6 +10,7 @@
 #include "Table.h"
 #include "TableReadTask.h"
 #include "ReadOnlyTable.h"
+#include "FillProjectionsTask.h"
 
 namespace fs = std::experimental::filesystem;
 
