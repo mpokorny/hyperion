@@ -99,14 +99,19 @@ public:
       10000);
     auto row_index_shape = table->row_index_shape();
     auto lr_fids = table_read_task.dispatch();
+    std::vector<PhysicalRegion> prs;
     for (size_t i = 0; i < lr_fids.size(); ++i) {
-      std::cout << colnames[i] << ":" << std::endl;
       auto& [lr, fid] = lr_fids[i];
       auto launcher = InlineLauncher(
         RegionRequirement(lr, READ_ONLY, EXCLUSIVE, lr));
       launcher.add_field(fid);
-      PhysicalRegion pr = runtime->map_region(ctx, launcher);
+      prs.push_back(runtime->map_region(ctx, launcher));
+    }
+    for (size_t i = 0; i < lr_fids.size(); ++i) {
+      std::cout << colnames[i] << ":" << std::endl;
       auto col = table->column(colnames[i]);
+      auto& [lr, fid] = lr_fids[i];
+      auto pr = prs[i];
       switch (col->rank()) {
       case 1:
         show<1>(runtime, pr, lr, fid, col, row_index_shape);
@@ -122,6 +127,7 @@ public:
         break;
       }
       std::cout << std::endl;
+      runtime->unmap_region(ctx, prs[i]);
     }
   }
 
