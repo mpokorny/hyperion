@@ -50,6 +50,8 @@ ReadOnlyTable::builder(const std::experimental::filesystem::path& path) {
         nm, size<3>);                                               \
       array_names.insert(nm);                                          \
       break;                                                          \
+    case -1:                                                          \
+      break;                                                          \
     default:                                                          \
       assert(false);                                                  \
       break;                                                          \
@@ -57,46 +59,41 @@ ReadOnlyTable::builder(const std::experimental::filesystem::path& path) {
 
   auto tdesc = table.tableDesc();
   auto column_names = tdesc.columnNames();
-  auto end_column_names =
-    std::remove_if(
-      column_names.begin(),
-      column_names.end(),
-      [&tdesc](auto& nm) {
-        return !tdesc.isColumn(nm) || tdesc[nm].ndim() == -1;
-      });
   std::for_each(
     column_names.begin(),
-    end_column_names,
+    column_names.end(),
     [&result, &tdesc, &array_names](auto& nm) {
-      auto col = tdesc[nm];
-      switch (col.trueDataType()) {
-      case COL(Bool)
-        break;
-      case COL(Char)
-        break;
-      case COL(UChar)
-        break;
-      case COL(Short)
-        break;
-      case COL(UShort)
-        break;
-      case COL(Int)
-        break;
-      case COL(UInt)
-        break;
-      case COL(Float)
-        break;
-      case COL(Double)
-        break;
-      case COL(Complex)
-        break;
-      case COL(DComplex)
-        break;
-      case COL(String)
-        break;
-      default:
-        assert(false);
-        break;
+      if (tdesc.isColumn(nm)) {
+        auto col = tdesc[nm];
+        switch (col.trueDataType()) {
+        case COL(Bool)
+          break;
+        case COL(Char)
+          break;
+        case COL(UChar)
+          break;
+        case COL(Short)
+          break;
+        case COL(UShort)
+          break;
+        case COL(Int)
+          break;
+        case COL(UInt)
+          break;
+        case COL(Float)
+          break;
+        case COL(Double)
+          break;
+        case COL(Complex)
+          break;
+        case COL(DComplex)
+          break;
+        case COL(String)
+          break;
+        default:
+          assert(false);
+          break;
+        }
       }
     });
 
@@ -119,12 +116,15 @@ ReadOnlyTable::builder(const std::experimental::filesystem::path& path) {
 
   auto nrow = table.nrow();
   for (unsigned i = 0; i < nrow; ++i) {
-    for (auto& arg : args) {
-      auto ap = &std::get<1>(arg);
-      auto sap = std::any_cast<SizeArgs>(ap);
-      if (sap->tcol)
-        sap->row = i;
-    }
+    std::for_each(
+      args.begin(),
+      args.end(),
+      [i](auto& arg) {
+        auto ap = &std::get<1>(arg);
+        auto sap = std::any_cast<SizeArgs>(ap);
+        if (sap->tcol)
+          sap->row = i;
+      });
     result.add_row(args);
   }
 
