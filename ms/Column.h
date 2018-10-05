@@ -25,7 +25,6 @@ public:
     : WithKeywords(builder.keywords())
     , m_name(builder.name())
     , m_datatype(builder.datatype())
-    , m_row_rank(builder.row_rank())
     , m_rank(builder.rank())
     , m_num_rows(builder.num_rows())
     , m_row_index_shape(builder.row_index_shape())
@@ -78,7 +77,7 @@ public:
 
   unsigned
   row_rank() const {
-    return m_row_rank;
+    return m_row_index_shape.rank().value();
   }
 
   unsigned
@@ -112,8 +111,6 @@ private:
   std::string m_name;
 
   casacore::DataType m_datatype;
-
-  unsigned m_row_rank;
 
   unsigned m_rank;
 
