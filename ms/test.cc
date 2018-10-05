@@ -59,15 +59,17 @@ public:
     TreeIndexSpace::register_tasks(runtime);
     FillProjectionsTasks::register_tasks(runtime);
 
-    std::shared_ptr<Table> table(
-      new ReadOnlyTable(ctx, runtime, table_path.value()));
+    std::unordered_set<std::string>
+      colnames_set(colnames.begin(), colnames.end());
+    std::shared_ptr<Table>
+      table(new ReadOnlyTable(ctx, runtime, table_path.value(), colnames_set));
     std::cout << "table name: "
               << table->name() << std::endl;
     if (table->is_empty()) {
       std::cout << "Empty table" << std::endl;
       return;
     }
-    if (colnames[0] == "*") {
+    if (colnames_set.count("*") > 0) {
       colnames.clear();
       auto cols = table->column_names();
       std::copy(cols.begin(), cols.end(), std::back_inserter(colnames));

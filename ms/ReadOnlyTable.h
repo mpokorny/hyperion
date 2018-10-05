@@ -1,6 +1,8 @@
 #ifndef LEGMS_MS_READ_ONLY_TABLE_H_
 #define LEGMS_MS_READ_ONLY_TABLE_H_
 
+#include <unordered_set>
+
 #include <experimental/filesystem>
 
 #include <casacore/casa/aipstype.h>
@@ -20,8 +22,9 @@ public:
   ReadOnlyTable(
     Legion::Context ctx,
     Legion::Runtime* runtime,
-    const std::experimental::filesystem::path& path)
-    : Table(ctx, runtime, builder(path))
+    const std::experimental::filesystem::path& path,
+    const std::unordered_set<std::string>& column_selection)
+    : Table(ctx, runtime, builder(path, column_selection))
     , m_ms_path(path.parent_path())
     , m_table_name(path.filename()) {
   }
@@ -44,7 +47,9 @@ public:
 private:
 
   static TableBuilder
-  builder(const std::experimental::filesystem::path& path);
+  builder(
+    const std::experimental::filesystem::path& path,
+    const std::unordered_set<std::string>& column_selection);
 
   struct SizeArgs {
     std::shared_ptr<casacore::TableColumn> tcol;

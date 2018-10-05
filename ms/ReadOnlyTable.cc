@@ -1,5 +1,3 @@
-#include <unordered_set>
-
 #include "utility.h"
 #include "ReadOnlyTable.h"
 #include "IndexTree.h"
@@ -7,7 +5,9 @@
 using namespace legms::ms;
 
 TableBuilder
-ReadOnlyTable::builder(const std::experimental::filesystem::path& path) {
+ReadOnlyTable::builder(
+  const std::experimental::filesystem::path& path,
+  const std::unordered_set<std::string>& column_selection) {
 
   casacore::Table table(
     casacore::String(path),
@@ -57,13 +57,15 @@ ReadOnlyTable::builder(const std::experimental::filesystem::path& path) {
       break;                                                          \
     }
 
+  bool select_all = column_selection.count("*") > 0;
   auto tdesc = table.tableDesc();
   auto column_names = tdesc.columnNames();
   std::for_each(
     column_names.begin(),
     column_names.end(),
-    [&result, &tdesc, &array_names](auto& nm) {
-      if (tdesc.isColumn(nm)) {
+    [&result, &tdesc, &array_names, &column_selection, &select_all](auto& nm) {
+      if (tdesc.isColumn(nm)
+          && (select_all || column_selection.count(nm) > 0)) {
         auto col = tdesc[nm];
         switch (col.trueDataType()) {
         case COL(Bool)

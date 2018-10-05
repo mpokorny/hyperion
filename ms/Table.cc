@@ -15,7 +15,6 @@ Table::Table(
   , m_context(ctx)
   , m_runtime(runtime) {
 
-  assert(builder.m_columns.size() > 0);
   transform(
     builder.m_columns.begin(),
     builder.m_columns.end(),
