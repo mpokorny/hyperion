@@ -27,19 +27,15 @@ public:
   ColumnBuilder(
     const std::string& name,
     casacore::DataType datatype,
-    unsigned row_rank,
     unsigned element_rank,
     const IndexTreeL& row_index_shape)
     : WithKeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
-    , m_row_rank(row_rank)
-    , m_rank(row_rank + element_rank)
+    , m_rank(row_index_shape.rank().value() + element_rank)
     , m_num_rows(0)
     , m_row_index_shape(row_index_shape)
     , m_row_index_iterator(row_index_shape) {
-
-    assert(row_index_shape.rank().value_or(0) == row_rank);
   }
 
   virtual ~ColumnBuilder() {}
@@ -71,7 +67,7 @@ public:
 
   unsigned
   row_rank() const {
-    return m_row_rank;
+    return m_row_index_shape.rank().value();
   }
 
   size_t
@@ -106,8 +102,6 @@ private:
 
   casacore::DataType m_datatype;
 
-  unsigned m_row_rank;
-
   unsigned m_rank;
 
   size_t m_num_rows;
@@ -127,12 +121,7 @@ public:
       const std::string& name,
       casacore::DataType datatype,
       const IndexTreeL& row_index_shape)
-      : ColumnBuilder(
-        name,
-        datatype,
-        row_index_shape.rank().value(),
-        0,
-        row_index_shape) {
+      : ColumnBuilder(name, datatype, 0, row_index_shape) {
     }
 
   template <typename T>
@@ -157,12 +146,7 @@ public:
     casacore::DataType datatype,
     const IndexTreeL& row_index_shape,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)> row_dimensions)
-    : ColumnBuilder(
-      name,
-      datatype,
-      row_index_shape.rank().value(),
-      ARRAYDIM,
-      row_index_shape)
+    : ColumnBuilder(name, datatype, ARRAYDIM, row_index_shape)
     , m_row_dimensions(row_dimensions) {
   }
 
