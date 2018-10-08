@@ -22,7 +22,7 @@ struct TableReadTaskArgs {
   char column_name[20];
   unsigned column_rank;
   casacore::DataType column_datatype;
-  unsigned char ser_row_index_shape[];
+  unsigned char ser_row_index_pattern[];
 };
 
 class TableReadTask {
@@ -64,7 +64,7 @@ public:
   read_column(
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
-    const IndexTreeL& row_index_shape,
+    const IndexTreeL& row_index_pattern,
     casacore::DataType lr_datatype,
     Legion::DomainT<DIM> reg_domain,
     const Legion::PhysicalRegion& region) {
@@ -75,12 +75,12 @@ public:
       case casacore::DataType::Tp##dt:                                  \
         read_scalar_column<DIM, DataType<casacore::DataType::Tp##dt>::  \
                            ValueType>(                                  \
-          table, col_desc, row_index_shape, reg_domain, region); \
+          table, col_desc, row_index_pattern, reg_domain, region); \
         break;                                                          \
       case casacore::DataType::TpArray##dt:                             \
         read_array_column<DIM, DataType<casacore::DataType::Tp##dt>::   \
                           ValueType>(                                   \
-          table, col_desc, row_index_shape, reg_domain, region); \
+          table, col_desc, row_index_pattern, reg_domain, region); \
         break;                                                          \
       default:                                                          \
         assert(false);                                                  \
@@ -91,7 +91,7 @@ public:
       case casacore::DataType::TpArray##dt:                             \
         read_vector_column<DIM, DataType<casacore::DataType::Tp##dt>::  \
                            ValueType>(                                  \
-          table, col_desc, row_index_shape, reg_domain, region); \
+          table, col_desc, row_index_pattern, reg_domain, region); \
         break;                                                          \
       default:                                                          \
         assert(false);                                                  \
@@ -135,7 +135,7 @@ public:
   read_scalar_column(
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
-    const IndexTreeL& row_index_shape,
+    const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
     const Legion::PhysicalRegion& region) {
 
@@ -160,7 +160,7 @@ public:
       Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
       for (size_t i = 0; i < DIM; ++i)
         pt[i] = pid[i];
-      row_number = Table::row_number(row_index_shape, pt.begin(), pt.end());
+      row_number = Table::row_number(row_index_pattern, pt.begin(), pt.end());
       col.get(row_number, col_value);
     }
 
@@ -169,7 +169,7 @@ public:
          pid++) {
       for (size_t i = 0; i < DIM; ++i)
         pt[i] = pid[i];
-      auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end());
+      auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end());
       if (row_number != rn) {
         row_number = rn;
         col.get(row_number, col_value);
@@ -187,7 +187,7 @@ public:
   read_array_column(
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
-    const IndexTreeL& row_index_shape,
+    const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
     const Legion::PhysicalRegion& region) {
 
@@ -212,7 +212,7 @@ public:
       Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
       for (size_t i = 0; i < DIM; ++i)
         pt[i] = pid[i];
-      row_number = Table::row_number(row_index_shape, pt.begin(), pt.end());
+      row_number = Table::row_number(row_index_pattern, pt.begin(), pt.end());
       array_cell_rank = col.ndim(row_number);
     }
 
@@ -227,7 +227,7 @@ public:
            pid++) {
         for (size_t i = 0; i < DIM; ++i)
           pt[i] = pid[i];
-        auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end());
+        auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end());
         if (row_number != rn) {
           row_number = rn;
           col.get(row_number, col_array, true);
@@ -245,7 +245,7 @@ public:
            pid++) {
         for (size_t i = 0; i < DIM; ++i)
           pt[i] = pid[i];
-        auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end());
+        auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end());
         if (row_number != rn) {
           row_number = rn;
           col.get(row_number, col_array, true);
@@ -263,7 +263,7 @@ public:
            pid++) {
         for (size_t i = 0; i < DIM; ++i)
           pt[i] = pid[i];
-        auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end());
+        auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end());
         if (row_number != rn) {
           row_number = rn;
           col.get(row_number, col_array, true);
@@ -280,7 +280,7 @@ public:
            pid++) {
         for (size_t i = 0; i < DIM; ++i)
           pt[i] = pid[i];
-        auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end());
+        auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end());
         if (row_number != rn) {
           row_number = rn;
           col.get(row_number, col_array, true);
@@ -299,7 +299,7 @@ public:
   read_vector_column(
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
-    const IndexTreeL& row_index_shape,
+    const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
     const Legion::PhysicalRegion& region) {
 
@@ -324,7 +324,7 @@ public:
       Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
       for (size_t i = 0; i < DIM; ++i)
         pt[i] = pid[i];
-      row_number = Table::row_number(row_index_shape, pt.begin(), pt.end());
+      row_number = Table::row_number(row_index_pattern, pt.begin(), pt.end());
       array_cell_rank = col.ndim(row_number);
     }
     assert(array_cell_rank == 1);
@@ -338,7 +338,7 @@ public:
          pid++) {
       for (size_t i = 0; i < DIM; ++i)
         pt[i] = pid[i];
-      auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end());
+      auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end());
       if (row_number != rn) {
         row_number = rn;
         col.get(row_number, col_array, true);

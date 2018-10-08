@@ -180,7 +180,7 @@ Table::row_block_index_partitions(
       std::array<coord_t, 2> idx{pid[0], pid[1]};
       blocks[*pid] =
         Table::row_number(
-          row_index_shape(), idx.begin(), idx.end()) / block_size;
+          row_index_pattern(), idx.begin(), idx.end()) / block_size;
     }
     break;
   }
@@ -192,7 +192,7 @@ Table::row_block_index_partitions(
       std::array<coord_t, 3> idx{pid[0], pid[1], pid[2]};
       blocks[*pid] =
         Table::row_number(
-          row_index_shape(), idx.begin(), idx.end()) / block_size;
+          row_index_pattern(), idx.begin(), idx.end()) / block_size;
     }
     break;
   }

@@ -18,9 +18,9 @@ TableReadTask::register_task(Runtime* runtime) {
 std::vector<std::tuple<LogicalRegion, FieldID>>
 TableReadTask::dispatch() {
 
-  size_t ser_row_index_shape_size =
-    index_tree_serdez::serialized_size(m_table->row_index_shape());
-  size_t args_size = sizeof(TableReadTaskArgs) + ser_row_index_shape_size;
+  size_t ser_row_index_pattern_size =
+    index_tree_serdez::serialized_size(m_table->row_index_pattern());
+  size_t args_size = sizeof(TableReadTaskArgs) + ser_row_index_pattern_size;
   std::unique_ptr<TableReadTaskArgs> arg_template(
     static_cast<TableReadTaskArgs*>(::operator new(args_size)));
   assert(m_table_path.size() < sizeof(arg_template->table_path));
@@ -28,8 +28,8 @@ TableReadTask::dispatch() {
   assert(m_table->name().size() < sizeof(arg_template->table_name));
   std::strcpy(arg_template->table_name, m_table->name().c_str());
   index_tree_serdez::serialize(
-    m_table->row_index_shape(),
-    arg_template->ser_row_index_shape);
+    m_table->row_index_pattern(),
+    arg_template->ser_row_index_pattern);
 
   std::vector<std::unique_ptr<TableReadTaskArgs>> args;
   std::transform(
@@ -89,8 +89,8 @@ TableReadTask::base_impl(
 
   const TableReadTaskArgs* args =
     static_cast<const TableReadTaskArgs*>(task->args);
-  IndexTreeL row_index_shape;
-  index_tree_serdez::deserialize(row_index_shape, args->ser_row_index_shape);
+  IndexTreeL row_index_pattern;
+  index_tree_serdez::deserialize(row_index_pattern, args->ser_row_index_pattern);
   casacore::Table table(args->table_path, casacore::TableLock::NoLocking);
   auto tdesc = table.tableDesc();
   auto cdesc = tdesc[args->column_name];
@@ -99,7 +99,7 @@ TableReadTask::base_impl(
     read_column<1>(
       table,
       cdesc,
-      row_index_shape,
+      row_index_pattern,
       args->column_datatype,
       runtime->get_index_space_domain(
         ctx,
@@ -110,7 +110,7 @@ TableReadTask::base_impl(
     read_column<2>(
       table,
       cdesc,
-      row_index_shape,
+      row_index_pattern,
       args->column_datatype,
       runtime->get_index_space_domain(
         ctx,
@@ -121,7 +121,7 @@ TableReadTask::base_impl(
     read_column<3>(
       table,
       cdesc,
-      row_index_shape,
+      row_index_pattern,
       args->column_datatype,
       runtime->get_index_space_domain(
         ctx,

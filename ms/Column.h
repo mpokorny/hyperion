@@ -28,7 +28,7 @@ public:
     , m_name(builder.name())
     , m_datatype(builder.datatype())
     , m_num_rows(builder.num_rows())
-    , m_row_index_shape(builder.row_index_shape())
+    , m_row_index_pattern(builder.row_index_pattern())
     , m_index_tree(builder.index_tree())
     , m_context(ctx)
     , m_runtime(runtime) {
@@ -39,15 +39,15 @@ public:
     Legion::Runtime* runtime,
     const std::string& name,
     casacore::DataType datatype,
-    const IndexTreeL& row_index_shape,
+    const IndexTreeL& row_index_pattern,
     const IndexTreeL& index_tree,
     const std::unordered_map<std::string, casacore::DataType>& kws =
       std::unordered_map<std::string, casacore::DataType>())
     : WithKeywords(kws)
     , m_name(name)
     , m_datatype(datatype)
-    , m_num_rows(nr(row_index_shape, index_tree).value())
-    , m_row_index_shape(row_index_shape)
+    , m_num_rows(nr(row_index_pattern, index_tree).value())
+    , m_row_index_pattern(row_index_pattern)
     , m_index_tree(index_tree)
     , m_context(ctx)
     , m_runtime(runtime) {
@@ -58,7 +58,7 @@ public:
     Legion::Runtime* runtime,
     const std::string& name,
     casacore::DataType datatype,
-    const IndexTreeL& row_index_shape,
+    const IndexTreeL& row_index_pattern,
     unsigned num_rows,
     const std::unordered_map<std::string, casacore::DataType>& kws =
     std::unordered_map<std::string, casacore::DataType>())
@@ -66,8 +66,8 @@ public:
     , m_name(name)
     , m_datatype(datatype)
     , m_num_rows(num_rows)
-    , m_row_index_shape(row_index_shape)
-    , m_index_tree(ixt(row_index_shape, num_rows))
+    , m_row_index_pattern(row_index_pattern)
+    , m_index_tree(ixt(row_index_pattern, num_rows))
     , m_context(ctx)
     , m_runtime(runtime) {
   }
@@ -93,13 +93,13 @@ public:
   }
 
   const IndexTreeL&
-  row_index_shape() const {
-    return m_row_index_shape;
+  row_index_pattern() const {
+    return m_row_index_pattern;
   }
 
   unsigned
   row_rank() const {
-    return m_row_index_shape.rank().value();
+    return m_row_index_pattern.rank().value();
   }
 
   unsigned
@@ -132,23 +132,23 @@ private:
 
   static std::optional<size_t>
   nr(
-    const IndexTreeL& row_shape,
+    const IndexTreeL& row_pattern,
     const IndexTreeL& full_shape,
     bool cycle = true) {
 
-    if (row_shape.rank().value() > full_shape.rank().value())
+    if (row_pattern.rank().value() > full_shape.rank().value())
       return std::nullopt;
-    auto pruned_shape = full_shape.pruned(row_shape.rank().value() - 1);
+    auto pruned_shape = full_shape.pruned(row_pattern.rank().value() - 1);
     auto p_iter = pruned_shape.children().begin();
     auto p_end = pruned_shape.children().end();
-    Legion::coord_t i0 = std::get<0>(row_shape.index_range());
+    Legion::coord_t i0 = std::get<0>(row_pattern.index_range());
     size_t result = 0;
     Legion::coord_t pi, pn;
     IndexTreeL pt;
     std::tie(pi, pn, pt) = *p_iter;
     while (p_iter != p_end) {
-      auto r_iter = row_shape.children().begin();
-      auto r_end = row_shape.children().end();
+      auto r_iter = row_pattern.children().begin();
+      auto r_end = row_pattern.children().end();
       Legion::coord_t i, n;
       IndexTreeL t;
       while (p_iter != p_end && r_iter != r_end) {
@@ -185,25 +185,25 @@ private:
   }
 
   static IndexTreeL
-  ixt(const IndexTreeL& row_shape, size_t num) {
+  ixt(const IndexTreeL& row_pattern, size_t num) {
     std::vector<std::tuple<Legion::coord_t, Legion::coord_t, IndexTreeL>> ch;
-    auto shape_n = row_shape.size();
-    auto shape_rep = num / shape_n;
-    auto shape_rem = num % shape_n;
-    assert(std::get<0>(row_shape.index_range()) == 0);
-    auto stride = std::get<1>(row_shape.index_range()) + 1;
+    auto pattern_n = row_pattern.size();
+    auto pattern_rep = num / pattern_n;
+    auto pattern_rem = num % pattern_n;
+    assert(std::get<0>(row_pattern.index_range()) == 0);
+    auto stride = std::get<1>(row_pattern.index_range()) + 1;
     Legion::coord_t offset = 0;
-    if (row_shape.children().size() == 1) {
+    if (row_pattern.children().size() == 1) {
       Legion::coord_t i;
       IndexTreeL t;
-      std::tie(i, std::ignore, t) = row_shape.children()[0];
-      offset += shape_rep * stride;
+      std::tie(i, std::ignore, t) = row_pattern.children()[0];
+      offset += pattern_rep * stride;
       ch.emplace_back(i, offset, t);
     } else {
-      for (size_t r = 0; r < shape_rep; ++r) {
+      for (size_t r = 0; r < pattern_rep; ++r) {
         std::transform(
-          row_shape.children().begin(),
-          row_shape.children().end(),
+          row_pattern.children().begin(),
+          row_pattern.children().end(),
           std::back_inserter(ch),
           [&offset](auto& c) {
             auto& [i, n, t] = c;
@@ -212,20 +212,20 @@ private:
         offset += stride;
       }
     }
-    auto rch = row_shape.children().begin();
-    auto rch_end = row_shape.children().end();
-    while (shape_rem > 0 && rch != rch_end) {
+    auto rch = row_pattern.children().begin();
+    auto rch_end = row_pattern.children().end();
+    while (pattern_rem > 0 && rch != rch_end) {
       auto& [i, n, t] = *rch;
       auto tsz = t.size();
-      if (shape_rem >= tsz) {
-        auto nt = std::min(shape_rem / tsz, static_cast<size_t>(n));
+      if (pattern_rem >= tsz) {
+        auto nt = std::min(pattern_rem / tsz, static_cast<size_t>(n));
         ch.emplace_back(i + offset, nt, t);
-        shape_rem -= nt * tsz;
+        pattern_rem -= nt * tsz;
         if (nt == static_cast<size_t>(n))
           ++rch;
-      } else /* shape_rem < tsz */ {
-        auto pt = ixt(t, shape_rem);
-        shape_rem = 0;
+      } else /* pattern_rem < tsz */ {
+        auto pt = ixt(t, pattern_rem);
+        pattern_rem = 0;
         ch.emplace_back(i + offset, 1, pt);
       }
     }
@@ -240,7 +240,7 @@ private:
 
   size_t m_num_rows;
 
-  IndexTreeL m_row_index_shape;
+  IndexTreeL m_row_index_pattern;
 
   IndexTreeL m_index_tree;
 

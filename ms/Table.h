@@ -54,8 +54,8 @@ public:
   }
 
   const IndexTreeL&
-  row_index_shape() const {
-    return std::get<1>(*m_columns.begin())->row_index_shape();
+  row_index_pattern() const {
+    return std::get<1>(*m_columns.begin())->row_index_pattern();
   }
 
   bool
@@ -74,7 +74,7 @@ public:
 
   size_t
   row_number(const std::vector<Legion::coord_t>& index) const {
-    return row_number(row_index_shape(), index.begin(), index.end());
+    return row_number(row_index_pattern(), index.begin(), index.end());
   }
 
   std::unordered_set<std::string>
@@ -105,22 +105,22 @@ public:
   template <typename IndexIter, typename IndexIterEnd>
   static size_t
   row_number(
-    const IndexTreeL& row_shape,
+    const IndexTreeL& row_pattern,
     IndexIter index,
     IndexIterEnd index_end) {
 
-    if (row_shape == IndexTreeL())
+    if (row_pattern == IndexTreeL())
       return 0;
     assert(index != index_end);
 
     int lo, hi;
-    std::tie(lo, hi) = row_shape.index_range();
+    std::tie(lo, hi) = row_pattern.index_range();
     if (*index < lo)
       return 0;
-    size_t result = (*index - lo) / (hi - lo + 1) * row_shape.size();
+    size_t result = (*index - lo) / (hi - lo + 1) * row_pattern.size();
     auto i0 = (*index - lo) % (hi - lo + 1);
-    auto ch = row_shape.children().begin();
-    auto ch_end = row_shape.children().end();
+    auto ch = row_pattern.children().begin();
+    auto ch_end = row_pattern.children().end();
     while (ch != ch_end) {
       auto& [b0, bn, t] = *ch;
       if (i0 >= b0 + bn) {

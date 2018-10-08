@@ -99,7 +99,7 @@ public:
       colnames.begin(),
       end_present_colnames,
       10000);
-    auto row_index_shape = table->row_index_shape();
+    auto row_index_pattern = table->row_index_pattern();
     auto lr_fids = table_read_task.dispatch();
     std::vector<PhysicalRegion> prs;
     for (size_t i = 0; i < lr_fids.size(); ++i) {
@@ -116,13 +116,13 @@ public:
       auto pr = prs[i];
       switch (col->rank()) {
       case 1:
-        show<1>(runtime, pr, lr, fid, col, row_index_shape);
+        show<1>(runtime, pr, lr, fid, col, row_index_pattern);
         break;
       case 2:
-        show<2>(runtime, pr, lr, fid, col, row_index_shape);
+        show<2>(runtime, pr, lr, fid, col, row_index_pattern);
         break;
       case 3:
-        show<3>(runtime, pr, lr, fid, col, row_index_shape);
+        show<3>(runtime, pr, lr, fid, col, row_index_pattern);
         break;
       default:
         assert(false);
@@ -148,9 +148,9 @@ public:
     LogicalRegion lr,
     FieldID fid,
     std::shared_ptr<Column>& col,
-    const IndexTreeL& row_index_shape) {
+    const IndexTreeL& row_index_pattern) {
 
-    auto row_rank = row_index_shape.rank().value();
+    auto row_rank = row_index_pattern.rank().value();
     std::ostringstream oss;
     DomainT<DIM> domain =
       runtime->get_index_space_domain(lr.get_index_space());
@@ -171,7 +171,7 @@ public:
         Legion::PointInDomainIterator<DIM> pid(domain, false);          \
         for (size_t i = 0; i < DIM; ++i)                                \
           pt[i] = pid[i];                                               \
-        row_number = Table::row_number(row_index_shape, pt.begin(), pt.end()); \
+        row_number = Table::row_number(row_index_pattern, pt.begin(), pt.end()); \
         oss << "([" << pid[0];                                          \
         for (size_t i = 1; i < row_rank; ++i)                           \
           oss << "," << pid[i];                                         \
@@ -181,7 +181,7 @@ public:
       for (PointInDomainIterator<DIM> pid(domain, false); pid(); pid++) { \
         for (size_t i = 0; i < DIM; ++i)                                \
           pt[i] = pid[i];                                               \
-        auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end()); \
+        auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end()); \
         if (rn != row_number) {                                         \
           row_number = rn;                                              \
           oss << ")" << std::endl << "([" << pid[0];                    \
@@ -211,7 +211,7 @@ public:
         Legion::PointInDomainIterator<DIM> pid(domain, false);          \
         for (size_t i = 0; i < DIM; ++i)                                \
           pt[i] = pid[i];                                               \
-        row_number = Table::row_number(row_index_shape, pt.begin(), pt.end()); \
+        row_number = Table::row_number(row_index_pattern, pt.begin(), pt.end()); \
         oss << "([" << pid[0];                                          \
         for (size_t i = 1; i < row_rank; ++i)                           \
           oss << "," << pid[i];                                         \
@@ -221,7 +221,7 @@ public:
       for (PointInDomainIterator<DIM> pid(domain, false); pid(); pid++) { \
         for (size_t i = 0; i < DIM; ++i)                                \
           pt[i] = pid[i];                                               \
-        auto rn = Table::row_number(row_index_shape, pt.begin(), pt.end()); \
+        auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end()); \
         if (rn != row_number) {                                         \
           row_number = rn;                                              \
           oss << ")" << std::endl << "([" << pid[0];                    \

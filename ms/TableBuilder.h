@@ -28,10 +28,10 @@ class TableBuilder
 
 public:
 
-  TableBuilder(const std::string& name, IndexTreeL row_index_shape)
+  TableBuilder(const std::string& name, IndexTreeL row_index_pattern)
     : WithKeywordsBuilder()
     , m_name(name)
-    , m_row_index_shape(row_index_shape) {
+    , m_row_index_pattern(row_index_pattern) {
   }
 
   const std::string&
@@ -43,7 +43,7 @@ public:
   void
   add_scalar_column(const std::string& name) {
 
-    add_column(ScalarColumnBuilder::generator<T>(name)(m_row_index_shape));
+    add_column(ScalarColumnBuilder::generator<T>(name)(m_row_index_pattern));
   }
 
   template <int DIM, typename T>
@@ -54,7 +54,7 @@ public:
 
     add_column(
       ArrayColumnBuilder<DIM>::template generator<T>(name, row_dimensions)(
-        m_row_index_shape));
+        m_row_index_pattern));
   }
 
   void
@@ -92,7 +92,7 @@ protected:
 
   void
   add_column(std::unique_ptr<ColumnBuilder>&& col) {
-    assert(col->row_index_shape() == m_row_index_shape);
+    assert(col->row_index_pattern() == m_row_index_pattern);
     assert(m_columns.count(col->name()) == 0);
     if (m_columns.size() > 0) {
       auto h = std::min(m_columns[m_max_rank_column]->rank(), col->rank()) - 1;
@@ -110,7 +110,7 @@ protected:
 
   std::unordered_map<std::string, std::unique_ptr<ColumnBuilder>> m_columns;
 
-  IndexTreeL m_row_index_shape;
+  IndexTreeL m_row_index_pattern;
 
   std::string m_max_rank_column;
 };

@@ -5,11 +5,11 @@
     const std::string& name) {                                          \
                                                                         \
     return                                                              \
-      [=](const IndexTreeL& row_index_shape) {                          \
+      [=](const IndexTreeL& row_index_pattern) {                        \
         return std::make_unique<ScalarColumnBuilder>(                   \
           name,                                                         \
           ValueType<casacore::t>::DataType,                             \
-          row_index_shape);                                             \
+          row_index_pattern);                                           \
       };                                                                \
   }                                                                     \
   template <> inline                                                    \
@@ -18,11 +18,11 @@
     const std::string& name) {                                          \
                                                                         \
     return                                                              \
-      [=](const IndexTreeL& row_index_shape) {                          \
+      [=](const IndexTreeL& row_index_pattern) {                        \
         return std::make_unique<ScalarColumnBuilder>(                   \
           name,                                                         \
           ValueType<std::vector<casacore::t>>::DataType,                \
-          row_index_shape);                                             \
+          row_index_pattern);                                           \
       };                                                                \
   }                                                                     \
   template <> template<> inline                                         \
@@ -32,11 +32,11 @@
     std::function<std::array<size_t, 1>(const std::any&)> row_dimensions) { \
                                                                         \
     return                                                              \
-      [=](const IndexTreeL& row_index_shape) {                          \
+      [=](const IndexTreeL& row_index_pattern) {                        \
         return std::make_unique<ArrayColumnBuilder<1>>(                 \
           name,                                                         \
           ValueType<casacore::t>::DataType,                             \
-          row_index_shape,                                              \
+          row_index_pattern,                                            \
           row_dimensions);                                              \
       };                                                                \
   }\
@@ -47,11 +47,11 @@
     std::function<std::array<size_t, 2>(const std::any&)> row_dimensions) { \
                                                                         \
     return                                                              \
-      [=](const IndexTreeL& row_index_shape) {                          \
+      [=](const IndexTreeL& row_index_pattern) {                        \
         return std::make_unique<ArrayColumnBuilder<2>>(                 \
           name,                                                         \
           ValueType<casacore::t>::DataType,                             \
-          row_index_shape,                                              \
+          row_index_pattern,                                            \
           row_dimensions);                                              \
       };                                                                \
   }\
@@ -62,11 +62,11 @@
     std::function<std::array<size_t, 3>(const std::any&)> row_dimensions) { \
                                                                         \
     return                                                              \
-      [=](const IndexTreeL& row_index_shape) {                          \
+      [=](const IndexTreeL& row_index_pattern) {                        \
         return std::make_unique<ArrayColumnBuilder<3>>(                 \
           name,                                                         \
           ValueType<casacore::t>::DataType,                             \
-          row_index_shape,                                              \
+          row_index_pattern,                                            \
           row_dimensions);                                              \
       };                                                                \
   }

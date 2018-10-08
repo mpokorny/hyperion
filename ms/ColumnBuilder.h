@@ -28,14 +28,14 @@ public:
     const std::string& name,
     casacore::DataType datatype,
     unsigned element_rank,
-    const IndexTreeL& row_index_shape)
+    const IndexTreeL& row_index_pattern)
     : WithKeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
-    , m_rank(row_index_shape.rank().value() + element_rank)
+    , m_rank(row_index_pattern.rank().value() + element_rank)
     , m_num_rows(0)
-    , m_row_index_shape(row_index_shape)
-    , m_row_index_iterator(row_index_shape) {
+    , m_row_index_pattern(row_index_pattern)
+    , m_row_index_iterator(row_index_pattern) {
   }
 
   virtual ~ColumnBuilder() {}
@@ -56,8 +56,8 @@ public:
   }
 
   const IndexTreeL&
-  row_index_shape() const {
-    return m_row_index_shape;
+  row_index_pattern() const {
+    return m_row_index_pattern;
   }
 
   unsigned
@@ -67,7 +67,7 @@ public:
 
   unsigned
   row_rank() const {
-    return m_row_index_shape.rank().value();
+    return m_row_index_pattern.rank().value();
   }
 
   size_t
@@ -106,7 +106,7 @@ private:
 
   size_t m_num_rows;
 
-  IndexTreeL m_row_index_shape;
+  IndexTreeL m_row_index_pattern;
 
   IndexTreeIterator<Legion::coord_t> m_row_index_iterator;
 
@@ -120,8 +120,8 @@ public:
     ScalarColumnBuilder(
       const std::string& name,
       casacore::DataType datatype,
-      const IndexTreeL& row_index_shape)
-      : ColumnBuilder(name, datatype, 0, row_index_shape) {
+      const IndexTreeL& row_index_pattern)
+      : ColumnBuilder(name, datatype, 0, row_index_pattern) {
     }
 
   template <typename T>
@@ -144,9 +144,9 @@ public:
   ArrayColumnBuilder(
     const std::string& name,
     casacore::DataType datatype,
-    const IndexTreeL& row_index_shape,
+    const IndexTreeL& row_index_pattern,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)> row_dimensions)
-    : ColumnBuilder(name, datatype, ARRAYDIM, row_index_shape)
+    : ColumnBuilder(name, datatype, ARRAYDIM, row_index_pattern)
     , m_row_dimensions(row_dimensions) {
   }
 
