@@ -85,7 +85,7 @@ public:
     return m_columns.at(name);
   }
 
-  std::optional<Legion::IndexSpace>
+  Legion::IndexSpace
   index_space() const;
 
   std::vector<std::tuple<Legion::LogicalRegion, Legion::FieldID>>

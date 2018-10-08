@@ -39,7 +39,7 @@ Table::column_names() const {
   return result;
 }
 
-std::optional<IndexSpace>
+IndexSpace
 Table::index_space() const {
   return std::get<1>(*max_rank_column())->index_space();
 }
@@ -61,10 +61,7 @@ Table::logical_regions(
         auto fid = col->add_field(fs, fa);
         m_logical_regions[colname] =
           make_tuple(
-            m_runtime->create_logical_region(
-              m_context,
-              col->index_space().value(),
-              fs),
+            m_runtime->create_logical_region(m_context, col->index_space(), fs),
             move(fid));
       }
       return m_logical_regions[colname];
@@ -77,7 +74,7 @@ Table::index_partitions(
   const IndexPartition& ipart,
   const vector<string>& colnames) const {
 
-  auto is = index_space().value();
+  auto is = index_space();
 
   assert(m_runtime->get_parent_index_space(m_context, ipart) == is);
 
@@ -129,7 +126,7 @@ Table::index_partitions(
       if (rank < reg_rank)
         return m_runtime->create_partition_by_image(
           m_context,
-          col->index_space().value(),
+          col->index_space(),
           proj_lp,
           proj_lr,
           rank,
@@ -152,7 +149,7 @@ Table::row_block_index_partitions(
   FieldSpace block_fs = m_runtime->create_field_space(m_context);
   auto fa = m_runtime->create_field_allocator(m_context, block_fs);
   auto block_fid = fa.allocate_field(sizeof(Point<1>));
-  auto is = index_space().value();
+  auto is = index_space();
   LogicalRegion block_lr =
     m_runtime->create_logical_region(m_context, is, block_fs);
   InlineLauncher block_launcher(
@@ -276,7 +273,7 @@ Table::initialize_projections(
     assert(false);
     break;
   }
-  //runtime->destroy_index_space(ctx, launch_space);
+  runtime->destroy_index_space(ctx, launch_space);
 }
 
 // Local Variables:

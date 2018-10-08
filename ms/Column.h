@@ -112,12 +112,12 @@ public:
     return m_num_rows;
   }
 
-  std::optional<Legion::IndexSpace>
+  Legion::IndexSpace
   index_space() const {
     if (!m_index_space)
       m_index_space =
         legms::tree_index_space(m_index_tree, m_context, m_runtime);
-    return m_index_space;
+    return m_index_space.value();
   }
 
   Legion::FieldID
