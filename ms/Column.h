@@ -2,6 +2,7 @@
 #define LEGMS_MS_COLUMN_H_
 
 #include <cassert>
+#include <functional>
 #include <unordered_map>
 
 #include <casacore/casa/aipstype.h>
@@ -20,6 +21,9 @@ namespace ms {
 class Column
   : public WithKeywords {
 public:
+
+  typedef std::function<
+    std::shared_ptr<Column>(Legion::Context, Legion::Runtime*)> Generator;
 
   Column(
     Legion::Context ctx,
@@ -152,6 +156,77 @@ public:
     auto result = legms::add_field(m_datatype, fa);
     m_runtime->attach_name(fs, result, name().c_str());
     return result;
+  }
+
+  static Generator
+  generator(
+    const std::string& name,
+    casacore::DataType datatype,
+    const IndexTreeL& row_index_pattern,
+    const IndexTreeL& index_tree,
+    const std::unordered_map<std::string, casacore::DataType>& kws =
+      std::unordered_map<std::string, casacore::DataType>()) {
+
+    return
+      [=](Legion::Context ctx, Legion::Runtime* runtime) {
+        return
+          std::make_shared<Column>(
+            ctx,
+            runtime,
+            name,
+            datatype,
+            row_index_pattern,
+            index_tree,
+            kws);
+      };
+  }
+
+  static Generator
+  generator(
+    const std::string& name,
+    casacore::DataType datatype,
+    const IndexTreeL& row_index_pattern,
+    unsigned num_rows,
+    const std::unordered_map<std::string, casacore::DataType>& kws =
+      std::unordered_map<std::string, casacore::DataType>()) {
+
+    return
+      [=](Legion::Context ctx, Legion::Runtime* runtime) {
+        return
+          std::make_shared<Column>(
+            ctx,
+            runtime,
+            name,
+            datatype,
+            row_index_pattern,
+            num_rows,
+            kws);
+      };
+  }
+
+  static Generator
+  generator(
+    const std::string& name,
+    casacore::DataType datatype,
+    const IndexTreeL& row_index_pattern,
+    const IndexTreeL& row_pattern,
+    unsigned num_rows,
+    const std::unordered_map<std::string, casacore::DataType>& kws =
+      std::unordered_map<std::string, casacore::DataType>()) {
+
+    return
+      [=](Legion::Context ctx, Legion::Runtime* runtime) {
+        return
+          std::make_shared<Column>(
+            ctx,
+            runtime,
+            name,
+            datatype,
+            row_index_pattern,
+            row_pattern,
+            num_rows,
+            kws);
+      };
   }
 
 private:

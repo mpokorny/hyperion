@@ -93,15 +93,18 @@ public:
     return result;
   }
 
-  std::unordered_set<std::shared_ptr<Column>>
-  columns(Legion::Context ctx, Legion::Runtime* runtime) const {
-    std::unordered_set<std::shared_ptr<Column>> result;
+  std::vector<Column::Generator>
+  column_generators() const {
+    std::vector<Column::Generator> result;
     transform(
       m_columns.begin(),
       m_columns.end(),
-      std::inserter(result, result.end()),
-      [&ctx, runtime](auto& cb) {
-        return std::make_shared<Column>(ctx, runtime, *cb.second);
+      std::back_inserter(result),
+      [](auto& cb) {
+        return
+          [cb](Legion::Context ctx, Legion::Runtime *runtime) {
+            return std::make_shared<Column>(ctx, runtime, *cb.second);
+          };
       });
     return result;
   }
@@ -149,7 +152,7 @@ protected:
 
   std::string m_name;
 
-  std::unordered_map<std::string, std::unique_ptr<ColumnBuilder>> m_columns;
+  std::unordered_map<std::string, std::shared_ptr<ColumnBuilder>> m_columns;
 
   IndexTreeL m_row_index_pattern;
 

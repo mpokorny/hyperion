@@ -63,11 +63,9 @@ public:
       colnames_set(colnames.begin(), colnames.end());
     std::shared_ptr<Table> table;
     if (colnames.size() == 1 && colnames[0] == "DIRECTION") {
-      std::unordered_set<std::shared_ptr<Column>>
+      std::vector<Column::Generator>
         cols {
-              std::make_shared<Column>(
-                ctx,
-                runtime,
+              Column::generator(
                 "DIRECTION",
                 casacore::TpDouble,
                 IndexTreeL(1),
@@ -83,7 +81,7 @@ public:
           ctx,
           runtime,
           builder.name(),
-          builder.columns(ctx, runtime),
+          builder.column_generators(),
           builder.keywords()));
     }
     std::cout << "table name: "

@@ -26,9 +26,45 @@ public:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
-    const std::unordered_set<std::shared_ptr<Column>>& columns,
+    const std::vector<Column::Generator>& column_generators,
     const std::unordered_map<std::string, casacore::DataType>& kws =
       std::unordered_map<std::string, casacore::DataType>());
+
+  template <typename GeneratorIter>
+  Table(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const std::string& name,
+    GeneratorIter generator_first,
+    GeneratorIter generator_last,
+    const std::unordered_map<std::string, casacore::DataType>& kws =
+      std::unordered_map<std::string, casacore::DataType>())
+    : WithKeywords(kws)
+    , m_name(name)
+    , m_context(ctx)
+    , m_runtime(runtime) {
+
+    std::transform(
+      generator_first,
+      generator_last,
+      std::inserter(m_columns, m_columns.end()),
+      [&ctx, runtime](auto gen) {
+        auto col = gen(ctx, runtime);
+        return std::make_pair(col->name(), col);
+      });
+
+    assert(m_columns.size() > 0);
+    auto row_index_pattern = (*m_columns.begin()).second->row_index_pattern();
+    auto num_rows = (*m_columns.begin()).second->num_rows();
+    assert(
+      std::all_of(
+        m_columns.begin(),
+        m_columns.end(),
+        [&row_index_pattern, &num_rows](auto& nc) {
+          return row_index_pattern == nc.second->row_index_pattern()
+            && num_rows == nc.second->num_rows();
+        }));
+  }
 
   virtual ~Table() {
     std::for_each(
