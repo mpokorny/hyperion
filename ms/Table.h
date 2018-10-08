@@ -27,6 +27,14 @@ public:
     Legion::Runtime* runtime,
     const TableBuilder& builder);
 
+  Table(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const std::string& name,
+    const std::unordered_set<std::shared_ptr<Column>>& columns,
+    const std::unordered_map<std::string, casacore::DataType>& kws =
+      std::unordered_map<std::string, casacore::DataType>());
+
   virtual ~Table() {
     std::for_each(
       m_logical_regions.begin(),

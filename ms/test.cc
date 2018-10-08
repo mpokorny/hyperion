@@ -61,8 +61,24 @@ public:
 
     std::unordered_set<std::string>
       colnames_set(colnames.begin(), colnames.end());
-    std::shared_ptr<Table>
-      table(new ReadOnlyTable(ctx, runtime, table_path.value(), colnames_set));
+    std::shared_ptr<Table> table;
+    if (colnames.size() == 1 && colnames[0] == "DIRECTION") {
+      std::unordered_set<std::shared_ptr<Column>>
+        cols {
+              std::make_shared<Column>(
+                ctx,
+                runtime,
+                "DIRECTION",
+                casacore::TpDouble,
+                IndexTreeL(1),
+                IndexTreeL({{1, IndexTreeL({{2, IndexTreeL(1)}})}}),
+                75107)
+      };
+      table.reset(new ReadOnlyTable(ctx, runtime, table_path.value(), cols));
+    } else {
+      table.reset(
+        new ReadOnlyTable(ctx, runtime, table_path.value(), colnames_set));
+    }
     std::cout << "table name: "
               << table->name() << std::endl;
     if (table->is_empty()) {
@@ -320,4 +336,3 @@ main(int argc, char** argv) {
 // fill-column: 80
 // indent-tabs-mode: nil
 // End:
-

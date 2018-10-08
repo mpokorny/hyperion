@@ -1,6 +1,7 @@
 #ifndef LEGMS_MS_COLUMN_H_
 #define LEGMS_MS_COLUMN_H_
 
+#include <cassert>
 #include <unordered_map>
 
 #include <casacore/casa/aipstype.h>
@@ -61,7 +62,7 @@ public:
     const IndexTreeL& row_index_pattern,
     unsigned num_rows,
     const std::unordered_map<std::string, casacore::DataType>& kws =
-    std::unordered_map<std::string, casacore::DataType>())
+      std::unordered_map<std::string, casacore::DataType>())
     : WithKeywords(kws)
     , m_name(name)
     , m_datatype(datatype)
@@ -70,6 +71,31 @@ public:
     , m_index_tree(ixt(row_index_pattern, num_rows))
     , m_context(ctx)
     , m_runtime(runtime) {
+  }
+
+  Column(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const std::string& name,
+    casacore::DataType datatype,
+    const IndexTreeL& row_index_pattern,
+    const IndexTreeL& row_pattern,
+    unsigned num_rows,
+    const std::unordered_map<std::string, casacore::DataType>& kws =
+      std::unordered_map<std::string, casacore::DataType>())
+    : WithKeywords(kws)
+    , m_name(name)
+    , m_datatype(datatype)
+    , m_num_rows(num_rows)
+    , m_row_index_pattern(row_index_pattern)
+    , m_index_tree(
+      ixt(
+        row_pattern,
+        num_rows * row_pattern.size() / row_index_pattern.size()))
+    , m_context(ctx)
+    , m_runtime(runtime) {
+
+    assert(pattern_matches(row_index_pattern, row_pattern));
   }
 
   virtual ~Column() {
@@ -182,6 +208,11 @@ private:
         return std::nullopt;
     }
     return result;
+  }
+
+  static bool
+  pattern_matches(const IndexTreeL& pattern, const IndexTreeL& shape) {
+    return nr(pattern, shape).has_value();
   }
 
   static IndexTreeL

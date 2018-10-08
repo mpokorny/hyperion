@@ -26,6 +26,37 @@ Table::Table(
     });
 }
 
+Table::Table(
+  Legion::Context ctx,
+  Legion::Runtime* runtime,
+  const std::string& name,
+  const std::unordered_set<std::shared_ptr<Column>>& columns,
+  const std::unordered_map<std::string, casacore::DataType>& kws)
+  : WithKeywords(kws)
+  , m_name(name)
+  , m_context(ctx)
+  , m_runtime(runtime) {
+
+  assert(columns.size() > 0);
+  auto row_index_pattern = (*columns.begin())->row_index_pattern();
+  auto num_rows = (*columns.begin())->num_rows();
+  assert(
+    std::all_of(
+      columns.begin(),
+      columns.end(),
+      [&row_index_pattern, &num_rows](auto& colp) {
+        return row_index_pattern == colp->row_index_pattern()
+          && num_rows == colp->num_rows();
+      }));
+  std::transform(
+    columns.begin(),
+    columns.end(),
+    std::inserter(m_columns, m_columns.end()),
+    [](auto& colp) {
+      return std::make_pair(colp->name(), colp);
+    });
+}
+
 unordered_set<string>
 Table::column_names() const {
   unordered_set<string> result;
