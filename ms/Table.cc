@@ -9,26 +9,6 @@ using namespace std;
 Table::Table(
   Legion::Context ctx,
   Legion::Runtime* runtime,
-  const TableBuilder& builder)
-  : WithKeywords(builder.keywords())
-  , m_name(builder.name())
-  , m_context(ctx)
-  , m_runtime(runtime) {
-
-  transform(
-    builder.m_columns.begin(),
-    builder.m_columns.end(),
-    inserter(m_columns, m_columns.end()),
-    [this](auto& cb) {
-      return make_pair(
-        cb.first,
-        shared_ptr<Column>(new Column(m_context, m_runtime, *cb.second)));
-    });
-}
-
-Table::Table(
-  Legion::Context ctx,
-  Legion::Runtime* runtime,
   const std::string& name,
   const std::unordered_set<std::shared_ptr<Column>>& columns,
   const std::unordered_map<std::string, casacore::DataType>& kws)

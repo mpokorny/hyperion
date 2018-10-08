@@ -8,8 +8,8 @@
 #include "IndexTree.h"
 #include "Column.h"
 #include "Table.h"
+#include "TableBuilder.h"
 #include "TableReadTask.h"
-#include "ReadOnlyTable.h"
 #include "FillProjectionsTask.h"
 
 namespace fs = std::experimental::filesystem;
@@ -74,10 +74,17 @@ public:
                 IndexTreeL({{1, IndexTreeL({{2, IndexTreeL(1)}})}}),
                 75107)
       };
-      table.reset(new ReadOnlyTable(ctx, runtime, table_path.value(), cols));
+      table.reset(new Table(ctx, runtime, table_path.value(), cols));
     } else {
+      auto builder =
+        TableBuilder::from_casacore_table(table_path.value(), colnames_set);
       table.reset(
-        new ReadOnlyTable(ctx, runtime, table_path.value(), colnames_set));
+        new Table(
+          ctx,
+          runtime,
+          builder.name(),
+          builder.columns(ctx, runtime),
+          builder.keywords()));
     }
     std::cout << "table name: "
               << table->name() << std::endl;

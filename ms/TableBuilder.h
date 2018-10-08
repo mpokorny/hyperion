@@ -3,17 +3,22 @@
 
 #include <algorithm>
 #include <cassert>
+#include <experimental/filesystem>
 #include <functional>
 #include <memory>
-#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include "legion.h"
 
+#include <casacore/casa/aipstype.h>
+#include <casacore/casa/BasicSL/String.h>
+#include <casacore/tables/Tables.h>
+
 #include "WithKeywordsBuilder.h"
 #include "ColumnBuilder.h"
+#include "Column.h"
 #include "IndexTree.h"
 
 namespace legms {
@@ -88,6 +93,24 @@ public:
     return result;
   }
 
+  std::unordered_set<std::shared_ptr<Column>>
+  columns(Legion::Context ctx, Legion::Runtime* runtime) const {
+    std::unordered_set<std::shared_ptr<Column>> result;
+    transform(
+      m_columns.begin(),
+      m_columns.end(),
+      std::inserter(result, result.end()),
+      [&ctx, runtime](auto& cb) {
+        return std::make_shared<Column>(ctx, runtime, *cb.second);
+      });
+    return result;
+  }
+
+  static TableBuilder
+  from_casacore_table(
+    const std::experimental::filesystem::path& path,
+    const std::unordered_set<std::string>& column_selection);
+
 protected:
 
   void
@@ -104,6 +127,24 @@ protected:
       m_max_rank_column = col->name();
     }
     m_columns[col->name()] = std::move(col);
+  }
+
+  struct SizeArgs {
+    std::shared_ptr<casacore::TableColumn> tcol;
+    unsigned row;
+    casacore::IPosition shape;
+  };
+
+  template <int DIM>
+  static std::array<size_t, DIM>
+  size(const std::any& args) {
+    std::array<size_t, DIM> result;
+    auto sa = std::any_cast<SizeArgs>(args);
+    const casacore::IPosition& shape =
+      (sa.tcol ? sa.tcol->shape(sa.row) : sa.shape);
+    assert(shape.size() == DIM);
+    shape.copy(result.begin());
+    return result;
   }
 
   std::string m_name;
