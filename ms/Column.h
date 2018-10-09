@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <functional>
+#include <mutex>
 #include <unordered_map>
 
 #include <casacore/casa/aipstype.h>
@@ -103,6 +104,7 @@ public:
   }
 
   virtual ~Column() {
+    std::lock_guard<decltype(m_index_space_mutex)> lock(m_index_space_mutex);
     if (m_index_space)
       m_runtime->destroy_index_space(m_context, m_index_space.value());
   }
@@ -144,6 +146,7 @@ public:
 
   Legion::IndexSpace
   index_space() const {
+    std::lock_guard<decltype(m_index_space_mutex)> lock(m_index_space_mutex);
     if (!m_index_space)
       m_index_space =
         legms::tree_index_space(m_index_tree, m_context, m_runtime);
@@ -353,6 +356,8 @@ private:
   Legion::Context m_context;
 
   Legion::Runtime* m_runtime;
+
+  mutable std::mutex m_index_space_mutex;
 
   mutable std::optional<Legion::IndexSpace> m_index_space;
 };
