@@ -38,12 +38,12 @@ public:
    * a single column from multiple threads), the last two parameters,
    * "block_length" and "ipart", should not take non-default values.
    */
-  template <typename Iter, typename EndIter>
+  template <typename Iter>
   TableReadTask(
     const std::string& table_path,
     const std::shared_ptr<Table>& table,
     Iter colname_iter,
-    EndIter end_colname_iter,
+    Iter end_colname_iter,
     std::optional<size_t> block_length = std::nullopt,
     std::optional<Legion::IndexPartition> ipart = std::nullopt)
     : m_table_path(table_path)
