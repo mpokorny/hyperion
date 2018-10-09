@@ -31,13 +31,20 @@ public:
   static Legion::TaskID TASK_ID;
   static constexpr const char* TASK_NAME = "table_read_task";
 
+  /*
+   * TableReadTask constructor
+   *
+   * NB: As long as the casacore table library is not thread-safe (e.g, reading
+   * a single column from multiple threads), the last two parameters,
+   * "block_length" and "ipart", should not take non-default values.
+   */
   template <typename Iter, typename EndIter>
   TableReadTask(
     const std::string& table_path,
     const std::shared_ptr<Table>& table,
     Iter colname_iter,
     EndIter end_colname_iter,
-    size_t block_length,
+    std::optional<size_t> block_length = std::nullopt,
     std::optional<Legion::IndexPartition> ipart = std::nullopt)
     : m_table_path(table_path)
     , m_table(table)
@@ -358,7 +365,7 @@ private:
 
   std::vector<std::string> m_column_names;
 
-  size_t m_block_length;
+  std::optional<size_t> m_block_length;
 
   std::optional<Legion::IndexPartition> m_index_partition;
 

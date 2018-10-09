@@ -118,8 +118,7 @@ public:
       table_path.value(),
       table,
       colnames.begin(),
-      end_present_colnames,
-      10000);
+      end_present_colnames);
     auto row_index_pattern = table->row_index_pattern();
     auto lr_fids = table_read_task.dispatch();
     std::vector<PhysicalRegion> prs;

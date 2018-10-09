@@ -55,7 +55,7 @@ TableReadTask::dispatch() {
     m_table->row_block_index_partitions(
       m_index_partition,
       m_column_names,
-      m_block_length);
+      m_block_length.value_or(m_table->num_rows()));
   auto cs = runtime->get_index_partition_color_space(ctx, ip);
   for (size_t i = 0; i < result.size(); ++i) {
     auto launcher = IndexTaskLauncher(
