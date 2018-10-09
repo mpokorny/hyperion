@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -67,6 +68,8 @@ public:
   }
 
   virtual ~Table() {
+    std::lock_guard<decltype(m_logical_regions_mutex)>
+      lock(m_logical_regions_mutex);
     std::for_each(
       m_logical_regions.begin(),
       m_logical_regions.end(),
@@ -210,6 +213,8 @@ protected:
   Legion::Context m_context;
 
   Legion::Runtime* m_runtime;
+
+  mutable std::mutex m_logical_regions_mutex;
 
   mutable std::unordered_map<
     std::string,

@@ -40,8 +40,10 @@ Table::index_space() const {
 }
 
 vector<tuple<LogicalRegion, FieldID>>
-Table::logical_regions(
-  const vector<string>& colnames) const {
+Table::logical_regions(const vector<string>& colnames) const {
+
+  std::lock_guard<decltype(m_logical_regions_mutex)>
+    lock(m_logical_regions_mutex);
 
   vector<tuple<LogicalRegion, FieldID>> result;
   transform(
