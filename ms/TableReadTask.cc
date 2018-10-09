@@ -91,7 +91,9 @@ TableReadTask::base_impl(
     static_cast<const TableReadTaskArgs*>(task->args);
   IndexTreeL row_index_pattern;
   index_tree_serdez::deserialize(row_index_pattern, args->ser_row_index_pattern);
-  casacore::Table table(args->table_path, casacore::TableLock::NoLocking);
+  casacore::Table table(
+    args->table_path,
+    casacore::TableLock::PermanentLockingWait);
   auto tdesc = table.tableDesc();
   auto cdesc = tdesc[args->column_name];
   switch (args->column_rank) {

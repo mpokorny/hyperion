@@ -11,7 +11,7 @@ TableBuilder::from_casacore_table(
 
   casacore::Table table(
     casacore::String(path),
-    casacore::TableLock::NoLocking);
+    casacore::TableLock::PermanentLockingWait);
 
   {
     auto kws = table.keywordSet();
