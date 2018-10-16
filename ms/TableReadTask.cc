@@ -11,7 +11,7 @@ void
 TableReadTask::register_task(Runtime* runtime) {
   TASK_ID = runtime->generate_library_task_ids("legms::TableReadTask", 1);
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
-  registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+  registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
   runtime->register_task_variant<base_impl>(registrar);
 }
 

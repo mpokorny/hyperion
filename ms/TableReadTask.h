@@ -33,10 +33,6 @@ public:
 
   /*
    * TableReadTask constructor
-   *
-   * NB: As long as the casacore table library is not thread-safe (e.g, reading
-   * a single column from multiple threads), the last two parameters,
-   * "block_length" and "ipart", should not take non-default values.
    */
   template <typename Iter>
   TableReadTask(
