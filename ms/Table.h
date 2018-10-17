@@ -29,7 +29,7 @@ public:
     const std::string& name,
     const std::vector<Column::Generator>& column_generators,
     const std::unordered_map<std::string, casacore::DataType>& kws =
-      std::unordered_map<std::string, casacore::DataType>());
+    std::unordered_map<std::string, casacore::DataType>());
 
   template <typename GeneratorIter>
   Table(
@@ -39,7 +39,7 @@ public:
     GeneratorIter generator_first,
     GeneratorIter generator_last,
     const std::unordered_map<std::string, casacore::DataType>& kws =
-      std::unordered_map<std::string, casacore::DataType>())
+    std::unordered_map<std::string, casacore::DataType>())
     : WithKeywords(kws)
     , m_name(name)
     , m_context(ctx)
@@ -133,10 +133,86 @@ public:
   std::vector<std::tuple<Legion::LogicalRegion, Legion::FieldID>>
   logical_regions(const std::vector<std::string>& colnames) const;
 
+  template <typename Iter>
   std::vector<Legion::IndexPartition>
   index_partitions(
     const Legion::IndexPartition& ipart,
-    const std::vector<std::string>& colnames) const;
+    Iter colnames_iter,
+    Iter colnames_iter_end) const {
+
+    auto is = index_space();
+
+    assert(m_runtime->get_parent_index_space(m_context, ipart) == is);
+
+    std::set<unsigned> ranks;
+    std::transform(
+      colnames_iter,
+      colnames_iter_end,
+      std::inserter(ranks, ranks.end()),
+      [this](auto& colname) { return column(colname)->rank(); });
+    auto fs = m_runtime->create_field_space(m_context);
+    {
+      auto fa = m_runtime->create_field_allocator(m_context, fs);
+      std::for_each(
+        ranks.begin(),
+        ranks.end(),
+        [&fa](auto r) {
+          switch (r) {
+          case 1:
+            fa.allocate_field(sizeof(Legion::Point<1>), 1);
+            break;
+          case 2:
+            fa.allocate_field(sizeof(Legion::Point<2>), 2);
+            break;
+          case 3:
+            fa.allocate_field(sizeof(Legion::Point<3>), 3);
+            break;
+          default:
+            assert(false);
+            break;
+          }
+        });
+    }
+    auto proj_lr = m_runtime->create_logical_region(m_context, is, fs);
+    auto proj_lp = m_runtime->get_logical_partition(m_context, proj_lr, ipart);
+    initialize_projections(m_context, m_runtime, proj_lr, proj_lp);
+    m_runtime->destroy_field_space(m_context, fs);
+
+    unsigned  reg_rank = is.get_dim();
+    auto color_space =
+      m_runtime->get_index_partition_color_space_name(m_context, ipart);
+    std::vector<Legion::IndexPartition> result;
+    std::transform(
+      colnames_iter,
+      colnames_iter_end,
+      std::back_inserter(result),
+      [&, this](auto& colname) {
+        auto col = column(colname);
+        auto rank = col->rank();
+        if (rank < reg_rank)
+          return m_runtime->create_partition_by_image(
+            m_context,
+            col->index_space(),
+            proj_lp,
+            proj_lr,
+            rank,
+            color_space);
+        else
+          return ipart;
+      });
+    //runtime->destroy_logical_partition(ctx, proj_lp);
+    m_runtime->destroy_logical_region(m_context, proj_lr);
+    m_runtime->destroy_index_space(m_context, color_space);
+    return result;
+  }
+
+  std::vector<Legion::IndexPartition>
+  index_partitions(
+    const Legion::IndexPartition& ipart,
+    const std::vector<std::string>& colnames) const {
+
+    return index_partitions(ipart, colnames.begin(), colnames.end());
+  }
 
   std::tuple<std::vector<Legion::IndexPartition>, Legion::IndexPartition>
   row_block_index_partitions(

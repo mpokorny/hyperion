@@ -66,77 +66,6 @@ Table::logical_regions(const vector<string>& colnames) const {
   return result;
 }
 
-vector<IndexPartition>
-Table::index_partitions(
-  const IndexPartition& ipart,
-  const vector<string>& colnames) const {
-
-  auto is = index_space();
-
-  assert(m_runtime->get_parent_index_space(m_context, ipart) == is);
-
-  set<unsigned> ranks;
-  transform(
-    colnames.begin(),
-    colnames.end(),
-    inserter(ranks, ranks.end()),
-    [this](auto& colname) { return column(colname)->rank(); });
-  auto fs = m_runtime->create_field_space(m_context);
-  {
-    auto fa = m_runtime->create_field_allocator(m_context, fs);
-    for_each(
-      ranks.begin(),
-      ranks.end(),
-      [&fa](auto r) {
-        switch (r) {
-        case 1:
-          fa.allocate_field(sizeof(Point<1>), 1);
-          break;
-        case 2:
-          fa.allocate_field(sizeof(Point<2>), 2);
-          break;
-        case 3:
-          fa.allocate_field(sizeof(Point<3>), 3);
-          break;
-        default:
-          assert(false);
-          break;
-        }
-      });
-  }
-  auto proj_lr = m_runtime->create_logical_region(m_context, is, fs);
-  auto proj_lp = m_runtime->get_logical_partition(m_context, proj_lr, ipart);
-  initialize_projections(m_context, m_runtime, proj_lr, proj_lp);
-  m_runtime->destroy_field_space(m_context, fs);
-
-  unsigned  reg_rank = is.get_dim();
-  auto color_space =
-    m_runtime->get_index_partition_color_space_name(m_context, ipart);
-  vector<IndexPartition> result;
-  transform(
-    colnames.begin(),
-    colnames.end(),
-    back_inserter(result),
-    [&, this](auto& colname) {
-      auto col = column(colname);
-      auto rank = col->rank();
-      if (rank < reg_rank)
-        return m_runtime->create_partition_by_image(
-          m_context,
-          col->index_space(),
-          proj_lp,
-          proj_lr,
-          rank,
-          color_space);
-      else
-        return ipart;
-    });
-  //runtime->destroy_logical_partition(ctx, proj_lp);
-  m_runtime->destroy_logical_region(m_context, proj_lr);
-  m_runtime->destroy_index_space(m_context, color_space);
-  return result;
-}
-
 std::tuple<std::vector<IndexPartition>, IndexPartition>
 Table::row_block_index_partitions(
   const std::optional<IndexPartition>& ipart,
@@ -207,20 +136,82 @@ Table::row_block_index_partitions(
       block_color_space);
   std::tuple<vector<IndexPartition>, IndexPartition> result;
   if (ipart) {
-    map<IndexSpace, IndexPartition> all_partitions;
-    all_partitions[block_color_space] = IndexPartition::NO_PART;
+    map<IndexSpace, IndexPartition> subspace_partitions;
+    for (size_t i = 0; i < num_blocks; ++i)
+      subspace_partitions[
+        m_runtime->get_index_subspace(m_context, block_partition, i)] =
+        IndexPartition::NO_PART;
     m_runtime->create_cross_product_partitions(
       m_context,
       block_partition,
       ipart.value(),
-      all_partitions);
+      subspace_partitions);
 
-    auto projected_partitions =
-      index_partitions(all_partitions[block_color_space], colnames);
-    result =
-      std::make_tuple(
-        projected_partitions,
-        all_partitions[block_color_space]);
+    IndexSpace full_color_space;
+    {
+      Domain d =
+        m_runtime->get_index_partition_color_space(m_context, ipart.value());
+      std::vector<DomainPoint> pts;
+      switch (d.get_dim()) {
+      case 1:
+        for (size_t i = 0; i < num_blocks; ++i)
+          for (PointInDomainIterator<1> pid(d); pid(); pid++)
+            pts.push_back(Point<2>(i, pid[0]));
+        break;
+      case 2:
+        for (size_t i = 0; i < num_blocks; ++i)
+          for (PointInDomainIterator<2> pid(d); pid(); pid++)
+            pts.push_back(Point<3>(i, pid[0], pid[1]));
+        break;
+      default:
+        assert(false);
+        break;
+      }
+      full_color_space = m_runtime->create_index_space(m_context, pts);
+    }
+    IndexPartition full_partition =
+      m_runtime->create_pending_partition(m_context, is, full_color_space);
+    std::for_each(
+      subspace_partitions.begin(),
+      subspace_partitions.end(),
+      [this, &full_partition](auto& sp) {
+        auto b = m_runtime->get_index_space_color(m_context, std::get<0>(sp));
+        Domain d =
+          m_runtime->get_index_partition_color_space(
+            m_context,
+            std::get<1>(sp));
+        switch (d.get_dim()) {
+        case 1:
+          for (PointInDomainIterator<1> pid(d); pid(); pid++)
+            m_runtime->create_index_space_union(
+              m_context,
+              full_partition,
+              Point<2>(b, pid[0]),
+              {m_runtime->get_index_subspace(
+                  m_context,
+                  std::get<1>(sp),
+                  pid[0])});
+          break;
+        case 2:
+          for (PointInDomainIterator<2> pid(d); pid(); pid++)
+            m_runtime->create_index_space_union(
+              m_context,
+              full_partition,
+              Point<3>(b, pid[0], pid[1]),
+              {m_runtime->get_index_subspace(
+                  m_context,
+                  std::get<1>(sp),
+                  *pid)});
+          break;
+        default:
+          assert(false);
+          break;
+        }
+      });
+
+    auto projected_partitions = index_partitions(full_partition, colnames);
+    result = std::make_tuple(projected_partitions, full_partition);
+    m_runtime->destroy_index_space(m_context, full_color_space);
   } else {
     result =
       std::make_tuple(
