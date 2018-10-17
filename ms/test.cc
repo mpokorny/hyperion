@@ -28,6 +28,53 @@ public:
   static constexpr const char *TASK_NAME = "top_level";
   static const int TASK_ID = TOP_LEVEL_TASK_ID;
 
+  static bool
+  pointing_direction_only(
+    const std::string& table,
+    const std::vector<std::string>& colnames) {
+    return table == "POINTING"
+      && colnames.size() == 1
+      && colnames[0] == "DIRECTION";
+  }
+
+  static std::optional<IndexPartition>
+  read_partition(
+    const std::shared_ptr<Table>& table,
+    Context ctx,
+    Runtime* runtime) {
+
+    std::optional<IndexPartition> result;
+    const unsigned subsample = 10000;
+    if (table->name() == "POINTING" && subsample > 1) {
+      auto fs = runtime->create_field_space(ctx);
+      auto fa = runtime->create_field_allocator(ctx, fs);
+      auto fid = fa.allocate_field(sizeof(Point<2>));
+      auto is = table->index_space();
+      assert(is.get_dim() == 3);
+      auto lr = runtime->create_logical_region(ctx, is, fs);
+      // use InlineLauncher for simplicity
+      auto launcher = InlineLauncher(
+        RegionRequirement(lr, WRITE_DISCARD, EXCLUSIVE, lr));
+      launcher.add_field(fid);
+      auto pr = runtime->map_region(ctx, launcher);
+      const FieldAccessor<WRITE_DISCARD, Point<2>, 3> ps(pr, fid);
+      for (PointInDomainIterator<3> pid(runtime->get_index_space_domain(is));
+           pid();
+           pid++)
+        ps[*pid] = Point<2>(pid[0] % subsample, pid[1]);
+      runtime->unmap_region(ctx, pr);
+      auto colors =
+        runtime->create_index_space(
+          ctx,
+          Rect<2>(Point<2>(0, 0), Point<2>(subsample - 1, 1)));
+      result = runtime->create_partition_by_field(ctx, lr, lr, fid, colors);
+      runtime->destroy_index_space(ctx, colors);
+      runtime->destroy_logical_region(ctx, lr);
+      runtime->destroy_field_space(ctx, fs);
+    }
+    return result;
+  }
+
   static void
   base_impl(
     const Task*,
@@ -35,6 +82,7 @@ public:
     Context ctx,
     Runtime* runtime) {
 
+    // get MS path and table name
     auto input_args = Runtime::get_input_args();
     std::optional<fs::path> table_path;
     std::vector<std::string> colnames;
@@ -55,14 +103,17 @@ public:
     fs::path ms_path = table_path.value().parent_path();
     std::string table_name = table_path.value().filename();
 
+    // register legms library tasks
     TableReadTask::register_task(runtime);
     TreeIndexSpace::register_tasks(runtime);
     FillProjectionsTasks::register_tasks(runtime);
 
+    // create the Table instance
     std::unordered_set<std::string>
       colnames_set(colnames.begin(), colnames.end());
     std::shared_ptr<Table> table;
-    if (colnames.size() == 1 && colnames[0] == "DIRECTION") {
+    if (pointing_direction_only(table_name, colnames)) {
+      // special test case: create Table with prior knowledge of its shape
       std::vector<Column::Generator>
         cols {
               Column::generator(
@@ -74,6 +125,7 @@ public:
       };
       table.reset(new Table(ctx, runtime, table_path.value(), cols));
     } else {
+      // general test case: create Table by scanning shape of MS table
       auto builder =
         TableBuilder::from_casacore_table(table_path.value(), colnames_set);
       table.reset(
@@ -96,6 +148,7 @@ public:
       std::copy(cols.begin(), cols.end(), std::back_inserter(colnames));
     }
 
+    // check for empty columns, which we will skip hereafter
     auto end_present_colnames =
       std::remove_if(
         colnames.begin(),
@@ -114,27 +167,92 @@ public:
       std::cout << std::endl;
     }
 
+    //
+    // read MS table columns to initialize the Column LogicalRegions
+    //
+
+    // special test case: partitioned read back
+    std::optional<IndexPartition> read_ip = read_partition(table, ctx, runtime);
+
     TableReadTask table_read_task(
       table_path.value(),
       table,
       colnames.begin(),
       end_present_colnames,
-      10000);
-    auto row_index_pattern = table->row_index_pattern();
+      std::nullopt,
+      read_ip);
     auto lr_fids = table_read_task.dispatch();
-    std::vector<PhysicalRegion> prs;
-    for (size_t i = 0; i < lr_fids.size(); ++i) {
-      auto& [lr, fid] = lr_fids[i];
-      auto launcher = InlineLauncher(
-        RegionRequirement(lr, READ_ONLY, EXCLUSIVE, lr));
-      launcher.add_field(fid);
-      prs.push_back(runtime->map_region(ctx, launcher));
+
+    //
+    // compute the LogicalRegions to read back
+    //
+
+    // read_lr_fids tuple values: colname, region, parent region, field id
+    std::vector<std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>>
+      read_lr_fids;
+    if (read_ip) {
+      // for partitioned read, we select only a couple of the sub-regions per
+      // column
+      auto col_ip =
+        table->index_partitions(
+          read_ip.value(),
+          colnames.begin(),
+          end_present_colnames);
+      for (size_t i = 0; i < lr_fids.size(); ++i) {
+        auto& [lr, fid] = lr_fids[i];
+        auto lp = runtime->get_logical_partition(ctx, lr, col_ip[i]);
+        read_lr_fids.emplace_back(
+          colnames[i],
+          runtime->get_logical_subregion_by_color(ctx, lp, Point<2>(0, 0)),
+          lr,
+          fid);
+        read_lr_fids.emplace_back(
+          colnames[i],
+          runtime->get_logical_subregion_by_color(ctx, lp, Point<2>(0, 1)),
+          lr,
+          fid);
+        runtime->destroy_logical_partition(ctx, lp);
+      }
+      std::for_each(
+        col_ip.begin(),
+        col_ip.end(),
+        [runtime, &ctx](auto& ip) {
+          runtime->destroy_index_partition(ctx, ip);
+        });
+    } else {
+      // general case: read complete columns
+      for (size_t i = 0; i < lr_fids.size(); ++i) {
+        auto& [lr, fid] = lr_fids[i];
+        read_lr_fids.emplace_back(colnames[i], lr, lr, fid);
+      }
     }
-    for (size_t i = 0; i < lr_fids.size(); ++i) {
-      std::cout << colnames[i] << ":" << std::endl;
-      auto col = table->column(colnames[i]);
-      auto& [lr, fid] = lr_fids[i];
+
+    // launch the read tasks inline
+    std::vector<PhysicalRegion> prs;
+    std::transform(
+      read_lr_fids.begin(),
+      read_lr_fids.end(),
+      std::back_inserter(prs),
+      [runtime, &ctx](auto& rlf) {
+        auto launcher = InlineLauncher(
+          RegionRequirement(
+            std::get<1>(rlf),
+            READ_ONLY,
+            EXCLUSIVE,
+            std::get<2>(rlf)));
+        launcher.add_field(std::get<3>(rlf));
+        return runtime->map_region(ctx, launcher);
+      });
+
+    // print out the values read, by partition (inc. partition by columns)
+    auto row_index_pattern = table->row_index_pattern();
+    for (size_t i = 0; i < read_lr_fids.size(); ++i) {
+      auto nm = std::get<0>(read_lr_fids[i]);
+      auto lr = std::get<1>(read_lr_fids[i]);
+      auto fid = std::get<3>(read_lr_fids[i]);
       auto pr = prs[i];
+      std::cout << nm << ":" << std::endl;
+      auto col = table->column(nm);
       switch (col->rank()) {
       case 1:
         show<1>(runtime, pr, lr, fid, col, row_index_pattern);
@@ -341,3 +459,4 @@ main(int argc, char** argv) {
 // fill-column: 80
 // indent-tabs-mode: nil
 // End:
+
