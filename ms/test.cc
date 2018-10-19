@@ -39,7 +39,7 @@ public:
 
   static std::optional<IndexPartition>
   read_partition(
-    const std::shared_ptr<Table>& table,
+    const std::shared_ptr<const Table>& table,
     Context ctx,
     Runtime* runtime) {
 
@@ -111,7 +111,7 @@ public:
     // create the Table instance
     std::unordered_set<std::string>
       colnames_set(colnames.begin(), colnames.end());
-    std::shared_ptr<Table> table;
+    std::shared_ptr<const Table> table;
     if (pointing_direction_only(table_name, colnames)) {
       // special test case: create Table with prior knowledge of its shape
       std::vector<Column::Generator>
@@ -185,6 +185,7 @@ public:
 
     // special test case: partitioned read back
     std::optional<IndexPartition> read_ip = read_partition(table, ctx, runtime);
+    std::vector<IndexSpace> read_is;
 
     // read_lr_fids tuple values: colname, region, parent region, field id
     std::vector<std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>>
@@ -218,12 +219,17 @@ public:
         [runtime, &ctx](auto& ip) {
           runtime->destroy_index_partition(ctx, ip);
         });
+      read_is.push_back(
+        runtime->get_index_subspace(ctx, read_ip.value(), Point<2>(0, 0)));
+      read_is.push_back(
+        runtime->get_index_subspace(ctx, read_ip.value(), Point<2>(0, 1)));
     } else {
       // general case: read complete columns
       for (size_t i = 0; i < lr_fids.size(); ++i) {
         auto& [lr, fid] = lr_fids[i];
         read_lr_fids.emplace_back(colnames[i], lr, lr, fid);
       }
+      read_is.push_back(table->index_space());
     }
 
     // launch the read tasks inline
@@ -244,30 +250,19 @@ public:
       });
 
     // print out the values read, by partition (inc. partition by columns)
-    auto row_index_pattern = table->row_index_pattern();
-    for (size_t i = 0; i < read_lr_fids.size(); ++i) {
-      auto nm = std::get<0>(read_lr_fids[i]);
-      auto lr = std::get<1>(read_lr_fids[i]);
-      auto fid = std::get<3>(read_lr_fids[i]);
-      auto pr = prs[i];
-      std::cout << nm << ":" << std::endl;
-      auto col = table->column(nm);
-      switch (col->rank()) {
-      case 1:
-        show<1>(runtime, pr, lr, fid, col, row_index_pattern);
-        break;
-      case 2:
-        show<2>(runtime, pr, lr, fid, col, row_index_pattern);
-        break;
-      case 3:
-        show<3>(runtime, pr, lr, fid, col, row_index_pattern);
-        break;
-      default:
-        assert(false);
-        break;
-      }
-      std::cout << std::endl;
-      runtime->unmap_region(ctx, prs[i]);
+    switch (table->rank()) {
+    case 1:
+      show_table<1>(runtime, table, read_lr_fids, prs, read_is);
+      break;
+    case 2:
+      show_table<2>(runtime, table, read_lr_fids, prs, read_is);
+      break;
+    case 3:
+      show_table<3>(runtime, table, read_lr_fids, prs, read_is);
+      break;
+    default:
+      assert(false);
+      break;
     }
   }
 
@@ -279,140 +274,337 @@ public:
   }
 
   template <int DIM>
-  static void
-  show(
-    Runtime* runtime,
-    PhysicalRegion pr,
-    LogicalRegion lr,
-    FieldID fid,
-    std::shared_ptr<Column>& col,
-    const IndexTreeL& row_index_pattern) {
+  static bool
+  same_prefix(
+    const PointInDomainIterator<DIM>& pid0,
+    const PointInDomainIterator<DIM>& pid1,
+    unsigned rank) {
 
-    auto row_rank = row_index_pattern.rank().value();
+    bool result = true;
+    for (unsigned i = 0; result && i < rank; ++i)
+      result = pid0[i] == pid1[i];
+    return result;
+  }
+
+  template <int DIM>
+  static void
+  show_table(
+    Runtime* runtime,
+    const std::shared_ptr<const Table>& table,
+    const std::vector<
+    std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>>&
+    read_lr_fids,
+    const std::vector<PhysicalRegion>& prs,
+    const std::vector<IndexSpace>& table_subspaces) {
+
     std::ostringstream oss;
-    DomainT<DIM> domain =
-      runtime->get_index_space_domain(lr.get_index_space());
-    switch (col->datatype()) {
-#define SHOW(tp)                                                       \
-      casacore::DataType::Tp##tp: {                                     \
-      const FieldAccessor<                                              \
-        READ_ONLY, \
-        DataType<casacore::DataType::Tp##tp>::ValueType, \
-        DIM, \
-        coord_t, \
-        Realm::AffineAccessor< \
-          DataType<casacore::DataType::Tp##tp>::ValueType,DIM,coord_t>, \
-          false> values(pr, fid); \
-      std::array<Legion::coord_t, DIM> pt;                              \
-      size_t row_number;                                                \
-      {                                                                 \
-        Legion::PointInDomainIterator<DIM> pid(domain, false);          \
-        for (size_t i = 0; i < DIM; ++i)                                \
-          pt[i] = pid[i];                                               \
-        row_number = Table::row_number(row_index_pattern, pt.begin(), pt.end()); \
-        oss << "([" << pid[0];                                          \
-        for (size_t i = 1; i < row_rank; ++i)                           \
-          oss << "," << pid[i];                                         \
-        oss << "]:";                                                    \
-      }                                                                 \
-      const char* sep = "";                                             \
-      for (PointInDomainIterator<DIM> pid(domain, false); pid(); pid++) { \
-        for (size_t i = 0; i < DIM; ++i)                                \
-          pt[i] = pid[i];                                               \
-        auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end()); \
-        if (rn != row_number) {                                         \
-          row_number = rn;                                              \
-          oss << ")" << std::endl << "([" << pid[0];                    \
-          for (size_t i = 1; i < row_rank; ++i)                         \
-            oss << "," << pid[i];                                       \
-          oss << "]:";                                                  \
-          sep = "";                                                     \
-        }                                                               \
-        oss << sep << values[*pid];                                     \
-        sep = ",";                                                      \
-      }                                                                 \
-      oss << ")";                                                       \
-      }                                                                 \
-      break;                                                            \
-    case casacore::DataType::TpArray##tp: {                             \
-      const FieldAccessor<                                              \
-        READ_ONLY, \
-        DataType<casacore::DataType::TpArray##tp>::ValueType, \
-        DIM, \
-        coord_t, \
-        Realm::AffineAccessor< \
-          DataType<casacore::DataType::TpArray##tp>::ValueType,DIM,coord_t>, \
-          false> values(pr, fid); \
-      std::array<Legion::coord_t, DIM> pt;                              \
-      size_t row_number;                                                \
-      {                                                                 \
-        Legion::PointInDomainIterator<DIM> pid(domain, false);          \
-        for (size_t i = 0; i < DIM; ++i)                                \
-          pt[i] = pid[i];                                               \
-        row_number = Table::row_number(row_index_pattern, pt.begin(), pt.end()); \
-        oss << "([" << pid[0];                                          \
-        for (size_t i = 1; i < row_rank; ++i)                           \
-          oss << "," << pid[i];                                         \
-        oss << "]:";                                                    \
-      }                                                                 \
-      const char* sep = "";                                             \
-      for (PointInDomainIterator<DIM> pid(domain, false); pid(); pid++) { \
-        for (size_t i = 0; i < DIM; ++i)                                \
-          pt[i] = pid[i];                                               \
-        auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end()); \
-        if (rn != row_number) {                                         \
-          row_number = rn;                                              \
-          oss << ")" << std::endl << "([" << pid[0];                    \
-          for (size_t i = 1; i < row_rank; ++i)                         \
-            oss << "," << pid[i];                                       \
-          oss << "]:";                                                  \
-          sep = "";                                                     \
-        }                                                               \
-        oss << sep;                                                     \
-        auto vals = values[*pid];                                       \
-        if (vals.size() > 0) {                                          \
-          oss << "{" << vals[0];                                        \
-          for (size_t i = 1; i < vals.size(); ++i)                      \
-            oss << "," << vals[i];                                      \
-          oss << "}";                                                   \
-        }                                                               \
-        sep = ",";                                                      \
-      }                                                                 \
-      oss << ")";                                                       \
+    const char *sep = "";
+    oss << "Columns: ";
+    for (size_t i = 0; i < read_lr_fids.size(); i += table_subspaces.size()) {
+      oss << sep << std::get<0>(read_lr_fids[i]);
+      sep = ",";
     }
 
-    case SHOW(Bool)
+    oss << std::endl;
+    auto row_rank = table->row_rank();
+    auto num_col = read_lr_fids.size();
+
+    for (unsigned n = 0; n < table_subspaces.size(); ++n) {
+      DomainT<DIM> domain = runtime->get_index_space_domain(table_subspaces[n]);
+      oss << std::endl;
+      std::optional<PointInDomainIterator<DIM>> row_pid;
+      for (PointInDomainIterator<DIM> pid(domain, false); pid(); pid++) {
+        if (!row_pid || !same_prefix(row_pid.value(), pid, row_rank)) {
+          if (row_pid)
+            oss << ")" << std::endl;
+          oss << "([" << pid[0];
+          for (size_t i = 1; i < row_rank; ++i)
+            oss << "," << pid[i];
+          oss << "]:";
+          row_pid = pid;
+          const char* sep = "";
+          for (size_t i = n; i < num_col; i += table_subspaces.size()) {
+            oss << sep << "{";
+            show_values<DIM>(
+              table,
+              read_lr_fids[i],
+              prs[i],
+              pid,
+              row_rank,
+              oss);
+            oss << "}";
+            sep = ";";
+          }
+        }
+      }
+      if (row_pid)
+        oss << ")";
+      oss << std::endl;
+    }
+    std::cout << oss.str();
+  }
+
+  template <int DIM>
+  static void
+  show_values(
+    const std::shared_ptr<const Table>& table,
+    const std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>& rlf,
+    const PhysicalRegion& pr,
+    const PointInDomainIterator<DIM>& pid0,
+    unsigned row_rank,
+    std::ostringstream& oss) {
+
+    auto col = table->column(std::get<0>(rlf));
+    switch (col->rank()) {
+    case 1:
+      show_column_values<DIM, 1>(col, rlf, pr, pid0, row_rank, oss);
       break;
-    case SHOW(Char)
+    case 2:
+      show_column_values<DIM, 2>(col, rlf, pr, pid0, row_rank, oss);
       break;
-    case SHOW(UChar)
-      break;
-    case SHOW(Short)
-      break;
-    case SHOW(UShort)
-      break;
-    case SHOW(Int)
-      break;
-    case SHOW(UInt)
-      break;
-    case SHOW(Float)
-      break;
-    case SHOW(Double)
-      break;
-    case SHOW(Complex)
-      break;
-    case SHOW(DComplex)
-      break;
-    case SHOW(String)
+    case 3:
+      show_column_values<DIM, 3>(col, rlf, pr, pid0, row_rank, oss);
       break;
     default:
       assert(false);
       break;
     }
-    oss << std::endl;
-    std::cout << oss.str();
-  };
+  }
+
+  template <int TDIM, int CDIM>
+  static void
+  show_column_values(
+    const std::shared_ptr<Column>& col,
+    const std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>& rlf,
+    const PhysicalRegion& pr,
+    const PointInDomainIterator<TDIM>& pid0,
+    unsigned row_rank,
+    std::ostringstream& oss) {
+
+    switch (col->datatype()) {
+    case casacore::DataType::TpBool:
+      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpBool>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpArrayBool:
+      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayBool>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpChar:
+      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpChar>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpArrayChar:
+      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayChar>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpUChar:
+      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpUChar>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpArrayUChar:
+      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayUChar>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpShort:
+      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpShort>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpArrayShort:
+      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayShort>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpUShort:
+      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpUShort>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpArrayUShort:
+      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayUShort>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpInt:
+      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpInt>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpArrayInt:
+      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayInt>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpUInt:
+      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpUInt>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpArrayUInt:
+      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayUInt>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpFloat:
+      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpFloat>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpArrayFloat:
+      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayFloat>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpDouble:
+      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpDouble>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpArrayDouble:
+      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayDouble>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpComplex:
+      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpComplex>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpArrayComplex:
+      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayComplex>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpDComplex:
+      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpDComplex>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpArrayDComplex:
+      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayDComplex>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpString:
+      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpString>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    case casacore::DataType::TpArrayString:
+      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayString>(
+        rlf, pr, pid0, row_rank, oss);
+      break;
+
+    default:
+      assert(false);
+      break;
+    }
+  }
+
+  template <int TDIM, int CDIM, casacore::DataType DT>
+  static void
+  show_scalar_column_values(
+    const std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>& rlf,
+    const PhysicalRegion& pr,
+    const PointInDomainIterator<TDIM>& pid0,
+    unsigned row_rank,
+    std::ostringstream& oss) {
+
+    FieldID fid = std::get<3>(rlf);
+    const FieldAccessor<
+      READ_ONLY,
+      typename DataType<DT>::ValueType,
+      CDIM,
+      coord_t,
+      Realm::AffineAccessor<typename DataType<DT>::ValueType, CDIM, coord_t>,
+      false> values(pr, fid);
+
+    PointInDomainIterator<TDIM> tpid = pid0;
+    coord_t pt[CDIM];
+    for (size_t i = 0; i < CDIM; ++i)
+      pt[i] = tpid[i];
+    auto p = to_point<CDIM>(pt);
+    oss << values[p];
+    tpid++;
+    while (tpid() && same_prefix(pid0, tpid, row_rank)) {
+      if (!same_prefix(pid0, tpid, CDIM)) {
+        for (size_t i = 0; i < CDIM; ++i)
+          pt[i] = tpid[i];
+        p = to_point<CDIM>(pt);
+        oss << "," << values[p];
+      }
+      tpid++;
+    }
+  }
+
+  template <int TDIM, int CDIM, casacore::DataType DT>
+  static void
+  show_array_column_values(
+    const std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>& rlf,
+    const PhysicalRegion& pr,
+    const PointInDomainIterator<TDIM>& pid0,
+    unsigned row_rank,
+    std::ostringstream& oss) {
+
+    FieldID fid = std::get<3>(rlf);
+    const FieldAccessor<
+      READ_ONLY,
+      typename DataType<DT>::ValueType,
+      CDIM,
+      coord_t,
+      Realm::AffineAccessor<typename DataType<DT>::ValueType, CDIM, coord_t>,
+      false> values(pr, fid);
+
+    PointInDomainIterator<TDIM> tpid = pid0;
+    coord_t pt[CDIM];
+    for (size_t i = 0; i < CDIM; ++i)
+      pt[i] = tpid[i];
+    auto p = to_point<CDIM>(pt);
+    auto vals = values[p];
+    if (vals.size() > 0) {
+      oss << "<" << vals[0];
+      for (size_t i = 1; i < vals.size(); ++i)
+        oss << "," << vals[i];
+      oss << ">";
+    }
+    tpid++;
+    while (tpid() && same_prefix(pid0, tpid, row_rank)) {
+      if (!same_prefix(pid0, tpid, CDIM)) {
+        for (size_t i = 0; i < CDIM; ++i)
+          pt[i] = tpid[i];
+        p = to_point<CDIM>(pt);
+        oss << ",";
+        auto vals = values[p];
+        if (vals.size() > 0) {
+          oss << "<" << vals[0];
+          for (size_t i = 1; i < vals.size(); ++i)
+            oss << "," << vals[i];
+          oss << ">";
+        }
+      }
+      tpid++;
+    }
+  }
+
+  template <int DIM>
+  static Point<DIM>
+  to_point(const coord_t vals[DIM]) {
+    return Point<DIM>(vals);
+  }
 };
+
+template <>
+Point<1>
+TopLevelTask::to_point(const coord_t vals[1]) {
+  return Point<1>(vals[0]);
+}
 
 void
 usage() {
