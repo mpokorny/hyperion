@@ -61,12 +61,12 @@ public:
       for (PointInDomainIterator<3> pid(runtime->get_index_space_domain(is));
            pid();
            pid++)
-        ps[*pid] = Point<2>(pid[0] % subsample, pid[1]);
+        ps[*pid] = Point<2>(((pid[0] % subsample == 0) ? 0 : 1), pid[1]);
       runtime->unmap_region(ctx, pr);
       auto colors =
         runtime->create_index_space(
           ctx,
-          Rect<2>(Point<2>(0, 0), Point<2>(subsample - 1, 1)));
+          Rect<2>(Point<2>(0, 0), Point<2>(1, 1)));
       result = runtime->create_partition_by_field(ctx, lr, lr, fid, colors);
       runtime->destroy_index_space(ctx, colors);
       runtime->destroy_logical_region(ctx, lr);
@@ -171,21 +171,20 @@ public:
     // read MS table columns to initialize the Column LogicalRegions
     //
 
-    // special test case: partitioned read back
-    std::optional<IndexPartition> read_ip = read_partition(table, ctx, runtime);
-
     TableReadTask table_read_task(
       table_path.value(),
       table,
       colnames.begin(),
       end_present_colnames,
-      std::nullopt,
-      read_ip);
+      10000);
     auto lr_fids = table_read_task.dispatch();
 
     //
     // compute the LogicalRegions to read back
     //
+
+    // special test case: partitioned read back
+    std::optional<IndexPartition> read_ip = read_partition(table, ctx, runtime);
 
     // read_lr_fids tuple values: colname, region, parent region, field id
     std::vector<std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>>
