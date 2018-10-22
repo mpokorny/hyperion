@@ -51,18 +51,18 @@ TableReadTask::dispatch() {
   Legion::Context ctx = m_table->context();
   Legion::Runtime* runtime = m_table->runtime();
   auto result = m_table->logical_regions(m_column_names);
-  auto [ips, ip] =
+  auto ips =
     m_table->row_block_index_partitions(
       m_index_partition,
       m_column_names,
       m_block_length.value_or(m_table->num_rows()));
-  auto cs = runtime->get_index_partition_color_space(ctx, ip);
   for (size_t i = 0; i < result.size(); ++i) {
-    auto launcher = IndexTaskLauncher(
-      TASK_ID,
-      cs,
-      TaskArgument(args[i].get(), args_size),
-      ArgumentMap());
+    auto launcher =
+      IndexTaskLauncher(
+        TASK_ID,
+        runtime->get_index_partition_color_space(ctx, ips[i]),
+        TaskArgument(args[i].get(), args_size),
+        ArgumentMap());
     auto& [lr, fid] = result[i];
     LogicalPartition lp = runtime->get_logical_partition(ctx, lr, ips[i]);
     RegionRequirement req(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr);
@@ -70,12 +70,11 @@ TableReadTask::dispatch() {
     launcher.add_region_requirement(req);
     runtime->execute_index_space(ctx, launcher);
   }
-  runtime->destroy_index_partition(ctx, ip);
   std::for_each(
     ips.begin(),
     ips.end(),
     [runtime, ctx](auto p) {
-      runtime->destroy_index_partition(ctx, p);
+        runtime->destroy_index_partition(ctx, p);
     });
   return result;
 }

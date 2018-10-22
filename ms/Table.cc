@@ -66,7 +66,7 @@ Table::logical_regions(const vector<string>& colnames) const {
   return result;
 }
 
-std::tuple<std::vector<IndexPartition>, IndexPartition>
+std::vector<IndexPartition>
 Table::row_block_index_partitions(
   const std::optional<IndexPartition>& ipart,
   const vector<std::string>& colnames,
@@ -134,7 +134,7 @@ Table::row_block_index_partitions(
       block_lr,
       block_fid,
       block_color_space);
-  std::tuple<vector<IndexPartition>, IndexPartition> result;
+  vector<IndexPartition> result;
   if (ipart) {
     map<IndexSpace, IndexPartition> subspace_partitions;
     for (size_t i = 0; i < num_blocks; ++i)
@@ -209,15 +209,13 @@ Table::row_block_index_partitions(
         }
       });
 
-    auto projected_partitions = index_partitions(full_partition, colnames);
-    result = std::make_tuple(projected_partitions, full_partition);
+    result = index_partitions(full_partition, colnames);
     m_runtime->destroy_index_space(m_context, full_color_space);
+    m_runtime->destroy_index_partition(m_context, full_partition);
   } else {
-    result =
-      std::make_tuple(
-        index_partitions(block_partition, colnames),
-        block_partition);
+    result = index_partitions(block_partition, colnames);
   }
+  m_runtime->destroy_index_partition(m_context, block_partition);
   return result;
 }
 
@@ -261,7 +259,6 @@ Table::initialize_projections(
     assert(false);
     break;
   }
-  runtime->destroy_index_space(ctx, launch_space);
 }
 
 // Local Variables:

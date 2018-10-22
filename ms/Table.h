@@ -189,7 +189,7 @@ public:
       [&, this](auto& colname) {
         auto col = column(colname);
         auto rank = col->rank();
-        if (rank < reg_rank)
+        if (rank < reg_rank) {
           return m_runtime->create_partition_by_image(
             m_context,
             col->index_space(),
@@ -197,12 +197,33 @@ public:
             proj_lr,
             rank,
             color_space);
-        else
-          return ipart;
+        } else {
+          // the parent index space of ipart is not necessarily the column index
+          // space, so we have to construct the same partition for this column
+          // (by using the domain of each of the subspaces of ipart)
+          auto ip =
+            m_runtime->create_pending_partition(
+              m_context,
+              col->index_space(),
+              color_space);
+          for (Legion::Domain::DomainPointIterator dpi(
+                 m_runtime->get_index_partition_color_space(m_context, ip));
+               dpi;
+               dpi++)
+            m_runtime->create_index_space_union(
+              m_context,
+              ip,
+              dpi.p,
+              {m_runtime->create_index_space(
+                  m_context,
+                  m_runtime->get_index_space_domain(
+                    m_context,
+                    m_runtime->get_index_subspace(m_context, ipart, dpi)))});
+          return ip;
+        }
       });
-    //runtime->destroy_logical_partition(ctx, proj_lp);
+    m_runtime->destroy_logical_partition(m_context, proj_lp);
     m_runtime->destroy_logical_region(m_context, proj_lr);
-    m_runtime->destroy_index_space(m_context, color_space);
     return result;
   }
 
@@ -214,7 +235,7 @@ public:
     return index_partitions(ipart, colnames.begin(), colnames.end());
   }
 
-  std::tuple<std::vector<Legion::IndexPartition>, Legion::IndexPartition>
+  std::vector<Legion::IndexPartition>
   row_block_index_partitions(
     const std::optional<Legion::IndexPartition>& ipart,
     const std::vector<std::string>& colnames,
