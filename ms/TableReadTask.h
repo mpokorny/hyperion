@@ -37,7 +37,7 @@ public:
   template <typename Iter>
   TableReadTask(
     const std::string& table_path,
-    const std::shared_ptr<Table>& table,
+    const std::shared_ptr<const Table>& table,
     Iter colname_iter,
     Iter end_colname_iter,
     std::optional<size_t> block_length = std::nullopt,
@@ -357,7 +357,7 @@ private:
 
   std::string m_table_path;
 
-  const std::shared_ptr<Table> m_table;
+  const std::shared_ptr<const Table> m_table;
 
   std::vector<std::string> m_column_names;
 
