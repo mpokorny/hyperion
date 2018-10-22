@@ -48,8 +48,8 @@ TableReadTask::dispatch() {
       return result;
     });
 
-  Legion::Context ctx = m_table->context();
-  Legion::Runtime* runtime = m_table->runtime();
+  Context ctx = m_table->context();
+  Runtime* runtime = m_table->runtime();
   auto result = m_table->logical_regions(m_column_names);
   auto ips =
     m_table->row_block_index_partitions(
@@ -89,7 +89,9 @@ TableReadTask::base_impl(
   const TableReadTaskArgs* args =
     static_cast<const TableReadTaskArgs*>(task->args);
   IndexTreeL row_index_pattern;
-  index_tree_serdez::deserialize(row_index_pattern, args->ser_row_index_pattern);
+  index_tree_serdez::deserialize(
+    row_index_pattern,
+    args->ser_row_index_pattern);
   casacore::Table table(
     args->table_path,
     casacore::TableLock::PermanentLockingWait);
