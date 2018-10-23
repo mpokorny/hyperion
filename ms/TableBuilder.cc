@@ -50,8 +50,6 @@ TableBuilder::from_casacore_table(
         nm, size<3>);                                               \
       array_names.insert(nm);                                          \
       break;                                                          \
-    case -1:                                                          \
-      break;                                                          \
     default:                                                          \
       assert(false);                                                  \
       break;                                                          \

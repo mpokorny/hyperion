@@ -42,26 +42,13 @@ Table::index_space() const {
 vector<tuple<LogicalRegion, FieldID>>
 Table::logical_regions(const vector<string>& colnames) const {
 
-  std::lock_guard<decltype(m_logical_regions_mutex)>
-    lock(m_logical_regions_mutex);
-
   vector<tuple<LogicalRegion, FieldID>> result;
   transform(
     colnames.begin(),
     colnames.end(),
     back_inserter(result),
     [this](auto& colname) {
-      if (m_logical_regions.count(colname) == 0) {
-        auto fs = m_runtime->create_field_space(m_context);
-        auto fa = m_runtime->create_field_allocator(m_context, fs);
-        auto col = column(colname);
-        auto fid = col->add_field(fs, fa);
-        m_logical_regions[colname] =
-          make_tuple(
-            m_runtime->create_logical_region(m_context, col->index_space(), fs),
-            move(fid));
-      }
-      return m_logical_regions[colname];
+      return column(colname)->logical_region();
     });
   return result;
 }
@@ -217,48 +204,6 @@ Table::row_block_index_partitions(
   }
   m_runtime->destroy_index_partition(m_context, block_partition);
   return result;
-}
-
-void
-Table::initialize_projections(
-  Context ctx,
-  Runtime* runtime,
-  LogicalRegion lr,
-  LogicalPartition lp) {
-
-  auto launch_space =
-    runtime->get_index_partition_color_space_name(
-      ctx,
-      lp.get_index_partition());
-  auto reg_rank = lr.get_index_space().get_dim();
-  set<FieldID> fids;
-  runtime->get_field_space_fields(ctx, lr.get_field_space(), fids);
-  switch (reg_rank) {
-  case 1:
-    break;
-
-  case 2:
-    if (fids.count(1) > 0) {
-      FillProjectionsTask<1, 2> f1(lr, lp, 1, launch_space);
-      f1.dispatch(ctx, runtime);
-    }
-    break;
-
-  case 3:
-    if (fids.count(1) > 0) {
-      FillProjectionsTask<1, 3> f1(lr, lp, 1, launch_space);
-      f1.dispatch(ctx, runtime);
-    }
-    if (fids.count(2) > 0) {
-      FillProjectionsTask<2, 3> f2(lr, lp, 2, launch_space);
-      f2.dispatch(ctx, runtime);
-    }
-    break;
-
-  default:
-    assert(false);
-    break;
-  }
 }
 
 // Local Variables:

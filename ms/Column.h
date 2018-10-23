@@ -4,6 +4,7 @@
 #include <cassert>
 #include <functional>
 #include <mutex>
+#include <tuple>
 #include <unordered_map>
 
 #include <casacore/casa/aipstype.h>
@@ -104,9 +105,11 @@ public:
   }
 
   virtual ~Column() {
-    std::lock_guard<decltype(m_index_space_mutex)> lock(m_index_space_mutex);
+    std::lock_guard<decltype(m_mutex)> lock(m_mutex);
     if (m_index_space)
       m_runtime->destroy_index_space(m_context, m_index_space.value());
+    if (m_logical_region)
+      m_runtime->destroy_logical_region(m_context, m_logical_region.value());
   }
 
   const std::string&
@@ -146,7 +149,7 @@ public:
 
   Legion::IndexSpace
   index_space() const {
-    std::lock_guard<decltype(m_index_space_mutex)> lock(m_index_space_mutex);
+    std::lock_guard<decltype(m_mutex)> lock(m_mutex);
     if (!m_index_space)
       m_index_space =
         legms::tree_index_space(m_index_tree, m_context, m_runtime);
@@ -159,6 +162,22 @@ public:
     auto result = legms::add_field(m_datatype, fa);
     m_runtime->attach_name(fs, result, name().c_str());
     return result;
+  }
+
+  Legion::IndexPartition
+  projected_index_partition(const Legion::IndexPartition&) const;
+
+  std::tuple<Legion::LogicalRegion, Legion::FieldID>
+  logical_region() const {
+    std::lock_guard<decltype(m_mutex)> lock(m_mutex);
+    if (!m_logical_region) {
+      Legion::FieldSpace fs = m_runtime->create_field_space(m_context);
+      auto fa = m_runtime->create_field_allocator(m_context, fs);
+      m_field_id = add_field(fs, fa);
+      m_logical_region =
+        m_runtime->create_logical_region(m_context, index_space(), fs);
+    }
+    return std::make_tuple(m_logical_region.value(), m_field_id);
   }
 
   static Generator
@@ -238,110 +257,13 @@ private:
   nr(
     const IndexTreeL& row_pattern,
     const IndexTreeL& full_shape,
-    bool cycle = true) {
-
-    if (row_pattern.rank().value() > full_shape.rank().value())
-      return std::nullopt;
-    auto pruned_shape = full_shape.pruned(row_pattern.rank().value() - 1);
-    auto p_iter = pruned_shape.children().begin();
-    auto p_end = pruned_shape.children().end();
-    Legion::coord_t i0 = std::get<0>(row_pattern.index_range());
-    size_t result = 0;
-    Legion::coord_t pi, pn;
-    IndexTreeL pt;
-    std::tie(pi, pn, pt) = *p_iter;
-    while (p_iter != p_end) {
-      auto r_iter = row_pattern.children().begin();
-      auto r_end = row_pattern.children().end();
-      Legion::coord_t i, n;
-      IndexTreeL t;
-      while (p_iter != p_end && r_iter != r_end) {
-        std::tie(i, n, t) = *r_iter;
-        if (i + i0 != pi) {
-          return std::nullopt;
-        } else if (t == pt) {
-          auto m = std::min(n, pn);
-          result += m * t.size();
-          pi += m;
-          pn -= m;
-          if (pn == 0) {
-            ++p_iter;
-            if (p_iter != p_end)
-              std::tie(pi, pn, pt) = *p_iter;
-          }
-        } else {
-          ++p_iter;
-          if (p_iter != p_end)
-            return std::nullopt;
-          auto chnr = nr(t, pt, false);
-          if (chnr)
-            result += chnr.value();
-          else
-            return std::nullopt;
-        }
-        ++r_iter;
-      }
-      i0 = i + n;
-      if (!cycle && p_iter != p_end && r_iter == r_end)
-        return std::nullopt;
-    }
-    return result;
-  }
+    bool cycle = true);
 
   static bool
-  pattern_matches(const IndexTreeL& pattern, const IndexTreeL& shape) {
-    return nr(pattern, shape).has_value();
-  }
+  pattern_matches(const IndexTreeL& pattern, const IndexTreeL& shape);
 
   static IndexTreeL
-  ixt(const IndexTreeL& row_pattern, size_t num) {
-    std::vector<std::tuple<Legion::coord_t, Legion::coord_t, IndexTreeL>> ch;
-    auto pattern_n = row_pattern.size();
-    auto pattern_rep = num / pattern_n;
-    auto pattern_rem = num % pattern_n;
-    assert(std::get<0>(row_pattern.index_range()) == 0);
-    auto stride = std::get<1>(row_pattern.index_range()) + 1;
-    Legion::coord_t offset = 0;
-    if (row_pattern.children().size() == 1) {
-      Legion::coord_t i;
-      IndexTreeL t;
-      std::tie(i, std::ignore, t) = row_pattern.children()[0];
-      offset += pattern_rep * stride;
-      ch.emplace_back(i, offset, t);
-    } else {
-      for (size_t r = 0; r < pattern_rep; ++r) {
-        std::transform(
-          row_pattern.children().begin(),
-          row_pattern.children().end(),
-          std::back_inserter(ch),
-          [&offset](auto& c) {
-            auto& [i, n, t] = c;
-            return std::make_tuple(i + offset, n, t);
-          });
-        offset += stride;
-      }
-    }
-    auto rch = row_pattern.children().begin();
-    auto rch_end = row_pattern.children().end();
-    while (pattern_rem > 0 && rch != rch_end) {
-      auto& [i, n, t] = *rch;
-      auto tsz = t.size();
-      if (pattern_rem >= tsz) {
-        auto nt = std::min(pattern_rem / tsz, static_cast<size_t>(n));
-        ch.emplace_back(i + offset, nt, t);
-        pattern_rem -= nt * tsz;
-        if (nt == static_cast<size_t>(n))
-          ++rch;
-      } else /* pattern_rem < tsz */ {
-        auto pt = ixt(t, pattern_rem);
-        pattern_rem = 0;
-        ch.emplace_back(i + offset, 1, pt);
-      }
-    }
-    auto result = IndexTreeL(ch);
-    assert(result.size() == num);
-    return result;
-  }
+  ixt(const IndexTreeL& row_pattern, size_t num);
 
   std::string m_name;
 
@@ -357,9 +279,13 @@ private:
 
   Legion::Runtime* m_runtime;
 
-  mutable std::mutex m_index_space_mutex;
+  mutable std::recursive_mutex m_mutex;
 
   mutable std::optional<Legion::IndexSpace> m_index_space;
+
+  mutable std::optional<Legion::LogicalRegion> m_logical_region;
+
+  mutable Legion::FieldID m_field_id;
 };
 
 } // end namespace ms

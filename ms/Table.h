@@ -54,30 +54,21 @@ public:
         return std::make_pair(col->name(), col);
       });
 
-    assert(m_columns.size() > 0);
-    auto row_index_pattern = (*m_columns.begin()).second->row_index_pattern();
-    auto num_rows = (*m_columns.begin()).second->num_rows();
-    assert(
-      std::all_of(
-        m_columns.begin(),
-        m_columns.end(),
-        [&row_index_pattern, &num_rows](auto& nc) {
-          return row_index_pattern == nc.second->row_index_pattern()
-            && num_rows == nc.second->num_rows();
-        }));
+    if (m_columns.size() > 0) {
+      auto row_index_pattern = (*m_columns.begin()).second->row_index_pattern();
+      auto num_rows = (*m_columns.begin()).second->num_rows();
+      assert(
+        std::all_of(
+          m_columns.begin(),
+          m_columns.end(),
+          [&row_index_pattern, &num_rows](auto& nc) {
+            return row_index_pattern == nc.second->row_index_pattern()
+              && num_rows == nc.second->num_rows();
+          }));
+    }
   }
 
   virtual ~Table() {
-    std::lock_guard<decltype(m_logical_regions_mutex)>
-      lock(m_logical_regions_mutex);
-    std::for_each(
-      m_logical_regions.begin(),
-      m_logical_regions.end(),
-      [this](auto& nm_lr_fid) {
-        m_runtime->destroy_logical_region(
-          m_context,
-          std::get<0>(std::get<1>(nm_lr_fid)));
-      });
   }
 
   const std::string&
@@ -140,90 +131,17 @@ public:
     Iter colnames_iter,
     Iter colnames_iter_end) const {
 
-    auto is = index_space();
+    assert(
+      m_runtime->get_parent_index_space(m_context, ipart) == index_space());
 
-    assert(m_runtime->get_parent_index_space(m_context, ipart) == is);
-
-    std::set<unsigned> ranks;
-    std::transform(
-      colnames_iter,
-      colnames_iter_end,
-      std::inserter(ranks, ranks.end()),
-      [this](auto& colname) { return column(colname)->rank(); });
-    auto fs = m_runtime->create_field_space(m_context);
-    {
-      auto fa = m_runtime->create_field_allocator(m_context, fs);
-      std::for_each(
-        ranks.begin(),
-        ranks.end(),
-        [&fa](auto r) {
-          switch (r) {
-          case 1:
-            fa.allocate_field(sizeof(Legion::Point<1>), 1);
-            break;
-          case 2:
-            fa.allocate_field(sizeof(Legion::Point<2>), 2);
-            break;
-          case 3:
-            fa.allocate_field(sizeof(Legion::Point<3>), 3);
-            break;
-          default:
-            assert(false);
-            break;
-          }
-        });
-    }
-    auto proj_lr = m_runtime->create_logical_region(m_context, is, fs);
-    auto proj_lp = m_runtime->get_logical_partition(m_context, proj_lr, ipart);
-    initialize_projections(m_context, m_runtime, proj_lr, proj_lp);
-    m_runtime->destroy_field_space(m_context, fs);
-
-    unsigned  reg_rank = is.get_dim();
-    auto color_space =
-      m_runtime->get_index_partition_color_space_name(m_context, ipart);
     std::vector<Legion::IndexPartition> result;
     std::transform(
       colnames_iter,
       colnames_iter_end,
       std::back_inserter(result),
-      [&, this](auto& colname) {
-        auto col = column(colname);
-        auto rank = col->rank();
-        if (rank < reg_rank) {
-          return m_runtime->create_partition_by_image(
-            m_context,
-            col->index_space(),
-            proj_lp,
-            proj_lr,
-            rank,
-            color_space);
-        } else {
-          // the parent index space of ipart is not necessarily the column index
-          // space, so we have to construct the same partition for this column
-          // (by using the domain of each of the subspaces of ipart)
-          auto ip =
-            m_runtime->create_pending_partition(
-              m_context,
-              col->index_space(),
-              color_space);
-          for (Legion::Domain::DomainPointIterator dpi(
-                 m_runtime->get_index_partition_color_space(m_context, ip));
-               dpi;
-               dpi++)
-            m_runtime->create_index_space_union(
-              m_context,
-              ip,
-              dpi.p,
-              {m_runtime->create_index_space(
-                  m_context,
-                  m_runtime->get_index_space_domain(
-                    m_context,
-                    m_runtime->get_index_subspace(m_context, ipart, dpi)))});
-          return ip;
-        }
+      [this, &ipart](auto& colname) {
+        return column(colname)->projected_index_partition(ipart);
       });
-    m_runtime->destroy_logical_partition(m_context, proj_lp);
-    m_runtime->destroy_logical_region(m_context, proj_lr);
     return result;
   }
 
@@ -296,13 +214,6 @@ protected:
     return result;
   }
 
-  static void
-  initialize_projections(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    Legion::LogicalRegion lr,
-    Legion::LogicalPartition lp);
-
   std::string m_name;
 
   std::unordered_map<std::string, std::shared_ptr<Column>> m_columns;
@@ -310,12 +221,6 @@ protected:
   Legion::Context m_context;
 
   Legion::Runtime* m_runtime;
-
-  mutable std::mutex m_logical_regions_mutex;
-
-  mutable std::unordered_map<
-    std::string,
-    std::tuple<Legion::LogicalRegion, Legion::FieldID>> m_logical_regions;
 };
 
 } // end namespace ms
