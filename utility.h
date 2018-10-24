@@ -152,16 +152,69 @@ public:
   static size_t
   deserialize(std::vector<T>& val, const void *buffer) {
     size_t nt = *static_cast<const size_t *>(buffer);
-    val.reserve(nt);
-    std::memcpy(
-      val.data(),
-      reinterpret_cast<const T *>(static_cast<const size_t *>(buffer) + 1),
-      nt * sizeof(T));
+    const T* vs =
+      reinterpret_cast<const T *>(static_cast<const size_t *>(buffer) + 1);
+    val.insert(val.end(), vs, vs + nt);
     return serialized_size(val);
   }
 
   static void
   destroy(std::vector<T>&) {
+  }
+};
+
+template <>
+class vector_serdez<casacore::Bool> {
+public:
+
+  typedef std::vector<casacore::Bool> FIELD_TYPE;
+
+  static const size_t MAX_SERIALIZED_SIZE =
+    std::numeric_limits<size_t>::max();
+
+  static size_t
+  serialized_size(const std::vector<casacore::Bool>& val) {
+    return sizeof(size_t) + (val.size() + 7) / 8;
+  }
+
+  static size_t
+  serialize(const std::vector<casacore::Bool>& val, void *buffer) {
+    *static_cast<size_t *>(buffer) = val.size();
+    unsigned char* ts =
+      reinterpret_cast<unsigned char *>(static_cast<size_t *>(buffer) + 1);
+    unsigned bit = ((val.size() % 8) + 7) % 8;
+    std::for_each(
+      val.begin(),
+      val.end(),
+      [&ts, &bit](auto b) {
+        *ts = (*ts << 1) | b;
+        bit = (bit + 7) % 8;
+        if (bit == 7)
+          ++ts;
+      });
+    return serialized_size(val);
+  }
+
+  static size_t
+  deserialize(std::vector<casacore::Bool>& val, const void *buffer) {
+    size_t nt = *static_cast<const size_t *>(buffer);
+    val.reserve(nt);
+    const unsigned char* ts =
+      reinterpret_cast<const unsigned char *>(
+        static_cast<const size_t *>(buffer) + 1);
+    unsigned bit = ((nt % 8) + 7) % 8;
+    while (nt > 0) {
+      val.push_back((*ts >> bit) & 1);
+      bit = (bit + 7) % 8;
+      if (bit == 7)
+        ++ts;
+      --nt;
+    }
+    return serialized_size(val);
+  }
+
+  static void
+  destroy(std::vector<casacore::Bool>&) {
   }
 };
 
@@ -202,8 +255,8 @@ public:
       []() {
         Legion::Runtime::register_custom_serdez_op<index_tree_serdez>(
           INDEX_TREE_SID);
-        // Legion::Runtime::register_custom_serdez_op<
-        //   vector_serdez<casacore::Bool>>(CASACORE_BOOL_V_SID);
+        Legion::Runtime::register_custom_serdez_op<
+          vector_serdez<casacore::Bool>>(CASACORE_BOOL_V_SID);
         Legion::Runtime::register_custom_serdez_op<
           vector_serdez<casacore::Char>>(CASACORE_CHAR_V_SID);
         Legion::Runtime::register_custom_serdez_op<
