@@ -177,10 +177,10 @@ public:
         row_number = rn;
         col.get(row_number, col_value);
       }
-      // the call to field_init() is a workaround, done to avoid a segfault that
-      // occurs when a zero-length string is assigned to a field; TODO: is there
-      // a better solution?
-      field_init(values[*pid], col_value);
+      // field_init() is a necessary because the memory in the allocated region
+      // is uninitialized, which can be a problem with non-trivially copyable
+      // types (such as strings)
+      field_init(values.ptr(*pid));
       values[*pid] = col_value;
     }
   }
@@ -366,15 +366,14 @@ private:
   std::optional<Legion::IndexPartition> m_index_partition;
 
   template <typename T>
-  static inline void field_init(T&, const T&) {}
+  static inline void field_init(T*) {}
 
 };
 
 template <> inline
 void
-TableReadTask::field_init<casacore::String>(
-  casacore::String& fld, const casacore::String& val) {
-  fld.resize(std::max(val.size(), static_cast<casacore::String::size_type>(1)));
+TableReadTask::field_init<casacore::String>(casacore::String* fld) {
+  ::new (fld) casacore::String;
 }
 
 } // end namespace ms
