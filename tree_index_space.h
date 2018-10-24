@@ -334,8 +334,10 @@ public:
       Legion::coord_t,
       Realm::AffineAccessor<IndexTreeL,1,Legion::coord_t>,
       false> acc_tree(region, TreeIndexSpace::FID_TREE);
-    for (Legion::coord_t i = 0; i < m_nch; ++i)
+    for (Legion::coord_t i = 0; i < m_nch; ++i) {
+      ::new (acc_tree.ptr(i)) IndexTreeL;
       cbfn(i, acc_rect[i], acc_tree[i]);
+    }
     runtime->unmap_region(ctx, region);
   }
 
