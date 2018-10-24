@@ -4,6 +4,69 @@
 
 using namespace legms::ms;
 
+struct SizeArgs {
+  std::shared_ptr<casacore::TableColumn> tcol;
+  unsigned row;
+  casacore::IPosition shape;
+};
+
+template <int DIM>
+static std::array<size_t, DIM>
+size(const std::any& args) {
+  std::array<size_t, DIM> result;
+  auto sa = std::any_cast<SizeArgs>(args);
+  const casacore::IPosition& shape =
+    (sa.tcol ? sa.tcol->shape(sa.row) : sa.shape);
+  assert(shape.size() == DIM);
+  shape.copy(result.begin());
+  return result;
+}
+
+template <casacore::DataType DT>
+void
+scalar_column(TableBuilder& tb, const std::string& nm) {
+  tb.add_scalar_column<typename legms::DataType<DT>::ValueType>(nm);
+}
+
+template <casacore::DataType DT>
+void
+array_column(
+  TableBuilder& tb,
+  const std::string& nm,
+  int ndim,
+  std::unordered_set<std::string>& array_names) {
+
+  switch (ndim) {
+  case 1:
+    tb.add_array_column<1, typename legms::DataType<DT>::ValueType>(
+      nm,
+      size<1>);
+    array_names.insert(nm);
+    break;
+
+  case 2:
+    tb.add_array_column<2, typename legms::DataType<DT>::ValueType>(
+      nm,
+      size<2>);
+    array_names.insert(nm);
+    break;
+
+  case 3:
+    tb.add_array_column<3, typename legms::DataType<DT>::ValueType>(
+      nm,
+      size<3>);
+    array_names.insert(nm);
+    break;
+
+  case -1:
+    break;
+
+  default:
+    assert(false);
+    break;
+  }
+}
+
 TableBuilder
 TableBuilder::from_casacore_table(
   const std::experimental::filesystem::path& path,
@@ -23,38 +86,6 @@ TableBuilder::from_casacore_table(
   TableBuilder result(path.filename(), IndexTreeL(1));
   std::unordered_set<std::string> array_names;
 
-#define COL(tp) casacore::DataType::Tp##tp:                             \
-  result.                                                               \
-    add_scalar_column<DataType<casacore::DataType::Tp##tp>::ValueType>(nm); \
-  break;                                                                \
-  case casacore::DataType::TpArray##tp:                                 \
-    switch (col.ndim()) {                                             \
-    case 1:                                                           \
-      result.add_array_column<\
-        1,\
-        DataType<casacore::DataType::Tp##tp>::ValueType>( \
-        nm, size<1>);                                               \
-      array_names.insert(nm);                                          \
-      break;                                                          \
-    case 2:                                                           \
-      result.add_array_column<\
-        2,\
-        DataType<casacore::DataType::Tp##tp>::ValueType>( \
-        nm, size<2>);                                               \
-      array_names.insert(nm);                                          \
-      break;                                                          \
-    case 3:                                                           \
-      result.add_array_column<\
-        3,\
-        DataType<casacore::DataType::Tp##tp>::ValueType>( \
-        nm, size<3>);                                               \
-      array_names.insert(nm);                                          \
-      break;                                                          \
-    default:                                                          \
-      assert(false);                                                  \
-      break;                                                          \
-    }
-
   bool select_all = column_selection.count("*") > 0;
   auto tdesc = table.tableDesc();
   auto column_names = tdesc.columnNames();
@@ -66,30 +97,150 @@ TableBuilder::from_casacore_table(
           && (select_all || column_selection.count(nm) > 0)) {
         auto col = tdesc[nm];
         switch (col.trueDataType()) {
-        case COL(Bool)
+        case casacore::DataType::TpBool:
+          scalar_column<casacore::DataType::TpBool>(result, nm);
           break;
-        case COL(Char)
+
+        case casacore::DataType::TpArrayBool:
+          array_column<casacore::DataType::TpBool>(
+            result,
+            nm,
+            col.ndim(),
+            array_names);
           break;
-        case COL(UChar)
+
+        case casacore::DataType::TpChar:
+          scalar_column<casacore::DataType::TpChar>(result, nm);
           break;
-        case COL(Short)
+
+        case casacore::DataType::TpArrayChar:
+          array_column<casacore::DataType::TpChar>(
+            result,
+            nm,
+            col.ndim(),
+            array_names);
           break;
-        case COL(UShort)
+
+        case casacore::DataType::TpUChar:
+          scalar_column<casacore::DataType::TpUChar>(result, nm);
           break;
-        case COL(Int)
+
+        case casacore::DataType::TpArrayUChar:
+          array_column<casacore::DataType::TpUChar>(
+            result,
+            nm,
+            col.ndim(),
+            array_names);
           break;
-        case COL(UInt)
+
+        case casacore::DataType::TpShort:
+          scalar_column<casacore::DataType::TpShort>(result, nm);
           break;
-        case COL(Float)
+
+        case casacore::DataType::TpArrayShort:
+          array_column<casacore::DataType::TpShort>(
+            result,
+            nm,
+            col.ndim(),
+            array_names);
           break;
-        case COL(Double)
+
+        case casacore::DataType::TpUShort:
+          scalar_column<casacore::DataType::TpUShort>(result, nm);
           break;
-        case COL(Complex)
+
+        case casacore::DataType::TpArrayUShort:
+          array_column<casacore::DataType::TpUShort>(
+            result,
+            nm,
+            col.ndim(),
+            array_names);
           break;
-        case COL(DComplex)
+
+        case casacore::DataType::TpInt:
+          scalar_column<casacore::DataType::TpInt>(result, nm);
           break;
-        case COL(String)
+
+        case casacore::DataType::TpArrayInt:
+          array_column<casacore::DataType::TpInt>(
+            result,
+            nm,
+            col.ndim(),
+            array_names);
           break;
+
+        case casacore::DataType::TpUInt:
+          scalar_column<casacore::DataType::TpUInt>(result, nm);
+          break;
+
+        case casacore::DataType::TpArrayUInt:
+          array_column<casacore::DataType::TpUInt>(
+            result,
+            nm,
+            col.ndim(),
+            array_names);
+          break;
+
+        case casacore::DataType::TpFloat:
+          scalar_column<casacore::DataType::TpFloat>(result, nm);
+          break;
+
+        case casacore::DataType::TpArrayFloat:
+          array_column<casacore::DataType::TpFloat>(
+            result,
+            nm,
+            col.ndim(),
+            array_names);
+          break;
+
+        case casacore::DataType::TpDouble:
+          scalar_column<casacore::DataType::TpDouble>(result, nm);
+          break;
+
+        case casacore::DataType::TpArrayDouble:
+          array_column<casacore::DataType::TpDouble>(
+            result,
+            nm,
+            col.ndim(),
+            array_names);
+          break;
+
+        case casacore::DataType::TpComplex:
+          scalar_column<casacore::DataType::TpComplex>(result, nm);
+          break;
+
+        case casacore::DataType::TpArrayComplex:
+          array_column<casacore::DataType::TpComplex>(
+            result,
+            nm,
+            col.ndim(),
+            array_names);
+          break;
+
+        case casacore::DataType::TpDComplex:
+          scalar_column<casacore::DataType::TpDComplex>(result, nm);
+          break;
+
+        case casacore::DataType::TpArrayDComplex:
+          array_column<casacore::DataType::TpDComplex>(
+            result,
+            nm,
+            col.ndim(),
+            array_names);
+          break;
+
+        case casacore::DataType::TpString:
+          scalar_column<casacore::DataType::TpString>(result, nm);
+          break;
+
+        case casacore::DataType::TpArrayString:
+          array_column<casacore::DataType::TpString>(
+            result,
+            nm,
+            col.ndim(),
+            array_names);
+          break;
+
         default:
           assert(false);
           break;

@@ -132,24 +132,6 @@ protected:
     m_columns[col->name()] = std::move(col);
   }
 
-  struct SizeArgs {
-    std::shared_ptr<casacore::TableColumn> tcol;
-    unsigned row;
-    casacore::IPosition shape;
-  };
-
-  template <int DIM>
-  static std::array<size_t, DIM>
-  size(const std::any& args) {
-    std::array<size_t, DIM> result;
-    auto sa = std::any_cast<SizeArgs>(args);
-    const casacore::IPosition& shape =
-      (sa.tcol ? sa.tcol->shape(sa.row) : sa.shape);
-    assert(shape.size() == DIM);
-    shape.copy(result.begin());
-    return result;
-  }
-
   std::string m_name;
 
   std::unordered_map<std::string, std::shared_ptr<ColumnBuilder>> m_columns;

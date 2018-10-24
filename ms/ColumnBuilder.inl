@@ -1,33 +1,33 @@
-#define GENERATORS(t)                                                   \
+#define GENERATORS(T)                                                   \
   template <> inline                                                    \
   auto                                                                  \
-  ScalarColumnBuilder::generator<casacore::t>(                          \
+  ScalarColumnBuilder::generator<T>(                                    \
     const std::string& name) {                                          \
                                                                         \
     return                                                              \
       [=](const IndexTreeL& row_index_pattern) {                        \
         return std::make_unique<ScalarColumnBuilder>(                   \
           name,                                                         \
-          ValueType<casacore::t>::DataType,                             \
+          ValueType<T>::DataType,                                       \
           row_index_pattern);                                           \
       };                                                                \
   }                                                                     \
   template <> inline                                                    \
   auto                                                                  \
-  ScalarColumnBuilder::generator<std::vector<casacore::t>>(             \
+  ScalarColumnBuilder::generator<std::vector<T>>(                       \
     const std::string& name) {                                          \
                                                                         \
     return                                                              \
       [=](const IndexTreeL& row_index_pattern) {                        \
         return std::make_unique<ScalarColumnBuilder>(                   \
           name,                                                         \
-          ValueType<std::vector<casacore::t>>::DataType,                \
+          ValueType<std::vector<T>>::DataType,                          \
           row_index_pattern);                                           \
       };                                                                \
   }                                                                     \
   template <> template<> inline                                         \
   auto                                                                  \
-  ArrayColumnBuilder<1>::generator<casacore::t>(                        \
+  ArrayColumnBuilder<1>::generator<T>(                                  \
     const std::string& name,                                            \
     std::function<std::array<size_t, 1>(const std::any&)> row_dimensions) { \
                                                                         \
@@ -35,14 +35,14 @@
       [=](const IndexTreeL& row_index_pattern) {                        \
         return std::make_unique<ArrayColumnBuilder<1>>(                 \
           name,                                                         \
-          ValueType<casacore::t>::DataType,                             \
+          ValueType<T>::DataType,                                       \
           row_index_pattern,                                            \
           row_dimensions);                                              \
       };                                                                \
   }\
   template <> template<> inline                                         \
   auto                                                                  \
-  ArrayColumnBuilder<2>::generator<casacore::t>(                        \
+  ArrayColumnBuilder<2>::generator<T>(                                  \
     const std::string& name,                                            \
     std::function<std::array<size_t, 2>(const std::any&)> row_dimensions) { \
                                                                         \
@@ -50,14 +50,14 @@
       [=](const IndexTreeL& row_index_pattern) {                        \
         return std::make_unique<ArrayColumnBuilder<2>>(                 \
           name,                                                         \
-          ValueType<casacore::t>::DataType,                             \
+          ValueType<T>::DataType,                                       \
           row_index_pattern,                                            \
           row_dimensions);                                              \
       };                                                                \
   }\
   template <> template<> inline                                         \
   auto                                                                  \
-  ArrayColumnBuilder<3>::generator<casacore::t>(                        \
+  ArrayColumnBuilder<3>::generator<T>(                                  \
     const std::string& name,                                            \
     std::function<std::array<size_t, 3>(const std::any&)> row_dimensions) { \
                                                                         \
@@ -65,25 +65,25 @@
       [=](const IndexTreeL& row_index_pattern) {                        \
         return std::make_unique<ArrayColumnBuilder<3>>(                 \
           name,                                                         \
-          ValueType<casacore::t>::DataType,                             \
+          ValueType<T>::DataType,                                       \
           row_index_pattern,                                            \
           row_dimensions);                                              \
       };                                                                \
   }
 
 
-GENERATORS(Bool)
-GENERATORS(Char)
-GENERATORS(uChar)
-GENERATORS(Short)
-GENERATORS(uShort)
-GENERATORS(Int)
-GENERATORS(uInt)
-GENERATORS(Float)
-GENERATORS(Double)
-GENERATORS(Complex)
-GENERATORS(DComplex)
-GENERATORS(String)
+GENERATORS(casacore::Bool)
+GENERATORS(casacore::Char)
+GENERATORS(casacore::uChar)
+GENERATORS(casacore::Short)
+GENERATORS(casacore::uShort)
+GENERATORS(casacore::Int)
+GENERATORS(casacore::uInt)
+GENERATORS(casacore::Float)
+GENERATORS(casacore::Double)
+GENERATORS(casacore::Complex)
+GENERATORS(casacore::DComplex)
+GENERATORS(casacore::String)
 
 #undef GENERATORS
 

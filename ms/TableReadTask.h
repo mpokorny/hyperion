@@ -76,13 +76,11 @@ public:
     casacore::DataType::Tp##dt:                                         \
       switch (col_desc.trueDataType()) {                                \
       case casacore::DataType::Tp##dt:                                  \
-        read_scalar_column<DIM, DataType<casacore::DataType::Tp##dt>::  \
-                           ValueType>(                                  \
+        read_scalar_column<DIM, casacore::DataType::Tp##dt>(            \
           table, col_desc, row_index_pattern, reg_domain, region); \
         break;                                                          \
       case casacore::DataType::TpArray##dt:                             \
-        read_array_column<DIM, DataType<casacore::DataType::Tp##dt>::   \
-                          ValueType>(                                   \
+        read_array_column<DIM, casacore::DataType::Tp##dt>(             \
           table, col_desc, row_index_pattern, reg_domain, region); \
         break;                                                          \
       default:                                                          \
@@ -92,8 +90,7 @@ public:
     case casacore::DataType::TpArray##dt:                               \
       switch (col_desc.trueDataType()) {                                \
       case casacore::DataType::TpArray##dt:                             \
-        read_vector_column<DIM, DataType<casacore::DataType::Tp##dt>::  \
-                           ValueType>(                                  \
+        read_vector_column<DIM, casacore::DataType::Tp##dt>(            \
           table, col_desc, row_index_pattern, reg_domain, region); \
         break;                                                          \
       default:                                                          \
@@ -133,7 +130,7 @@ public:
 #undef READ_COL
   }
 
-  template <int DIM, typename T>
+  template <int DIM, casacore::DataType DT>
   static void
   read_scalar_column(
     const casacore::Table& table,
@@ -141,6 +138,8 @@ public:
     const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
     const Legion::PhysicalRegion& region) {
+
+    typedef typename DataType<DT>::ValueType T;
 
     typedef Legion::FieldAccessor<
       WRITE_DISCARD,
@@ -185,7 +184,7 @@ public:
     }
   }
 
-  template <int DIM, typename T>
+  template <int DIM, casacore::DataType DT>
   static void
   read_array_column(
     const casacore::Table& table,
@@ -193,6 +192,8 @@ public:
     const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
     const Legion::PhysicalRegion& region) {
+
+    typedef typename DataType<DT>::ValueType T;
 
     typedef Legion::FieldAccessor<
       WRITE_DISCARD,
@@ -297,7 +298,7 @@ public:
     }
   }
 
-  template <int DIM, typename T>
+  template <int DIM, casacore::DataType DT>
   static void
   read_vector_column(
     const casacore::Table& table,
@@ -305,6 +306,8 @@ public:
     const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
     const Legion::PhysicalRegion& region) {
+
+    typedef typename DataType<DT>::ValueType T;
 
     typedef Legion::FieldAccessor<
       WRITE_DISCARD,
@@ -367,7 +370,6 @@ private:
 
   template <typename T>
   static inline void field_init(T*) {}
-
 };
 
 template <> inline
