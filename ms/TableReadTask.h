@@ -5,6 +5,7 @@
 #include <memory>
 #include <new>
 #include <optional>
+#include <type_traits>
 
 #include <casacore/casa/aipstype.h>
 #include <casacore/casa/Arrays.h>
@@ -237,6 +238,7 @@ public:
           col.get(row_number, col_array, true);
           col_vector.reference(col_array);
         }
+        field_init(values.ptr(*pid));
         values[*pid] = col_vector[pid[DIM - 1]];
       }
       break;
@@ -255,6 +257,7 @@ public:
           col.get(row_number, col_array, true);
           col_matrix.reference(col_array);
         }
+        field_init(values.ptr(*pid));
         values[*pid] = col_matrix(pid[DIM - 2], pid[DIM - 1]);
       }
       break;
@@ -273,6 +276,7 @@ public:
           col.get(row_number, col_array, true);
           col_cube.reference(col_array);
         }
+        field_init(values.ptr(*pid));
         values[*pid] = col_cube(pid[DIM - 3], pid[DIM - 2], pid[DIM - 1]);
       }
       break;
@@ -291,6 +295,7 @@ public:
         }
         for (unsigned i = 0; i < array_cell_rank; ++i)
           ip[i] = pid[DIM - array_cell_rank + i];
+        field_init(values.ptr(*pid));
         values[*pid] = col_array(ip);
       }
       break;
@@ -352,6 +357,7 @@ public:
       }
       std::vector<T> cv;
       col_vector.tovector(cv);
+      field_init(values.ptr(*pid));
       values[*pid] = cv;
     }
   }
@@ -369,14 +375,17 @@ private:
   std::optional<Legion::IndexPartition> m_index_partition;
 
   template <typename T>
-  static inline void field_init(T*) {}
-};
+  static inline
+  typename std::enable_if_t<std::is_trivially_copyable_v<T>>
+  field_init(T*) {}
 
-template <> inline
-void
-TableReadTask::field_init<casacore::String>(casacore::String* fld) {
-  ::new (fld) casacore::String;
-}
+  template <typename T>
+  static inline
+  typename std::enable_if_t<!std::is_trivially_copyable_v<T>>
+  field_init(T* fld) {
+    ::new (fld) T;
+  }
+};
 
 } // end namespace ms
 } // end namespace legms
