@@ -168,14 +168,6 @@ public:
       std::cout << std::endl;
     }
 
-    {
-      auto cn = table->column_names();
-      std::for_each(
-        cn.begin(),
-        cn.end(),
-        [](auto& nm) { std::cout << " " << nm; });
-      std::cout << std::endl;
-    }
     //
     // read MS table columns to initialize the Column LogicalRegions
     //
