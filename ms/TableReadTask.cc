@@ -46,6 +46,7 @@ TableReadTask::dispatch() {
       auto col = m_table->column(nm);
       result->column_rank = col->rank();
       result->column_datatype = col->datatype();
+      result->column_hint = m_column_hints.at(nm);
       return result;
     });
 
@@ -103,6 +104,7 @@ TableReadTask::base_impl(
     read_column<1>(
       table,
       cdesc,
+      args->column_hint,
       row_index_pattern,
       args->column_datatype,
       runtime->get_index_space_domain(
@@ -114,6 +116,7 @@ TableReadTask::base_impl(
     read_column<2>(
       table,
       cdesc,
+      args->column_hint,
       row_index_pattern,
       args->column_datatype,
       runtime->get_index_space_domain(
@@ -125,6 +128,7 @@ TableReadTask::base_impl(
     read_column<3>(
       table,
       cdesc,
+      args->column_hint,
       row_index_pattern,
       args->column_datatype,
       runtime->get_index_space_domain(

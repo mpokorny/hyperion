@@ -27,8 +27,8 @@ public:
   ColumnBuilder(
     const std::string& name,
     casacore::DataType datatype,
-    unsigned element_rank,
-    const IndexTreeL& row_index_pattern)
+    const IndexTreeL& row_index_pattern,
+    unsigned element_rank)
     : WithKeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
@@ -121,7 +121,7 @@ public:
       const std::string& name,
       casacore::DataType datatype,
       const IndexTreeL& row_index_pattern)
-      : ColumnBuilder(name, datatype, 0, row_index_pattern) {
+      : ColumnBuilder(name, datatype, row_index_pattern, 0) {
     }
 
   template <typename T>
@@ -146,7 +146,7 @@ public:
     casacore::DataType datatype,
     const IndexTreeL& row_index_pattern,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)> row_dimensions)
-    : ColumnBuilder(name, datatype, ARRAYDIM, row_index_pattern)
+    : ColumnBuilder(name, datatype, row_index_pattern, ARRAYDIM)
     , m_row_dimensions(row_dimensions) {
   }
 

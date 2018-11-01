@@ -6,13 +6,16 @@
 #include <new>
 #include <optional>
 #include <type_traits>
+#include <unordered_map>
 
 #include <casacore/casa/aipstype.h>
 #include <casacore/casa/Arrays.h>
 #include <casacore/tables/Tables.h>
 #include "legion.h"
 #include "Table.h"
+#include "TableBuilder.h"
 #include "utility.h"
+#include "ColumnHint.h"
 
 namespace legms {
 namespace ms {
@@ -23,6 +26,7 @@ struct TableReadTaskArgs {
   char column_name[20];
   unsigned column_rank;
   casacore::DataType column_datatype;
+  ColumnHint column_hint;
   unsigned char ser_row_index_pattern[];
 };
 
@@ -41,6 +45,7 @@ public:
     const std::shared_ptr<const Table>& table,
     Iter colname_iter,
     Iter end_colname_iter,
+    const std::unordered_map<std::string, ColumnHint>& column_hints,
     std::optional<size_t> block_length = std::nullopt,
     std::optional<Legion::IndexPartition> ipart = std::nullopt)
     : m_table_path(table_path)
@@ -48,6 +53,21 @@ public:
     , m_column_names(colname_iter, end_colname_iter)
     , m_block_length(block_length)
     , m_index_partition(ipart) {
+
+    casacore::Table tb(
+      casacore::String(table_path),
+      casacore::TableLock::PermanentLockingWait);
+    std::transform(
+      colname_iter,
+      end_colname_iter,
+      std::inserter(m_column_hints, m_column_hints.end()),
+      [&column_hints, tdesc=tb.tableDesc()](auto& nm) {
+        return std::make_pair(
+          nm,
+          (column_hints.count(nm) > 0)
+          ? column_hints.at(nm)
+          : TableBuilder::inferred_column_hint(tdesc[nm]));
+      });
   }
 
   static void
@@ -68,6 +88,7 @@ public:
   read_column(
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
+    const ColumnHint& col_hint,
     const IndexTreeL& row_index_pattern,
     casacore::DataType lr_datatype,
     Legion::DomainT<DIM> reg_domain,
@@ -78,11 +99,11 @@ public:
       switch (col_desc.trueDataType()) {                                \
       case casacore::DataType::Tp##dt:                                  \
         read_scalar_column<DIM, casacore::DataType::Tp##dt>(            \
-          table, col_desc, row_index_pattern, reg_domain, region); \
+          table, col_desc, row_index_pattern, reg_domain, region);      \
         break;                                                          \
       case casacore::DataType::TpArray##dt:                             \
         read_array_column<DIM, casacore::DataType::Tp##dt>(             \
-          table, col_desc, row_index_pattern, reg_domain, region); \
+          table, col_desc, col_hint, row_index_pattern, reg_domain, region); \
         break;                                                          \
       default:                                                          \
         assert(false);                                                  \
@@ -92,7 +113,7 @@ public:
       switch (col_desc.trueDataType()) {                                \
       case casacore::DataType::TpArray##dt:                             \
         read_vector_column<DIM, casacore::DataType::Tp##dt>(            \
-          table, col_desc, row_index_pattern, reg_domain, region); \
+          table, col_desc, col_hint, row_index_pattern, reg_domain, region); \
         break;                                                          \
       default:                                                          \
         assert(false);                                                  \
@@ -190,6 +211,7 @@ public:
   read_array_column(
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
+    const ColumnHint& col_hint,
     const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
     const Legion::PhysicalRegion& region) {
@@ -244,6 +266,7 @@ public:
       break;
     }
     case 2: {
+      casacore::IPosition ip(2);
       casacore::Matrix<T> col_matrix;
       col_matrix.reference(col_array);
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
@@ -258,11 +281,13 @@ public:
           col_matrix.reference(col_array);
         }
         field_init(values.ptr(*pid));
-        values[*pid] = col_matrix(pid[DIM - 2], pid[DIM - 1]);
+        pid2ipos<2>(ip, col_hint.index_permutations, pid);
+        values[*pid] = col_matrix(ip);
       }
       break;
     }
     case 3: {
+      casacore::IPosition ip(3);
       casacore::Cube<T> col_cube;
       col_cube.reference(col_array);
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
@@ -277,7 +302,8 @@ public:
           col_cube.reference(col_array);
         }
         field_init(values.ptr(*pid));
-        values[*pid] = col_cube(pid[DIM - 3], pid[DIM - 2], pid[DIM - 1]);
+        pid2ipos<3>(ip, col_hint.index_permutations, pid);
+        values[*pid] = col_cube(ip);
       }
       break;
     }
@@ -296,6 +322,7 @@ public:
         for (unsigned i = 0; i < array_cell_rank; ++i)
           ip[i] = pid[DIM - array_cell_rank + i];
         field_init(values.ptr(*pid));
+        pid2ipos(ip, col_hint.index_permutations.data(), pid);
         values[*pid] = col_array(ip);
       }
       break;
@@ -308,6 +335,7 @@ public:
   read_vector_column(
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
+    const ColumnHint& col_hint,
     const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
     const Legion::PhysicalRegion& region) {
@@ -373,6 +401,8 @@ private:
   std::optional<size_t> m_block_length;
 
   std::optional<Legion::IndexPartition> m_index_partition;
+
+  std::unordered_map<std::string, ColumnHint> m_column_hints;
 
   template <typename T>
   static inline

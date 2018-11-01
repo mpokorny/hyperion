@@ -39,7 +39,22 @@
           row_index_pattern,                                            \
           row_dimensions);                                              \
       };                                                                \
-  }\
+  }                                                                     \
+  template <> template<> inline                                         \
+  auto                                                                  \
+  ArrayColumnBuilder<1>::generator<std::vector<T>>(                     \
+    const std::string& name,                                            \
+    std::function<std::array<size_t, 1>(const std::any&)> row_dimensions) { \
+                                                                        \
+    return                                                              \
+      [=](const IndexTreeL& row_index_pattern) {                        \
+        return std::make_unique<ArrayColumnBuilder<1>>(                 \
+          name,                                                         \
+          ValueType<std::vector<T>>::DataType,                          \
+          row_index_pattern,                                            \
+          row_dimensions);                                              \
+      };                                                                \
+  }                                                                     \
   template <> template<> inline                                         \
   auto                                                                  \
   ArrayColumnBuilder<2>::generator<T>(                                  \
@@ -54,7 +69,22 @@
           row_index_pattern,                                            \
           row_dimensions);                                              \
       };                                                                \
-  }\
+  }                                                                     \
+  template <> template<> inline                                         \
+  auto                                                                  \
+  ArrayColumnBuilder<2>::generator<std::vector<T>>(                     \
+    const std::string& name,                                            \
+    std::function<std::array<size_t, 2>(const std::any&)> row_dimensions) { \
+                                                                        \
+    return                                                              \
+      [=](const IndexTreeL& row_index_pattern) {                        \
+        return std::make_unique<ArrayColumnBuilder<2>>(                 \
+          name,                                                         \
+          ValueType<std::vector<T>>::DataType,                          \
+          row_index_pattern,                                            \
+          row_dimensions);                                              \
+      };                                                                \
+  }                                                                     \
   template <> template<> inline                                         \
   auto                                                                  \
   ArrayColumnBuilder<3>::generator<T>(                                  \
@@ -66,6 +96,21 @@
         return std::make_unique<ArrayColumnBuilder<3>>(                 \
           name,                                                         \
           ValueType<T>::DataType,                                       \
+          row_index_pattern,                                            \
+          row_dimensions);                                              \
+      };                                                                \
+  }                                                                     \
+  template <> template<> inline                                         \
+  auto                                                                  \
+  ArrayColumnBuilder<3>::generator<std::vector<T>>(                     \
+    const std::string& name,                                            \
+    std::function<std::array<size_t, 3>(const std::any&)> row_dimensions) { \
+                                                                        \
+    return                                                              \
+      [=](const IndexTreeL& row_index_pattern) {                        \
+        return std::make_unique<ArrayColumnBuilder<3>>(                 \
+          name,                                                         \
+          ValueType<std::vector<T>>::DataType,                          \
           row_index_pattern,                                            \
           row_dimensions);                                              \
       };                                                                \

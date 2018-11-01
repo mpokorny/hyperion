@@ -2,12 +2,14 @@
 #define LEGMS_MS_UTILITY_H_
 
 #include <atomic>
+#include <cassert>
 #include <cstring>
 #include <limits>
 #include <mutex>
 #include <numeric>
 
 #include <casacore/casa/aipstype.h>
+#include <casacore/casa/Arrays/IPosition.h>
 #include <casacore/casa/BasicSL/String.h>
 #include <casacore/casa/Utilities/DataType.h>
 #include "legion.h"
@@ -19,6 +21,46 @@ typedef IndexTree<Legion::coord_t> IndexTreeL;
 
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
+template <
+  int ARRAY_DIM,
+  int REGION_DIM,
+  unsigned long HINT_DIM>
+std::enable_if_t<REGION_DIM >= ARRAY_DIM>
+pid2ipos(
+  casacore::IPosition& ipos,
+  const std::array<unsigned, HINT_DIM>& pv,
+  const Legion::PointInDomainIterator<REGION_DIM>& pid) {
+
+  for (unsigned i = 0; i < ARRAY_DIM; ++i)
+    ipos[pv[i]] = pid[i + REGION_DIM - ARRAY_DIM];
+}
+
+template <
+  int ARRAY_DIM,
+  int REGION_DIM,
+  unsigned long HINT_DIM>
+std::enable_if_t<!(REGION_DIM >= ARRAY_DIM)>
+pid2ipos(
+  casacore::IPosition&,
+  const std::array<unsigned, HINT_DIM>&,
+  const Legion::PointInDomainIterator<REGION_DIM>&) {
+
+  assert(false);
+}
+
+template <int REGION_DIM>
+void
+pid2ipos(
+  casacore::IPosition& ipos,
+  const unsigned* pv,
+  const Legion::PointInDomainIterator<REGION_DIM>& pid) {
+
+  unsigned array_dim = ipos.size();
+  assert(REGION_DIM >= array_dim);
+  for (unsigned i = 0; i < array_dim; ++i)
+    ipos[pv[i]] = pid[i + REGION_DIM - array_dim];
+}
 
 template <typename S>
 class string_serdez {

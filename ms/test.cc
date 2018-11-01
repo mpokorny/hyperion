@@ -128,7 +128,10 @@ public:
     } else {
       // general test case: create Table by scanning shape of MS table
       auto builder =
-        TableBuilder::from_casacore_table(table_path.value(), colnames_set);
+        TableBuilder::from_casacore_table(
+          table_path.value(),
+          colnames_set,
+          TableBuilder::ms_column_hints(table_name));
       table.reset(
         new Table(
           ctx,
@@ -177,6 +180,7 @@ public:
       table,
       colnames.begin(),
       end_present_colnames,
+      TableBuilder::ms_column_hints(table_name),
       10000);
     auto lr_fids = table_read_task.dispatch();
 

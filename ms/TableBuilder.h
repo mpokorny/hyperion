@@ -19,6 +19,7 @@
 #include "WithKeywordsBuilder.h"
 #include "ColumnBuilder.h"
 #include "Column.h"
+#include "ColumnHint.h"
 #include "IndexTree.h"
 
 namespace legms {
@@ -109,12 +110,25 @@ public:
     return result;
   }
 
+  static ColumnHint
+  inferred_column_hint(const casacore::ColumnDesc& coldesc);
+
   static TableBuilder
   from_casacore_table(
     const std::experimental::filesystem::path& path,
-    const std::unordered_set<std::string>& column_selection);
+    const std::unordered_set<std::string>& column_selections,
+    const std::unordered_map<std::string, ColumnHint>& column_hints);
+
+  static const std::unordered_map<std::string, ColumnHint>&
+  ms_column_hints(const std::string& table);
 
 protected:
+
+  static const std::unordered_map<
+  std::string,
+  std::unordered_map<std::string, ColumnHint>> m_ms_column_hints;
+
+  static const std::unordered_map<std::string, ColumnHint> m_empty_column_hints;
 
   void
   add_column(std::unique_ptr<ColumnBuilder>&& col) {
