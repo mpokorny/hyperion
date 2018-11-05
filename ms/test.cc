@@ -39,14 +39,13 @@ public:
   }
 
   static std::optional<IndexPartition>
-  read_partition(
-    const std::shared_ptr<const Table>& table,
-    Context ctx,
-    Runtime* runtime) {
+  read_partition(const std::shared_ptr<const Table>& table) {
 
     std::optional<IndexPartition> result;
     const unsigned subsample = 10000;
     if (table->name() == "POINTING" && subsample > 1) {
+      auto runtime = table->runtime();
+      auto ctx = table->context();
       auto fs = runtime->create_field_space(ctx);
       auto fa = runtime->create_field_allocator(ctx, fs);
       auto fid = fa.allocate_field(sizeof(Point<2>));
@@ -189,7 +188,7 @@ public:
     //
 
     // special test case: partitioned read back
-    std::optional<IndexPartition> read_ip = read_partition(table, ctx, runtime);
+    std::optional<IndexPartition> read_ip = read_partition(table);
     std::vector<IndexSpace> read_is;
 
     // read_lr_fids tuple values: colname, region, parent region, field id
