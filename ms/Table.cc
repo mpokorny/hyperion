@@ -7,8 +7,8 @@ using namespace Legion;
 using namespace std;
 
 Table::Table(
-  Legion::Context ctx,
-  Legion::Runtime* runtime,
+  Context ctx,
+  Runtime* runtime,
   const std::string& name,
   const std::vector<Column::Generator>& column_generators,
   const std::unordered_map<std::string, casacore::DataType>& kws)
