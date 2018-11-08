@@ -366,12 +366,14 @@ public:
       row_number = row_numbers[*pid];
       array_cell_rank = col.ndim(row_number);
     }
-    assert(array_cell_rank == 1);
 
     casacore::Array<T> col_array;
     col.get(row_number, col_array, true);
-    casacore::Vector<T> col_vector;
-    col_vector.reference(col_array);
+
+    casacore::IPosition start(array_cell_rank);
+    casacore::IPosition end(array_cell_rank);
+    init_rect(col_array, start, end);
+
     for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
          pid();
          pid++) {
@@ -379,12 +381,20 @@ public:
       if (row_number != rn) {
         row_number = rn;
         col.get(row_number, col_array, true);
-        col_vector.reference(col_array);
+        init_rect(col_array, start, end);
       }
-      std::vector<T> cv;
-      col_vector.tovector(cv);
+      for (unsigned i = 0; i < col_hint.index_rank; ++i) {
+        // we can just use the values in pid to index col_array, and need not
+        // fall back to using any sort of auxiliary counters for indexing since
+        // the index space at the deepest levels of the region should always be
+        // dense array-like
+        auto pi = pid[DIM - col_hint.index_rank + i];
+        auto j = col_hint.index_permutations[i];
+        start[j] = pi;
+        end[j] = pi;
+      }
       field_init(values.ptr(*pid));
-      values[*pid] = cv;
+      col_array(start, end).tovector(values[*pid]);
     }
   }
 
@@ -412,6 +422,20 @@ private:
   typename std::enable_if_t<!std::is_trivially_copyable_v<T>>
   field_init(T* fld) {
     ::new (fld) T;
+  }
+
+  template <typename T>
+  static inline void
+  init_rect(
+    const casacore::Array<T> array,
+    casacore::IPosition& start,
+    casacore::IPosition& end) {
+
+    start = 0;
+    end = array.shape();
+    auto ndim = array.shape().size();
+    for (unsigned i = 0; i < ndim; ++i)
+      end[i] -= 1;
   }
 };
 
