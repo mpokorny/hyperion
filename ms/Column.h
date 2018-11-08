@@ -3,7 +3,7 @@
 
 #include <cassert>
 #include <functional>
-#include <mutex>
+
 #include <tuple>
 #include <unordered_map>
 
@@ -27,19 +27,12 @@ public:
   typedef std::function<
     std::shared_ptr<Column>(Legion::Context, Legion::Runtime*)> Generator;
 
+  typedef casacore::uInt row_number_t;
+
   Column(
     Legion::Context ctx,
     Legion::Runtime* runtime,
-    const ColumnBuilder& builder)
-    : WithKeywords(builder.keywords())
-    , m_name(builder.name())
-    , m_datatype(builder.datatype())
-    , m_num_rows(builder.num_rows())
-    , m_row_index_pattern(builder.row_index_pattern())
-    , m_index_tree(builder.index_tree())
-    , m_context(ctx)
-    , m_runtime(runtime) {
-  }
+    const ColumnBuilder& builder);
 
   Column(
     Legion::Context ctx,
@@ -49,16 +42,7 @@ public:
     const IndexTreeL& row_index_pattern,
     const IndexTreeL& index_tree,
     const std::unordered_map<std::string, casacore::DataType>& kws =
-      std::unordered_map<std::string, casacore::DataType>())
-    : WithKeywords(kws)
-    , m_name(name)
-    , m_datatype(datatype)
-    , m_num_rows(nr(row_index_pattern, index_tree).value())
-    , m_row_index_pattern(row_index_pattern)
-    , m_index_tree(index_tree)
-    , m_context(ctx)
-    , m_runtime(runtime) {
-  }
+      std::unordered_map<std::string, casacore::DataType>());
 
   Column(
     Legion::Context ctx,
@@ -68,16 +52,7 @@ public:
     const IndexTreeL& row_index_pattern,
     unsigned num_rows,
     const std::unordered_map<std::string, casacore::DataType>& kws =
-      std::unordered_map<std::string, casacore::DataType>())
-    : WithKeywords(kws)
-    , m_name(name)
-    , m_datatype(datatype)
-    , m_num_rows(num_rows)
-    , m_row_index_pattern(row_index_pattern)
-    , m_index_tree(ixt(row_index_pattern, num_rows))
-    , m_context(ctx)
-    , m_runtime(runtime) {
-  }
+      std::unordered_map<std::string, casacore::DataType>());
 
   Column(
     Legion::Context ctx,
@@ -88,28 +63,11 @@ public:
     const IndexTreeL& row_pattern,
     unsigned num_rows,
     const std::unordered_map<std::string, casacore::DataType>& kws =
-      std::unordered_map<std::string, casacore::DataType>())
-    : WithKeywords(kws)
-    , m_name(name)
-    , m_datatype(datatype)
-    , m_num_rows(num_rows)
-    , m_row_index_pattern(row_index_pattern)
-    , m_index_tree(
-      ixt(
-        row_pattern,
-        num_rows * row_pattern.size() / row_index_pattern.size()))
-    , m_context(ctx)
-    , m_runtime(runtime) {
-
-    assert(pattern_matches(row_index_pattern, row_pattern));
-  }
+      std::unordered_map<std::string, casacore::DataType>());
 
   virtual ~Column() {
-    std::lock_guard<decltype(m_mutex)> lock(m_mutex);
-    if (m_index_space)
-      m_runtime->destroy_index_space(m_context, m_index_space.value());
-    if (m_logical_region)
-      m_runtime->destroy_logical_region(m_context, m_logical_region.value());
+    m_runtime->destroy_index_space(m_context, m_index_space);
+    m_runtime->destroy_logical_region(m_context, m_logical_region);
   }
 
   const std::string&
@@ -147,37 +105,17 @@ public:
     return m_num_rows;
   }
 
-  Legion::IndexSpace
+  const Legion::IndexSpace&
   index_space() const {
-    std::lock_guard<decltype(m_mutex)> lock(m_mutex);
-    if (!m_index_space)
-      m_index_space =
-        legms::tree_index_space(m_index_tree, m_context, m_runtime);
-    return m_index_space.value();
-  }
-
-  Legion::FieldID
-  add_field(Legion::FieldSpace fs, Legion::FieldAllocator fa) const {
-
-    auto result = legms::add_field(m_datatype, fa);
-    m_runtime->attach_name(fs, result, name().c_str());
-    return result;
+    return m_index_space;
   }
 
   Legion::IndexPartition
   projected_index_partition(const Legion::IndexPartition&) const;
 
-  std::tuple<Legion::LogicalRegion, Legion::FieldID>
+  const Legion::LogicalRegion&
   logical_region() const {
-    std::lock_guard<decltype(m_mutex)> lock(m_mutex);
-    if (!m_logical_region) {
-      Legion::FieldSpace fs = m_runtime->create_field_space(m_context);
-      auto fa = m_runtime->create_field_allocator(m_context, fs);
-      m_field_id = add_field(fs, fa);
-      m_logical_region =
-        m_runtime->create_logical_region(m_context, index_space(), fs);
-    }
-    return std::make_tuple(m_logical_region.value(), m_field_id);
+    return m_logical_region;
   }
 
   static Generator
@@ -251,6 +189,18 @@ public:
       };
   }
 
+  static constexpr Legion::FieldID value_fid = 0;
+
+  static constexpr Legion::FieldID row_number_fid = 1;
+
+  static void
+  register_tasks(Legion::Runtime *runtime);
+
+protected:
+
+  void
+  init();
+
 private:
 
   static std::optional<size_t>
@@ -279,13 +229,9 @@ private:
 
   Legion::Runtime* m_runtime;
 
-  mutable std::recursive_mutex m_mutex;
+  Legion::IndexSpace m_index_space;
 
-  mutable std::optional<Legion::IndexSpace> m_index_space;
-
-  mutable std::optional<Legion::LogicalRegion> m_logical_region;
-
-  mutable Legion::FieldID m_field_id;
+  Legion::LogicalRegion m_logical_region;
 };
 
 } // end namespace ms

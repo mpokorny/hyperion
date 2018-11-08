@@ -16,7 +16,7 @@ TableReadTask::register_task(Runtime* runtime) {
   runtime->register_task_variant<base_impl>(registrar);
 }
 
-std::vector<std::tuple<LogicalRegion, FieldID>>
+std::vector<LogicalRegion>
 TableReadTask::dispatch() {
 
   size_t ser_row_index_pattern_size =
@@ -59,17 +59,21 @@ TableReadTask::dispatch() {
       m_column_names,
       m_block_length.value_or(m_table->num_rows()));
   for (size_t i = 0; i < result.size(); ++i) {
+    auto lr = result[i];
+    auto lp = runtime->get_logical_partition(ctx, lr, ips[i]);
+    auto cs = runtime->get_index_partition_color_space(ctx, ips[i]);
     auto launcher =
       IndexTaskLauncher(
         TASK_ID,
-        runtime->get_index_partition_color_space(ctx, ips[i]),
+        cs,
         TaskArgument(args[i].get(), args_size),
         ArgumentMap());
-    auto& [lr, fid] = result[i];
-    LogicalPartition lp = runtime->get_logical_partition(ctx, lr, ips[i]);
-    RegionRequirement req(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr);
-    req.add_field(fid);
-    launcher.add_region_requirement(req);
+    launcher.add_region_requirement(
+      RegionRequirement(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr));
+    launcher.add_field(0, Column::value_fid);
+    launcher.add_region_requirement(
+      RegionRequirement(lp, 0, READ_ONLY, EXCLUSIVE, lr));
+    launcher.add_field(1, Column::row_number_fid);
     runtime->execute_index_space(ctx, launcher);
   }
   std::for_each(
@@ -110,7 +114,7 @@ TableReadTask::base_impl(
       runtime->get_index_space_domain(
         ctx,
         task->regions[0].region.get_index_space()),
-      regions[0]);
+      regions);
     break;
   case 2:
     read_column<2>(
@@ -122,7 +126,7 @@ TableReadTask::base_impl(
       runtime->get_index_space_domain(
         ctx,
         task->regions[0].region.get_index_space()),
-      regions[0]);
+      regions);
     break;
   case 3:
     read_column<3>(
@@ -134,7 +138,7 @@ TableReadTask::base_impl(
       runtime->get_index_space_domain(
         ctx,
         task->regions[0].region.get_index_space()),
-      regions[0]);
+      regions);
     break;
   default:
     assert(false);

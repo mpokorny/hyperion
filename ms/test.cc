@@ -11,7 +11,6 @@
 #include "Table.h"
 #include "TableBuilder.h"
 #include "TableReadTask.h"
-#include "FillProjectionsTask.h"
 
 namespace fs = std::experimental::filesystem;
 
@@ -106,7 +105,7 @@ public:
     // register legms library tasks
     TableReadTask::register_task(runtime);
     TreeIndexSpace::register_tasks(runtime);
-    FillProjectionsTasks::register_tasks(runtime);
+    Column::register_tasks(runtime);
 
     // create the Table instance
     std::unordered_set<std::string>
@@ -181,7 +180,7 @@ public:
       end_present_colnames,
       TableBuilder::ms_column_hints(table_name),
       10000);
-    auto lr_fids = table_read_task.dispatch();
+    auto lrs = table_read_task.dispatch();
 
     //
     // compute the LogicalRegions to read back
@@ -189,32 +188,38 @@ public:
 
     // special test case: partitioned read back
     std::optional<IndexPartition> read_ip = read_partition(table);
-    std::vector<IndexSpace> read_is;
+    unsigned max_col_rank = table->column(colnames[0])->rank();
+    size_t max_col_rank_idx = 0;
 
-    // read_lr_fids tuple values: colname, region, parent region, field id
-    std::vector<std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>>
-      read_lr_fids;
+    // read_lr_fids tuple values: colname, region, parent region
+    std::vector<
+      std::vector<std::tuple<std::string, LogicalRegion, LogicalRegion>>>
+      read_lrs;
     if (read_ip) {
       // for partitioned read, we select only a couple of the sub-regions per
       // column
+      read_lrs.resize(2);
       auto col_ip =
         table->index_partitions(
           read_ip.value(),
           colnames.begin(),
           end_present_colnames);
-      for (size_t i = 0; i < lr_fids.size(); ++i) {
-        auto& [lr, fid] = lr_fids[i];
+      for (size_t i = 0; i < lrs.size(); ++i) {
+        auto rank = table->column(colnames[i])->rank();
+        if (rank > max_col_rank) {
+          max_col_rank = rank;
+          max_col_rank_idx = i;
+        }
+        auto lr = lrs[i];
         auto lp = runtime->get_logical_partition(ctx, lr, col_ip[i]);
-        read_lr_fids.emplace_back(
+        read_lrs[0].emplace_back(
           colnames[i],
           runtime->get_logical_subregion_by_color(ctx, lp, Point<2>(0, 0)),
-          lr,
-          fid);
-        read_lr_fids.emplace_back(
+          lr);
+        read_lrs[1].emplace_back(
           colnames[i],
           runtime->get_logical_subregion_by_color(ctx, lp, Point<2>(0, 1)),
-          lr,
-          fid);
+          lr);
         runtime->destroy_logical_partition(ctx, lp);
       }
       std::for_each(
@@ -223,46 +228,64 @@ public:
         [runtime, &ctx](auto& ip) {
           runtime->destroy_index_partition(ctx, ip);
         });
-      read_is.push_back(
-        runtime->get_index_subspace(ctx, read_ip.value(), Point<2>(0, 0)));
-      read_is.push_back(
-        runtime->get_index_subspace(ctx, read_ip.value(), Point<2>(0, 1)));
     } else {
       // general case: read complete columns
-      for (size_t i = 0; i < lr_fids.size(); ++i) {
-        auto& [lr, fid] = lr_fids[i];
-        read_lr_fids.emplace_back(colnames[i], lr, lr, fid);
+      read_lrs.resize(1);
+      for (size_t i = 0; i < lrs.size(); ++i) {
+        auto rank = table->column(colnames[i])->rank();
+        if (rank > max_col_rank) {
+          max_col_rank = rank;
+          max_col_rank_idx = i;
+        }
+        auto lr = lrs[i];
+        read_lrs[0].emplace_back(colnames[i], lr, lr);
       }
-      read_is.push_back(table->index_space());
     }
+    std::vector<IndexSpace> read_is;
+    std::transform(
+      read_lrs.begin(),
+      read_lrs.end(),
+      std::back_inserter(read_is),
+      [&max_col_rank_idx](auto& rlrs) {
+        return std::get<1>(rlrs[max_col_rank_idx]).get_index_space();      
+      });
 
     // launch the read tasks inline
-    std::vector<PhysicalRegion> prs;
+    std::vector<std::vector<PhysicalRegion>> prs;
     std::transform(
-      read_lr_fids.begin(),
-      read_lr_fids.end(),
+      read_lrs.begin(),
+      read_lrs.end(),
       std::back_inserter(prs),
-      [runtime, &ctx](auto& rlf) {
-        auto launcher = InlineLauncher(
-          RegionRequirement(
-            std::get<1>(rlf),
-            READ_ONLY,
-            EXCLUSIVE,
-            std::get<2>(rlf)));
-        launcher.add_field(std::get<3>(rlf));
-        return runtime->map_region(ctx, launcher);
+      [runtime, &ctx](auto& rlrs) {
+        std::vector<PhysicalRegion> prs1;
+        std::transform(
+          rlrs.begin(),
+          rlrs.end(),
+          std::back_inserter(prs1),
+          [runtime, &ctx](auto& rlr) {
+            auto launcher = InlineLauncher(
+              RegionRequirement(
+                std::get<1>(rlr),
+                READ_ONLY,
+                EXCLUSIVE,
+                std::get<2>(rlr)));
+            launcher.add_field(Column::value_fid);
+            launcher.add_field(Column::row_number_fid);
+            return runtime->map_region(ctx, launcher);
+          });
+        return prs1;
       });
 
     // print out the values read, by partition (inc. partition by columns)
-    switch (table->rank()) {
+    switch (max_col_rank) {
     case 1:
-      show_table<1>(runtime, table, read_lr_fids, prs, read_is);
+      show_table<1>(ctx, runtime, table, read_lrs, prs, max_col_rank_idx);
       break;
     case 2:
-      show_table<2>(runtime, table, read_lr_fids, prs, read_is);
+      show_table<2>(ctx, runtime, table, read_lrs, prs, max_col_rank_idx);
       break;
     case 3:
-      show_table<3>(runtime, table, read_lr_fids, prs, read_is);
+      show_table<3>(ctx, runtime, table, read_lrs, prs, max_col_rank_idx);
       break;
     default:
       assert(false);
@@ -278,70 +301,71 @@ public:
   }
 
   template <int DIM>
-  static bool
-  same_prefix(
-    const PointInDomainIterator<DIM>& pid0,
-    const PointInDomainIterator<DIM>& pid1,
-    unsigned rank) {
-
-    bool result = true;
-    for (unsigned i = 0; result && i < rank; ++i)
-      result = pid0[i] == pid1[i];
-    return result;
-  }
-
-  template <int DIM>
   static void
   show_table(
+    Context ctx,
     Runtime* runtime,
     const std::shared_ptr<const Table>& table,
     const std::vector<
-    std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>>&
-    read_lr_fids,
-    const std::vector<PhysicalRegion>& prs,
-    const std::vector<IndexSpace>& table_subspaces) {
+      std::vector<
+        std::tuple<std::string, LogicalRegion, LogicalRegion>>>& read_lrs,
+    const std::vector<std::vector<PhysicalRegion>>& prs,
+    size_t max_rank_idx) {
 
     std::ostringstream oss;
     const char *sep = "";
     oss << "Columns: ";
-    for (size_t i = 0; i < read_lr_fids.size(); i += table_subspaces.size()) {
-      oss << sep << std::get<0>(read_lr_fids[i]);
+    for (size_t i = 0; i < read_lrs[0].size(); ++i) {
+      oss << sep << std::get<0>(read_lrs[0][i]);
       sep = ",";
     }
 
     oss << std::endl;
     auto row_rank = table->row_rank();
-    auto num_col = read_lr_fids.size();
+    auto num_subspaces = read_lrs.size();
+    auto num_col = read_lrs[0].size();
 
-    for (unsigned n = 0; n < table_subspaces.size(); ++n) {
-      DomainT<DIM> domain = runtime->get_index_space_domain(table_subspaces[n]);
+    for (unsigned n = 0; n < num_subspaces; ++n) {
+
+      const FieldAccessor<
+        READ_ONLY,
+        Column::row_number_t,
+        DIM,
+        coord_t,
+        Realm::AffineAccessor<Column::row_number_t, DIM, coord_t>,
+        false> row_numbers(prs[n][max_rank_idx], Column::row_number_fid);
+
+      DomainT<DIM> domain =
+        runtime->get_index_space_domain(
+          ctx,
+          std::get<1>(read_lrs[n][max_rank_idx]).get_index_space());
       oss << std::endl;
-      std::optional<PointInDomainIterator<DIM>> row_pid;
+      std::optional<Column::row_number_t> row;
       for (PointInDomainIterator<DIM> pid(domain, false); pid(); pid++) {
-        if (!row_pid || !same_prefix(row_pid.value(), pid, row_rank)) {
-          if (row_pid)
+        if (row.value_or(row_numbers[*pid] + 1) != row_numbers[*pid]) {
+          if (row)
             oss << ")" << std::endl;
           oss << "([" << pid[0];
           for (size_t i = 1; i < row_rank; ++i)
             oss << "," << pid[i];
           oss << "]:";
-          row_pid = pid;
+          row = row_numbers[*pid];
           const char* sep = "";
-          for (size_t i = n; i < num_col; i += table_subspaces.size()) {
+          for (size_t i = 0; i < num_col; ++i) {
             oss << sep << "{";
             show_values<DIM>(
               table,
-              read_lr_fids[i],
-              prs[i],
+              read_lrs[n][i],
+              prs[n][i],
               pid,
-              row_rank,
+              row.value(),
               oss);
             oss << "}";
             sep = ";";
           }
         }
       }
-      if (row_pid)
+      if (row)
         oss << ")";
       oss << std::endl;
     }
@@ -352,22 +376,22 @@ public:
   static void
   show_values(
     const std::shared_ptr<const Table>& table,
-    const std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>& rlf,
+    const std::tuple<std::string, LogicalRegion, LogicalRegion>& rlf,
     const PhysicalRegion& pr,
     const PointInDomainIterator<DIM>& pid0,
-    unsigned row_rank,
+    Column::row_number_t row,
     std::ostringstream& oss) {
 
     auto col = table->column(std::get<0>(rlf));
     switch (col->rank()) {
     case 1:
-      show_column_values<DIM, 1>(col, rlf, pr, pid0, row_rank, oss);
+      show_column_values<DIM, 1>(col, rlf, pr, pid0, row, oss);
       break;
     case 2:
-      show_column_values<DIM, 2>(col, rlf, pr, pid0, row_rank, oss);
+      show_column_values<DIM, 2>(col, rlf, pr, pid0, row, oss);
       break;
     case 3:
-      show_column_values<DIM, 3>(col, rlf, pr, pid0, row_rank, oss);
+      show_column_values<DIM, 3>(col, rlf, pr, pid0, row, oss);
       break;
     default:
       assert(false);
@@ -379,131 +403,131 @@ public:
   static void
   show_column_values(
     const std::shared_ptr<Column>& col,
-    const std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>& rlf,
+    const std::tuple<std::string, LogicalRegion, LogicalRegion>& rlf,
     const PhysicalRegion& pr,
     const PointInDomainIterator<TDIM>& pid0,
-    unsigned row_rank,
+    Column::row_number_t row,
     std::ostringstream& oss) {
 
     switch (col->datatype()) {
     case casacore::DataType::TpBool:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpBool>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpArrayBool:
       show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayBool>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpChar:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpChar>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpArrayChar:
       show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayChar>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpUChar:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpUChar>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpArrayUChar:
       show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayUChar>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpShort:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpShort>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpArrayShort:
       show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayShort>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpUShort:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpUShort>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpArrayUShort:
       show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayUShort>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpInt:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpInt>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpArrayInt:
       show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayInt>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpUInt:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpUInt>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpArrayUInt:
       show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayUInt>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpFloat:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpFloat>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpArrayFloat:
       show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayFloat>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpDouble:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpDouble>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpArrayDouble:
       show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayDouble>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpComplex:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpComplex>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpArrayComplex:
       show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayComplex>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpDComplex:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpDComplex>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpArrayDComplex:
       show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayDComplex>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpString:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpString>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     case casacore::DataType::TpArrayString:
       show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayString>(
-        rlf, pr, pid0, row_rank, oss);
+        rlf, pr, pid0, row, oss);
       break;
 
     default:
@@ -515,35 +539,38 @@ public:
   template <int TDIM, int CDIM, casacore::DataType DT>
   static void
   show_scalar_column_values(
-    const std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>& rlf,
+    const std::tuple<std::string, LogicalRegion, LogicalRegion>& rlf,
     const PhysicalRegion& pr,
     const PointInDomainIterator<TDIM>& pid0,
-    unsigned row_rank,
+    Column::row_number_t row,
     std::ostringstream& oss) {
 
-    FieldID fid = std::get<3>(rlf);
     const FieldAccessor<
       READ_ONLY,
       typename DataType<DT>::ValueType,
       CDIM,
       coord_t,
       Realm::AffineAccessor<typename DataType<DT>::ValueType, CDIM, coord_t>,
-      false> values(pr, fid);
+      false> values(pr, Column::value_fid);
 
+    const FieldAccessor<
+      READ_ONLY,
+      Column::row_number_t,
+      CDIM,
+      coord_t,
+      Realm::AffineAccessor<Column::row_number_t, CDIM, coord_t>,
+      false> row_numbers(pr, Column::row_number_fid);
+
+    auto p0 = pid_prefix<CDIM>(pid0);
     PointInDomainIterator<TDIM> tpid = pid0;
-    coord_t pt[CDIM];
-    for (size_t i = 0; i < CDIM; ++i)
-      pt[i] = tpid[i];
-    auto p = to_point<CDIM>(pt);
-    oss << values[p];
+    oss << values[p0];
     tpid++;
-    while (tpid() && same_prefix(pid0, tpid, row_rank)) {
-      if (!same_prefix(pid0, tpid, CDIM)) {
-        for (size_t i = 0; i < CDIM; ++i)
-          pt[i] = tpid[i];
-        p = to_point<CDIM>(pt);
+    while (tpid()) {
+      auto p = pid_prefix<CDIM>(tpid);
+      if (row_numbers[p] != row)
+        break;
+      if (p != p0)
         oss << "," << values[p];
-      }
       tpid++;
     }
   }
@@ -551,27 +578,31 @@ public:
   template <int TDIM, int CDIM, casacore::DataType DT>
   static void
   show_array_column_values(
-    const std::tuple<std::string, LogicalRegion, LogicalRegion, FieldID>& rlf,
+    const std::tuple<std::string, LogicalRegion, LogicalRegion>& rlf,
     const PhysicalRegion& pr,
     const PointInDomainIterator<TDIM>& pid0,
-    unsigned row_rank,
+    Column::row_number_t row,
     std::ostringstream& oss) {
 
-    FieldID fid = std::get<3>(rlf);
     const FieldAccessor<
       READ_ONLY,
       typename DataType<DT>::ValueType,
       CDIM,
       coord_t,
       Realm::AffineAccessor<typename DataType<DT>::ValueType, CDIM, coord_t>,
-      false> values(pr, fid);
+      false> values(pr, Column::value_fid);
 
+    const FieldAccessor<
+      READ_ONLY,
+      Column::row_number_t,
+      CDIM,
+      coord_t,
+      Realm::AffineAccessor<Column::row_number_t, CDIM, coord_t>,
+      false> row_numbers(pr, Column::row_number_fid);
+
+    auto p0 = pid_prefix<CDIM>(pid0);
     PointInDomainIterator<TDIM> tpid = pid0;
-    coord_t pt[CDIM];
-    for (size_t i = 0; i < CDIM; ++i)
-      pt[i] = tpid[i];
-    auto p = to_point<CDIM>(pt);
-    auto vals = values[p];
+    auto vals = values[p0];
     if (vals.size() > 0) {
       oss << "<" << vals[0];
       for (size_t i = 1; i < vals.size(); ++i)
@@ -579,11 +610,11 @@ public:
       oss << ">";
     }
     tpid++;
-    while (tpid() && same_prefix(pid0, tpid, row_rank)) {
-      if (!same_prefix(pid0, tpid, CDIM)) {
-        for (size_t i = 0; i < CDIM; ++i)
-          pt[i] = tpid[i];
-        p = to_point<CDIM>(pt);
+    while (tpid()) {
+      auto p = pid_prefix<CDIM>(tpid);
+      if (row_numbers[p] != row)
+        break;
+      if (p != p0) {
         oss << ",";
         auto vals = values[p];
         if (vals.size() > 0) {
@@ -597,15 +628,25 @@ public:
     }
   }
 
+  
   template <int DIM>
-  static Point<DIM>
+  static inline Point<DIM>
   to_point(const coord_t vals[DIM]) {
     return Point<DIM>(vals);
+  }
+
+  template <int DIM, int TDIM>
+  static Point<DIM>
+  pid_prefix(const PointInDomainIterator<TDIM>& pid) {
+    coord_t pt[DIM];
+    for (size_t i = 0; i < DIM; ++i)
+      pt[i] = pid[i];
+    return to_point<DIM>(pt);
   }
 };
 
 template <>
-Point<1>
+inline Point<1>
 TopLevelTask::to_point(const coord_t vals[1]) {
   return Point<1>(vals[0]);
 }
@@ -654,4 +695,3 @@ main(int argc, char** argv) {
 // fill-column: 80
 // indent-tabs-mode: nil
 // End:
-

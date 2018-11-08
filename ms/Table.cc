@@ -1,7 +1,8 @@
 #include <algorithm>
+#include <memory>
 #include "Table.h"
-#include "FillProjectionsTask.h"
 
+using namespace legms;
 using namespace legms::ms;
 using namespace Legion;
 using namespace std;
@@ -39,10 +40,10 @@ Table::index_space() const {
   return std::get<1>(*max_rank_column())->index_space();
 }
 
-vector<tuple<LogicalRegion, FieldID>>
+vector<LogicalRegion>
 Table::logical_regions(const vector<string>& colnames) const {
 
-  vector<tuple<LogicalRegion, FieldID>> result;
+  vector<LogicalRegion> result;
   transform(
     colnames.begin(),
     colnames.end(),

@@ -15,6 +15,7 @@
 #include "Table.h"
 #include "TableBuilder.h"
 #include "utility.h"
+#include "Column.h"
 #include "ColumnHint.h"
 
 namespace legms {
@@ -73,7 +74,7 @@ public:
   static void
   register_task(Legion::Runtime* runtime);
 
-  std::vector<std::tuple<Legion::LogicalRegion, Legion::FieldID>>
+  std::vector<Legion::LogicalRegion>
   dispatch();
 
   static void
@@ -92,18 +93,18 @@ public:
     const IndexTreeL& row_index_pattern,
     casacore::DataType lr_datatype,
     Legion::DomainT<DIM> reg_domain,
-    const Legion::PhysicalRegion& region) {
+    const std::vector<Legion::PhysicalRegion>& regions) {
 
 #define READ_COL(dt)                                                    \
     casacore::DataType::Tp##dt:                                         \
       switch (col_desc.trueDataType()) {                                \
       case casacore::DataType::Tp##dt:                                  \
         read_scalar_column<DIM, casacore::DataType::Tp##dt>(            \
-          table, col_desc, row_index_pattern, reg_domain, region);      \
+          table, col_desc, row_index_pattern, reg_domain, regions);     \
         break;                                                          \
       case casacore::DataType::TpArray##dt:                             \
         read_array_column<DIM, casacore::DataType::Tp##dt>(             \
-          table, col_desc, col_hint, row_index_pattern, reg_domain, region); \
+          table, col_desc, col_hint, row_index_pattern, reg_domain, regions); \
         break;                                                          \
       default:                                                          \
         assert(false);                                                  \
@@ -113,7 +114,7 @@ public:
       switch (col_desc.trueDataType()) {                                \
       case casacore::DataType::TpArray##dt:                             \
         read_vector_column<DIM, casacore::DataType::Tp##dt>(            \
-          table, col_desc, col_hint, row_index_pattern, reg_domain, region); \
+          table, col_desc, col_hint, row_index_pattern, reg_domain, regions); \
         break;                                                          \
       default:                                                          \
         assert(false);                                                  \
@@ -159,7 +160,7 @@ public:
     const casacore::ColumnDesc& col_desc,
     const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
-    const Legion::PhysicalRegion& region) {
+    const std::vector<Legion::PhysicalRegion>& regions) {
 
     typedef typename DataType<DT>::ValueType T;
 
@@ -169,31 +170,32 @@ public:
       DIM,
       Legion::coord_t,
       Legion::AffineAccessor<T, DIM, Legion::coord_t>,
-      false> WDAccessor;
+      false> ValueAccessor;
 
-    std::vector<Legion::FieldID> fids;
-    region.get_fields(fids);
-    assert(fids.size() == 1);
-    const WDAccessor values(region, fids[0]);
+    typedef Legion::FieldAccessor<
+      READ_ONLY,
+      Column::row_number_t,
+      DIM,
+      Legion::coord_t,
+      Legion::AffineAccessor<Column::row_number_t, DIM, Legion::coord_t>,
+      false> RowNumberAccessor;
+
+    const ValueAccessor values(regions[0], Column::value_fid);
+    const RowNumberAccessor row_numbers(regions[1], Column::row_number_fid);
 
     casacore::ScalarColumn<T> col(table, col_desc.name());
-    std::array<Legion::coord_t, DIM> pt;
-    size_t row_number;
+    Column::row_number_t row_number;
     T col_value;
     {
       Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
-      for (size_t i = 0; i < DIM; ++i)
-        pt[i] = pid[i];
-      row_number = Table::row_number(row_index_pattern, pt.begin(), pt.end());
+      row_number = row_numbers[*pid];
       col.get(row_number, col_value);
     }
 
     for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
          pid();
          pid++) {
-      for (size_t i = 0; i < DIM; ++i)
-        pt[i] = pid[i];
-      auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end());
+      auto rn = row_numbers[*pid];
       if (row_number != rn) {
         row_number = rn;
         col.get(row_number, col_value);
@@ -214,7 +216,7 @@ public:
     const ColumnHint& col_hint,
     const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
-    const Legion::PhysicalRegion& region) {
+    const std::vector<Legion::PhysicalRegion>& regions) {
 
     typedef typename DataType<DT>::ValueType T;
 
@@ -224,22 +226,25 @@ public:
       DIM,
       Legion::coord_t,
       Legion::AffineAccessor<T, DIM, Legion::coord_t>,
-      false> WDAccessor;
+      false> ValueAccessor;
 
-    std::vector<Legion::FieldID> fids;
-    region.get_fields(fids);
-    assert(fids.size() == 1);
-    const WDAccessor values(region, fids[0]);
+    typedef Legion::FieldAccessor<
+      READ_ONLY,
+      Column::row_number_t,
+      DIM,
+      Legion::coord_t,
+      Legion::AffineAccessor<Column::row_number_t, DIM, Legion::coord_t>,
+      false> RowNumberAccessor;
+
+    const ValueAccessor values(regions[0], Column::value_fid);
+    const RowNumberAccessor row_numbers(regions[1], Column::row_number_fid);
 
     casacore::ArrayColumn<T> col(table, col_desc.name());
-    std::array<Legion::coord_t, DIM> pt;
-    size_t row_number;
+    Column::row_number_t row_number;
     unsigned array_cell_rank;
     {
       Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
-      for (size_t i = 0; i < DIM; ++i)
-        pt[i] = pid[i];
-      row_number = Table::row_number(row_index_pattern, pt.begin(), pt.end());
+      row_number = row_numbers[*pid];
       array_cell_rank = col.ndim(row_number);
     }
 
@@ -252,9 +257,7 @@ public:
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
            pid();
            pid++) {
-        for (size_t i = 0; i < DIM; ++i)
-          pt[i] = pid[i];
-        auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end());
+        auto rn = row_numbers[*pid];
         if (row_number != rn) {
           row_number = rn;
           col.get(row_number, col_array, true);
@@ -272,16 +275,14 @@ public:
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
            pid();
            pid++) {
-        for (size_t i = 0; i < DIM; ++i)
-          pt[i] = pid[i];
-        auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end());
+        auto rn = row_numbers[*pid];
         if (row_number != rn) {
           row_number = rn;
           col.get(row_number, col_array, true);
           col_matrix.reference(col_array);
         }
         field_init(values.ptr(*pid));
-        pid2ipos<2>(ip, col_hint.index_permutations, pid);
+        pt2ipos<2>(ip, col_hint.index_permutations, *pid);
         values[*pid] = col_matrix(ip);
       }
       break;
@@ -293,16 +294,14 @@ public:
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
            pid();
            pid++) {
-        for (size_t i = 0; i < DIM; ++i)
-          pt[i] = pid[i];
-        auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end());
+        auto rn = row_numbers[*pid];
         if (row_number != rn) {
           row_number = rn;
           col.get(row_number, col_array, true);
           col_cube.reference(col_array);
         }
         field_init(values.ptr(*pid));
-        pid2ipos<3>(ip, col_hint.index_permutations, pid);
+        pt2ipos<3>(ip, col_hint.index_permutations, *pid);
         values[*pid] = col_cube(ip);
       }
       break;
@@ -312,9 +311,7 @@ public:
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
            pid();
            pid++) {
-        for (size_t i = 0; i < DIM; ++i)
-          pt[i] = pid[i];
-        auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end());
+        auto rn = row_numbers[*pid];
         if (row_number != rn) {
           row_number = rn;
           col.get(row_number, col_array, true);
@@ -322,7 +319,7 @@ public:
         for (unsigned i = 0; i < array_cell_rank; ++i)
           ip[i] = pid[DIM - array_cell_rank + i];
         field_init(values.ptr(*pid));
-        pid2ipos(ip, col_hint.index_permutations.data(), pid);
+        pt2ipos(ip, col_hint.index_permutations.data(), *pid);
         values[*pid] = col_array(ip);
       }
       break;
@@ -338,7 +335,7 @@ public:
     const ColumnHint& col_hint,
     const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
-    const Legion::PhysicalRegion& region) {
+    const std::vector<Legion::PhysicalRegion>& regions) {
 
     typedef typename DataType<DT>::ValueType T;
 
@@ -348,22 +345,25 @@ public:
       DIM,
       Legion::coord_t,
       Legion::AffineAccessor<std::vector<T>, DIM, Legion::coord_t>,
-      false> WDAccessor;
+      false> ValueAccessor;
 
-    std::vector<Legion::FieldID> fids;
-    region.get_fields(fids);
-    assert(fids.size() == 1);
-    const WDAccessor values(region, fids[0]);
+    typedef Legion::FieldAccessor<
+      READ_ONLY,
+      Column::row_number_t,
+      DIM,
+      Legion::coord_t,
+      Legion::AffineAccessor<Column::row_number_t, DIM, Legion::coord_t>,
+      false> RowNumberAccessor;
+
+    const ValueAccessor values(regions[0], Column::value_fid);
+    const RowNumberAccessor row_numbers(regions[1], Column::row_number_fid);
 
     casacore::ArrayColumn<T> col(table, col_desc.name());
-    std::array<Legion::coord_t, DIM> pt;
-    size_t row_number;
+    Column::row_number_t row_number;
     unsigned array_cell_rank;
     {
       Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
-      for (size_t i = 0; i < DIM; ++i)
-        pt[i] = pid[i];
-      row_number = Table::row_number(row_index_pattern, pt.begin(), pt.end());
+      row_number = row_numbers[*pid];
       array_cell_rank = col.ndim(row_number);
     }
     assert(array_cell_rank == 1);
@@ -375,9 +375,7 @@ public:
     for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
          pid();
          pid++) {
-      for (size_t i = 0; i < DIM; ++i)
-        pt[i] = pid[i];
-      auto rn = Table::row_number(row_index_pattern, pt.begin(), pt.end());
+      auto rn = row_numbers[*pid];
       if (row_number != rn) {
         row_number = rn;
         col.get(row_number, col_array, true);

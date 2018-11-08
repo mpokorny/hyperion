@@ -27,13 +27,13 @@ template <
   int REGION_DIM,
   unsigned long HINT_DIM>
 std::enable_if_t<REGION_DIM >= ARRAY_DIM>
-pid2ipos(
+pt2ipos(
   casacore::IPosition& ipos,
   const std::array<unsigned, HINT_DIM>& pv,
-  const Legion::PointInDomainIterator<REGION_DIM>& pid) {
+  const Legion::Point<REGION_DIM>& pt) {
 
   for (unsigned i = 0; i < ARRAY_DIM; ++i)
-    ipos[pv[i]] = pid[i + REGION_DIM - ARRAY_DIM];
+    ipos[pv[i]] = pt[i + REGION_DIM - ARRAY_DIM];
 }
 
 template <
@@ -41,25 +41,25 @@ template <
   int REGION_DIM,
   unsigned long HINT_DIM>
 std::enable_if_t<!(REGION_DIM >= ARRAY_DIM)>
-pid2ipos(
+pt2ipos(
   casacore::IPosition&,
   const std::array<unsigned, HINT_DIM>&,
-  const Legion::PointInDomainIterator<REGION_DIM>&) {
+  const Legion::Point<REGION_DIM>&) {
 
   assert(false);
 }
 
 template <int REGION_DIM>
 void
-pid2ipos(
+pt2ipos(
   casacore::IPosition& ipos,
   const unsigned* pv,
-  const Legion::PointInDomainIterator<REGION_DIM>& pid) {
+  const Legion::Point<REGION_DIM>& pt) {
 
   unsigned array_dim = ipos.size();
   assert(REGION_DIM >= array_dim);
   for (unsigned i = 0; i < array_dim; ++i)
-    ipos[pv[i]] = pid[i + REGION_DIM - array_dim];
+    ipos[pv[i]] = pt[i + REGION_DIM - array_dim];
 }
 
 template <typename S>

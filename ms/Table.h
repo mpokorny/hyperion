@@ -3,7 +3,6 @@
 
 #include <cassert>
 #include <memory>
-#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -121,7 +120,7 @@ public:
   Legion::IndexSpace
   index_space() const;
 
-  std::vector<std::tuple<Legion::LogicalRegion, Legion::FieldID>>
+  std::vector<Legion::LogicalRegion>
   logical_regions(const std::vector<std::string>& colnames) const;
 
   template <typename Iter>
@@ -159,12 +158,9 @@ public:
     const std::vector<std::string>& colnames,
     size_t block_size) const;
 
-  template <typename IndexIter, typename IndexIterEnd>
+  template <typename Iter>
   static size_t
-  row_number(
-    const IndexTreeL& row_pattern,
-    IndexIter index,
-    IndexIterEnd index_end) {
+  row_number(const IndexTreeL& row_pattern, Iter index, Iter index_end) {
 
     if (row_pattern == IndexTreeL())
       return 0;

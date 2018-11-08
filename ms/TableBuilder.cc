@@ -50,7 +50,7 @@ size(const std::any& args) {
   auto sa = std::any_cast<SizeArgs>(args);
   const casacore::IPosition& shape =
     (sa.tcol ? sa.tcol->shape(*sa.row) : sa.shape);
-  assert(shape.size() == DIM);
+  assert(shape.size() >= DIM);
   for (size_t i = 0; i < DIM; ++i)
     result[i] = shape[sa.index_permutations[i]];
   return result;
@@ -287,4 +287,3 @@ TableBuilder::m_ms_column_hints = {
 // fill-column: 80
 // indent-tabs-mode: nil
 // End:
-

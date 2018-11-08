@@ -1,11 +1,115 @@
 #include <cassert>
 
 #include "Column.h"
+#include "Table.h"
 
 using namespace legms;
 using namespace legms::ms;
 
 using namespace Legion;
+
+class FillRowNumbersTask {
+public:
+
+  static TaskID TASK_ID;
+  constexpr static const char* TASK_NAME = "FillRowNumbersTask";
+
+  FillRowNumbersTask(
+    LogicalRegion lr,
+    const IndexTreeL& row_index_pattern) {
+
+    auto arg_size = row_index_pattern.serialized_size();
+    m_arg_buffer = std::make_unique<char[]>(arg_size);
+    row_index_pattern.serialize(m_arg_buffer.get());
+    m_launcher =
+      TaskLauncher(TASK_ID, TaskArgument(m_arg_buffer.get(), arg_size));
+    m_launcher.add_region_requirement(
+      RegionRequirement(lr, WRITE_DISCARD, EXCLUSIVE, lr));
+    m_launcher.add_field(0, Column::row_number_fid);
+  }
+
+  void
+  dispatch(Context ctx, Runtime* runtime) {
+    runtime->execute_task(ctx, m_launcher);
+  }
+
+  template <int DIM>
+  static void
+  impl_n(
+    const PhysicalRegion& pr,
+    DomainT<DIM, coord_t> domain,
+    const IndexTreeL& row_index_pattern) {
+
+    FieldAccessor<WRITE_DISCARD, Column::row_number_t, DIM>
+      row_numbers(pr, Column::row_number_fid);
+    for (PointInDomainIterator pid(domain); pid(); pid++) {
+      std::array<coord_t, DIM> p;
+      for (size_t i = 0; i < DIM; ++i)
+        p[i] = pid[i];
+      row_numbers[*pid] =
+        Table::row_number(row_index_pattern, p.begin(), p.end());
+    }
+  }
+
+  static void
+  base_impl(
+    const Task* task,
+    const std::vector<PhysicalRegion>& regions,
+    Context ctx,
+    Runtime *runtime) {
+
+    IndexTreeL row_index_pattern =
+      IndexTreeL::deserialize(static_cast<const char*>(task->args));
+    switch (task->regions[0].region.get_dim()) {
+    case 1:
+      impl_n<1>(
+        regions[0],
+        runtime->get_index_space_domain(
+          ctx,
+          task->regions[0].region.get_index_space()),
+        row_index_pattern);
+      break;
+    case 2:
+      impl_n<2>(
+        regions[0],
+        runtime->get_index_space_domain(
+          ctx,
+          task->regions[0].region.get_index_space()),
+        row_index_pattern);
+      break;
+    case 3:
+      impl_n<3>(
+        regions[0],
+        runtime->get_index_space_domain(
+          ctx,
+          task->regions[0].region.get_index_space()),
+        row_index_pattern);
+      break;
+    default:
+      assert(false);
+      break;
+    }
+  }
+
+  static void
+  register_task(Runtime* runtime) {
+    TASK_ID =
+      runtime->generate_library_task_ids("legms::FillRowNumbersTask", 1);
+    Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
+    registrar.add_constraint(
+      Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
+    registrar.set_leaf();
+    runtime->register_task_variant<base_impl>(registrar);
+  }
+
+private:
+
+  std::unique_ptr<char[]> m_arg_buffer;
+
+  TaskLauncher m_launcher;
+};
+
+TaskID FillRowNumbersTask::TASK_ID;
 
 template <int DIM>
 static Point<DIM>
@@ -29,6 +133,109 @@ same_prefix_index(
   for (size_t i = 0; result && i < PREFIXLEN; ++i)
     result = pid0[i] == pid1[i];
   return result;
+}
+
+Column::Column(
+  Context ctx,
+  Runtime* runtime,
+  const ColumnBuilder& builder)
+  : WithKeywords(builder.keywords())
+  , m_name(builder.name())
+  , m_datatype(builder.datatype())
+  , m_num_rows(builder.num_rows())
+  , m_row_index_pattern(builder.row_index_pattern())
+  , m_index_tree(builder.index_tree())
+  , m_context(ctx)
+  , m_runtime(runtime) {
+
+  init();
+}
+
+Column::Column(
+  Context ctx,
+  Runtime* runtime,
+  const std::string& name,
+  casacore::DataType datatype,
+  const IndexTreeL& row_index_pattern,
+  const IndexTreeL& index_tree,
+  const std::unordered_map<std::string, casacore::DataType>& kws)
+  : WithKeywords(kws)
+  , m_name(name)
+  , m_datatype(datatype)
+  , m_num_rows(nr(row_index_pattern, index_tree).value())
+  , m_row_index_pattern(row_index_pattern)
+  , m_index_tree(index_tree)
+  , m_context(ctx)
+  , m_runtime(runtime) {
+
+  init();
+}
+
+Column::Column(
+  Context ctx,
+  Runtime* runtime,
+  const std::string& name,
+  casacore::DataType datatype,
+  const IndexTreeL& row_index_pattern,
+  unsigned num_rows,
+  const std::unordered_map<std::string, casacore::DataType>& kws)
+  : WithKeywords(kws)
+  , m_name(name)
+  , m_datatype(datatype)
+  , m_num_rows(num_rows)
+  , m_row_index_pattern(row_index_pattern)
+  , m_index_tree(ixt(row_index_pattern, num_rows))
+  , m_context(ctx)
+  , m_runtime(runtime) {
+
+  init();
+}
+
+Column::Column(
+  Context ctx,
+  Runtime* runtime,
+  const std::string& name,
+  casacore::DataType datatype,
+  const IndexTreeL& row_index_pattern,
+  const IndexTreeL& row_pattern,
+  unsigned num_rows,
+  const std::unordered_map<std::string, casacore::DataType>& kws)
+  : WithKeywords(kws)
+  , m_name(name)
+  , m_datatype(datatype)
+  , m_num_rows(num_rows)
+  , m_row_index_pattern(row_index_pattern)
+  , m_index_tree(
+    ixt(
+      row_pattern,
+      num_rows * row_pattern.size() / row_index_pattern.size()))
+  , m_context(ctx)
+  , m_runtime(runtime) {
+
+  assert(pattern_matches(row_index_pattern, row_pattern));
+  init();
+}
+
+void
+Column::init() {
+  m_index_space = legms::tree_index_space(m_index_tree, m_context, m_runtime);
+    
+  Legion::FieldSpace fs = m_runtime->create_field_space(m_context);
+  auto fa = m_runtime->create_field_allocator(m_context, fs);
+  legms::add_field(m_datatype, fa, value_fid);
+  m_runtime->attach_name(fs, value_fid, name().c_str());
+  legms::add_field(ValueType<row_number_t>::DataType, fa, row_number_fid);
+  m_runtime->attach_name(fs, row_number_fid, "rownr");
+  m_logical_region =
+    m_runtime->create_logical_region(m_context, m_index_space, fs);
+
+  FillRowNumbersTask(m_logical_region, row_index_pattern()).
+    dispatch(m_context, m_runtime);
+}
+
+void
+Column::register_tasks(Legion::Runtime *runtime) {
+  FillRowNumbersTask::register_task(runtime);
 }
 
 template <int COLDIM, int PROJDIM>
@@ -268,15 +475,15 @@ Column::nr(
   auto pruned_shape = full_shape.pruned(row_pattern.rank().value() - 1);
   auto p_iter = pruned_shape.children().begin();
   auto p_end = pruned_shape.children().end();
-  Legion::coord_t i0 = std::get<0>(row_pattern.index_range());
+  coord_t i0 = std::get<0>(row_pattern.index_range());
   size_t result = 0;
-  Legion::coord_t pi, pn;
+  coord_t pi, pn;
   IndexTreeL pt;
   std::tie(pi, pn, pt) = *p_iter;
   while (p_iter != p_end) {
     auto r_iter = row_pattern.children().begin();
     auto r_end = row_pattern.children().end();
-    Legion::coord_t i, n;
+    coord_t i, n;
     IndexTreeL t;
     while (p_iter != p_end && r_iter != r_end) {
       std::tie(i, n, t) = *r_iter;
@@ -318,15 +525,15 @@ Column::pattern_matches(const IndexTreeL& pattern, const IndexTreeL& shape) {
 
 IndexTreeL
 Column::ixt(const IndexTreeL& row_pattern, size_t num) {
-  std::vector<std::tuple<Legion::coord_t, Legion::coord_t, IndexTreeL>> ch;
+  std::vector<std::tuple<coord_t, coord_t, IndexTreeL>> ch;
   auto pattern_n = row_pattern.size();
   auto pattern_rep = num / pattern_n;
   auto pattern_rem = num % pattern_n;
   assert(std::get<0>(row_pattern.index_range()) == 0);
   auto stride = std::get<1>(row_pattern.index_range()) + 1;
-  Legion::coord_t offset = 0;
+  coord_t offset = 0;
   if (row_pattern.children().size() == 1) {
-    Legion::coord_t i;
+    coord_t i;
     IndexTreeL t;
     std::tie(i, std::ignore, t) = row_pattern.children()[0];
     offset += pattern_rep * stride;
