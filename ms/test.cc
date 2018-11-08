@@ -313,12 +313,9 @@ public:
     size_t max_rank_idx) {
 
     std::ostringstream oss;
-    const char *sep = "";
     oss << "Columns: ";
-    for (size_t i = 0; i < read_lrs[0].size(); ++i) {
-      oss << sep << std::get<0>(read_lrs[0][i]);
-      sep = ",";
-    }
+    for (size_t i = 0; i < read_lrs[0].size(); ++i)
+      oss << std::get<0>(read_lrs[0][i]) << " ";
 
     oss << std::endl;
     auto row_rank = table->row_rank();
