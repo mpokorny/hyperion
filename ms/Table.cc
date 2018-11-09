@@ -60,70 +60,19 @@ Table::row_block_index_partitions(
   const vector<std::string>& colnames,
   size_t block_size) const {
 
-  FieldSpace block_fs = m_runtime->create_field_space(m_context);
-  auto fa = m_runtime->create_field_allocator(m_context, block_fs);
-  auto block_fid = fa.allocate_field(sizeof(Point<1>));
-  auto is = index_space();
-  LogicalRegion block_lr =
-    m_runtime->create_logical_region(m_context, is, block_fs);
-  InlineLauncher block_launcher(
-    RegionRequirement(
-      block_lr,
-      WRITE_DISCARD,
-      EXCLUSIVE,
-      block_lr));
-  block_launcher.add_field(block_fid);
-  PhysicalRegion block_pr = m_runtime->map_region(m_context, block_launcher);
-  switch (is.get_dim()) {
-  case 1: {
-    const FieldAccessor<WRITE_DISCARD, Point<1>, 1> blocks(block_pr, block_fid);
-    for (PointInDomainIterator<1> pid(m_runtime->get_index_space_domain(is));
-         pid();
-         pid++)
-      blocks[*pid] = *pid / block_size;
-    break;
+  IndexPartition block_partition;
+  {
+    auto nr = num_rows();
+    std::vector<std::vector<Column::row_number_t>>
+      rowp((nr + block_size - 1) / block_size);
+    for (Column::row_number_t i = 0; i < nr; ++i)
+      rowp[i / block_size].push_back(i);
+    block_partition = row_partition(rowp, false, true);
   }
-  case 2: {
-    const FieldAccessor<WRITE_DISCARD, Point<1>, 2> blocks(block_pr, block_fid);
-    for (PointInDomainIterator<2> pid(m_runtime->get_index_space_domain(is));
-         pid();
-         pid++) {
-      std::array<coord_t, 2> idx{pid[0], pid[1]};
-      blocks[*pid] =
-        Table::row_number(
-          row_index_pattern(), idx.begin(), idx.end()) / block_size;
-    }
-    break;
-  }
-  case 3: {
-    const FieldAccessor<WRITE_DISCARD, Point<1>, 3> blocks(block_pr, block_fid);
-    for (PointInDomainIterator<3> pid(m_runtime->get_index_space_domain(is));
-         pid();
-         pid++) {
-      std::array<coord_t, 3> idx{pid[0], pid[1], pid[2]};
-      blocks[*pid] =
-        Table::row_number(
-          row_index_pattern(), idx.begin(), idx.end()) / block_size;
-    }
-    break;
-  }
-  default:
-    assert(false);
-    break;
-  }
-  m_runtime->unmap_region(m_context, block_pr);
-  auto num_blocks = (num_rows() + block_size - 1) / block_size;
-  IndexSpace block_color_space =
-    m_runtime->create_index_space(m_context, Rect<1>(0, num_blocks - 1));
-  IndexPartition block_partition =
-    m_runtime->create_partition_by_field(
-      m_context,
-      block_lr,
-      block_lr,
-      block_fid,
-      block_color_space);
+
   vector<IndexPartition> result;
   if (ipart) {
+    auto num_blocks = (num_rows() + block_size - 1) / block_size;
     map<IndexSpace, IndexPartition> subspace_partitions;
     for (size_t i = 0; i < num_blocks; ++i)
       subspace_partitions[
@@ -158,7 +107,10 @@ Table::row_block_index_partitions(
       full_color_space = m_runtime->create_index_space(m_context, pts);
     }
     IndexPartition full_partition =
-      m_runtime->create_pending_partition(m_context, is, full_color_space);
+      m_runtime->create_pending_partition(
+        m_context,
+        index_space(),
+        full_color_space);
     std::for_each(
       subspace_partitions.begin(),
       subspace_partitions.end(),
@@ -204,6 +156,158 @@ Table::row_block_index_partitions(
     result = index_partitions(block_partition, colnames);
   }
   m_runtime->destroy_index_partition(m_context, block_partition);
+  return result;
+}
+
+optional<coord_t>
+find_color(
+  const std::vector<std::vector<Column::row_number_t>>& rowp,
+  Column::row_number_t rn,
+  bool sorted_selections) {
+
+  optional<coord_t> result;
+  if (sorted_selections) {
+    for (size_t i = 0; !result && i < rowp.size(); ++i) {
+      auto rns = rowp[i];
+      if (binary_search(rns.begin(), rns.end(), rn))
+        result = i;
+    }
+  } else {
+    for (size_t i = 0; !result && i < rowp.size(); ++i) {
+      auto rns = rowp[i];
+      if (find(rns.begin(), rns.end(), rn) != rns.end())
+        result = i;
+    }
+  }
+  return result;
+}
+
+template <int DIM>
+static LogicalRegion
+row_colors(
+  Context ctx,
+  Runtime* runtime,
+  IndexSpace index_space,
+  LogicalRegion rn_lr,
+  const std::vector<std::vector<Column::row_number_t>>& rowp,
+  coord_t unselected_color,
+  bool sorted_selections) {
+
+  auto color_fs = runtime->create_field_space(ctx);
+  auto color_fa = runtime->create_field_allocator(ctx, color_fs);
+  color_fa.allocate_field(sizeof(Point<1>), 0);
+  auto result =
+    runtime->create_logical_region(ctx, index_space, color_fs);
+  auto color_task = InlineLauncher(
+    RegionRequirement(result, WRITE_DISCARD, EXCLUSIVE, result));
+  color_task.add_field(0);
+  auto color_pr = runtime->map_region(ctx, color_task);
+  const FieldAccessor<
+    WRITE_DISCARD,
+    Point<1>,
+    DIM,
+    coord_t,
+    AffineAccessor<Point<1>, DIM, coord_t>,
+    true> colors(color_pr, 0);
+
+  auto rn_task = InlineLauncher(
+    RegionRequirement(rn_lr, READ_ONLY, EXCLUSIVE, rn_lr));
+  rn_task.add_field(Column::row_number_fid);
+  auto rn_pr = runtime->map_region(ctx, rn_task);
+  const FieldAccessor<
+    READ_ONLY,
+    Column::row_number_t,
+    DIM,
+    coord_t,
+    AffineAccessor<Column::row_number_t, DIM, coord_t>,
+    true> rns(rn_pr, Column::row_number_fid);
+
+  DomainT<DIM> domain = runtime->get_index_space_domain(ctx, index_space);
+  PointInDomainIterator<DIM> pid(domain, false);
+  assert(pid());
+  auto prev_row_number = rns[*pid];
+  auto prev_color =
+    find_color(rowp, prev_row_number, sorted_selections).
+    value_or(unselected_color);
+  colors[*pid] = prev_color;
+  pid++;
+  while (pid()) {
+    auto row_number = rns[*pid];
+    if (row_number != prev_row_number) {
+      prev_row_number = rns[*pid];
+      prev_color =
+        find_color(rowp, prev_row_number, sorted_selections).
+        value_or(unselected_color);
+    }
+    colors[*pid] = prev_color;
+    pid++;
+  }
+  runtime->unmap_region(ctx, rn_pr);
+  runtime->unmap_region(ctx, color_pr);
+  return result;
+}
+
+IndexPartition
+Table::row_partition(
+  const std::vector<std::vector<Column::row_number_t>>& rowp,
+  bool include_unselected,
+  bool sorted_selections) const {
+
+  auto rn_lr = std::get<1>(*max_rank_column())->logical_region();
+  auto unselected_color = (include_unselected ? rowp.size() : -1);
+  LogicalRegion color_lr;
+  switch (rank()) {
+  case 1:
+    color_lr =
+      row_colors<1>(
+        m_context,
+        m_runtime,
+        index_space(),
+        rn_lr,
+        rowp,
+        unselected_color,
+        sorted_selections);
+    break;
+  case 2:
+    color_lr =
+      row_colors<2>(
+        m_context,
+        m_runtime,
+        index_space(),
+        rn_lr,
+        rowp,
+        unselected_color,
+        sorted_selections);
+    break;
+  case 3:
+    color_lr =
+      row_colors<3>(
+        m_context,
+        m_runtime,
+        index_space(),
+        rn_lr,
+        rowp,
+        unselected_color,
+        sorted_selections);
+    break;
+  default:
+    assert(false);
+    break;
+  }
+
+  auto color_space =
+    m_runtime->create_index_space(
+      m_context,
+      Rect<1>(0, rowp.size() - (include_unselected ? 0 : 1)));
+  auto result =
+    m_runtime->create_partition_by_field(
+      m_context,
+      color_lr,
+      color_lr,
+      0,
+      color_space);
+  m_runtime->destroy_index_space(m_context, color_space);
+  m_runtime->destroy_logical_region(m_context, color_lr);
   return result;
 }
 

@@ -97,14 +97,14 @@ public:
       || std::get<1>(*m_columns.begin())->index_tree() == IndexTreeL();
   }
 
-  size_t
+  Column::row_number_t
   num_rows() const {
     if (m_columns.size() == 0)
       return 0;
     return std::get<1>(*m_columns.begin())->num_rows();
   }
 
-  size_t
+  Column::row_number_t
   row_number(const std::vector<Legion::coord_t>& index) const {
     return row_number(row_index_pattern(), index.begin(), index.end());
   }
@@ -159,7 +159,7 @@ public:
     size_t block_size) const;
 
   template <typename Iter>
-  static size_t
+  static Column::row_number_t
   row_number(const IndexTreeL& row_pattern, Iter index, Iter index_end) {
 
     if (row_pattern == IndexTreeL())
@@ -170,7 +170,8 @@ public:
     std::tie(lo, hi) = row_pattern.index_range();
     if (*index < lo)
       return 0;
-    size_t result = (*index - lo) / (hi - lo + 1) * row_pattern.size();
+    Column::row_number_t result =
+      (*index - lo) / (hi - lo + 1) * row_pattern.size();
     auto i0 = (*index - lo) % (hi - lo + 1);
     auto ch = row_pattern.children().begin();
     auto ch_end = row_pattern.children().end();
@@ -187,6 +188,12 @@ public:
     }
     return result;
   }
+
+  Legion::IndexPartition
+  row_partition(
+    const std::vector<std::vector<Column::row_number_t>>& rowp,
+    bool include_unselected = false,
+    bool sorted_selections = false) const;
 
   Legion::Context
   context() const {

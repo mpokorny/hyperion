@@ -19,34 +19,25 @@ TableReadTask::register_task(Runtime* runtime) {
 std::vector<LogicalRegion>
 TableReadTask::dispatch() {
 
-  size_t ser_row_index_pattern_size =
-    index_tree_serdez::serialized_size(m_table->row_index_pattern());
-  size_t args_size = sizeof(TableReadTaskArgs) + ser_row_index_pattern_size;
-  std::unique_ptr<TableReadTaskArgs> arg_template(
-    static_cast<TableReadTaskArgs*>(::operator new(args_size)));
-  assert(m_table_path.size() < sizeof(arg_template->table_path));
-  std::strcpy(arg_template->table_path, m_table_path.c_str());
-  assert(m_table->name().size() < sizeof(arg_template->table_name));
-  std::strcpy(arg_template->table_name, m_table->name().c_str());
-  index_tree_serdez::serialize(
-    m_table->row_index_pattern(),
-    arg_template->ser_row_index_pattern);
+  TableReadTaskArgs arg_template;
+  assert(m_table_path.size() < sizeof(arg_template.table_path));
+  std::strcpy(arg_template.table_path, m_table_path.c_str());
+  assert(m_table->name().size() < sizeof(arg_template.table_name));
+  std::strcpy(arg_template.table_name, m_table->name().c_str());
 
-  std::vector<std::unique_ptr<TableReadTaskArgs>> args;
+  std::vector<TableReadTaskArgs> args;
   std::transform(
     m_column_names.begin(),
     m_column_names.end(),
     std::back_inserter(args),
-    [this, &arg_template, args_size](auto& nm) {
-      std::unique_ptr<TableReadTaskArgs> result(
-        static_cast<TableReadTaskArgs*>(::operator new(args_size)));
-      memcpy(result.get(), arg_template.get(), args_size);
-      assert(nm.size() < sizeof(result->column_name));
-      std::strcpy(result->column_name, nm.c_str());
+    [this, &arg_template](auto& nm) {
+      TableReadTaskArgs result = arg_template;
+      assert(nm.size() < sizeof(result.column_name));
+      std::strcpy(result.column_name, nm.c_str());
       auto col = m_table->column(nm);
-      result->column_rank = col->rank();
-      result->column_datatype = col->datatype();
-      result->column_hint = m_column_hints.at(nm);
+      result.column_rank = col->rank();
+      result.column_datatype = col->datatype();
+      result.column_hint = m_column_hints.at(nm);
       return result;
     });
 
@@ -66,7 +57,7 @@ TableReadTask::dispatch() {
       IndexTaskLauncher(
         TASK_ID,
         cs,
-        TaskArgument(args[i].get(), args_size),
+        TaskArgument(&args[i], sizeof(TableReadTaskArgs)),
         ArgumentMap());
     launcher.add_region_requirement(
       RegionRequirement(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr));
@@ -94,10 +85,6 @@ TableReadTask::base_impl(
 
   const TableReadTaskArgs* args =
     static_cast<const TableReadTaskArgs*>(task->args);
-  IndexTreeL row_index_pattern;
-  index_tree_serdez::deserialize(
-    row_index_pattern,
-    args->ser_row_index_pattern);
   casacore::Table table(
     args->table_path,
     casacore::TableLock::PermanentLockingWait);
@@ -109,7 +96,6 @@ TableReadTask::base_impl(
       table,
       cdesc,
       args->column_hint,
-      row_index_pattern,
       args->column_datatype,
       runtime->get_index_space_domain(
         ctx,
@@ -121,7 +107,6 @@ TableReadTask::base_impl(
       table,
       cdesc,
       args->column_hint,
-      row_index_pattern,
       args->column_datatype,
       runtime->get_index_space_domain(
         ctx,
@@ -133,7 +118,6 @@ TableReadTask::base_impl(
       table,
       cdesc,
       args->column_hint,
-      row_index_pattern,
       args->column_datatype,
       runtime->get_index_space_domain(
         ctx,

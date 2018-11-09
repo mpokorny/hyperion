@@ -40,9 +40,15 @@ public:
     DomainT<DIM, coord_t> domain,
     const IndexTreeL& row_index_pattern) {
 
-    FieldAccessor<WRITE_DISCARD, Column::row_number_t, DIM>
+    FieldAccessor<
+      WRITE_DISCARD,
+      Column::row_number_t,
+      DIM,
+      coord_t,
+      AffineAccessor<Column::row_number_t, DIM, coord_t>,
+      false>
       row_numbers(pr, Column::row_number_fid);
-    for (PointInDomainIterator pid(domain); pid(); pid++) {
+    for (PointInDomainIterator pid(domain, false); pid(); pid++) {
       std::array<coord_t, DIM> p;
       for (size_t i = 0; i < DIM; ++i)
         p[i] = pid[i];
@@ -265,7 +271,13 @@ ip_down(
       InlineLauncher(RegionRequirement(lr, WRITE_DISCARD, EXCLUSIVE, lr));
     filler.add_field(0);
     auto pr = runtime->map_region(ctx, filler);
-    FieldAccessor<WRITE_DISCARD, Rect<PROJDIM>, COLDIM> values(pr, 0);
+    FieldAccessor<
+      WRITE_DISCARD,
+      Rect<PROJDIM>,
+      COLDIM,
+      coord_t,
+      AffineAccessor<Rect<PROJDIM>, COLDIM, coord_t>,
+      false> values(pr, 0);
     DomainT<PROJDIM> d = runtime->get_index_space_domain(ctx, proj_is);
     PointInDomainIterator<PROJDIM> pid(d, false);
     PointInDomainIterator<PROJDIM> pid0;
@@ -342,7 +354,13 @@ ip_up(
       InlineLauncher(RegionRequirement(lr, WRITE_DISCARD, EXCLUSIVE, lr));
     filler.add_field(0);
     auto pr = runtime->map_region(ctx, filler);
-    FieldAccessor<WRITE_DISCARD, Rect<COLDIM>, PROJDIM> values(pr, 0);
+    FieldAccessor<
+      WRITE_DISCARD,
+      Rect<COLDIM>,
+      PROJDIM,
+      coord_t,
+      AffineAccessor<Rect<COLDIM>, PROJDIM, coord_t>,
+      false> values(pr, 0);
     DomainT<COLDIM> d = runtime->get_index_space_domain(ctx, col_is);
     PointInDomainIterator<COLDIM> pid(d, false);
     PointInDomainIterator<COLDIM> pid0;

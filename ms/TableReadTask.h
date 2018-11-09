@@ -28,7 +28,6 @@ struct TableReadTaskArgs {
   unsigned column_rank;
   casacore::DataType column_datatype;
   ColumnHint column_hint;
-  unsigned char ser_row_index_pattern[];
 };
 
 class TableReadTask {
@@ -90,7 +89,6 @@ public:
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
     const ColumnHint& col_hint,
-    const IndexTreeL& row_index_pattern,
     casacore::DataType lr_datatype,
     Legion::DomainT<DIM> reg_domain,
     const std::vector<Legion::PhysicalRegion>& regions) {
@@ -100,11 +98,11 @@ public:
       switch (col_desc.trueDataType()) {                                \
       case casacore::DataType::Tp##dt:                                  \
         read_scalar_column<DIM, casacore::DataType::Tp##dt>(            \
-          table, col_desc, row_index_pattern, reg_domain, regions);     \
+          table, col_desc, reg_domain, regions);                        \
         break;                                                          \
       case casacore::DataType::TpArray##dt:                             \
         read_array_column<DIM, casacore::DataType::Tp##dt>(             \
-          table, col_desc, col_hint, row_index_pattern, reg_domain, regions); \
+          table, col_desc, col_hint, reg_domain, regions);              \
         break;                                                          \
       default:                                                          \
         assert(false);                                                  \
@@ -114,7 +112,7 @@ public:
       switch (col_desc.trueDataType()) {                                \
       case casacore::DataType::TpArray##dt:                             \
         read_vector_column<DIM, casacore::DataType::Tp##dt>(            \
-          table, col_desc, col_hint, row_index_pattern, reg_domain, regions); \
+          table, col_desc, col_hint, reg_domain, regions);              \
         break;                                                          \
       default:                                                          \
         assert(false);                                                  \
@@ -158,7 +156,6 @@ public:
   read_scalar_column(
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
-    const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
     const std::vector<Legion::PhysicalRegion>& regions) {
 
@@ -214,7 +211,6 @@ public:
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
     const ColumnHint& col_hint,
-    const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
     const std::vector<Legion::PhysicalRegion>& regions) {
 
@@ -333,7 +329,6 @@ public:
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
     const ColumnHint& col_hint,
-    const IndexTreeL& row_index_pattern,
     Legion::DomainT<DIM> reg_domain,
     const std::vector<Legion::PhysicalRegion>& regions) {
 

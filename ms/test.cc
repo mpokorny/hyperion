@@ -56,7 +56,13 @@ public:
         RegionRequirement(lr, WRITE_DISCARD, EXCLUSIVE, lr));
       launcher.add_field(fid);
       auto pr = runtime->map_region(ctx, launcher);
-      const FieldAccessor<WRITE_DISCARD, Point<2>, 3> ps(pr, fid);
+      const FieldAccessor<
+        WRITE_DISCARD,
+        Point<2>,
+        3,
+        coord_t,
+        AffineAccessor<Point<2>, 3, coord_t>,
+        false> ps(pr, fid);
       for (PointInDomainIterator<3> pid(runtime->get_index_space_domain(is));
            pid();
            pid++)
