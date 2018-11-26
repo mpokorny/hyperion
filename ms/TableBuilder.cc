@@ -123,7 +123,10 @@ TableBuilder::from_casacore_table(
       std::cerr << "Sorted table optimization unimplemented" << std::endl;
   }
 
-  TableBuilder result(path.filename(), IndexTreeL(1));
+  std::string table_name = path.filename();
+  if (table_name == ".")
+    table_name = "MAIN";
+  TableBuilder result(table_name, IndexTreeL(1));
   std::unordered_set<std::string> array_names;
 
   // expand wildcard column selection, get selected columns that exist in the
@@ -243,7 +246,7 @@ const std::unordered_map<
   std::string,
   std::unordered_map<std::string, ColumnHint>>
 TableBuilder::m_ms_column_hints = {
-  {".",
+  {"MAIN",
    {{"UVW", {1, 0, {}}},
     {"UVW2", {1, 0, {}}},
    }},

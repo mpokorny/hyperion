@@ -107,6 +107,8 @@ public:
     }
     fs::path ms_path = table_path.value().parent_path();
     std::string table_name = table_path.value().filename();
+    if (table_name == ".")
+      table_name = "MAIN";
 
     // register legms library tasks
     TableReadTask::register_task(runtime);
@@ -184,7 +186,7 @@ public:
       table,
       colnames.begin(),
       end_present_colnames,
-      TableBuilder::ms_column_hints(table_name),
+      TableBuilder::ms_column_hints(table->name()),
       10000);
     auto lrs = table_read_task.dispatch();
 
