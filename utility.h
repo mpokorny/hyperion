@@ -1,6 +1,7 @@
 #ifndef LEGMS_MS_UTILITY_H_
 #define LEGMS_MS_UTILITY_H_
 
+#include <array>
 #include <atomic>
 #include <cassert>
 #include <cstring>
@@ -635,6 +636,17 @@ struct ValueType<std::vector<casacore::String>> {
   constexpr static casacore::DataType DataType =
     casacore::DataType::TpArrayString;
 };
+
+template <int IPDIM, int PRJDIM>
+Legion::IndexPartitionT<PRJDIM>
+projected_index_partition(
+  Legion::Context ctx,
+  Legion::Runtime* runtime,
+  Legion::IndexPartition ipart,
+  Legion::IndexSpaceT<PRJDIM> ispace,
+  const std::array<int, PRJDIM>& dmap);
+
+#include "utility.inl"
 
 } // end namespace legms
 

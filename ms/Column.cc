@@ -117,18 +117,6 @@ private:
 
 TaskID FillRowNumbersTask::TASK_ID;
 
-template <int DIM>
-static Point<DIM>
-to_point(const coord_t vals[DIM]) {
-  return Point<DIM>(vals);
-}
-
-template <>
-Point<1>
-to_point(const coord_t vals[1]) {
-  return Point<1>(vals[0]);
-}
-
 template <int PREFIXLEN, int LEN>
 bool
 same_prefix_index(
@@ -244,172 +232,6 @@ Column::register_tasks(Legion::Runtime *runtime) {
   FillRowNumbersTask::register_task(runtime);
 }
 
-template <int COLDIM, int PROJDIM>
-IndexPartition
-ip_down(
-  Context ctx,
-  Runtime* runtime,
-  const IndexSpace& col_is,
-  const IndexPartition& proj_ip) {
-
-  static_assert(COLDIM <= PROJDIM);
-
-  FieldSpace fs = runtime->create_field_space(ctx);
-  IndexSpace proj_is = runtime->get_parent_index_space(ctx, proj_ip);
-  assert(col_is.get_dim() == COLDIM);
-  assert(proj_is.get_dim() == PROJDIM);
-  {
-    FieldAllocator fa = runtime->create_field_allocator(ctx, fs);
-    fa.allocate_field(sizeof(Rect<PROJDIM>), 0);
-  }
-  LogicalRegion lr = runtime->create_logical_region(ctx, col_is, fs);
-
-  // iterate over points in proj_is, whenever index value projected onto col_is
-  // changes, write accumulated rectangle in lr at column index space value
-  {
-    auto filler =
-      InlineLauncher(RegionRequirement(lr, WRITE_DISCARD, EXCLUSIVE, lr));
-    filler.add_field(0);
-    auto pr = runtime->map_region(ctx, filler);
-    FieldAccessor<
-      WRITE_DISCARD,
-      Rect<PROJDIM>,
-      COLDIM,
-      coord_t,
-      AffineAccessor<Rect<PROJDIM>, COLDIM, coord_t>,
-      false> values(pr, 0);
-    DomainT<PROJDIM> d = runtime->get_index_space_domain(ctx, proj_is);
-    PointInDomainIterator<PROJDIM> pid(d, false);
-    PointInDomainIterator<PROJDIM> pid0;
-    std::optional<Rect<PROJDIM>> rect;
-    // TODO: if the following fails, the while loop will need some adjustment
-    // for the initial condition
-    assert(!same_prefix_index<COLDIM>(pid, pid0));
-    while (pid()) {
-      if (!same_prefix_index<COLDIM>(pid, pid0)) {
-        if (rect) {
-          coord_t pt[COLDIM];
-          for (size_t i = 0; i < COLDIM; ++i)
-            pt[i] = pid0[i];
-          values[to_point<COLDIM>(pt)] = rect.value();
-        }
-        pid0 = pid;
-        rect = Rect<PROJDIM>(*pid0, *pid0);
-      } else {
-        Realm::Point<PROJDIM, coord_t>* lo = &rect.value().lo;
-        Realm::Point<PROJDIM, coord_t>* hi = &rect.value().hi;
-        for (size_t i = 0; i < PROJDIM; ++i) {
-          (*lo)[i] = std::min((*lo)[i], pid[i]);
-          (*hi)[i] = std::max((*hi)[i], pid[i]);
-        }
-      }
-      pid++;
-    }
-    if (rect) {
-      coord_t pt[COLDIM];
-      for (size_t i = 0; i < COLDIM; ++i)
-        pt[i] = pid0[i];
-      values[to_point<COLDIM>(pt)] = rect.value();
-    }
-    runtime->unmap_region(ctx, pr);
-  }
-  auto result =
-    runtime->create_partition_by_preimage_range(
-      ctx,
-      proj_ip,
-      lr,
-      lr,
-      0,
-      runtime->get_index_partition_color_space_name(ctx, proj_ip));
-  runtime->destroy_logical_region(ctx, lr);
-  runtime->destroy_field_space(ctx, fs);
-  return result;
-}
-
-template <int COLDIM, int PROJDIM>
-IndexPartition
-ip_up(
-  Context ctx,
-  Runtime* runtime,
-  const IndexSpace& col_is,
-  const IndexPartition& proj_ip) {
-
-  static_assert(PROJDIM < COLDIM);
-
-  FieldSpace fs = runtime->create_field_space(ctx);
-  IndexSpace proj_is = runtime->get_parent_index_space(ctx, proj_ip);
-  assert(col_is.get_dim() == COLDIM);
-  assert(proj_is.get_dim() == PROJDIM);
-  {
-    FieldAllocator fa = runtime->create_field_allocator(ctx, fs);
-    fa.allocate_field(sizeof(Rect<COLDIM>), 0);
-  }
-  LogicalRegion lr = runtime->create_logical_region(ctx, proj_is, fs);
-  auto lp = runtime->get_logical_partition(ctx, lr, proj_ip);
-
-  // iterate over points in col_is, whenever index value projected onto proj_is
-  // changes, write accumulated rectangle in lr at proj_is value
-  {
-    auto filler =
-      InlineLauncher(RegionRequirement(lr, WRITE_DISCARD, EXCLUSIVE, lr));
-    filler.add_field(0);
-    auto pr = runtime->map_region(ctx, filler);
-    FieldAccessor<
-      WRITE_DISCARD,
-      Rect<COLDIM>,
-      PROJDIM,
-      coord_t,
-      AffineAccessor<Rect<COLDIM>, PROJDIM, coord_t>,
-      false> values(pr, 0);
-    DomainT<COLDIM> d = runtime->get_index_space_domain(ctx, col_is);
-    PointInDomainIterator<COLDIM> pid(d, false);
-    PointInDomainIterator<COLDIM> pid0;
-    std::optional<Rect<COLDIM>> rect;
-    // TODO: if the following fails, the while loop will need some adjustment
-    // for the initial condition
-    assert(!same_prefix_index<PROJDIM>(pid, pid0));
-    while (pid()) {
-      if (!same_prefix_index<PROJDIM>(pid, pid0)) {
-        if (rect) {
-          coord_t pt[PROJDIM];
-          for (size_t i = 0; i < PROJDIM; ++i)
-            pt[i] = pid0[i];
-          values[to_point<PROJDIM>(pt)] = rect.value();
-        }
-        pid0 = pid;
-        rect = Rect<COLDIM>(*pid0, *pid0);
-      } else {
-        Realm::Point<COLDIM, coord_t>* lo = &rect.value().lo;
-        Realm::Point<COLDIM, coord_t>* hi = &rect.value().hi;
-        for (size_t i = 0; i < COLDIM; ++i) {
-          (*lo)[i] = std::min((*lo)[i], pid[i]);
-          (*hi)[i] = std::max((*hi)[i], pid[i]);
-        }
-      }
-      pid++;
-    }
-    if (rect) {
-      coord_t pt[PROJDIM];
-      for (size_t i = 0; i < PROJDIM; ++i)
-        pt[i] = pid0[i];
-      values[to_point<PROJDIM>(pt)] = rect.value();
-    }
-    runtime->unmap_region(ctx, pr);
-  }
-  auto result =
-    runtime->create_partition_by_image_range(
-      ctx,
-      col_is,
-      lp,
-      lr,
-      0,
-      runtime->get_index_partition_color_space_name(ctx, proj_ip));
-  runtime->destroy_logical_partition(ctx, lp);
-  runtime->destroy_logical_region(ctx, lr);
-  runtime->destroy_field_space(ctx, fs);
-  return result;
-}
-
 IndexPartition
 Column::projected_index_partition(const IndexPartition& ipart) const {
 
@@ -418,16 +240,33 @@ Column::projected_index_partition(const IndexPartition& ipart) const {
   case 1:
     switch (rank()) {
     case 1:
-      // call ip_down to ensure return value is partition of index_space()
-      return ip_down<1, 1>(m_context, m_runtime, index_space(), ipart);
+      return
+        legms::projected_index_partition<1, 1>(
+          m_context,
+          m_runtime,
+          ipart,
+          IndexSpaceT<1>(index_space()),
+          {0});
       break;
 
     case 2:
-      return ip_up<2, 1>(m_context, m_runtime, index_space(), ipart);
+      return
+        legms::projected_index_partition<1, 2>(
+          m_context,
+          m_runtime,
+          ipart,
+          IndexSpaceT<2>(index_space()),
+          {0, -1});
       break;
 
     case 3:
-      return ip_up<3, 1>(m_context, m_runtime, index_space(), ipart);
+      return
+        legms::projected_index_partition<1, 3>(
+          m_context,
+          m_runtime,
+          ipart,
+          IndexSpaceT<3>(index_space()),
+          {0, -1, -1});
       break;
 
     default:
@@ -439,15 +278,33 @@ Column::projected_index_partition(const IndexPartition& ipart) const {
   case 2:
     switch (rank()) {
     case 1:
-      return ip_down<1, 2>(m_context, m_runtime, index_space(), ipart);
+      return
+        legms::projected_index_partition<2, 1>(
+          m_context,
+          m_runtime,
+          ipart,
+          IndexSpaceT<1>(index_space()),
+          {0});
       break;
 
     case 2:
-      return ip_down<2, 2>(m_context, m_runtime, index_space(), ipart);
+      return
+        legms::projected_index_partition<2, 2>(
+          m_context,
+          m_runtime,
+          ipart,
+          IndexSpaceT<2>(index_space()),
+          {0, 1});
       break;
 
     case 3:
-      return ip_up<3, 2>(m_context, m_runtime, index_space(), ipart);
+      return
+        legms::projected_index_partition<2, 3>(
+          m_context,
+          m_runtime,
+          ipart,
+          IndexSpaceT<3>(index_space()),
+          {0, 1, -1});
       break;
 
     default:
@@ -459,15 +316,33 @@ Column::projected_index_partition(const IndexPartition& ipart) const {
   case 3:
     switch (rank()) {
     case 1:
-      return ip_down<1, 3>(m_context, m_runtime, index_space(), ipart);
+      return
+        legms::projected_index_partition<3, 1>(
+          m_context,
+          m_runtime,
+          ipart,
+          IndexSpaceT<1>(index_space()),
+          {0});
       break;
 
     case 2:
-      return ip_down<2, 3>(m_context, m_runtime, index_space(), ipart);
+      return
+        legms::projected_index_partition<3, 2>(
+          m_context,
+          m_runtime,
+          ipart,
+          IndexSpaceT<2>(index_space()),
+          {0, 1});
       break;
 
     case 3:
-      return ip_down<3, 3>(m_context, m_runtime, index_space(), ipart);
+      return
+        legms::projected_index_partition<3, 3>(
+          m_context,
+          m_runtime,
+          ipart,
+          IndexSpaceT<3>(index_space()),
+          {0, 1, 2});
       break;
 
     default:
