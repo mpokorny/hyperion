@@ -195,7 +195,7 @@ public:
     bool include_unselected = false,
     bool sorted_selections = false) const;
 
-  Legion::Context
+  Legion::Context&
   context() const {
     return m_context;
   }
@@ -221,9 +221,9 @@ protected:
 
   std::unordered_map<std::string, std::shared_ptr<Column>> m_columns;
 
-  Legion::Context m_context;
+  mutable Legion::Context m_context;
 
-  Legion::Runtime* m_runtime;
+  mutable Legion::Runtime* m_runtime;
 };
 
 } // end namespace ms
