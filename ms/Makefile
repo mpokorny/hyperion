@@ -34,12 +34,12 @@ GEN_GPU_SRC	?=				# .cu files
 
 # You can modify these variables, some will be appended to by the runtime makefile
 INC_FLAGS	?=
-CC_FLAGS	?= -std=c++17 --gcc-toolchain=/opt/local/compilers/gcc-7 -I.. -I/users/mpokorny/projects/casacore.git/casacore-install/include -gdwarf-3
+CC_FLAGS	?= -std=c++17 -I.. -I/users/mpokorny/projects/casacore.git/casacore-install/include
 
 HDF_ROOT	?=
 NVCC_FLAGS	?=
 GASNET_FLAGS	?=
-LD_FLAGS	?= --gcc-toolchain=/opt/local/compilers/gcc-7 -stdlib=libstdc++ -L/users/mpokorny/projects/casacore.git/casacore-install/lib -lcasa_tables -lcasa_casa -lstdc++fs -rpath /opt/local/compilers/gcc-7/lib64 -rpath /users/mpokorny/projects/casacore.git/casacore-install/lib
+LD_FLAGS	?= -L/users/mpokorny/projects/casacore.git/casacore-install/lib -lcasa_tables -lcasa_casa -lstdc++fs -Wl,-rpath=/users/mpokorny/projects/casacore.git/casacore-install/lib
 
 
 ###########################################################################
