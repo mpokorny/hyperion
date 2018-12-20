@@ -115,6 +115,40 @@ block_partition_and_extend(
   return std::make_tuple(disjoint_ip, extended_ip);
 };
 
+template <int D>
+std::tuple<Legion::IndexPartition, Legion::IndexPartition>
+block_and_halo_partitions(
+  Legion::Context ctx,
+  Legion::Runtime* runtime,
+  const Legion::IndexSpaceT<D>& grid,
+  const Legion::Point<D>& block_size,
+  const Legion::Point<D>& border) {
+
+  Legion::IndexPartition disjoint_ip =
+    runtime->create_partition_by_blockify(ctx, grid, block_size);
+  Legion::IndexSpace color_space =
+    runtime->get_index_partition_color_space_name(ctx, disjoint_ip);
+  Legion::Transform<D,D> transform;
+  for (int i = 0; i < D; ++i)
+    for (int j = 0; j < D; ++j)
+      if (i == j)
+        transform[i][j] = block_size[i];
+      else
+        transform[i][j] = 0;
+  const Legion::Rect<D> extent(
+    Legion::Point<D>::ZEROS - border,
+    block_size + border - Legion::Point<D>::ONES);
+  Legion::IndexPartition halo_ip =
+    runtime->create_partition_by_restriction(
+      ctx,
+      grid,
+      color_space,
+      transform,
+      extent);
+
+  return std::make_tuple(disjoint_ip, halo_ip);
+};
+
 } // end namespace legms
 
 #endif // LEGMS_GRIDS_H_
