@@ -1,6 +1,43 @@
 #include "MSTable.h"
+#include "c_util.h"
+
+#include <mutex>
+#include <type_traits>
 
 using namespace legms::ms;
+
+template <MSTables T, int N>
+inline std::enable_if_t<(N == 0)>
+add_axis_names(
+  std::unordered_map<typename MSTable<T>::Axes,
+  std::string>& map) {
+
+  typedef typename MSTable<T>::Axes Axes;
+  constexpr Axes ax = static_cast<Axes>(N);
+  map[ax] = MSTableAxis<T, ax>::name;
+}
+
+template <MSTables T, int N>
+inline std::enable_if_t<(N > 0)>
+add_axis_names(
+  std::unordered_map<typename MSTable<T>::Axes,
+  std::string>& map) {
+
+  typedef typename MSTable<T>::Axes Axes;
+  constexpr Axes ax = static_cast<Axes>(N);
+  map[ax] = MSTableAxis<T, ax>::name;
+  add_axis_names<T, N-1>(map);
+}
+
+template <MSTables T>
+inline void
+add_axis_names(
+  std::unordered_map<typename MSTable<T>::Axes,
+  std::string>& map) {
+
+  typedef typename MSTable<T>::Axes Axes;
+  add_axis_names<T, static_cast<int>(Axes::last)>(map);
+}
 
 const std::unordered_map<
   std::string,
@@ -43,6 +80,15 @@ MSTable<MSTables::MAIN>::element_axes = {
                      Axes::correlator}},
   {"FLAG_ROW", {}}
 };
+
+#define AXIS_NAMES(T)                                                 \
+const std::unordered_map<MSTable<MSTables::T>::Axes, std::string>&    \
+MSTable<MSTables::T>::axis_names() {                                  \
+  static std::once_flag initialized;                                    \
+  static std::unordered_map<MSTable<MSTables::T>::Axes, std::string> result; \
+  std::call_once(initialized, add_axis_names<MSTables::T>, result);     \
+  return result;                                                      \
+}
 
 const std::unordered_map<
   std::string,
@@ -333,6 +379,8 @@ MSTable<MSTables::WEATHER>::element_axes = {
   {"WIND_DIRECTION_FLAG", {}},
   {"WIND_SPEED_FLAG", {}}
 };
+
+FOREACH_MS_TABLE_T(AXIS_NAMES);
 
 // Local Variables:
 // mode: c++

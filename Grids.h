@@ -136,8 +136,8 @@ block_and_halo_partitions(
       else
         transform[i][j] = 0;
   const Legion::Rect<D> extent(
-    Legion::Point<D>::ZEROS - border,
-    block_size + border - Legion::Point<D>::ONES);
+    Legion::Point<D>::ZEROES() - border,
+    block_size + border - Legion::Point<D>::ONES());
   Legion::IndexPartition halo_ip =
     runtime->create_partition_by_restriction(
       ctx,

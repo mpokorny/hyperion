@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <experimental/filesystem>
 #include <memory>
 #include <optional>
 #include <unordered_map>
