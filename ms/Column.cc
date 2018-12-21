@@ -101,9 +101,8 @@ public:
   register_task(Runtime* runtime) {
     TASK_ID =
       runtime->generate_library_task_ids("legms::FillRowNumbersTask", 1);
-    Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
-    registrar.add_constraint(
-      Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
+    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_leaf();
     runtime->register_task_variant<base_impl>(registrar);
   }
@@ -214,7 +213,7 @@ void
 Column::init() {
   m_index_space = legms::tree_index_space(m_index_tree, m_context, m_runtime);
     
-  Legion::FieldSpace fs = m_runtime->create_field_space(m_context);
+  FieldSpace fs = m_runtime->create_field_space(m_context);
   auto fa = m_runtime->create_field_allocator(m_context, fs);
   legms::add_field(m_datatype, fa, value_fid);
   m_runtime->attach_name(fs, value_fid, name().c_str());
@@ -228,7 +227,7 @@ Column::init() {
 }
 
 void
-Column::register_tasks(Legion::Runtime *runtime) {
+Column::register_tasks(Runtime *runtime) {
   FillRowNumbersTask::register_task(runtime);
 }
 

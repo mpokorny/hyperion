@@ -1,16 +1,17 @@
 #include "utility.h"
 
 using namespace legms;
+using namespace Legion;
 
 std::once_flag SerdezManager::initialized;
 
-Legion::FieldID
+FieldID
 legms::add_field(
   casacore::DataType datatype,
-  Legion::FieldAllocator fa,
-  Legion::FieldID field_id) {
+  FieldAllocator fa,
+  FieldID field_id) {
 
-  Legion::FieldID result;
+  FieldID result;
 
 #define ALLOC_FLD(tp)                           \
   tp:                                           \
