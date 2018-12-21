@@ -20,6 +20,7 @@
 namespace legms {
 namespace ms {
 
+template <typename D>
 class ColumnBuilder
   : public WithKeywordsBuilder {
 public:
@@ -27,15 +28,17 @@ public:
   ColumnBuilder(
     const std::string& name,
     casacore::DataType datatype,
-    const IndexTreeL& row_index_pattern,
-    unsigned element_rank)
+    const std::vector<D>& axes,
+    const IndexTreeL& row_index_pattern)
     : WithKeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
-    , m_rank(row_index_pattern.rank().value() + element_rank)
+    , m_axes(axes)
     , m_num_rows(0)
     , m_row_index_pattern(row_index_pattern)
     , m_row_index_iterator(row_index_pattern) {
+
+    assert(has_unique_values(m_axes));
   }
 
   virtual ~ColumnBuilder() {}
@@ -50,6 +53,11 @@ public:
     return m_datatype;
   }
 
+  const std::vector<D>&
+  axes() const {
+    return m_axes;
+  }
+
   const IndexTreeL&
   index_tree() const {
     return m_index_tree;
@@ -62,7 +70,7 @@ public:
 
   unsigned
   rank() const {
-    return m_rank;
+    return m_axes.size();
   }
 
   unsigned
@@ -102,7 +110,7 @@ private:
 
   casacore::DataType m_datatype;
 
-  unsigned m_rank;
+  std::vector<D> m_axes;
 
   size_t m_num_rows;
 
@@ -113,41 +121,57 @@ private:
   IndexTreeL m_index_tree;
 };
 
+template <typename D>
 class ScalarColumnBuilder
-  : public ColumnBuilder {
+  : public ColumnBuilder<D> {
 public:
 
     ScalarColumnBuilder(
       const std::string& name,
       casacore::DataType datatype,
+      const std::vector<D>& axes,
       const IndexTreeL& row_index_pattern)
-      : ColumnBuilder(name, datatype, row_index_pattern, 0) {
+      : ColumnBuilder<D>(name, datatype, axes, row_index_pattern) {
+
+      assert(axes.size() == row_index_pattern.rank().value());
     }
 
   template <typename T>
   static auto
-  generator(const std::string& name);
+  generator(const std::string& name) {
+    return
+      [=](const std::vector<D>& axes, const IndexTreeL& row_index_pattern) {
+      return std::make_unique<ScalarColumnBuilder<D>>(
+        name,
+        ValueType<T>::DataType,
+        axes,
+        row_index_pattern);
+    };
+  }
 
   virtual ~ScalarColumnBuilder() {}
 
   void
   add_row(const std::any&) override {
-    set_next_row(IndexTreeL());
+    ColumnBuilder<D>::set_next_row(IndexTreeL());
   }
 };
 
-template <int ARRAYDIM>
+template <typename D, int ARRAYDIM>
 class ArrayColumnBuilder
-  : public ColumnBuilder {
+  : public ColumnBuilder<D> {
 public:
 
   ArrayColumnBuilder(
     const std::string& name,
     casacore::DataType datatype,
+    const std::vector<D>& axes,
     const IndexTreeL& row_index_pattern,
-    std::function<std::array<size_t, ARRAYDIM>(const std::any&)> row_dimensions)
-    : ColumnBuilder(name, datatype, row_index_pattern, ARRAYDIM)
-    , m_row_dimensions(row_dimensions) {
+    std::function<std::array<size_t, ARRAYDIM>(const std::any&)> element_shape)
+    : ColumnBuilder<D>(name, datatype, axes, row_index_pattern)
+    , m_element_shape(element_shape) {
+
+    assert(axes.size() > row_index_pattern.rank().value());
   }
 
   virtual ~ArrayColumnBuilder() {}
@@ -157,11 +181,22 @@ public:
   generator(
     const std::string& name,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)>
-    row_dimensions);
+    element_shape) {
+
+    return
+      [=](const std::vector<D>& axes, const IndexTreeL& row_index_pattern) {
+        return std::make_unique<ArrayColumnBuilder<D, ARRAYDIM>>(
+          name,
+          ValueType<T>::DataType,
+          axes,
+          row_index_pattern,
+          element_shape);
+      };
+  }
 
   void
   add_row(const std::any& args) override {
-    auto ary = m_row_dimensions(args);
+    auto ary = m_element_shape(args);
     IndexTreeL t =
       std::accumulate(
         ary.rbegin(),
@@ -170,15 +205,13 @@ public:
         [](const auto& t, const auto& d) {
           return IndexTreeL({{d, t}});
         });
-    set_next_row(t);
+    ColumnBuilder<D>::set_next_row(t);
   }
 
 private:
 
-  std::function<std::array<size_t, ARRAYDIM>(const std::any&)> m_row_dimensions;
+  std::function<std::array<size_t, ARRAYDIM>(const std::any&)> m_element_shape;
 };
-
-#include "ColumnBuilder.inl"
 
 } // end namespace ms
 } // end namespace legms

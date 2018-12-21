@@ -16,7 +16,7 @@ TableReadTask::register_task(Runtime* runtime) {
   runtime->register_task_variant<base_impl>(registrar);
 }
 
-std::vector<LogicalRegion>
+void
 TableReadTask::dispatch() {
 
   TableReadTaskArgs arg_template;
@@ -37,26 +37,31 @@ TableReadTask::dispatch() {
       auto col = m_table->column(nm);
       result.column_rank = col->rank();
       result.column_datatype = col->datatype();
-      result.column_hint = m_column_hints.at(nm);
       return result;
     });
 
   Context ctx = m_table->context();
   Runtime* runtime = m_table->runtime();
-  auto result = m_table->logical_regions(m_column_names);
-  auto ips =
-    m_table->row_block_index_partitions(
-      m_index_partition,
-      m_column_names,
-      m_block_length.value_or(m_table->num_rows()));
-  for (size_t i = 0; i < result.size(); ++i) {
-    auto lr = result[i];
-    auto lp = runtime->get_logical_partition(ctx, lr, ips[i]);
-    auto cs = runtime->get_index_partition_color_space(ctx, ips[i]);
+
+  std::vector<Legion::IndexPartition> blockp;
+  {
+    auto nr = m_table->num_rows();
+    auto block_length = m_block_length.value_or(nr);
+    std::vector<std::vector<Column::row_number_t>>
+      rowp((nr + block_length - 1) / block_length);
+    for (Column::row_number_t i = 0; i < nr; ++i)
+      rowp[i / block_length].push_back(i);
+    blockp =
+      m_table->projected_row_partitions(m_column_names, rowp, false, true);
+  }
+
+  for (size_t i = 0; i < m_column_names.size(); ++i) {
+    auto lr = m_table->column(m_column_names[i])->logical_region();
+    auto lp = runtime->get_logical_partition(ctx, lr, blockp[i]);
     auto launcher =
       IndexTaskLauncher(
         TASK_ID,
-        cs,
+        runtime->get_index_partition_color_space(blockp[i]),
         TaskArgument(&args[i], sizeof(TableReadTaskArgs)),
         ArgumentMap());
     launcher.add_region_requirement(
@@ -66,14 +71,8 @@ TableReadTask::dispatch() {
       RegionRequirement(lp, 0, READ_ONLY, EXCLUSIVE, lr));
     launcher.add_field(1, Column::row_number_fid);
     runtime->execute_index_space(ctx, launcher);
+    runtime->destroy_index_partition(ctx, blockp[i]);
   }
-  std::for_each(
-    ips.begin(),
-    ips.end(),
-    [runtime, ctx](auto p) {
-        runtime->destroy_index_partition(ctx, p);
-    });
-  return result;
 }
 
 void
@@ -95,7 +94,6 @@ TableReadTask::base_impl(
     read_column<1>(
       table,
       cdesc,
-      args->column_hint,
       args->column_datatype,
       runtime->get_index_space_domain(
         ctx,
@@ -106,7 +104,6 @@ TableReadTask::base_impl(
     read_column<2>(
       table,
       cdesc,
-      args->column_hint,
       args->column_datatype,
       runtime->get_index_space_domain(
         ctx,
@@ -117,7 +114,6 @@ TableReadTask::base_impl(
     read_column<3>(
       table,
       cdesc,
-      args->column_hint,
       args->column_datatype,
       runtime->get_index_space_domain(
         ctx,

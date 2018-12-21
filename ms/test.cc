@@ -37,19 +37,37 @@ public:
       && colnames[0] == "DIRECTION";
   }
 
-  static std::optional<IndexPartition>
+  static std::vector<MSTable<MSTables::POINTING>::Axes>
+  pointing_direction_axes() {
+    std::vector<MSTable<MSTables::POINTING>::Axes> result = {
+      MSTable<MSTables::POINTING>::Axes::row
+    };
+    auto dir_axes = MSTable<MSTables::POINTING>::element_axes.at("DIRECTION");
+    std::copy(
+      dir_axes.begin(),
+      dir_axes.end(),
+      std::back_inserter(result));
+    return result;
+  }
+
+  static std::optional<
+    std::tuple<IndexPartition, std::vector<MSTable<MSTables::POINTING>::Axes>>>
   read_partition(const std::shared_ptr<const Table>& table) {
 
-    std::optional<IndexPartition> result;
+    std::optional<
+      std::tuple<
+        IndexPartition,
+        std::vector<MSTable<MSTables::POINTING>::Axes>>> result;
+
     const unsigned subsample = 10000;
-    if (table->name() == "POINTING" && subsample > 1) {
+    auto is = table->column(table->max_rank_column_name())->index_space();
+    if (table->name() == "POINTING" && subsample > 1 && is.get_dim() == 3) {
+      std::cout << "partitioned read" << std::endl;
       auto runtime = table->runtime();
       auto ctx = table->context();
       auto fs = runtime->create_field_space(ctx);
       auto fa = runtime->create_field_allocator(ctx, fs);
       auto fid = fa.allocate_field(sizeof(Point<2>));
-      auto is = table->index_space();
-      assert(is.get_dim() == 3);
       auto lr = runtime->create_logical_region(ctx, is, fs);
       // use InlineLauncher for simplicity
       auto launcher = InlineLauncher(
@@ -66,13 +84,16 @@ public:
       for (PointInDomainIterator<3> pid(runtime->get_index_space_domain(is));
            pid();
            pid++)
-        ps[*pid] = Point<2>(((pid[0] % subsample == 0) ? 0 : 1), pid[1]);
+        ps[*pid] = Point<2>(((pid[0] % subsample == 0) ? 0 : 1), pid[2]);
       runtime->unmap_region(ctx, pr);
       auto colors =
         runtime->create_index_space(
           ctx,
           Rect<2>(Point<2>(0, 0), Point<2>(1, 1)));
-      result = runtime->create_partition_by_field(ctx, lr, lr, fid, colors);
+      result =
+        std::make_tuple(
+          runtime->create_partition_by_field(ctx, lr, lr, fid, colors),
+          pointing_direction_axes());
       runtime->destroy_index_space(ctx, colors);
       runtime->destroy_logical_region(ctx, lr);
       runtime->destroy_field_space(ctx, fs);
@@ -122,30 +143,24 @@ public:
     std::shared_ptr<const Table> table;
     if (pointing_direction_only(table_name, colnames)) {
       // special test case: create Table with prior knowledge of its shape
-      std::vector<Column::Generator>
-        cols {
-              Column::generator(
-                "DIRECTION",
-                casacore::TpDouble,
-                IndexTreeL(1),
-                IndexTreeL({{1, IndexTreeL({{2, IndexTreeL(1)}})}}),
-                75107)
-      };
-      table.reset(new Table(ctx, runtime, table_path.value(), cols));
-    } else {
-      // general test case: create Table by scanning shape of MS table
-      auto builder =
-        TableBuilder::from_casacore_table(
-          table_path.value(),
-          colnames_set,
-          TableBuilder::ms_column_hints(table_name));
+      ColumnT<MSTable<MSTables::POINTING>::Axes>::Generator colgen =
+        ColumnT<MSTable<MSTables::POINTING>::Axes>::generator(
+          "DIRECTION",
+          casacore::TpDouble,
+          pointing_direction_axes(),
+          IndexTreeL(1),
+          IndexTreeL({{1, IndexTreeL({{1, IndexTreeL(2)}})}}),
+          75107);
       table.reset(
-        new Table(
+        new TableT<MSTable<MSTables::POINTING>::Axes>(
           ctx,
           runtime,
-          builder.name(),
-          builder.column_generators(),
-          builder.keywords()));
+          table_name,
+          {MSTable<MSTables::POINTING>::Axes::row},
+          {colgen}));
+    } else {
+      // general test case: create Table by scanning shape of MS table
+      table = Table::from_ms(ctx, runtime, table_path.value(), colnames_set);
     }
     std::cout << "table name: "
               << table->name() << std::endl;
@@ -182,37 +197,53 @@ public:
     // read MS table columns to initialize the Column LogicalRegions
     //
 
-    TableReadTask table_read_task(
-      table_path.value(),
-      table,
-      colnames.begin(),
-      end_present_colnames,
-      TableBuilder::ms_column_hints(table->name()),
-      10000);
-    auto lrs = table_read_task.dispatch();
+    {
+      TableReadTask table_read_task(
+        table_path.value(),
+        table,
+        colnames.begin(),
+        end_present_colnames,
+        10000);
+      table_read_task.dispatch();
+    }
 
     //
     // compute the LogicalRegions to read back
     //
 
     // special test case: partitioned read back
-    std::optional<IndexPartition> read_ip = read_partition(table);
+    auto read_p = read_partition(table);
     unsigned max_col_rank = table->column(colnames[0])->rank();
     size_t max_col_rank_idx = 0;
 
+    std::vector<LogicalRegion> lrs;
+    std::transform(
+      colnames.begin(),
+      end_present_colnames,
+      std::back_inserter(lrs),
+      [&table](auto& nm) { return table->column(nm)->logical_region(); });
     // read_lr_fids tuple values: colname, region, parent region
     std::vector<
       std::vector<std::tuple<std::string, LogicalRegion, LogicalRegion>>>
       read_lrs;
-    if (read_ip) {
+    if (read_p) {
+      auto& [read_ip, read_paxes] = read_p.value();
       // for partitioned read, we select only a couple of the sub-regions per
       // column
       read_lrs.resize(2);
-      auto col_ip =
-        table->index_partitions(
-          read_ip.value(),
-          colnames.begin(),
-          end_present_colnames);
+      auto tab =
+        std::dynamic_pointer_cast<
+          const TableT<MSTable<MSTables::POINTING>::Axes>>(
+            table);
+      std::vector<IndexPartition> col_ip;
+      std::transform(
+        colnames.begin(),
+        end_present_colnames,
+        std::back_inserter(col_ip),
+        [&tab, &read_ip, &read_paxes](auto& nm) {
+          return tab->columnT(nm)
+            ->projected_index_partition(read_ip, read_paxes);
+        });
       for (size_t i = 0; i < lrs.size(); ++i) {
         auto rank = table->column(colnames[i])->rank();
         if (rank > max_col_rank) {
@@ -256,7 +287,7 @@ public:
       read_lrs.end(),
       std::back_inserter(read_is),
       [&max_col_rank_idx](auto& rlrs) {
-        return std::get<1>(rlrs[max_col_rank_idx]).get_index_space();      
+        return std::get<1>(rlrs[max_col_rank_idx]).get_index_space();
       });
 
     // launch the read tasks inline
@@ -421,18 +452,8 @@ public:
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpArrayBool:
-      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayBool>(
-        rlf, pr, pid0, row, oss);
-      break;
-
     case casacore::DataType::TpChar:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpChar>(
-        rlf, pr, pid0, row, oss);
-      break;
-
-    case casacore::DataType::TpArrayChar:
-      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayChar>(
         rlf, pr, pid0, row, oss);
       break;
 
@@ -441,18 +462,8 @@ public:
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpArrayUChar:
-      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayUChar>(
-        rlf, pr, pid0, row, oss);
-      break;
-
     case casacore::DataType::TpShort:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpShort>(
-        rlf, pr, pid0, row, oss);
-      break;
-
-    case casacore::DataType::TpArrayShort:
-      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayShort>(
         rlf, pr, pid0, row, oss);
       break;
 
@@ -461,18 +472,8 @@ public:
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpArrayUShort:
-      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayUShort>(
-        rlf, pr, pid0, row, oss);
-      break;
-
     case casacore::DataType::TpInt:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpInt>(
-        rlf, pr, pid0, row, oss);
-      break;
-
-    case casacore::DataType::TpArrayInt:
-      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayInt>(
         rlf, pr, pid0, row, oss);
       break;
 
@@ -481,18 +482,8 @@ public:
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpArrayUInt:
-      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayUInt>(
-        rlf, pr, pid0, row, oss);
-      break;
-
     case casacore::DataType::TpFloat:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpFloat>(
-        rlf, pr, pid0, row, oss);
-      break;
-
-    case casacore::DataType::TpArrayFloat:
-      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayFloat>(
         rlf, pr, pid0, row, oss);
       break;
 
@@ -501,18 +492,8 @@ public:
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpArrayDouble:
-      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayDouble>(
-        rlf, pr, pid0, row, oss);
-      break;
-
     case casacore::DataType::TpComplex:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpComplex>(
-        rlf, pr, pid0, row, oss);
-      break;
-
-    case casacore::DataType::TpArrayComplex:
-      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayComplex>(
         rlf, pr, pid0, row, oss);
       break;
 
@@ -521,18 +502,8 @@ public:
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpArrayDComplex:
-      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayDComplex>(
-        rlf, pr, pid0, row, oss);
-      break;
-
     case casacore::DataType::TpString:
       show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpString>(
-        rlf, pr, pid0, row, oss);
-      break;
-
-    case casacore::DataType::TpArrayString:
-      show_array_column_values<TDIM, CDIM, casacore::DataType::TpArrayString>(
         rlf, pr, pid0, row, oss);
       break;
 
@@ -581,60 +552,6 @@ public:
     }
   }
 
-  template <int TDIM, int CDIM, casacore::DataType DT>
-  static void
-  show_array_column_values(
-    const std::tuple<std::string, LogicalRegion, LogicalRegion>& rlf,
-    const PhysicalRegion& pr,
-    const PointInDomainIterator<TDIM>& pid0,
-    Column::row_number_t row,
-    std::ostringstream& oss) {
-
-    const FieldAccessor<
-      READ_ONLY,
-      typename DataType<DT>::ValueType,
-      CDIM,
-      coord_t,
-      Realm::AffineAccessor<typename DataType<DT>::ValueType, CDIM, coord_t>,
-      false> values(pr, Column::value_fid);
-
-    const FieldAccessor<
-      READ_ONLY,
-      Column::row_number_t,
-      CDIM,
-      coord_t,
-      Realm::AffineAccessor<Column::row_number_t, CDIM, coord_t>,
-      false> row_numbers(pr, Column::row_number_fid);
-
-    auto p0 = pid_prefix<CDIM>(pid0);
-    PointInDomainIterator<TDIM> tpid = pid0;
-    auto vals = values[p0];
-    if (vals.size() > 0) {
-      oss << "<" << vals[0];
-      for (size_t i = 1; i < vals.size(); ++i)
-        oss << "," << vals[i];
-      oss << ">";
-    }
-    tpid++;
-    while (tpid()) {
-      auto p = pid_prefix<CDIM>(tpid);
-      if (row_numbers[p] != row)
-        break;
-      if (p != p0) {
-        oss << ",";
-        auto vals = values[p];
-        if (vals.size() > 0) {
-          oss << "<" << vals[0];
-          for (size_t i = 1; i < vals.size(); ++i)
-            oss << "," << vals[i];
-          oss << ">";
-        }
-      }
-      tpid++;
-    }
-  }
-
-  
   template <int DIM>
   static inline Point<DIM>
   to_point(const coord_t vals[DIM]) {

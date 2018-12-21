@@ -25,79 +25,40 @@ legms::add_field(
   case ALLOC_FLD(casacore::DataType::TpBool)
     break;
 
-  case ALLOC_FLD(casacore::DataType::TpArrayBool)
-    break;
-
   case ALLOC_FLD(casacore::DataType::TpChar)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpArrayChar)
     break;
 
   case ALLOC_FLD(casacore::DataType::TpUChar)
     break;
 
-  case ALLOC_FLD(casacore::DataType::TpArrayUChar)
-    break;
-
   case ALLOC_FLD(casacore::DataType::TpShort)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpArrayShort)
     break;
 
   case ALLOC_FLD(casacore::DataType::TpUShort)
     break;
 
-  case ALLOC_FLD(casacore::DataType::TpArrayUShort)
-    break;
-
   case ALLOC_FLD(casacore::DataType::TpInt)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpArrayInt)
     break;
 
   case ALLOC_FLD(casacore::DataType::TpUInt)
     break;
 
-  case ALLOC_FLD(casacore::DataType::TpArrayUInt)
-    break;
-
   // case ALLOC_FLD(casacore::DataType::TpInt64)
-  //   break;
-
-  // case ALLOC_FLD(casacore::DataType::TpArrayInt64)
   //   break;
 
   case ALLOC_FLD(casacore::DataType::TpFloat)
     break;
 
-  case ALLOC_FLD(casacore::DataType::TpArrayFloat)
-    break;
-
   case ALLOC_FLD(casacore::DataType::TpDouble)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpArrayDouble)
     break;
 
   case ALLOC_FLD(casacore::DataType::TpComplex)
     break;
 
-  case ALLOC_FLD(casacore::DataType::TpArrayComplex)
-    break;
-
   case ALLOC_FLD(casacore::DataType::TpDComplex)
     break;
 
-  case ALLOC_FLD(casacore::DataType::TpArrayDComplex)
-    break;
-
   case ALLOC_FLD(casacore::DataType::TpString)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpArrayString)
     break;
 
   case casacore::DataType::TpQuantity:
@@ -261,6 +222,125 @@ ProjectedIndexPartitionTask::register_task(Runtime* runtime) {
 }
 
 TaskID ProjectedIndexPartitionTask::TASK_ID;
+
+IndexPartition
+projected_index_partition(
+  Context ctx,
+  Runtime* runtime,
+  IndexPartition ip,
+  IndexSpace prj_is,
+  const std::vector<int>& dmap) {
+
+  switch (ip.get_dim()) {
+  case 1:
+    switch (prj_is.get_dim()) {
+    case 1:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<1>(ip),
+          IndexSpaceT<1>(prj_is),
+          {dmap[0]});
+      break;
+    case 2:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<1>(ip),
+          IndexSpaceT<2>(prj_is),
+          {dmap[0], dmap[1]});
+      break;
+    case 3:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<1>(ip),
+          IndexSpaceT<3>(prj_is),
+          {dmap[0], dmap[1], dmap[2]});
+      break;
+    default:
+      assert(false);
+      break;
+    }
+    break;
+
+  case 2:
+    switch (prj_is.get_dim()) {
+    case 1:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<2>(ip),
+          IndexSpaceT<1>(prj_is),
+          {dmap[0]});
+      break;
+    case 2:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<2>(ip),
+          IndexSpaceT<2>(prj_is),
+          {dmap[0], dmap[1]});
+      break;
+    case 3:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<2>(ip),
+          IndexSpaceT<3>(prj_is),
+          {dmap[0], dmap[1], dmap[2]});
+      break;
+    default:
+      assert(false);
+      break;
+    }
+    break;
+
+  case 3:
+    switch (prj_is.get_dim()) {
+    case 1:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<3>(ip),
+          IndexSpaceT<1>(prj_is),
+          {dmap[0]});
+      break;
+    case 2:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<3>(ip),
+          IndexSpaceT<2>(prj_is),
+          {dmap[0], dmap[1]});
+      break;
+    case 3:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<3>(ip),
+          IndexSpaceT<3>(prj_is),
+          {dmap[0], dmap[1], dmap[2]});
+      break;
+    default:
+      assert(false);
+      break;
+    }
+    break;
+  default:
+    assert(false);
+    break;
+  }
+}
 
 // Local Variables:
 // mode: c++
