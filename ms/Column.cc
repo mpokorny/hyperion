@@ -243,7 +243,7 @@ Column::projected_index_partition(const IndexPartition& ipart) const {
         legms::projected_index_partition<1, 1>(
           m_context,
           m_runtime,
-          ipart,
+          IndexPartitionT<1>(ipart),
           IndexSpaceT<1>(index_space()),
           {0});
       break;
@@ -253,8 +253,8 @@ Column::projected_index_partition(const IndexPartition& ipart) const {
         legms::projected_index_partition<1, 2>(
           m_context,
           m_runtime,
-          ipart,
-          IndexSpaceT<2>(index_space()),
+          IndexPartitionT<1>(ipart),
+          IndexSpaceT<2>(m_index_space),
           {0, -1});
       break;
 
@@ -263,8 +263,8 @@ Column::projected_index_partition(const IndexPartition& ipart) const {
         legms::projected_index_partition<1, 3>(
           m_context,
           m_runtime,
-          ipart,
-          IndexSpaceT<3>(index_space()),
+          IndexPartitionT<1>(ipart),
+          IndexSpaceT<3>(m_index_space),
           {0, -1, -1});
       break;
 
@@ -281,8 +281,8 @@ Column::projected_index_partition(const IndexPartition& ipart) const {
         legms::projected_index_partition<2, 1>(
           m_context,
           m_runtime,
-          ipart,
-          IndexSpaceT<1>(index_space()),
+          IndexPartitionT<2>(ipart),
+          IndexSpaceT<1>(m_index_space),
           {0});
       break;
 
@@ -291,8 +291,8 @@ Column::projected_index_partition(const IndexPartition& ipart) const {
         legms::projected_index_partition<2, 2>(
           m_context,
           m_runtime,
-          ipart,
-          IndexSpaceT<2>(index_space()),
+          IndexPartitionT<2>(ipart),
+          IndexSpaceT<2>(m_index_space),
           {0, 1});
       break;
 
@@ -301,8 +301,8 @@ Column::projected_index_partition(const IndexPartition& ipart) const {
         legms::projected_index_partition<2, 3>(
           m_context,
           m_runtime,
-          ipart,
-          IndexSpaceT<3>(index_space()),
+          IndexPartitionT<2>(ipart),
+          IndexSpaceT<3>(m_index_space),
           {0, 1, -1});
       break;
 
@@ -319,8 +319,8 @@ Column::projected_index_partition(const IndexPartition& ipart) const {
         legms::projected_index_partition<3, 1>(
           m_context,
           m_runtime,
-          ipart,
-          IndexSpaceT<1>(index_space()),
+          IndexPartitionT<3>(ipart),
+          IndexSpaceT<1>(m_index_space),
           {0});
       break;
 
@@ -329,8 +329,8 @@ Column::projected_index_partition(const IndexPartition& ipart) const {
         legms::projected_index_partition<3, 2>(
           m_context,
           m_runtime,
-          ipart,
-          IndexSpaceT<2>(index_space()),
+          IndexPartitionT<3>(ipart),
+          IndexSpaceT<2>(m_index_space),
           {0, 1});
       break;
 
@@ -339,8 +339,8 @@ Column::projected_index_partition(const IndexPartition& ipart) const {
         legms::projected_index_partition<3, 3>(
           m_context,
           m_runtime,
-          ipart,
-          IndexSpaceT<3>(index_space()),
+          IndexPartitionT<3>(ipart),
+          IndexSpaceT<3>(m_index_space),
           {0, 1, 2});
       break;
 

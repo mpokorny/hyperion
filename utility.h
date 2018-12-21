@@ -1,11 +1,13 @@
 #ifndef LEGMS_MS_UTILITY_H_
 #define LEGMS_MS_UTILITY_H_
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cassert>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <numeric>
 
@@ -637,16 +639,102 @@ struct ValueType<std::vector<casacore::String>> {
     casacore::DataType::TpArrayString;
 };
 
+class ProjectedIndexPartitionTask
+  : Legion::IndexTaskLauncher {
+public:
+
+  enum { IMAGE_RANGES_FID };
+
+  struct args {
+    Legion::Domain bounds;
+    int prjdim;
+    int dmap[];
+  };
+
+  constexpr static const char * const TASK_NAME =
+    "legms::ProjectedIndexPartitionTask";
+  static Legion::TaskID TASK_ID;
+
+  ProjectedIndexPartitionTask(
+    Legion::IndexSpace launch_space,
+    Legion::LogicalPartition lp,
+    Legion::LogicalRegion lr,
+    args* global_arg);
+
+  void
+  dispatch(Legion::Context ctx, Legion::Runtime* runtime);
+
+  static void
+  base_impl(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *runtime);
+
+  static void
+  register_task(Legion::Runtime* runtime);
+};
+
 template <int IPDIM, int PRJDIM>
 Legion::IndexPartitionT<PRJDIM>
 projected_index_partition(
   Legion::Context ctx,
   Legion::Runtime* runtime,
-  Legion::IndexPartition ipart,
-  Legion::IndexSpaceT<PRJDIM> ispace,
-  const std::array<int, PRJDIM>& dmap);
+  Legion::IndexPartitionT<IPDIM> ip,
+  Legion::IndexSpaceT<PRJDIM> prj_is,
+  const std::array<int, PRJDIM>& dmap) {
 
-#include "utility.inl"
+  assert(
+    std::all_of(
+      dmap.begin(),
+      dmap.end(),
+      [](auto d) { return -1 <= d && d < IPDIM; }));
+
+  std::unique_ptr<ProjectedIndexPartitionTask::args> args(
+    static_cast<ProjectedIndexPartitionTask::args*>(
+      operator new(sizeof(ProjectedIndexPartitionTask::args)
+                   + PRJDIM * sizeof(dmap[0]))));
+  auto prj_domain = runtime->get_index_space_domain(ctx, prj_is);
+  args->bounds = Legion::Rect<PRJDIM>(prj_domain.lo(), prj_domain.hi());
+  args->prjdim = PRJDIM;
+  memcpy(args->dmap, dmap.data(), PRJDIM * sizeof(dmap[0]));
+
+  Legion::FieldSpace images_fs = runtime->create_field_space(ctx);
+  {
+    auto fa = runtime->create_field_allocator(ctx, images_fs);
+    fa.allocate_field(
+      sizeof(Legion::Rect<PRJDIM>),
+      ProjectedIndexPartitionTask::IMAGE_RANGES_FID);
+  }
+  Legion::LogicalRegionT<IPDIM> images_lr(
+    runtime->create_logical_region(
+      ctx,
+      runtime->get_parent_index_space(ip),
+      images_fs));
+  Legion::LogicalPartitionT<IPDIM> images_lp(
+    runtime->get_logical_partition(ctx, images_lr, ip));
+
+  Legion::IndexSpace ip_cs =
+    runtime->get_index_partition_color_space_name(ctx, ip);
+
+  ProjectedIndexPartitionTask
+    fill_images(ip_cs, images_lp, images_lr, args.get());
+  fill_images.dispatch(ctx, runtime);
+
+  Legion::IndexPartitionT<PRJDIM> result(
+    runtime->create_partition_by_image_range(
+      ctx,
+      prj_is,
+      images_lp,
+      images_lr,
+      0,
+      ip_cs));
+
+  runtime->destroy_logical_partition(ctx, images_lp);
+  runtime->destroy_logical_region(ctx, images_lr);
+  runtime->destroy_field_space(ctx, images_fs);
+  return result;
+}
 
 } // end namespace legms
 

@@ -122,6 +122,146 @@ legms::add_field(
   return result;
 }
 
+ProjectedIndexPartitionTask::ProjectedIndexPartitionTask(
+  IndexSpace launch_space,
+  LogicalPartition lp,
+  LogicalRegion lr,
+  args* global_arg)
+  : IndexTaskLauncher(
+    TASK_ID,
+    launch_space,
+    TaskArgument(
+      global_arg,
+      sizeof(ProjectedIndexPartitionTask::args)
+      + global_arg->prjdim * sizeof(global_arg->dmap[0])),
+    ArgumentMap()){
+
+  add_region_requirement(
+    RegionRequirement(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr));
+  add_field(0, IMAGE_RANGES_FID);
+}
+
+void
+ProjectedIndexPartitionTask::dispatch(Context ctx, Runtime* runtime) {
+  runtime->execute_index_space(ctx, *this);
+}
+
+template <int IPDIM, int PRJDIM>
+void
+pipt_impl(
+  const Task* task,
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime *runtime) {
+
+  const ProjectedIndexPartitionTask::args* targs =
+    static_cast<const ProjectedIndexPartitionTask::args*>(task->args);
+  Legion::Rect<PRJDIM> bounds = targs->bounds;
+
+  const FieldAccessor<
+    WRITE_DISCARD,
+    Rect<PRJDIM>,
+    IPDIM,
+    coord_t,
+    Realm::AffineAccessor<Rect<PRJDIM>, IPDIM, coord_t>,
+    false>
+    image_ranges(regions[0], ProjectedIndexPartitionTask::IMAGE_RANGES_FID);
+
+  DomainT<IPDIM> domain =
+    runtime->get_index_space_domain(
+      ctx,
+      task->regions[0].region.get_index_space());
+  for (PointInDomainIterator<IPDIM> pid(domain);
+       pid();
+       pid++) {
+
+    Rect<PRJDIM> r;
+    for (size_t i = 0; i < PRJDIM; ++i)
+      if (0 <= targs->dmap[i]) {
+        r.lo[i] = r.hi[i] = pid[targs->dmap[i]];
+      } else {
+        r.lo[i] = bounds.lo[i];
+        r.hi[i] = bounds.hi[i];
+      }
+    image_ranges[*pid] = r;
+  }
+}
+
+void
+ProjectedIndexPartitionTask::base_impl(
+  const Task* task,
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime *runtime) {
+
+  const args* targs = static_cast<const args*>(task->args);
+  IndexSpace is = task->regions[0].region.get_index_space();
+  switch (is.get_dim()) {
+  case 1:
+    switch (targs->prjdim) {
+    case 1:
+      pipt_impl<1, 1>(task, regions, ctx, runtime);
+      break;
+    case 2:
+      pipt_impl<1, 2>(task, regions, ctx, runtime);
+      break;
+    case 3:
+      pipt_impl<1, 3>(task, regions, ctx, runtime);
+      break;
+    default:
+      assert(false);
+      break;
+    }
+    break;
+  case 2:
+    switch (targs->prjdim) {
+    case 1:
+      pipt_impl<2, 1>(task, regions, ctx, runtime);
+      break;
+    case 2:
+      pipt_impl<2, 2>(task, regions, ctx, runtime);
+      break;
+    case 3:
+      pipt_impl<2, 3>(task, regions, ctx, runtime);
+      break;
+    default:
+      assert(false);
+      break;
+    }
+    break;
+  case 3:
+    switch (targs->prjdim) {
+    case 1:
+      pipt_impl<3, 1>(task, regions, ctx, runtime);
+      break;
+    case 2:
+      pipt_impl<3, 2>(task, regions, ctx, runtime);
+      break;
+    case 3:
+      pipt_impl<3, 3>(task, regions, ctx, runtime);
+      break;
+    default:
+      assert(false);
+      break;
+    }
+    break;
+  default:
+    assert(false);
+    break;
+  }
+}
+
+void
+ProjectedIndexPartitionTask::register_task(Runtime* runtime) {
+  TASK_ID =
+    runtime->generate_library_task_ids("legms::ProjectedIndexPartitionTask", 1);
+  TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
+  registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+  runtime->register_task_variant<base_impl>(registrar);
+}
+
+TaskID ProjectedIndexPartitionTask::TASK_ID;
+
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2

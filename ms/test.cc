@@ -114,6 +114,7 @@ public:
     TableReadTask::register_task(runtime);
     TreeIndexSpace::register_tasks(runtime);
     Column::register_tasks(runtime);
+    ProjectedIndexPartitionTask::register_task(runtime);
 
     // create the Table instance
     std::unordered_set<std::string>
