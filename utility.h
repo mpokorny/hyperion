@@ -65,6 +65,28 @@ pt2ipos(
     ipos[pv[i]] = pt[i + REGION_DIM - array_dim];
 }
 
+template <typename D>
+bool
+has_unique_values(const std::vector<D>& axes) {
+  std::vector<D> ax = axes;
+  std::sort(ax.begin(), ax.end());
+  std::unique(ax.begin(), ax.end());
+  return ax.size() == axes.size();
+}
+
+template <typename D>
+std::vector<int>
+dimensions_map(const std::vector<D>& from, const std::vector<D>& to) {
+  std::vector<int> result(from.size());
+  for (size_t i = 0; i < from.size(); ++i) {
+    result[i] = -1;
+    for (size_t j = 0; result[i] == -1 && j < to.size(); ++j)
+      if (from[i] == to[j])
+        result[i] = j;
+  }
+  return result;
+}
+
 template <typename S>
 class string_serdez {
   // this class only works for fixed size character encodings!
@@ -116,153 +138,6 @@ public:
   }
 };
 
-template <typename S>
-class string_array_serdez {
-  // this class only works for fixed size character encodings!
-
-public:
-  typedef std::vector<S> FIELD_TYPE;
-
-  typedef typename S::size_type size_type;
-  typedef typename S::value_type value_type;
-
-  static const size_t MAX_SERIALIZED_SIZE =
-    std::numeric_limits<size_type>::max();
-
-  static size_t
-  serialized_size(const std::vector<S>& val) {
-    return
-      std::accumulate(
-        val.begin(),
-        val.end(),
-        sizeof(size_t),
-        [](const size_t& acc, auto& s) {
-          return acc + string_serdez<S>::serialized_size(s);
-        });
-  }
-
-  static size_t
-  serialize(const std::vector<S>& val, void *buffer) {
-    *static_cast<size_t *>(buffer) = val.size();
-    char* chbuf = reinterpret_cast<char *>(static_cast<size_t *>(buffer) + 1);
-    std::for_each(
-      val.begin(),
-      val.end(),
-      [&chbuf](auto& s) {
-        chbuf += string_serdez<S>::serialize(s, chbuf);
-      });
-    return chbuf - static_cast<char *>(buffer);
-  }
-
-  static size_t
-  deserialize(std::vector<S>& val, const void *buffer) {
-    size_t ns = *static_cast<const size_t *>(buffer);
-    const char* chbuf =
-      reinterpret_cast<const char *>(static_cast<const size_t *>(buffer) + 1);
-    for (size_t i = 0; i < ns; ++i) {
-      S s;
-      chbuf += string_serdez<S>::deserialize(s, chbuf);
-      val.push_back(s);
-    }
-    return serialized_size(val);
-  }
-
-  static void
-  destroy(std::vector<S>&) {
-  }
-};
-
-template <typename T>
-class vector_serdez {
-public:
-
-  typedef std::vector<T> FIELD_TYPE;
-
-  static const size_t MAX_SERIALIZED_SIZE =
-    std::numeric_limits<size_t>::max();
-
-  static size_t
-  serialized_size(const std::vector<T>& val) {
-    return sizeof(size_t) + val.size() * sizeof(T);
-  }
-
-  static size_t
-  serialize(const std::vector<T>& val, void *buffer) {
-    *static_cast<size_t *>(buffer) = val.size();
-    T* ts = reinterpret_cast<T *>(static_cast<size_t *>(buffer) + 1);
-    memcpy(ts, val.data(), val.size() * sizeof(T));
-    return serialized_size(val);
-  }
-
-  static size_t
-  deserialize(std::vector<T>& val, const void *buffer) {
-    size_t nt = *static_cast<const size_t *>(buffer);
-    const T* vs =
-      reinterpret_cast<const T *>(static_cast<const size_t *>(buffer) + 1);
-    val.insert(val.end(), vs, vs + nt);
-    return serialized_size(val);
-  }
-
-  static void
-  destroy(std::vector<T>&) {
-  }
-};
-
-template <>
-class vector_serdez<casacore::Bool> {
-public:
-
-  typedef std::vector<casacore::Bool> FIELD_TYPE;
-
-  static const size_t MAX_SERIALIZED_SIZE =
-    std::numeric_limits<size_t>::max();
-
-  static size_t
-  serialized_size(const std::vector<casacore::Bool>& val) {
-    return sizeof(size_t) + (val.size() + 7) / 8;
-  }
-
-  static size_t
-  serialize(const std::vector<casacore::Bool>& val, void *buffer) {
-    *static_cast<size_t *>(buffer) = val.size();
-    unsigned char* ts =
-      reinterpret_cast<unsigned char *>(static_cast<size_t *>(buffer) + 1);
-    unsigned bit = ((val.size() % 8) + 7) % 8;
-    std::for_each(
-      val.begin(),
-      val.end(),
-      [&ts, &bit](auto b) {
-        *ts = (*ts << 1) | b;
-        bit = (bit + 7) % 8;
-        if (bit == 7)
-          ++ts;
-      });
-    return serialized_size(val);
-  }
-
-  static size_t
-  deserialize(std::vector<casacore::Bool>& val, const void *buffer) {
-    size_t nt = *static_cast<const size_t *>(buffer);
-    val.reserve(nt);
-    const unsigned char* ts =
-      reinterpret_cast<const unsigned char *>(
-        static_cast<const size_t *>(buffer) + 1);
-    unsigned bit = ((nt % 8) + 7) % 8;
-    while (nt > 0) {
-      val.push_back((*ts >> bit) & 1);
-      bit = (bit + 7) % 8;
-      if (bit == 7)
-        ++ts;
-      --nt;
-    }
-    return serialized_size(val);
-  }
-
-  static void
-  destroy(std::vector<casacore::Bool>&) {
-  }
-};
-
 class index_tree_serdez {
 public:
   typedef IndexTreeL FIELD_TYPE;
@@ -301,44 +176,13 @@ public:
         Legion::Runtime::register_custom_serdez_op<index_tree_serdez>(
           INDEX_TREE_SID);
         Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Bool>>(CASACORE_BOOL_V_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Char>>(CASACORE_CHAR_V_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Short>>(CASACORE_SHORT_V_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Int>>(CASACORE_INT_V_SID);
-        // Legion::Runtime::register_custom_serdez_op<
-        //   vector_serdez<casacore::Int64>>(CASACORE_INT64_V_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Float>>(CASACORE_FLOAT_V_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Double>>(CASACORE_DOUBLE_V_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Complex>>(CASACORE_COMPLEX_V_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::DComplex>>(CASACORE_DCOMPLEX_V_SID);
-        Legion::Runtime::register_custom_serdez_op<
           string_serdez<casacore::String>>(CASACORE_STRING_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          string_array_serdez<casacore::String>>(
-            CASACORE_STRING_ARRAY_SID);
       });
   }
 
   enum {
     INDEX_TREE_SID = 1,
-    CASACORE_BOOL_V_SID,
-    CASACORE_CHAR_V_SID,
-    CASACORE_SHORT_V_SID,
-    CASACORE_INT_V_SID,
-    // CASACORE_INT64_V_SID,
-    CASACORE_FLOAT_V_SID,
-    CASACORE_DOUBLE_V_SID,
-    CASACORE_COMPLEX_V_SID,
-    CASACORE_DCOMPLEX_V_SID,
-    CASACORE_STRING_SID,
-    CASACORE_STRING_ARRAY_SID
+    CASACORE_STRING_SID
   };
 
 private:
@@ -365,21 +209,9 @@ struct DataType<casacore::DataType::TpBool> {
 };
 
 template <>
-struct DataType<casacore::DataType::TpArrayBool> {
-  typedef std::vector<casacore::Bool> ValueType;
-  constexpr static int serdez_id = SerdezManager::CASACORE_BOOL_V_SID;
-};
-
-template <>
 struct DataType<casacore::DataType::TpChar> {
   typedef casacore::Char ValueType;
   constexpr static int serdez_id = 0;
-};
-
-template <>
-struct DataType<casacore::DataType::TpArrayChar> {
-  typedef std::vector<casacore::Char> ValueType;
-  constexpr static int serdez_id = SerdezManager::CASACORE_CHAR_V_SID;
 };
 
 template <>
@@ -389,21 +221,9 @@ struct DataType<casacore::DataType::TpUChar> {
 };
 
 template <>
-struct DataType<casacore::DataType::TpArrayUChar> {
-  typedef std::vector<casacore::uChar> ValueType;
-  constexpr static int serdez_id = SerdezManager::CASACORE_CHAR_V_SID;
-};
-
-template <>
 struct DataType<casacore::DataType::TpShort> {
   typedef casacore::Short ValueType;
   constexpr static int serdez_id = 0;
-};
-
-template <>
-struct DataType<casacore::DataType::TpArrayShort> {
-  typedef std::vector<casacore::Short> ValueType;
-  constexpr static int serdez_id = SerdezManager::CASACORE_SHORT_V_SID;
 };
 
 template <>
@@ -413,21 +233,9 @@ struct DataType<casacore::DataType::TpUShort> {
 };
 
 template <>
-struct DataType<casacore::DataType::TpArrayUShort> {
-  typedef std::vector<casacore::uShort> ValueType;
-  constexpr static int serdez_id = SerdezManager::CASACORE_SHORT_V_SID;
-};
-
-template <>
 struct DataType<casacore::DataType::TpInt> {
   typedef casacore::Int ValueType;
   constexpr static int serdez_id = 0;
-};
-
-template <>
-struct DataType<casacore::DataType::TpArrayInt> {
-  typedef std::vector<casacore::Int> ValueType;
-  constexpr static int serdez_id = SerdezManager::CASACORE_INT_V_SID;
 };
 
 template <>
@@ -437,21 +245,9 @@ struct DataType<casacore::DataType::TpUInt> {
 };
 
 template <>
-struct DataType<casacore::DataType::TpArrayUInt> {
-  typedef std::vector<casacore::uInt> ValueType;
-  constexpr static int serdez_id = SerdezManager::CASACORE_INT_V_SID;
-};
-
-template <>
 struct DataType<casacore::DataType::TpFloat> {
   typedef casacore::Float ValueType;
   constexpr static int serdez_id = 0;
-};
-
-template <>
-struct DataType<casacore::DataType::TpArrayFloat> {
-  typedef std::vector<casacore::Float> ValueType;
-  constexpr static int serdez_id = SerdezManager::CASACORE_FLOAT_V_SID;
 };
 
 template <>
@@ -461,21 +257,9 @@ struct DataType<casacore::DataType::TpDouble> {
 };
 
 template <>
-struct DataType<casacore::DataType::TpArrayDouble> {
-  typedef std::vector<casacore::Double> ValueType;
-  constexpr static int serdez_id = SerdezManager::CASACORE_DOUBLE_V_SID;
-};
-
-template <>
 struct DataType<casacore::DataType::TpComplex> {
   typedef casacore::Complex ValueType;
   constexpr static int serdez_id = 0;
-};
-
-template <>
-struct DataType<casacore::DataType::TpArrayComplex> {
-  typedef std::vector<casacore::Complex> ValueType;
-  constexpr static int serdez_id = SerdezManager::CASACORE_COMPLEX_V_SID;
 };
 
 template <>
@@ -485,21 +269,9 @@ struct DataType<casacore::DataType::TpDComplex> {
 };
 
 template <>
-struct DataType<casacore::DataType::TpArrayDComplex> {
-  typedef std::vector<casacore::DComplex> ValueType;
-  constexpr static int serdez_id = SerdezManager::CASACORE_DCOMPLEX_V_SID;
-};
-
-template <>
 struct DataType<casacore::DataType::TpString> {
   typedef casacore::String ValueType;
   constexpr static int serdez_id = SerdezManager::CASACORE_STRING_SID;
-};
-
-template <>
-struct DataType<casacore::DataType::TpArrayString> {
-  typedef std::vector<casacore::String> ValueType;
-  constexpr static int serdez_id = SerdezManager::CASACORE_STRING_ARRAY_SID;
 };
 
 template <typename T>
@@ -513,20 +285,8 @@ struct ValueType<casacore::Bool> {
 };
 
 template <>
-struct ValueType<std::vector<casacore::Bool>> {
-  constexpr static casacore::DataType DataType =
-    casacore::DataType::TpArrayBool;
-};
-
-template <>
 struct ValueType<casacore::Char> {
   constexpr static casacore::DataType DataType = casacore::DataType::TpChar;
-};
-
-template <>
-struct ValueType<std::vector<casacore::Char>> {
-  constexpr static casacore::DataType DataType =
-    casacore::DataType::TpArrayChar;
 };
 
 template <>
@@ -535,20 +295,8 @@ struct ValueType<casacore::uChar> {
 };
 
 template <>
-struct ValueType<std::vector<casacore::uChar>> {
-  constexpr static casacore::DataType DataType =
-    casacore::DataType::TpArrayUChar;
-};
-
-template <>
 struct ValueType<casacore::Short> {
   constexpr static casacore::DataType DataType = casacore::DataType::TpShort;
-};
-
-template <>
-struct ValueType<std::vector<casacore::Short>> {
-  constexpr static casacore::DataType DataType =
-    casacore::DataType::TpArrayShort;
 };
 
 template <>
@@ -557,20 +305,8 @@ struct ValueType<casacore::uShort> {
 };
 
 template <>
-struct ValueType<std::vector<casacore::uShort>> {
-  constexpr static casacore::DataType DataType =
-    casacore::DataType::TpArrayUShort;
-};
-
-template <>
 struct ValueType<casacore::Int> {
   constexpr static casacore::DataType DataType = casacore::DataType::TpInt;
-};
-
-template <>
-struct ValueType<std::vector<casacore::Int>> {
-  constexpr static casacore::DataType DataType =
-    casacore::DataType::TpArrayInt;
 };
 
 template <>
@@ -579,20 +315,8 @@ struct ValueType<casacore::uInt> {
 };
 
 template <>
-struct ValueType<std::vector<casacore::uInt>> {
-  constexpr static casacore::DataType DataType =
-    casacore::DataType::TpArrayUInt;
-};
-
-template <>
 struct ValueType<casacore::Float> {
   constexpr static casacore::DataType DataType = casacore::DataType::TpFloat;
-};
-
-template <>
-struct ValueType<std::vector<casacore::Float>> {
-  constexpr static casacore::DataType DataType =
-    casacore::DataType::TpArrayFloat;
 };
 
 template <>
@@ -601,20 +325,8 @@ struct ValueType<casacore::Double> {
 };
 
 template <>
-struct ValueType<std::vector<casacore::Double>> {
-  constexpr static casacore::DataType DataType =
-    casacore::DataType::TpArrayDouble;
-};
-
-template <>
 struct ValueType<casacore::Complex> {
   constexpr static casacore::DataType DataType = casacore::DataType::TpComplex;
-};
-
-template <>
-struct ValueType<std::vector<casacore::Complex>> {
-  constexpr static casacore::DataType DataType =
-    casacore::DataType::TpArrayComplex;
 };
 
 template <>
@@ -623,20 +335,8 @@ struct ValueType<casacore::DComplex> {
 };
 
 template <>
-struct ValueType<std::vector<casacore::DComplex>> {
-  constexpr static casacore::DataType DataType =
-    casacore::DataType::TpArrayDComplex;
-};
-
-template <>
 struct ValueType<casacore::String> {
   constexpr static casacore::DataType DataType = casacore::DataType::TpString;
-};
-
-template <>
-struct ValueType<std::vector<casacore::String>> {
-  constexpr static casacore::DataType DataType =
-    casacore::DataType::TpArrayString;
 };
 
 class ProjectedIndexPartitionTask
@@ -735,6 +435,14 @@ projected_index_partition(
   runtime->destroy_field_space(ctx, images_fs);
   return result;
 }
+
+Legion::IndexPartition
+projected_index_partition(
+  Legion::Context ctx,
+  Legion::Runtime* runtime,
+  Legion::IndexPartition ip,
+  Legion::IndexSpace prj_is,
+  const std::vector<int>& dmap);
 
 } // end namespace legms
 

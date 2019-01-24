@@ -1,8 +1,10 @@
 #ifndef LEGMS_MS_TABLE_H_
 #define LEGMS_MS_TABLE_H_
 
+#include <algorithm>
 #include <cassert>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -14,6 +16,7 @@
 #include "TableBuilder.h"
 #include "Column.h"
 #include "IndexTree.h"
+#include "MSTable.h"
 
 namespace legms {
 namespace ms {
@@ -26,46 +29,54 @@ public:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
-    const std::vector<Column::Generator>& column_generators,
-    const std::unordered_map<std::string, casacore::DataType>& kws =
-    std::unordered_map<std::string, casacore::DataType>());
-
-  template <typename GeneratorIter>
-  Table(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::string& name,
-    GeneratorIter generator_first,
-    GeneratorIter generator_last,
+    unsigned full_rank,
+    const std::vector<int>& row_axes,
     const std::unordered_map<std::string, casacore::DataType>& kws =
     std::unordered_map<std::string, casacore::DataType>())
     : WithKeywords(kws)
     , m_name(name)
+    , m_full_rank(full_rank)
+    , m_row_axes(row_axes)
+    , m_context(ctx)
+    , m_runtime(runtime) {
+
+    assert(
+      std::all_of(
+        m_row_axes.begin(),
+        m_row_axes.end(),
+        [this](auto& i) {
+          return 0 <= i && static_cast<unsigned>(i) < m_full_rank;
+        }));
+  };
+
+  template <typename D>
+  Table(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const std::string& name,
+    unsigned full_rank,
+    const std::vector<D>& row_axes,
+    const std::unordered_map<std::string, casacore::DataType>& kws =
+    std::unordered_map<std::string, casacore::DataType>())
+    : WithKeywords(kws)
+    , m_name(name)
+    , m_full_rank(full_rank)
     , m_context(ctx)
     , m_runtime(runtime) {
 
     std::transform(
-      generator_first,
-      generator_last,
-      std::inserter(m_columns, m_columns.end()),
-      [&ctx, runtime](auto gen) {
-        auto col = gen(ctx, runtime);
-        return std::make_pair(col->name(), col);
-      });
+      row_axes.begin(),
+      row_axes.end(),
+      std::back_inserter(m_row_axes),
+      [](auto& d) { return static_cast<int>(d); });
 
-    if (m_columns.size() > 0) {
-      auto row_index_pattern = (*m_columns.begin()).second->row_index_pattern();
-      auto num_rows = (*m_columns.begin()).second->num_rows();
-      assert(
-        std::all_of(
-          m_columns.begin(),
-          m_columns.end(),
-          [&row_index_pattern, &num_rows](auto& nc) {
-            return row_index_pattern == nc.second->row_index_pattern()
-              && num_rows == nc.second->num_rows();
-          }));
-    }
-  }
+    assert(
+      std::all_of(
+        m_row_axes.begin(),
+        m_row_axes.end(),
+        [this](auto& i) {
+          return 0 <= i && static_cast<unsigned>(i) < m_full_rank; }));
+  };
 
   virtual ~Table() {
   }
@@ -76,87 +87,46 @@ public:
   }
 
   unsigned
-  row_rank() const {
-    return std::get<1>(*m_columns.begin())->row_rank();
+  full_rank() const {
+    return m_full_rank;
   }
 
   unsigned
-  rank() const {
-    return std::get<1>(*max_rank_column())->rank();
+  row_rank() const {
+    return m_row_axes.size();
+  }
+
+  const std::vector<int>&
+  row_axes() const {
+    return m_row_axes;
   }
 
   const IndexTreeL&
   row_index_pattern() const {
-    return std::get<1>(*m_columns.begin())->row_index_pattern();
+    return column(min_rank_column_name())->row_index_pattern();
   }
 
   bool
   is_empty() const {
-    return
-      m_columns.size() == 0
-      || std::get<1>(*m_columns.begin())->index_tree() == IndexTreeL();
+    return column(min_rank_column_name())->index_tree() == IndexTreeL();
   }
+
+  virtual std::unordered_set<std::string>
+  column_names() const = 0;
+
+  virtual std::shared_ptr<Column>
+  column(const std::string& name) const = 0;
+
+  virtual const std::string&
+  min_rank_column_name() const = 0;
+
+  virtual const std::string&
+  max_rank_column_name() const = 0;
 
   Column::row_number_t
   num_rows() const {
-    if (m_columns.size() == 0)
-      return 0;
-    return std::get<1>(*m_columns.begin())->num_rows();
+    return column(min_rank_column_name())->num_rows();
   }
-
-  Column::row_number_t
-  row_number(const std::vector<Legion::coord_t>& index) const {
-    return row_number(row_index_pattern(), index.begin(), index.end());
-  }
-
-  std::unordered_set<std::string>
-  column_names() const;
-
-  std::shared_ptr<Column>
-  column(const std::string& name) const {
-    return m_columns.at(name);
-  }
-
-  Legion::IndexSpace
-  index_space() const;
-
-  std::vector<Legion::LogicalRegion>
-  logical_regions(const std::vector<std::string>& colnames) const;
-
-  template <typename Iter>
-  std::vector<Legion::IndexPartition>
-  index_partitions(
-    const Legion::IndexPartition& ipart,
-    Iter colnames_iter,
-    Iter colnames_iter_end) const {
-
-    assert(
-      m_runtime->get_parent_index_space(m_context, ipart) == index_space());
-
-    std::vector<Legion::IndexPartition> result;
-    std::transform(
-      colnames_iter,
-      colnames_iter_end,
-      std::back_inserter(result),
-      [this, &ipart](auto& colname) {
-        return column(colname)->projected_index_partition(ipart);
-      });
-    return result;
-  }
-
-  std::vector<Legion::IndexPartition>
-  index_partitions(
-    const Legion::IndexPartition& ipart,
-    const std::vector<std::string>& colnames) const {
-
-    return index_partitions(ipart, colnames.begin(), colnames.end());
-  }
-
-  std::vector<Legion::IndexPartition>
-  row_block_index_partitions(
-    const std::optional<Legion::IndexPartition>& ipart,
-    const std::vector<std::string>& colnames,
-    size_t block_size) const;
 
   template <typename Iter>
   static Column::row_number_t
@@ -189,11 +159,12 @@ public:
     return result;
   }
 
-  Legion::IndexPartition
-  row_partition(
+  virtual std::vector<Legion::IndexPartition>
+  projected_row_partitions(
+    const std::vector<std::string> colnames,
     const std::vector<std::vector<Column::row_number_t>>& rowp,
     bool include_unselected = false,
-    bool sorted_selections = false) const;
+    bool sorted_selections = false) const = 0;
 
   Legion::Context&
   context() const {
@@ -205,26 +176,403 @@ public:
     return m_runtime;
   }
 
-protected:
+  static std::shared_ptr<Table>
+  from_ms(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const std::experimental::filesystem::path& path,
+    const std::unordered_set<std::string>& column_selections);
 
-  std::unordered_map<std::string, std::shared_ptr<Column>>::const_iterator
-  max_rank_column() const {
-    auto result = m_columns.begin();
-    for (auto e = result; e != m_columns.end(); ++e) {
-      if (std::get<1>(*e)->rank() > std::get<1>(*result)->rank())
-        result = e;
-    }
-    return result;
-  }
+private:
 
   std::string m_name;
 
-  std::unordered_map<std::string, std::shared_ptr<Column>> m_columns;
+  unsigned m_full_rank;
+
+protected:
+
+  std::vector<int> m_row_axes;
 
   mutable Legion::Context m_context;
 
   mutable Legion::Runtime* m_runtime;
+
+  static std::optional<Legion::coord_t>
+  find_color(
+    const std::vector<std::vector<Column::row_number_t>>& rowp,
+    Column::row_number_t rn,
+    bool sorted_selections);
 };
+
+template <typename D>
+class TableT
+  : public Table {
+public:
+
+  TableT(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const std::string& name,
+    const std::vector<D>& row_axes,
+    const std::vector<typename ColumnT<D>::Generator>& column_generators,
+    const std::unordered_map<std::string, casacore::DataType>& kws =
+    std::unordered_map<std::string, casacore::DataType>())
+    : TableT(
+      ctx,
+      runtime,
+      name,
+      row_axes,
+      column_generators.begin(),
+      column_generators.end(),
+      kws) {}
+
+  template <typename GeneratorIter>
+  TableT(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const std::string& name,
+    const std::vector<D>& row_axes,
+    GeneratorIter generator_first,
+    GeneratorIter generator_last,
+    const std::unordered_map<std::string, casacore::DataType>& kws =
+    std::unordered_map<std::string, casacore::DataType>())
+    : Table(ctx, runtime, name, static_cast<int>(D::last) + 1, row_axes, kws) {
+
+    std::transform(
+      generator_first,
+      generator_last,
+      std::inserter(m_columns, m_columns.end()),
+      [&ctx, runtime](auto gen) {
+        auto col = gen(ctx, runtime);
+        return std::make_pair(col->name(), col);
+      });
+
+    assert(m_columns.size() > 0);
+
+    auto col0 = (*m_columns.begin()).second;
+    auto row_index_pattern = col0->row_index_pattern();
+    auto num_rows = col0->num_rows();
+    assert(
+      std::all_of(
+        m_columns.begin(),
+        m_columns.end(),
+        [&row_index_pattern, &num_rows, &row_axes](auto& nc) {
+          auto cax = nc.second->axes();
+          auto mm =
+            std::mismatch(
+              cax.begin(),
+              cax.end(),
+              row_axes.begin(),
+              row_axes.end());
+          return row_index_pattern == nc.second->row_index_pattern()
+            && mm.second == row_axes.end()
+            && num_rows == nc.second->num_rows();
+        }));
+
+    std::tie(std::ignore, m_min_rank_colname, m_max_rank_colname) =
+      std::accumulate(
+        m_columns.begin(),
+        m_columns.end(),
+        std::make_tuple(col0->rank(), col0->name(), col0->name()),
+        [](auto &acc, auto& nc) {
+          auto& [mrank, mincol, maxcol] = acc;
+          auto& [name, col] = nc;
+          if (col->rank() < mrank)
+            return std::make_tuple(col->rank(), name, maxcol);
+          if (col->rank() > mrank)
+            return std::make_tuple(col->rank(), mincol, name);
+          return acc;
+        });
+  }
+
+  virtual ~TableT() {
+  }
+
+  std::vector<D>
+  row_axes() const {
+    std::vector<D> result;
+    result.reserve(row_rank());
+    std::transform(
+      m_row_axes.begin(),
+      m_row_axes.end(),
+      std::back_inserter(result),
+      [](auto& d) { return static_cast<D>(d); });
+    return result;
+  }
+
+  Column::row_number_t
+  row_number(const std::vector<Legion::coord_t>& index) const {
+    return row_number(row_index_pattern(), index.begin(), index.end());
+  }
+
+  std::unordered_set<std::string>
+  column_names() const override {
+    std::unordered_set<std::string> result;
+    std::transform(
+      m_columns.begin(),
+      m_columns.end(),
+      std::inserter(result, result.end()),
+      [](auto& col) {
+        return col.first;
+      });
+    return result;
+  }
+
+  std::shared_ptr<Column>
+  column(const std::string& name) const override {
+    return m_columns.at(name);
+  }
+
+  std::shared_ptr<ColumnT<D>>
+  columnT(const std::string& name) const {
+    return m_columns.at(name);
+  }
+
+  std::tuple<Legion::IndexPartition, std::vector<D>>
+  row_partition(
+    const std::vector<std::vector<Column::row_number_t>>& rowp,
+    bool include_unselected = false,
+    bool sorted_selections = false) const {
+
+    auto rn_lr = column(min_rank_column_name())->logical_region();
+    auto unselected_color = (include_unselected ? rowp.size() : -1);
+    Legion::LogicalRegion color_lr;
+    switch (rn_lr.get_dim()) {
+    case 1:
+      color_lr =
+        row_colors<1>(
+          m_context,
+          m_runtime,
+          rn_lr,
+          rowp,
+          unselected_color,
+          sorted_selections);
+      break;
+    case 2:
+      color_lr =
+        row_colors<2>(
+          m_context,
+          m_runtime,
+          rn_lr,
+          rowp,
+          unselected_color,
+          sorted_selections);
+      break;
+    case 3:
+      color_lr =
+        row_colors<3>(
+          m_context,
+          m_runtime,
+          rn_lr,
+          rowp,
+          unselected_color,
+          sorted_selections);
+      break;
+    default:
+      assert(false);
+      break;
+    }
+
+    auto color_space =
+      m_runtime->create_index_space(
+        m_context,
+        Legion::Rect<1>(0, rowp.size() - (include_unselected ? 0 : 1)));
+    auto result =
+      m_runtime->create_partition_by_field(
+        m_context,
+        color_lr,
+        color_lr,
+        0,
+        color_space);
+    m_runtime->destroy_index_space(m_context, color_space);
+    m_runtime->destroy_logical_region(m_context, color_lr);
+    return std::make_tuple(result, columnT(min_rank_column_name())->axes());
+  }
+
+  std::vector<Legion::IndexPartition>
+  projected_row_partitions(
+    const std::vector<std::string> colnames,
+    const std::vector<std::vector<Column::row_number_t>>& rowp,
+    bool include_unselected = false,
+    bool sorted_selections = false) const override {
+
+    auto rp = row_partition(rowp, include_unselected, sorted_selections);
+    std::vector<Legion::IndexPartition> result;
+    std::transform(
+      colnames.begin(),
+      colnames.end(),
+      std::back_inserter(result),
+      [this, &rp](auto& nm) {
+        auto& [ip, ipax] = rp;
+        return columnT(nm)->projected_index_partition(ip, ipax);
+      });
+    return result;
+  }
+
+#if 0
+  std::unordered_map<
+    std::string,
+    std::map<Legion::IndexSpace, Legion::IndexPartition>>
+  row_block_index_partitions(
+    const std::unordered_map<std::string, Legion::IndexPartition>& cn_ips,
+    size_t block_size) const override {
+
+    Legion::IndexPartition blockp;
+    std::vector<D> blockp_axes;
+    {
+      auto nr = num_rows();
+      std::vector<std::vector<Column::row_number_t>>
+        rowp((nr + block_size - 1) / block_size);
+      for (Column::row_number_t i = 0; i < nr; ++i)
+        rowp[i / block_size].push_back(i);
+      std::tie(blockp, blockp_axes) = row_partition(rowp, false, true);
+    }
+    Legion::DomainT<1> blockp_colors =
+      m_runtime->get_index_partition_color_space(
+        Legion::IndexPartitionT<1>(blockp));
+
+    std::unordered_map<
+      std::string,
+      std::map<Legion::IndexSpace, Legion::IndexPartition>> result;
+    std::transform(
+      cn_ips.begin(),
+      cn_ips.end(),
+      std::back_inserter(result),
+      [&blockp, &blockp_axes, &blockp_colors, this](auto& cn_ip) {
+        auto [cn, ip] = cn_ip;
+        auto col = columnT(cn);
+        auto proj =
+          col.projected_index_partition(
+            m_context,
+            m_runtime,
+            blockp,
+            blockp_axes);
+        std::map<Legion::IndexSpace, Legion::IndexPartition> crossm;
+        for (Legion::PointInDomainIterator<1> pid(blockp_colors);
+             pid();
+             pid++)
+          crossm[
+            m_runtime->get_index_subspace(
+              m_context,
+              blockp,
+              Legion::DomainPoint(*pid))] =
+            Legion::IndexPartition::NO_PART;
+        if (ip != Legion::IndexPartition::NO_PART)
+          m_runtime->create_cross_product_partitions(
+            m_context,
+            blockp,
+            ip,
+            crossm);
+        return std::make_tuple(cn, crossm);
+      });
+    m_runtime->destroy_index_partition(m_context, blockp);
+    return result;
+  }
+#endif // 0
+
+protected:
+
+  const std::string&
+  min_rank_column_name() const override {
+    return m_min_rank_colname;
+  }
+
+  const std::string&
+  max_rank_column_name() const override {
+    return m_max_rank_colname;
+  }
+
+  template <int DIM>
+  static Legion::LogicalRegion
+  row_colors(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    Legion::LogicalRegion rn_lr,
+    const std::vector<std::vector<Column::row_number_t>>& rowp,
+    Legion::coord_t unselected_color,
+    bool sorted_selections) {
+
+    auto color_fs = runtime->create_field_space(ctx);
+    auto color_fa = runtime->create_field_allocator(ctx, color_fs);
+    color_fa.allocate_field(sizeof(Legion::Point<1>), 0);
+    auto result =
+      runtime->create_logical_region(ctx, rn_lr.get_index_space(), color_fs);
+    auto color_task = Legion::InlineLauncher(
+      Legion::RegionRequirement(result, WRITE_DISCARD, EXCLUSIVE, result));
+    color_task.add_field(0);
+    auto color_pr = runtime->map_region(ctx, color_task);
+    const Legion::FieldAccessor<
+      WRITE_DISCARD,
+      Legion::Point<1>,
+      DIM,
+      Legion::coord_t,
+      Legion::AffineAccessor<Legion::Point<1>, DIM, Legion::coord_t>,
+      true> colors(color_pr, 0);
+
+    auto rn_task = Legion::InlineLauncher(
+      Legion::RegionRequirement(rn_lr, READ_ONLY, EXCLUSIVE, rn_lr));
+    rn_task.add_field(Column::row_number_fid);
+    auto rn_pr = runtime->map_region(ctx, rn_task);
+    const Legion::FieldAccessor<
+      READ_ONLY,
+      Column::row_number_t,
+      DIM,
+      Legion::coord_t,
+      Legion::AffineAccessor<Column::row_number_t, DIM, Legion::coord_t>,
+      true> rns(rn_pr, Column::row_number_fid);
+
+    Legion::DomainT<DIM> domain =
+      runtime->get_index_space_domain(ctx, rn_lr.get_index_space());
+    Legion::PointInDomainIterator<DIM> pid(domain, false);
+    assert(pid());
+    auto prev_row_number = rns[*pid];
+    auto prev_color =
+      find_color(rowp, prev_row_number, sorted_selections).
+      value_or(unselected_color);
+    colors[*pid] = prev_color;
+    pid++;
+    while (pid()) {
+      auto row_number = rns[*pid];
+      if (row_number != prev_row_number) {
+        prev_row_number = rns[*pid];
+        prev_color =
+          find_color(rowp, prev_row_number, sorted_selections).
+          value_or(unselected_color);
+      }
+      colors[*pid] = prev_color;
+      pid++;
+    }
+    runtime->unmap_region(ctx, rn_pr);
+    runtime->unmap_region(ctx, color_pr);
+    return result;
+  }
+
+  std::unordered_map<std::string, std::shared_ptr<ColumnT<D>>> m_columns;
+
+  std::string m_min_rank_colname;
+
+  std::string m_max_rank_colname;
+};
+
+
+template <MSTables T>
+static std::shared_ptr<TableT<typename MSTable<T>::Axes>>
+from_ms(
+  Legion::Context ctx,
+  Legion::Runtime* runtime,
+  const std::experimental::filesystem::path& path,
+  const std::unordered_set<std::string>& column_selections) {
+
+  auto builder = TableBuilder::from_ms<T>(path, column_selections);
+  return
+    std::make_shared<TableT<typename MSTable<T>::Axes>>(
+      ctx,
+      runtime,
+      builder.name(),
+      builder.row_axes(),
+      builder.column_generators(),
+      builder.keywords());
+}
 
 } // end namespace ms
 } // end namespace legms
