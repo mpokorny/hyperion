@@ -653,7 +653,7 @@ private:
         }
         ++r_iter;
       }
-      i0 = i + n;
+      i0 = pi;
       if (!cycle && p_iter != p_end && r_iter == r_end)
         return std::nullopt;
     }
