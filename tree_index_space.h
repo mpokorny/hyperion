@@ -17,7 +17,7 @@ typedef IndexTree<Legion::coord_t> IndexTreeL;
 class TreeIndexSpace {
 public:
 
-  constexpr static const int MAX_DIM = 3;
+  constexpr static const int MAX_DIM = 4;
 
   enum {
     FID_ENVELOPE,

@@ -340,6 +340,9 @@ public:
     case 3:
       show_table<3>(ctx, runtime, table, read_lrs, prs, max_col_rank_idx);
       break;
+    case 4:
+      show_table<4>(ctx, runtime, table, read_lrs, prs, max_col_rank_idx);
+      break;
     default:
       assert(false);
       break;

@@ -235,6 +235,16 @@ public:
             {dmap[0], dmap[1], dmap[2]});
         break;
 
+      case 4:
+        return
+          legms::projected_index_partition<1, 4>(
+            m_context,
+            m_runtime,
+            Legion::IndexPartitionT<1>(ip),
+            Legion::IndexSpaceT<4>(index_space()),
+            {dmap[0], dmap[1], dmap[2], dmap[3]});
+        break;
+
       default:
         assert(false);
         break;
@@ -273,6 +283,16 @@ public:
             {dmap[0], dmap[1], dmap[2]});
         break;
 
+      case 4:
+        return
+          legms::projected_index_partition<2, 4>(
+            m_context,
+            m_runtime,
+            Legion::IndexPartitionT<2>(ip),
+            Legion::IndexSpaceT<4>(index_space()),
+            {dmap[0], dmap[1], dmap[2], dmap[3]});
+        break;
+
       default:
         assert(false);
         break;
@@ -309,6 +329,64 @@ public:
             Legion::IndexPartitionT<3>(ip),
             Legion::IndexSpaceT<3>(index_space()),
             {dmap[0], dmap[1], dmap[2]});
+        break;
+
+      case 4:
+        return
+          legms::projected_index_partition<3, 4>(
+            m_context,
+            m_runtime,
+            Legion::IndexPartitionT<3>(ip),
+            Legion::IndexSpaceT<4>(index_space()),
+            {dmap[0], dmap[1], dmap[2], dmap[3]});
+        break;
+
+      default:
+        assert(false);
+        break;
+      }
+      break;
+
+    case 4:
+      switch (rank()) {
+      case 1:
+        return
+          legms::projected_index_partition<4, 1>(
+            m_context,
+            m_runtime,
+            Legion::IndexPartitionT<4>(ip),
+            Legion::IndexSpaceT<1>(index_space()),
+            {dmap[0]});
+        break;
+
+      case 2:
+        return
+          legms::projected_index_partition<4, 2>(
+            m_context,
+            m_runtime,
+            Legion::IndexPartitionT<4>(ip),
+            Legion::IndexSpaceT<2>(index_space()),
+            {dmap[0], dmap[1]});
+        break;
+
+      case 3:
+        return
+          legms::projected_index_partition<4, 3>(
+            m_context,
+            m_runtime,
+            Legion::IndexPartitionT<4>(ip),
+            Legion::IndexSpaceT<3>(index_space()),
+            {dmap[0], dmap[1], dmap[2]});
+        break;
+
+      case 4:
+        return
+          legms::projected_index_partition<4, 4>(
+            m_context,
+            m_runtime,
+            Legion::IndexPartitionT<4>(ip),
+            Legion::IndexSpaceT<4>(index_space()),
+            {dmap[0], dmap[1], dmap[2], dmap[3]});
         break;
 
       default:
