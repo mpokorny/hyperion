@@ -57,21 +57,23 @@ TableReadTask::dispatch() {
 
   for (size_t i = 0; i < m_column_names.size(); ++i) {
     auto lr = m_table->column(m_column_names[i])->logical_region();
-    auto lp = runtime->get_logical_partition(ctx, lr, blockp[i]);
-    auto launcher =
-      IndexTaskLauncher(
-        TASK_ID,
-        runtime->get_index_partition_color_space(blockp[i]),
-        TaskArgument(&args[i], sizeof(TableReadTaskArgs)),
-        ArgumentMap());
-    launcher.add_region_requirement(
-      RegionRequirement(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr));
-    launcher.add_field(0, Column::value_fid);
-    launcher.add_region_requirement(
-      RegionRequirement(lp, 0, READ_ONLY, EXCLUSIVE, lr));
-    launcher.add_field(1, Column::row_number_fid);
-    runtime->execute_index_space(ctx, launcher);
-    runtime->destroy_index_partition(ctx, blockp[i]);
+    if (lr != LogicalRegion::NO_REGION) {
+      auto lp = runtime->get_logical_partition(ctx, lr, blockp[i]);
+      auto launcher =
+        IndexTaskLauncher(
+          TASK_ID,
+          runtime->get_index_partition_color_space(blockp[i]),
+          TaskArgument(&args[i], sizeof(TableReadTaskArgs)),
+          ArgumentMap());
+      launcher.add_region_requirement(
+        RegionRequirement(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr));
+      launcher.add_field(0, Column::value_fid);
+      launcher.add_region_requirement(
+        RegionRequirement(lp, 0, READ_ONLY, EXCLUSIVE, lr));
+      launcher.add_field(1, Column::row_number_fid);
+      runtime->execute_index_space(ctx, launcher);
+      runtime->destroy_index_partition(ctx, blockp[i]);
+    }
   }
 }
 

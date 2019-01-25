@@ -83,6 +83,11 @@ public:
     return m_num_rows;
   }
 
+  bool
+  empty() const {
+    return index_tree().size() == 0;
+  }
+
   virtual void
   add_row(const std::any&) = 0;
 

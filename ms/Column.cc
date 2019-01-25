@@ -130,19 +130,24 @@ same_prefix_index(
 
 void
 Column::init() {
-  m_index_space = legms::tree_index_space(m_index_tree, m_context, m_runtime);
+  if (m_index_tree.size() > 0) {
+    m_index_space = legms::tree_index_space(m_index_tree, m_context, m_runtime);
     
-  FieldSpace fs = m_runtime->create_field_space(m_context);
-  auto fa = m_runtime->create_field_allocator(m_context, fs);
-  legms::add_field(m_datatype, fa, value_fid);
-  m_runtime->attach_name(fs, value_fid, name().c_str());
-  legms::add_field(ValueType<row_number_t>::DataType, fa, row_number_fid);
-  m_runtime->attach_name(fs, row_number_fid, "rownr");
-  m_logical_region =
-    m_runtime->create_logical_region(m_context, m_index_space, fs);
+    FieldSpace fs = m_runtime->create_field_space(m_context);
+    auto fa = m_runtime->create_field_allocator(m_context, fs);
+    legms::add_field(m_datatype, fa, value_fid);
+    m_runtime->attach_name(fs, value_fid, name().c_str());
+    legms::add_field(ValueType<row_number_t>::DataType, fa, row_number_fid);
+    m_runtime->attach_name(fs, row_number_fid, "rownr");
+    m_logical_region =
+      m_runtime->create_logical_region(m_context, m_index_space, fs);
 
-  FillRowNumbersTask(m_logical_region, row_index_pattern()).
-    dispatch(m_context, m_runtime);
+    FillRowNumbersTask(m_logical_region, row_index_pattern()).
+      dispatch(m_context, m_runtime);
+  } else {
+    m_index_space = IndexSpace::NO_SPACE;
+    m_logical_region = LogicalRegion::NO_REGION;
+  }
 }
 
 void
@@ -150,115 +155,10 @@ Column::register_tasks(Runtime *runtime) {
   FillRowNumbersTask::register_task(runtime);
 }
 
-std::optional<size_t>
-Column::nr(
-  const IndexTreeL& row_pattern,
-  const IndexTreeL& full_shape,
-  bool cycle) {
-
-  if (row_pattern.rank().value() > full_shape.rank().value())
-    return std::nullopt;
-  auto pruned_shape = full_shape.pruned(row_pattern.rank().value() - 1);
-  auto p_iter = pruned_shape.children().begin();
-  auto p_end = pruned_shape.children().end();
-  coord_t i0 = std::get<0>(row_pattern.index_range());
-  size_t result = 0;
-  coord_t pi, pn;
-  IndexTreeL pt;
-  std::tie(pi, pn, pt) = *p_iter;
-  while (p_iter != p_end) {
-    auto r_iter = row_pattern.children().begin();
-    auto r_end = row_pattern.children().end();
-    coord_t i, n;
-    IndexTreeL t;
-    while (p_iter != p_end && r_iter != r_end) {
-      std::tie(i, n, t) = *r_iter;
-      if (i + i0 != pi) {
-        return std::nullopt;
-      } else if (t == pt) {
-        auto m = std::min(n, pn);
-        result += m * t.size();
-        pi += m;
-        pn -= m;
-        if (pn == 0) {
-          ++p_iter;
-          if (p_iter != p_end)
-            std::tie(pi, pn, pt) = *p_iter;
-        }
-      } else {
-        ++p_iter;
-        if (p_iter != p_end)
-          return std::nullopt;
-        auto chnr = nr(t, pt, false);
-        if (chnr)
-          result += chnr.value();
-        else
-          return std::nullopt;
-      }
-      ++r_iter;
-    }
-    i0 = i + n;
-    if (!cycle && p_iter != p_end && r_iter == r_end)
-      return std::nullopt;
-  }
-  return result;
-}
-
 bool
 Column::pattern_matches(const IndexTreeL& pattern, const IndexTreeL& shape) {
-  return nr(pattern, shape).has_value();
+  return shape.num_repeats(pattern).has_value();
 }
-
-IndexTreeL
-Column::ixt(const IndexTreeL& row_pattern, size_t num) {
-  std::vector<std::tuple<coord_t, coord_t, IndexTreeL>> ch;
-  auto pattern_n = row_pattern.size();
-  auto pattern_rep = num / pattern_n;
-  auto pattern_rem = num % pattern_n;
-  assert(std::get<0>(row_pattern.index_range()) == 0);
-  auto stride = std::get<1>(row_pattern.index_range()) + 1;
-  coord_t offset = 0;
-  if (row_pattern.children().size() == 1) {
-    coord_t i;
-    IndexTreeL t;
-    std::tie(i, std::ignore, t) = row_pattern.children()[0];
-    offset += pattern_rep * stride;
-    ch.emplace_back(i, offset, t);
-  } else {
-    for (size_t r = 0; r < pattern_rep; ++r) {
-      std::transform(
-        row_pattern.children().begin(),
-        row_pattern.children().end(),
-        std::back_inserter(ch),
-        [&offset](auto& c) {
-          auto& [i, n, t] = c;
-          return std::make_tuple(i + offset, n, t);
-        });
-      offset += stride;
-    }
-  }
-  auto rch = row_pattern.children().begin();
-  auto rch_end = row_pattern.children().end();
-  while (pattern_rem > 0 && rch != rch_end) {
-    auto& [i, n, t] = *rch;
-    auto tsz = t.size();
-    if (pattern_rem >= tsz) {
-      auto nt = std::min(pattern_rem / tsz, static_cast<size_t>(n));
-      ch.emplace_back(i + offset, nt, t);
-      pattern_rem -= nt * tsz;
-      if (nt == static_cast<size_t>(n))
-        ++rch;
-    } else /* pattern_rem < tsz */ {
-      auto pt = ixt(t, pattern_rem);
-      pattern_rem = 0;
-      ch.emplace_back(i + offset, 1, pt);
-    }
-  }
-  auto result = IndexTreeL(ch);
-  assert(result.size() == num);
-  return result;
-}
-
 
 // Local Variables:
 // mode: c++

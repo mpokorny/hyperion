@@ -44,6 +44,53 @@ public:
     : m_children(compact(ch)) {
   }
 
+  IndexTree(const IndexTree& pattern, size_t num) {
+    std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> ch;
+    auto pattern_n = pattern.size();
+    auto pattern_rep = num / pattern_n;
+    auto pattern_rem = num % pattern_n;
+    assert(std::get<0>(pattern.index_range()) == 0);
+    auto stride = std::get<1>(pattern.index_range()) + 1;
+    COORD_T offset = 0;
+    if (pattern.children().size() == 1) {
+      COORD_T i;
+      IndexTree t;
+      std::tie(i, std::ignore, t) = pattern.children()[0];
+      offset += pattern_rep * stride;
+      ch.emplace_back(i, offset, t);
+    } else {
+      for (size_t r = 0; r < pattern_rep; ++r) {
+        std::transform(
+          pattern.children().begin(),
+          pattern.children().end(),
+          std::back_inserter(ch),
+          [&offset](auto& c) {
+            auto& [i, n, t] = c;
+            return std::make_tuple(i + offset, n, t);
+          });
+        offset += stride;
+      }
+    }
+    auto rch = pattern.children().begin();
+    auto rch_end = pattern.children().end();
+    while (pattern_rem > 0 && rch != rch_end) {
+      auto& [i, n, t] = *rch;
+      auto tsz = t.size();
+      if (pattern_rem >= tsz) {
+        auto nt = std::min(pattern_rem / tsz, static_cast<size_t>(n));
+        ch.emplace_back(i + offset, nt, t);
+        pattern_rem -= nt * tsz;
+        if (nt == static_cast<size_t>(n))
+          ++rch;
+      } else /* pattern_rem < tsz */ {
+        auto pt = IndexTree(t, pattern_rem);
+        pattern_rem = 0;
+        ch.emplace_back(i + offset, 1, pt);
+      }
+    }
+    m_children = std::move(compact(ch));
+  }
+
   bool
   operator==(const IndexTree& other) const {
     return m_children == other.m_children;
@@ -118,12 +165,14 @@ public:
       return std::accumulate(
         m_children.begin(),
         m_children.end(),
-        0,
+        (size_t)0,
         [](size_t acc, const auto& ch) {
           COORD_T n;
           IndexTree t;
           std::tie(std::ignore, n, t) = ch;
-          return acc + n * t.size();
+          if (n == 0)
+            return acc;
+          return acc + (size_t)n * t.size();
         });
   }
 
@@ -225,16 +274,16 @@ public:
     // fixed
     std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> sprouted;
     std::transform(
-        m_children.begin(),
-        m_children.end(),
-        std::back_inserter(sprouted),
-        [&sprout](auto& ch) {
-          auto& [i, n, t] = ch;
-          if (t != IndexTree())
-            return std::make_tuple(i, n, t.grow_leaves(sprout));
-          else
-            return std::make_tuple(i, n, sprout);
-        });
+      m_children.begin(),
+      m_children.end(),
+      std::back_inserter(sprouted),
+      [&sprout](auto& ch) {
+        auto& [i, n, t] = ch;
+        if (t != IndexTree())
+          return std::make_tuple(i, n, t.grow_leaves(sprout));
+        else
+          return std::make_tuple(i, n, sprout);
+      });
     return IndexTree(sprouted);
   }
 
@@ -322,6 +371,11 @@ public:
       }
     }
     return IndexTree(newch);
+  }
+
+  std::optional<size_t>
+  num_repeats(const IndexTree& pattern) const {
+    return nr(pattern, true);
   }
 
   size_t
@@ -428,11 +482,6 @@ public:
 
 protected:
 
-  void
-  swap(IndexTree& other) {
-    std::swap(m_children, other.m_children);
-  }
-
   static std::vector<std::tuple<COORD_T, COORD_T, IndexTree>>
   compact(const std::vector<std::tuple<COORD_T, COORD_T, IndexTree>>& seq) {
     std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> result;
@@ -442,7 +491,7 @@ protected:
         sorted.begin(),
         sorted.end(),
         [](auto& b0, auto& b1) {
-          return std::get<0>(b0) < std::get<1>(b1);
+          return std::get<0>(b0) < std::get<0>(b1);
         });
       return
         std::accumulate(
@@ -559,6 +608,57 @@ protected:
 private:
 
   std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> m_children;
+
+  std::optional<size_t>
+  nr(const IndexTree& pattern, bool cycle) const {
+
+    if (pattern.rank().value() > rank().value())
+      return std::nullopt;
+    auto pruned_shape = pruned(pattern.rank().value() - 1);
+    auto p_iter = pruned_shape.children().begin();
+    auto p_end = pruned_shape.children().end();
+    COORD_T i0 = std::get<0>(pattern.index_range());
+    size_t result = 0;
+    COORD_T pi, pn;
+    IndexTree pt;
+    std::tie(pi, pn, pt) = *p_iter;
+    while (p_iter != p_end) {
+      auto r_iter = pattern.children().begin();
+      auto r_end = pattern.children().end();
+      COORD_T i, n;
+      IndexTree t;
+      while (p_iter != p_end && r_iter != r_end) {
+        std::tie(i, n, t) = *r_iter;
+        if (i + i0 != pi) {
+          return std::nullopt;
+        } else if (t == pt) {
+          auto m = std::min(n, pn);
+          result += m * t.size();
+          pi += m;
+          pn -= m;
+          if (pn == 0) {
+            ++p_iter;
+            if (p_iter != p_end)
+              std::tie(pi, pn, pt) = *p_iter;
+          }
+        } else {
+          ++p_iter;
+          if (p_iter != p_end)
+            return std::nullopt;
+          auto chnr = pt.nr(t, false);
+          if (chnr)
+            result += chnr.value();
+          else
+            return std::nullopt;
+        }
+        ++r_iter;
+      }
+      i0 = i + n;
+      if (!cycle && p_iter != p_end && r_iter == r_end)
+        return std::nullopt;
+    }
+    return result;
+  }
 };
 
 template <typename COORD_T>

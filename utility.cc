@@ -231,6 +231,9 @@ projected_index_partition(
   IndexSpace prj_is,
   const std::vector<int>& dmap) {
 
+  if (prj_is == IndexSpace::NO_SPACE)
+    return IndexPartition::NO_PART;
+
   switch (ip.get_dim()) {
   case 1:
     switch (prj_is.get_dim()) {

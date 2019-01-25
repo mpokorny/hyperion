@@ -213,8 +213,6 @@ public:
 
     // special test case: partitioned read back
     auto read_p = read_partition(table);
-    unsigned max_col_rank = table->column(colnames[0])->rank();
-    size_t max_col_rank_idx = 0;
 
     std::vector<LogicalRegion> lrs;
     std::transform(
@@ -245,42 +243,57 @@ public:
             ->projected_index_partition(read_ip, read_paxes);
         });
       for (size_t i = 0; i < lrs.size(); ++i) {
-        auto rank = table->column(colnames[i])->rank();
-        if (rank > max_col_rank) {
-          max_col_rank = rank;
-          max_col_rank_idx = i;
-        }
         auto lr = lrs[i];
-        auto lp = runtime->get_logical_partition(ctx, lr, col_ip[i]);
-        read_lrs[0].emplace_back(
-          colnames[i],
-          runtime->get_logical_subregion_by_color(ctx, lp, Point<2>(0, 0)),
-          lr);
-        read_lrs[1].emplace_back(
-          colnames[i],
-          runtime->get_logical_subregion_by_color(ctx, lp, Point<2>(0, 1)),
-          lr);
-        runtime->destroy_logical_partition(ctx, lp);
+        if (lr != LogicalRegion::NO_REGION) {
+          auto lp = runtime->get_logical_partition(ctx, lr, col_ip[i]);
+          read_lrs[0].emplace_back(
+            colnames[i],
+            runtime->get_logical_subregion_by_color(ctx, lp, Point<2>(0, 0)),
+            lr);
+          read_lrs[1].emplace_back(
+            colnames[i],
+            runtime->get_logical_subregion_by_color(ctx, lp, Point<2>(0, 1)),
+            lr);
+          runtime->destroy_logical_partition(ctx, lp);
+        } else {
+          std::cout << "skip empty column " << colnames[i] << std::endl;
+        }
       }
       std::for_each(
         col_ip.begin(),
         col_ip.end(),
         [runtime, &ctx](auto& ip) {
-          runtime->destroy_index_partition(ctx, ip);
+          if (ip != IndexPartition::NO_PART)
+            runtime->destroy_index_partition(ctx, ip);
         });
     } else {
       // general case: read complete columns
       read_lrs.resize(1);
       for (size_t i = 0; i < lrs.size(); ++i) {
-        auto rank = table->column(colnames[i])->rank();
-        if (rank > max_col_rank) {
-          max_col_rank = rank;
-          max_col_rank_idx = i;
-        }
         auto lr = lrs[i];
-        read_lrs[0].emplace_back(colnames[i], lr, lr);
+        if (lr != LogicalRegion::NO_REGION)
+          read_lrs[0].emplace_back(colnames[i], lr, lr);
+        else
+          std::cout << "skip empty column " << colnames[i] << std::endl;
       }
     }
+
+    // If all columns are empty, we're done
+    if (read_lrs[0].size() == 0)
+      return;
+
+    // Find maximum rank of columns to determine index space for read back and
+    // output
+    unsigned max_col_rank = table->column(std::get<0>(read_lrs[0][0]))->rank();
+    size_t max_col_rank_idx = 0;
+    for (size_t i = 1; i < read_lrs[0].size(); ++i) {
+      auto rank = table->column(std::get<0>(read_lrs[0][i]))->rank();
+      if (rank > max_col_rank) {
+        max_col_rank = rank;
+        max_col_rank_idx = i;
+      }
+    }
+    // Get the IndexSpace for read back and output
     std::vector<IndexSpace> read_is;
     std::transform(
       read_lrs.begin(),

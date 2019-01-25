@@ -27,8 +27,10 @@ public:
   typedef casacore::uInt row_number_t;
 
   virtual ~Column() {
-    m_runtime->destroy_index_space(m_context, m_index_space);
-    m_runtime->destroy_logical_region(m_context, m_logical_region);
+    if (m_index_space != Legion::IndexSpace::NO_SPACE)
+      m_runtime->destroy_index_space(m_context, m_index_space);
+    if (m_logical_region != Legion::LogicalRegion::NO_REGION)
+      m_runtime->destroy_logical_region(m_context, m_logical_region);
   };
 
   const std::string&
@@ -107,17 +109,8 @@ protected:
     init();
   }
 
-  static std::optional<size_t>
-  nr(
-    const IndexTreeL& row_pattern,
-    const IndexTreeL& full_shape,
-    bool cycle = true);
-
   static bool
   pattern_matches(const IndexTreeL& pattern, const IndexTreeL& shape);
-
-  static IndexTreeL
-  ixt(const IndexTreeL& row_pattern, size_t num);
 
   Legion::Context m_context;
 
@@ -183,59 +176,11 @@ public:
       runtime,
       name,
       datatype,
-      nr(row_index_pattern, index_tree).value(),
+      index_tree_.num_repeats(row_index_pattern).value(),
       row_index_pattern,
       index_tree_,
       kws)
     , m_axes(axes) {}
-
-  ColumnT(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::string& name,
-    casacore::DataType datatype,
-    const std::vector<D>& axes,
-    const IndexTreeL& row_index_pattern,
-    unsigned num_rows,
-    const std::unordered_map<std::string, casacore::DataType>& kws =
-    std::unordered_map<std::string, casacore::DataType>())
-    : Column(
-      ctx,
-      runtime,
-      name,
-      datatype,
-      num_rows,
-      row_index_pattern,
-      ixt(row_index_pattern, num_rows),
-      kws)
-    , m_axes(axes) {}
-
-  ColumnT(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::string& name,
-    casacore::DataType datatype,
-    const std::vector<D>& axes,
-    const IndexTreeL& row_index_pattern,
-    const IndexTreeL& row_pattern,
-    unsigned num_rows,
-    const std::unordered_map<std::string, casacore::DataType>& kws =
-    std::unordered_map<std::string, casacore::DataType>())
-    : Column(
-      ctx,
-      runtime,
-      name,
-      datatype,
-      num_rows,
-      row_index_pattern,
-      ixt(
-        row_pattern,
-        num_rows * row_pattern.size() / row_index_pattern.size()),
-      kws)
-    , m_axes(axes) {
-
-    assert(pattern_matches(row_index_pattern, row_pattern));
-  }
 
   virtual ~ColumnT() {}
 
@@ -248,6 +193,9 @@ public:
   projected_index_partition(
     const Legion::IndexPartition& ip,
     const std::vector<D>& ip_axes) const {
+
+    if (index_space() == Legion::IndexSpace::NO_SPACE)
+      return Legion::IndexPartition::NO_PART;
 
     auto is_dim = m_runtime->get_parent_index_space(m_context, ip).get_dim();
     assert(static_cast<size_t>(is_dim) == ip_axes.size());
@@ -413,18 +361,13 @@ public:
     std::unordered_map<std::string, casacore::DataType>()) {
 
     return
-      [=](Legion::Context ctx, Legion::Runtime* runtime) {
-        return
-          std::make_shared<ColumnT<D>>(
-            ctx,
-            runtime,
-            name,
-            datatype,
-            axes,
-            row_index_pattern,
-            num_rows,
-            kws);
-      };
+      generator(
+        name,
+        datatype,
+        axes,
+        row_index_pattern,
+        IndexTreeL(row_index_pattern, num_rows),
+        kws);
   }
 
   static Generator
@@ -439,19 +382,15 @@ public:
     std::unordered_map<std::string, casacore::DataType>()) {
 
     return
-      [=](Legion::Context ctx, Legion::Runtime* runtime) {
-        return
-          std::make_shared<ColumnT<D>>(
-            ctx,
-            runtime,
-            name,
-            datatype,
-            axes,
-            row_index_pattern,
-            row_pattern,
-            num_rows,
-            kws);
-      };
+      generator(
+        name,
+        datatype,
+        axes,
+        row_index_pattern,
+        IndexTreeL(
+          row_pattern,
+          num_rows * row_pattern.size() / row_index_pattern.size()),
+        kws);
   }
 
 private:
