@@ -25,46 +25,6 @@ typedef IndexTree<Legion::coord_t> IndexTreeL;
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-template <
-  int ARRAY_DIM,
-  int REGION_DIM,
-  unsigned long HINT_DIM>
-std::enable_if_t<REGION_DIM >= ARRAY_DIM>
-pt2ipos(
-  casacore::IPosition& ipos,
-  const std::array<unsigned, HINT_DIM>& pv,
-  const Legion::Point<REGION_DIM>& pt) {
-
-  for (unsigned i = 0; i < ARRAY_DIM; ++i)
-    ipos[pv[i]] = pt[i + REGION_DIM - ARRAY_DIM];
-}
-
-template <
-  int ARRAY_DIM,
-  int REGION_DIM,
-  unsigned long HINT_DIM>
-std::enable_if_t<!(REGION_DIM >= ARRAY_DIM)>
-pt2ipos(
-  casacore::IPosition&,
-  const std::array<unsigned, HINT_DIM>&,
-  const Legion::Point<REGION_DIM>&) {
-
-  assert(false);
-}
-
-template <int REGION_DIM>
-void
-pt2ipos(
-  casacore::IPosition& ipos,
-  const unsigned* pv,
-  const Legion::Point<REGION_DIM>& pt) {
-
-  unsigned array_dim = ipos.size();
-  assert(REGION_DIM >= array_dim);
-  for (unsigned i = 0; i < array_dim; ++i)
-    ipos[pv[i]] = pt[i + REGION_DIM - array_dim];
-}
-
 template <typename D>
 bool
 has_unique_values(const std::vector<D>& axes) {
