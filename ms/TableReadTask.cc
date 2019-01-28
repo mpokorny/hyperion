@@ -43,7 +43,7 @@ TableReadTask::dispatch() {
   Context ctx = m_table->context();
   Runtime* runtime = m_table->runtime();
 
-  std::vector<Legion::IndexPartition> blockp;
+  std::unique_ptr<ColumnPartition> blockp;
   {
     auto nr = m_table->num_rows();
     auto block_length = m_block_length.value_or(nr);
@@ -51,18 +51,19 @@ TableReadTask::dispatch() {
       rowp((nr + block_length - 1) / block_length);
     for (Column::row_number_t i = 0; i < nr; ++i)
       rowp[i / block_length].push_back(i);
-    blockp =
-      m_table->projected_row_partitions(m_column_names, rowp, false, true);
+    blockp = m_table->row_partition(rowp, false, true);
   }
 
   for (size_t i = 0; i < m_column_names.size(); ++i) {
-    auto lr = m_table->column(m_column_names[i])->logical_region();
+    auto col = m_table->column(m_column_names[i]);
+    auto lr = col->logical_region();
     if (lr != LogicalRegion::NO_REGION) {
-      auto lp = runtime->get_logical_partition(ctx, lr, blockp[i]);
+      auto cp = col->projected_column_partition(blockp.get());
+      auto lp = runtime->get_logical_partition(ctx, lr, cp->index_partition());
       auto launcher =
         IndexTaskLauncher(
           TASK_ID,
-          runtime->get_index_partition_color_space(blockp[i]),
+          runtime->get_index_partition_color_space(cp->index_partition()),
           TaskArgument(&args[i], sizeof(TableReadTaskArgs)),
           ArgumentMap());
       launcher.add_region_requirement(
@@ -72,7 +73,6 @@ TableReadTask::dispatch() {
         RegionRequirement(lp, 0, READ_ONLY, EXCLUSIVE, lr));
       launcher.add_field(1, Column::row_number_fid);
       runtime->execute_index_space(ctx, launcher);
-      runtime->destroy_index_partition(ctx, blockp[i]);
     }
   }
 }

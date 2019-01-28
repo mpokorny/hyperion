@@ -17,6 +17,7 @@
 #include "Column.h"
 #include "IndexTree.h"
 #include "MSTable.h"
+#include "ColumnPartition.h"
 
 namespace legms {
 namespace ms {
@@ -159,9 +160,8 @@ public:
     return result;
   }
 
-  virtual std::vector<Legion::IndexPartition>
-  projected_row_partitions(
-    const std::vector<std::string> colnames,
+  virtual std::unique_ptr<ColumnPartition>
+  row_partition(
     const std::vector<std::vector<Column::row_number_t>>& rowp,
     bool include_unselected = false,
     bool sorted_selections = false) const = 0;
@@ -328,11 +328,11 @@ public:
     return m_columns.at(name);
   }
 
-  std::tuple<Legion::IndexPartition, std::vector<D>>
+  std::unique_ptr<ColumnPartition>
   row_partition(
     const std::vector<std::vector<Column::row_number_t>>& rowp,
     bool include_unselected = false,
-    bool sorted_selections = false) const {
+    bool sorted_selections = false) const override {
 
     auto rn_lr = column(min_rank_column_name())->logical_region();
     auto unselected_color = (include_unselected ? rowp.size() : -1);
@@ -377,7 +377,7 @@ public:
       m_runtime->create_index_space(
         m_context,
         Legion::Rect<1>(0, rowp.size() - (include_unselected ? 0 : 1)));
-    auto result =
+    auto ipart =
       m_runtime->create_partition_by_field(
         m_context,
         color_lr,
@@ -386,27 +386,12 @@ public:
         color_space);
     m_runtime->destroy_index_space(m_context, color_space);
     m_runtime->destroy_logical_region(m_context, color_lr);
-    return std::make_tuple(result, columnT(min_rank_column_name())->axes());
-  }
-
-  std::vector<Legion::IndexPartition>
-  projected_row_partitions(
-    const std::vector<std::string> colnames,
-    const std::vector<std::vector<Column::row_number_t>>& rowp,
-    bool include_unselected = false,
-    bool sorted_selections = false) const override {
-
-    auto rp = row_partition(rowp, include_unselected, sorted_selections);
-    std::vector<Legion::IndexPartition> result;
-    std::transform(
-      colnames.begin(),
-      colnames.end(),
-      std::back_inserter(result),
-      [this, &rp](auto& nm) {
-        auto& [ip, ipax] = rp;
-        return columnT(nm)->projected_index_partition(ip, ipax);
-      });
-    return result;
+    return
+      std::make_unique<ColumnPartitionT<D>>(
+        m_context,
+        m_runtime,
+        ipart,
+        columnT(min_rank_column_name())->axes());
   }
 
 #if 0

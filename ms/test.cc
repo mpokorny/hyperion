@@ -50,14 +50,10 @@ public:
     return result;
   }
 
-  static std::optional<
-    std::tuple<IndexPartition, std::vector<MSTable<MSTables::POINTING>::Axes>>>
+  static std::unique_ptr<ColumnPartition>
   read_partition(const std::shared_ptr<const Table>& table) {
 
-    std::optional<
-      std::tuple<
-        IndexPartition,
-        std::vector<MSTable<MSTables::POINTING>::Axes>>> result;
+    std::unique_ptr<ColumnPartition> result;
 
     const unsigned subsample = 10000;
     auto is = table->column(table->max_rank_column_name())->index_space();
@@ -91,7 +87,9 @@ public:
           ctx,
           Rect<2>(Point<2>(0, 0), Point<2>(1, 1)));
       result =
-        std::make_tuple(
+        std::make_unique<ColumnPartitionT<MSTable<MSTables::POINTING>::Axes>>(
+          ctx,
+          runtime,
           runtime->create_partition_by_field(ctx, lr, lr, fid, colors),
           pointing_direction_axes());
       runtime->destroy_index_space(ctx, colors);
@@ -225,27 +223,16 @@ public:
       std::vector<std::tuple<std::string, LogicalRegion, LogicalRegion>>>
       read_lrs;
     if (read_p) {
-      auto& [read_ip, read_paxes] = read_p.value();
       // for partitioned read, we select only a couple of the sub-regions per
       // column
       read_lrs.resize(2);
-      auto tab =
-        std::dynamic_pointer_cast<
-          const TableT<MSTable<MSTables::POINTING>::Axes>>(
-            table);
-      std::vector<IndexPartition> col_ip;
-      std::transform(
-        colnames.begin(),
-        end_present_colnames,
-        std::back_inserter(col_ip),
-        [&tab, &read_ip, &read_paxes](auto& nm) {
-          return tab->columnT(nm)
-            ->projected_index_partition(read_ip, read_paxes);
-        });
       for (size_t i = 0; i < lrs.size(); ++i) {
         auto lr = lrs[i];
         if (lr != LogicalRegion::NO_REGION) {
-          auto lp = runtime->get_logical_partition(ctx, lr, col_ip[i]);
+          auto col_ip =
+            table->column(colnames[i])->projected_column_partition(read_p.get());
+          auto lp =
+            runtime->get_logical_partition(ctx, lr, col_ip->index_partition());
           read_lrs[0].emplace_back(
             colnames[i],
             runtime->get_logical_subregion_by_color(ctx, lp, Point<2>(0, 0)),
@@ -259,13 +246,6 @@ public:
           std::cout << "skip empty column " << colnames[i] << std::endl;
         }
       }
-      std::for_each(
-        col_ip.begin(),
-        col_ip.end(),
-        [runtime, &ctx](auto& ip) {
-          if (ip != IndexPartition::NO_PART)
-            runtime->destroy_index_partition(ctx, ip);
-        });
     } else {
       // general case: read complete columns
       read_lrs.resize(1);

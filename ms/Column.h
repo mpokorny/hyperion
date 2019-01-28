@@ -3,7 +3,7 @@
 
 #include <cassert>
 #include <functional>
-
+#include <memory>
 #include <tuple>
 #include <unordered_map>
 
@@ -16,6 +16,7 @@
 #include "WithKeywords.h"
 #include "IndexTree.h"
 #include "ColumnBuilder.h"
+#include "ColumnPartition.h"
 
 namespace legms {
 namespace ms {
@@ -77,6 +78,9 @@ public:
   logical_region() const {
     return m_logical_region;
   }
+
+  virtual std::unique_ptr<ColumnPartition>
+  projected_column_partition(const ColumnPartition* cp) const = 0;
 
   static constexpr Legion::FieldID value_fid = 0;
 
@@ -189,60 +193,79 @@ public:
     return m_axes;
   }
 
-  Legion::IndexPartition
-  projected_index_partition(
-    const Legion::IndexPartition& ip,
-    const std::vector<D>& ip_axes) const {
+  std::unique_ptr<ColumnPartition>
+  projected_column_partition(const ColumnPartition* cp) const override {
+
+    const ColumnPartitionT<D>* cpt =
+      dynamic_cast<const ColumnPartitionT<D>*>(cp);
 
     if (index_space() == Legion::IndexSpace::NO_SPACE)
-      return Legion::IndexPartition::NO_PART;
+      return
+        std::make_unique<ColumnPartitionT<D>>(
+          m_context,
+          m_runtime,
+          Legion::IndexPartition::NO_PART,
+          m_axes);
 
-    auto is_dim = m_runtime->get_parent_index_space(m_context, ip).get_dim();
-    assert(static_cast<size_t>(is_dim) == ip_axes.size());
+    std::vector<int> dmap = dimensions_map(m_axes, cpt->axes());
 
-    std::vector<int> dmap = dimensions_map(m_axes, ip_axes);
-
-    switch (is_dim) {
+    switch (cpt->axes().size()) {
     case 1:
       switch (rank()) {
       case 1:
         return
-          legms::projected_index_partition<1, 1>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<1>(ip),
-            Legion::IndexSpaceT<1>(index_space()),
-            {dmap[0]});
+            legms::projected_index_partition<1, 1>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<1>(cpt->index_partition()),
+              Legion::IndexSpaceT<1>(index_space()),
+              {dmap[0]}),
+            m_axes);
         break;
 
       case 2:
         return
-          legms::projected_index_partition<1, 2>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<1>(ip),
-            Legion::IndexSpaceT<2>(index_space()),
-            {dmap[0], dmap[1]});
+            legms::projected_index_partition<1, 2>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<1>(cpt->index_partition()),
+              Legion::IndexSpaceT<2>(index_space()),
+              {dmap[0], dmap[1]}),
+            m_axes);
         break;
 
       case 3:
         return
-          legms::projected_index_partition<1, 3>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<1>(ip),
-            Legion::IndexSpaceT<3>(index_space()),
-            {dmap[0], dmap[1], dmap[2]});
+            legms::projected_index_partition<1, 3>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<1>(cpt->index_partition()),
+              Legion::IndexSpaceT<3>(index_space()),
+              {dmap[0], dmap[1], dmap[2]}),
+            m_axes);
         break;
 
       case 4:
         return
-          legms::projected_index_partition<1, 4>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<1>(ip),
-            Legion::IndexSpaceT<4>(index_space()),
-            {dmap[0], dmap[1], dmap[2], dmap[3]});
+            legms::projected_index_partition<1, 4>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<1>(cpt->index_partition()),
+              Legion::IndexSpaceT<4>(index_space()),
+              {dmap[0], dmap[1], dmap[2], dmap[3]}),
+            m_axes);
         break;
 
       default:
@@ -255,42 +278,58 @@ public:
       switch (rank()) {
       case 1:
         return
-          legms::projected_index_partition<2, 1>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<2>(ip),
-            Legion::IndexSpaceT<1>(index_space()),
-            {dmap[0]});
+            legms::projected_index_partition<2, 1>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<2>(cpt->index_partition()),
+              Legion::IndexSpaceT<1>(index_space()),
+              {dmap[0]}),
+            m_axes);
         break;
 
       case 2:
         return
-          legms::projected_index_partition<2, 2>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<2>(ip),
-            Legion::IndexSpaceT<2>(index_space()),
-            {dmap[0], dmap[1]});
+            legms::projected_index_partition<2, 2>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<2>(cpt->index_partition()),
+              Legion::IndexSpaceT<2>(index_space()),
+              {dmap[0], dmap[1]}),
+            m_axes);
         break;
 
       case 3:
         return
-          legms::projected_index_partition<2, 3>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<2>(ip),
-            Legion::IndexSpaceT<3>(index_space()),
-            {dmap[0], dmap[1], dmap[2]});
+            legms::projected_index_partition<2, 3>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<2>(cpt->index_partition()),
+              Legion::IndexSpaceT<3>(index_space()),
+              {dmap[0], dmap[1], dmap[2]}),
+            m_axes);
         break;
 
       case 4:
         return
-          legms::projected_index_partition<2, 4>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<2>(ip),
-            Legion::IndexSpaceT<4>(index_space()),
-            {dmap[0], dmap[1], dmap[2], dmap[3]});
+            legms::projected_index_partition<2, 4>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<2>(cpt->index_partition()),
+              Legion::IndexSpaceT<4>(index_space()),
+              {dmap[0], dmap[1], dmap[2], dmap[3]}),
+            m_axes);
         break;
 
       default:
@@ -303,42 +342,58 @@ public:
       switch (rank()) {
       case 1:
         return
-          legms::projected_index_partition<3, 1>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<3>(ip),
-            Legion::IndexSpaceT<1>(index_space()),
-            {dmap[0]});
+            legms::projected_index_partition<3, 1>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<3>(cpt->index_partition()),
+              Legion::IndexSpaceT<1>(index_space()),
+              {dmap[0]}),
+            m_axes);
         break;
 
       case 2:
         return
-          legms::projected_index_partition<3, 2>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<3>(ip),
-            Legion::IndexSpaceT<2>(index_space()),
-            {dmap[0], dmap[1]});
+            legms::projected_index_partition<3, 2>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<3>(cpt->index_partition()),
+              Legion::IndexSpaceT<2>(index_space()),
+              {dmap[0], dmap[1]}),
+            m_axes);
         break;
 
       case 3:
         return
-          legms::projected_index_partition<3, 3>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<3>(ip),
-            Legion::IndexSpaceT<3>(index_space()),
-            {dmap[0], dmap[1], dmap[2]});
+            legms::projected_index_partition<3, 3>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<3>(cpt->index_partition()),
+              Legion::IndexSpaceT<3>(index_space()),
+              {dmap[0], dmap[1], dmap[2]}),
+            m_axes);
         break;
 
       case 4:
         return
-          legms::projected_index_partition<3, 4>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<3>(ip),
-            Legion::IndexSpaceT<4>(index_space()),
-            {dmap[0], dmap[1], dmap[2], dmap[3]});
+            legms::projected_index_partition<3, 4>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<3>(cpt->index_partition()),
+              Legion::IndexSpaceT<4>(index_space()),
+              {dmap[0], dmap[1], dmap[2], dmap[3]}),
+            m_axes);
         break;
 
       default:
@@ -351,42 +406,58 @@ public:
       switch (rank()) {
       case 1:
         return
-          legms::projected_index_partition<4, 1>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<4>(ip),
-            Legion::IndexSpaceT<1>(index_space()),
-            {dmap[0]});
+            legms::projected_index_partition<4, 1>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<4>(cpt->index_partition()),
+              Legion::IndexSpaceT<1>(index_space()),
+              {dmap[0]}),
+            m_axes);
         break;
 
       case 2:
         return
-          legms::projected_index_partition<4, 2>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<4>(ip),
-            Legion::IndexSpaceT<2>(index_space()),
-            {dmap[0], dmap[1]});
+            legms::projected_index_partition<4, 2>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<4>(cpt->index_partition()),
+              Legion::IndexSpaceT<2>(index_space()),
+              {dmap[0], dmap[1]}),
+            m_axes);
         break;
 
       case 3:
         return
-          legms::projected_index_partition<4, 3>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<4>(ip),
-            Legion::IndexSpaceT<3>(index_space()),
-            {dmap[0], dmap[1], dmap[2]});
+            legms::projected_index_partition<4, 3>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<4>(cpt->index_partition()),
+              Legion::IndexSpaceT<3>(index_space()),
+              {dmap[0], dmap[1], dmap[2]}),
+            m_axes);
         break;
 
       case 4:
         return
-          legms::projected_index_partition<4, 4>(
+          std::make_unique<ColumnPartitionT<D>>(
             m_context,
             m_runtime,
-            Legion::IndexPartitionT<4>(ip),
-            Legion::IndexSpaceT<4>(index_space()),
-            {dmap[0], dmap[1], dmap[2], dmap[3]});
+            legms::projected_index_partition<4, 4>(
+              m_context,
+              m_runtime,
+              Legion::IndexPartitionT<4>(cpt->index_partition()),
+              Legion::IndexSpaceT<4>(index_space()),
+              {dmap[0], dmap[1], dmap[2], dmap[3]}),
+            m_axes);
         break;
 
       default:
@@ -400,7 +471,12 @@ public:
       break;
     }
 
-    return Legion::IndexPartition::NO_PART;
+    return
+      std::make_unique<ColumnPartitionT<D>>(
+        m_context,
+        m_runtime,
+        Legion::IndexPartition::NO_PART,
+        m_axes);
   }
 
   static Generator
