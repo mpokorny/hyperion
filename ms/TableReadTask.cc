@@ -107,6 +107,16 @@ TableReadTask::base_impl(
         task->regions[0].region.get_index_space()),
       regions);
     break;
+  case 4:
+    read_column<4>(
+      table,
+      cdesc,
+      args->column_datatype,
+      runtime->get_index_space_domain(
+        ctx,
+        task->regions[0].region.get_index_space()),
+      regions);
+    break;
   default:
     assert(false);
     break;
