@@ -176,7 +176,7 @@ public:
     return m_runtime;
   }
 
-  static std::shared_ptr<Table>
+  static std::unique_ptr<Table>
   from_ms(
     Legion::Context ctx,
     Legion::Runtime* runtime,
@@ -541,7 +541,7 @@ protected:
 
 
 template <MSTables T>
-static std::shared_ptr<TableT<typename MSTable<T>::Axes>>
+static std::unique_ptr<TableT<typename MSTable<T>::Axes>>
 from_ms(
   Legion::Context ctx,
   Legion::Runtime* runtime,
@@ -550,7 +550,7 @@ from_ms(
 
   auto builder = TableBuilder::from_ms<T>(path, column_selections);
   return
-    std::make_shared<TableT<typename MSTable<T>::Axes>>(
+    std::make_unique<TableT<typename MSTable<T>::Axes>>(
       ctx,
       runtime,
       builder.name(),

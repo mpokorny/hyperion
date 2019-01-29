@@ -28,7 +28,7 @@ Table::find_color(
   return result;
 }
 
-std::shared_ptr<Table>
+std::unique_ptr<Table>
 Table::from_ms(
   Legion::Context ctx,
   Legion::Runtime* runtime,

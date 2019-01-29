@@ -51,7 +51,7 @@ public:
   }
 
   static std::unique_ptr<ColumnPartition>
-  read_partition(const std::shared_ptr<const Table>& table) {
+  read_partition(const Table* table) {
 
     std::unique_ptr<ColumnPartition> result;
 
@@ -138,7 +138,7 @@ public:
     // create the Table instance
     std::unordered_set<std::string>
       colnames_set(colnames.begin(), colnames.end());
-    std::shared_ptr<const Table> table;
+    std::unique_ptr<const Table> table;
     if (pointing_direction_only(table_name, colnames)) {
       // special test case: create Table with prior knowledge of its shape
       ColumnT<MSTable<MSTables::POINTING>::Axes>::Generator colgen =
@@ -210,7 +210,7 @@ public:
     //
 
     // special test case: partitioned read back
-    auto read_p = read_partition(table);
+    auto read_p = read_partition(table.get());
 
     std::vector<LogicalRegion> lrs;
     std::transform(
@@ -312,16 +312,16 @@ public:
     // print out the values read, by partition (inc. partition by columns)
     switch (max_col_rank) {
     case 1:
-      show_table<1>(ctx, runtime, table, read_lrs, prs, max_col_rank_idx);
+      show_table<1>(ctx, runtime, table.get(), read_lrs, prs, max_col_rank_idx);
       break;
     case 2:
-      show_table<2>(ctx, runtime, table, read_lrs, prs, max_col_rank_idx);
+      show_table<2>(ctx, runtime, table.get(), read_lrs, prs, max_col_rank_idx);
       break;
     case 3:
-      show_table<3>(ctx, runtime, table, read_lrs, prs, max_col_rank_idx);
+      show_table<3>(ctx, runtime, table.get(), read_lrs, prs, max_col_rank_idx);
       break;
     case 4:
-      show_table<4>(ctx, runtime, table, read_lrs, prs, max_col_rank_idx);
+      show_table<4>(ctx, runtime, table.get(), read_lrs, prs, max_col_rank_idx);
       break;
     default:
       assert(false);
@@ -341,7 +341,7 @@ public:
   show_table(
     Context ctx,
     Runtime* runtime,
-    const std::shared_ptr<const Table>& table,
+    const Table* table,
     const std::vector<
       std::vector<
         std::tuple<std::string, LogicalRegion, LogicalRegion>>>& read_lrs,
@@ -408,7 +408,7 @@ public:
   template <int DIM>
   static void
   show_values(
-    const std::shared_ptr<const Table>& table,
+    const Table* table,
     const std::tuple<std::string, LogicalRegion, LogicalRegion>& rlf,
     const PhysicalRegion& pr,
     const PointInDomainIterator<DIM>& pid0,
