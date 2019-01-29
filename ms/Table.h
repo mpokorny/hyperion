@@ -394,67 +394,6 @@ public:
         columnT(min_rank_column_name())->axes());
   }
 
-#if 0
-  std::unordered_map<
-    std::string,
-    std::map<Legion::IndexSpace, Legion::IndexPartition>>
-  row_block_index_partitions(
-    const std::unordered_map<std::string, Legion::IndexPartition>& cn_ips,
-    size_t block_size) const override {
-
-    Legion::IndexPartition blockp;
-    std::vector<D> blockp_axes;
-    {
-      auto nr = num_rows();
-      std::vector<std::vector<Column::row_number_t>>
-        rowp((nr + block_size - 1) / block_size);
-      for (Column::row_number_t i = 0; i < nr; ++i)
-        rowp[i / block_size].push_back(i);
-      std::tie(blockp, blockp_axes) = row_partition(rowp, false, true);
-    }
-    Legion::DomainT<1> blockp_colors =
-      m_runtime->get_index_partition_color_space(
-        Legion::IndexPartitionT<1>(blockp));
-
-    std::unordered_map<
-      std::string,
-      std::map<Legion::IndexSpace, Legion::IndexPartition>> result;
-    std::transform(
-      cn_ips.begin(),
-      cn_ips.end(),
-      std::back_inserter(result),
-      [&blockp, &blockp_axes, &blockp_colors, this](auto& cn_ip) {
-        auto [cn, ip] = cn_ip;
-        auto col = columnT(cn);
-        auto proj =
-          col.projected_index_partition(
-            m_context,
-            m_runtime,
-            blockp,
-            blockp_axes);
-        std::map<Legion::IndexSpace, Legion::IndexPartition> crossm;
-        for (Legion::PointInDomainIterator<1> pid(blockp_colors);
-             pid();
-             pid++)
-          crossm[
-            m_runtime->get_index_subspace(
-              m_context,
-              blockp,
-              Legion::DomainPoint(*pid))] =
-            Legion::IndexPartition::NO_PART;
-        if (ip != Legion::IndexPartition::NO_PART)
-          m_runtime->create_cross_product_partitions(
-            m_context,
-            blockp,
-            ip,
-            crossm);
-        return std::make_tuple(cn, crossm);
-      });
-    m_runtime->destroy_index_partition(m_context, blockp);
-    return result;
-  }
-#endif // 0
-
 protected:
 
   const std::string&
