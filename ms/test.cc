@@ -198,7 +198,7 @@ public:
     {
       TableReadTask table_read_task(
         table_path.value(),
-        table,
+        table.get(),
         colnames.begin(),
         end_present_colnames,
         10000);

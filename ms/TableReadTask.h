@@ -39,14 +39,29 @@ public:
   template <typename Iter>
   TableReadTask(
     const std::string& table_path,
-    const std::shared_ptr<const Table>& table,
+    const Table* table,
     Iter colname_iter,
     Iter end_colname_iter,
     std::optional<size_t> block_length = std::nullopt)
-    : m_table_path(table_path)
-    , m_table(table)
-    , m_column_names(colname_iter, end_colname_iter)
-    , m_block_length(block_length) {
+    : m_context(table->context())
+    , m_runtime(table->runtime())
+    , m_table_path(table_path)
+    , m_table_name(table->name()) {
+
+    std::transform(
+      colname_iter,
+      end_colname_iter,
+      std::back_inserter(m_columns),
+      [table](const auto& nm) { return table->column(nm); });
+
+    {
+      auto nr = table->num_rows();
+      auto bl = block_length.value_or(nr);
+      std::vector<std::vector<Column::row_number_t>> rowp((nr + bl - 1) / bl);
+      for (Column::row_number_t i = 0; i < nr; ++i)
+        rowp[i / bl].push_back(i);
+      m_blockp = table->row_partition(rowp, false, true);
+    }
 
     casacore::Table tb(
       casacore::String(table_path),
@@ -298,13 +313,17 @@ public:
 
 private:
 
+  Legion::Context m_context;
+
+  Legion::Runtime *m_runtime;
+
   std::string m_table_path;
 
-  const std::shared_ptr<const Table> m_table;
+  std::string m_table_name;
 
-  std::vector<std::string> m_column_names;
+  std::vector<std::shared_ptr<Column>> m_columns;
 
-  std::optional<size_t> m_block_length;
+  std::unique_ptr<ColumnPartition> m_blockp;
 
   template <typename T>
   static inline
