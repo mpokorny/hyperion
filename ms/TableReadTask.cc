@@ -12,6 +12,7 @@ TableReadTask::register_task(Runtime* runtime) {
   TASK_ID = runtime->generate_library_task_ids("legms::TableReadTask", 1);
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
   registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
+  registrar.set_leaf();
   runtime->register_task_variant<base_impl>(registrar);
 }
 
@@ -66,7 +67,7 @@ void
 TableReadTask::base_impl(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
-  Context ctx,
+  Context,
   Runtime *runtime) {
 
   const TableReadTaskArgs* args =
@@ -83,7 +84,6 @@ TableReadTask::base_impl(
       cdesc,
       args->column_datatype,
       runtime->get_index_space_domain(
-        ctx,
         task->regions[0].region.get_index_space()),
       regions);
     break;
@@ -93,7 +93,6 @@ TableReadTask::base_impl(
       cdesc,
       args->column_datatype,
       runtime->get_index_space_domain(
-        ctx,
         task->regions[0].region.get_index_space()),
       regions);
     break;
@@ -103,7 +102,6 @@ TableReadTask::base_impl(
       cdesc,
       args->column_datatype,
       runtime->get_index_space_domain(
-        ctx,
         task->regions[0].region.get_index_space()),
       regions);
     break;
@@ -113,7 +111,6 @@ TableReadTask::base_impl(
       cdesc,
       args->column_datatype,
       runtime->get_index_space_domain(
-        ctx,
         task->regions[0].region.get_index_space()),
       regions);
     break;
