@@ -377,5 +377,3 @@ struct MSTable<MSTables::WEATHER> {
 // fill-column: 80
 // indent-tabs-mode: nil
 // End:
-
-
