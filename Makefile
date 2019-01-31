@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+PROJDIR := $(realpath $(CURDIR))
 
 ifndef LG_RT_DIR
 $(error LG_RT_DIR variable is not defined, aborting build)
@@ -20,24 +21,57 @@ endif
 
 # Flags for directing the runtime makefile what to include
 DEBUG           ?= 1		# Include debugging symbols
+MAX_DIM         ?= 4		# Maximum number of dimensions
 OUTPUT_LEVEL    ?= LEVEL_DEBUG	# Compile time logging level
 USE_CUDA        ?= 0		# Include CUDA support (requires CUDA)
 USE_GASNET      ?= 0		# Include GASNet support (requires GASNet)
 USE_HDF         ?= 0		# Include HDF5 support (requires HDF5)
+USE_LLVM        ?= 0		# Include LLVM support (requires llvm)
 ALT_MAPPERS     ?= 0		# Include alternative mappers (not recommended)
 
 # Put the binary file name here
-OUTFILE		?= test1
+OUTFILE		?= liblegms.so
+
 # List all the application source files here
-GEN_SRC		?= test1.cc		# .cc files
+GEN_SRC		?= tree_index_space.cc \
+	utility.cc \
+	Grids_c.cc \
+	ms/Column.cc \
+	ms/Column_c.cc \
+	ms/ColumnPartition_c.cc \
+	ms/MSTable.cc \
+	ms/MSTable_c.cc \
+	ms/Table.cc \
+	ms/Table_c.cc \
+	ms/TableReadTask.cc \
+	ms/TableReadTask_c.cc
+
 GEN_GPU_SRC	?=				# .cu files
 
-# You can modify these variables, some will be appended to by the runtime makefile
-INC_FLAGS	?=
-CC_FLAGS	?= -std=c++17 --gcc-toolchain=/opt/local/compilers/gcc-7
+# You can modify these variables, some will be appended to by the runtime
+# makefile
+CASACORE	?= /users/mpokorny/projects/casacore.git/casacore-install
+
+CC_FLAGS	?= -std=c++17 -Wall -Werror
 NVCC_FLAGS	?=
 GASNET_FLAGS	?=
-LD_FLAGS	?= --gcc-toolchain=/opt/local/compilers/gcc-7 -rpath /opt/local/compilers/gcc-7/lib64
+INC_FLAGS	?= -I$(CASACORE)/include -I$(PROJDIR) -I$(PROJDIR)/ms
+LD_FLAGS	?= -L$(CASACORE)/lib -lcasa_tables -lcasa_casa \
+	-lstdc++fs -Wl,-rpath -Wl,$(CASACORE)/lib
+
+CC_FLAGS += -fPIC
+
+ifeq ($(shell uname), Darwin)
+	LD_FLAGS += -dynamiclib -single_module -undefined dynamic_lookup -fPIC
+else
+	LD_FLAGS += -shared
+endif
+
+ifeq ($(shell uname), Darwin)
+	LD_FLAGS += -Wl,-force_load,liblegion.a -Wl,-force_load,librealm.a
+else
+	LD_FLAGS += -Wl,--whole-archive -llegion -lrealm -Wl,--no-whole-archive
+endif
 
 ###########################################################################
 #
