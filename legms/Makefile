@@ -51,13 +51,17 @@ GEN_GPU_SRC	?=				# .cu files
 # You can modify these variables, some will be appended to by the runtime
 # makefile
 CASACORE	?= /users/mpokorny/projects/casacore.git/casacore-install
+REGENT	?= $(LG_RT_DIR)/../language/build
 
 CC_FLAGS	?= -std=c++17 -Wall -Werror
 NVCC_FLAGS	?=
 GASNET_FLAGS	?=
 INC_FLAGS	?= -I$(CASACORE)/include -I$(PROJDIR) -I$(PROJDIR)/ms
-LD_FLAGS	?= -L$(CASACORE)/lib -lcasa_tables -lcasa_casa \
-	-lstdc++fs -Wl,-rpath -Wl,$(CASACORE)/lib
+LD_FLAGS	?= -lstdc++fs \
+	-L$(CASACORE)/lib -lcasa_tables -lcasa_casa \
+	-Wl,-rpath -Wl,$(CASACORE)/lib \
+	-L$(REGENT)/lib -llegion -lrealm \
+	-Wl,-rpath -Wl,$(REGENT)/lib
 
 CC_FLAGS += -fPIC
 
@@ -67,11 +71,27 @@ else
 	LD_FLAGS += -shared
 endif
 
-ifeq ($(shell uname), Darwin)
-	LD_FLAGS += -Wl,-force_load,liblegion.a -Wl,-force_load,librealm.a
-else
-	LD_FLAGS += -Wl,--whole-archive -llegion -lrealm -Wl,--no-whole-archive
-endif
+# ifeq ($(shell uname), Darwin)
+# 	LD_FLAGS += -Wl,-force_load,liblegion.a -Wl,-force_load,librealm.a
+# else
+# 	LD_FLAGS += -Wl,--whole-archive -llegion -lrealm -Wl,--no-whole-archive
+# endif
+
+NO_BUILD_RULES := 1
+GEN_OBJS	:= $(GEN_SRC:.cc=.cc.o)
+
+.PHONY: all
+all: $(OUTFILE)
+
+$(GEN_OBJS) : %.cc.o : %.cc
+	$(CXX) -o $@ -c $< $(CC_FLAGS) $(INC_FLAGS)
+
+$(OUTFILE) : $(GEN_OBJS)
+	@echo "---> Linking objects into one binary: $(OUTFILE)"
+	$(CXX) -o $(OUTFILE) $(GEN_OBJS) $(LD_FLAGS)
+
+clean::
+	$(RM) -f $(OUTFILE) $(GEN_OBJS)
 
 ###########################################################################
 #
