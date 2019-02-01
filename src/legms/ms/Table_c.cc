@@ -133,7 +133,3 @@ table_from_ms(
 // fill-column: 80
 // indent-tabs-mode: nil
 // End:
-
-
-
-

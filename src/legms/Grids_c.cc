@@ -76,7 +76,3 @@ block_and_halo_partitions_3d(
 // fill-column: 80
 // indent-tabs-mode: nil
 // End:
-
-
-
-
