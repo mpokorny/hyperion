@@ -112,7 +112,7 @@ void
 pipt_impl(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
-  Context ctx,
+  Context,
   Runtime *runtime) {
 
   const ProjectedIndexPartitionTask::args* targs =
@@ -130,7 +130,6 @@ pipt_impl(
 
   DomainT<IPDIM> domain =
     runtime->get_index_space_domain(
-      ctx,
       task->regions[0].region.get_index_space());
   for (PointInDomainIterator<IPDIM> pid(domain);
        pid();
@@ -218,6 +217,8 @@ ProjectedIndexPartitionTask::register_task(Runtime* runtime) {
     runtime->generate_library_task_ids("legms::ProjectedIndexPartitionTask", 1);
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+  registrar.set_leaf();
+  registrar.set_idempotent();
   runtime->register_task_variant<base_impl>(registrar);
 }
 
