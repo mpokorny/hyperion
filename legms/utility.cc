@@ -157,54 +157,122 @@ ProjectedIndexPartitionTask::base_impl(
   const args* targs = static_cast<const args*>(task->args);
   IndexSpace is = task->regions[0].region.get_index_space();
   switch (is.get_dim()) {
+#if MAX_DIM >= 1
   case 1:
     switch (targs->prjdim) {
+#if MAX_DIM >= 1
     case 1:
       pipt_impl<1, 1>(task, regions, ctx, runtime);
       break;
+#endif
+#if MAX_DIM >= 2
     case 2:
       pipt_impl<1, 2>(task, regions, ctx, runtime);
       break;
+#endif
+#if MAX_DIM >= 3
     case 3:
       pipt_impl<1, 3>(task, regions, ctx, runtime);
       break;
+#endif
+#if MAX_DIM >= 4
+    case 4:
+      pipt_impl<1, 4>(task, regions, ctx, runtime);
+      break;
+#endif
     default:
       assert(false);
       break;
     }
     break;
+#endif
+#if MAX_DIM >= 2
   case 2:
     switch (targs->prjdim) {
+#if MAX_DIM >= 1
     case 1:
       pipt_impl<2, 1>(task, regions, ctx, runtime);
       break;
+#endif
+#if MAX_DIM >= 2
     case 2:
       pipt_impl<2, 2>(task, regions, ctx, runtime);
       break;
+#endif
+#if MAX_DIM >= 3
     case 3:
       pipt_impl<2, 3>(task, regions, ctx, runtime);
       break;
+#endif
+#if MAX_DIM >= 4
+    case 4:
+      pipt_impl<2, 4>(task, regions, ctx, runtime);
+      break;
+#endif
     default:
       assert(false);
       break;
     }
     break;
+#endif
+#if MAX_DIM >= 3
   case 3:
     switch (targs->prjdim) {
+#if MAX_DIM >= 1
     case 1:
       pipt_impl<3, 1>(task, regions, ctx, runtime);
       break;
+#endif
+#if MAX_DIM >= 2
     case 2:
       pipt_impl<3, 2>(task, regions, ctx, runtime);
       break;
+#endif
+#if MAX_DIM >= 3
     case 3:
       pipt_impl<3, 3>(task, regions, ctx, runtime);
       break;
+#endif
+#if MAX_DIM >= 4
+    case 4:
+      pipt_impl<3, 4>(task, regions, ctx, runtime);
+      break;
+#endif
     default:
       assert(false);
       break;
     }
     break;
+#endif
+#if MAX_DIM >= 4
+  case 4:
+    switch (targs->prjdim) {
+#if MAX_DIM >= 1
+    case 1:
+      pipt_impl<4, 1>(task, regions, ctx, runtime);
+      break;
+#endif
+#if MAX_DIM >= 2
+    case 2:
+      pipt_impl<4, 2>(task, regions, ctx, runtime);
+      break;
+#endif
+#if MAX_DIM >= 3
+    case 3:
+      pipt_impl<4, 3>(task, regions, ctx, runtime);
+      break;
+#endif
+#if MAX_DIM >= 4
+    case 4:
+      pipt_impl<4, 4>(task, regions, ctx, runtime);
+      break;
+#endif
+    default:
+      assert(false);
+      break;
+    }
+    break;
+#endif
   default:
     assert(false);
     break;
