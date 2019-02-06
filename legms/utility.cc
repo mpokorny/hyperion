@@ -1,6 +1,10 @@
 #include "utility.h"
+#include "ms/Column.h"
+#include "ms/TableReadTask.h"
+#include "tree_index_space.h"
 
 using namespace legms;
+using namespace legms::ms;
 using namespace Legion;
 
 std::once_flag SerdezManager::initialized;
@@ -412,6 +416,14 @@ projected_index_partition(
     assert(false);
     break;
   }
+}
+
+void
+register_tasks(Runtime* runtime) {
+  TableReadTask::register_task(runtime);
+  TreeIndexSpace::register_tasks(runtime);
+  Column::register_tasks(runtime);
+  ProjectedIndexPartitionTask::register_task(runtime);
 }
 
 // Local Variables:

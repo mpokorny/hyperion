@@ -404,6 +404,9 @@ projected_index_partition(
   Legion::IndexSpace prj_is,
   const std::vector<int>& dmap);
 
+void
+register_tasks(Legion::Runtime* runtime);
+
 } // end namespace legms
 
 #endif // LEGMS_MS_UTILITY_H_
