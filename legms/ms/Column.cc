@@ -61,7 +61,7 @@ public:
   base_impl(
     const Task* task,
     const std::vector<PhysicalRegion>& regions,
-    Context ctx,
+    Context,
     Runtime *runtime) {
 
     IndexTreeL row_index_pattern =
@@ -71,7 +71,6 @@ public:
       impl_n<1>(
         regions[0],
         runtime->get_index_space_domain(
-          ctx,
           task->regions[0].region.get_index_space()),
         row_index_pattern);
       break;
@@ -79,7 +78,6 @@ public:
       impl_n<2>(
         regions[0],
         runtime->get_index_space_domain(
-          ctx,
           task->regions[0].region.get_index_space()),
         row_index_pattern);
       break;
@@ -87,7 +85,6 @@ public:
       impl_n<3>(
         regions[0],
         runtime->get_index_space_domain(
-          ctx,
           task->regions[0].region.get_index_space()),
         row_index_pattern);
       break;
@@ -104,6 +101,7 @@ public:
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_leaf();
+    registrar.set_idempotent();
     runtime->register_task_variant<base_impl>(registrar);
   }
 
