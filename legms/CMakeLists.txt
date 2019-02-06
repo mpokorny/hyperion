@@ -91,8 +91,11 @@ list(APPEND LEGMS_SRC
   tree_index_space.h
   utility.cc
   utility.h
+  utility_c.cc
+  utility_c.h
   ms/ColumnBuilder.h
   ms/Column.cc
+  ms/Column.h
   ms/Column_c.cc
   ms/Column_c.h
   ms/ColumnPartition_c.cc
