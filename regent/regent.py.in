@@ -1,0 +1,125 @@
+#!/usr/bin/env python
+# Copyright 2019 Stanford University
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+from __future__ import print_function
+import os, platform, subprocess, sys
+
+os_name = platform.system()
+
+# Find Regent.
+if 'REGENT_DIR' in os.environ:
+    regent_dir = os.path.realpath(os.environ['REGENT_DIR'])
+else:
+    regent_dir = "@REGENT_DIR@"
+if 'TERRA_DIR' in os.environ:
+    terra_dir = os.path.realpath(os.environ['TERRA_DIR'])
+else:
+    terra_dir = "@TERRA_DIR@"
+if 'LEGION_DIR' in os.environ:
+    legion_dir = os.path.realpath(os.environ['LEGION_DIR'])
+else:
+    legion_dir = "@LEGION_DIR@"
+if 'LEGMS_DIR' in os.environ:
+    legms_dir = os.path.realpath(os.environ['LEGMS_DIR'])
+else:
+    legms_dir = "@LEGMS_DIR@"
+#bindings_dir = os.path.join(os.path.dirname(runtime_dir), 'bindings', 'regent')
+
+# Find CUDA.
+if 'CUDA' in os.environ:
+    cuda_dir = os.path.realpath(os.environ['CUDA'])
+elif 'CUDATOOLKIT_HOME' in os.environ:
+    cuda_dir = os.path.realpath(os.environ['CUDATOOLKIT_HOME'])
+else:
+    cuda_dir = None
+cuda_include_dir = os.path.join(cuda_dir, 'include') if cuda_dir is not None else None
+
+# Detect use of CMake.
+if 'USE_CMAKE' in os.environ:
+    cmake = os.environ['USE_CMAKE'] == '1'
+else:
+    cmake = False
+cmake_build_dir = os.path.realpath('build')
+
+include_path = (
+    (os.environ['INCLUDE_PATH'].split(';')
+     if 'INCLUDE_PATH' in os.environ else []) +
+    [os.path.join(legion_dir, 'include'),
+     os.path.join(legion_dir, 'include', 'regent'),
+     os.path.join(legms_dir, 'include')
+])
+if cuda_include_dir is not None:
+    include_path.append(cuda_include_dir)
+
+LD_LIBRARY_PATH = 'LD_LIBRARY_PATH'
+if os_name == 'Darwin':
+    LD_LIBRARY_PATH = 'DYLD_LIBRARY_PATH'
+
+lib_path = (
+    (os.environ[LD_LIBRARY_PATH].split(':')
+     if LD_LIBRARY_PATH in os.environ else []) +
+    [os.path.join(terra_dir, 'lib'),
+     os.path.join(legion_dir, 'lib64'),
+     legms_dir] +
+    ([os.path.join(cmake_build_dir, 'lib')] if cmake else []))
+
+def regent(args, env = {}, **kwargs):
+    terra_exe = os.path.join(terra_dir, 'terra')
+    if not os.path.exists(terra_exe):
+        terra_exe = os.path.join(terra_dir, 'bin', 'terra')
+
+    if 'TERRA_PATH' in os.environ:
+        terra_path = os.environ['TERRA_PATH'].split(';')
+    else:
+        terra_path = []
+
+    normal_args = [arg for arg in args if not arg.startswith('-')]
+    terra_path += (
+        ['?.t', '?.rg'] +
+        ([os.path.join(os.path.dirname(os.path.realpath(normal_args[0])), '?.t'),
+          os.path.join(os.path.dirname(os.path.realpath(normal_args[0])), '?.rg')]
+          if len(normal_args) >= 1 and os.path.exists(normal_args[0]) else []) +
+        [os.path.join(regent_dir, 'src', '?.t'),
+         os.path.join(regent_dir, 'src', 'rdir', 'plugin', 'src', '?.t'),
+         os.path.join(terra_dir, 'lib', '?.t'),
+         os.path.join(terra_dir, 'include', '?.t')])
+
+    terra_env = {
+        'TERRA_PATH': ';'.join(terra_path),
+        LD_LIBRARY_PATH: ':'.join(lib_path),
+        'INCLUDE_PATH': ';'.join(include_path),
+        'LG_RT_DIR': os.path.join(legion_dir, 'include'),
+        'USE_CMAKE': '1' if cmake else '0',
+        'CMAKE_BUILD_DIR': cmake_build_dir,
+        'USE_RDIR': '1',
+    }
+
+    if cuda_dir is not None:
+        terra_env['CUDA_HOME'] = cuda_dir
+
+    cmd = []
+    if 'LAUNCHER' in os.environ:
+        cmd = cmd + (os.environ['LAUNCHER'].split()
+                     if 'LAUNCHER' in os.environ else [])
+    cmd = cmd + [terra_exe] + args
+    cmd_env = dict(os.environ.items())
+    cmd_env.update(terra_env)
+    cmd_env.update(env)
+    return subprocess.Popen(
+        cmd, env = cmd_env, **kwargs)
+
+if __name__ == '__main__':
+    sys.exit(regent(sys.argv[1:]).wait())
