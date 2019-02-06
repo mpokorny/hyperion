@@ -210,8 +210,10 @@ public:
     std::vector<int> dmap = dimensions_map(m_axes, cpt->axes());
 
     switch (cpt->axes().size()) {
+#if MAX_DIM >= 1
     case 1:
       switch (rank()) {
+#if MAX_DIM >= 1
       case 1:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -225,7 +227,8 @@ public:
               {dmap[0]}),
             m_axes);
         break;
-
+#endif
+#if MAX_DIM >= 2
       case 2:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -239,7 +242,8 @@ public:
               {dmap[0], dmap[1]}),
             m_axes);
         break;
-
+#endif
+#if MAX_DIM >= 3
       case 3:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -253,7 +257,8 @@ public:
               {dmap[0], dmap[1], dmap[2]}),
             m_axes);
         break;
-
+#endif
+#if MAX_DIM >= 4
       case 4:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -267,15 +272,17 @@ public:
               {dmap[0], dmap[1], dmap[2], dmap[3]}),
             m_axes);
         break;
-
+#endif
       default:
         assert(false);
         break;
       }
       break;
-
+#endif
+#if MAX_DIM >= 2
     case 2:
       switch (rank()) {
+#if MAX_DIM >= 1
       case 1:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -289,7 +296,8 @@ public:
               {dmap[0]}),
             m_axes);
         break;
-
+#endif
+#if MAX_DIM >= 2
       case 2:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -303,7 +311,8 @@ public:
               {dmap[0], dmap[1]}),
             m_axes);
         break;
-
+#endif
+#if MAX_DIM >= 3
       case 3:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -317,7 +326,8 @@ public:
               {dmap[0], dmap[1], dmap[2]}),
             m_axes);
         break;
-
+#endif
+#if MAX_DIM >= 4
       case 4:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -331,15 +341,17 @@ public:
               {dmap[0], dmap[1], dmap[2], dmap[3]}),
             m_axes);
         break;
-
+#endif
       default:
         assert(false);
         break;
       }
       break;
-
+#endif
+#if MAX_DIM >= 3
     case 3:
       switch (rank()) {
+#if MAX_DIM >= 1
       case 1:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -353,7 +365,8 @@ public:
               {dmap[0]}),
             m_axes);
         break;
-
+#endif
+#if MAX_DIM >= 2
       case 2:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -367,7 +380,8 @@ public:
               {dmap[0], dmap[1]}),
             m_axes);
         break;
-
+#endif
+#if MAX_DIM >= 3
       case 3:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -381,7 +395,8 @@ public:
               {dmap[0], dmap[1], dmap[2]}),
             m_axes);
         break;
-
+#endif
+#if MAX_DIM >= 4
       case 4:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -395,15 +410,17 @@ public:
               {dmap[0], dmap[1], dmap[2], dmap[3]}),
             m_axes);
         break;
-
+#endif
       default:
         assert(false);
         break;
       }
       break;
-
+#endif
+#if MAX_DIM >= 4
     case 4:
       switch (rank()) {
+#if MAX_DIM >= 1
       case 1:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -417,7 +434,8 @@ public:
               {dmap[0]}),
             m_axes);
         break;
-
+#endif
+#if MAX_DIM >= 2
       case 2:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -431,7 +449,8 @@ public:
               {dmap[0], dmap[1]}),
             m_axes);
         break;
-
+#endif
+#if MAX_DIM >= 3
       case 3:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -445,7 +464,8 @@ public:
               {dmap[0], dmap[1], dmap[2]}),
             m_axes);
         break;
-
+#endif
+#if MAX_DIM >= 4
       case 4:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -459,13 +479,13 @@ public:
               {dmap[0], dmap[1], dmap[2], dmap[3]}),
             m_axes);
         break;
-
+#endif
       default:
         assert(false);
         break;
       }
       break;
-
+#endif
     default:
       assert(false);
       break;

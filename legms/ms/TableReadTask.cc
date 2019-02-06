@@ -78,6 +78,7 @@ TableReadTask::base_impl(
   auto tdesc = table.tableDesc();
   auto cdesc = tdesc[args->column_name];
   switch (args->column_rank) {
+#if MAX_DIM >= 1
   case 1:
     read_column<1>(
       table,
@@ -87,6 +88,8 @@ TableReadTask::base_impl(
         task->regions[0].region.get_index_space()),
       regions);
     break;
+#endif
+#if MAX_DIM >= 2
   case 2:
     read_column<2>(
       table,
@@ -96,6 +99,8 @@ TableReadTask::base_impl(
         task->regions[0].region.get_index_space()),
       regions);
     break;
+#endif
+#if MAX_DIM >= 3
   case 3:
     read_column<3>(
       table,
@@ -105,6 +110,8 @@ TableReadTask::base_impl(
         task->regions[0].region.get_index_space()),
       regions);
     break;
+#endif
+#if MAX_DIM >= 4
   case 4:
     read_column<4>(
       table,
@@ -114,6 +121,7 @@ TableReadTask::base_impl(
         task->regions[0].region.get_index_space()),
       regions);
     break;
+#endif
   default:
     assert(false);
     break;

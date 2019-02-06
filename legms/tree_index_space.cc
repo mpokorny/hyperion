@@ -6,30 +6,26 @@ Legion::TaskID legms::TreeIndexSpaceTask<1>::TASK_ID;
 
 void
 legms::TreeIndexSpace::register_tasks(Legion::Runtime* runtime) {
-  // TreeIndexSpaceTask<8>::register_task(
-  //   runtime,
-  //   TreeIndexSpace::task_id<8>(runtime));
-  // TreeIndexSpaceTask<7>::register_task(
-  //   runtime,
-  //   TreeIndexSpace::task_id<7>(runtime));
-  // TreeIndexSpaceTask<6>::register_task(
-  //   runtime,
-  //   TreeIndexSpace::task_id<6>(runtime));
-  // TreeIndexSpaceTask<5>::register_task(
-  //   runtime,
-  //   TreeIndexSpace::task_id<5>(runtime));
-  TreeIndexSpaceTask<4>::register_task(
-    runtime,
-    TreeIndexSpace::task_id<4>(runtime));
-  TreeIndexSpaceTask<3>::register_task(
-    runtime,
-    TreeIndexSpace::task_id<3>(runtime));
-  TreeIndexSpaceTask<2>::register_task(
-    runtime,
-    TreeIndexSpace::task_id<2>(runtime));
+#if MAX_DIM >= 1
   TreeIndexSpaceTask<1>::register_task(
     runtime,
     TreeIndexSpace::task_id<1>(runtime));
+#endif
+#if MAX_DIM >= 2
+  TreeIndexSpaceTask<2>::register_task(
+    runtime,
+    TreeIndexSpace::task_id<2>(runtime));
+#endif
+#if MAX_DIM >= 3
+  TreeIndexSpaceTask<3>::register_task(
+    runtime,
+    TreeIndexSpace::task_id<3>(runtime));
+#endif
+#if MAX_DIM >= 4
+  TreeIndexSpaceTask<4>::register_task(
+    runtime,
+    TreeIndexSpace::task_id<4>(runtime));
+#endif
 }
 
 Legion::IndexSpace
