@@ -169,6 +169,7 @@ public:
     Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
     registrar.add_constraint(
       Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
+    registrar.set_idempotent();
     runtime->register_task_variant<base_impl>(registrar);
   }
 };
@@ -290,6 +291,7 @@ public:
     Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
     registrar.add_constraint(
       Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
+    registrar.set_idempotent();
     runtime->register_task_variant<base_impl>(registrar);
   }
 };
