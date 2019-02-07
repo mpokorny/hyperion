@@ -404,6 +404,13 @@ projected_index_partition(
   Legion::IndexSpace prj_is,
   const std::vector<int>& dmap);
 
+Legion::IndexPartition
+create_partition_on_axes(
+  Legion::Context ctx,
+  Legion::Runtime* runtime,
+  Legion::IndexSpace is,
+  const std::vector<int>& dims);
+
 void
 register_tasks(Legion::Runtime* runtime);
 

@@ -417,6 +417,164 @@ projected_index_partition(
   }
 }
 
+template <int IS_DIM, int PART_DIM>
+static IndexPartitionT<IS_DIM>
+create_partition_on_axes(
+  Context ctx,
+  Runtime* runtime,
+  IndexSpaceT<IS_DIM> is,
+  const std::vector<int>& dims) {
+
+  Rect<IS_DIM> is_rect = runtime->get_index_space_domain(is);
+
+  // partition color space
+  Rect<PART_DIM> cs_rect;
+  for (auto n = 0; n < PART_DIM; ++n) {
+    cs_rect.lo[n] = is_rect.lo[dims[n]];
+    cs_rect.hi[n] = is_rect.hi[dims[n]];
+  }
+
+  // transform matrix from partition color space to index space
+  Transform<IS_DIM, PART_DIM> transform;
+  for (auto m = 0; m < IS_DIM; ++m)
+    for (auto n = 0; n < PART_DIM; ++n)
+      transform[m][n] = 0;
+  for (auto n = 0; n < PART_DIM; ++n)
+    transform[dims[n]][n] = 1;
+
+  // partition extent
+  Rect<IS_DIM> extent = is_rect;
+  for (auto n = 0; n < PART_DIM; ++n) {
+    extent.lo[dims[n]] = 0;
+    extent.hi[dims[n]] = 0;
+  }
+
+  IndexSpaceT<PART_DIM> cs = runtime->create_index_space(ctx, cs_rect);
+  IndexPartitionT<IS_DIM> result =
+    runtime->create_partition_by_restriction(ctx, is, cs, transform, extent);
+  runtime->destroy_index_space(ctx, cs);
+  return result;
+}
+
+IndexPartition
+create_partition_on_axes(
+  Context ctx,
+  Runtime* runtime,
+  IndexSpace is,
+  const std::vector<int>& dims) {
+
+  assert(has_unique_values(dims));
+  assert(
+    std::all_of(
+      dims.begin(),
+      dims.end(),
+      [nd=static_cast<int>(is.get_dim())](auto d) {
+        return 0 <= d && d < nd;
+      }));
+
+  switch (is.get_dim()) {
+#if MAX_DIM >= 1
+  case 1:
+    switch (dims.size()) {
+#if MAX_DIM >= 1
+    case 1:
+      return
+        create_partition_on_axes<1,1>(ctx, runtime, IndexSpaceT<1>(is), dims);
+      break;
+#endif
+    default:
+      assert(false);
+      break;
+    }
+    break;
+#endif
+#if MAX_DIM >= 2
+  case 2:
+    switch (dims.size()) {
+#if MAX_DIM >= 1
+    case 1:
+      return
+        create_partition_on_axes<2,1>(ctx, runtime, IndexSpaceT<2>(is), dims);
+      break;
+#endif
+#if MAX_DIM >= 2
+    case 2:
+      return
+        create_partition_on_axes<2,2>(ctx, runtime, IndexSpaceT<2>(is), dims);
+      break;
+#endif
+    default:
+      assert(false);
+      break;
+    }
+    break;
+#endif
+#if MAX_DIM >= 3
+  case 3:
+    switch (dims.size()) {
+#if MAX_DIM >= 1
+    case 1:
+      return
+        create_partition_on_axes<3,1>(ctx, runtime, IndexSpaceT<3>(is), dims);
+      break;
+#endif
+#if MAX_DIM >= 2
+    case 2:
+      return
+        create_partition_on_axes<3,2>(ctx, runtime, IndexSpaceT<3>(is), dims);
+      break;
+#endif
+#if MAX_DIM >= 3
+    case 3:
+      return
+        create_partition_on_axes<3,3>(ctx, runtime, IndexSpaceT<3>(is), dims);
+      break;
+#endif
+    default:
+      assert(false);
+      break;
+    }
+    break;
+#endif
+#if MAX_DIM >= 4
+  case 4:
+    switch (dims.size()) {
+#if MAX_DIM >= 1
+    case 1:
+      return
+        create_partition_on_axes<4,1>(ctx, runtime, IndexSpaceT<4>(is), dims);
+      break;
+#endif
+#if MAX_DIM >= 2
+    case 2:
+      return
+        create_partition_on_axes<4,2>(ctx, runtime, IndexSpaceT<4>(is), dims);
+      break;
+#endif
+#if MAX_DIM >= 3
+    case 3:
+      return
+        create_partition_on_axes<4,3>(ctx, runtime, IndexSpaceT<4>(is), dims);
+      break;
+#endif
+#if MAX_DIM >= 4
+    case 4:
+      return
+        create_partition_on_axes<4,4>(ctx, runtime, IndexSpaceT<4>(is), dims);
+      break;
+#endif
+    default:
+      assert(false);
+      break;
+    }
+    break;
+#endif
+  default:
+    break;
+  }
+}
+
+
 void
 register_tasks(Runtime* runtime) {
   TableReadTask::register_task(runtime);
