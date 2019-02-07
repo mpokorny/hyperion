@@ -83,6 +83,7 @@ endif()
 #------------------------------------------------------------------------------#
 
 list(APPEND LEGMS_SRC
+  legms_c.h
   Grids_c.cc
   Grids_c.h
   Grids.h
