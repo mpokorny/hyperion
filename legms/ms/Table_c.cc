@@ -72,6 +72,16 @@ table_num_rows(table_t table) {
 }
 
 column_partition_t
+table_row_block_partition(table_t table, size_t block_length) {
+  return wrap(unwrap(table)->row_block_partition(block_length));
+}
+
+column_partition_t
+table_all_rows_partition(table_t table) {
+  return wrap(unwrap(table)->row_block_partition(std::nullopt));
+}
+
+column_partition_t
 table_row_partition(
   table_t table,
   column_row_number_t** rowp,

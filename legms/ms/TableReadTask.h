@@ -54,14 +54,7 @@ public:
       std::back_inserter(m_columns),
       [table](const auto& nm) { return table->column(nm); });
 
-    {
-      auto nr = table->num_rows();
-      auto bl = block_length.value_or(nr);
-      std::vector<std::vector<Column::row_number_t>> rowp((nr + bl - 1) / bl);
-      for (Column::row_number_t i = 0; i < nr; ++i)
-        rowp[i / bl].push_back(i);
-      m_blockp = table->row_partition(rowp, false, true);
-    }
+    m_blockp = table->row_block_partition(block_length);
 
     casacore::Table tb(
       casacore::String(table_path),

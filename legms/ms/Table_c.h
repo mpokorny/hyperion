@@ -41,6 +41,12 @@ column_row_number_t
 table_num_rows(table_t table);
 
 column_partition_t
+table_row_block_partition(table_t table, size_t block_length);
+
+column_partition_t
+table_all_rows_partition(table_t table);
+
+column_partition_t
 table_row_partition(
   table_t table,
   // NULL-terminated array of vectors; first element

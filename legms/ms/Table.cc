@@ -5,6 +5,16 @@ using namespace legms;
 using namespace legms::ms;
 using namespace std;
 
+std::unique_ptr<ColumnPartition>
+Table::row_block_partition(std::optional<size_t> block_length) const {
+  auto nr = num_rows();
+  auto bl = block_length.value_or(nr);
+  std::vector<std::vector<Column::row_number_t>> rowp((nr + bl - 1) / bl);
+  for (Column::row_number_t i = 0; i < nr; ++i)
+    rowp[i / bl].push_back(i);
+  return row_partition(rowp, false, true);
+}
+
 optional<Legion::coord_t>
 Table::find_color(
   const vector<vector<Column::row_number_t>>& rowp,

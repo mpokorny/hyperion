@@ -167,6 +167,9 @@ public:
     bool include_unselected = false,
     bool sorted_selections = false) const = 0;
 
+  std::unique_ptr<ColumnPartition>
+  row_block_partition(std::optional<size_t> block_length = std::nullopt) const;
+
   Legion::Context&
   context() const {
     return m_context;
