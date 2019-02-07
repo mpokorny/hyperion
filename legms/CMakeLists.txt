@@ -93,29 +93,29 @@ list(APPEND LEGMS_SRC
   utility.h
   utility_c.cc
   utility_c.h
-  ms/ColumnBuilder.h
-  ms/Column.cc
-  ms/Column.h
-  ms/Column_c.cc
-  ms/Column_c.h
-  ms/ColumnPartition_c.cc
-  ms/ColumnPartition_c.h
-  ms/c_util.h
-  ms/MSTable.cc
-  ms/MSTable.h
-  ms/MSTable_c.cc
-  ms/MSTable_c.h
-  ms/TableBuilder.h
-  ms/Table.cc
-  ms/Table.h
-  ms/Table_c.cc
-  ms/Table_c.h
-  ms/TableReadTask.cc
-  ms/TableReadTask.h
-  ms/TableReadTask_c.cc
-  ms/TableReadTask_c.h
-  ms/WithKeywordsBuilder.h
-  ms/WithKeywords.h)
+  ColumnBuilder.h
+  Column.cc
+  Column.h
+  Column_c.cc
+  Column_c.h
+  ColumnPartition_c.cc
+  ColumnPartition_c.h
+  c_util.h
+  MSTable.cc
+  MSTable.h
+  MSTable_c.cc
+  MSTable_c.h
+  TableBuilder.h
+  Table.cc
+  Table.h
+  Table_c.cc
+  Table_c.h
+  TableReadTask.cc
+  TableReadTask.h
+  TableReadTask_c.cc
+  TableReadTask_c.h
+  WithKeywordsBuilder.h
+  WithKeywords.h)
 
 set(LEGMS_INCLUDE LEGMS_SRC)
 list(FILTER LEGMS_INCLUDE INCLUDE REGEX ".*\.h")
