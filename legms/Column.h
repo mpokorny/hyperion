@@ -79,6 +79,9 @@ public:
   }
 
   virtual std::unique_ptr<ColumnPartition>
+  partition_on_axes(const std::vector<int>& axes) const = 0;
+
+  virtual std::unique_ptr<ColumnPartition>
   projected_column_partition(const ColumnPartition* cp) const = 0;
 
   static constexpr Legion::FieldID value_fid = 0;
@@ -190,6 +193,31 @@ public:
   const std::vector<D>&
   axes() const {
     return m_axes;
+  }
+
+  std::unique_ptr<ColumnPartition>
+  partition_on_axes(const std::vector<int>& is) const override {
+    std::vector<D> ds;
+    ds.reserve(is.size());
+    std::transform(
+      is.begin(),
+      is.end(),
+      std::back_inserter(ds),
+      [](auto& i) { return static_cast<D>(i); });
+    return partition_on_axes(ds);
+  }
+
+  std::unique_ptr<ColumnPartition>
+  partition_on_axes(const std::vector<D>& ds) const {
+    return std::make_unique<ColumnPartitionT<D>>(
+      m_context,
+      m_runtime,
+      create_partition_on_axes(
+        m_context,
+        m_runtime,
+        index_space(),
+        dimensions_map(ds, axes())),
+      ds);
   }
 
   std::unique_ptr<ColumnPartition>

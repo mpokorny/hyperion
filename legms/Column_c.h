@@ -31,6 +31,12 @@ legion_logical_region_t
 column_logical_region(column_t column);
 
 column_partition_t
+column_partition_on_axes(
+  column_t column,
+  /* -1-terminated axis vector */
+  const int* axes);
+
+column_partition_t
 column_projected_column_partition(
   column_t column,
   column_partition_t column_partition);

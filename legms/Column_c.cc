@@ -1,3 +1,5 @@
+#include <vector>
+
 #include "Column_c.h"
 #include "c_util.h"
 
@@ -34,6 +36,14 @@ column_index_space(column_t column) {
 legion_logical_region_t
 column_logical_region(column_t column) {
   return Legion::CObjectWrapper::wrap(unwrap(column)->logical_region());
+}
+
+column_partition_t
+column_partition_on_axes(column_t column, const int* axes) {
+  std::vector<int> ax;
+  while (*axes != -1)
+    ax.push_back(*axes++);
+  return wrap(unwrap(column)->partition_on_axes(ax));
 }
 
 column_partition_t
