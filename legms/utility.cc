@@ -1,3 +1,5 @@
+#include<algorithm>
+
 #include "utility.h"
 #include "Column.h"
 #include "TableReadTask.h"
@@ -120,7 +122,7 @@ pipt_impl(
 
   const ProjectedIndexPartitionTask::args* targs =
     static_cast<const ProjectedIndexPartitionTask::args*>(task->args);
-  Legion::Rect<PRJDIM> bounds = targs->bounds;
+  Rect<PRJDIM> bounds = targs->bounds;
 
   const FieldAccessor<
     WRITE_DISCARD,
@@ -307,8 +309,10 @@ projected_index_partition(
     return IndexPartition::NO_PART;
 
   switch (ip.get_dim()) {
+#if MAX_DIM >= 1
   case 1:
     switch (prj_is.get_dim()) {
+#if MAX_DIM >= 1
     case 1:
       return
         projected_index_partition(
@@ -318,6 +322,8 @@ projected_index_partition(
           IndexSpaceT<1>(prj_is),
           {dmap[0]});
       break;
+#endif
+#if MAX_DIM >= 2
     case 2:
       return
         projected_index_partition(
@@ -327,6 +333,8 @@ projected_index_partition(
           IndexSpaceT<2>(prj_is),
           {dmap[0], dmap[1]});
       break;
+#endif
+#if MAX_DIM >= 3
     case 3:
       return
         projected_index_partition(
@@ -336,14 +344,28 @@ projected_index_partition(
           IndexSpaceT<3>(prj_is),
           {dmap[0], dmap[1], dmap[2]});
       break;
+#endif
+#if MAX_DIM >= 4
+    case 4:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<1>(ip),
+          IndexSpaceT<4>(prj_is),
+          {dmap[0], dmap[1], dmap[2], dmap[3]});
+      break;
+#endif
     default:
       assert(false);
       break;
     }
     break;
-
+#endif
+#if MAX_DIM >= 2
   case 2:
     switch (prj_is.get_dim()) {
+#if MAX_DIM >= 1
     case 1:
       return
         projected_index_partition(
@@ -353,6 +375,8 @@ projected_index_partition(
           IndexSpaceT<1>(prj_is),
           {dmap[0]});
       break;
+#endif
+#if MAX_DIM >= 2
     case 2:
       return
         projected_index_partition(
@@ -362,6 +386,8 @@ projected_index_partition(
           IndexSpaceT<2>(prj_is),
           {dmap[0], dmap[1]});
       break;
+#endif
+#if MAX_DIM >= 3
     case 3:
       return
         projected_index_partition(
@@ -371,14 +397,28 @@ projected_index_partition(
           IndexSpaceT<3>(prj_is),
           {dmap[0], dmap[1], dmap[2]});
       break;
+#endif
+#if MAX_DIM >= 4
+    case 4:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<2>(ip),
+          IndexSpaceT<4>(prj_is),
+          {dmap[0], dmap[1], dmap[2], dmap[3]});
+      break;
+#endif
     default:
       assert(false);
       break;
     }
     break;
-
+#endif
+#if MAX_DIM >= 3
   case 3:
     switch (prj_is.get_dim()) {
+#if MAX_DIM >= 1
     case 1:
       return
         projected_index_partition(
@@ -388,6 +428,8 @@ projected_index_partition(
           IndexSpaceT<1>(prj_is),
           {dmap[0]});
       break;
+#endif
+#if MAX_DIM >= 2
     case 2:
       return
         projected_index_partition(
@@ -397,6 +439,8 @@ projected_index_partition(
           IndexSpaceT<2>(prj_is),
           {dmap[0], dmap[1]});
       break;
+#endif
+#if MAX_DIM >= 3
     case 3:
       return
         projected_index_partition(
@@ -406,11 +450,77 @@ projected_index_partition(
           IndexSpaceT<3>(prj_is),
           {dmap[0], dmap[1], dmap[2]});
       break;
+#endif
+#if MAX_DIM >= 4
+    case 4:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<3>(ip),
+          IndexSpaceT<4>(prj_is),
+          {dmap[0], dmap[1], dmap[2], dmap[3]});
+      break;
+#endif
     default:
       assert(false);
       break;
     }
     break;
+#endif
+#if MAX_DIM >= 4
+  case 4:
+    switch (prj_is.get_dim()) {
+#if MAX_DIM >= 1
+    case 1:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<4>(ip),
+          IndexSpaceT<1>(prj_is),
+          {dmap[0]});
+      break;
+#endif
+#if MAX_DIM >= 2
+    case 2:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<4>(ip),
+          IndexSpaceT<2>(prj_is),
+          {dmap[0], dmap[1]});
+      break;
+#endif
+#if MAX_DIM >= 3
+    case 3:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<4>(ip),
+          IndexSpaceT<3>(prj_is),
+          {dmap[0], dmap[1], dmap[2]});
+      break;
+#endif
+#if MAX_DIM >= 4
+    case 4:
+      return
+        projected_index_partition(
+          ctx,
+          runtime,
+          IndexPartitionT<4>(ip),
+          IndexSpaceT<4>(prj_is),
+          {dmap[0], dmap[1], dmap[2], dmap[3]});
+      break;
+#endif
+    default:
+      assert(false);
+      break;
+    }
+    break;
+#endif
   default:
     assert(false);
     break;
