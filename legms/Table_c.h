@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_TABLE_C_H_
-#define LEGMS_MS_TABLE_C_H_
+#ifndef LEGMS_TABLE_C_H_
+#define LEGMS_TABLE_C_H_
 
 #include "legion/legion_c.h"
 #include "Column_c.h"
@@ -70,7 +70,7 @@ table_from_ms(
 }
 #endif
 
-#endif /* LEGMS_MS_TABLE_C_H_ */
+#endif /* LEGMS_TABLE_C_H_ */
 
 // Local Variables:
 // mode: c

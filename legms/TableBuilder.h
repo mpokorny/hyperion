@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_TABLE_BUILDER_H_
-#define LEGMS_MS_TABLE_BUILDER_H_
+#ifndef LEGMS_TABLE_BUILDER_H_
+#define LEGMS_TABLE_BUILDER_H_
 
 #include <algorithm>
 #include <cassert>
@@ -23,7 +23,6 @@
 #include "MSTable.h"
 
 namespace legms {
-namespace ms {
 
 template <typename D>
 class TableT;
@@ -389,10 +388,9 @@ struct TableBuilder {
   }
 };
 
-} // end namespace ms
 } // end namespace legms
 
-#endif // LEGMS_MS_TABLE_BUILDER_H_
+#endif // LEGMS_TABLE_BUILDER_H_
 
 // Local Variables:
 // mode: c++

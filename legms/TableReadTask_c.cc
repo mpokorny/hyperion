@@ -4,8 +4,8 @@
 
 #include "legion/legion_c_util.h"
 
-using namespace legms::ms;
-using namespace legms::ms::CObjectWrapper;
+using namespace legms;
+using namespace legms::CObjectWrapper;
 
 static const char**
 find_null_ptr_value(const char** column_names) {

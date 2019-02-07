@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_UTILITY_H_
-#define LEGMS_MS_UTILITY_H_
+#ifndef LEGMS_UTILITY_H_
+#define LEGMS_UTILITY_H_
 
 #include <algorithm>
 #include <array>
@@ -409,7 +409,7 @@ register_tasks(Legion::Runtime* runtime);
 
 } // end namespace legms
 
-#endif // LEGMS_MS_UTILITY_H_
+#endif // LEGMS_UTILITY_H_
 
 // Local Variables:
 // mode: c++

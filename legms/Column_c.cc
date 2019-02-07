@@ -3,8 +3,8 @@
 
 #include "legion/legion_c_util.h"
 
-using namespace legms::ms;
-using namespace legms::ms::CObjectWrapper;
+using namespace legms;
+using namespace legms::CObjectWrapper;
 
 const char *
 column_name(column_t column) {

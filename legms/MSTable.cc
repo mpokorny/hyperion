@@ -4,7 +4,7 @@
 #include <mutex>
 #include <type_traits>
 
-using namespace legms::ms;
+using namespace legms;
 
 template <MSTables T, int N>
 inline std::enable_if_t<(N == 0)>

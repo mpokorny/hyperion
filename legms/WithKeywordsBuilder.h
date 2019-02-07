@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_WITH_KEYWORDS_BUILDER_H_
-#define LEGMS_MS_WITH_KEYWORDS_BUILDER_H_
+#ifndef LEGMS_WITH_KEYWORDS_BUILDER_H_
+#define LEGMS_WITH_KEYWORDS_BUILDER_H_
 
 #include <string>
 #include <tuple>
@@ -8,7 +8,6 @@
 #include <casacore/casa/Utilities/DataType.h>
 
 namespace legms {
-namespace ms {
 
 class WithKeywordsBuilder {
 public:
@@ -31,11 +30,9 @@ private:
 
 };
 
-
-} // end namespace ms
 } // end namespace legms
 
-#endif // LEGMS_MS_WITH_KEYWORDS_BUILDER_H_
+#endif // LEGMS_WITH_KEYWORDS_BUILDER_H_
 
 // Local Variables:
 // mode: c++

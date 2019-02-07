@@ -2,7 +2,6 @@
 #include "Table.h"
 
 using namespace legms;
-using namespace legms::ms;
 using namespace std;
 
 std::unique_ptr<ColumnPartition>
@@ -50,7 +49,7 @@ Table::from_ms(
 #define FROM_MS_TABLE(N)                                \
   do {                                                  \
     if (table_name == MSTable<MSTables::N>::name)       \
-      return legms::ms:: template from_ms<MSTables::N>( \
+      return legms:: template from_ms<MSTables::N>( \
         ctx, runtime, path, column_selections);         \
   } while (0)
 
@@ -74,7 +73,7 @@ Table::from_ms(
   FROM_MS_TABLE(WEATHER);
   // try to read as main table
   return
-    legms::ms:: template from_ms<MSTables::MAIN>(
+    legms:: template from_ms<MSTables::MAIN>(
       ctx,
       runtime,
       path,

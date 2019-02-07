@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_COLUMN_H_
-#define LEGMS_MS_COLUMN_H_
+#ifndef LEGMS_COLUMN_H_
+#define LEGMS_COLUMN_H_
 
 #include <cassert>
 #include <functional>
@@ -19,7 +19,6 @@
 #include "ColumnPartition.h"
 
 namespace legms {
-namespace ms {
 
 class Column
   : public WithKeywords {
@@ -572,10 +571,9 @@ private:
   std::vector<D> m_axes;
 };
 
-} // end namespace ms
 } // end namespace legms
 
-#endif // LEGMS_MS_COLUMN_H_
+#endif // LEGMS_COLUMN_H_
 
 // Local Variables:
 // mode: c++

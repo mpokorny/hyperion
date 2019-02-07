@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_TABLE_H_
-#define LEGMS_MS_TABLE_H_
+#ifndef LEGMS_TABLE_H_
+#define LEGMS_TABLE_H_
 
 #include <algorithm>
 #include <cassert>
@@ -21,7 +21,6 @@
 #include "ColumnPartition.h"
 
 namespace legms {
-namespace ms {
 
 class Table
   : public WithKeywords {
@@ -502,10 +501,9 @@ from_ms(
       builder.keywords());
 }
 
-} // end namespace ms
 } // end namespace legms
 
-#endif // LEGMS_MS_TABLE_H_
+#endif // LEGMS_TABLE_H_
 
 // Local Variables:
 // mode: c++

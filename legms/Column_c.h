@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_COLUMN_C_H_
-#define LEGMS_MS_COLUMN_C_H_
+#ifndef LEGMS_COLUMN_C_H_
+#define LEGMS_COLUMN_C_H_
 
 #include "legion/legion_c.h"
 
@@ -48,7 +48,7 @@ column_register_tasks(legion_runtime_t runtime);
 }
 #endif
 
-#endif // LEGMS_MS_COLUMN_C_H_
+#endif // LEGMS_COLUMN_C_H_
 
 // Local Variables:
 // mode: c

@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_C_UTIL_H_
-#define LEGMS_MS_C_UTIL_H_
+#ifndef LEGMS_C_UTIL_H_
+#define LEGMS_C_UTIL_H_
 
 #include <memory>
 
@@ -11,7 +11,6 @@
 #include "ColumnPartition_c.h"
 
 namespace legms {
-namespace ms {
 namespace CObjectWrapper {
 
 template <typename Wrapper>
@@ -187,9 +186,8 @@ destroy(Wrapper wrapper) {
   __func__(weather);
 
 }
-}
 
-#endif // LEGMS_MS_C_UTIL_H_
+#endif // LEGMS_C_UTIL_H_
 
 // Local Variables:
 // mode: c++

@@ -3,8 +3,8 @@
 
 #include "legion/legion_c_util.h"
 
-using namespace legms::ms;
-using namespace legms::ms::CObjectWrapper;
+using namespace legms;
+using namespace legms::CObjectWrapper;
 
 legion_index_partition_t
 column_partition_index_partition(column_partition_t column_partition) {

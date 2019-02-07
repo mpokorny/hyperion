@@ -8,7 +8,7 @@
 #include <cstring>
 #include <mutex>
 
-using namespace legms::ms;
+using namespace legms;
 
 #define TABLE_FUNCTION_DEFNS(T, t)                                      \
 const char*                                                             \

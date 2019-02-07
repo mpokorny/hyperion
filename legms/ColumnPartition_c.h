@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_COLUMN_PARTITION_C_H_
-#define LEGMS_MS_COLUMN_PARTITION_C_H_
+#ifndef LEGMS_COLUMN_PARTITION_C_H_
+#define LEGMS_COLUMN_PARTITION_C_H_
 
 #include "legion/legion_c.h"
 
@@ -25,7 +25,7 @@ column_partition_destroy(column_partition_t column_partition);
 }
 #endif
 
-#endif // LEGMS_MS_COLUMN_PARTITION_C_H_
+#endif // LEGMS_COLUMN_PARTITION_C_H_
 
 // Local Variables:
 // mode: c

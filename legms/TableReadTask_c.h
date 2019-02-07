@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_TABLE_READ_TASK_C_H_
-#define LEGMS_MS_TABLE_READ_TASK_C_H_
+#ifndef LEGMS_TABLE_READ_TASK_C_H_
+#define LEGMS_TABLE_READ_TASK_C_H_
 
 #include "legion/legion_c.h"
 #include "Table_c.h"
@@ -30,7 +30,7 @@ table_read_task_register(legion_runtime_t runtime);
 }
 #endif
 
-#endif // LEGMS_MS_TABLE_READ_TASK_C_H_
+#endif // LEGMS_TABLE_READ_TASK_C_H_
 
 // Local Variables:
 // mode: c

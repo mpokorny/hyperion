@@ -7,8 +7,8 @@
 #include <cstring>
 #include <memory>
 
-using namespace legms::ms;
-using namespace legms::ms::CObjectWrapper;
+using namespace legms;
+using namespace legms::CObjectWrapper;
 
 const char*
 table_name(table_t table) {

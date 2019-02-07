@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_WITH_KEYWORDS_H_
-#define LEGMS_MS_WITH_KEYWORDS_H_
+#ifndef LEGMS_WITH_KEYWORDS_H_
+#define LEGMS_WITH_KEYWORDS_H_
 
 #include <algorithm>
 #include <string>
@@ -13,7 +13,6 @@
 #include "utility.h"
 
 namespace legms {
-namespace ms {
 
 class WithKeywords {
 public:
@@ -59,11 +58,9 @@ private:
 
 };
 
-
-} // end namespace ms
 } // end namespace legms
 
-#endif // LEGMS_MS_WITH_KEYWORDS_H_
+#endif // LEGMS_WITH_KEYWORDS_H_
 
 // Local Variables:
 // mode: c++

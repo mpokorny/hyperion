@@ -7,7 +7,6 @@
 #include "legion.h"
 
 namespace legms {
-namespace ms {
 
 class ColumnPartition {
 public:
@@ -34,10 +33,10 @@ protected:
     Legion::Runtime* runtime,
     const Legion::IndexPartition& ip,
     const std::vector<int>& axes)
-  : m_context(ctx)
-  , m_runtime(runtime)
-  , m_index_partition(ip)
-  , m_axes(axes) {
+    : m_context(ctx)
+    , m_runtime(runtime)
+    , m_index_partition(ip)
+    , m_axes(axes) {
 
     auto is_dim = runtime->get_parent_index_space(ip).get_dim();
     assert(static_cast<size_t>(is_dim) == axes.size());
@@ -85,7 +84,6 @@ public:
   }
 };
 
-} // end namespace ms
 } // end namespace legms
 
 #endif // LEGMS_COLUMN_PARTITION_H_

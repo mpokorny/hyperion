@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_MS_TABLE_C_H_
-#define LEGMS_MS_MS_TABLE_C_H_
+#ifndef LEGMS_MS_TABLE_C_H_
+#define LEGMS_MS_TABLE_C_H_
 
 #include "c_util.h"
 
@@ -35,7 +35,7 @@ FOREACH_MS_TABLE_t(TABLE_FUNCTION_DECLS);
 }
 #endif
 
-#endif // LEGMS_MS_MS_TABLE_C_H_
+#endif // LEGMS_MS_TABLE_C_H_
 
 // Local Variables:
 // mode: c

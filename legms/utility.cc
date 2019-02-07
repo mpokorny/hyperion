@@ -1,10 +1,9 @@
 #include "utility.h"
-#include "ms/Column.h"
-#include "ms/TableReadTask.h"
+#include "Column.h"
+#include "TableReadTask.h"
 #include "tree_index_space.h"
 
 using namespace legms;
-using namespace legms::ms;
 using namespace Legion;
 
 std::once_flag SerdezManager::initialized;

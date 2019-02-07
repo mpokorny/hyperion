@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_MS_TABLE_H_
-#define LEGMS_MS_MS_TABLE_H_
+#ifndef LEGMS_MS_TABLE_H_
+#define LEGMS_MS_TABLE_H_
 
 #include <memory>
 #include <string>
@@ -7,7 +7,6 @@
 #include <vector>
 
 namespace legms {
-namespace ms {
 
 enum struct MSTables {
   MAIN,
@@ -504,10 +503,9 @@ MS_AXIS_NAME(WEATHER, row);
 
 #undef MS_AXIS_NAME
 
-} // end namespace ms
 } // end namespace legms
 
-#endif // LEGMS_MS_MS_TABLE_H_
+#endif // LEGMS_MS_TABLE_H_
 
 // Local Variables:
 // mode: c++

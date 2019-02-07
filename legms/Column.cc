@@ -4,7 +4,6 @@
 #include "Table.h"
 
 using namespace legms;
-using namespace legms::ms;
 
 using namespace Legion;
 

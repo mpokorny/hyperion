@@ -1,7 +1,7 @@
 #include <algorithm>
 #include "TableReadTask.h"
 
-using namespace legms::ms;
+using namespace legms;
 
 using namespace Legion;
 

@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_TABLE_READ_TASK_H_
-#define LEGMS_MS_TABLE_READ_TASK_H_
+#ifndef LEGMS_TABLE_READ_TASK_H_
+#define LEGMS_TABLE_READ_TASK_H_
 #include <array>
 #include <cstring>
 #include <memory>
@@ -17,7 +17,6 @@
 #include "Column.h"
 
 namespace legms {
-namespace ms {
 
 struct TableReadTaskArgs {
   char table_path[80];
@@ -83,19 +82,19 @@ public:
     Legion::DomainT<DIM> reg_domain,
     const std::vector<Legion::PhysicalRegion>& regions) {
 
-#define READ_COL(dt)                                                    \
-    casacore::DataType::Tp##dt:                                         \
-      switch (col_desc.trueDataType()) {                                \
-      case casacore::DataType::Tp##dt:                                  \
-        read_scalar_column<DIM, casacore::DataType::Tp##dt>(            \
-          table, col_desc, reg_domain, regions);                        \
-        break;                                                          \
-      case casacore::DataType::TpArray##dt:                             \
-        read_array_column<DIM, casacore::DataType::Tp##dt>(             \
-          table, col_desc, reg_domain, regions);                        \
-        break;                                                          \
-      default:                                                          \
-        assert(false);                                                  \
+#define READ_COL(dt)                                          \
+    casacore::DataType::Tp##dt:                               \
+      switch (col_desc.trueDataType()) {                      \
+      case casacore::DataType::Tp##dt:                        \
+        read_scalar_column<DIM, casacore::DataType::Tp##dt>(  \
+          table, col_desc, reg_domain, regions);              \
+        break;                                                \
+      case casacore::DataType::TpArray##dt:                   \
+        read_array_column<DIM, casacore::DataType::Tp##dt>(   \
+          table, col_desc, reg_domain, regions);              \
+        break;                                                \
+      default:                                                \
+        assert(false);                                        \
       }
 
     switch (lr_datatype) {
@@ -345,10 +344,9 @@ private:
   }
 };
 
-} // end namespace ms
 } // end namespace legms
 
-#endif // LEGMS_MS_TABLE_READ_TASK_H_
+#endif // LEGMS_TABLE_READ_TASK_H_
 
 // Local Variables:
 // mode: c++

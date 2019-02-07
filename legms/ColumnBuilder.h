@@ -1,5 +1,5 @@
-#ifndef LEGMS_MS_COLUMN_BUILDER_H_
-#define LEGMS_MS_COLUMN_BUILDER_H_
+#ifndef LEGMS_COLUMN_BUILDER_H_
+#define LEGMS_COLUMN_BUILDER_H_
 
 #include <any>
 #include <cassert>
@@ -18,7 +18,6 @@
 #include "IndexTree.h"
 
 namespace legms {
-namespace ms {
 
 template <typename D>
 class ColumnBuilder
@@ -131,27 +130,27 @@ class ScalarColumnBuilder
   : public ColumnBuilder<D> {
 public:
 
-    ScalarColumnBuilder(
-      const std::string& name,
-      casacore::DataType datatype,
-      const std::vector<D>& axes,
-      const IndexTreeL& row_index_pattern)
-      : ColumnBuilder<D>(name, datatype, axes, row_index_pattern) {
+  ScalarColumnBuilder(
+    const std::string& name,
+    casacore::DataType datatype,
+    const std::vector<D>& axes,
+    const IndexTreeL& row_index_pattern)
+    : ColumnBuilder<D>(name, datatype, axes, row_index_pattern) {
 
-      assert(axes.size() == row_index_pattern.rank().value());
-    }
+    assert(axes.size() == row_index_pattern.rank().value());
+  }
 
   template <typename T>
   static auto
   generator(const std::string& name) {
     return
       [=](const std::vector<D>& axes, const IndexTreeL& row_index_pattern) {
-      return std::make_unique<ScalarColumnBuilder<D>>(
-        name,
-        ValueType<T>::DataType,
-        axes,
-        row_index_pattern);
-    };
+        return std::make_unique<ScalarColumnBuilder<D>>(
+          name,
+          ValueType<T>::DataType,
+          axes,
+          row_index_pattern);
+      };
   }
 
   virtual ~ScalarColumnBuilder() {}
@@ -218,10 +217,9 @@ private:
   std::function<std::array<size_t, ARRAYDIM>(const std::any&)> m_element_shape;
 };
 
-} // end namespace ms
 } // end namespace legms
 
-#endif // LEGMS_MS_COLUMN_BUILDER_H_
+#endif // LEGMS_COLUMN_BUILDER_H_
 
 // Local Variables:
 // mode: c++
