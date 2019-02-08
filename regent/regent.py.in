@@ -59,8 +59,7 @@ include_path = (
      if 'INCLUDE_PATH' in os.environ else []) +
     [os.path.join(legion_dir, 'include'),
      os.path.join(legion_dir, 'include', 'regent'),
-     os.path.join(legms_dir, 'include')
-])
+     legms_dir])
 if cuda_include_dir is not None:
     include_path.append(cuda_include_dir)
 
