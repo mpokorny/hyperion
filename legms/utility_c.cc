@@ -1,5 +1,6 @@
 #include "utility_c.h"
 #include "utility.h"
+#include "legion/legion_c_util.h"
 #include "legion.h"
 
 void

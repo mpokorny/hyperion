@@ -1,7 +1,7 @@
 #ifndef LEGMS_GRIDS_C_H_
 #define LEGMS_GRIDS_C_H_
 
-#include "legion/legion_c_util.h"
+#include "legion/legion_c.h"
 
 #ifdef __cplusplus
 extern "C" {

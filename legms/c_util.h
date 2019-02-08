@@ -1,12 +1,14 @@
 #ifndef LEGMS_C_UTIL_H_
 #define LEGMS_C_UTIL_H_
 
+#include "Table_c.h"
+#include "Column_c.h"
+
+#ifdef __cplusplus
 #include <memory>
 
 #include "Table.h"
-#include "Table_c.h"
 #include "Column.h"
-#include "Column_c.h"
 #include "ColumnPartition.h"
 #include "ColumnPartition_c.h"
 
@@ -124,6 +126,8 @@ destroy(Wrapper wrapper) {
 }
 
 }
+}
+#endif // __cplusplus
 
 #define FOREACH_MS_TABLE_T(__func__)            \
   __func__(MAIN);                               \
@@ -184,8 +188,6 @@ destroy(Wrapper wrapper) {
   __func__(state);                              \
   __func__(syscal);                             \
   __func__(weather);
-
-}
 
 #endif // LEGMS_C_UTIL_H_
 
