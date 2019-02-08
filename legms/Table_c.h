@@ -50,7 +50,7 @@ column_partition_t
 table_row_partition(
   table_t table,
   // NULL-terminated array of vectors; first element
-  // of each vector is its length
+  // of each vector is its length -1
   column_row_number_t** rowp,
   int include_unselected,
   int sorted_selections);

@@ -33,7 +33,7 @@ column_logical_region(column_t column);
 column_partition_t
 column_partition_on_axes(
   column_t column,
-  /* -1-terminated axis vector */
+  /* first element of axes is the vector's length -1 */
   const int* axes);
 
 column_partition_t

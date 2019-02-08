@@ -40,9 +40,9 @@ column_logical_region(column_t column) {
 
 column_partition_t
 column_partition_on_axes(column_t column, const int* axes) {
-  std::vector<int> ax;
-  while (*axes != -1)
-    ax.push_back(*axes++);
+  std::vector<int> ax(*axes);
+  for (auto i = 0; i < *axes; ++i)
+    ax[i] = axes[i + 1];
   return wrap(unwrap(column)->partition_on_axes(ax));
 }
 
