@@ -2,20 +2,25 @@ import "regent"
 
 local c = regentlib.c
 
-local mstable = terralib.includec("Table_c.h")
-
+local utility = terralib.includec("utility_c.h")
 local grids = terralib.includec("Grids_c.h")
+local tab = terralib.includec("Table_c.h")
+local column = terralib.includec("Column_c.h")
+local mstable = terralib.includec("MSTable_c.h")
+local colpart = terralib.includec("ColumnPartion_c.h")
+local msread = terralib.includec("TableReadTask_c.h")
+terralib.linklibrary("liblegms")
 
 -- single precision complex value datatype
-local struct complexf() {
+struct complexf {
   real: float,
   imag: float
-}
+                }
 
 -- derived values indexed by row
 fspace derived_r {
   dphase: double[3],
-}
+                 }
 
 -- derived values indexed by row x channel
 fspace derived_rch {
@@ -24,7 +29,7 @@ fspace derived_rch {
   off: int[2],
   freq: float,
   channel: int
-}
+                   }
 
 -- derived values indexed by row x polarization
 fspace derived_rpol {
@@ -37,7 +42,7 @@ vis_t = complexf
 -- gridding convolution kernel
 ck_t = complexf
 
-local terra conv()
+--local terra conv()
 
 local main_columns = {}
 main_columns["DATA"] = 0
@@ -47,17 +52,6 @@ main_columns["ANTENNA1"] = 3
 main_columns["ANTENNA2"] = 4
 main_columns["DATA_DESC_ID"] = 5
 local num_main_columns = 6
-
--- UVW column data type
-uvw_t = float[3]
-
-task negate_uv(uvw: region(uvw_t))
-where reads writes(uvw) do
-    for p in uvw do
-      p[0] = -p[0]
-      p[1] = -p[1]
-    end
-end
 
 task rotate_uvw(uvw: region(uvw_t), dphase: region(float))
 where reads writes(uvw, dphase) do
@@ -70,44 +64,47 @@ end
 
 task main()
   -- main table
-  var ms_main
-  -- read MS blockwise
-  var main_is = table_index_space(ms_main)
-  var main_ip
+  var colnames: (&int8)[num_main_columns + 1]
+  colnames[main_columns.DATA] = "DATA"
+  colnames[main_columns.WEIGHT_SPECTRUM] = "WEIGHT_SPECTRUM"
+  colnames[main_columns.UVW ]= "UVW"
+  colnames[main_columns.ANTENNA1] = "ANTENNA1"
+  colnames[main_columns.ANTENNA2] = "ANTENNA2"
+  colnames[main_columns.DATA_DESC_ID] = "DATA_DESC_ID"
+  colnames[num_main_columns] = 0 -- NULL-value?
 
-  var ms_spw
+  var ms_main =
+    tab.table_from_ms(__context(), __runtime(), "FIXME", colnames)
+  -- initialize main table blockwise
+  msread.table_block_read_task("FIXME", ms_main, colnames, 10000)
 
-  -- initialize mapping from column index to name
-  var main_column_names: (&int8)[num_main_columns]
-  main_column_names[main_columns.DATA] = "DATA"
-  main_column_names[main_columns.WEIGHT_SPECTRUM] = "WEIGHT_SPECTRUM"
-  main_column_names[main_columns.UVW ]= "UVW"
-  main_column_names[main_columns.ANTENNA1] = "ANTENNA1"
-  main_column_names[main_columns.ANTENNA2] = "ANTENNA2"
-  main_column_names[main_columns.DATA_DESC_ID] = "DATA_DESC_ID"
-
-  --
-  -- logical regions (columns)
-  --
-  var main_lrs = table_logical_regions(ms_main, main_column_names)
+  var main_row_rank = tab.table_row_rank(ms_main)
+  var all_rows_cp = tab.table_all_rows_partition(ms_main)
+  var all_rows_ip = colpart.column_partition_index_partition(all_rows_cp)
+  var all_rows_is = all_rows_ip[all_rows_ip.colors[0]]
 
   --
-  -- index partitions
+  -- main table columns
   --
-  var main_ips = table_index_partitions(ms_main, main_ip, main_column_names)
-
-
-  --
-  -- logical partitions
-  --
-  var main_lps: legion_logical_partition_t[num_main_columns]
+  var main_cols: column.column_t[num_main_columns]
   for i = 0, num_main_columns do
-    main_lps[i]  =
-      c.legion_logical_partition_create(
-        __runtime(),
-        __context(),
-        main_lrs[i],
-        main_ips[i])
+    main_cols[i] = tab.table_column(ms_main, colnames[i])
+  end
+
+  --
+  -- column index spaces
+  --
+  var main_iss: c.legion_index_space_t[num_main_columns]
+  for i = 0, num_main_columns do
+    main_iss[i] = column.column_index_space(main_cols[i])
+  end
+
+  --
+  -- column logical regions
+  --
+  var main_lrs: c.legion_logical_region_t[num_main_columns]
+  for i = 0, num_main_columns do
+    main_lrs[i] = column.column_logical_region(main_cols[i])
   end
 
   --
@@ -117,8 +114,8 @@ task main()
   var u_max
   var v_min
   var v_max
-  var nch
-  var nsto
+  var nch = 64
+  var nsto = 4
   var grid_is =
     ispace(
       int4d,
@@ -127,8 +124,9 @@ task main()
 
   -- negate uv
   __demand(__parallel)
-  for i in main_ips[main_columns.UVW].colors do
-    negate_uv(main_lps[main_columns.UVW][i])
+  for i in all_rows_is do
+    main_lrs[main_columns.UVW][i][0] *= -1
+    main_lrs[main_columns.UVW][i][1] *= -1
   end
 
   __demand(__parallel)
@@ -191,8 +189,8 @@ task main()
     grid_is,
     block_size,
     halo_size,
-    &block_ip,
-    &halo_ip)
+      &block_ip,
+      &halo_ip)
 end
 
 regentlib.start(main)
