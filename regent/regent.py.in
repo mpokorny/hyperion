@@ -34,9 +34,11 @@ else:
     legion_dir = "@LEGION_DIR@"
 if 'LEGMS_DIR' in os.environ:
     legms_dir = os.path.realpath(os.environ['LEGMS_DIR'])
+    legms_include_dir = os.path.join(legms_dir, 'include')
+    legms_binary_dir = os.path.join(legms_dir, 'lib')
 else:
-    legms_dir = "@LEGMS_DIR@"
-#bindings_dir = os.path.join(os.path.dirname(runtime_dir), 'bindings', 'regent')
+    legms_include_dir = os.path.realpath('@LEGMS_SOURCE_DIR@')
+    legms_binary_dir = os.path.realpath('@LEGMS_BINARY_DIR@')
 
 # Find CUDA.
 if 'CUDA' in os.environ:
@@ -47,11 +49,6 @@ else:
     cuda_dir = None
 cuda_include_dir = os.path.join(cuda_dir, 'include') if cuda_dir is not None else None
 
-# Detect use of CMake.
-if 'USE_CMAKE' in os.environ:
-    cmake = os.environ['USE_CMAKE'] == '1'
-else:
-    cmake = False
 cmake_build_dir = os.path.realpath('build')
 
 include_path = (
@@ -59,7 +56,7 @@ include_path = (
      if 'INCLUDE_PATH' in os.environ else []) +
     [os.path.join(legion_dir, 'include'),
      os.path.join(legion_dir, 'include', 'regent'),
-     legms_dir])
+     legms_include_dir])
 if cuda_include_dir is not None:
     include_path.append(cuda_include_dir)
 
@@ -72,8 +69,8 @@ lib_path = (
      if LD_LIBRARY_PATH in os.environ else []) +
     [os.path.join(terra_dir, 'lib'),
      os.path.join(legion_dir, 'lib64'),
-     legms_dir] +
-    ([os.path.join(cmake_build_dir, 'lib')] if cmake else []))
+     legms_binary_dir,
+     os.path.join(cmake_build_dir, 'lib')])
 
 def regent(args, env = {}, **kwargs):
     terra_exe = os.path.join(terra_dir, 'terra')
@@ -98,10 +95,10 @@ def regent(args, env = {}, **kwargs):
 
     terra_env = {
         'TERRA_PATH': ';'.join(terra_path),
-        LD_LIBRARY_PATH: ':'.join(lib_path),
+        'LD_LIBRARY_PATH': ':'.join(lib_path),
         'INCLUDE_PATH': ';'.join(include_path),
         'LG_RT_DIR': os.path.join(legion_dir, 'include'),
-        'USE_CMAKE': '1' if cmake else '0',
+        'USE_CMAKE': '1',
         'CMAKE_BUILD_DIR': cmake_build_dir,
         'USE_RDIR': '1',
     }
