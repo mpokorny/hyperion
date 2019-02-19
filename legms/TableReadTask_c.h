@@ -9,13 +9,6 @@ extern "C" {
 #endif
 
 void
-table_read_task(
-  const char* path,
-  table_t table,
-  // NULL-terminated array of string pointers
-  const char** column_names);
-
-void
 table_block_read_task(
   const char* path,
   table_t table,

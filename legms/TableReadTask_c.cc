@@ -15,20 +15,6 @@ find_null_ptr_value(const char** column_names) {
 }
 
 void
-table_read_task(
-  const char* path,
-  table_t table,
-  const char** column_names) {
-
-  TableReadTask read_task(
-    path,
-    unwrap(table),
-    column_names,
-    find_null_ptr_value(column_names));
-  read_task.dispatch();
-}
-
-void
 table_block_read_task(
   const char* path,
   table_t table,

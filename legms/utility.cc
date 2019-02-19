@@ -8,7 +8,7 @@
 using namespace legms;
 using namespace Legion;
 
-std::once_flag SerdezManager::initialized;
+std::once_flag OpsManager::initialized;
 
 FieldID
 legms::add_field(
@@ -19,70 +19,19 @@ legms::add_field(
   FieldID result;
 
 #define ALLOC_FLD(tp)                           \
-  tp:                                           \
+  case tp:                                      \
     result = fa.allocate_field(                 \
       sizeof(DataType<tp>::ValueType),          \
       field_id,                                 \
-      DataType<tp>::serdez_id);
+      DataType<tp>::serdez_id);                 \
+    break;
 
   switch (datatype) {
-
-  case ALLOC_FLD(casacore::DataType::TpBool)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpChar)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpUChar)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpShort)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpUShort)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpInt)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpUInt)
-    break;
-
-  // case ALLOC_FLD(casacore::DataType::TpInt64)
-  //   break;
-
-  case ALLOC_FLD(casacore::DataType::TpFloat)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpDouble)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpComplex)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpDComplex)
-    break;
-
-  case ALLOC_FLD(casacore::DataType::TpString)
-    break;
-
-  case casacore::DataType::TpQuantity:
-    assert(false); // TODO: implement quantity-valued columns
-    break;
-
-  case casacore::DataType::TpRecord:
-    assert(false); // TODO: implement record-valued columns
-    break;
-
-  case casacore::DataType::TpTable:
-    assert(false); // TODO: implement table-valued columns
-    break;
-
+    FOREACH_DATATYPE(ALLOC_FLD);
   default:
     assert(false);
     break;
   }
-
 #undef ALLOC_FLD
 
   return result;
@@ -162,25 +111,25 @@ ProjectedIndexPartitionTask::base_impl(
   const args* targs = static_cast<const args*>(task->args);
   IndexSpace is = task->regions[0].region.get_index_space();
   switch (is.get_dim()) {
-#if MAX_DIM >= 1
+#if LEGMS_MAX_DIM >= 1
   case 1:
     switch (targs->prjdim) {
-#if MAX_DIM >= 1
+#if LEGMS_MAX_DIM >= 1
     case 1:
       ::pipt_impl<1, 1>(task, regions, ctx, runtime);
       break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
     case 2:
       ::pipt_impl<1, 2>(task, regions, ctx, runtime);
       break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
     case 3:
       ::pipt_impl<1, 3>(task, regions, ctx, runtime);
       break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
     case 4:
       ::pipt_impl<1, 4>(task, regions, ctx, runtime);
       break;
@@ -191,25 +140,25 @@ ProjectedIndexPartitionTask::base_impl(
     }
     break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
   case 2:
     switch (targs->prjdim) {
-#if MAX_DIM >= 1
+#if LEGMS_MAX_DIM >= 1
     case 1:
       ::pipt_impl<2, 1>(task, regions, ctx, runtime);
       break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
     case 2:
       ::pipt_impl<2, 2>(task, regions, ctx, runtime);
       break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
     case 3:
       ::pipt_impl<2, 3>(task, regions, ctx, runtime);
       break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
     case 4:
       ::pipt_impl<2, 4>(task, regions, ctx, runtime);
       break;
@@ -220,25 +169,25 @@ ProjectedIndexPartitionTask::base_impl(
     }
     break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
   case 3:
     switch (targs->prjdim) {
-#if MAX_DIM >= 1
+#if LEGMS_MAX_DIM >= 1
     case 1:
       ::pipt_impl<3, 1>(task, regions, ctx, runtime);
       break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
     case 2:
       ::pipt_impl<3, 2>(task, regions, ctx, runtime);
       break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
     case 3:
       ::pipt_impl<3, 3>(task, regions, ctx, runtime);
       break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
     case 4:
       ::pipt_impl<3, 4>(task, regions, ctx, runtime);
       break;
@@ -249,25 +198,25 @@ ProjectedIndexPartitionTask::base_impl(
     }
     break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
   case 4:
     switch (targs->prjdim) {
-#if MAX_DIM >= 1
+#if LEGMS_MAX_DIM >= 1
     case 1:
       ::pipt_impl<4, 1>(task, regions, ctx, runtime);
       break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
     case 2:
       ::pipt_impl<4, 2>(task, regions, ctx, runtime);
       break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
     case 3:
       ::pipt_impl<4, 3>(task, regions, ctx, runtime);
       break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
     case 4:
       ::pipt_impl<4, 4>(task, regions, ctx, runtime);
       break;
@@ -292,6 +241,7 @@ ProjectedIndexPartitionTask::register_task(Runtime* runtime) {
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
   registrar.set_leaf();
   registrar.set_idempotent();
+  registrar.set_replicable();
   runtime->register_task_variant<base_impl>(registrar);
 }
 
@@ -309,10 +259,10 @@ legms::projected_index_partition(
     return IndexPartition::NO_PART;
 
   switch (ip.get_dim()) {
-#if MAX_DIM >= 1
+#if LEGMS_MAX_DIM >= 1
   case 1:
     switch (prj_is.get_dim()) {
-#if MAX_DIM >= 1
+#if LEGMS_MAX_DIM >= 1
     case 1:
       return
         projected_index_partition(
@@ -323,7 +273,7 @@ legms::projected_index_partition(
           {dmap[0]});
       break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
     case 2:
       return
         projected_index_partition(
@@ -334,7 +284,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1]});
       break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
     case 3:
       return
         projected_index_partition(
@@ -345,7 +295,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1], dmap[2]});
       break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
     case 4:
       return
         projected_index_partition(
@@ -362,10 +312,10 @@ legms::projected_index_partition(
     }
     break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
   case 2:
     switch (prj_is.get_dim()) {
-#if MAX_DIM >= 1
+#if LEGMS_MAX_DIM >= 1
     case 1:
       return
         projected_index_partition(
@@ -376,7 +326,7 @@ legms::projected_index_partition(
           {dmap[0]});
       break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
     case 2:
       return
         projected_index_partition(
@@ -387,7 +337,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1]});
       break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
     case 3:
       return
         projected_index_partition(
@@ -398,7 +348,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1], dmap[2]});
       break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
     case 4:
       return
         projected_index_partition(
@@ -415,10 +365,10 @@ legms::projected_index_partition(
     }
     break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
   case 3:
     switch (prj_is.get_dim()) {
-#if MAX_DIM >= 1
+#if LEGMS_MAX_DIM >= 1
     case 1:
       return
         projected_index_partition(
@@ -429,7 +379,7 @@ legms::projected_index_partition(
           {dmap[0]});
       break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
     case 2:
       return
         projected_index_partition(
@@ -440,7 +390,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1]});
       break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
     case 3:
       return
         projected_index_partition(
@@ -451,7 +401,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1], dmap[2]});
       break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
     case 4:
       return
         projected_index_partition(
@@ -468,10 +418,10 @@ legms::projected_index_partition(
     }
     break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
   case 4:
     switch (prj_is.get_dim()) {
-#if MAX_DIM >= 1
+#if LEGMS_MAX_DIM >= 1
     case 1:
       return
         projected_index_partition(
@@ -482,7 +432,7 @@ legms::projected_index_partition(
           {dmap[0]});
       break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
     case 2:
       return
         projected_index_partition(
@@ -493,7 +443,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1]});
       break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
     case 3:
       return
         projected_index_partition(
@@ -504,7 +454,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1], dmap[2]});
       break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
     case 4:
       return
         projected_index_partition(
@@ -533,30 +483,38 @@ create_partition_on_axes(
   Context ctx,
   Runtime* runtime,
   IndexSpaceT<IS_DIM> is,
-  const std::vector<int>& dims) {
+  const std::vector<AxisPartition<int>>& parts) {
 
   Rect<IS_DIM> is_rect = runtime->get_index_space_domain(is);
 
   // partition color space
   Rect<PART_DIM> cs_rect;
   for (auto n = 0; n < PART_DIM; ++n) {
-    cs_rect.lo[n] = is_rect.lo[dims[n]];
-    cs_rect.hi[n] = is_rect.hi[dims[n]];
+    const auto& part = parts[n];
+    coord_t m =
+      ((is_rect.hi[part.dim] - is_rect.lo[part.dim] /*+ 1*/ - part.offset)
+       + part.stride /*- 1*/)
+      / part.stride;
+    cs_rect.lo[n] = 0;
+    cs_rect.hi[n] = m - 1;
   }
 
-  // transform matrix from partition color space to index space
+  // transform matrix from partition color space to index space delta
   Transform<IS_DIM, PART_DIM> transform;
   for (auto m = 0; m < IS_DIM; ++m)
     for (auto n = 0; n < PART_DIM; ++n)
       transform[m][n] = 0;
-  for (auto n = 0; n < PART_DIM; ++n)
-    transform[dims[n]][n] = 1;
+  for (auto n = 0; n < PART_DIM; ++n) {
+    const auto& part = parts[n];
+    transform[part.dim][n] = part.stride;
+  }
 
   // partition extent
   Rect<IS_DIM> extent = is_rect;
   for (auto n = 0; n < PART_DIM; ++n) {
-    extent.lo[dims[n]] = 0;
-    extent.hi[dims[n]] = 0;
+    const auto& part = parts[n];
+    extent.lo[part.dim] = part.offset + part.lo;
+    extent.hi[part.dim] = part.offset + part.hi;
   }
 
   IndexSpaceT<PART_DIM> cs = runtime->create_index_space(ctx, cs_rect);
@@ -571,25 +529,26 @@ legms::create_partition_on_axes(
   Context ctx,
   Runtime* runtime,
   IndexSpace is,
-  const std::vector<int>& dims) {
+  const std::vector<AxisPartition<int>>& parts) {
 
-  assert(has_unique_values(dims));
+  assert(has_unique_values(parts));
   assert(
     std::all_of(
-      dims.begin(),
-      dims.end(),
-      [nd=static_cast<int>(is.get_dim())](auto d) {
-        return 0 <= d && d < nd;
+      parts.begin(),
+      parts.end(),
+      [nd=static_cast<int>(is.get_dim())](auto& part) {
+        // TODO: support negative strides
+        return 0 <= part.dim && part.dim < nd && part.stride > 0;
       }));
 
   switch (is.get_dim()) {
-#if MAX_DIM >= 1
+#if LEGMS_MAX_DIM >= 1
   case 1:
-    switch (dims.size()) {
-#if MAX_DIM >= 1
+    switch (parts.size()) {
+#if LEGMS_MAX_DIM >= 1
     case 1:
       return
-        ::create_partition_on_axes<1,1>(ctx, runtime, IndexSpaceT<1>(is), dims);
+        ::create_partition_on_axes<1,1>(ctx, runtime, IndexSpaceT<1>(is), parts);
       break;
 #endif
     default:
@@ -598,19 +557,19 @@ legms::create_partition_on_axes(
     }
     break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
   case 2:
-    switch (dims.size()) {
-#if MAX_DIM >= 1
+    switch (parts.size()) {
+#if LEGMS_MAX_DIM >= 1
     case 1:
       return
-        ::create_partition_on_axes<2,1>(ctx, runtime, IndexSpaceT<2>(is), dims);
+        ::create_partition_on_axes<2,1>(ctx, runtime, IndexSpaceT<2>(is), parts);
       break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
     case 2:
       return
-        ::create_partition_on_axes<2,2>(ctx, runtime, IndexSpaceT<2>(is), dims);
+        ::create_partition_on_axes<2,2>(ctx, runtime, IndexSpaceT<2>(is), parts);
       break;
 #endif
     default:
@@ -619,25 +578,25 @@ legms::create_partition_on_axes(
     }
     break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
   case 3:
-    switch (dims.size()) {
-#if MAX_DIM >= 1
+    switch (parts.size()) {
+#if LEGMS_MAX_DIM >= 1
     case 1:
       return
-        ::create_partition_on_axes<3,1>(ctx, runtime, IndexSpaceT<3>(is), dims);
+        ::create_partition_on_axes<3,1>(ctx, runtime, IndexSpaceT<3>(is), parts);
       break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
     case 2:
       return
-        ::create_partition_on_axes<3,2>(ctx, runtime, IndexSpaceT<3>(is), dims);
+        ::create_partition_on_axes<3,2>(ctx, runtime, IndexSpaceT<3>(is), parts);
       break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
     case 3:
       return
-        ::create_partition_on_axes<3,3>(ctx, runtime, IndexSpaceT<3>(is), dims);
+        ::create_partition_on_axes<3,3>(ctx, runtime, IndexSpaceT<3>(is), parts);
       break;
 #endif
     default:
@@ -646,31 +605,31 @@ legms::create_partition_on_axes(
     }
     break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
   case 4:
-    switch (dims.size()) {
-#if MAX_DIM >= 1
+    switch (parts.size()) {
+#if LEGMS_MAX_DIM >= 1
     case 1:
       return
-        ::create_partition_on_axes<4,1>(ctx, runtime, IndexSpaceT<4>(is), dims);
+        ::create_partition_on_axes<4,1>(ctx, runtime, IndexSpaceT<4>(is), parts);
       break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
     case 2:
       return
-        ::create_partition_on_axes<4,2>(ctx, runtime, IndexSpaceT<4>(is), dims);
+        ::create_partition_on_axes<4,2>(ctx, runtime, IndexSpaceT<4>(is), parts);
       break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
     case 3:
       return
-        ::create_partition_on_axes<4,3>(ctx, runtime, IndexSpaceT<4>(is), dims);
+        ::create_partition_on_axes<4,3>(ctx, runtime, IndexSpaceT<4>(is), parts);
       break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
     case 4:
       return
-        ::create_partition_on_axes<4,4>(ctx, runtime, IndexSpaceT<4>(is), dims);
+        ::create_partition_on_axes<4,4>(ctx, runtime, IndexSpaceT<4>(is), parts);
       break;
 #endif
     default:
@@ -690,8 +649,8 @@ void
 legms::register_tasks(Runtime* runtime) {
   TableReadTask::register_task(runtime);
   TreeIndexSpace::register_tasks(runtime);
-  Column::register_tasks(runtime);
   ProjectedIndexPartitionTask::register_task(runtime);
+  Table::register_tasks(runtime);
 }
 
 // Local Variables:

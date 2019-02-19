@@ -55,9 +55,6 @@ TableReadTask::dispatch() {
       launcher.add_region_requirement(
         RegionRequirement(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr));
       launcher.add_field(0, Column::value_fid);
-      launcher.add_region_requirement(
-        RegionRequirement(lp, 0, READ_ONLY, EXCLUSIVE, lr));
-      launcher.add_field(1, Column::row_number_fid);
       m_runtime->execute_index_space(m_context, launcher);
     }
   }
@@ -78,7 +75,7 @@ TableReadTask::base_impl(
   auto tdesc = table.tableDesc();
   auto cdesc = tdesc[args->column_name];
   switch (args->column_rank) {
-#if MAX_DIM >= 1
+#if LEGMS_MAX_DIM >= 1
   case 1:
     read_column<1>(
       table,
@@ -89,7 +86,7 @@ TableReadTask::base_impl(
       regions);
     break;
 #endif
-#if MAX_DIM >= 2
+#if LEGMS_MAX_DIM >= 2
   case 2:
     read_column<2>(
       table,
@@ -100,7 +97,7 @@ TableReadTask::base_impl(
       regions);
     break;
 #endif
-#if MAX_DIM >= 3
+#if LEGMS_MAX_DIM >= 3
   case 3:
     read_column<3>(
       table,
@@ -111,7 +108,7 @@ TableReadTask::base_impl(
       regions);
     break;
 #endif
-#if MAX_DIM >= 4
+#if LEGMS_MAX_DIM >= 4
   case 4:
     read_column<4>(
       table,

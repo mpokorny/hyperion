@@ -10,19 +10,12 @@ extern "C" {
 #endif
 
 typedef struct column_t { void* impl; } column_t;
-typedef unsigned column_row_number_t;
 
 const char *
 column_name(column_t column);
 
 unsigned
-column_row_rank(column_t column);
-
-unsigned
 column_rank(column_t column);
-
-size_t
-column_num_rows(column_t column);
 
 legion_index_space_t
 column_index_space(column_t column);
@@ -43,12 +36,6 @@ column_projected_column_partition(
 
 legion_field_id_t
 column_value_fid();
-
-legion_field_id_t
-column_row_number_fid();
-
-void
-column_register_tasks(legion_runtime_t runtime);
 
 #ifdef __cplusplus
 }

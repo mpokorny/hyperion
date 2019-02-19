@@ -65,21 +65,43 @@ struct MSTable<MSTables::MAIN> {
   static const constexpr char *name = "MAIN";
 
   enum struct Axes {
-    row,
+    index = -1,
+
+    ROW = 0,
     // UVW(0)
-    uvw,
+    UVW,
     // DATA(0), FLOAT_DATA(0), VIDEO_POINT(0), LAG_DATA(0), SIGMA(0),
     // SIGMA_SPECTRUM(0), WEIGHT_SPECTRUM(0), FLAG(0), FLAG_CATEGORY(0)
-    correlator,
+    CORRELATOR,
     // DATA(1), FLOAT_DATA(1), SIGMA_SPECTRUM(1), WEIGHT_SPECTRUM(1), FLAG(1),
     // FLAG_CATEGORY(1)
-    frequency_channel,
+    FREQUENCY_CHANNEL,
     // LAG_DATA(1)
-    lag,
+    LAG,
     // FLAG_CATEGORY(2)
-    flag_category,
+    FLAG_CATEGORY,
 
-    last = flag_category
+    // key column axes
+    TIME,
+    TIME_EXTRA_PREC,
+    ANTENNA1,
+    ANTENNA2,
+    ANTENNA3,
+    FEED1,
+    FEED2,
+    FEED3,
+    DATA_DESC_ID,
+    PROCESSOR_ID,
+    PHASE_ID,
+    FIELD_ID,
+
+    // additional index column axes
+    SCAN_NUMBER,
+    ARRAY_ID,
+    OBSERVATION_ID,
+    STATE_ID,
+
+    last = STATE_ID
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -89,27 +111,43 @@ struct MSTable<MSTables::MAIN> {
   axis_names();
 };
 
-MS_AXIS_NAME(MAIN, row);
-MS_AXIS_NAME(MAIN, uvw);
-MS_AXIS_NAME(MAIN, correlator);
-MS_AXIS_NAME(MAIN, frequency_channel);
-MS_AXIS_NAME(MAIN, lag);
-MS_AXIS_NAME(MAIN, flag_category);
+MS_AXIS_NAME(MAIN, ROW);
+MS_AXIS_NAME(MAIN, UVW);
+MS_AXIS_NAME(MAIN, CORRELATOR);
+MS_AXIS_NAME(MAIN, FREQUENCY_CHANNEL);
+MS_AXIS_NAME(MAIN, LAG);
+MS_AXIS_NAME(MAIN, FLAG_CATEGORY);
+MS_AXIS_NAME(MAIN, TIME);
+MS_AXIS_NAME(MAIN, TIME_EXTRA_PREC);
+MS_AXIS_NAME(MAIN, ANTENNA1);
+MS_AXIS_NAME(MAIN, ANTENNA2);
+MS_AXIS_NAME(MAIN, ANTENNA3);
+MS_AXIS_NAME(MAIN, FEED1);
+MS_AXIS_NAME(MAIN, FEED2);
+MS_AXIS_NAME(MAIN, FEED3);
+MS_AXIS_NAME(MAIN, DATA_DESC_ID);
+MS_AXIS_NAME(MAIN, PROCESSOR_ID);
+MS_AXIS_NAME(MAIN, PHASE_ID);
+MS_AXIS_NAME(MAIN, FIELD_ID);
+MS_AXIS_NAME(MAIN, SCAN_NUMBER);
+MS_AXIS_NAME(MAIN, ARRAY_ID);
+MS_AXIS_NAME(MAIN, OBSERVATION_ID);
+MS_AXIS_NAME(MAIN, STATE_ID);
 
 template <>
 struct MSTable<MSTables::ANTENNA> {
   static const constexpr char* name = "ANTENNA";
 
   enum struct Axes {
-    row,
+    ROW = 0,
     // POSITION(0)
-    position,
+    POSITION,
     // OFFSET(0)
-    offset,
+    OFFSET,
     // MEAN_ORBIT(0)
-    mean_orbit,
+    MEAN_ORBIT,
 
-    last = mean_orbit
+    last = MEAN_ORBIT
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -119,19 +157,19 @@ struct MSTable<MSTables::ANTENNA> {
   axis_names();
 };
 
-MS_AXIS_NAME(ANTENNA, row);
-MS_AXIS_NAME(ANTENNA, position);
-MS_AXIS_NAME(ANTENNA, offset);
-MS_AXIS_NAME(ANTENNA, mean_orbit);
+MS_AXIS_NAME(ANTENNA, ROW);
+MS_AXIS_NAME(ANTENNA, POSITION);
+MS_AXIS_NAME(ANTENNA, OFFSET);
+MS_AXIS_NAME(ANTENNA, MEAN_ORBIT);
 
 template <>
 struct MSTable<MSTables::DATA_DESCRIPTION> {
   static const constexpr char* name = "DATA_DESCRIPTION";
 
   enum struct Axes {
-    row,
+    ROW,
 
-    last = row
+    last = ROW
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -141,16 +179,25 @@ struct MSTable<MSTables::DATA_DESCRIPTION> {
   axis_names();
 };
 
-MS_AXIS_NAME(DATA_DESCRIPTION, row);
+MS_AXIS_NAME(DATA_DESCRIPTION, ROW);
 
 template <>
 struct MSTable<MSTables::DOPPLER> {
   static const constexpr char *name = "DOPPLER";
 
   enum struct Axes {
-    row,
+    index = -1,
 
-    last = row
+    ROW = 0,
+
+    // key column axes
+    DOPPLER_ID,
+    SOURCE_ID,
+
+    // additional index column axes
+    TRANSITION_ID,
+
+    last = TRANSITION_ID
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -160,24 +207,36 @@ struct MSTable<MSTables::DOPPLER> {
   axis_names();
 };
 
-MS_AXIS_NAME(DOPPLER, row);
+MS_AXIS_NAME(DOPPLER, ROW);
+MS_AXIS_NAME(DOPPLER, DOPPLER_ID);
+MS_AXIS_NAME(DOPPLER, SOURCE_ID);
+MS_AXIS_NAME(DOPPLER, TRANSITION_ID);
 
 template <>
 struct MSTable<MSTables::FEED> {
   static const constexpr char *name = "FEED";
 
   enum struct Axes {
-    row,
-    // BEAM_OFFSET(1), POLARIZATION_TYPE(0), POL_RESPONSE(0), RECEPTOR_ANGLE(0)
-    receptor,
-    // POL_RESPONSE(1)
-    receptor1,
-    // BEAM_OFFSET(0)
-    direction,
-    // POSITION(0)
-    position,
+    index = -1,
 
-    last = position
+    ROW = 0,
+    // BEAM_OFFSET(1), POLARIZATION_TYPE(0), POL_RESPONSE(0), RECEPTOR_ANGLE(0)
+    RECEPTOR,
+    // POL_RESPONSE(1)
+    RECEPTOR1,
+    // BEAM_OFFSET(0)
+    DIRECTION,
+    // POSITION(0)
+    POSITION,
+
+    // key column axes
+    ANTENNA_ID,
+    FEED_ID,
+    SPECTRAL_WINDOW_ID,
+    TIME,
+    INTERVAL,
+
+    last = INTERVAL
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -187,45 +246,64 @@ struct MSTable<MSTables::FEED> {
   axis_names();
 };
 
-MS_AXIS_NAME(FEED, row);
-MS_AXIS_NAME(FEED, receptor);
-MS_AXIS_NAME(FEED, receptor1);
-MS_AXIS_NAME(FEED, direction);
-MS_AXIS_NAME(FEED, position);
+MS_AXIS_NAME(FEED, ROW);
+MS_AXIS_NAME(FEED, RECEPTOR);
+MS_AXIS_NAME(FEED, RECEPTOR1);
+MS_AXIS_NAME(FEED, DIRECTION);
+MS_AXIS_NAME(FEED, POSITION);
+MS_AXIS_NAME(FEED, ANTENNA_ID);
+MS_AXIS_NAME(FEED, FEED_ID);
+MS_AXIS_NAME(FEED, SPECTRAL_WINDOW_ID);
+MS_AXIS_NAME(FEED, TIME);
+MS_AXIS_NAME(FEED, INTERVAL);
 
 template <>
 struct MSTable<MSTables::FIELD> {
   static const constexpr char* name = "FIELD";
 
   enum struct Axes {
-    row,
-    // DELAY_DIR(1), PHASE_DIR(1), REFERENCE_DIR(1)
-    polynomial,
-    // DELAY_DIR(0), PHASE_DIR(0), REFERENCE_DIR(0)
-    direction,
+    index = -1,
 
-    last = direction
+    ROW = 0,
+    // DELAY_DIR(1), PHASE_DIR(1), REFERENCE_DIR(1)
+    POLYNOMIAL,
+    // DELAY_DIR(0), PHASE_DIR(0), REFERENCE_DIR(0)
+    DIRECTION,
+
+    // additional index column axes
+    SOURCE_ID,
+    EPHEMERIS_ID,
+
+    last = EPHEMERIS_ID
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
   static const std::unordered_map<Axes, std::string>&
-  axis_names();  
+  axis_names();
 };
 
-MS_AXIS_NAME(FIELD, row);
-MS_AXIS_NAME(FIELD, polynomial);
-MS_AXIS_NAME(FIELD, direction);
+MS_AXIS_NAME(FIELD, ROW);
+MS_AXIS_NAME(FIELD, POLYNOMIAL);
+MS_AXIS_NAME(FIELD, DIRECTION);
+MS_AXIS_NAME(FIELD, SOURCE_ID);
+MS_AXIS_NAME(FIELD, EPHEMERIS_ID);
 
 template <>
 struct MSTable<MSTables::FLAG_CMD> {
   static const constexpr char *name = "FLAG_CMD";
 
   enum struct Axes {
-    row,
+    index = -1,
 
-    last = row
+    ROW = 0,
+
+    // key column axes
+    TIME,
+    INTERVAL,
+
+    last = INTERVAL
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -235,16 +313,28 @@ struct MSTable<MSTables::FLAG_CMD> {
   axis_names();
 };
 
-MS_AXIS_NAME(FLAG_CMD, row);
+MS_AXIS_NAME(FLAG_CMD, ROW);
+MS_AXIS_NAME(FLAG_CMD, TIME);
+MS_AXIS_NAME(FLAG_CMD, INTERVAL);
 
 template <>
 struct MSTable<MSTables::FREQ_OFFSET> {
   static const constexpr char* name = "FREQ_OFFSET";
 
   enum struct Axes {
-    row,
+    index = -1,
 
-    last = row
+    ROW = 0,
+
+    // key column axes
+    ANTENNA1,
+    ANTENNA2,
+    FEED_ID,
+    SPECTRAL_WINDOW_ID,
+    TIME,
+    INTERVAL,
+
+    last = INTERVAL
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -254,47 +344,61 @@ struct MSTable<MSTables::FREQ_OFFSET> {
   axis_names();
 };
 
-MS_AXIS_NAME(FREQ_OFFSET, row);
+MS_AXIS_NAME(FREQ_OFFSET, ROW);
+MS_AXIS_NAME(FREQ_OFFSET, ANTENNA1);
+MS_AXIS_NAME(FREQ_OFFSET, ANTENNA2);
+MS_AXIS_NAME(FREQ_OFFSET, FEED_ID);
+MS_AXIS_NAME(FREQ_OFFSET, SPECTRAL_WINDOW_ID);
+MS_AXIS_NAME(FREQ_OFFSET, TIME);
+MS_AXIS_NAME(FREQ_OFFSET, INTERVAL);
 
 template <>
 struct MSTable<MSTables::HISTORY> {
   static const constexpr char* name = "HISTORY";
 
   enum struct Axes {
-    row,
-    // CLI_COMMAND(0)
-    cli_command,
-    // APP_PARAMS(0)
-    app_param,
+    index = -1,
 
-    last = app_param
+    ROW = 0,
+    // CLI_COMMAND(0)
+    CLI_COMMAND,
+    // APP_PARAMS(0)
+    APP_PARAM,
+
+    // key column axes
+    TIME,
+    OBSERVATION_ID,
+
+    last = OBSERVATION_ID
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
-  
+
   static const std::unordered_map<Axes, std::string>&
   axis_names();
 };
 
-MS_AXIS_NAME(HISTORY, row);
-MS_AXIS_NAME(HISTORY, cli_command);
-MS_AXIS_NAME(HISTORY, app_param);
+MS_AXIS_NAME(HISTORY, ROW);
+MS_AXIS_NAME(HISTORY, CLI_COMMAND);
+MS_AXIS_NAME(HISTORY, APP_PARAM);
+MS_AXIS_NAME(HISTORY, TIME);
+MS_AXIS_NAME(HISTORY, OBSERVATION_ID);
 
 template <>
 struct MSTable<MSTables::OBSERVATION> {
   static const constexpr char* name = "OBSERVATION";
 
   enum struct Axes {
-    row,
+    ROW,
     // TIME_RANGE(0)
-    time_range,
+    TIME_RANGE,
     // LOG(0)
-    log,
+    LOG,
     // SCHEDULE(0)
-    schedule,
+    SCHEDULE,
 
-    last = schedule
+    last = SCHEDULE
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -304,23 +408,30 @@ struct MSTable<MSTables::OBSERVATION> {
   axis_names();
 };
 
-MS_AXIS_NAME(OBSERVATION, row);
-MS_AXIS_NAME(OBSERVATION, time_range);
-MS_AXIS_NAME(OBSERVATION, log);
-MS_AXIS_NAME(OBSERVATION, schedule);
+MS_AXIS_NAME(OBSERVATION, ROW);
+MS_AXIS_NAME(OBSERVATION, TIME_RANGE);
+MS_AXIS_NAME(OBSERVATION, LOG);
+MS_AXIS_NAME(OBSERVATION, SCHEDULE);
 
 template <>
 struct MSTable<MSTables::POINTING> {
   static const constexpr char* name = "POINTING";
 
   enum struct Axes {
-    row,
-    // DIRECTION(1), TARGET(1), POINTING_OFFSET(1), SOURCE_OFFSET(1)
-    polynomial,
-    // DIRECTION(0), TARGET(0), POINTING_OFFSET(0), SOURCE_OFFSET(0), ENCODER(0)
-    direction,
+    index = -1,
 
-    last = direction
+    ROW = 0,
+    // DIRECTION(1), TARGET(1), POINTING_OFFSET(1), SOURCE_OFFSET(1)
+    POLYNOMIAL,
+    // DIRECTION(0), TARGET(0), POINTING_OFFSET(0), SOURCE_OFFSET(0), ENCODER(0)
+    DIRECTION,
+
+    // key column axes
+    ANTENNA_ID,
+    TIME,
+    INTERVAL,
+
+    last = INTERVAL
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -330,22 +441,25 @@ struct MSTable<MSTables::POINTING> {
   axis_names();
 };
 
-MS_AXIS_NAME(POINTING, row);
-MS_AXIS_NAME(POINTING, polynomial);
-MS_AXIS_NAME(POINTING, direction);
+MS_AXIS_NAME(POINTING, ROW);
+MS_AXIS_NAME(POINTING, POLYNOMIAL);
+MS_AXIS_NAME(POINTING, DIRECTION);
+MS_AXIS_NAME(POINTING, ANTENNA_ID);
+MS_AXIS_NAME(POINTING, TIME);
+MS_AXIS_NAME(POINTING, INTERVAL);
 
 template <>
 struct MSTable<MSTables::POLARIZATION> {
   static const constexpr char* name = "POLARIZATION";
 
   enum struct Axes {
-    row,
+    ROW,
     // CORR_TYPE(0), CORR_PRODUCT(1)
-    correlation,
+    CORRELATION,
     // CORR_PRODUCT(0)
-    product,
+    PRODUCT,
 
-    last = product
+    last = PRODUCT
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -355,18 +469,18 @@ struct MSTable<MSTables::POLARIZATION> {
   axis_names();
 };
 
-MS_AXIS_NAME(POLARIZATION, row);
-MS_AXIS_NAME(POLARIZATION, correlation);
-MS_AXIS_NAME(POLARIZATION, product);
+MS_AXIS_NAME(POLARIZATION, ROW);
+MS_AXIS_NAME(POLARIZATION, CORRELATION);
+MS_AXIS_NAME(POLARIZATION, PRODUCT);
 
 template <>
 struct MSTable<MSTables::PROCESSOR> {
   static const constexpr char* name = "PROCESSOR";
 
   enum struct Axes {
-    row,
+    ROW,
 
-    last = row
+    last = ROW
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -376,7 +490,7 @@ struct MSTable<MSTables::PROCESSOR> {
   axis_names();
 };
 
-MS_AXIS_NAME(PROCESSOR, row);
+MS_AXIS_NAME(PROCESSOR, ROW);
 
 
 template <>
@@ -384,17 +498,28 @@ struct MSTable<MSTables::SOURCE> {
   static const constexpr char* name = "SOURCE";
 
   enum struct Axes {
-    row,
-    // DIRECTION(0)
-    direction,
-    // POSITION(0)
-    position,
-    // PROPER_MOTION(0)
-    proper_motion,
-    // TRANSITION(0), REST_FREQUENCY(0), SYSVEL(0)
-    line,
+    index = -1,
 
-    last = line
+    ROW = 0,
+    // DIRECTION(0)
+    DIRECTION,
+    // POSITION(0)
+    POSITION,
+    // PROPER_MOTION(0)
+    PROPER_MOTION,
+    // TRANSITION(0), REST_FREQUENCY(0), SYSVEL(0)
+    LINE,
+
+    // key column axes
+    SOURCE_ID,
+    TIME,
+    INTERVAL,
+    SPECTRAL_WINDOW_ID,
+
+    // additional column index axes
+    PULSAR_ID,
+
+    last = PULSAR_ID
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -404,24 +529,29 @@ struct MSTable<MSTables::SOURCE> {
   axis_names();
 };
 
-MS_AXIS_NAME(SOURCE, row);
-MS_AXIS_NAME(SOURCE, direction);
-MS_AXIS_NAME(SOURCE, position);
-MS_AXIS_NAME(SOURCE, proper_motion);
-MS_AXIS_NAME(SOURCE, line);
+MS_AXIS_NAME(SOURCE, ROW);
+MS_AXIS_NAME(SOURCE, DIRECTION);
+MS_AXIS_NAME(SOURCE, POSITION);
+MS_AXIS_NAME(SOURCE, PROPER_MOTION);
+MS_AXIS_NAME(SOURCE, LINE);
+MS_AXIS_NAME(SOURCE, SOURCE_ID);
+MS_AXIS_NAME(SOURCE, TIME);
+MS_AXIS_NAME(SOURCE, INTERVAL);
+MS_AXIS_NAME(SOURCE, SPECTRAL_WINDOW_ID);
+MS_AXIS_NAME(SOURCE, PULSAR_ID);
 
 template <>
 struct MSTable<MSTables::SPECTRAL_WINDOW> {
   static const constexpr char* name = "SPECTRAL_WINDOW";
 
   enum struct Axes {
-    row,
+    ROW,
     // CHAN_FREQ(0), CHAN_WIDTH(0), EFFECTIVE_BW(0), RESOLUTION(0)
-    channel,
+    CHANNEL,
     // ASSOC_SPW_ID(0), ASSOC_NATURE(0)
-    assoc_spw,
+    ASSOC_SPW,
 
-    last = assoc_spw
+    last = ASSOC_SPW
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -431,18 +561,18 @@ struct MSTable<MSTables::SPECTRAL_WINDOW> {
   axis_names();
 };
 
-MS_AXIS_NAME(SPECTRAL_WINDOW, row);
-MS_AXIS_NAME(SPECTRAL_WINDOW, channel);
-MS_AXIS_NAME(SPECTRAL_WINDOW, assoc_spw);
+MS_AXIS_NAME(SPECTRAL_WINDOW, ROW);
+MS_AXIS_NAME(SPECTRAL_WINDOW, CHANNEL);
+MS_AXIS_NAME(SPECTRAL_WINDOW, ASSOC_SPW);
 
 template <>
 struct MSTable<MSTables::STATE> {
   static const constexpr char* name = "STATE";
 
   enum struct Axes {
-    row,
+    ROW,
 
-    last = row
+    last = ROW
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -452,23 +582,32 @@ struct MSTable<MSTables::STATE> {
   axis_names();
 };
 
-MS_AXIS_NAME(STATE, row);
+MS_AXIS_NAME(STATE, ROW);
 
 template <>
 struct MSTable<MSTables::SYSCAL> {
   static const constexpr char* name = "SYSCAL";
 
   enum struct Axes {
-    row,
+    index = -1,
+
+    ROW = 0,
     // TCAL(0), TRX(0), TSKY(0), TSYS(0), TANT(0), TANT_TSYS(0), TCAL_SPECTRUM(0),
     // TRX_SPECTRUM(0), TSKY_SPECTRUM(0), TSYS_SPECTRUM(0), TANT_SPECTRUM(0),
     // TANT_TSYS_SPECTRUM(0)
-    receptor,
+    RECEPTOR,
     // TCAL_SPECTRUM(1), TRX_SPECTRUM(1), TSKY_SPECTRUM(1), TSYS_SPECTRUM(1),
     // TANT_SPECTRUM(1), TANT_TSYS_SPECTRUM(1)
-    channel,
+    CHANNEL,
 
-    last = channel
+    // key column axes
+    ANTENNA_ID,
+    FEED_ID,
+    SPECTRAL_WINDOW_ID,
+    TIME,
+    INTERVAL,
+
+    last = INTERVAL
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -478,18 +617,30 @@ struct MSTable<MSTables::SYSCAL> {
   axis_names();
 };
 
-MS_AXIS_NAME(SYSCAL, row);
-MS_AXIS_NAME(SYSCAL, receptor);
-MS_AXIS_NAME(SYSCAL, channel);
+MS_AXIS_NAME(SYSCAL, ROW);
+MS_AXIS_NAME(SYSCAL, RECEPTOR);
+MS_AXIS_NAME(SYSCAL, CHANNEL);
+MS_AXIS_NAME(SYSCAL, ANTENNA_ID);
+MS_AXIS_NAME(SYSCAL, FEED_ID);
+MS_AXIS_NAME(SYSCAL, SPECTRAL_WINDOW_ID);
+MS_AXIS_NAME(SYSCAL, TIME);
+MS_AXIS_NAME(SYSCAL, INTERVAL);
 
 template <>
 struct MSTable<MSTables::WEATHER> {
   static const constexpr char* name = "WEATHER";
 
   enum struct Axes {
-    row,
+    index = -1,
 
-    last = row
+    ROW,
+
+    // key column axes
+    ANTENNA_ID,
+    TIME,
+    INTERVAL,
+
+    last = INTERVAL
   };
 
   static const std::unordered_map<std::string, std::vector<Axes>>
@@ -499,7 +650,10 @@ struct MSTable<MSTables::WEATHER> {
   axis_names();
 };
 
-MS_AXIS_NAME(WEATHER, row);
+MS_AXIS_NAME(WEATHER, ROW);
+MS_AXIS_NAME(WEATHER, ANTENNA_ID);
+MS_AXIS_NAME(WEATHER, TIME);
+MS_AXIS_NAME(WEATHER, INTERVAL);
 
 #undef MS_AXIS_NAME
 

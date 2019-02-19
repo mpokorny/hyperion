@@ -134,7 +134,7 @@ set(CASACORE
 add_library(legms SHARED ${LEGMS_SRC})
 set_target_properties(legms PROPERTIES
   CXX_STANDARD 17
-  COMPILE_DEFINITIONS "MAX_DIM=${legms_MAX_DIM}")
+  COMPILE_DEFINITIONS "LEGMS_MAX_DIM=${legms_MAX_DIM}")
 add_dependencies(legms legion_build)
 target_include_directories(legms
   PRIVATE ${Legion_INSTALL_DIR}/include

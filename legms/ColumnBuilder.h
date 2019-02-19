@@ -27,16 +27,14 @@ public:
   ColumnBuilder(
     const std::string& name,
     casacore::DataType datatype,
-    const std::vector<D>& axes,
-    const IndexTreeL& row_index_pattern)
+    const std::vector<D>& axes)
     : WithKeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
     , m_axes(axes)
-    , m_num_rows(0)
-    , m_row_index_pattern(row_index_pattern)
-    , m_row_index_iterator(row_index_pattern) {
+    , m_num_rows(0) {
 
+    assert(axes[0] == D::ROW);
     assert(has_unique_values(m_axes));
   }
 
@@ -62,19 +60,9 @@ public:
     return m_index_tree;
   }
 
-  const IndexTreeL&
-  row_index_pattern() const {
-    return m_row_index_pattern;
-  }
-
   unsigned
   rank() const {
     return m_axes.size();
-  }
-
-  unsigned
-  row_rank() const {
-    return m_row_index_pattern.rank().value();
   }
 
   size_t
@@ -94,18 +82,9 @@ protected:
 
   void
   set_next_row(const IndexTreeL& element_tree) {
-    auto row_index = *m_row_index_iterator;
-    ++m_row_index_iterator;
-    ++m_num_rows;
-    IndexTreeL result =
-      std::accumulate(
-        row_index.rbegin(),
-        row_index.rend(),
-        element_tree,
-        [](const auto& t, const auto& i) {
-          return IndexTreeL({{i, 1, t}});
-        });
-    m_index_tree = m_index_tree.merged_with(result);
+    auto row_index = m_num_rows++;
+    m_index_tree =
+      m_index_tree.merged_with(IndexTreeL({{row_index, 1, element_tree}}));
   }
 
 private:
@@ -118,10 +97,6 @@ private:
 
   size_t m_num_rows;
 
-  IndexTreeL m_row_index_pattern;
-
-  IndexTreeIterator<Legion::coord_t> m_row_index_iterator;
-
   IndexTreeL m_index_tree;
 };
 
@@ -132,24 +107,18 @@ public:
 
   ScalarColumnBuilder(
     const std::string& name,
-    casacore::DataType datatype,
-    const std::vector<D>& axes,
-    const IndexTreeL& row_index_pattern)
-    : ColumnBuilder<D>(name, datatype, axes, row_index_pattern) {
-
-    assert(axes.size() == row_index_pattern.rank().value());
+    casacore::DataType datatype)
+    : ColumnBuilder<D>(name, datatype, {D::ROW}) {
   }
 
   template <typename T>
   static auto
   generator(const std::string& name) {
     return
-      [=](const std::vector<D>& axes, const IndexTreeL& row_index_pattern) {
+      [=]() {
         return std::make_unique<ScalarColumnBuilder<D>>(
           name,
-          ValueType<T>::DataType,
-          axes,
-          row_index_pattern);
+          ValueType<T>::DataType);
       };
   }
 
@@ -170,12 +139,11 @@ public:
     const std::string& name,
     casacore::DataType datatype,
     const std::vector<D>& axes,
-    const IndexTreeL& row_index_pattern,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)> element_shape)
-    : ColumnBuilder<D>(name, datatype, axes, row_index_pattern)
+    : ColumnBuilder<D>(name, datatype, axes)
     , m_element_shape(element_shape) {
 
-    assert(axes.size() > row_index_pattern.rank().value());
+    assert(axes.size() > 0);
   }
 
   virtual ~ArrayColumnBuilder() {}
@@ -188,12 +156,11 @@ public:
     element_shape) {
 
     return
-      [=](const std::vector<D>& axes, const IndexTreeL& row_index_pattern) {
+      [=](const std::vector<D>& axes) {
         return std::make_unique<ArrayColumnBuilder<D, ARRAYDIM>>(
           name,
           ValueType<T>::DataType,
           axes,
-          row_index_pattern,
           element_shape);
       };
   }
