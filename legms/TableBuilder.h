@@ -35,20 +35,10 @@ class TableBuilderT
 
 public:
 
-  TableBuilderT(
-    const std::string& name,
-    unsigned full_rank,
-    const std::vector<D>& row_axes,
-    IndexTreeL row_index_pattern)
+  TableBuilderT(const std::string& name)
     : WithKeywordsBuilder()
     , m_name(name)
-    , m_row_axes(row_axes)
-    , m_row_index_pattern(row_index_pattern) {
-
-    // number of axes must match rank of row_index_pattern
-    assert(m_row_axes.size() == m_row_index_pattern.rank().value());
-    // axes must be unique in row_axes
-    assert(has_unique_values(m_row_axes));
+    , m_num_rows(0) {
   }
 
   const std::string&
@@ -56,17 +46,11 @@ public:
     return m_name;
   }
 
-  const std::vector<D>&
-  row_axes() const {
-    return m_row_axes;
-  }
-
   template <typename T>
   void
   add_scalar_column(const std::string& name) {
 
-    add_column(ScalarColumnBuilder<D>::template generator<T>(name)(
-                 m_row_axes, m_row_index_pattern));
+    add_column(ScalarColumnBuilder<D>::template generator<T>(name)());
   }
 
   template <typename T, int DIM>
@@ -76,15 +60,14 @@ public:
     const std::vector<D>& element_axes,
     std::function<std::array<size_t, DIM>(const std::any&)> element_shape) {
 
-    std::vector<D> axes = m_row_axes;
+    std::vector<D> axes {D::ROW};
     std::copy(
       element_axes.begin(),
       element_axes.end(),
       std::back_inserter(axes));
     add_column(
       ArrayColumnBuilder<D, DIM>::template generator<T>(name, element_shape)(
-        axes,
-        m_row_index_pattern));
+        axes));
   }
 
   void
@@ -98,6 +81,7 @@ public:
         std::any arg = ((nm_arg != args.end()) ? nm_arg->second : std::any());
         std::get<1>(nm_col)->add_row(arg);
       });
+    ++m_num_rows;
   }
 
   void
@@ -128,7 +112,7 @@ public:
       [](auto& cb) {
         return
           [cb](Legion::Context ctx, Legion::Runtime *runtime) {
-            return std::make_shared<ColumnT<D>>(ctx, runtime, *cb.second);
+            return std::make_unique<ColumnT<D>>(ctx, runtime, *cb.second);
           };
       });
     return result;
@@ -204,24 +188,16 @@ protected:
   void
   add_column(std::unique_ptr<ColumnBuilder<D>>&& col) {
     std::shared_ptr<ColumnBuilder<D>> scol = std::move(col);
-    std::vector<D> col_row_axes;
-    std::copy_n(
-      scol->axes().begin(),
-      m_row_axes.size(),
-      std::back_inserter(col_row_axes));
-    assert(col_row_axes == m_row_axes);
-    assert(scol->row_index_pattern() == m_row_index_pattern);
+    assert(scol->num_rows() == m_num_rows);
     assert(m_columns.count(scol->name()) == 0);
     m_columns[scol->name()] = scol;
   }
 
   std::string m_name;
 
-  std::vector<D> m_row_axes;
-
   std::unordered_map<std::string, std::shared_ptr<ColumnBuilder<D>>> m_columns;
 
-  IndexTreeL m_row_index_pattern;
+  size_t m_num_rows;
 
 public:
 
@@ -235,22 +211,10 @@ public:
       casacore::String((path.filename() == "MAIN") ? path.parent_path() : path),
       casacore::TableLock::PermanentLockingWait);
 
-    {
-      auto kws = table.keywordSet();
-      auto sort_columns_fn = kws.fieldNumber("SORT_COLUMNS");
-      if (sort_columns_fn != -1)
-        std::cerr << "Sorted table optimization unimplemented" << std::endl;
-    }
-
     std::string table_name = path.filename();
     if (table_name == ".")
       table_name = "MAIN";
-    TableBuilderT
-      result(
-        table_name,
-        static_cast<int>(D::last) + 1,
-        {D::row},
-        IndexTreeL(1));
+    TableBuilderT result(table_name);
     std::unordered_set<std::string> array_names;
 
     // expand wildcard column selection, get selected columns that exist in the

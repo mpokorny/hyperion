@@ -16,18 +16,8 @@ table_name(table_t table) {
 }
 
 unsigned
-table_full_rank(table_t table) {
-  return unwrap(table)->full_rank();
-}
-
-unsigned
-table_row_rank(table_t table) {
-  return unwrap(table)->row_rank();
-}
-
-const int*
-table_row_axes(table_t table) {
-  return unwrap(table)->row_axes().data();
+table_rank(table_t table) {
+  return unwrap(table)->rank();
 }
 
 int
@@ -66,6 +56,7 @@ table_max_rank_column_name(table_t table) {
   return unwrap(table)->max_rank_column_name().c_str();
 }
 
+#if 0
 column_row_number_t
 table_num_rows(table_t table) {
   return unwrap(table)->num_rows();
@@ -109,6 +100,7 @@ table_row_partition(
     wrap(
       unwrap(table)->row_partition(rpv, include_unselected, sorted_selections));
 }
+#endif
 
 void
 table_destroy(table_t table) {

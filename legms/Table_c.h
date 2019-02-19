@@ -14,13 +14,7 @@ const char*
 table_name(table_t table);
 
 unsigned
-table_full_rank(table_t table);
-
-unsigned
-table_row_rank(table_t table);
-
-const int*
-table_row_axes(table_t table);
+table_rank(table_t table);
 
 int
 table_is_empty(table_t table);
@@ -37,6 +31,7 @@ table_min_rank_column_name(table_t table);
 const char *
 table_max_rank_column_name(table_t table);
 
+#if 0
 column_row_number_t
 table_num_rows(table_t table);
 
@@ -54,6 +49,7 @@ table_row_partition(
   column_row_number_t** rowp,
   int include_unselected,
   int sorted_selections);
+#endif
 
 void
 table_destroy(table_t table);

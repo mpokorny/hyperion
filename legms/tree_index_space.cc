@@ -2,68 +2,41 @@
 
 using namespace legms;
 
-Legion::TaskID legms::TreeIndexSpaceTask<1>::TASK_ID;
+Legion::TaskID TreeIndexSpaceTask<1>::TASK_ID;
 
 void
-legms::TreeIndexSpace::register_tasks(Legion::Runtime* runtime) {
-#if MAX_DIM >= 1
-  TreeIndexSpaceTask<1>::register_task(
-    runtime,
-    TreeIndexSpace::task_id<1>(runtime));
-#endif
-#if MAX_DIM >= 2
-  TreeIndexSpaceTask<2>::register_task(
-    runtime,
-    TreeIndexSpace::task_id<2>(runtime));
-#endif
-#if MAX_DIM >= 3
-  TreeIndexSpaceTask<3>::register_task(
-    runtime,
-    TreeIndexSpace::task_id<3>(runtime));
-#endif
-#if MAX_DIM >= 4
-  TreeIndexSpaceTask<4>::register_task(
-    runtime,
-    TreeIndexSpace::task_id<4>(runtime));
-#endif
+TreeIndexSpace::register_tasks(Legion::Runtime* runtime) {
+#define REG_TASK(D)                             \
+  TreeIndexSpaceTask<D>::register_task(         \
+    runtime,                                    \
+    TreeIndexSpace::task_id<D>(runtime));
+
+  LEGMS_FOREACH_N(REG_TASK);
+
+#undef REG_TASK
 }
 
 Legion::IndexSpace
-legms::tree_index_space(
+tree_index_space(
   const IndexTreeL& tree,
   Legion::Context ctx,
   Legion::Runtime* runtime) {
 
   auto rank = tree.rank();
   assert(rank);
+
+#define TIS(N)                                              \
+  case N: {                                                 \
+    auto result = tree_index_space<N>(tree, ctx, runtime);  \
+    return result;                                          \
+  }
+
   switch(rank.value()) {
-  case 1: {
-    auto result = tree_index_space<1>(tree, ctx, runtime);
-    return result;
-  }
-  case 2: {
-    auto result = tree_index_space<2>(tree, ctx, runtime);
-    return result;
-  }
-  case 3: {
-    auto result = tree_index_space<3>(tree, ctx, runtime);
-    return result;
-  }
-  case 4: {
-    auto result = tree_index_space<4>(tree, ctx, runtime);
-    return result;
-  }
-  // case 5:
-  //   return tree_index_space<5>(tree, ctx, runtime);
-  // case 6:
-  //   return tree_index_space<6>(tree, ctx, runtime);
-  // case 7:
-  //   return tree_index_space<7>(tree, ctx, runtime);
-  // case 8:
-  //   return tree_index_space<8>(tree, ctx, runtime);
+    LEGMS_FOREACH_N(TIS);
   default:
     assert(false);
   }
+#undef TIS
 }
 
 // Local Variables:

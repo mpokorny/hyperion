@@ -72,7 +72,7 @@ public:
   }
 
   std::vector<D>
-  axes() const {
+  axesT() const {
     std::vector<D> result;
     result.reserve(m_axes.size());
     std::transform(

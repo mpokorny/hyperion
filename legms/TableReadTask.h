@@ -4,7 +4,6 @@
 #include <cstring>
 #include <memory>
 #include <new>
-#include <optional>
 #include <type_traits>
 #include <unordered_map>
 
@@ -41,7 +40,7 @@ public:
     const Table* table,
     Iter colname_iter,
     Iter end_colname_iter,
-    std::optional<size_t> block_length = std::nullopt)
+    size_t block_length)
     : m_context(table->context())
     , m_runtime(table->runtime())
     , m_table_path(table_path)
@@ -53,8 +52,11 @@ public:
       std::back_inserter(m_columns),
       [table](const auto& nm) { return table->column(nm); });
 
-    m_blockp = table->row_block_partition(block_length);
 
+    auto c = table->column(table->min_rank_column_name());
+    m_blockp = c->partition_on_axes({std::make_tuple(0, block_length)});
+
+    // FIXME: the following is insufficient in the case of multiple nodes
     casacore::Table tb(
       casacore::String(table_path),
       casacore::TableLock::PermanentLockingWait);
@@ -148,32 +150,22 @@ public:
       Legion::AffineAccessor<T, DIM, Legion::coord_t>,
       false> ValueAccessor;
 
-    typedef Legion::FieldAccessor<
-      READ_ONLY,
-      Column::row_number_t,
-      DIM,
-      Legion::coord_t,
-      Legion::AffineAccessor<Column::row_number_t, DIM, Legion::coord_t>,
-      false> RowNumberAccessor;
-
     const ValueAccessor values(regions[0], Column::value_fid);
-    const RowNumberAccessor row_numbers(regions[1], Column::row_number_fid);
 
     casacore::ScalarColumn<T> col(table, col_desc.name());
-    Column::row_number_t row_number;
+    Legion::coord_t row_number;
     T col_value;
     {
       Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
-      row_number = row_numbers[*pid];
+      row_number = pid[0];
       col.get(row_number, col_value);
     }
 
     for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
          pid();
          pid++) {
-      auto rn = row_numbers[*pid];
-      if (row_number != rn) {
-        row_number = rn;
+      if (row_number != pid[0]) {
+        row_number = pid[0];
         col.get(row_number, col_value);
       }
       // field_init() is a necessary because the memory in the allocated region
@@ -202,23 +194,14 @@ public:
       Legion::AffineAccessor<T, DIM, Legion::coord_t>,
       false> ValueAccessor;
 
-    typedef Legion::FieldAccessor<
-      READ_ONLY,
-      Column::row_number_t,
-      DIM,
-      Legion::coord_t,
-      Legion::AffineAccessor<Column::row_number_t, DIM, Legion::coord_t>,
-      false> RowNumberAccessor;
-
     const ValueAccessor values(regions[0], Column::value_fid);
-    const RowNumberAccessor row_numbers(regions[1], Column::row_number_fid);
 
     casacore::ArrayColumn<T> col(table, col_desc.name());
-    Column::row_number_t row_number;
+    Legion::coord_t row_number;
     unsigned array_cell_rank;
     {
       Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
-      row_number = row_numbers[*pid];
+      row_number = pid[0];
       array_cell_rank = col.ndim(row_number);
     }
 
@@ -231,9 +214,8 @@ public:
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
            pid();
            pid++) {
-        auto rn = row_numbers[*pid];
-        if (row_number != rn) {
-          row_number = rn;
+        if (row_number != pid[0]) {
+          row_number = pid[0];
           col.get(row_number, col_array, true);
           col_vector.reference(col_array);
         }
@@ -249,9 +231,8 @@ public:
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
            pid();
            pid++) {
-        auto rn = row_numbers[*pid];
-        if (row_number != rn) {
-          row_number = rn;
+        if (row_number != pid[0]) {
+          row_number = pid[0];
           col.get(row_number, col_array, true);
           col_matrix.reference(col_array);
         }
@@ -269,9 +250,8 @@ public:
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
            pid();
            pid++) {
-        auto rn = row_numbers[*pid];
-        if (row_number != rn) {
-          row_number = rn;
+        if (row_number != pid[0]) {
+          row_number = pid[0];
           col.get(row_number, col_array, true);
           col_cube.reference(col_array);
         }
@@ -288,9 +268,8 @@ public:
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
            pid();
            pid++) {
-        auto rn = row_numbers[*pid];
-        if (row_number != rn) {
-          row_number = rn;
+        if (row_number != pid[0]) {
+          row_number = pid[0];
           col.get(row_number, col_array, true);
         }
         for (unsigned i = 0; i < array_cell_rank; ++i)

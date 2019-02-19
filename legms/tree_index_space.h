@@ -27,9 +27,12 @@ public:
   template <int DIM>
   static Legion::TaskID
   task_id(Legion::Runtime* runtime) {
-    static_assert(DIM <= MAX_DIM);
-    return runtime->
-      generate_library_task_ids("legms::TreeIndexSpaceTask", MAX_DIM) + DIM - 1;
+    static_assert(DIM <= LEGMS_MAX_DIM);
+    return
+      runtime->generate_library_task_ids(
+        "legms::TreeIndexSpaceTask",
+        LEGMS_MAX_DIM)
+      + DIM - 1;
   }
 
   static void
@@ -170,6 +173,7 @@ public:
     registrar.add_constraint(
       Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     registrar.set_idempotent();
+    registrar.set_replicable();
     runtime->register_task_variant<base_impl>(registrar);
   }
 };
@@ -292,6 +296,7 @@ public:
     registrar.add_constraint(
       Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     registrar.set_idempotent();
+    registrar.set_replicable();
     runtime->register_task_variant<base_impl>(registrar);
   }
 };
@@ -459,7 +464,7 @@ offspring_index_space(
     fa.allocate_field(
       sizeof(IndexTreeL),
       TreeIndexSpace::FID_TREE,
-      SerdezManager::INDEX_TREE_SID);
+      OpsManager::INDEX_TREE_SID);
   }
   Legion::LogicalRegion child_input_lr =
     runtime->create_logical_region(ctx, child_is, child_input_fs);

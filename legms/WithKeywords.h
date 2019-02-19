@@ -18,44 +18,66 @@ class WithKeywords {
 public:
 
   WithKeywords(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
     const std::unordered_map<std::string, casacore::DataType>& kws)
-    : m_keywords(kws) {
+    : m_context(ctx)
+    , m_runtime(runtime) {
+
+    std::transform(
+      kws.begin(),
+      kws.end(),
+      std::back_inserter(m_keywords),
+      [](auto& nm_dt) { return std::get<0>(nm_dt); });
+
+    auto is = m_runtime->create_index_space(m_context, Legion::Rect<1>(0, 0));
+    auto fs = m_runtime->create_field_space(m_context);
+    auto fa = m_runtime->create_field_allocator(m_context, fs);
+    std::for_each(
+      kws.begin(),
+      kws.end(),
+      [&](auto& nm_dt) {
+        auto& [nm, dt] = nm_dt;
+        auto fid = add_field(dt, fa);
+        m_runtime->attach_name(fs, fid, nm.c_str());
+      });
+    m_keywords_region = m_runtime->create_logical_region(m_context, is, fs);
+    m_runtime->destroy_field_space(m_context, fs);
+    m_runtime->destroy_index_space(m_context, is);
   }
 
-  std::vector<std::string>
+  WithKeywords(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    Legion::LogicalRegion region)
+    : m_context(ctx)
+    , m_runtime(runtime)
+    , m_keywords_region(region) {
+  }
+
+  virtual ~WithKeywords() {
+    m_runtime->destroy_logical_region(m_context, m_keywords_region);
+  }
+
+  const std::vector<std::string>&
   keywords() const {
-    std::vector<std::string> result;
-    std::transform(
-      m_keywords.begin(),
-      m_keywords.end(),
-      std::back_inserter(result),
-      [](auto& nm_dt) { return std::get<0>(nm_dt); });
-    return result;
+    return m_keywords;
   }
 
   Legion::LogicalRegion
-  keywords_region(Legion::Context ctx, Legion::Runtime* runtime) const {
-    auto is = runtime->create_index_space(ctx, Legion::Rect<1>(0, 0));
-    auto fs = runtime->create_field_space(ctx);
-    auto fa = runtime->create_field_allocator(ctx, fs);
-    std::for_each(
-      m_keywords.begin(),
-      m_keywords.end(),
-      [&](auto& nm_dt) {
-        auto& [nm, dt] = nm_dt;
-        auto fid = legms::add_field(dt, fa);
-        runtime->attach_name(fs, fid, nm.c_str());
-      });
-    Legion::LogicalRegion result = runtime->create_logical_region(ctx, is, fs);
-    runtime->destroy_field_space(ctx, fs);
-    runtime->destroy_index_space(ctx, is);
-    return result;
+  keywords_region() const {
+    return m_keywords_region;
   }
 
 private:
 
-  std::unordered_map<std::string, casacore::DataType> m_keywords;
+  Legion::Context m_context;
 
+  Legion::Runtime* m_runtime;
+
+  std::vector<std::string> m_keywords;
+
+  Legion::LogicalRegion m_keywords_region;
 };
 
 } // end namespace legms
