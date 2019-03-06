@@ -13,9 +13,6 @@ typedef struct table_t { void* impl; } table_t;
 const char*
 table_name(table_t table);
 
-unsigned
-table_rank(table_t table);
-
 int
 table_is_empty(table_t table);
 

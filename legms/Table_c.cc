@@ -15,11 +15,6 @@ table_name(table_t table) {
   return unwrap(table)->name().c_str();
 }
 
-unsigned
-table_rank(table_t table) {
-  return unwrap(table)->rank();
-}
-
 int
 table_is_empty(table_t table) {
   return unwrap(table)->is_empty();

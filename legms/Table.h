@@ -30,12 +30,10 @@ public:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
-    unsigned rank, // TODO: this may not be needed
     const std::unordered_map<std::string, casacore::DataType>& kws =
     std::unordered_map<std::string, casacore::DataType>())
     : WithKeywords(ctx, runtime, kws)
     , m_name(name)
-    , m_rank(rank)
     , m_context(ctx)
     , m_runtime(runtime) {
   };
@@ -44,11 +42,9 @@ public:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
-    unsigned rank,
     Legion::LogicalRegion keywords)
     : WithKeywords(ctx, runtime, keywords)
     , m_name(name)
-    , m_rank(rank)
     , m_context(ctx)
     , m_runtime(runtime) {
   };
@@ -59,11 +55,6 @@ public:
   const std::string&
   name() const {
     return m_name;
-  }
-
-  unsigned
-  rank() const {
-    return m_rank;
   }
 
   bool
@@ -111,8 +102,6 @@ public:
 private:
 
   std::string m_name;
-
-  unsigned m_rank;
 
 protected:
 
@@ -173,7 +162,7 @@ public:
     GeneratorIter generator_last,
     const std::unordered_map<std::string, casacore::DataType>& kws =
     std::unordered_map<std::string, casacore::DataType>())
-    : Table(ctx, runtime, name, static_cast<int>(D::last) + 1, kws) {
+    : Table(ctx, runtime, name, kws) {
 
     std::transform(
       generator_first,
@@ -195,7 +184,7 @@ public:
     const std::string& name,
     const std::vector<ColumnGenArgs>& col_genargs,
     Legion::LogicalRegion keywords)
-    : Table(ctx, runtime, name, static_cast<int>(D::last) + 1, keywords) {
+    : Table(ctx, runtime, name, keywords) {
 
     std::transform(
       col_genargs.begin(),
@@ -323,7 +312,7 @@ public:
   static constexpr const char* TASK_NAME = "index_column_task";
   static constexpr Legion::FieldID rows_fid = Column::value_fid + 10;
 
-  IndexColumnTask(std::shared_ptr<Column>& column, int col_axis);
+  IndexColumnTask(std::shared_ptr<Column>& column);
 
   static void
   register_task(Legion::Runtime* runtime);
