@@ -642,7 +642,7 @@ legms::create_partition_on_axes(
     assert(false);
     break;
   }
-  return IndexPartition::NO_PART;
+  return IndexPartition::NO_PART; // keep compiler happy
 }
 
 void
