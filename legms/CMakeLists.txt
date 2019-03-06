@@ -82,6 +82,12 @@ endif()
 # legms library
 #------------------------------------------------------------------------------#
 
+set(CMAKE_CXX_FLAGS
+  "${CMAKE_CXX_FLAGS} -Wall -Werror")
+
+set(CMAKE_CXX_FLAGS_DEBUG
+  "${CMAKE_CXX_FLAGS_DEBUG} -Og")
+
 list(APPEND LEGMS_SRC
   legms_c.h
   Grids_c.cc
