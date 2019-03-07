@@ -422,14 +422,14 @@ column_is_axis(
   const std::string& colname,
   const std::vector<typename MSTable<T>::Axes>& axes) {
   auto axis_names = MSTable<T>::axis_names();
-  return
+  auto colax =
     find(
       axes.begin(),
       axes.end(),
       [&axis_names, &colname](auto& ax) {
         return colname == axis_names.at(ax);
-      })
-    != axes.end();
+      });
+  return ((colax != axes.end()) ? *colax : std::nullopt);
 }
 
 template <MSTables T>

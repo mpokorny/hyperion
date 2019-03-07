@@ -123,7 +123,7 @@ TableGenArgs::legion_deserialize(const void *buffer) {
 ReindexedTableTask::ReindexedTableTask(
   const std::string& name,
   LogicalRegion keywords_region,
-  const std::vector<Legion::Future>& reindexed) {
+  const std::vector<Future>& reindexed) {
 
   // reuse TableGenArgsSerializer to pass task arguments
   TableGenArgs args;
@@ -194,7 +194,7 @@ public:
 
   typedef DataType<ValueType<T>::DataType> DT;
 
-  static Legion::TaskID TASK_ID;
+  static TaskID TASK_ID;
   static char TASK_NAME[40];
 
   IndexAccumulateTask(RegionRequirement req, LogicalRegion acc_lr) {
@@ -340,16 +340,6 @@ index_column(
   IndexAccumulateTask<T> acc_index_task(task->regions[0], acc_lr);
   acc_index_task.dispatch(ctx, runtime);
 
-  // create result lr
-  auto result_fs = runtime->create_field_space(ctx);
-  {
-    auto fa = runtime->create_field_allocator(ctx, result_fs);
-    add_field(dt, fa, Column::value_fid);
-    fa.allocate_field(
-      sizeof(std::vector<DomainPoint>),
-      IndexColumnTask::rows_fid,
-      OpsManager::V_DOMAIN_POINT_SID);
-  }
   // need results of acc_index_task to create the result lr
   RegionRequirement acc_req(acc_lr, READ_ONLY, EXCLUSIVE, acc_lr);
   acc_req.add_field(0);
@@ -357,6 +347,7 @@ index_column(
   PhysicalRegion acc_pr = runtime->map_region(ctx, acc_task);
   acc_pr.wait_until_valid();
 
+  LogicalRegionT<1> result_lr;
   const FieldAccessor<
     READ_ONLY,
     acc_field_t<T>,
@@ -365,40 +356,50 @@ index_column(
     AffineAccessor<acc_field_t<T>, 1, coord_t>,
     false> rows_acc(acc_pr, 0);
   const acc_field_t<T>& acc_field = rows_acc[0];
-  assert(acc_field.size() > 0); // FIXME: should return empty lr
-  auto result_is =
-    runtime->create_index_space(ctx, Rect<1>(0, acc_field.size() - 1));
-  auto result_lr =
-    runtime->create_logical_region(ctx, result_is, result_fs);
+  if (acc_field.size() > 0) {
+    auto result_fs = runtime->create_field_space(ctx);
+    {
+      auto fa = runtime->create_field_allocator(ctx, result_fs);
+      add_field(dt, fa, Column::value_fid);
+      fa.allocate_field(
+        sizeof(std::vector<DomainPoint>),
+        IndexColumnTask::rows_fid,
+        OpsManager::V_DOMAIN_POINT_SID);
+    }
+    IndexSpaceT<1> result_is =
+      runtime->create_index_space(ctx, Rect<1>(0, acc_field.size() - 1));
+    result_lr = runtime->create_logical_region(ctx, result_is, result_fs);
 
-  // transfer values and row numbers from acc_lr to result_lr
-  RegionRequirement result_req(result_lr, WRITE_DISCARD, EXCLUSIVE, result_lr);
-  result_req.add_field(Column::value_fid);
-  result_req.add_field(IndexColumnTask::rows_fid);
-  InlineLauncher result_task(result_req);
-  PhysicalRegion result_pr = runtime->map_region(ctx, result_task);
-  const FieldAccessor<
-    WRITE_DISCARD,
-    T,
-    1,
-    coord_t,
-    AffineAccessor<T, 1, coord_t>,
-    false> values(result_pr, Column::value_fid);
-  const FieldAccessor<
-    WRITE_DISCARD,
-    std::vector<DomainPoint>,
-    1,
-    coord_t,
-    AffineAccessor<std::vector<DomainPoint>, 1, coord_t>,
-    false> rns(result_pr, IndexColumnTask::rows_fid);
-  for (auto i = 0; i < acc_field.size(); ++i)
-    std::tie(values[i], rns[i]) = acc_field[i];
+    // transfer values and row numbers from acc_lr to result_lr
+    RegionRequirement result_req(result_lr, WRITE_DISCARD, EXCLUSIVE, result_lr);
+    result_req.add_field(Column::value_fid);
+    result_req.add_field(IndexColumnTask::rows_fid);
+    InlineLauncher result_task(result_req);
+    PhysicalRegion result_pr = runtime->map_region(ctx, result_task);
+    const FieldAccessor<
+      WRITE_DISCARD,
+      T,
+      1,
+      coord_t,
+      AffineAccessor<T, 1, coord_t>,
+      false> values(result_pr, Column::value_fid);
+    const FieldAccessor<
+      WRITE_DISCARD,
+      std::vector<DomainPoint>,
+      1,
+      coord_t,
+      AffineAccessor<std::vector<DomainPoint>, 1, coord_t>,
+      false> rns(result_pr, IndexColumnTask::rows_fid);
+    for (size_t i = 0; i < acc_field.size(); ++i)
+      std::tie(values[i], rns[i]) = acc_field[i];
+
+    runtime->destroy_field_space(ctx, result_fs);
+    runtime->destroy_index_space(ctx, result_is);
+  }
 
   runtime->destroy_logical_region(ctx, acc_lr);
   runtime->destroy_field_space(ctx, acc_fs);
   runtime->destroy_index_space(ctx, acc_is);
-  runtime->destroy_field_space(ctx, result_fs);
-  runtime->destroy_index_space(ctx, result_is);
   return result_lr;
 }
 
@@ -478,10 +479,10 @@ public:
 
   static void
   base_impl(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime *runtime) {
+    const Task* task,
+    const std::vector<PhysicalRegion>& regions,
+    Context ctx,
+    Runtime *runtime) {
 
     TaskArgs args;
     TaskArgs::deserialize(args, static_cast<const void *>(task->args));
@@ -512,12 +513,13 @@ public:
         task.dispatch(ctx, runtime);
       } else {
         // at bottom of indexes, write results to "new_rects" region
-        if (args.allow_rows || args.rows.size() == 1) {
 
-          auto rowdim = args.rows[0].get_dim();
-          auto rectdim =
-            args.ix_columns.size() + args.row_partition.get_dim() - rowdim
-            + (args.allow_rows ? 1 : 0);
+        auto rowdim = args.rows[0].get_dim();
+        auto rectdim =
+          args.ix_columns.size() + args.row_partition.get_dim() - rowdim
+          + (args.allow_rows ? 1 : 0);
+
+        if (args.allow_rows || args.rows.size() == 1) {
 
 #define WRITE_RECTS(ROWDIM, RECTDIM)                                    \
           case (ROWDIM * LEGMS_MAX_DIM + RECTDIM): {                    \
@@ -566,7 +568,35 @@ public:
 #undef WRITE_RECTS
 
         } else {
-          // TODO: FAIL
+
+#define WRITE_EMPTY_RECTS(ROWDIM, RECTDIM)                              \
+          case (ROWDIM * LEGMS_MAX_DIM + RECTDIM): {                    \
+            const FieldAccessor<                                        \
+              WRITE_DISCARD, \
+              Rect<RECTDIM>, \
+              ROWDIM, \
+              coord_t, \
+              AffineAccessor<Rect<RECTDIM>, ROWDIM, coord_t>, \
+              false> rects(regions[1], ReindexColumnTask::row_rects_fid); \
+                                                                        \
+            Rect<RECTDIM> row_rect;                                     \
+            row_rect.lo[0] = 1;                                         \
+            row_rect.hi[0] = 0;                                         \
+            assert(row_rect.empty());                                   \
+            for (size_t i = 0; i < args.rows.size(); ++i) {             \
+              rects[args.rows[i]] = row_rect;                           \
+            }                                                           \
+            break;                                                      \
+          }
+
+        switch (rowdim * LEGMS_MAX_DIM + rectdim) {
+          LEGMS_FOREACH_MN(WRITE_EMPTY_RECTS);
+        default:
+          assert(false);
+          break;
+        }
+#undef WRITE_EMPTY_RECTS
+
         }
       }
     }
@@ -797,7 +827,7 @@ ReindexColumnTask::ReindexColumnTask(
   m_args_buffer = std::make_unique<char[]>(args.serialized_size());
   args.serialize(m_args_buffer.get());
   m_launcher =
-    Legion::TaskLauncher(
+    TaskLauncher(
       TASK_ID,
       TaskArgument(m_args_buffer.get(), sizeof(args.serialized_size())));
 
@@ -810,7 +840,7 @@ ReindexColumnTask::ReindexColumnTask(
 }
 
 Future
-ReindexColumnTask::dispatch(Legion::Context ctx, Legion::Runtime* runtime) {
+ReindexColumnTask::dispatch(Context ctx, Runtime* runtime) {
   return runtime->execute_task(ctx, m_launcher);
 }
 
@@ -923,33 +953,49 @@ reindex_column(
   IndexSpaceT<NEWDIM> new_col_is(
     runtime->get_index_subspace(new_bounds_ip, 0));
 
-  // finally, we create the new column logical region
-  auto new_col_fs = runtime->create_field_space(ctx);
-  {
-    auto fa = runtime->create_field_allocator(ctx, new_col_fs);
-    add_field(args.col.datatype, fa, Column::value_fid);
+  ColumnGenArgs result {args.col.name, args.col.datatype, new_axes,
+                        LogicalRegion::NO_REGION, args.col.keywords};
+
+  // if reindexing failed, new_col_is should be empty
+  if (!runtime->get_index_space_domain(ctx, new_col_is).empty()) {
+    // finally, we create the new column logical region
+    auto new_col_fs = runtime->create_field_space(ctx);
+    {
+      auto fa = runtime->create_field_allocator(ctx, new_col_fs);
+      add_field(args.col.datatype, fa, Column::value_fid);
+    }
+    auto new_col_lr = runtime->create_logical_region(ctx, new_col_is, new_col_fs);
+
+    // copy values from the column logical region to new_col_lr
+    ReindexColumnCopyTask
+      copy_task(args.col.values, args.row_partition, new_rects_lr, new_col_lr);
+    copy_task.dispatch(ctx, runtime);
+
+    result.values = new_col_lr;
+
+    // TODO: is the following OK? does new_col_lr retain needed reference?
+    runtime->destroy_field_space(ctx, new_col_fs);
   }
-  auto new_col_lr = runtime->create_logical_region(ctx, new_col_is, new_col_fs);
 
-  // copy values from the column logical region to new_col_lr
-  ReindexColumnCopyTask
-    copy_task(args.col.values, args.row_partition, new_rects_lr, new_col_lr);
-  copy_task.dispatch(ctx, runtime);
+  runtime->destroy_field_space(ctx, new_rects_fs);
 
-  ColumnGenArgs
-    result {args.col.name, args.col.datatype, new_axes, new_col_lr,
-            args.col.keywords};
+  runtime->destroy_index_space(ctx, unitary_cs);
+  runtime->destroy_index_partition(ctx, unitary_rows_ip);
 
-  // FIXME: clean up
+  // TODO: are the following OK? does new_col_lr retain needed references?
+  runtime->destroy_index_space(ctx, new_bounds_is);
+  runtime->destroy_index_partition(ctx, new_bounds_ip);
+  runtime->destroy_index_space(ctx, new_col_is);
+
   return result;
 }
 
 ColumnGenArgs
 ReindexColumnTask::base_impl(
-  const Legion::Task* task,
-  const std::vector<Legion::PhysicalRegion>&,
-  Legion::Context ctx,
-  Legion::Runtime *runtime) {
+  const Task* task,
+  const std::vector<PhysicalRegion>&,
+  Context ctx,
+  Runtime *runtime) {
 
   TaskArgs args;
   ReindexColumnTask::TaskArgs::deserialize(args, task->args);
@@ -959,6 +1005,17 @@ ReindexColumnTask::base_impl(
     task->futures.end(),
     std::back_inserter(ixcols),
     [](auto& f) { return f.template get_result<ColumnGenArgs>(); });
+
+  if (std::any_of(
+        ixcols.begin(),
+        ixcols.end(),
+        [](auto& cg) {
+          return cg.values == LogicalRegion::NO_REGION;
+        })) {
+    ColumnGenArgs result {args.col.name, args.col.datatype, args.col.axes,
+                          LogicalRegion::NO_REGION, args.col.keywords};
+    return result;
+  }
 
   auto olddim = args.row_partition.get_dim();
   auto eltdim =
@@ -988,7 +1045,7 @@ ReindexColumnTask::base_impl(
 }
 
 void
-ReindexColumnTask::register_task(Legion::Runtime* runtime) {
+ReindexColumnTask::register_task(Runtime* runtime) {
   TASK_ID = runtime->generate_library_task_ids("legms::ReindexColumnTask", 1);
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
@@ -999,7 +1056,7 @@ ReindexColumnTask::register_task(Legion::Runtime* runtime) {
 }
 
 void
-Table::register_tasks(Legion::Runtime* runtime) {
+Table::register_tasks(Runtime* runtime) {
   IndexColumnTask::register_task(runtime);
   ReindexedTableTask::register_task(runtime);
   IndexAccumulateTasks::register_tasks(runtime);
