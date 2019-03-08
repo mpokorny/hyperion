@@ -3,6 +3,8 @@
 
 #include <array>
 #include <memory>
+#include <optional>
+#include <tuple>
 
 #include "legion.h"
 
@@ -14,15 +16,25 @@ namespace testing {
 enum TestState {
   SUCCESS,
   FAILURE,
+  SKIPPED,
   UNKNOWN
 };
+
+template <legion_privilege_mode_t MODE>
+class TestLog;
 
 struct TestLogReference {
 public:
 
-  Legion::LogicalRegion log_handle;
-  Legion::LogicalRegion log_parent;
-  Legion::LogicalRegion abort_state_handle;
+  TestLogReference(
+    size_t length,
+    Legion::Context context,
+    Legion::Runtime* runtime);
+
+  TestLogReference(
+    Legion::LogicalRegion log_handle,
+    Legion::LogicalRegion log_parent,
+    Legion::LogicalRegion abort_state_handle);
 
   enum {
     STATE_FID,
@@ -34,8 +46,17 @@ public:
   static constexpr int log_requirement_index = 0;
   static constexpr int abort_state_requirement_index = 1;
 
-  static TestLogReference
-  create(size_t length, Legion::Context context, Legion::Runtime* runtime);
+  virtual ~TestLogReference();
+
+  Legion::LogicalRegion
+  log_region() const {
+    return m_log_handle;
+  }
+
+  Legion::LogicalRegion
+  abort_state_region() const {
+    return m_abort_state_handle;
+  }
 
   std::array<Legion::RegionRequirement, 2>
   rw_requirements() const;
@@ -45,6 +66,10 @@ public:
 
   std::array<Legion::RegionRequirement, 2>
   wd_requirements() const;
+
+  template <legion_privilege_mode_t MODE>
+  std::array<Legion::RegionRequirement, 2>
+  requirements() const;
 
   Legion::LogicalPartition
   partition_log_by_state(
@@ -109,6 +134,22 @@ public:
     Legion::coord_t,
     Legion::AffineAccessor<bool, 1, Legion::coord_t>,
     false> abort_state_read_accessor;
+
+private:
+  
+  Legion::LogicalRegion m_log_handle;
+  Legion::LogicalRegion m_log_parent;
+  Legion::LogicalRegion m_abort_state_handle;
+
+private:
+
+  friend class TestLog<READ_ONLY>;
+  friend class TestLog<READ_WRITE>;
+  friend class TestLog<WRITE_DISCARD>;
+
+  Legion::Context m_context;
+  Legion::Runtime* m_runtime;
+
 };
 
 template <>
@@ -124,6 +165,24 @@ struct TestLogReference::abort_state_accessor<READ_WRITE> {
 template <>
 struct TestLogReference::abort_state_accessor<WRITE_DISCARD> {
   typedef TestLogReference::abort_state_reduce_accessor t;
+};
+
+template <>
+std::array<Legion::RegionRequirement, 2>
+TestLogReference::requirements<READ_ONLY>() const {
+  return ro_requirements();
+};
+
+template <>
+std::array<Legion::RegionRequirement, 2>
+TestLogReference::requirements<READ_WRITE>() const {
+  return rw_requirements();
+};
+
+template <>
+std::array<Legion::RegionRequirement, 2>
+TestLogReference::requirements<WRITE_DISCARD>() const {
+  return wd_requirements();
 };
 
 template <legion_privilege_mode_t MODE>
@@ -180,7 +239,7 @@ private:
   TestLogReference::abort_accessor<MODE> m_abort;
   TestLogReference::location_accessor<MODE> m_location;
   TestLogReference::description_accessor<MODE> m_description;
-  TestLogReference::abort_state_accessor<MODE> m_abort_state;
+  typename TestLogReference::abort_state_accessor<MODE>::t m_abort_state;
 };
 
 template <legion_privilege_mode_t MODE>
@@ -212,41 +271,18 @@ struct TestResult<WRITE_DISCARD> {
 
 template <legion_privilege_mode_t MODE>
 class TestLog {
-
-public:
-
-  TestLog(
-    Legion::PhysicalRegion* log_region,
-    Legion::PhysicalRegion* abort_state_region,
-    Legion::Runtime* runtime)
-    : m_log_region(log_region)
-    , m_abort_state_region(abort_state_region)
-    , m_runtime(runtime)
-    , m_abort_state(abort_state_region, 0) {
-  }
-
 public:
 
   TestLogIterator<MODE>
-  iterator() const {
-    return TestLogIterator<MODE>(m_log_region, m_abort_state_region, m_runtime);
-  }
+  iterator() const;
 
   bool
-  contains_abort() const {
-    return m_abort_state[0];
-  }
+  contains_abort() const;
 
-private:
-
-  Legion::PhysicalRegion* m_log_region;
-
-  Legion::PhysicalRegion* m_abort_state_region;
-
-  Legion::Runtime* m_runtime;
-
-  // TODO: is it OK to use a abort_state_read_accessor regardless of MODE?
-  TestLogReference::abort_state_read_accessor m_abort_state;
+  template <typename CB>
+  void
+  for_each(CB cb);
+  
 };
 
 template <>
@@ -282,7 +318,7 @@ public:
         *log_region,
         TestLogReference::DESCRIPTION_FID))
     , m_abort_state(
-      typename TestLogReference::abort_state_accessor<READ_ONLY>::t(
+      TestLogReference::abort_state_accessor<READ_ONLY>::t(
         *abort_state_region,
         0)) {
   }
@@ -389,7 +425,7 @@ private:
   TestLogReference::abort_accessor<READ_ONLY> m_abort;
   TestLogReference::location_accessor<READ_ONLY> m_location;
   TestLogReference::description_accessor<READ_ONLY> m_description;
-  typename TestLogReference::abort_state_accessor<READ_ONLY>::t m_abort_state;
+  TestLogReference::abort_state_accessor<READ_ONLY>::t m_abort_state;
 };
 
 template <>
@@ -425,7 +461,7 @@ public:
         *log_region,
         TestLogReference::DESCRIPTION_FID))
     , m_abort_state(
-      typename TestLogReference::abort_state_accessor<READ_WRITE>::t(
+      TestLogReference::abort_state_accessor<READ_WRITE>::t(
         *abort_state_region,
         0,
         SerdezManager::BOOL_OR_REDOP)) {
@@ -507,8 +543,9 @@ public:
         m_description[*m_pir]};
   }
 
+  template <legion_privilege_mode_t MODE>
   void
-  operator<<=(const TestResult<READ_WRITE>& tr) const {
+  operator<<=(const TestResult<MODE>& tr) const {
     m_state[*m_pir] = tr.state;
     m_abort[*m_pir] = tr.abort;
     m_location[*m_pir] = tr.location;
@@ -542,7 +579,7 @@ private:
   TestLogReference::abort_accessor<READ_WRITE> m_abort;
   TestLogReference::location_accessor<READ_WRITE> m_location;
   TestLogReference::description_accessor<READ_WRITE> m_description;
-  typename TestLogReference::abort_state_accessor<READ_WRITE>::t m_abort_state;
+  TestLogReference::abort_state_accessor<READ_WRITE>::t m_abort_state;
 };
 
 template <>
@@ -578,7 +615,7 @@ public:
         *log_region,
         TestLogReference::DESCRIPTION_FID))
     , m_abort_state(
-      typename TestLogReference::abort_state_accessor<WRITE_DISCARD>::t(
+      TestLogReference::abort_state_accessor<WRITE_DISCARD>::t(
         *abort_state_region,
         0,
         SerdezManager::BOOL_OR_REDOP)) {
@@ -660,8 +697,9 @@ public:
         m_description[*m_pir]};
   }
 
+  template <legion_privilege_mode_t MODE>
   void
-  operator<<=(const TestResult<WRITE_DISCARD>& tr) const {
+  operator<<=(const TestResult<MODE>& tr) const {
     m_state[*m_pir] = tr.state;
     m_abort[*m_pir] = tr.abort;
     m_location[*m_pir] = tr.location;
@@ -695,8 +733,310 @@ private:
   TestLogReference::abort_accessor<WRITE_DISCARD> m_abort;
   TestLogReference::location_accessor<WRITE_DISCARD> m_location;
   TestLogReference::description_accessor<WRITE_DISCARD> m_description;
-  typename TestLogReference::abort_state_accessor<WRITE_DISCARD>::t
+  TestLogReference::abort_state_accessor<WRITE_DISCARD>::t
   m_abort_state;
+};
+
+template <>
+class TestLog<READ_ONLY> {
+
+public:
+
+  TestLog(
+    Legion::PhysicalRegion* log_region,
+    Legion::PhysicalRegion* abort_state_region,
+    Legion::Context context,
+    Legion::Runtime* runtime)
+    : m_log_region(log_region)
+    , m_abort_state_region(abort_state_region)
+    , m_context(context)
+    , m_runtime(runtime)
+    , m_abort_state(*abort_state_region, 0) {
+  }
+
+protected:
+
+  TestLog(
+    TestLogReference& logref,
+    Legion::Context context,
+    Legion::Runtime* runtime)
+    : m_context(context)
+    , m_runtime(runtime) {
+
+    assert(runtime != nullptr);
+
+    auto reqs = logref.requirements<READ_ONLY>();
+    m_own_log_region =
+      runtime->map_region(
+        context,
+        reqs[TestLogReference::log_requirement_index]);
+    m_log_region = &m_own_log_region.value();
+    m_own_abort_state_region =
+      runtime->map_region(
+        context,
+        reqs[TestLogReference::abort_state_requirement_index]);
+    m_abort_state_region = &m_own_abort_state_region.value();
+    m_abort_state =
+      TestLogReference::abort_state_accessor<READ_ONLY>::t(
+        *m_abort_state_region,
+        0);
+  }
+
+public:
+
+  TestLog(TestLogReference& logref)
+    : TestLog(logref, logref.m_context, logref.m_runtime) {
+  }
+
+  virtual ~TestLog() {
+    if (m_own_log_region)
+      m_runtime->unmap_region(m_context, m_own_log_region.value());
+    if (m_own_abort_state_region)
+      m_runtime->unmap_region(m_context, m_own_abort_state_region.value());
+  }
+
+public:
+
+  TestLogIterator<READ_ONLY>
+  iterator() const {
+    return TestLogIterator<READ_ONLY>(
+      m_log_region,
+      m_abort_state_region,
+      m_runtime);
+  }
+
+  bool
+  contains_abort() const {
+    return m_abort_state[0];
+  }
+
+  template <typename CB>
+  void
+  for_each(CB cb) {
+    auto it = iterator();
+    while (!it.at_end()) {
+      cb(it);
+      ++it;
+    }
+  }
+
+private:
+
+  Legion::PhysicalRegion* m_log_region;
+
+  Legion::PhysicalRegion* m_abort_state_region;
+
+  Legion::Context m_context;
+
+  Legion::Runtime* m_runtime;
+
+  TestLogReference::abort_state_accessor<READ_ONLY>::t m_abort_state;
+
+  std::optional<Legion::PhysicalRegion> m_own_log_region;
+
+  std::optional<Legion::PhysicalRegion> m_own_abort_state_region;
+};
+
+template <>
+class TestLog<READ_WRITE> {
+
+public:
+
+  TestLog(
+    Legion::PhysicalRegion* log_region,
+    Legion::PhysicalRegion* abort_state_region,
+    Legion::Context context,
+    Legion::Runtime* runtime)
+    : m_log_region(log_region)
+    , m_abort_state_region(abort_state_region)
+    , m_context(context)
+    , m_runtime(runtime)
+    , m_abort_state(*abort_state_region, 0, SerdezManager::BOOL_OR_REDOP) {
+  }
+
+protected:
+
+  TestLog(
+    TestLogReference& logref,
+    Legion::Context context,
+    Legion::Runtime* runtime)
+    : m_context(context)
+    , m_runtime(runtime) {
+
+    assert(runtime != nullptr);
+
+    auto reqs = logref.requirements<READ_WRITE>();
+    m_own_log_region =
+      runtime->map_region(
+        context,
+        reqs[TestLogReference::log_requirement_index]);
+    m_log_region = &m_own_log_region.value();
+    m_own_abort_state_region =
+      runtime->map_region(
+        context,
+        reqs[TestLogReference::abort_state_requirement_index]);
+    m_abort_state_region = &m_own_abort_state_region.value();
+    m_abort_state =
+      TestLogReference::abort_state_accessor<WRITE_DISCARD>::t(
+        *m_abort_state_region,
+        0,
+        SerdezManager::BOOL_OR_REDOP);
+  }
+
+public:
+
+  TestLog(TestLogReference& logref)
+    : TestLog(logref, logref.m_context, logref.m_runtime) {
+  }
+
+  virtual ~TestLog() {
+    if (m_own_log_region)
+      m_runtime->unmap_region(m_context, m_own_log_region.value());
+    if (m_own_abort_state_region)
+      m_runtime->unmap_region(m_context, m_own_abort_state_region.value());
+  }
+
+public:
+
+  TestLogIterator<READ_WRITE>
+  iterator() const {
+    return TestLogIterator<READ_WRITE>(
+      m_log_region,
+      m_abort_state_region,
+      m_runtime);
+  }
+
+  bool
+  contains_abort() const {
+    return *m_abort_state.ptr(0);
+  }
+
+  template <typename CB>
+  void
+  for_each(CB cb) {
+    auto it = iterator();
+    while (!it.at_end()) {
+      cb(it);
+      ++it;
+    }
+  }
+
+private:
+
+  Legion::PhysicalRegion* m_log_region;
+
+  Legion::PhysicalRegion* m_abort_state_region;
+
+  Legion::Context m_context;
+
+  Legion::Runtime* m_runtime;
+
+  TestLogReference::abort_state_accessor<WRITE_DISCARD>::t m_abort_state;
+
+  std::optional<Legion::PhysicalRegion> m_own_log_region;
+
+  std::optional<Legion::PhysicalRegion> m_own_abort_state_region;
+};
+
+template <>
+class TestLog<WRITE_DISCARD> {
+
+public:
+
+  TestLog(
+    Legion::PhysicalRegion* log_region,
+    Legion::PhysicalRegion* abort_state_region,
+    Legion::Context context,
+    Legion::Runtime* runtime)
+    : m_log_region(log_region)
+    , m_abort_state_region(abort_state_region)
+    , m_context(context)
+    , m_runtime(runtime)
+    , m_abort_state(*abort_state_region, 0, SerdezManager::BOOL_OR_REDOP) {
+  }
+
+protected:
+
+  TestLog(
+    TestLogReference& logref,
+    Legion::Context context,
+    Legion::Runtime* runtime)
+    : m_context(context)
+    , m_runtime(runtime) {
+
+    assert(runtime != nullptr);
+
+    auto reqs = logref.requirements<WRITE_DISCARD>();
+    m_own_log_region =
+      runtime->map_region(
+        context,
+        reqs[TestLogReference::log_requirement_index]);
+    m_log_region = &m_own_log_region.value();
+    m_own_abort_state_region =
+      runtime->map_region(
+        context,
+        reqs[TestLogReference::abort_state_requirement_index]);
+    m_abort_state_region = &m_own_abort_state_region.value();
+    m_abort_state =
+      TestLogReference::abort_state_accessor<WRITE_DISCARD>::t(
+        *m_abort_state_region,
+        0,
+        SerdezManager::BOOL_OR_REDOP);
+  }
+
+public:
+
+  TestLog(TestLogReference& logref)
+    : TestLog(logref, logref.m_context, logref.m_runtime) {
+  }
+
+  virtual ~TestLog() {
+    if (m_own_log_region)
+      m_runtime->unmap_region(m_context, m_own_log_region.value());
+    if (m_own_abort_state_region)
+      m_runtime->unmap_region(m_context, m_own_abort_state_region.value());
+  }
+
+public:
+
+  TestLogIterator<WRITE_DISCARD>
+  iterator() const {
+    return TestLogIterator<WRITE_DISCARD>(
+      m_log_region,
+      m_abort_state_region,
+      m_runtime);
+  }
+
+  bool
+  contains_abort() const {
+    return *m_abort_state.ptr(0);
+  }
+
+  template <typename CB>
+  void
+  for_each(CB cb) {
+    auto it = iterator();
+    while (!it.at_end()) {
+      cb(it);
+      ++it;
+    }
+  }
+
+private:
+
+  Legion::PhysicalRegion* m_log_region;
+
+  Legion::PhysicalRegion* m_abort_state_region;
+
+  Legion::Context m_context;
+
+  Legion::Runtime* m_runtime;
+
+  TestLogReference::abort_state_accessor<WRITE_DISCARD>::t m_abort_state;
+
+  std::optional<Legion::PhysicalRegion> m_own_log_region;
+
+  std::optional<Legion::PhysicalRegion> m_own_abort_state_region;
 };
 
 } // end namespace testing

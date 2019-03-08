@@ -5,13 +5,13 @@
 using namespace legms::testing;
 using namespace Legion;
 
-TestLogReference
-TestLogReference::create(
+TestLogReference::TestLogReference(
   size_t length,
-  Legion::Context context,
-  Legion::Runtime* runtime) {
+  Context context,
+  Runtime* runtime)
+  : m_context(context)
+  , m_runtime(runtime) {
 
-  LogicalRegion log_handle;
   {
     FieldSpace fs = runtime->create_field_space(context);
 
@@ -30,13 +30,13 @@ TestLogReference::create(
     IndexSpaceT<1> is =
       runtime->create_index_space(context, Rect<1>(0, length - 1));
 
-    log_handle = runtime->create_logical_region(context, is, fs);
+    m_log_handle = runtime->create_logical_region(context, is, fs);
+    m_log_parent = m_log_handle;
 
     runtime->destroy_field_space(context, fs);
     runtime->destroy_index_space(context, is);
   }
 
-  LogicalRegion abort_state_handle;
   {
     FieldSpace fs = runtime->create_field_space(context);
 
@@ -46,13 +46,27 @@ TestLogReference::create(
     IndexSpaceT<1> is =
       runtime->create_index_space(context, Rect<1>(0, 0));
 
-    abort_state_handle = runtime->create_logical_region(context, is, fs);
+    m_abort_state_handle = runtime->create_logical_region(context, is, fs);
 
     runtime->destroy_field_space(context, fs);
     runtime->destroy_index_space(context, is);
   }
+}
 
-  return TestLogReference{ log_handle, log_handle, abort_state_handle };
+TestLogReference::TestLogReference(
+  LogicalRegion log_handle,
+  LogicalRegion log_parent,
+  LogicalRegion abort_state_handle)
+  : m_log_handle(log_handle)
+  , m_log_parent(log_parent)
+  , m_abort_state_handle(abort_state_handle)
+  , m_runtime(nullptr) {}
+
+TestLogReference::~TestLogReference() {
+  if (m_runtime != nullptr) {
+    m_runtime->destroy_logical_region(m_context, m_log_handle);
+    m_runtime->destroy_logical_region(m_context, m_abort_state_handle);
+  }
 }
 
 std::array<RegionRequirement, 2>
@@ -60,21 +74,21 @@ TestLogReference::rw_requirements() const {
 
   RegionRequirement
     log_req(
-      log_handle,
+      m_log_handle,
       {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
       {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
       READ_WRITE,
       EXCLUSIVE,
-      log_parent);
+      m_log_parent);
 
   RegionRequirement
     abort_state_req(
-      abort_state_handle,
+      m_abort_state_handle,
       {0},
       {0},
       SerdezManager::BOOL_OR_REDOP,
       ATOMIC,
-      abort_state_handle);
+      m_abort_state_handle);
 
   std::array<RegionRequirement, 2> result;
   result[log_requirement_index] = log_req;
@@ -87,22 +101,21 @@ TestLogReference::ro_requirements() const {
 
   RegionRequirement
     log_req(
-      log_handle,
+      m_log_handle,
       {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
       {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
       READ_ONLY,
       EXCLUSIVE,
-      log_parent);
+      m_log_parent);
 
   RegionRequirement
     abort_state_req(
-      abort_state_handle,
+      m_abort_state_handle,
       {0},
       {0},
       {READ_ONLY},
       ATOMIC,
-      abort_state_handle);
-
+      m_abort_state_handle);
 
   std::array<RegionRequirement, 2> result;
   result[log_requirement_index] = log_req;
@@ -115,22 +128,21 @@ TestLogReference::wd_requirements() const {
 
   RegionRequirement
     log_req(
-      log_handle,
+      m_log_handle,
       {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
       {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
       WRITE_DISCARD,
       EXCLUSIVE,
-      log_parent);
+      m_log_parent);
 
   RegionRequirement
     abort_state_req(
-      abort_state_handle,
+      m_abort_state_handle,
       {0},
       {0},
       SerdezManager::BOOL_OR_REDOP,
       ATOMIC,
-      abort_state_handle);
-
+      m_abort_state_handle);
 
   std::array<RegionRequirement, 2> result;
   result[log_requirement_index] = log_req;
@@ -150,12 +162,12 @@ TestLogReference::partition_log_by_state(
   IndexPartitionT<1> states_partition(
     runtime->create_partition_by_field(
       context,
-      log_handle,
-      log_parent,
+      m_log_handle,
+      m_log_parent,
       STATE_FID,
       states));
   LogicalPartition result(
-    runtime->get_logical_partition(context, log_handle, states_partition));
+    runtime->get_logical_partition(context, m_log_handle, states_partition));
   runtime->destroy_index_partition(context, states_partition);
   runtime->destroy_index_space(context, states);
   return result;

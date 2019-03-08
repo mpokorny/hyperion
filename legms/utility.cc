@@ -167,22 +167,22 @@ ProjectedIndexPartitionTask::base_impl(
     switch (targs->prjdim) {
 #if MAX_DIM >= 1
     case 1:
-      pipt_impl<1, 1>(task, regions, ctx, runtime);
+      ::pipt_impl<1, 1>(task, regions, ctx, runtime);
       break;
 #endif
 #if MAX_DIM >= 2
     case 2:
-      pipt_impl<1, 2>(task, regions, ctx, runtime);
+      ::pipt_impl<1, 2>(task, regions, ctx, runtime);
       break;
 #endif
 #if MAX_DIM >= 3
     case 3:
-      pipt_impl<1, 3>(task, regions, ctx, runtime);
+      ::pipt_impl<1, 3>(task, regions, ctx, runtime);
       break;
 #endif
 #if MAX_DIM >= 4
     case 4:
-      pipt_impl<1, 4>(task, regions, ctx, runtime);
+      ::pipt_impl<1, 4>(task, regions, ctx, runtime);
       break;
 #endif
     default:
@@ -196,22 +196,22 @@ ProjectedIndexPartitionTask::base_impl(
     switch (targs->prjdim) {
 #if MAX_DIM >= 1
     case 1:
-      pipt_impl<2, 1>(task, regions, ctx, runtime);
+      ::pipt_impl<2, 1>(task, regions, ctx, runtime);
       break;
 #endif
 #if MAX_DIM >= 2
     case 2:
-      pipt_impl<2, 2>(task, regions, ctx, runtime);
+      ::pipt_impl<2, 2>(task, regions, ctx, runtime);
       break;
 #endif
 #if MAX_DIM >= 3
     case 3:
-      pipt_impl<2, 3>(task, regions, ctx, runtime);
+      ::pipt_impl<2, 3>(task, regions, ctx, runtime);
       break;
 #endif
 #if MAX_DIM >= 4
     case 4:
-      pipt_impl<2, 4>(task, regions, ctx, runtime);
+      ::pipt_impl<2, 4>(task, regions, ctx, runtime);
       break;
 #endif
     default:
@@ -225,22 +225,22 @@ ProjectedIndexPartitionTask::base_impl(
     switch (targs->prjdim) {
 #if MAX_DIM >= 1
     case 1:
-      pipt_impl<3, 1>(task, regions, ctx, runtime);
+      ::pipt_impl<3, 1>(task, regions, ctx, runtime);
       break;
 #endif
 #if MAX_DIM >= 2
     case 2:
-      pipt_impl<3, 2>(task, regions, ctx, runtime);
+      ::pipt_impl<3, 2>(task, regions, ctx, runtime);
       break;
 #endif
 #if MAX_DIM >= 3
     case 3:
-      pipt_impl<3, 3>(task, regions, ctx, runtime);
+      ::pipt_impl<3, 3>(task, regions, ctx, runtime);
       break;
 #endif
 #if MAX_DIM >= 4
     case 4:
-      pipt_impl<3, 4>(task, regions, ctx, runtime);
+      ::pipt_impl<3, 4>(task, regions, ctx, runtime);
       break;
 #endif
     default:
@@ -254,22 +254,22 @@ ProjectedIndexPartitionTask::base_impl(
     switch (targs->prjdim) {
 #if MAX_DIM >= 1
     case 1:
-      pipt_impl<4, 1>(task, regions, ctx, runtime);
+      ::pipt_impl<4, 1>(task, regions, ctx, runtime);
       break;
 #endif
 #if MAX_DIM >= 2
     case 2:
-      pipt_impl<4, 2>(task, regions, ctx, runtime);
+      ::pipt_impl<4, 2>(task, regions, ctx, runtime);
       break;
 #endif
 #if MAX_DIM >= 3
     case 3:
-      pipt_impl<4, 3>(task, regions, ctx, runtime);
+      ::pipt_impl<4, 3>(task, regions, ctx, runtime);
       break;
 #endif
 #if MAX_DIM >= 4
     case 4:
-      pipt_impl<4, 4>(task, regions, ctx, runtime);
+      ::pipt_impl<4, 4>(task, regions, ctx, runtime);
       break;
 #endif
     default:
@@ -298,7 +298,7 @@ ProjectedIndexPartitionTask::register_task(Runtime* runtime) {
 TaskID ProjectedIndexPartitionTask::TASK_ID;
 
 IndexPartition
-projected_index_partition(
+legms::projected_index_partition(
   Context ctx,
   Runtime* runtime,
   IndexPartition ip,
@@ -567,7 +567,7 @@ create_partition_on_axes(
 }
 
 IndexPartition
-create_partition_on_axes(
+legms::create_partition_on_axes(
   Context ctx,
   Runtime* runtime,
   IndexSpace is,
@@ -589,7 +589,7 @@ create_partition_on_axes(
 #if MAX_DIM >= 1
     case 1:
       return
-        create_partition_on_axes<1,1>(ctx, runtime, IndexSpaceT<1>(is), dims);
+        ::create_partition_on_axes<1,1>(ctx, runtime, IndexSpaceT<1>(is), dims);
       break;
 #endif
     default:
@@ -604,13 +604,13 @@ create_partition_on_axes(
 #if MAX_DIM >= 1
     case 1:
       return
-        create_partition_on_axes<2,1>(ctx, runtime, IndexSpaceT<2>(is), dims);
+        ::create_partition_on_axes<2,1>(ctx, runtime, IndexSpaceT<2>(is), dims);
       break;
 #endif
 #if MAX_DIM >= 2
     case 2:
       return
-        create_partition_on_axes<2,2>(ctx, runtime, IndexSpaceT<2>(is), dims);
+        ::create_partition_on_axes<2,2>(ctx, runtime, IndexSpaceT<2>(is), dims);
       break;
 #endif
     default:
@@ -625,19 +625,19 @@ create_partition_on_axes(
 #if MAX_DIM >= 1
     case 1:
       return
-        create_partition_on_axes<3,1>(ctx, runtime, IndexSpaceT<3>(is), dims);
+        ::create_partition_on_axes<3,1>(ctx, runtime, IndexSpaceT<3>(is), dims);
       break;
 #endif
 #if MAX_DIM >= 2
     case 2:
       return
-        create_partition_on_axes<3,2>(ctx, runtime, IndexSpaceT<3>(is), dims);
+        ::create_partition_on_axes<3,2>(ctx, runtime, IndexSpaceT<3>(is), dims);
       break;
 #endif
 #if MAX_DIM >= 3
     case 3:
       return
-        create_partition_on_axes<3,3>(ctx, runtime, IndexSpaceT<3>(is), dims);
+        ::create_partition_on_axes<3,3>(ctx, runtime, IndexSpaceT<3>(is), dims);
       break;
 #endif
     default:
@@ -652,25 +652,25 @@ create_partition_on_axes(
 #if MAX_DIM >= 1
     case 1:
       return
-        create_partition_on_axes<4,1>(ctx, runtime, IndexSpaceT<4>(is), dims);
+        ::create_partition_on_axes<4,1>(ctx, runtime, IndexSpaceT<4>(is), dims);
       break;
 #endif
 #if MAX_DIM >= 2
     case 2:
       return
-        create_partition_on_axes<4,2>(ctx, runtime, IndexSpaceT<4>(is), dims);
+        ::create_partition_on_axes<4,2>(ctx, runtime, IndexSpaceT<4>(is), dims);
       break;
 #endif
 #if MAX_DIM >= 3
     case 3:
       return
-        create_partition_on_axes<4,3>(ctx, runtime, IndexSpaceT<4>(is), dims);
+        ::create_partition_on_axes<4,3>(ctx, runtime, IndexSpaceT<4>(is), dims);
       break;
 #endif
 #if MAX_DIM >= 4
     case 4:
       return
-        create_partition_on_axes<4,4>(ctx, runtime, IndexSpaceT<4>(is), dims);
+        ::create_partition_on_axes<4,4>(ctx, runtime, IndexSpaceT<4>(is), dims);
       break;
 #endif
     default:
@@ -686,9 +686,8 @@ create_partition_on_axes(
   return IndexPartition::NO_PART;
 }
 
-
 void
-register_tasks(Runtime* runtime) {
+legms::register_tasks(Runtime* runtime) {
   TableReadTask::register_task(runtime);
   TreeIndexSpace::register_tasks(runtime);
   Column::register_tasks(runtime);

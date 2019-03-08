@@ -27,3 +27,5 @@ target_link_libraries(legms_testing PUBLIC realm)
 target_link_libraries(legms_testing PUBLIC legms)
 set_target_properties(legms_testing PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(legms_testing PROPERTIES SOVERSION ${SOVERSION})
+
+add_subdirectory(tests)
