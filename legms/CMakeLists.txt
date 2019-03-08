@@ -154,3 +154,5 @@ install(TARGETS legms
   LIBRARY DESTINATION lib)
 install(FILES LEGMS_INCLUDE
   DESTINATION include)
+
+add_subdirectory(testing)
