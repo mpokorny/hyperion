@@ -680,8 +680,10 @@ create_partition_on_axes(
     break;
 #endif
   default:
+    assert(false);
     break;
   }
+  return IndexPartition::NO_PART;
 }
 
 
