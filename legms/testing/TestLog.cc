@@ -28,54 +28,56 @@ TestLogReference::create(
   IndexSpaceT<1> is =
     runtime->create_index_space(context, Rect<1>(0, length - 1));
 
-  LogicalRegion handle =
+  LogicalRegion log_handle =
     runtime->create_logical_region(context, is, fs);
 
   runtime->destroy_field_space(context, fs);
   runtime->destroy_index_space(context, is);
 
-  return TestLogReference{ handle, handle };
+  return TestLogReference{ log_handle, log_handle, LogicalRegion::NO_REGION };
 }
 
-RegionRequirement
-TestLogReference::rw_requirement() const {
+std::vector<RegionRequirement>
+TestLogReference::rw_requirements() const {
   RegionRequirement result(
-    handle,
+    log_handle,
     {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
     {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
     READ_WRITE,
     EXCLUSIVE,
-    parent);
-  return result;
+    log_parent);
+  return {result};
 }
 
-RegionRequirement
-TestLogReference::ro_requirement() const {
+std::vector<RegionRequirement>
+TestLogReference::ro_requirements() const {
   RegionRequirement result(
-    handle,
+    log_handle,
     {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
     {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
     READ_ONLY,
     EXCLUSIVE,
-    parent);
-  return result;
+    log_parent);
+  return {result};
 }
 
-RegionRequirement
-TestLogReference::wd_requirement() const {
+std::vector<RegionRequirement>
+TestLogReference::wd_requirements() const {
   RegionRequirement result(
-    handle,
+    log_handle,
     {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
     {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
     WRITE_DISCARD,
     EXCLUSIVE,
-    parent);
+    log_parent);
 
-  return result;
+  return {result};
 }
 
 LogicalPartition
-TestLogReference::partition_by_state(Context context, Runtime* runtime) const {
+TestLogReference::partition_log_by_state(
+  Context context,
+  Runtime* runtime) const {
 
   IndexSpaceT<1,int> states(
     runtime->create_index_space(
@@ -84,12 +86,12 @@ TestLogReference::partition_by_state(Context context, Runtime* runtime) const {
   IndexPartitionT<1> states_partition(
     runtime->create_partition_by_field(
       context,
-      handle,
-      parent,
+      log_handle,
+      log_parent,
       STATE_FID,
       states));
   LogicalPartition result(
-    runtime->get_logical_partition(context, handle, states_partition));
+    runtime->get_logical_partition(context, log_handle, states_partition));
   runtime->destroy_index_partition(context, states_partition);
   runtime->destroy_index_space(context, states);
   return result;

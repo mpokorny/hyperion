@@ -17,8 +17,9 @@ enum TestState {
 struct TestLogReference {
 public:
 
-  Legion::LogicalRegion handle;
-  Legion::LogicalRegion parent;
+  Legion::LogicalRegion log_handle;
+  Legion::LogicalRegion log_parent;
+  Legion::LogicalRegion abort_state_handle;
 
   enum {
     STATE_FID,
@@ -30,17 +31,19 @@ public:
   static TestLogReference
   create(size_t length, Legion::Context context, Legion::Runtime* runtime);
 
-  Legion::RegionRequirement
-  rw_requirement() const;
+  std::vector<Legion::RegionRequirement>
+  rw_requirements() const;
 
-  Legion::RegionRequirement
-  ro_requirement() const;
+  std::vector<Legion::RegionRequirement>
+  ro_requirements() const;
 
-  Legion::RegionRequirement
-  wd_requirement() const;
+  std::vector<Legion::RegionRequirement>
+  wd_requirements() const;
 
   Legion::LogicalPartition
-  partition_by_state(Legion::Context context, Legion::Runtime* runtime) const;
+  partition_log_by_state(
+    Legion::Context context,
+    Legion::Runtime* runtime) const;
 
   template <legion_privilege_mode_t MODE>
   using state_accessor =
