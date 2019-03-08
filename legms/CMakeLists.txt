@@ -142,6 +142,7 @@ target_include_directories(legms
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_directories(legms PUBLIC ${CASACORE}/lib)
 target_link_directories(legms PUBLIC ${Legion_INSTALL_DIR}/lib64)
+target_link_libraries(legms PUBLIC stdc++fs)
 target_link_libraries(legms PUBLIC legion)
 target_link_libraries(legms PUBLIC realm)
 target_link_libraries(legms PUBLIC casa_tables)
