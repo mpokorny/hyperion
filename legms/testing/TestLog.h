@@ -5,6 +5,8 @@
 
 #include "legion.h"
 
+#include "utility.h"
+
 namespace legms {
 namespace testing {
 
@@ -84,6 +86,22 @@ public:
     Legion::coord_t,
     Legion::AffineAccessor<std::string, 1, Legion::coord_t>,
     false>;
+
+  typedef Legion::ReductionAccessor<
+    bool_or_redop,
+    false,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<bool, 1, Legion::coord_t>,
+    false> abort_state_reduce_accessor;
+
+  typedef Legion::FieldAccessor<
+    READ_ONLY,
+    bool,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<bool, 1, Legion::coord_t>,
+    false> abort_state_read_accessor;
 };
 
 template <legion_privilege_mode_t MODE>
@@ -203,6 +221,33 @@ private:
 };
 
 template <legion_privilege_mode_t MODE>
+struct TestResult;
+
+template <>
+struct TestResult<READ_ONLY> {
+  const int& state;
+  const bool& abort;
+  const std::string& location;
+  const std::string& description;
+};
+
+template <>
+struct TestResult<READ_WRITE> {
+  int state;
+  bool abort;
+  std::string location;
+  std::string description;
+};
+
+template <>
+struct TestResult<WRITE_DISCARD> {
+  int state;
+  bool abort;
+  std::string location;
+  std::string description;
+};
+
+template <legion_privilege_mode_t MODE>
 class TestLog {
 
 public:
@@ -266,7 +311,8 @@ class TestLogIterator<READ_ONLY> {
     , m_state(other.m_state)
     , m_abort(other.m_abort)
     , m_location(other.m_location)
-    , m_description(other.m_description) {
+    , m_description(other.m_description)
+    , m_abort_state(other.m_abort_state) {
   }
 
   TestLogIterator(TestLogIterator&& other)
@@ -275,7 +321,8 @@ class TestLogIterator<READ_ONLY> {
     , m_state(std::move(other).m_state)
     , m_abort(std::move(other).m_abort)
     , m_location(std::move(other).m_location)
-    , m_description(std::move(other).m_description) {
+    , m_description(std::move(other).m_description)
+    , m_abort_state(std::move(other).m_abort_state) {
   }
 
   TestLogIterator&
@@ -289,6 +336,11 @@ class TestLogIterator<READ_ONLY> {
   operator=(TestLogIterator&& other) {
     m_region = other.m_region;
     m_pir = other.m_pir;
+    m_state = other.m_state;
+    m_abort = other.m_abort;
+    m_location = other.m_location;
+    m_description = other.m_description;
+    m_abort_state = other.m_abort_state;
     return *this;
   }
 
@@ -320,24 +372,13 @@ class TestLogIterator<READ_ONLY> {
     return m_pir();
   }
 
-  int
-  state() const {
-    return m_state[*m_pir];
-  }
-
-  bool
-  abort() const {
-    return m_abort[*m_pir];
-  }
-
-  const std::string&
-  location() const {
-    return m_location[*m_pir];
-  }
-
-  const std::string&
-  description() const {
-    return m_description[*m_pir];
+  TestResult<READ_ONLY>
+  operator*() const {
+    return TestResult<READ_ONLY>{
+      m_state[*m_pir],
+        m_abort[*m_pir],
+        m_location[*m_pir],
+        m_description[*m_pir] };
   }
 
   friend void
@@ -351,6 +392,11 @@ private:
   swap(TestLogIterator& other) {
     std::swap(m_region, other.m_region);
     std::swap(m_pir, other.m_pir);
+    std::swap(m_state, other.m_state);
+    std::swap(m_abort, other.m_abort);
+    std::swap(m_location, other.m_location);
+    std::swap(m_description, other.m_description);
+    std::swap(m_abort_state, other.m_abort_state);
   }
 
   Legion::PhysicalRegion* m_region;
@@ -361,7 +407,7 @@ private:
   TestLogReference::abort_accessor<READ_ONLY> m_abort;
   TestLogReference::location_accessor<READ_ONLY> m_location;
   TestLogReference::description_accessor<READ_ONLY> m_description;
-
+  TestLogReference::abort_state_read_accessor m_abort_state;
 };
 
 template <>
@@ -402,7 +448,8 @@ class TestLogIterator<READ_WRITE> {
     , m_state(other.m_state)
     , m_abort(other.m_abort)
     , m_location(other.m_location)
-    , m_description(other.m_description) {
+    , m_description(other.m_description)
+    , m_abort_state(other.m_abort_state) {
   }
 
   TestLogIterator(TestLogIterator&& other)
@@ -411,7 +458,8 @@ class TestLogIterator<READ_WRITE> {
     , m_state(std::move(other).m_state)
     , m_abort(std::move(other).m_abort)
     , m_location(std::move(other).m_location)
-    , m_description(std::move(other).m_description) {
+    , m_description(std::move(other).m_description)
+    , m_abort_state(std::move(other).m_abort_state) {
   }
 
   TestLogIterator&
@@ -425,6 +473,11 @@ class TestLogIterator<READ_WRITE> {
   operator=(TestLogIterator&& other) {
     m_region = other.m_region;
     m_pir = other.m_pir;
+    m_state = other.m_state;
+    m_abort = other.m_abort;
+    m_location = other.m_location;
+    m_description = other.m_description;
+    m_abort_state = other.m_abort_state;
     return *this;
   }
 
@@ -456,24 +509,22 @@ class TestLogIterator<READ_WRITE> {
     return m_pir();
   }
 
-  int&
-  state() const {
-    return m_state[*m_pir];
+  TestResult<READ_WRITE>
+  operator*() const {
+    return TestResult<READ_WRITE>{
+      m_state[*m_pir],
+        m_abort[*m_pir],
+        m_location[*m_pir],
+        m_description[*m_pir]};
   }
 
-  bool&
-  abort() const {
-    return m_abort[*m_pir];
-  }
-
-  std::string&
-  location() const {
-    return m_location[*m_pir];
-  }
-
-  std::string&
-  description() const {
-    return m_description[*m_pir];
+  void
+  operator<<=(const TestResult<READ_WRITE>& tr) const {
+    m_state[*m_pir] = tr.state;
+    m_abort[*m_pir] = tr.abort;
+    m_location[*m_pir] = tr.location;
+    m_description[*m_pir] = tr.description;
+    m_abort_state[*m_pir] <<= tr.abort;
   }
 
   friend void
@@ -487,6 +538,11 @@ private:
   swap(TestLogIterator& other) {
     std::swap(m_region, other.m_region);
     std::swap(m_pir, other.m_pir);
+    std::swap(m_state, other.m_state);
+    std::swap(m_abort, other.m_abort);
+    std::swap(m_location, other.m_location);
+    std::swap(m_description, other.m_description);
+    std::swap(m_abort_state, other.m_abort_state);
   }
 
   Legion::PhysicalRegion* m_region;
@@ -497,7 +553,7 @@ private:
   TestLogReference::abort_accessor<READ_WRITE> m_abort;
   TestLogReference::location_accessor<READ_WRITE> m_location;
   TestLogReference::description_accessor<READ_WRITE> m_description;
-
+  TestLogReference::abort_state_reduce_accessor m_abort_state;
 };
 
 template <>
@@ -538,7 +594,8 @@ class TestLogIterator<WRITE_DISCARD> {
     , m_state(other.m_state)
     , m_abort(other.m_abort)
     , m_location(other.m_location)
-    , m_description(other.m_description) {
+    , m_description(other.m_description)
+    , m_abort_state(other.m_abort_state) {
   }
 
   TestLogIterator(TestLogIterator&& other)
@@ -547,7 +604,8 @@ class TestLogIterator<WRITE_DISCARD> {
     , m_state(std::move(other).m_state)
     , m_abort(std::move(other).m_abort)
     , m_location(std::move(other).m_location)
-    , m_description(std::move(other).m_description) {
+    , m_description(std::move(other).m_description)
+    , m_abort_state(std::move(other).m_abort_state) {
   }
 
   TestLogIterator&
@@ -561,6 +619,11 @@ class TestLogIterator<WRITE_DISCARD> {
   operator=(TestLogIterator&& other) {
     m_region = other.m_region;
     m_pir = other.m_pir;
+    m_state = other.m_state;
+    m_abort = other.m_abort;
+    m_location = other.m_location;
+    m_description = other.m_description;
+    m_abort_state = other.m_abort_state;
     return *this;
   }
 
@@ -592,24 +655,22 @@ class TestLogIterator<WRITE_DISCARD> {
     return m_pir();
   }
 
-  int&
-  state() const {
-    return m_state[*m_pir];
+  TestResult<WRITE_DISCARD>
+  operator*() const {
+    return TestResult<WRITE_DISCARD>{
+      m_state[*m_pir],
+        m_abort[*m_pir],
+        m_location[*m_pir],
+        m_description[*m_pir]};
   }
 
-  bool&
-  abort() const {
-    return m_abort[*m_pir];
-  }
-
-  std::string&
-  location() const {
-    return m_location[*m_pir];
-  }
-
-  std::string&
-  description() const {
-    return m_description[*m_pir];
+  void
+  operator<<=(const TestResult<WRITE_DISCARD>& tr) const {
+    m_state[*m_pir] = tr.state;
+    m_abort[*m_pir] = tr.abort;
+    m_location[*m_pir] = tr.location;
+    m_description[*m_pir] = tr.description;
+    m_abort_state[*m_pir] <<= tr.abort;
   }
 
   friend void
@@ -623,6 +684,11 @@ private:
   swap(TestLogIterator& other) {
     std::swap(m_region, other.m_region);
     std::swap(m_pir, other.m_pir);
+    std::swap(m_state, other.m_state);
+    std::swap(m_abort, other.m_abort);
+    std::swap(m_location, other.m_location);
+    std::swap(m_description, other.m_description);
+    std::swap(m_abort_state, other.m_abort_state);
   }
 
   Legion::PhysicalRegion* m_region;
@@ -633,7 +699,7 @@ private:
   TestLogReference::abort_accessor<WRITE_DISCARD> m_abort;
   TestLogReference::location_accessor<WRITE_DISCARD> m_location;
   TestLogReference::description_accessor<WRITE_DISCARD> m_description;
-
+  TestLogReference::abort_state_reduce_accessor m_abort_state;
 };
 
 } // end namespace testing
