@@ -55,7 +55,7 @@ TestLogReference::create(
   return TestLogReference{ log_handle, log_handle, abort_state_handle };
 }
 
-std::vector<RegionRequirement>
+std::array<RegionRequirement, 2>
 TestLogReference::rw_requirements() const {
 
   RegionRequirement
@@ -76,10 +76,13 @@ TestLogReference::rw_requirements() const {
       ATOMIC,
       abort_state_handle);
 
-  return {log_req, abort_state_req};
+  std::array<RegionRequirement, 2> result;
+  result[log_requirement_index] = log_req;
+  result[abort_state_requirement_index] = abort_state_req;
+  return result;
 }
 
-std::vector<RegionRequirement>
+std::array<RegionRequirement, 2>
 TestLogReference::ro_requirements() const {
 
   RegionRequirement
@@ -100,10 +103,14 @@ TestLogReference::ro_requirements() const {
       ATOMIC,
       abort_state_handle);
 
-  return {log_req, abort_state_req};
+
+  std::array<RegionRequirement, 2> result;
+  result[log_requirement_index] = log_req;
+  result[abort_state_requirement_index] = abort_state_req;
+  return result;
 }
 
-std::vector<RegionRequirement>
+std::array<RegionRequirement, 2>
 TestLogReference::wd_requirements() const {
 
   RegionRequirement
@@ -124,7 +131,11 @@ TestLogReference::wd_requirements() const {
       ATOMIC,
       abort_state_handle);
 
-  return {log_req, abort_state_req};
+
+  std::array<RegionRequirement, 2> result;
+  result[log_requirement_index] = log_req;
+  result[abort_state_requirement_index] = abort_state_req;
+  return result;
 }
 
 LogicalPartition

@@ -1,6 +1,7 @@
 #ifndef LEGMS_TESTING_TEST_LOG_H_
 #define LEGMS_TESTING_TEST_LOG_H_
 
+#include <array>
 #include <memory>
 
 #include "legion.h"
@@ -30,16 +31,19 @@ public:
     DESCRIPTION_FID
   };
 
+  static constexpr int log_requirement_index = 0;
+  static constexpr int abort_state_requirement_index = 1;
+
   static TestLogReference
   create(size_t length, Legion::Context context, Legion::Runtime* runtime);
 
-  std::vector<Legion::RegionRequirement>
+  std::array<Legion::RegionRequirement, 2>
   rw_requirements() const;
 
-  std::vector<Legion::RegionRequirement>
+  std::array<Legion::RegionRequirement, 2>
   ro_requirements() const;
 
-  std::vector<Legion::RegionRequirement>
+  std::array<Legion::RegionRequirement, 2>
   wd_requirements() const;
 
   Legion::LogicalPartition
