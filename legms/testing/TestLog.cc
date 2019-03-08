@@ -11,67 +11,120 @@ TestLogReference::create(
   Legion::Context context,
   Legion::Runtime* runtime) {
 
-  FieldSpace fs = runtime->create_field_space(context);
+  LogicalRegion log_handle;
+  {
+    FieldSpace fs = runtime->create_field_space(context);
 
-  FieldAllocator fa = runtime->create_field_allocator(context, fs);
-  fa.allocate_field(sizeof(TestState), STATE_FID);
-  fa.allocate_field(sizeof(bool), ABORT_FID);
-  fa.allocate_field(
-    sizeof(std::string),
-    LOCATION_FID,
-    SerdezManager::CASACORE_STRING_SID);
-  fa.allocate_field(
-    sizeof(std::string),
-    DESCRIPTION_FID,
-    SerdezManager::CASACORE_STRING_SID);
+    FieldAllocator fa = runtime->create_field_allocator(context, fs);
+    fa.allocate_field(sizeof(TestState), STATE_FID);
+    fa.allocate_field(sizeof(bool), ABORT_FID);
+    fa.allocate_field(
+      sizeof(std::string),
+      LOCATION_FID,
+      SerdezManager::CASACORE_STRING_SID);
+    fa.allocate_field(
+      sizeof(std::string),
+      DESCRIPTION_FID,
+      SerdezManager::CASACORE_STRING_SID);
 
-  IndexSpaceT<1> is =
-    runtime->create_index_space(context, Rect<1>(0, length - 1));
+    IndexSpaceT<1> is =
+      runtime->create_index_space(context, Rect<1>(0, length - 1));
 
-  LogicalRegion log_handle =
-    runtime->create_logical_region(context, is, fs);
+    log_handle = runtime->create_logical_region(context, is, fs);
 
-  runtime->destroy_field_space(context, fs);
-  runtime->destroy_index_space(context, is);
+    runtime->destroy_field_space(context, fs);
+    runtime->destroy_index_space(context, is);
+  }
 
-  return TestLogReference{ log_handle, log_handle, LogicalRegion::NO_REGION };
+  LogicalRegion abort_state_handle;
+  {
+    FieldSpace fs = runtime->create_field_space(context);
+
+    FieldAllocator fa = runtime->create_field_allocator(context, fs);
+    fa.allocate_field(sizeof(bool), 0);
+
+    IndexSpaceT<1> is =
+      runtime->create_index_space(context, Rect<1>(0, 0));
+
+    abort_state_handle = runtime->create_logical_region(context, is, fs);
+
+    runtime->destroy_field_space(context, fs);
+    runtime->destroy_index_space(context, is);
+  }
+
+  return TestLogReference{ log_handle, log_handle, abort_state_handle };
 }
 
 std::vector<RegionRequirement>
 TestLogReference::rw_requirements() const {
-  RegionRequirement result(
-    log_handle,
-    {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
-    {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
-    READ_WRITE,
-    EXCLUSIVE,
-    log_parent);
-  return {result};
+
+  RegionRequirement
+    log_req(
+      log_handle,
+      {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
+      {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
+      READ_WRITE,
+      EXCLUSIVE,
+      log_parent);
+
+  RegionRequirement
+    abort_state_req(
+      abort_state_handle,
+      {0},
+      {0},
+      SerdezManager::BOOL_OR_REDOP,
+      ATOMIC,
+      abort_state_handle);
+
+  return {log_req, abort_state_req};
 }
 
 std::vector<RegionRequirement>
 TestLogReference::ro_requirements() const {
-  RegionRequirement result(
-    log_handle,
-    {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
-    {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
-    READ_ONLY,
-    EXCLUSIVE,
-    log_parent);
-  return {result};
+
+  RegionRequirement
+    log_req(
+      log_handle,
+      {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
+      {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
+      READ_ONLY,
+      EXCLUSIVE,
+      log_parent);
+
+  RegionRequirement
+    abort_state_req(
+      abort_state_handle,
+      {0},
+      {0},
+      {READ_ONLY},
+      ATOMIC,
+      abort_state_handle);
+
+  return {log_req, abort_state_req};
 }
 
 std::vector<RegionRequirement>
 TestLogReference::wd_requirements() const {
-  RegionRequirement result(
-    log_handle,
-    {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
-    {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
-    WRITE_DISCARD,
-    EXCLUSIVE,
-    log_parent);
 
-  return {result};
+  RegionRequirement
+    log_req(
+      log_handle,
+      {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
+      {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
+      WRITE_DISCARD,
+      EXCLUSIVE,
+      log_parent);
+
+  RegionRequirement
+    abort_state_req(
+      abort_state_handle,
+      {0},
+      {0},
+      SerdezManager::BOOL_OR_REDOP,
+      ATOMIC,
+      abort_state_handle);
+
+  return {log_req, abort_state_req};
 }
 
 LogicalPartition
