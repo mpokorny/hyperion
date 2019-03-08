@@ -125,6 +125,31 @@ public:
   }
 };
 
+class bool_or_redop {
+public:
+  typedef bool LHS;
+  typedef bool RHS;
+
+  static void
+  combine(LHS& lhs, RHS rhs) {
+    lhs = lhs || rhs;
+  }
+
+  template <bool EXCL>
+  static void
+  apply(LHS& lhs, RHS rhs) {
+    combine(lhs, rhs);
+  }
+
+  static constexpr const RHS identity = false;
+
+  template <bool EXCL>
+  static void
+  fold(RHS& rhs1, RHS rhs2) {
+    combine(rhs1, rhs2);
+  }
+};
+
 class SerdezManager {
 public:
 
@@ -137,12 +162,18 @@ public:
           INDEX_TREE_SID);
         Legion::Runtime::register_custom_serdez_op<
           string_serdez<casacore::String>>(CASACORE_STRING_SID);
+        Legion::Runtime::register_reduction_op<bool_or_redop>(
+          BOOL_OR_REDOP);
       });
   }
 
   enum {
     INDEX_TREE_SID = 1,
     CASACORE_STRING_SID
+  };
+
+  enum {
+    BOOL_OR_REDOP = 1,
   };
 
 private:
