@@ -3,6 +3,8 @@ project(legms)
 
 set(legms_MAX_DIM "3" CACHE STRING "Maximum index space dimension")
 
+enable_testing()
+
 add_subdirectory(legion_build)
 add_subdirectory(terra_build)
 add_subdirectory(legms)
