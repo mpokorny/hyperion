@@ -838,6 +838,16 @@ public:
     }
   }
 
+  Legion::IndexPartitionT<1>
+  partition_log_by_state() const {
+    return
+      TestLogReference(
+        m_log_region->get_logical_region(),
+        m_log_region->get_logical_region(),
+        m_abort_state_region->get_logical_region())
+      .partition_log_by_state(m_context, m_runtime);
+  }
+
 private:
 
   const Legion::PhysicalRegion* m_log_region;
@@ -944,6 +954,16 @@ public:
     }
   }
 
+  Legion::IndexPartitionT<1>
+  partition_log_by_state() const {
+    return
+      TestLogReference(
+        m_log_region->get_logical_region(),
+        m_log_region->get_logical_region(),
+        m_abort_state_region->get_logical_region())
+      .partition_log_by_state(m_context, m_runtime);
+  }
+
 private:
 
   const Legion::PhysicalRegion* m_log_region;
@@ -1048,6 +1068,16 @@ public:
       cb(it);
       ++it;
     }
+  }
+
+  Legion::IndexPartitionT<1>
+  partition_log_by_state() const {
+    return
+      TestLogReference(
+        m_log_region->get_logical_region(),
+        m_log_region->get_logical_region(),
+        m_abort_state_region->get_logical_region())
+      .partition_log_by_state(m_context, m_runtime);
   }
 
 private:
