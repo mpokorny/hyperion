@@ -534,6 +534,15 @@ public:
     return !m_pir();
   }
 
+  void
+  initialize() const {
+    m_state[*m_pir] = TestState::UNKNOWN;
+    m_abort[*m_pir] = false;
+    ::new (m_name.ptr(*m_pir)) std::string;
+    ::new (m_fail_info.ptr(*m_pir)) std::string;
+    *m_abort_state.ptr(0) = false;
+  }
+
   TestResult<READ_WRITE>
   operator*() const {
     return TestResult<READ_WRITE>{
@@ -686,6 +695,15 @@ public:
   bool
   at_end() const {
     return !m_pir();
+  }
+
+  void
+  initialize() const {
+    m_state[*m_pir] = TestState::UNKNOWN;
+    m_abort[*m_pir] = false;
+    ::new (m_name.ptr(*m_pir)) std::string;
+    ::new (m_fail_info.ptr(*m_pir)) std::string;
+    *m_abort_state.ptr(0) = false;
   }
 
   TestResult<WRITE_DISCARD>
@@ -898,6 +916,11 @@ public:
 
 public:
 
+  void
+  initialize() {
+    for_each([](auto& it) { it.initialize(); });
+  }
+
   TestLogIterator<READ_WRITE>
   iterator() const {
     return TestLogIterator<READ_WRITE>(
@@ -998,6 +1021,11 @@ public:
   }
 
 public:
+
+  void
+  initialize() {
+    for_each([](auto& it) { it.initialize(); });
+  }
 
   TestLogIterator<WRITE_DISCARD>
   iterator() const {
