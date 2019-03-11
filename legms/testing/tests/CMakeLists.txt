@@ -6,8 +6,8 @@ include_directories(
   ${CASACORE}/include)
 link_libraries(legms_testing)
 
-add_executable(log log.cc)
-set_target_properties(log PROPERTIES
+add_executable(utTestLog utTestLog.cc)
+set_target_properties(utTestLog PROPERTIES
   CXX_STANDARD 17)
-add_test(NAME TestLogUnitTest COMMAND log)
+add_test(NAME TestLogUnitTest COMMAND utTestLog)
 
