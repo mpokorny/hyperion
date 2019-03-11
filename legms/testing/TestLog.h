@@ -215,7 +215,7 @@ public:
 
   bool
   at_end() const {
-    return m_pir();
+    return !m_pir();
   }
 
   friend void
@@ -387,7 +387,7 @@ public:
 
   bool
   at_end() const {
-    return m_pir();
+    return !m_pir();
   }
 
   TestResult<READ_ONLY>
@@ -531,7 +531,7 @@ public:
 
   bool
   at_end() const {
-    return m_pir();
+    return !m_pir();
   }
 
   TestResult<READ_WRITE>
@@ -685,7 +685,7 @@ public:
 
   bool
   at_end() const {
-    return m_pir();
+    return !m_pir();
   }
 
   TestResult<WRITE_DISCARD>
