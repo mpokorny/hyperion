@@ -39,8 +39,8 @@ public:
   enum {
     STATE_FID,
     ABORT_FID,
-    LOCATION_FID,
-    DESCRIPTION_FID
+    NAME_FID,
+    FAIL_INFO_FID
   };
 
   static constexpr int log_requirement_index = 0;
@@ -97,7 +97,7 @@ public:
     false>;
 
   template <legion_privilege_mode_t MODE>
-  using location_accessor =
+  using name_accessor =
     Legion::FieldAccessor<
     MODE,
     std::string,
@@ -107,7 +107,7 @@ public:
     false>;;
 
   template <legion_privilege_mode_t MODE>
-  using description_accessor =
+  using fail_info_accessor =
     Legion::FieldAccessor<
     MODE,
     std::string,
@@ -136,7 +136,7 @@ public:
     false> abort_state_read_accessor;
 
 private:
-  
+
   Legion::LogicalRegion m_log_handle;
   Legion::LogicalRegion m_log_parent;
   Legion::LogicalRegion m_abort_state_handle;
@@ -237,8 +237,8 @@ private:
 
   TestLogReference::state_accessor<MODE> m_state;
   TestLogReference::abort_accessor<MODE> m_abort;
-  TestLogReference::location_accessor<MODE> m_location;
-  TestLogReference::description_accessor<MODE> m_description;
+  TestLogReference::name_accessor<MODE> m_name;
+  TestLogReference::fail_info_accessor<MODE> m_fail_info;
   typename TestLogReference::abort_state_accessor<MODE>::t m_abort_state;
 };
 
@@ -249,24 +249,24 @@ template <>
 struct TestResult<READ_ONLY> {
   const int& state;
   const bool& abort;
-  const std::string& location;
-  const std::string& description;
+  const std::string& name;
+  const std::string& fail_info;
 };
 
 template <>
 struct TestResult<READ_WRITE> {
   int state;
   bool abort;
-  std::string location;
-  std::string description;
+  std::string name;
+  std::string fail_info;
 };
 
 template <>
 struct TestResult<WRITE_DISCARD> {
   int state;
   bool abort;
-  std::string location;
-  std::string description;
+  std::string name;
+  std::string fail_info;
 };
 
 template <legion_privilege_mode_t MODE>
@@ -282,7 +282,7 @@ public:
   template <typename CB>
   void
   for_each(CB cb);
-  
+
 };
 
 template <>
@@ -293,8 +293,8 @@ public:
   ~TestLogIterator() {}
 
   TestLogIterator(
-    Legion::PhysicalRegion* log_region,
-    Legion::PhysicalRegion* abort_state_region,
+    const Legion::PhysicalRegion* log_region,
+    const Legion::PhysicalRegion* abort_state_region,
     Legion::Runtime* runtime)
     : m_log_region(log_region)
     , m_pir(
@@ -309,14 +309,14 @@ public:
       TestLogReference::abort_accessor<READ_ONLY>(
         *log_region,
         TestLogReference::ABORT_FID))
-    , m_location(
-      TestLogReference::location_accessor<READ_ONLY>(
+    , m_name(
+      TestLogReference::name_accessor<READ_ONLY>(
         *log_region,
-        TestLogReference::LOCATION_FID))
-    , m_description(
-      TestLogReference::description_accessor<READ_ONLY>(
+        TestLogReference::NAME_FID))
+    , m_fail_info(
+      TestLogReference::fail_info_accessor<READ_ONLY>(
         *log_region,
-        TestLogReference::DESCRIPTION_FID))
+        TestLogReference::FAIL_INFO_FID))
     , m_abort_state(
       TestLogReference::abort_state_accessor<READ_ONLY>::t(
         *abort_state_region,
@@ -328,8 +328,8 @@ public:
     , m_pir(other.m_pir)
     , m_state(other.m_state)
     , m_abort(other.m_abort)
-    , m_location(other.m_location)
-    , m_description(other.m_description)
+    , m_name(other.m_name)
+    , m_fail_info(other.m_fail_info)
     , m_abort_state(other.m_abort_state) {
   }
 
@@ -338,8 +338,8 @@ public:
     , m_pir(std::move(other).m_pir)
     , m_state(std::move(other).m_state)
     , m_abort(std::move(other).m_abort)
-    , m_location(std::move(other).m_location)
-    , m_description(std::move(other).m_description)
+    , m_name(std::move(other).m_name)
+    , m_fail_info(std::move(other).m_fail_info)
     , m_abort_state(std::move(other).m_abort_state) {
   }
 
@@ -356,8 +356,8 @@ public:
     m_pir = other.m_pir;
     m_state = other.m_state;
     m_abort = other.m_abort;
-    m_location = other.m_location;
-    m_description = other.m_description;
+    m_name = other.m_name;
+    m_fail_info = other.m_fail_info;
     m_abort_state = other.m_abort_state;
     return *this;
   }
@@ -395,8 +395,8 @@ public:
     return TestResult<READ_ONLY>{
       m_state[*m_pir],
         m_abort[*m_pir],
-        m_location[*m_pir],
-        m_description[*m_pir] };
+        m_name[*m_pir],
+        m_fail_info[*m_pir] };
   }
 
   friend void
@@ -412,19 +412,19 @@ private:
     std::swap(m_pir, other.m_pir);
     std::swap(m_state, other.m_state);
     std::swap(m_abort, other.m_abort);
-    std::swap(m_location, other.m_location);
-    std::swap(m_description, other.m_description);
+    std::swap(m_name, other.m_name);
+    std::swap(m_fail_info, other.m_fail_info);
     std::swap(m_abort_state, other.m_abort_state);
   }
 
-  Legion::PhysicalRegion* m_log_region;
+  const Legion::PhysicalRegion* m_log_region;
 
   Legion::PointInRectIterator<1> m_pir;
 
   TestLogReference::state_accessor<READ_ONLY> m_state;
   TestLogReference::abort_accessor<READ_ONLY> m_abort;
-  TestLogReference::location_accessor<READ_ONLY> m_location;
-  TestLogReference::description_accessor<READ_ONLY> m_description;
+  TestLogReference::name_accessor<READ_ONLY> m_name;
+  TestLogReference::fail_info_accessor<READ_ONLY> m_fail_info;
   TestLogReference::abort_state_accessor<READ_ONLY>::t m_abort_state;
 };
 
@@ -452,14 +452,14 @@ public:
       TestLogReference::abort_accessor<READ_WRITE>(
         *log_region,
         TestLogReference::ABORT_FID))
-    , m_location(
-      TestLogReference::location_accessor<READ_WRITE>(
+    , m_name(
+      TestLogReference::name_accessor<READ_WRITE>(
         *log_region,
-        TestLogReference::LOCATION_FID))
-    , m_description(
-      TestLogReference::description_accessor<READ_WRITE>(
+        TestLogReference::NAME_FID))
+    , m_fail_info(
+      TestLogReference::fail_info_accessor<READ_WRITE>(
         *log_region,
-        TestLogReference::DESCRIPTION_FID))
+        TestLogReference::FAIL_INFO_FID))
     , m_abort_state(
       TestLogReference::abort_state_accessor<READ_WRITE>::t(
         *abort_state_region,
@@ -472,8 +472,8 @@ public:
     , m_pir(other.m_pir)
     , m_state(other.m_state)
     , m_abort(other.m_abort)
-    , m_location(other.m_location)
-    , m_description(other.m_description)
+    , m_name(other.m_name)
+    , m_fail_info(other.m_fail_info)
     , m_abort_state(other.m_abort_state) {
   }
 
@@ -482,8 +482,8 @@ public:
     , m_pir(std::move(other).m_pir)
     , m_state(std::move(other).m_state)
     , m_abort(std::move(other).m_abort)
-    , m_location(std::move(other).m_location)
-    , m_description(std::move(other).m_description)
+    , m_name(std::move(other).m_name)
+    , m_fail_info(std::move(other).m_fail_info)
     , m_abort_state(std::move(other).m_abort_state) {
   }
 
@@ -500,8 +500,8 @@ public:
     m_pir = other.m_pir;
     m_state = other.m_state;
     m_abort = other.m_abort;
-    m_location = other.m_location;
-    m_description = other.m_description;
+    m_name = other.m_name;
+    m_fail_info = other.m_fail_info;
     m_abort_state = other.m_abort_state;
     return *this;
   }
@@ -539,8 +539,8 @@ public:
     return TestResult<READ_WRITE>{
       m_state[*m_pir],
         m_abort[*m_pir],
-        m_location[*m_pir],
-        m_description[*m_pir]};
+        m_name[*m_pir],
+        m_fail_info[*m_pir]};
   }
 
   template <legion_privilege_mode_t MODE>
@@ -548,9 +548,9 @@ public:
   operator<<=(const TestResult<MODE>& tr) const {
     m_state[*m_pir] = tr.state;
     m_abort[*m_pir] = tr.abort;
-    m_location[*m_pir] = tr.location;
-    m_description[*m_pir] = tr.description;
-    m_abort_state[*m_pir] <<= tr.abort;
+    m_name[*m_pir] = tr.name;
+    m_fail_info[*m_pir] = tr.fail_info;
+    m_abort_state[0] <<= tr.abort;
   }
 
   friend void
@@ -566,19 +566,19 @@ private:
     std::swap(m_pir, other.m_pir);
     std::swap(m_state, other.m_state);
     std::swap(m_abort, other.m_abort);
-    std::swap(m_location, other.m_location);
-    std::swap(m_description, other.m_description);
+    std::swap(m_name, other.m_name);
+    std::swap(m_fail_info, other.m_fail_info);
     std::swap(m_abort_state, other.m_abort_state);
   }
 
-  Legion::PhysicalRegion* m_log_region;
+  const Legion::PhysicalRegion* m_log_region;
 
   Legion::PointInRectIterator<1> m_pir;
 
   TestLogReference::state_accessor<READ_WRITE> m_state;
   TestLogReference::abort_accessor<READ_WRITE> m_abort;
-  TestLogReference::location_accessor<READ_WRITE> m_location;
-  TestLogReference::description_accessor<READ_WRITE> m_description;
+  TestLogReference::name_accessor<READ_WRITE> m_name;
+  TestLogReference::fail_info_accessor<READ_WRITE> m_fail_info;
   TestLogReference::abort_state_accessor<READ_WRITE>::t m_abort_state;
 };
 
@@ -606,14 +606,14 @@ public:
       TestLogReference::abort_accessor<WRITE_DISCARD>(
         *log_region,
         TestLogReference::ABORT_FID))
-    , m_location(
-      TestLogReference::location_accessor<WRITE_DISCARD>(
+    , m_name(
+      TestLogReference::name_accessor<WRITE_DISCARD>(
         *log_region,
-        TestLogReference::LOCATION_FID))
-    , m_description(
-      TestLogReference::description_accessor<WRITE_DISCARD>(
+        TestLogReference::NAME_FID))
+    , m_fail_info(
+      TestLogReference::fail_info_accessor<WRITE_DISCARD>(
         *log_region,
-        TestLogReference::DESCRIPTION_FID))
+        TestLogReference::FAIL_INFO_FID))
     , m_abort_state(
       TestLogReference::abort_state_accessor<WRITE_DISCARD>::t(
         *abort_state_region,
@@ -626,8 +626,8 @@ public:
     , m_pir(other.m_pir)
     , m_state(other.m_state)
     , m_abort(other.m_abort)
-    , m_location(other.m_location)
-    , m_description(other.m_description)
+    , m_name(other.m_name)
+    , m_fail_info(other.m_fail_info)
     , m_abort_state(other.m_abort_state) {
   }
 
@@ -636,8 +636,8 @@ public:
     , m_pir(std::move(other).m_pir)
     , m_state(std::move(other).m_state)
     , m_abort(std::move(other).m_abort)
-    , m_location(std::move(other).m_location)
-    , m_description(std::move(other).m_description)
+    , m_name(std::move(other).m_name)
+    , m_fail_info(std::move(other).m_fail_info)
     , m_abort_state(std::move(other).m_abort_state) {
   }
 
@@ -654,8 +654,8 @@ public:
     m_pir = other.m_pir;
     m_state = other.m_state;
     m_abort = other.m_abort;
-    m_location = other.m_location;
-    m_description = other.m_description;
+    m_name = other.m_name;
+    m_fail_info = other.m_fail_info;
     m_abort_state = other.m_abort_state;
     return *this;
   }
@@ -693,8 +693,8 @@ public:
     return TestResult<WRITE_DISCARD>{
       m_state[*m_pir],
         m_abort[*m_pir],
-        m_location[*m_pir],
-        m_description[*m_pir]};
+        m_name[*m_pir],
+        m_fail_info[*m_pir]};
   }
 
   template <legion_privilege_mode_t MODE>
@@ -702,9 +702,9 @@ public:
   operator<<=(const TestResult<MODE>& tr) const {
     m_state[*m_pir] = tr.state;
     m_abort[*m_pir] = tr.abort;
-    m_location[*m_pir] = tr.location;
-    m_description[*m_pir] = tr.description;
-    m_abort_state[*m_pir] <<= tr.abort;
+    m_name[*m_pir] = tr.name;
+    m_fail_info[*m_pir] = tr.fail_info;
+    m_abort_state[0] <<= tr.abort;
   }
 
   friend void
@@ -720,8 +720,8 @@ private:
     std::swap(m_pir, other.m_pir);
     std::swap(m_state, other.m_state);
     std::swap(m_abort, other.m_abort);
-    std::swap(m_location, other.m_location);
-    std::swap(m_description, other.m_description);
+    std::swap(m_name, other.m_name);
+    std::swap(m_fail_info, other.m_fail_info);
     std::swap(m_abort_state, other.m_abort_state);
   }
 
@@ -731,8 +731,8 @@ private:
 
   TestLogReference::state_accessor<WRITE_DISCARD> m_state;
   TestLogReference::abort_accessor<WRITE_DISCARD> m_abort;
-  TestLogReference::location_accessor<WRITE_DISCARD> m_location;
-  TestLogReference::description_accessor<WRITE_DISCARD> m_description;
+  TestLogReference::name_accessor<WRITE_DISCARD> m_name;
+  TestLogReference::fail_info_accessor<WRITE_DISCARD> m_fail_info;
   TestLogReference::abort_state_accessor<WRITE_DISCARD>::t
   m_abort_state;
 };

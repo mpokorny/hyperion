@@ -20,11 +20,11 @@ TestLogReference::TestLogReference(
     fa.allocate_field(sizeof(bool), ABORT_FID);
     fa.allocate_field(
       sizeof(std::string),
-      LOCATION_FID,
+      NAME_FID,
       SerdezManager::CASACORE_STRING_SID);
     fa.allocate_field(
       sizeof(std::string),
-      DESCRIPTION_FID,
+      FAIL_INFO_FID,
       SerdezManager::CASACORE_STRING_SID);
 
     IndexSpaceT<1> is =
@@ -75,8 +75,8 @@ TestLogReference::rw_requirements() const {
   RegionRequirement
     log_req(
       m_log_handle,
-      {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
-      {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
+      {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
+      {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       READ_WRITE,
       EXCLUSIVE,
       m_log_parent);
@@ -102,8 +102,8 @@ TestLogReference::ro_requirements() const {
   RegionRequirement
     log_req(
       m_log_handle,
-      {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
-      {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
+      {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
+      {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       READ_ONLY,
       EXCLUSIVE,
       m_log_parent);
@@ -129,8 +129,8 @@ TestLogReference::wd_requirements() const {
   RegionRequirement
     log_req(
       m_log_handle,
-      {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
-      {STATE_FID, ABORT_FID, LOCATION_FID, DESCRIPTION_FID},
+      {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
+      {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       WRITE_DISCARD,
       EXCLUSIVE,
       m_log_parent);
