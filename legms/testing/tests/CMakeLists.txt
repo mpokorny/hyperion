@@ -9,5 +9,10 @@ link_libraries(legms_testing)
 add_executable(utTestLog utTestLog.cc)
 set_target_properties(utTestLog PROPERTIES
   CXX_STANDARD 17)
-add_test(NAME TestLogUnitTest COMMAND utTestLog)
-
+configure_file(
+  utTestLog.expected ${CMAKE_CURRENT_BINARY_DIR}/utTestLog.expected COPYONLY)
+add_test(
+  NAME TestLogUnitTest
+  COMMAND ../TestRunner.py --compare-with utTestLog.expected
+                           --compare-by line
+                           ./utTestLog)
