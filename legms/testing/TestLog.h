@@ -877,7 +877,7 @@ protected:
         reqs[TestLogReference::abort_state_requirement_index]);
     m_abort_state_region = &m_own_abort_state_region.value();
     m_abort_state =
-      TestLogReference::abort_state_accessor<WRITE_DISCARD>::t(
+      TestLogReference::abort_state_accessor<READ_WRITE>::t(
         *m_abort_state_region,
         0,
         SerdezManager::BOOL_OR_REDOP);
@@ -931,7 +931,7 @@ private:
 
   Legion::Runtime* m_runtime;
 
-  TestLogReference::abort_state_accessor<WRITE_DISCARD>::t m_abort_state;
+  TestLogReference::abort_state_accessor<READ_WRITE>::t m_abort_state;
 
   std::optional<Legion::PhysicalRegion> m_own_log_region;
 
