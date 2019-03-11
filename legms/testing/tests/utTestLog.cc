@@ -6,14 +6,14 @@ using namespace legms;
 using namespace Legion;
 
 enum {
-  TEST_RUNNER_TASK_ID,
-  TEST_LOG_TASK_ID,
+  TEST_SUITE_DRIVER_TASK_ID,
+  TEST_LOG_TEST_SUITE_ID,
 };
 
 #define LOG_LENGTH 100
 
 void
-test_log_task(
+test_log_test_suite(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
@@ -107,7 +107,7 @@ test_log_task(
 }
 
 void
-test_runner_task(
+test_suite_driver_task(
   const Task*,
   const std::vector<PhysicalRegion>&,
   Context context,
@@ -117,7 +117,7 @@ test_runner_task(
   testing::TestLogReference logref(LOG_LENGTH, context, runtime);
   testing::TestLog<WRITE_DISCARD>(logref).initialize();
 
-  TaskLauncher test(TEST_LOG_TASK_ID, TaskArgument());
+  TaskLauncher test(TEST_LOG_TEST_SUITE_ID, TaskArgument());
   auto reqs = logref.requirements<READ_WRITE>();
   test.add_region_requirement(reqs[0]);
   test.add_region_requirement(reqs[1]);
@@ -157,18 +157,22 @@ test_runner_task(
 int
 main(int argc, char* argv[]) {
 
-  Runtime::set_top_level_task_id(TEST_RUNNER_TASK_ID);
+  Runtime::set_top_level_task_id(TEST_SUITE_DRIVER_TASK_ID);
   SerdezManager::register_ops();
 
   {
-    TaskVariantRegistrar registrar(TEST_RUNNER_TASK_ID, "test_runner");
+    TaskVariantRegistrar registrar(TEST_SUITE_DRIVER_TASK_ID, "test_driver");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    Runtime::preregister_task_variant<test_runner_task>(registrar, "top_level");
+    Runtime::preregister_task_variant<test_suite_driver_task>(
+      registrar,
+      "test_driver");
   }
   {
-    TaskVariantRegistrar registrar(TEST_LOG_TASK_ID, "test_TestLog");
+    TaskVariantRegistrar registrar(TEST_LOG_TEST_SUITE_ID, "test_suite");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    Runtime::preregister_task_variant<test_log_task>(registrar, "top_level");
+    Runtime::preregister_task_variant<test_log_test_suite>(
+      registrar,
+      "test_suite");
   }
 
   return Runtime::start(argc, argv);
