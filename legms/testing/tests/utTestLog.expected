@@ -1,0 +1,8 @@
+PASS: Initial log size is correct
+PASS: Log initialized all results to UNKNOWN
+PASS: Initial log not in ABORT state
+SKIPPED: Expected SKIPPED
+FAIL: Expected FAILURE: OK
+FAIL: Expected ABORT: OK
+PASS: Log in ABORT state after ABORT result
+PASS: ABORT state is irreversible
