@@ -150,7 +150,7 @@ TestLogReference::wd_requirements() const {
   return result;
 }
 
-LogicalPartition
+IndexPartitionT<1>
 TestLogReference::partition_log_by_state(
   Context context,
   Runtime* runtime) const {
@@ -159,16 +159,13 @@ TestLogReference::partition_log_by_state(
     runtime->create_index_space(
       context,
       Rect<1,int>(TestState::SUCCESS, TestState::UNKNOWN)));
-  IndexPartitionT<1> states_partition(
+  IndexPartitionT<1> result(
     runtime->create_partition_by_field(
       context,
       m_log_handle,
       m_log_parent,
       STATE_FID,
       states));
-  LogicalPartition result(
-    runtime->get_logical_partition(context, m_log_handle, states_partition));
-  runtime->destroy_index_partition(context, states_partition);
   runtime->destroy_index_space(context, states);
   return result;
 }

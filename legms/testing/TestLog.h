@@ -71,7 +71,7 @@ public:
   std::array<Legion::RegionRequirement, 2>
   requirements() const;
 
-  Legion::LogicalPartition
+  Legion::IndexPartitionT<1>
   partition_log_by_state(
     Legion::Context context,
     Legion::Runtime* runtime) const;
