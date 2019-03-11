@@ -436,8 +436,8 @@ public:
   ~TestLogIterator() {}
 
   TestLogIterator(
-    Legion::PhysicalRegion* log_region,
-    Legion::PhysicalRegion* abort_state_region,
+    const Legion::PhysicalRegion* log_region,
+    const Legion::PhysicalRegion* abort_state_region,
     Legion::Runtime* runtime)
     : m_log_region(log_region)
     , m_pir(
@@ -590,8 +590,8 @@ public:
   ~TestLogIterator() {}
 
   TestLogIterator(
-    Legion::PhysicalRegion* log_region,
-    Legion::PhysicalRegion* abort_state_region,
+    const Legion::PhysicalRegion* log_region,
+    const Legion::PhysicalRegion* abort_state_region,
     Legion::Runtime* runtime)
     : m_log_region(log_region)
     , m_pir(
@@ -725,7 +725,7 @@ private:
     std::swap(m_abort_state, other.m_abort_state);
   }
 
-  Legion::PhysicalRegion* m_log_region;
+  const Legion::PhysicalRegion* m_log_region;
 
   Legion::PointInRectIterator<1> m_pir;
 
@@ -743,15 +743,15 @@ class TestLog<READ_ONLY> {
 public:
 
   TestLog(
-    Legion::PhysicalRegion* log_region,
-    Legion::PhysicalRegion* abort_state_region,
+    const Legion::PhysicalRegion& log_region,
+    const Legion::PhysicalRegion& abort_state_region,
     Legion::Context context,
     Legion::Runtime* runtime)
-    : m_log_region(log_region)
-    , m_abort_state_region(abort_state_region)
+    : m_log_region(&log_region)
+    , m_abort_state_region(&abort_state_region)
     , m_context(context)
     , m_runtime(runtime)
-    , m_abort_state(*abort_state_region, 0) {
+    , m_abort_state(abort_state_region, 0) {
   }
 
 protected:
@@ -822,9 +822,9 @@ public:
 
 private:
 
-  Legion::PhysicalRegion* m_log_region;
+  const Legion::PhysicalRegion* m_log_region;
 
-  Legion::PhysicalRegion* m_abort_state_region;
+  const Legion::PhysicalRegion * m_abort_state_region;
 
   Legion::Context m_context;
 
@@ -843,15 +843,15 @@ class TestLog<READ_WRITE> {
 public:
 
   TestLog(
-    Legion::PhysicalRegion* log_region,
-    Legion::PhysicalRegion* abort_state_region,
+    const Legion::PhysicalRegion& log_region,
+    const Legion::PhysicalRegion& abort_state_region,
     Legion::Context context,
     Legion::Runtime* runtime)
-    : m_log_region(log_region)
-    , m_abort_state_region(abort_state_region)
+    : m_log_region(&log_region)
+    , m_abort_state_region(&abort_state_region)
     , m_context(context)
     , m_runtime(runtime)
-    , m_abort_state(*abort_state_region, 0, SerdezManager::BOOL_OR_REDOP) {
+    , m_abort_state(abort_state_region, 0, SerdezManager::BOOL_OR_REDOP) {
   }
 
 protected:
@@ -923,9 +923,9 @@ public:
 
 private:
 
-  Legion::PhysicalRegion* m_log_region;
+  const Legion::PhysicalRegion* m_log_region;
 
-  Legion::PhysicalRegion* m_abort_state_region;
+  const Legion::PhysicalRegion * m_abort_state_region;
 
   Legion::Context m_context;
 
@@ -944,15 +944,15 @@ class TestLog<WRITE_DISCARD> {
 public:
 
   TestLog(
-    Legion::PhysicalRegion* log_region,
-    Legion::PhysicalRegion* abort_state_region,
+    const Legion::PhysicalRegion& log_region,
+    const Legion::PhysicalRegion& abort_state_region,
     Legion::Context context,
     Legion::Runtime* runtime)
-    : m_log_region(log_region)
-    , m_abort_state_region(abort_state_region)
+    : m_log_region(&log_region)
+    , m_abort_state_region(&abort_state_region)
     , m_context(context)
     , m_runtime(runtime)
-    , m_abort_state(*abort_state_region, 0, SerdezManager::BOOL_OR_REDOP) {
+    , m_abort_state(abort_state_region, 0, SerdezManager::BOOL_OR_REDOP) {
   }
 
 protected:
@@ -1024,9 +1024,9 @@ public:
 
 private:
 
-  Legion::PhysicalRegion* m_log_region;
+  const Legion::PhysicalRegion* m_log_region;
 
-  Legion::PhysicalRegion* m_abort_state_region;
+  const Legion::PhysicalRegion* m_abort_state_region;
 
   Legion::Context m_context;
 
