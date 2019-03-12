@@ -115,7 +115,7 @@ test_suite_driver_task(
 
   // initialize the test log
   testing::TestLogReference logref(LOG_LENGTH, context, runtime);
-  testing::TestLog<WRITE_DISCARD>(logref).initialize();
+  testing::TestLog<WRITE_DISCARD>(logref, context, runtime).initialize();
 
   TaskLauncher test(TEST_LOG_TEST_SUITE_ID, TaskArgument());
   auto reqs = logref.requirements<READ_WRITE>();
@@ -125,7 +125,7 @@ test_suite_driver_task(
 
   // print out the test log
   std::ostringstream oss;
-  testing::TestLog<READ_ONLY>(logref).for_each(
+  testing::TestLog<READ_ONLY>(logref, context, runtime).for_each(
     [&oss](auto& it) {
       auto test_result = *it;
       switch (test_result.state) {

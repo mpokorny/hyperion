@@ -1,5 +1,7 @@
 #include "TestLog.h"
 
+#include <algorithm>
+
 #include "utility.h"
 
 using namespace legms::testing;
@@ -9,7 +11,8 @@ TestLogReference::TestLogReference(
   size_t length,
   Context context,
   Runtime* runtime)
-  : m_context(context)
+  : m_own_regions(true)
+  , m_context(context)
   , m_runtime(runtime) {
 
   {
@@ -54,16 +57,17 @@ TestLogReference::TestLogReference(
 }
 
 TestLogReference::TestLogReference(
-  LogicalRegion log_handle,
-  LogicalRegion log_parent,
-  LogicalRegion abort_state_handle)
+  LogicalRegionT<1> log_handle,
+  LogicalRegionT<1> log_parent,
+  LogicalRegionT<1> abort_state_handle)
   : m_log_handle(log_handle)
   , m_log_parent(log_parent)
   , m_abort_state_handle(abort_state_handle)
+  , m_own_regions(false)
   , m_runtime(nullptr) {}
 
 TestLogReference::~TestLogReference() {
-  if (m_runtime != nullptr) {
+  if (m_own_regions) {
     m_runtime->destroy_logical_region(m_context, m_log_handle);
     m_runtime->destroy_logical_region(m_context, m_abort_state_handle);
   }
@@ -150,8 +154,8 @@ TestLogReference::wd_requirements() const {
   return result;
 }
 
-IndexPartitionT<1>
-TestLogReference::partition_log_by_state(
+Legion::LogicalPartitionT<1>
+TestLogReference::create_partition_by_log_state(
   Context context,
   Runtime* runtime) const {
 
@@ -159,13 +163,16 @@ TestLogReference::partition_log_by_state(
     runtime->create_index_space(
       context,
       Rect<1,int>(TestState::SUCCESS, TestState::UNKNOWN)));
-  IndexPartitionT<1> result(
+  IndexPartitionT<1> ip(
     runtime->create_partition_by_field(
       context,
       m_log_handle,
       m_log_parent,
       STATE_FID,
       states));
+  LogicalPartitionT<1> result =
+    runtime->get_logical_partition(m_log_handle, ip);
+
   runtime->destroy_index_space(context, states);
   return result;
 }

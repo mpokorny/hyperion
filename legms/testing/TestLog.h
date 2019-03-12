@@ -32,9 +32,9 @@ public:
     Legion::Runtime* runtime);
 
   TestLogReference(
-    Legion::LogicalRegion log_handle,
-    Legion::LogicalRegion log_parent,
-    Legion::LogicalRegion abort_state_handle);
+    Legion::LogicalRegionT<1> log_handle,
+    Legion::LogicalRegionT<1> log_parent,
+    Legion::LogicalRegionT<1> abort_state_handle);
 
   enum {
     STATE_FID,
@@ -48,12 +48,12 @@ public:
 
   virtual ~TestLogReference();
 
-  Legion::LogicalRegion
+  Legion::LogicalRegionT<1>
   log_region() const {
     return m_log_handle;
   }
 
-  Legion::LogicalRegion
+  Legion::LogicalRegionT<1>
   abort_state_region() const {
     return m_abort_state_handle;
   }
@@ -71,8 +71,8 @@ public:
   std::array<Legion::RegionRequirement, 2>
   requirements() const;
 
-  Legion::IndexPartitionT<1>
-  partition_log_by_state(
+  Legion::LogicalPartitionT<1>
+  create_partition_by_log_state(
     Legion::Context context,
     Legion::Runtime* runtime) const;
 
@@ -137,9 +137,9 @@ public:
 
 private:
 
-  Legion::LogicalRegion m_log_handle;
-  Legion::LogicalRegion m_log_parent;
-  Legion::LogicalRegion m_abort_state_handle;
+  Legion::LogicalRegionT<1> m_log_handle;
+  Legion::LogicalRegionT<1> m_log_parent;
+  Legion::LogicalRegionT<1> m_abort_state_handle;
 
 private:
 
@@ -147,6 +147,7 @@ private:
   friend class TestLog<READ_WRITE>;
   friend class TestLog<WRITE_DISCARD>;
 
+  bool m_own_regions;
   Legion::Context m_context;
   Legion::Runtime* m_runtime;
 
@@ -772,8 +773,6 @@ public:
     , m_abort_state(abort_state_region, 0) {
   }
 
-protected:
-
   TestLog(
     TestLogReference& logref,
     Legion::Context context,
@@ -798,12 +797,6 @@ protected:
       TestLogReference::abort_state_accessor<READ_ONLY>::t(
         *m_abort_state_region,
         0);
-  }
-
-public:
-
-  TestLog(TestLogReference& logref)
-    : TestLog(logref, logref.m_context, logref.m_runtime) {
   }
 
   virtual ~TestLog() {
@@ -838,14 +831,26 @@ public:
     }
   }
 
-  Legion::IndexPartitionT<1>
-  partition_log_by_state() const {
-    return
-      TestLogReference(
-        m_log_region->get_logical_region(),
-        m_log_region->get_logical_region(),
-        m_abort_state_region->get_logical_region())
-      .partition_log_by_state(m_context, m_runtime);
+  std::vector<TestLogReference>
+  get_log_references_by_state(const std::vector<TestState>& states) const {
+    Legion::LogicalRegionT<1> log_lr(m_log_region->get_logical_region());
+    Legion::LogicalRegionT<1> abort_state_lr(
+      m_abort_state_region->get_logical_region());
+    auto lp =
+      TestLogReference(log_lr, log_lr, abort_state_lr).
+      create_partition_by_log_state(m_context, m_runtime);
+
+    std::vector<TestLogReference> result;
+    std::transform(
+      states.begin(),
+      states.end(),
+      std::back_inserter(result),
+      [this, &abort_state_lr, &lp](auto& st) {
+        Legion::LogicalRegionT<1> log(
+          m_runtime->get_logical_subregion_by_color(m_context, lp, st));
+        return TestLogReference(log, log, abort_state_lr);
+      });
+    return result;
   }
 
 private:
@@ -882,8 +887,6 @@ public:
     , m_abort_state(abort_state_region, 0, SerdezManager::BOOL_OR_REDOP) {
   }
 
-protected:
-
   TestLog(
     TestLogReference& logref,
     Legion::Context context,
@@ -909,12 +912,6 @@ protected:
         *m_abort_state_region,
         0,
         SerdezManager::BOOL_OR_REDOP);
-  }
-
-public:
-
-  TestLog(TestLogReference& logref)
-    : TestLog(logref, logref.m_context, logref.m_runtime) {
   }
 
   virtual ~TestLog() {
@@ -954,14 +951,26 @@ public:
     }
   }
 
-  Legion::IndexPartitionT<1>
-  partition_log_by_state() const {
-    return
-      TestLogReference(
-        m_log_region->get_logical_region(),
-        m_log_region->get_logical_region(),
-        m_abort_state_region->get_logical_region())
-      .partition_log_by_state(m_context, m_runtime);
+  std::vector<TestLogReference>
+  get_log_references_by_state(const std::vector<TestState>& states) const {
+    Legion::LogicalRegionT<1> log_lr(m_log_region->get_logical_region());
+    Legion::LogicalRegionT<1> abort_state_lr(
+      m_abort_state_region->get_logical_region());
+    auto lp =
+      TestLogReference(log_lr, log_lr, abort_state_lr).
+      create_partition_by_log_state(m_context, m_runtime);
+
+    std::vector<TestLogReference> result;
+    std::transform(
+      states.begin(),
+      states.end(),
+      std::back_inserter(result),
+      [this, &abort_state_lr, &lp](auto& st) {
+        Legion::LogicalRegionT<1> log(
+          m_runtime->get_logical_subregion_by_color(m_context, lp, st));
+        return TestLogReference(log, log, abort_state_lr);
+      });
+    return result;
   }
 
 private:
@@ -998,8 +1007,6 @@ public:
     , m_abort_state(abort_state_region, 0, SerdezManager::BOOL_OR_REDOP) {
   }
 
-protected:
-
   TestLog(
     TestLogReference& logref,
     Legion::Context context,
@@ -1025,12 +1032,6 @@ protected:
         *m_abort_state_region,
         0,
         SerdezManager::BOOL_OR_REDOP);
-  }
-
-public:
-
-  TestLog(TestLogReference& logref)
-    : TestLog(logref, logref.m_context, logref.m_runtime) {
   }
 
   virtual ~TestLog() {
@@ -1070,14 +1071,26 @@ public:
     }
   }
 
-  Legion::IndexPartitionT<1>
-  partition_log_by_state() const {
-    return
-      TestLogReference(
-        m_log_region->get_logical_region(),
-        m_log_region->get_logical_region(),
-        m_abort_state_region->get_logical_region())
-      .partition_log_by_state(m_context, m_runtime);
+  std::vector<TestLogReference>
+  get_log_references_by_state(const std::vector<TestState>& states) const {
+    Legion::LogicalRegionT<1> log_lr(m_log_region->get_logical_region());
+    Legion::LogicalRegionT<1> abort_state_lr(
+      m_abort_state_region->get_logical_region());
+    auto lp =
+      TestLogReference(log_lr, log_lr, abort_state_lr).
+      create_partition_by_log_state(m_context, m_runtime);
+
+    std::vector<TestLogReference> result;
+    std::transform(
+      states.begin(),
+      states.end(),
+      std::back_inserter(result),
+      [this, &abort_state_lr, &lp](auto& st) {
+        Legion::LogicalRegionT<1> log(
+          m_runtime->get_logical_subregion_by_color(m_context, lp, st));
+        return TestLogReference(log, log, abort_state_lr);
+      });
+    return result;
   }
 
 private:
