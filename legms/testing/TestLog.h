@@ -835,24 +835,34 @@ public:
     }
   }
 
+  TestLogReference
+  log_reference() const {
+    Legion::LogicalRegionT<1> log_region(m_log_region->get_logical_region());
+    return
+      TestLogReference(
+        log_region,
+        log_region,
+        Legion::LogicalRegionT<1>(m_abort_state_region->get_logical_region()));
+  }
+
   std::vector<TestLogReference>
   get_log_references_by_state(const std::vector<TestState>& states) const {
-    Legion::LogicalRegionT<1> log_lr(m_log_region->get_logical_region());
-    Legion::LogicalRegionT<1> abort_state_lr(
-      m_abort_state_region->get_logical_region());
-    auto lp =
-      TestLogReference(log_lr, log_lr, abort_state_lr).
-      create_partition_by_log_state(m_context, m_runtime);
+    auto logref = log_reference();
+    auto lp = logref.create_partition_by_log_state(m_context, m_runtime);
 
     std::vector<TestLogReference> result;
     std::transform(
       states.begin(),
       states.end(),
       std::back_inserter(result),
-      [this, &log_lr, &abort_state_lr, &lp](auto& st) {
+      [this, &logref, &lp](auto& st) {
         Legion::LogicalRegionT<1> log(
           m_runtime->get_logical_subregion_by_color(m_context, lp, st));
-        return TestLogReference(log, log_lr, abort_state_lr);
+        return
+          TestLogReference(
+            log,
+            logref.log_region(),
+            logref.abort_state_region());
       });
     return result;
   }
@@ -955,24 +965,34 @@ public:
     }
   }
 
+  TestLogReference
+  log_reference() const {
+    Legion::LogicalRegionT<1> log_region(m_log_region->get_logical_region());
+    return
+      TestLogReference(
+        log_region,
+        log_region,
+        Legion::LogicalRegionT<1>(m_abort_state_region->get_logical_region()));
+  }
+
   std::vector<TestLogReference>
   get_log_references_by_state(const std::vector<TestState>& states) const {
-    Legion::LogicalRegionT<1> log_lr(m_log_region->get_logical_region());
-    Legion::LogicalRegionT<1> abort_state_lr(
-      m_abort_state_region->get_logical_region());
-    auto lp =
-      TestLogReference(log_lr, log_lr, abort_state_lr).
-      create_partition_by_log_state(m_context, m_runtime);
+    auto logref = log_reference();
+    auto lp = logref.create_partition_by_log_state(m_context, m_runtime);
 
     std::vector<TestLogReference> result;
     std::transform(
       states.begin(),
       states.end(),
       std::back_inserter(result),
-      [this, &log_lr, &abort_state_lr, &lp](auto& st) {
+      [this, &logref, &lp](auto& st) {
         Legion::LogicalRegionT<1> log(
           m_runtime->get_logical_subregion_by_color(m_context, lp, st));
-        return TestLogReference(log, log_lr, abort_state_lr);
+        return
+          TestLogReference(
+            log,
+            logref.log_region(),
+            logref.abort_state_region());
       });
     return result;
   }
@@ -1077,24 +1097,34 @@ public:
     }
   }
 
+  TestLogReference
+  log_reference() const {
+    Legion::LogicalRegionT<1> log_region(m_log_region->get_logical_region());
+    return
+      TestLogReference(
+        log_region,
+        log_region,
+        Legion::LogicalRegionT<1>(m_abort_state_region->get_logical_region()));
+  }
+
   std::vector<TestLogReference>
   get_log_references_by_state(const std::vector<TestState>& states) const {
-    Legion::LogicalRegionT<1> log_lr(m_log_region->get_logical_region());
-    Legion::LogicalRegionT<1> abort_state_lr(
-      m_abort_state_region->get_logical_region());
-    auto lp =
-      TestLogReference(log_lr, log_lr, abort_state_lr).
-      create_partition_by_log_state(m_context, m_runtime);
+    auto logref = log_reference();
+    auto lp = logref.create_partition_by_log_state(m_context, m_runtime);
 
     std::vector<TestLogReference> result;
     std::transform(
       states.begin(),
       states.end(),
       std::back_inserter(result),
-      [this, &log_lr, &abort_state_lr, &lp](auto& st) {
+      [this, &logref, &lp](auto& st) {
         Legion::LogicalRegionT<1> log(
           m_runtime->get_logical_subregion_by_color(m_context, lp, st));
-        return TestLogReference(log, log_lr, abort_state_lr);
+        return
+          TestLogReference(
+            log,
+            logref.log_region(),
+            logref.abort_state_region());
       });
     return result;
   }
