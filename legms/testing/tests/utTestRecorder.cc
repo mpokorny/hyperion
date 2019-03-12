@@ -53,7 +53,7 @@ test_recorder_test_suite(
   Runtime *runtime) {
 
   testing::TestLog<READ_WRITE> log(regions[0], regions[1], ctx, runtime);
-  testing::TestRecorder recorder(log);
+  testing::TestRecorder<READ_WRITE> recorder(log);
 
   testing::TestResult<READ_ONLY> dummy_success{
     testing::TestState::SUCCESS,

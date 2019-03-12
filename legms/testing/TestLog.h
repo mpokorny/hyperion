@@ -23,8 +23,6 @@ enum TestState {
 template <legion_privilege_mode_t MODE>
 class TestLog;
 
-class TestRecorder;
-
 struct TestLogReference {
 public:
 
@@ -981,10 +979,6 @@ private:
 
   const Legion::PhysicalRegion * m_abort_state_region;
 
-private:
-
-  friend class TestRecorder;
-
   Legion::Context m_context;
 
   Legion::Runtime* m_runtime;
@@ -1106,10 +1100,6 @@ private:
   const Legion::PhysicalRegion* m_log_region;
 
   const Legion::PhysicalRegion* m_abort_state_region;
-
-private:
-
-  friend class TestRecorder;
 
   Legion::Context m_context;
 
