@@ -173,20 +173,20 @@ test_suite_driver_task(
       auto test_result = *it;
       switch (test_result.state) {
       case testing::TestState::SUCCESS:
-        oss << "PASS: "
+        oss << "PASS\t"
             << test_result.name
             << std::endl;
         break;
       case testing::TestState::FAILURE:
-        oss << "FAIL: "
+        oss << "FAIL\t"
             << test_result.name;
         if (test_result.fail_info.size() > 0)
-          oss << ": "
+          oss << "\t"
               << test_result.fail_info;
         oss << std::endl;
         break;
       case testing::TestState::SKIPPED:
-        oss << "SKIPPED: "
+        oss << "SKIPPED\t"
             << test_result.name
             << std::endl;
         break;

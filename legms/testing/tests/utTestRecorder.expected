@@ -1,14 +1,15 @@
-PASS: Dummy success
-PASS: Dummy success TestResult
-FAIL: Dummy failure: Expected FAILURE
-PASS: Dummy append_success
-FAIL: Dummy append_failure: Expected failure
-FAIL: Dummy append_abort: Expected abort
-SKIPPED: Dummy append_skipped
-PASS: Read back dummy success
-PASS: Read back dummy success TestResult
-PASS: Read back dummy failure
-PASS: Read back dummy append success
-PASS: Read back dummy append failure
-PASS: Read back dummy append abort
-PASS: Read back dummy append skipped
+PASS	Dummy success
+PASS	Dummy success TestResult
+FAIL	Dummy failure	Expected FAILURE
+PASS	Dummy append_success
+FAIL	Dummy append_failure	Expected failure
+FAIL	Dummy append_abort	Expected abort
+SKIPPED	Dummy append_skipped
+PASS	Read back dummy success
+PASS	Read back dummy success TestResult
+PASS	Read back dummy failure
+PASS	Read back dummy append success
+PASS	Read back dummy append failure
+PASS	Read back dummy append abort
+PASS	Read back dummy append skipped
+

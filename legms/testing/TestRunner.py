@@ -7,8 +7,8 @@ import sys
 import tempfile
 
 def named_result(ln):
-    end_state = ln.find(':')
-    end_name = ln.rfind(':')
+    end_state = ln.find('\t')
+    end_name = ln.rfind('\t')
     if end_name == end_state:
         end_name = -1
     if end_name != -1:
