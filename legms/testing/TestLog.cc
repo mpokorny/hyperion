@@ -159,10 +159,10 @@ TestLogReference::create_partition_by_log_state(
   Context context,
   Runtime* runtime) const {
 
-  IndexSpaceT<1,int> states(
+  IndexSpaceT<1,TEST_STATE_TYPE> states(
     runtime->create_index_space(
       context,
-      Rect<1,int>(TestState::SUCCESS, TestState::UNKNOWN)));
+      Rect<1,TEST_STATE_TYPE>(TestState::SUCCESS, TestState::UNKNOWN)));
   IndexPartitionT<1> ip(
     runtime->create_partition_by_field(
       context,

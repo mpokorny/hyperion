@@ -13,7 +13,11 @@
 namespace legms {
 namespace testing {
 
-enum TestState {
+// TODO: we'd prefer TEST_STATE_TYPE to be "int", but that causes a test
+// failure, probably due to a Legion bug
+#define TEST_STATE_TYPE Legion::coord_t
+
+enum TestState : TEST_STATE_TYPE {
   SUCCESS,
   FAILURE,
   SKIPPED,
@@ -80,10 +84,10 @@ public:
   using state_accessor =
     Legion::FieldAccessor<
     MODE,
-    int,
+    TEST_STATE_TYPE,
     1,
     Legion::coord_t,
-    Legion::AffineAccessor<int, 1, Legion::coord_t>,
+    Legion::AffineAccessor<TEST_STATE_TYPE, 1, Legion::coord_t>,
     false>;
 
   template <legion_privilege_mode_t MODE>
@@ -248,7 +252,7 @@ struct TestResult;
 
 template <>
 struct TestResult<READ_ONLY> {
-  const int& state;
+  const TEST_STATE_TYPE& state;
   const bool& abort;
   const std::string& name;
   const std::string& fail_info;
@@ -256,7 +260,7 @@ struct TestResult<READ_ONLY> {
 
 template <>
 struct TestResult<READ_WRITE> {
-  int state;
+  TEST_STATE_TYPE state;
   bool abort;
   std::string name;
   std::string fail_info;
@@ -264,7 +268,7 @@ struct TestResult<READ_WRITE> {
 
 template <>
 struct TestResult<WRITE_DISCARD> {
-  int state;
+  TEST_STATE_TYPE state;
   bool abort;
   std::string name;
   std::string fail_info;
