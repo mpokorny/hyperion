@@ -126,40 +126,26 @@ test_log_test_suite(
   auto subtask_is = runtime->create_index_space(ctx, Rect<1>(0, 1));
   auto remaining_log =
     log.get_log_references_by_state({testing::TestState::UNKNOWN})[0];
-  auto subtask_log_ip =
+  IndexPartitionT<1> subtask_log_ip(
     runtime->create_equal_partition(
       ctx,
       remaining_log.log_region().get_index_space(),
-      subtask_is);
-  auto subtask_logs =
+      subtask_is));
+  LogicalPartitionT<1> subtask_logs(
     runtime->get_logical_partition(
       ctx,
       regions[0].get_logical_region(),
-      subtask_log_ip);
+      subtask_log_ip));
   IndexTaskLauncher subtasks(
     TEST_LOG_SUBTASK_ID,
     subtask_is,
     TaskArgument(),
     ArgumentMap());
-  subtasks.add_region_requirement(
-    RegionRequirement(
-      subtask_logs,
-      0,
-      READ_WRITE,
-      EXCLUSIVE,
-      regions[0].get_logical_region()));
-  subtasks.add_field(0, testing::TestLogReference::STATE_FID);
-  subtasks.add_field(0, testing::TestLogReference::ABORT_FID);
-  subtasks.add_field(0, testing::TestLogReference::NAME_FID);
-  subtasks.add_field(0, testing::TestLogReference::FAIL_INFO_FID);
-  subtasks.add_region_requirement(
-    RegionRequirement(
-      regions[1].get_logical_region(),
-      {0},
-      {0},
-      SerdezManager::BOOL_OR_REDOP,
-      ATOMIC,
-      regions[1].get_logical_region()));
+  auto reqs = log.log_reference().requirements<READ_WRITE>(subtask_logs, 0);
+  std::for_each(
+    reqs.begin(),
+    reqs.end(),
+    [&subtasks](auto& req) { subtasks.add_region_requirement(req); });
   runtime->execute_index_space(ctx, subtasks);
 }
 

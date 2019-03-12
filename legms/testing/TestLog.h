@@ -63,13 +63,53 @@ public:
   }
 
   std::array<Legion::RegionRequirement, 2>
-  rw_requirements() const;
+  rw_requirements(Legion::LogicalRegionT<1> log_child) const;
 
   std::array<Legion::RegionRequirement, 2>
-  ro_requirements() const;
+  ro_requirements(Legion::LogicalRegionT<1> log_child) const;
 
   std::array<Legion::RegionRequirement, 2>
-  wd_requirements() const;
+  wd_requirements(Legion::LogicalRegionT<1> log_child) const;
+
+  std::array<Legion::RegionRequirement, 2>
+  rw_requirements(
+    Legion::LogicalPartitionT<1> log_partition,
+    int projection_id) const;
+
+  std::array<Legion::RegionRequirement, 2>
+  ro_requirements(
+    Legion::LogicalPartitionT<1> log_partition,
+    int projection_id) const;
+
+  std::array<Legion::RegionRequirement, 2>
+  wd_requirements(
+    Legion::LogicalPartitionT<1> log_partition,
+    int projection_id) const;
+
+  std::array<Legion::RegionRequirement, 2>
+  rw_requirements() const {
+    return rw_requirements(m_log_handle);
+  }
+
+  std::array<Legion::RegionRequirement, 2>
+  ro_requirements() const {
+    return ro_requirements(m_log_handle);
+  };
+
+  std::array<Legion::RegionRequirement, 2>
+  wd_requirements() const {
+    return wd_requirements(m_log_handle);
+  }
+
+  template <legion_privilege_mode_t MODE>
+  std::array<Legion::RegionRequirement, 2>
+  requirements(Legion::LogicalRegionT<1> log_child) const;
+
+  template <legion_privilege_mode_t MODE>
+  std::array<Legion::RegionRequirement, 2>
+  requirements(
+    Legion::LogicalPartitionT<1> log_partition,
+    int projection_id=0) const;
 
   template <legion_privilege_mode_t MODE>
   std::array<Legion::RegionRequirement, 2>
@@ -188,6 +228,51 @@ template <>
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<WRITE_DISCARD>() const {
   return wd_requirements();
+};
+
+template <>
+std::array<Legion::RegionRequirement, 2>
+TestLogReference::requirements<READ_ONLY>(
+  Legion::LogicalRegionT<1> log_child) const {
+  return ro_requirements(log_child);
+};
+
+template <>
+std::array<Legion::RegionRequirement, 2>
+TestLogReference::requirements<READ_WRITE>(
+  Legion::LogicalRegionT<1> log_child) const {
+  return rw_requirements(log_child);
+};
+
+template <>
+std::array<Legion::RegionRequirement, 2>
+TestLogReference::requirements<WRITE_DISCARD>(
+  Legion::LogicalRegionT<1> log_child) const {
+  return wd_requirements(log_child);
+};
+
+template <>
+std::array<Legion::RegionRequirement, 2>
+TestLogReference::requirements<READ_ONLY>(
+  Legion::LogicalPartitionT<1> log_partition,
+  int projection_id) const {
+  return ro_requirements(log_partition, projection_id);
+};
+
+template <>
+std::array<Legion::RegionRequirement, 2>
+TestLogReference::requirements<READ_WRITE>(
+  Legion::LogicalPartitionT<1> log_partition,
+  int projection_id) const {
+  return rw_requirements(log_partition, projection_id);
+};
+
+template <>
+std::array<Legion::RegionRequirement, 2>
+TestLogReference::requirements<WRITE_DISCARD>(
+  Legion::LogicalPartitionT<1> log_partition,
+  int projection_id) const {
+  return wd_requirements(log_partition, projection_id);
 };
 
 template <legion_privilege_mode_t MODE>

@@ -74,16 +74,16 @@ TestLogReference::~TestLogReference() {
 }
 
 std::array<RegionRequirement, 2>
-TestLogReference::rw_requirements() const {
+TestLogReference::rw_requirements(LogicalRegionT<1> child) const {
 
   RegionRequirement
     log_req(
-      m_log_handle,
+      child,
       {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       READ_WRITE,
       EXCLUSIVE,
-      m_log_parent);
+      m_log_handle);
 
   RegionRequirement
     abort_state_req(
@@ -101,16 +101,16 @@ TestLogReference::rw_requirements() const {
 }
 
 std::array<RegionRequirement, 2>
-TestLogReference::ro_requirements() const {
+TestLogReference::ro_requirements(LogicalRegionT<1> child) const {
 
   RegionRequirement
     log_req(
-      m_log_handle,
+      child,
       {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       READ_ONLY,
       EXCLUSIVE,
-      m_log_parent);
+      m_log_handle);
 
   RegionRequirement
     abort_state_req(
@@ -128,16 +128,106 @@ TestLogReference::ro_requirements() const {
 }
 
 std::array<RegionRequirement, 2>
-TestLogReference::wd_requirements() const {
+TestLogReference::wd_requirements(LogicalRegionT<1> child) const {
 
   RegionRequirement
     log_req(
-      m_log_handle,
+      child,
       {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       WRITE_DISCARD,
       EXCLUSIVE,
-      m_log_parent);
+      m_log_handle);
+
+  RegionRequirement
+    abort_state_req(
+      m_abort_state_handle,
+      {0},
+      {0},
+      SerdezManager::BOOL_OR_REDOP,
+      ATOMIC,
+      m_abort_state_handle);
+
+  std::array<RegionRequirement, 2> result;
+  result[log_requirement_index] = log_req;
+  result[abort_state_requirement_index] = abort_state_req;
+  return result;
+}
+
+std::array<RegionRequirement, 2>
+TestLogReference::rw_requirements(
+  LogicalPartitionT<1> log_partition,
+  int projection_id) const {
+
+  RegionRequirement
+    log_req(
+      log_partition,
+      projection_id,
+      {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
+      {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
+      READ_WRITE,
+      EXCLUSIVE,
+      m_log_handle);
+
+  RegionRequirement
+    abort_state_req(
+      m_abort_state_handle,
+      {0},
+      {0},
+      SerdezManager::BOOL_OR_REDOP,
+      ATOMIC,
+      m_abort_state_handle);
+
+  std::array<RegionRequirement, 2> result;
+  result[log_requirement_index] = log_req;
+  result[abort_state_requirement_index] = abort_state_req;
+  return result;
+}
+
+std::array<RegionRequirement, 2>
+TestLogReference::ro_requirements(
+  LogicalPartitionT<1> log_partition,
+  int projection_id) const {
+
+  RegionRequirement
+    log_req(
+      log_partition,
+      projection_id,
+      {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
+      {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
+      READ_ONLY,
+      EXCLUSIVE,
+      m_log_handle);
+
+  RegionRequirement
+    abort_state_req(
+      m_abort_state_handle,
+      {0},
+      {0},
+      {READ_ONLY},
+      ATOMIC,
+      m_abort_state_handle);
+
+  std::array<RegionRequirement, 2> result;
+  result[log_requirement_index] = log_req;
+  result[abort_state_requirement_index] = abort_state_req;
+  return result;
+}
+
+std::array<RegionRequirement, 2>
+TestLogReference::wd_requirements(
+  LogicalPartitionT<1> log_partition,
+  int projection_id) const {
+
+  RegionRequirement
+    log_req(
+      log_partition,
+      projection_id,
+      {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
+      {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
+      WRITE_DISCARD,
+      EXCLUSIVE,
+      m_log_handle);
 
   RegionRequirement
     abort_state_req(
