@@ -1,0 +1,7 @@
+PASS: Dummy success
+PASS: Dummy success TestResult
+FAIL: Dummy failure: Expected FAILURE
+PASS: Dummy success readback
+PASS: Dummy success TestResult readback
+PASS: Dummy failure readback
+

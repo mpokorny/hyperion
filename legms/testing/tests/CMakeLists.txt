@@ -14,3 +14,14 @@ add_test(
   COMMAND ../TestRunner.py --compare-with utTestLog.expected
                            --compare-by line
                            ./utTestLog)
+
+add_executable(utTestRecorder utTestRecorder.cc)
+set_target_properties(utTestRecorder PROPERTIES
+  CXX_STANDARD 17)
+configure_file(
+  utTestRecorder.expected ${CMAKE_CURRENT_BINARY_DIR}/utTestRecorder.expected COPYONLY)
+add_test(
+  NAME TestRecorderUnitTest
+  COMMAND ../TestRunner.py --compare-with utTestRecorder.expected
+                           --compare-by line
+                           ./utTestRecorder)
