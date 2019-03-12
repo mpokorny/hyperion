@@ -7,6 +7,7 @@ set(SOVERSION 1)
 list(APPEND TESTING_SRC
   TestLog.h
   TestLog.cc
+  TestRecorder.h
 )
 
 set(TESTING_INCLUDE TESTING_SRC)
