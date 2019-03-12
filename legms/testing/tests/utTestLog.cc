@@ -8,9 +8,27 @@ using namespace Legion;
 enum {
   TEST_SUITE_DRIVER_TASK_ID,
   TEST_LOG_TEST_SUITE_ID,
+  TEST_LOG_SUBTASK_ID,
 };
 
 #define LOG_LENGTH 100
+
+void
+test_log_subtask(
+  const Task* task,
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime *runtime) {
+
+  std::string name = "subtask" + std::to_string(task->index_point[0]);
+  testing::TestLog<READ_WRITE> log(regions[0], regions[1], ctx, runtime);
+  auto log_output = log.iterator();
+  log_output <<= testing::TestResult<READ_ONLY>{
+    testing::TestState::SUCCESS,
+      false,
+      name,
+      ""};
+}
 
 void
 test_log_test_suite(
@@ -104,6 +122,45 @@ test_log_test_suite(
   test_result.name = "ABORT state is irreversible";
   log_output <<= test_result;
   ++log_output;
+
+  auto subtask_is = runtime->create_index_space(ctx, Rect<1>(0, 1));
+  auto remaining_log =
+    log.get_log_references_by_state({testing::TestState::UNKNOWN})[0];
+  auto subtask_log_ip =
+    runtime->create_equal_partition(
+      ctx,
+      remaining_log.log_region().get_index_space(),
+      subtask_is);
+  auto subtask_logs =
+    runtime->get_logical_partition(
+      ctx,
+      regions[0].get_logical_region(),
+      subtask_log_ip);
+  IndexTaskLauncher subtasks(
+    TEST_LOG_SUBTASK_ID,
+    subtask_is,
+    TaskArgument(),
+    ArgumentMap());
+  subtasks.add_region_requirement(
+    RegionRequirement(
+      subtask_logs,
+      0,
+      READ_WRITE,
+      EXCLUSIVE,
+      regions[0].get_logical_region()));
+  subtasks.add_field(0, testing::TestLogReference::STATE_FID);
+  subtasks.add_field(0, testing::TestLogReference::ABORT_FID);
+  subtasks.add_field(0, testing::TestLogReference::NAME_FID);
+  subtasks.add_field(0, testing::TestLogReference::FAIL_INFO_FID);
+  subtasks.add_region_requirement(
+    RegionRequirement(
+      regions[1].get_logical_region(),
+      {0},
+      {0},
+      SerdezManager::BOOL_OR_REDOP,
+      ATOMIC,
+      regions[1].get_logical_region()));
+  runtime->execute_index_space(ctx, subtasks);
 }
 
 void
@@ -173,6 +230,13 @@ main(int argc, char* argv[]) {
     Runtime::preregister_task_variant<test_log_test_suite>(
       registrar,
       "test_suite");
+  }
+  {
+    TaskVariantRegistrar registrar(TEST_LOG_SUBTASK_ID, "subtask_suite");
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    Runtime::preregister_task_variant<test_log_subtask>(
+      registrar,
+      "subtask_suite");
   }
 
   return Runtime::start(argc, argv);

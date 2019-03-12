@@ -6,3 +6,6 @@ FAIL: Expected FAILURE: OK
 FAIL: Expected ABORT: OK
 PASS: Log in ABORT state after ABORT result
 PASS: ABORT state is irreversible
+PASS: subtask0
+PASS: subtask1
+
