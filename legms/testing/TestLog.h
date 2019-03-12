@@ -847,10 +847,10 @@ public:
       states.begin(),
       states.end(),
       std::back_inserter(result),
-      [this, &abort_state_lr, &lp](auto& st) {
+      [this, &log_lr, &abort_state_lr, &lp](auto& st) {
         Legion::LogicalRegionT<1> log(
           m_runtime->get_logical_subregion_by_color(m_context, lp, st));
-        return TestLogReference(log, log, abort_state_lr);
+        return TestLogReference(log, log_lr, abort_state_lr);
       });
     return result;
   }
@@ -967,10 +967,10 @@ public:
       states.begin(),
       states.end(),
       std::back_inserter(result),
-      [this, &abort_state_lr, &lp](auto& st) {
+      [this, &log_lr, &abort_state_lr, &lp](auto& st) {
         Legion::LogicalRegionT<1> log(
           m_runtime->get_logical_subregion_by_color(m_context, lp, st));
-        return TestLogReference(log, log, abort_state_lr);
+        return TestLogReference(log, log_lr, abort_state_lr);
       });
     return result;
   }
@@ -1093,10 +1093,10 @@ public:
       states.begin(),
       states.end(),
       std::back_inserter(result),
-      [this, &abort_state_lr, &lp](auto& st) {
+      [this, &log_lr, &abort_state_lr, &lp](auto& st) {
         Legion::LogicalRegionT<1> log(
           m_runtime->get_logical_subregion_by_color(m_context, lp, st));
-        return TestLogReference(log, log, abort_state_lr);
+        return TestLogReference(log, log_lr, abort_state_lr);
       });
     return result;
   }

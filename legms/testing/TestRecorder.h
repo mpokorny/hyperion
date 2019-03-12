@@ -10,19 +10,7 @@ class TestRecorder {
 public:
 
   TestRecorder(const TestLog<READ_WRITE>& log)
-    : m_log(
-      log.get_log_references_by_state({TestState::UNKNOWN})[0],
-      log.m_context,
-      log.m_runtime)
-    , m_log_iter(m_log.iterator()) {
-  }
-
-  TestRecorder(const TestLog<WRITE_DISCARD>& log)
-    : m_log(
-      log.get_log_references_by_state({TestState::UNKNOWN})[0],
-      log.m_context,
-      log.m_runtime)
-    , m_log_iter(m_log.iterator()) {
+    : m_log_iter(log.iterator()) {
   }
 
   virtual ~TestRecorder() {
@@ -46,8 +34,6 @@ public:
   }
 
 private:
-
-  TestLog<READ_WRITE> m_log;
 
   TestLogIterator<READ_WRITE> m_log_iter;
 };
