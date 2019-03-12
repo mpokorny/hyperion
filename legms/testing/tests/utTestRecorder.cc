@@ -21,7 +21,7 @@ verify_result(
   std::ostringstream oss;
   if (tr.name != expected.name) {
     oss << "'name' expected '" << expected.name
-        << "', got'" << tr.name << "'";
+        << "', got '" << tr.name << "'";
     sep = "; ";
   }
   if (tr.state != expected.state) {
@@ -76,37 +76,114 @@ test_recorder_test_suite(
     "Expected FAILURE"};
   recorder.append(dummy_failure);
 
+  testing::TestResult<READ_ONLY> dummy_append_success{
+    testing::TestState::SUCCESS,
+    false,
+    "Dummy append_success",
+    ""};  
+  recorder.append_success(dummy_append_success.name);
+
+  testing::TestResult<READ_ONLY> dummy_append_failure{
+    testing::TestState::FAILURE,
+    false,
+    "Dummy append_failure",
+    "Expected failure"};  
+  recorder.append_failure(
+    dummy_append_failure.name,
+    dummy_append_failure.fail_info);
+
+  testing::TestResult<READ_ONLY> dummy_append_abort{
+    testing::TestState::FAILURE,
+    true,
+    "Dummy append_abort",
+    "Expected abort"};  
+  recorder.append_failure(
+    dummy_append_abort.name,
+    dummy_append_abort.fail_info,
+    dummy_append_abort.abort);
+
+  testing::TestResult<READ_ONLY> dummy_append_skipped{
+    testing::TestState::SKIPPED,
+    false,
+    "Dummy append_skipped",
+    ""};  
+  recorder.append_skipped(dummy_append_skipped.name);
+
   auto log_readback = log.iterator();
   {
-    const char* name = "Dummy success readback";
+    const char* name = "Read back dummy success";
     testing::TestResult<READ_WRITE> test_result(*log_readback);
     std::string errors = verify_result(test_result, dummy_success);
     if (errors.size() == 0)
       recorder.append(name, testing::TestState::SUCCESS);
     else
-      recorder.append(name, testing::TestState::FAILURE, false, errors);
+      recorder.append(name, testing::TestState::FAILURE, errors, false);
   }
   ++log_readback;
 
   {
-    const char *name = "Dummy success TestResult readback";
+    const char *name = "Read back dummy success TestResult";
     testing::TestResult<READ_WRITE> test_result(*log_readback);
     std::string errors = verify_result(test_result, dummy_success_testresult);
     if (errors.size() == 0)
       recorder.append(name, testing::TestState::SUCCESS);
     else
-      recorder.append(name, testing::TestState::FAILURE, false, errors);
+      recorder.append(name, testing::TestState::FAILURE, errors, false);
   }
   ++log_readback;
 
   {
-    const char *name = "Dummy failure readback";
+    const char *name = "Read back dummy failure";
     testing::TestResult<READ_WRITE> test_result(*log_readback);
     std::string errors = verify_result(test_result, dummy_failure);
     if (errors.size() == 0)
       recorder.append(name, testing::TestState::SUCCESS);
     else
-      recorder.append(name, testing::TestState::FAILURE, false, errors);
+      recorder.append(name, testing::TestState::FAILURE, errors, false);
+  }
+  ++log_readback;
+
+  {
+    const char *name = "Read back dummy append success";
+    testing::TestResult<READ_WRITE> test_result(*log_readback);
+    std::string errors = verify_result(test_result, dummy_append_success);
+    if (errors.size() == 0)
+      recorder.append(name, testing::TestState::SUCCESS);
+    else
+      recorder.append(name, testing::TestState::FAILURE, errors, false);
+  }
+  ++log_readback;
+
+  {
+    const char *name = "Read back dummy append failure";
+    testing::TestResult<READ_WRITE> test_result(*log_readback);
+    std::string errors = verify_result(test_result, dummy_append_failure);
+    if (errors.size() == 0)
+      recorder.append(name, testing::TestState::SUCCESS);
+    else
+      recorder.append(name, testing::TestState::FAILURE, errors, false);
+  }
+  ++log_readback;
+
+  {
+    const char *name = "Read back dummy append abort";
+    testing::TestResult<READ_WRITE> test_result(*log_readback);
+    std::string errors = verify_result(test_result, dummy_append_abort);
+    if (errors.size() == 0)
+      recorder.append(name, testing::TestState::SUCCESS);
+    else
+      recorder.append(name, testing::TestState::FAILURE, errors, false);
+  }
+  ++log_readback;
+
+  {
+    const char *name = "Read back dummy append skipped";
+    testing::TestResult<READ_WRITE> test_result(*log_readback);
+    std::string errors = verify_result(test_result, dummy_append_skipped);
+    if (errors.size() == 0)
+      recorder.append(name, testing::TestState::SUCCESS);
+    else
+      recorder.append(name, testing::TestState::FAILURE, errors, false);
   }
   ++log_readback;
 }

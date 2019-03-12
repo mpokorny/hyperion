@@ -27,10 +27,29 @@ public:
   append(
     const std::string& name,
     int state,
-    bool abort = false,
-    const std::string& fail_info = "") {
+    const std::string& fail_info = "",
+    bool abort = false) {
 
     append(TestResult<READ_ONLY>{ state, abort, name, fail_info});
+  }
+
+  inline void
+  append_success(const std::string& name) {
+    append(name, testing::TestState::SUCCESS);
+  }
+
+  inline void
+  append_failure(
+    const std::string& name,
+    const std::string& fail_info = "",
+    bool abort = false) {
+
+    append(name, testing::TestState::FAILURE, fail_info, abort);
+  }
+
+  inline void
+  append_skipped(const std::string& name) {
+    append(name, testing::TestState::SKIPPED);
   }
 
 private:
