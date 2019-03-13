@@ -17,7 +17,7 @@ TreeIndexSpace::register_tasks(Legion::Runtime* runtime) {
 }
 
 Legion::IndexSpace
-tree_index_space(
+legms::tree_index_space(
   const IndexTreeL& tree,
   Legion::Context ctx,
   Legion::Runtime* runtime) {
