@@ -60,7 +60,7 @@ public:
   }
 
   virtual std::vector<int>
-  axes() const;
+  axes() const = 0;
 
   unsigned
   rank() const {
