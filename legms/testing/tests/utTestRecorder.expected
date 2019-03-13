@@ -12,4 +12,3 @@ PASS	Read back dummy append success
 PASS	Read back dummy append failure
 PASS	Read back dummy append abort
 PASS	Read back dummy append skipped
-

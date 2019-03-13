@@ -1,6 +1,8 @@
 #include <iostream>
-
+#include <stdexcept>
 #include "TestRecorder.h"
+
+#include "TestExpression.h"
 
 using namespace legms;
 using namespace Legion;
@@ -114,10 +116,7 @@ test_recorder_test_suite(
     const char* name = "Read back dummy success";
     testing::TestResult<READ_WRITE> test_result(*log_readback);
     std::string errors = verify_result(test_result, dummy_success);
-    if (errors.size() == 0)
-      recorder.append(name, testing::TestState::SUCCESS);
-    else
-      recorder.append(name, testing::TestState::FAILURE, errors, false);
+    recorder.expect_true(name, errors.size() == 0, errors);
   }
   ++log_readback;
 
@@ -125,10 +124,7 @@ test_recorder_test_suite(
     const char *name = "Read back dummy success TestResult";
     testing::TestResult<READ_WRITE> test_result(*log_readback);
     std::string errors = verify_result(test_result, dummy_success_testresult);
-    if (errors.size() == 0)
-      recorder.append(name, testing::TestState::SUCCESS);
-    else
-      recorder.append(name, testing::TestState::FAILURE, errors, false);
+    recorder.expect_true(name, errors.size() == 0, errors);
   }
   ++log_readback;
 
@@ -136,10 +132,7 @@ test_recorder_test_suite(
     const char *name = "Read back dummy failure";
     testing::TestResult<READ_WRITE> test_result(*log_readback);
     std::string errors = verify_result(test_result, dummy_failure);
-    if (errors.size() == 0)
-      recorder.append(name, testing::TestState::SUCCESS);
-    else
-      recorder.append(name, testing::TestState::FAILURE, errors, false);
+    recorder.expect_true(name, errors.size() == 0, errors);
   }
   ++log_readback;
 
@@ -147,10 +140,7 @@ test_recorder_test_suite(
     const char *name = "Read back dummy append success";
     testing::TestResult<READ_WRITE> test_result(*log_readback);
     std::string errors = verify_result(test_result, dummy_append_success);
-    if (errors.size() == 0)
-      recorder.append(name, testing::TestState::SUCCESS);
-    else
-      recorder.append(name, testing::TestState::FAILURE, errors, false);
+    recorder.expect_true(name, errors.size() == 0, errors);
   }
   ++log_readback;
 
@@ -158,10 +148,7 @@ test_recorder_test_suite(
     const char *name = "Read back dummy append failure";
     testing::TestResult<READ_WRITE> test_result(*log_readback);
     std::string errors = verify_result(test_result, dummy_append_failure);
-    if (errors.size() == 0)
-      recorder.append(name, testing::TestState::SUCCESS);
-    else
-      recorder.append(name, testing::TestState::FAILURE, errors, false);
+    recorder.expect_true(name, errors.size() == 0, errors);
   }
   ++log_readback;
 
@@ -169,10 +156,7 @@ test_recorder_test_suite(
     const char *name = "Read back dummy append abort";
     testing::TestResult<READ_WRITE> test_result(*log_readback);
     std::string errors = verify_result(test_result, dummy_append_abort);
-    if (errors.size() == 0)
-      recorder.append(name, testing::TestState::SUCCESS);
-    else
-      recorder.append(name, testing::TestState::FAILURE, errors, false);
+    recorder.expect_true(name, errors.size() == 0, errors);
   }
   ++log_readback;
 
@@ -180,10 +164,7 @@ test_recorder_test_suite(
     const char *name = "Read back dummy append skipped";
     testing::TestResult<READ_WRITE> test_result(*log_readback);
     std::string errors = verify_result(test_result, dummy_append_skipped);
-    if (errors.size() == 0)
-      recorder.append(name, testing::TestState::SUCCESS);
-    else
-      recorder.append(name, testing::TestState::FAILURE, errors, false);
+    recorder.expect_true(name, errors.size() == 0, errors);
   }
   ++log_readback;
 }
