@@ -439,6 +439,9 @@ public:
   }
 };
 
+template <typename T>
+typename acc_field_redop<T>::RHS const acc_field_redop<T>::identity = {};
+
 class OpsManager {
 public:
 
@@ -565,6 +568,8 @@ public:
   };
 
   enum {
+    BOOL_OR_REDOP = 1,
+
     ACC_FIELD_STRING_REDOP,
     ACC_FIELD_BOOL_REDOP,
     ACC_FIELD_CHAR_REDOP,
@@ -577,10 +582,6 @@ public:
     ACC_FIELD_DOUBLE_REDOP,
     ACC_FIELD_COMPLEX_REDOP,
     ACC_FIELD_DCOMPLEX_REDOP,
-  };
-
-  enum {
-    BOOL_OR_REDOP = 1,
   };
 
 private:
@@ -915,7 +916,7 @@ projected_index_partition(
   Legion::Runtime* runtime,
   Legion::IndexPartition ip,
   Legion::IndexSpace prj_is,
-  const std::vector<std::tuple<int, Legion::coord_t>>& dmap);
+  const std::vector<int>& dmap);
 
 template <typename D>
 struct AxisPartition {

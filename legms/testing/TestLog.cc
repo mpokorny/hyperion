@@ -24,11 +24,11 @@ TestLogReference::TestLogReference(
     fa.allocate_field(
       sizeof(std::string),
       NAME_FID,
-      SerdezManager::CASACORE_STRING_SID);
+      OpsManager::CASACORE_STRING_SID);
     fa.allocate_field(
       sizeof(std::string),
       FAIL_INFO_FID,
-      SerdezManager::CASACORE_STRING_SID);
+      OpsManager::CASACORE_STRING_SID);
 
     IndexSpaceT<1> is =
       runtime->create_index_space(context, Rect<1>(0, length - 1));
@@ -90,7 +90,7 @@ TestLogReference::rw_requirements(LogicalRegionT<1> child) const {
       m_abort_state_handle,
       {0},
       {0},
-      SerdezManager::BOOL_OR_REDOP,
+      OpsManager::BOOL_OR_REDOP,
       ATOMIC,
       m_abort_state_handle);
 
@@ -144,7 +144,7 @@ TestLogReference::wd_requirements(LogicalRegionT<1> child) const {
       m_abort_state_handle,
       {0},
       {0},
-      SerdezManager::BOOL_OR_REDOP,
+      OpsManager::BOOL_OR_REDOP,
       ATOMIC,
       m_abort_state_handle);
 
@@ -174,7 +174,7 @@ TestLogReference::rw_requirements(
       m_abort_state_handle,
       {0},
       {0},
-      SerdezManager::BOOL_OR_REDOP,
+      OpsManager::BOOL_OR_REDOP,
       ATOMIC,
       m_abort_state_handle);
 
@@ -234,7 +234,7 @@ TestLogReference::wd_requirements(
       m_abort_state_handle,
       {0},
       {0},
-      SerdezManager::BOOL_OR_REDOP,
+      OpsManager::BOOL_OR_REDOP,
       ATOMIC,
       m_abort_state_handle);
 
