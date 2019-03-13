@@ -120,6 +120,8 @@ TableGenArgs::legion_deserialize(const void *buffer) {
   return buff - static_cast<const char*>(buffer);
 }
 
+Legion::TaskID ReindexedTableTask::TASK_ID;
+
 ReindexedTableTask::ReindexedTableTask(
   const std::string& name,
   LogicalRegion keywords_region,
@@ -270,6 +272,12 @@ private:
   IndexTaskLauncher m_launcher;
 };
 
+template <typename T>
+TaskID IndexAccumulateTask<T>::TASK_ID;
+
+template <typename T>
+char IndexAccumulateTask<T>::TASK_NAME[40];
+
 class IndexAccumulateTasks {
 public:
 
@@ -286,6 +294,8 @@ public:
     FOREACH_DATATYPE(REG_TASK);
   }
 };
+
+Legion::TaskID IndexColumnTask::TASK_ID;
 
 IndexColumnTask::IndexColumnTask(std::shared_ptr<Column>& column) {
 
@@ -702,6 +712,8 @@ private:
   }
 };
 
+TaskID ComputeRectanglesTask::TASK_ID;
+
 class ReindexColumnCopyTask {
 public:
 
@@ -774,6 +786,8 @@ private:
 
   LogicalRegion m_new_col_lr;
 };
+
+Legion::TaskID ReindexColumnTask::TASK_ID;
 
 size_t
 ReindexColumnTask::TaskArgs::serialized_size() const {
