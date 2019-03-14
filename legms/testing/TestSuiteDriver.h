@@ -48,7 +48,7 @@ public:
     TestSuiteDriver driver(test_suite_task, log_length);
     Legion::TaskVariantRegistrar registrar(test_suite_task, test_suite_name);
     registrar.add_constraint(
-      Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));  
+      Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     Legion::Runtime::preregister_task_variant<TASK_PTR>(
       registrar,
       test_suite_name);
@@ -66,7 +66,7 @@ public:
     TestSuiteDriver driver(test_suite_task, log_length);
     Legion::TaskVariantRegistrar registrar(test_suite_task, test_suite_name);
     registrar.add_constraint(
-      Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));  
+      Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     Legion::Runtime::preregister_task_variant<TASK_PTR>(
       registrar,
       user_data,
@@ -104,7 +104,7 @@ protected:
       m_args,
       TASK_NAME);
     Legion::Runtime::set_top_level_task_id(TASK_ID);
-    SerdezManager::register_ops();
+    OpsManager::register_ops();
   }
 
 private:
