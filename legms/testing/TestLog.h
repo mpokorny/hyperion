@@ -212,46 +212,46 @@ struct TestLogReference::abort_state_accessor<WRITE_DISCARD> {
   typedef TestLogReference::abort_state_reduce_accessor t;
 };
 
-template <>
+template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<READ_ONLY>() const {
   return ro_requirements();
 };
 
-template <>
+template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<READ_WRITE>() const {
   return rw_requirements();
 };
 
-template <>
+template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<WRITE_DISCARD>() const {
   return wd_requirements();
 };
 
-template <>
+template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<READ_ONLY>(
   Legion::LogicalRegionT<1> log_child) const {
   return ro_requirements(log_child);
 };
 
-template <>
+template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<READ_WRITE>(
   Legion::LogicalRegionT<1> log_child) const {
   return rw_requirements(log_child);
 };
 
-template <>
+template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<WRITE_DISCARD>(
   Legion::LogicalRegionT<1> log_child) const {
   return wd_requirements(log_child);
 };
 
-template <>
+template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<READ_ONLY>(
   Legion::LogicalPartitionT<1> log_partition,
@@ -259,7 +259,7 @@ TestLogReference::requirements<READ_ONLY>(
   return ro_requirements(log_partition, projection_id);
 };
 
-template <>
+template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<READ_WRITE>(
   Legion::LogicalPartitionT<1> log_partition,
@@ -267,7 +267,7 @@ TestLogReference::requirements<READ_WRITE>(
   return rw_requirements(log_partition, projection_id);
 };
 
-template <>
+template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<WRITE_DISCARD>(
   Legion::LogicalPartitionT<1> log_partition,

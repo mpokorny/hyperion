@@ -8,6 +8,9 @@ list(APPEND TESTING_SRC
   TestLog.h
   TestLog.cc
   TestRecorder.h
+  TestExpression.h
+  TestSuiteDriver.h
+  TestSuiteDriver.cc
 )
 
 set(TESTING_INCLUDE TESTING_SRC)
