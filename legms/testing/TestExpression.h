@@ -4,6 +4,7 @@
 #include <sstream>
 #include <optional>
 
+#include "legion.h"
 #include "TestRecorder.h"
 
 namespace legms{
@@ -306,6 +307,44 @@ private:
 
   const E<T>& m_left;
   const F<U>& m_right;
+  std::string m_repr;
+};
+
+template <typename T>
+struct TestFuture;
+
+template <typename T>
+struct TestFuture
+  : public TestExpression<T, TestFuture> {
+
+  TestFuture(const Legion::Future& f, const std::string& repr="Future")
+    : m_f(f)
+    , m_repr(repr) {}
+
+  T
+  operator()() const {
+    return m_f.get_result<T>();
+  }
+
+  std::string
+  reason(bool state) const {
+    std::ostringstream oss;
+    if (state)
+      oss << "Value is TRUE";
+    else
+      oss << "Value is FALSE";
+    return oss.str();
+  }
+
+  const std::string&
+  repr() const {
+    return m_repr;
+  }
+
+private:
+
+  const Legion::Future& m_f;
+
   std::string m_repr;
 };
 

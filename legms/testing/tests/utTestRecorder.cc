@@ -165,6 +165,14 @@ test_recorder_test_suite(
     recorder.expect_true(name, errors.size() == 0, errors);
   }
   ++log_readback;
+
+  {
+    unsigned val = 42;
+    Future fval = Future::from_value(runtime, val);
+    recorder.expect_true(
+      "Evaluate Future in TestExpression",
+      testing::TestFuture<decltype(val)>(fval) == testing::TestVal(val));
+  }
 }
 
 int
