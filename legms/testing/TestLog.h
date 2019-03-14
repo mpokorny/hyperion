@@ -888,6 +888,43 @@ public:
         0);
   }
 
+  TestLog(const TestLog& other)
+    : m_log_region(other.m_log_region)
+    , m_abort_state_region(other.m_abort_state_region)
+    , m_context(other.m_context)
+    , m_runtime(other.m_runtime)
+    , m_abort_state(other.m_abort_state) {
+  }
+
+  TestLog(TestLog&& other)
+    : m_log_region(other.m_log_region)
+    , m_abort_state_region(other.m_abort_state_region)
+    , m_context(other.m_context)
+    , m_runtime(other.m_runtime)
+    , m_abort_state(other.m_abort_state)
+    , m_own_log_region(std::move(other).m_own_log_region)
+    , m_own_abort_state_region(std::move(other).m_own_abort_state_region) {
+  }
+
+  TestLog&
+  operator=(const TestLog& other) {
+    TestLog tmp(other);
+    swap(tmp);
+    return *this;
+  }
+
+  TestLog&
+  operator=(TestLog&& other) {
+    m_log_region = other.m_log_region;
+    m_abort_state_region = other.m_abort_state_region;
+    m_context = other.m_context;
+    m_runtime = other.m_runtime;
+    m_abort_state = other.m_abort_state;
+    m_own_log_region = std::move(other).m_own_log_region;
+    m_own_abort_state_region = std::move(other).m_own_abort_state_region;
+    return *this;
+  }
+
   virtual ~TestLog() {
     if (m_own_log_region)
       m_runtime->unmap_region(m_context, m_own_log_region.value());
@@ -954,6 +991,18 @@ public:
 
 private:
 
+  void
+  swap(TestLog& other) {
+    using std::swap;
+    swap(m_log_region, other.m_log_region);
+    swap(m_abort_state_region, other.m_abort_state_region);
+    swap(m_context, other.m_context);
+    swap(m_runtime, other.m_runtime);
+    swap(m_abort_state, other.m_abort_state);
+    swap(m_own_log_region, other.m_own_log_region);
+    swap(m_own_abort_state_region, other.m_own_abort_state_region);
+  }
+
   const Legion::PhysicalRegion* m_log_region;
 
   const Legion::PhysicalRegion * m_abort_state_region;
@@ -1011,6 +1060,43 @@ public:
         *m_abort_state_region,
         0,
         SerdezManager::BOOL_OR_REDOP);
+  }
+
+  TestLog(const TestLog& other)
+    : m_log_region(other.m_log_region)
+    , m_abort_state_region(other.m_abort_state_region)
+    , m_context(other.m_context)
+    , m_runtime(other.m_runtime)
+    , m_abort_state(other.m_abort_state) {
+  }
+
+  TestLog(TestLog&& other)
+    : m_log_region(other.m_log_region)
+    , m_abort_state_region(other.m_abort_state_region)
+    , m_context(other.m_context)
+    , m_runtime(other.m_runtime)
+    , m_abort_state(other.m_abort_state)
+    , m_own_log_region(std::move(other).m_own_log_region)
+    , m_own_abort_state_region(std::move(other).m_own_abort_state_region) {
+  }
+
+  TestLog&
+  operator=(const TestLog& other) {
+    TestLog tmp(other);
+    swap(tmp);
+    return *this;
+  }
+
+  TestLog&
+  operator=(TestLog&& other) {
+    m_log_region = other.m_log_region;
+    m_abort_state_region = other.m_abort_state_region;
+    m_context = other.m_context;
+    m_runtime = other.m_runtime;
+    m_abort_state = other.m_abort_state;
+    m_own_log_region = std::move(other).m_own_log_region;
+    m_own_abort_state_region = std::move(other).m_own_abort_state_region;
+    return *this;
   }
 
   virtual ~TestLog() {
@@ -1084,6 +1170,18 @@ public:
 
 private:
 
+  void
+  swap(TestLog& other) {
+    using std::swap;
+    swap(m_log_region, other.m_log_region);
+    swap(m_abort_state_region, other.m_abort_state_region);
+    swap(m_context, other.m_context);
+    swap(m_runtime, other.m_runtime);
+    swap(m_abort_state, other.m_abort_state);
+    swap(m_own_log_region, other.m_own_log_region);
+    swap(m_own_abort_state_region, other.m_own_abort_state_region);
+  }
+
   const Legion::PhysicalRegion* m_log_region;
 
   const Legion::PhysicalRegion * m_abort_state_region;
@@ -1091,8 +1189,6 @@ private:
   Legion::Context m_context;
 
   Legion::Runtime* m_runtime;
-
-private:
 
   TestLogReference::abort_state_accessor<READ_WRITE>::t m_abort_state;
 
@@ -1143,6 +1239,43 @@ public:
         *m_abort_state_region,
         0,
         SerdezManager::BOOL_OR_REDOP);
+  }
+
+  TestLog(const TestLog& other)
+    : m_log_region(other.m_log_region)
+    , m_abort_state_region(other.m_abort_state_region)
+    , m_context(other.m_context)
+    , m_runtime(other.m_runtime)
+    , m_abort_state(other.m_abort_state) {
+  }
+
+  TestLog(TestLog&& other)
+    : m_log_region(other.m_log_region)
+    , m_abort_state_region(other.m_abort_state_region)
+    , m_context(other.m_context)
+    , m_runtime(other.m_runtime)
+    , m_abort_state(other.m_abort_state)
+    , m_own_log_region(std::move(other).m_own_log_region)
+    , m_own_abort_state_region(std::move(other).m_own_abort_state_region) {
+  }
+
+  TestLog&
+  operator=(const TestLog& other) {
+    TestLog tmp(other);
+    swap(tmp);
+    return *this;
+  }
+
+  TestLog&
+  operator=(TestLog&& other) {
+    m_log_region = other.m_log_region;
+    m_abort_state_region = other.m_abort_state_region;
+    m_context = other.m_context;
+    m_runtime = other.m_runtime;
+    m_abort_state = other.m_abort_state;
+    m_own_log_region = std::move(other).m_own_log_region;
+    m_own_abort_state_region = std::move(other).m_own_abort_state_region;
+    return *this;
   }
 
   virtual ~TestLog() {
@@ -1216,6 +1349,18 @@ public:
 
 private:
 
+  void
+  swap(TestLog& other) {
+    using std::swap;
+    swap(m_log_region, other.m_log_region);
+    swap(m_abort_state_region, other.m_abort_state_region);
+    swap(m_context, other.m_context);
+    swap(m_runtime, other.m_runtime);
+    swap(m_abort_state, other.m_abort_state);
+    swap(m_own_log_region, other.m_own_log_region);
+    swap(m_own_abort_state_region, other.m_own_abort_state_region);
+  }
+
   const Legion::PhysicalRegion* m_log_region;
 
   const Legion::PhysicalRegion* m_abort_state_region;
@@ -1223,8 +1368,6 @@ private:
   Legion::Context m_context;
 
   Legion::Runtime* m_runtime;
-
-private:
 
   TestLogReference::abort_state_accessor<WRITE_DISCARD>::t m_abort_state;
 
