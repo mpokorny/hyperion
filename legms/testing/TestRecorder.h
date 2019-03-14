@@ -15,7 +15,15 @@ class TestRecorder {
 public:
 
   TestRecorder(const TestLog<MODE>& log)
-    : m_log_iter(log.iterator()) {
+    : m_log(log)
+    , m_log_iter(m_log.iterator())
+    , m_aborted(m_log.contains_abort()) {
+  }
+
+  TestRecorder(TestLog<MODE>&& log)
+    : m_log(std::forward<TestLog<MODE>>(log))
+    , m_log_iter(m_log.iterator())
+    , m_aborted(m_log.contains_abort()) {
   }
 
   virtual ~TestRecorder() {
@@ -24,8 +32,10 @@ public:
   template <legion_privilege_mode_t M>
   void
   append(const TestResult<M>& tr) {
-    m_log_iter <<= tr;
-    ++m_log_iter;
+    if (!m_aborted) {
+      m_log_iter <<= tr;
+      ++m_log_iter;
+    }
   }
 
   inline void
@@ -66,17 +76,23 @@ public:
     bool state,
     bool assert) {
 
+    if (m_aborted)
+      return;
+
     try {
-      if (expr() == state)
+      if (expr() == state) {
         append_success(name);
-      else
+      } else {
         append_failure(
           name,
           ((fail_info.size() > 0) ? fail_info : expr.reason(!state)),
           assert);
+        m_aborted = assert;
+      }
     } catch (const std::exception& e) {
       std::string fail_info = "unexpected exception: ";
       append_failure(name, fail_info + e.what(), assert);
+      m_aborted = assert;
     }
   }
 
@@ -189,7 +205,11 @@ public:
 
 private:
 
+  TestLog<MODE> m_log;
+
   TestLogIterator<MODE> m_log_iter;
+
+  bool m_aborted;
 };
 
 } // end namespace testing
