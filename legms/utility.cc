@@ -237,7 +237,7 @@ void
 ProjectedIndexPartitionTask::register_task(Runtime* runtime) {
   TASK_ID =
     runtime->generate_library_task_ids("legms::ProjectedIndexPartitionTask", 1);
-  TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
+  TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
   registrar.set_leaf();
   registrar.set_idempotent();

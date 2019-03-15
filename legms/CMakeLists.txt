@@ -156,3 +156,4 @@ install(FILES LEGMS_INCLUDE
   DESTINATION include)
 
 add_subdirectory(testing)
+add_subdirectory(tests)

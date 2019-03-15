@@ -148,9 +148,8 @@ ReindexedTableTask::ReindexedTableTask(
 void
 ReindexedTableTask::register_task(Runtime* runtime) {
   TASK_ID = runtime->generate_library_task_ids("legms::ReindexedTableTask", 1);
-  TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
+  TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-  registrar.set_leaf();
   registrar.set_inner();
   registrar.set_idempotent();
   registrar.set_replicable();
@@ -199,22 +198,31 @@ public:
   static TaskID TASK_ID;
   static char TASK_NAME[40];
 
-  IndexAccumulateTask(RegionRequirement req, LogicalRegion acc_lr) {
+  IndexAccumulateTask(
+    const RegionRequirement& col_req,
+    const LogicalRegion& acc_lr) {
 
     m_launcher =
       IndexTaskLauncher(
         TASK_ID,
-        req.region.get_index_space(),
+        col_req.region.get_index_space(),
         TaskArgument(NULL, 0),
         ArgumentMap());
-    m_launcher.add_region_requirement(req);
-    RegionRequirement acc_req(
-      acc_lr,
-      DT::af_redop_id,
-      EXCLUSIVE,
-      acc_lr);
-    acc_req.add_field(0);
-    m_launcher.add_region_requirement(acc_req);
+    m_launcher.add_region_requirement(
+      RegionRequirement(
+        col_req.region,
+        0,
+        READ_ONLY,
+        EXCLUSIVE,
+        col_req.region));
+    m_launcher.add_region_requirement(
+      RegionRequirement(
+        acc_lr,
+        DT::af_redop_id,
+        EXCLUSIVE,
+        acc_lr));
+    m_launcher.add_field(0, Column::value_fid);
+    m_launcher.add_field(1, 0);
   }
 
   void
@@ -229,7 +237,7 @@ public:
       std::string("index_column_task<") + DT::s + std::string(">");
     strncpy(TASK_NAME, tname.c_str(), sizeof(TASK_NAME));
     TASK_NAME[sizeof(TASK_NAME) - 1] = '\0';
-    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
+    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_leaf();
     registrar.set_idempotent();
@@ -257,10 +265,7 @@ public:
       true,
       1,
       coord_t,
-      AffineAccessor<
-        std::vector<std::tuple<T, std::vector<DomainPoint>>>,
-        1,
-        coord_t>,
+      AffineAccessor<typename acc_field_redop<T>::LHS, 1, coord_t>,
       false> acc(regions[1], 0, DT::af_redop_id);
 
     std::vector<DomainPoint> pt { task->index_point };
@@ -297,7 +302,7 @@ public:
 
 Legion::TaskID IndexColumnTask::TASK_ID;
 
-IndexColumnTask::IndexColumnTask(std::shared_ptr<Column>& column) {
+IndexColumnTask::IndexColumnTask(const std::shared_ptr<Column>& column) {
 
   ColumnGenArgs args = column->generator_args();
   args.axes.clear();
@@ -309,12 +314,19 @@ IndexColumnTask::IndexColumnTask(std::shared_ptr<Column>& column) {
     TaskLauncher(
       TASK_ID,
       TaskArgument(m_args.get(), buffsz));
+  m_launcher.add_region_requirement(
+    RegionRequirement(
+      column->logical_region(),
+      READ_ONLY,
+      EXCLUSIVE,
+      column->logical_region()));
+  m_launcher.add_field(0, Column::value_fid);
 }
 
 void
 IndexColumnTask::register_task(Runtime* runtime) {
   TASK_ID = runtime->generate_dynamic_task_id();
-  TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
+  TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
   registrar.set_idempotent();
   registrar.set_replicable();
@@ -329,10 +341,11 @@ IndexColumnTask::dispatch(Context ctx, Runtime* runtime) {
 template <typename T>
 LogicalRegion
 index_column(
-  const Task* task,
+  const Task*,
   Context ctx,
   Runtime *runtime,
-  casacore::DataType dt) {
+  casacore::DataType dt,
+  const RegionRequirement& col_req) {
 
   // create accumulator lr
   auto acc_is = runtime->create_index_space(ctx, Rect<1>(0, 0));
@@ -340,32 +353,46 @@ index_column(
   {
     auto fa = runtime->create_field_allocator(ctx, acc_fs);
     fa.allocate_field(
-      sizeof(acc_field_t<T>),
+      sizeof(typename acc_field_redop<T>::LHS),
       0,
       DataType<ValueType<T>::DataType>::af_serdez_id);
   }
   auto acc_lr = runtime->create_logical_region(ctx, acc_is, acc_fs);
-
+  {
+    RegionRequirement acc_init_req(acc_lr, WRITE_DISCARD, EXCLUSIVE, acc_lr);
+    acc_init_req.add_field(0);
+    InlineLauncher acc_init_task(acc_init_req);
+    PhysicalRegion acc_pr = runtime->map_region(ctx, acc_init_task);
+    const FieldAccessor<
+      WRITE_DISCARD,
+      typename acc_field_redop<T>::LHS,
+      1,
+      coord_t,
+      AffineAccessor<typename acc_field_redop<T>::LHS, 1, coord_t>,
+      false> rows_acc(acc_pr, 0);
+    ::new (rows_acc.ptr(0)) typename acc_field_redop<T>::LHS;
+    assert(rows_acc[0].size() == 0);
+  }
   // launch index space task on input region to write to accumulator lr
-  IndexAccumulateTask<T> acc_index_task(task->regions[0], acc_lr);
+  IndexAccumulateTask<T> acc_index_task(col_req, acc_lr);
   acc_index_task.dispatch(ctx, runtime);
 
   // need results of acc_index_task to create the result lr
   RegionRequirement acc_req(acc_lr, READ_ONLY, EXCLUSIVE, acc_lr);
   acc_req.add_field(0);
   InlineLauncher acc_task(acc_req);
-  PhysicalRegion acc_pr = runtime->map_region(ctx, acc_task);
+  PhysicalRegion acc_pr = runtime->remap_region(ctx, acc_task);
   acc_pr.wait_until_valid();
 
   LogicalRegionT<1> result_lr;
   const FieldAccessor<
     READ_ONLY,
-    acc_field_t<T>,
+    typename acc_field_redop<T>::LHS,
     1,
     coord_t,
-    AffineAccessor<acc_field_t<T>, 1, coord_t>,
+    AffineAccessor<typename acc_field_redop<T>::LHS, 1, coord_t>,
     false> rows_acc(acc_pr, 0);
-  const acc_field_t<T>& acc_field = rows_acc[0];
+  const typename acc_field_redop<T>::LHS& acc_field = rows_acc[0];
   if (acc_field.size() > 0) {
     auto result_fs = runtime->create_field_space(ctx);
     {
@@ -400,8 +427,10 @@ index_column(
       coord_t,
       AffineAccessor<std::vector<DomainPoint>, 1, coord_t>,
       false> rns(result_pr, IndexColumnTask::rows_fid);
-    for (size_t i = 0; i < acc_field.size(); ++i)
+    for (size_t i = 0; i < acc_field.size(); ++i) {
+      ::new (rns.ptr(i)) std::vector<DomainPoint>;
       std::tie(values[i], rns[i]) = acc_field[i];
+    }
 
     runtime->destroy_field_space(ctx, result_fs);
     runtime->destroy_index_space(ctx, result_is);
@@ -416,17 +445,22 @@ index_column(
 ColumnGenArgs
 IndexColumnTask::base_impl(
   const Task* task,
-  const std::vector<PhysicalRegion>&,
+  const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime *runtime) {
 
   ColumnGenArgs result;
   result.legion_deserialize(task->args);
 
-#define ICR(DT)                                                       \
-  case DT:                                                            \
-    result.values =                                                   \
-      index_column<DataType<DT>::ValueType>(task, ctx, runtime, DT);  \
+#define ICR(DT)                                 \
+  case DT:                                      \
+    result.values =                             \
+      index_column<DataType<DT>::ValueType>(    \
+        task,                                   \
+        ctx,                                    \
+        runtime,                                \
+        DT,                                     \
+        task->regions[0]);                      \
     break;
 
   switch (result.datatype) {
@@ -616,7 +650,7 @@ public:
   register_task(Runtime* runtime) {
     TASK_ID =
       runtime->generate_library_task_ids("legms::ComputeRectanglesTask", 1);
-    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
+    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
     registrar.set_replicable();
@@ -1061,7 +1095,7 @@ ReindexColumnTask::base_impl(
 void
 ReindexColumnTask::register_task(Runtime* runtime) {
   TASK_ID = runtime->generate_library_task_ids("legms::ReindexColumnTask", 1);
-  TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
+  TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
   registrar.set_inner();
   registrar.set_idempotent();

@@ -23,6 +23,9 @@ template <typename T,
           template <typename> typename F>
 class BoolEq;
 
+template <typename T>
+struct TestVal;
+
 template <typename T, template <typename> typename E>
 struct TestExpression {
 
