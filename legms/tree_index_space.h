@@ -169,7 +169,7 @@ public:
   static void
   register_task(Legion::Runtime* runtime, Legion::TaskID tid) {
     TASK_ID = tid;
-    Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
+    Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(
       Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     registrar.set_idempotent();
@@ -292,7 +292,7 @@ public:
   static void
   register_task(Legion::Runtime* runtime, Legion::TaskID tid) {
     TASK_ID = tid;
-    Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
+    Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(
       Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     registrar.set_idempotent();
