@@ -13,7 +13,7 @@
 #include <optional>
 
 #ifndef LEGMS_MAX_DIM
-# define LEGMS_MAX_DIM 4
+# define LEGMS_MAX_DIM 3
 #endif
 
 #if USE_HDF
@@ -390,7 +390,7 @@ public:
   typedef std::vector<std::tuple<T, std::vector<Legion::DomainPoint>>> RHS;
 
   static void
-  combine(LHS& lhs, RHS rhs) {
+  combine(LHS& lhs, const RHS& rhs) {
     std::for_each(
       rhs.begin(),
       rhs.end(),
@@ -408,13 +408,18 @@ public:
             auto l = lrns.begin();
             auto r = rns.begin();
             while (r!= rns.end()) {
-              if (*r < *l) {
-                lrns.insert(l, *r);
-                ++r;
-              } else if (*r == *l) {
-                ++r;
+              if (l != lrns.end()) {
+                if (*r < *l) {
+                  lrns.insert(l, *r);
+                  ++r;
+                } else if (*r == *l) {
+                  ++r;
+                } else {
+                  ++l;
+                }
               } else {
-                ++l;
+                lrns.push_back(*r);
+                ++r;
               }
             }
           } else {
@@ -426,7 +431,7 @@ public:
 
   template <bool EXCL>
   static void
-  apply(LHS& lhs, RHS rhs) {
+  apply(LHS& lhs, const RHS& rhs) {
     combine(lhs, rhs);
   }
 
@@ -434,9 +439,10 @@ public:
 
   template <bool EXCL>
   static void
-  fold(RHS& rhs1, RHS rhs2) {
+  fold(RHS& rhs1, const RHS& rhs2) {
     combine(rhs1, rhs2);
   }
+  
 };
 
 template <typename T>
