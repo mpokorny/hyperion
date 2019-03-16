@@ -1,3 +1,9 @@
+set(legms_LEGION_MP_GIT_REPO OFF CACHE BOOL "Use Martin's fork of Legion git repository")
+if(legms_LEGION_MP_GIT_REPO)
+  set(legms_LEGION_GIT_REPO "git@github.com:mpokorny/legion.git")
+else()
+  set(legms_LEGION_GIT_REPO "https://github.com/StanfordLegion/legion.git")
+endif()
 set(legms_LEGION_TAG "master" CACHE STRING "Legion repository git tag")
 
 set(Legion_MAX_DIM ${legms_MAX_DIM} CACHE STRING "UNIMPLEMENTED" FORCE)
@@ -37,7 +43,7 @@ list(APPEND Legion_ARGS Legion_ENABLE_TLS)
 
 include(ExternalProject)
 ExternalProject_Add(legion_build
-  GIT_REPOSITORY git@github.com:StanfordLegion/legion.git
+  GIT_REPOSITORY ${legms_LEGION_GIT_REPO}
   GIT_TAG ${legms_LEGION_TAG}
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}
   CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
