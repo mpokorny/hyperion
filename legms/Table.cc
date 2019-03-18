@@ -258,7 +258,7 @@ public:
       1,
       coord_t,
       AffineAccessor<T, 1, coord_t>,
-      false> values(regions[0], 0);
+      false> values(regions[0], Column::value_fid);
 
     const ReductionAccessor<
       acc_field_redop<T>,
