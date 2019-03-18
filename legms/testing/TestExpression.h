@@ -1,8 +1,8 @@
 #ifndef LEGMS_TESTING_TEST_EXPRESSION_H_
 #define LEGMS_TESTING_TEST_EXPRESSION_H_
 
-#include <sstream>
 #include <optional>
+#include <sstream>
 
 #include "legion.h"
 #include "TestRecorder.h"
@@ -49,6 +49,18 @@ struct TestExpression {
   BoolEq<T, E, U, F>
   operator==(const TestExpression<U, F>& right) const {
     return BoolEq(*this, right);
+  }
+
+  template <typename U>
+  BoolEq<T, E, U, TestVal>
+  operator==(const TestVal<U>& right) const {
+    return BoolEq(*this, right);
+  }
+
+  template <typename U>
+  BoolEq<T, E, U, TestVal>
+  operator==(const U& right) const {
+    return BoolEq(*this, TestVal(right));
   }
 
   std::string
