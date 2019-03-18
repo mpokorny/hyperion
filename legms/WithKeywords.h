@@ -30,20 +30,25 @@ public:
       std::back_inserter(m_keywords),
       [](auto& nm_dt) { return std::get<0>(nm_dt); });
 
-    auto is = m_runtime->create_index_space(m_context, Legion::Rect<1>(0, 0));
-    auto fs = m_runtime->create_field_space(m_context);
-    auto fa = m_runtime->create_field_allocator(m_context, fs);
-    std::for_each(
-      kws.begin(),
-      kws.end(),
-      [&](auto& nm_dt) {
-        auto& [nm, dt] = nm_dt;
-        auto fid = add_field(dt, fa);
-        m_runtime->attach_name(fs, fid, nm.c_str());
-      });
-    m_keywords_region = m_runtime->create_logical_region(m_context, is, fs);
-    m_runtime->destroy_field_space(m_context, fs);
-    m_runtime->destroy_index_space(m_context, is);
+    if (kws.size() > 0) {
+      auto is = m_runtime->create_index_space(m_context, Legion::Rect<1>(0, 0));
+      auto fs = m_runtime->create_field_space(m_context);
+      auto fa = m_runtime->create_field_allocator(m_context, fs);
+      std::for_each(
+        kws.begin(),
+        kws.end(),
+        [&](auto& nm_dt) {
+          auto& [nm, dt] = nm_dt;
+          auto fid = add_field(dt, fa);
+          m_runtime->attach_name(fs, fid, nm.c_str());
+        });
+      m_keywords_region = m_runtime->create_logical_region(m_context, is, fs);
+      m_runtime->destroy_field_space(m_context, fs);
+      m_runtime->destroy_index_space(m_context, is);
+    }
+    else {
+      m_keywords_region = Legion::LogicalRegion::NO_REGION;
+    }
   }
 
   WithKeywords(
@@ -56,7 +61,8 @@ public:
   }
 
   virtual ~WithKeywords() {
-    m_runtime->destroy_logical_region(m_context, m_keywords_region);
+    if (m_keywords_region != Legion::LogicalRegion::NO_REGION)
+      m_runtime->destroy_logical_region(m_context, m_keywords_region);
   }
 
   const std::vector<std::string>&
