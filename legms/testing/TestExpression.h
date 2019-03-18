@@ -20,7 +20,6 @@ class BoolAnd;
 
 template <typename T,
           template <typename> typename E,
-          typename U,
           template <typename> typename F>
 class BoolEq;
 
@@ -44,22 +43,14 @@ struct TestExpression {
     return BoolAnd(*this, right);
   }
 
-  template <typename U,
-            template <typename> typename F>
-  BoolEq<T, E, U, F>
-  operator==(const TestExpression<U, F>& right) const {
+  template <template <typename> typename F>
+  BoolEq<T, E, F>
+  operator==(const TestExpression<T, F>& right) const {
     return BoolEq(*this, right);
   }
 
-  template <typename U>
-  BoolEq<T, E, U, TestVal>
-  operator==(const TestVal<U>& right) const {
-    return BoolEq(*this, right);
-  }
-
-  template <typename U>
-  BoolEq<T, E, U, TestVal>
-  operator==(const U& right) const {
+  BoolEq<T, E, TestVal>
+  operator==(const T& right) const {
     return BoolEq(*this, TestVal(right));
   }
 
@@ -81,7 +72,7 @@ template <typename T>
 struct TestVal
   : public TestExpression<T, TestVal> {
 
-  TestVal(T val, const std::optional<std::string>& repr=std::nullopt)
+  TestVal(const T& val, const std::optional<std::string>& repr=std::nullopt)
     : m_val(val)
     , m_repr(repr.value_or(to_string(val))) {}
 
@@ -155,7 +146,7 @@ struct TestEval
 
 private:
 
-  const F& m_f;
+  F m_f;
 
   std::string m_repr;
 };
@@ -186,7 +177,7 @@ public:
 
     if (!repr) {
       std::ostringstream oss;
-      oss << "(" << m_left.repr() << " OR " << m_right.repr() << ")";
+      oss << "(" << m_left.repr() << " || " << m_right.repr() << ")";
       m_repr = oss.str();
     } else {
       m_repr = repr.value();
@@ -220,8 +211,8 @@ public:
 
 private:
 
-  const E<bool>& m_left;
-  const F<bool>& m_right;
+  E<bool> m_left;
+  F<bool> m_right;
   std::string m_repr;
 };
 
@@ -240,7 +231,7 @@ public:
 
     if (!repr) {
       std::ostringstream oss;
-      oss << "(" << m_left.repr() << " AND " << m_right.repr() << ")";
+      oss << "(" << m_left.repr() << " && " << m_right.repr() << ")";
       m_repr = oss.str();
     } else {
       m_repr = repr.value();
@@ -274,29 +265,28 @@ public:
 
 private:
 
-  const E<bool>& m_left;
-  const F<bool>& m_right;
+  E<bool> m_left;
+  F<bool> m_right;
   std::string m_repr;
 };
 
 template <typename T,
           template <typename> typename E,
-          typename U,
           template <typename> typename F>
 class BoolEq
-  : public BoolExpr<BoolEq<T, E, U, F>> {
+  : public BoolExpr<BoolEq<T, E, F>> {
 public:
 
   BoolEq(
     const TestExpression<T, E>& left,
-    const TestExpression<U, F>& right,
+    const TestExpression<T, F>& right,
     const std::optional<std::string>& repr=std::nullopt)
     : m_left(static_cast<const E<T>&>(left))
-    , m_right(static_cast<const F<U>&>(right)) {
+    , m_right(static_cast<const F<T>&>(right)) {
 
     if (!repr) {
       std::ostringstream oss;
-      oss << "(" << m_left.repr() << " EQ " << m_right.repr() << ")";
+      oss << "(" << m_left.repr() << " == " << m_right.repr() << ")";
       m_repr = oss.str();
     } else {
       m_repr = repr.value();
@@ -325,8 +315,8 @@ public:
 
 private:
 
-  const E<T>& m_left;
-  const F<U>& m_right;
+  E<T> m_left;
+  F<T> m_right;
   std::string m_repr;
 };
 
@@ -363,7 +353,7 @@ struct TestFuture
 
 private:
 
-  const Legion::Future& m_f;
+  Legion::Future m_f;
 
   std::string m_repr;
 };
