@@ -358,40 +358,25 @@ index_column(
       DataType<ValueType<T>::DataType>::af_serdez_id);
   }
   auto acc_lr = runtime->create_logical_region(ctx, acc_is, acc_fs);
-  {
-    RegionRequirement acc_init_req(acc_lr, WRITE_DISCARD, EXCLUSIVE, acc_lr);
-    acc_init_req.add_field(0);
-    InlineLauncher acc_init_task(acc_init_req);
-    PhysicalRegion acc_pr = runtime->map_region(ctx, acc_init_task);
-    const FieldAccessor<
-      WRITE_DISCARD,
-      typename acc_field_redop<T>::LHS,
-      1,
-      coord_t,
-      AffineAccessor<typename acc_field_redop<T>::LHS, 1, coord_t>,
-      false> rows_acc(acc_pr, 0);
-    ::new (rows_acc.ptr(0)) typename acc_field_redop<T>::LHS;
-    assert(rows_acc[0].size() == 0);
-  }
-  // launch index space task on input region to write to accumulator lr
-  IndexAccumulateTask<T> acc_index_task(col_req, acc_lr);
-  acc_index_task.dispatch(ctx, runtime);
-
-  // need results of acc_index_task to create the result lr
-  RegionRequirement acc_req(acc_lr, READ_ONLY, EXCLUSIVE, acc_lr);
-  acc_req.add_field(0);
-  InlineLauncher acc_task(acc_req);
-  PhysicalRegion acc_pr = runtime->remap_region(ctx, acc_task);
-  acc_pr.wait_until_valid();
-
-  LogicalRegionT<1> result_lr;
+  RegionRequirement acc_init_req(acc_lr, READ_WRITE, EXCLUSIVE, acc_lr);
+  acc_init_req.add_field(0);
+  InlineLauncher acc_init_task(acc_init_req);
+  PhysicalRegion acc_pr = runtime->map_region(ctx, acc_init_task);
   const FieldAccessor<
-    READ_ONLY,
+    WRITE_DISCARD,
     typename acc_field_redop<T>::LHS,
     1,
     coord_t,
     AffineAccessor<typename acc_field_redop<T>::LHS, 1, coord_t>,
     false> rows_acc(acc_pr, 0);
+  ::new (rows_acc.ptr(0)) typename acc_field_redop<T>::LHS;
+  assert(rows_acc[0].size() == 0);
+
+  // launch index space task on input region to write to accumulator lr
+  IndexAccumulateTask<T> acc_index_task(col_req, acc_lr);
+  acc_index_task.dispatch(ctx, runtime);
+
+  LogicalRegionT<1> result_lr;
   const typename acc_field_redop<T>::LHS& acc_field = rows_acc[0];
   if (acc_field.size() > 0) {
     auto result_fs = runtime->create_field_space(ctx);
