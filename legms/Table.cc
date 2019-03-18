@@ -269,7 +269,7 @@ public:
       false> acc(regions[1], 0, DT::af_redop_id);
 
     std::vector<DomainPoint> pt { task->index_point };
-    acc[0] <<= {std::make_tuple(values[0], pt)};
+    acc[0] <<= {std::make_tuple(values[pt[0][0]], pt)};
   }
 
 private:
