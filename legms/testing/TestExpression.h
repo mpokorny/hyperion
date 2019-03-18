@@ -70,12 +70,20 @@ struct TestExpression {
 };
 
 template <typename T>
+std::string
+to_string(T v) {
+  std::ostringstream oss;
+  oss << v;
+  return oss.str();
+}
+
+template <typename T>
 struct TestVal
   : public TestExpression<T, TestVal> {
 
   TestVal(T val, const std::optional<std::string>& repr=std::nullopt)
     : m_val(val)
-    , m_repr(repr.value_or(std::to_string(m_val))) {}
+    , m_repr(repr.value_or(to_string(val))) {}
 
   template <template <typename> typename E>
   TestVal(TestExpression<T, E> expr)
