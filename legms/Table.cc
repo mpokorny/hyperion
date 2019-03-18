@@ -430,7 +430,7 @@ index_column(
 ColumnGenArgs
 IndexColumnTask::base_impl(
   const Task* task,
-  const std::vector<PhysicalRegion>& regions,
+  const std::vector<PhysicalRegion>&,
   Context ctx,
   Runtime *runtime) {
 
