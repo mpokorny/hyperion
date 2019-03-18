@@ -32,10 +32,14 @@ public:
   template <legion_privilege_mode_t M>
   void
   append(const TestResult<M>& tr) {
-    if (!m_aborted) {
+    if (!m_aborted || tr.state == testing::TestState::SKIPPED) {
       m_log_iter <<= tr;
-      ++m_log_iter;
+    } else {
+      TestResult<READ_ONLY> tr1{
+        testing::TestState::SKIPPED, false, tr.name, ""};
+      m_log_iter <<= tr1;
     }
+    ++m_log_iter;
   }
 
   inline void
@@ -76,23 +80,24 @@ public:
     bool state,
     bool assert) {
 
-    if (m_aborted)
-      return;
-
-    try {
-      if (expr() == state) {
-        append_success(name);
-      } else {
-        append_failure(
-          name,
-          ((fail_info.size() > 0) ? fail_info : expr.reason(!state)),
-          assert);
+    if (m_aborted) {
+      append_skipped(name);
+    } else {
+      try {
+        if (expr() == state) {
+          append_success(name);
+        } else {
+          append_failure(
+            name,
+            ((fail_info.size() > 0) ? fail_info : expr.reason(!state)),
+            assert);
+          m_aborted = assert;
+        }
+      } catch (const std::exception& e) {
+        std::string fail_info = "unexpected exception: ";
+        append_failure(name, fail_info + e.what(), assert);
         m_aborted = assert;
       }
-    } catch (const std::exception& e) {
-      std::string fail_info = "unexpected exception: ";
-      append_failure(name, fail_info + e.what(), assert);
-      m_aborted = assert;
     }
   }
 
