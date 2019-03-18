@@ -25,7 +25,7 @@ def run_test(compare_with, compare_by, test, *args):
                if len(l) > 0
                and l.find('WARNING: field destructors ignored') == -1]
         if compare_with is None:
-            fails = map(lambda lg: lg[0:lg.find(':')] == 'FAIL', log)
+            fails = map(lambda lg: lg[0:lg.find('\t')] == 'FAIL', log)
             sys.exit(1 if any(fails) else 0)
         elif compare_by == 'line':
             eq = map(lambda lns: lns[0].strip() == lns[1],
