@@ -99,6 +99,7 @@ index_column_task_test_suite(
   IndexColumnTask icy(table0.columnT("Y"));
   Future fx = icx.dispatch(context, runtime);
   Future fy = icy.dispatch(context, runtime);
+
   auto cx =
     fx.get_result<ColumnGenArgs>().operator()<Table0Axes>(context, runtime);
   recorder.assert_true(
@@ -115,8 +116,23 @@ index_column_task_test_suite(
     "IndexColumnTask X result IndexSpace has range [0,3]",
     (xd.lo()[0] == 0)
     && (xd.hi()[0] == TABLE0_NUM_X - 1));
+
   auto cy =
     fy.get_result<ColumnGenArgs>().operator()<Table0Axes>(context, runtime);
+  recorder.assert_true(
+    "IndexColumnTask Y result has one axis",
+    cy->axesT().size() == 1);
+  recorder.expect_true(
+    "IndexColumnTask Y result axis is 'index'",
+    cy->axesT()[0] == Table0Axes::index);
+  recorder.expect_true(
+    "IndexColumnTask Y result has one-dimensional IndexSpace",
+    cy->index_space().get_dim() == 1);
+  Domain yd = runtime->get_index_space_domain(cy->index_space());
+  recorder.expect_true(
+    "IndexColumnTask Y result IndexSpace has range [0,2]",
+    (yd.lo()[0] == 0)
+    && (yd.hi()[0] == TABLE0_NUM_Y - 1));
 
   runtime->detach_external_resource(context, col_x);
   runtime->detach_external_resource(context, col_y);
