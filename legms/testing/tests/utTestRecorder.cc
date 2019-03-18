@@ -92,16 +92,6 @@ test_recorder_test_suite(
     dummy_append_failure.name,
     dummy_append_failure.fail_info);
 
-  testing::TestResult<READ_ONLY> dummy_append_abort{
-    testing::TestState::FAILURE,
-    true,
-    "Dummy append_abort",
-    "Expected abort"};  
-  recorder.append_failure(
-    dummy_append_abort.name,
-    dummy_append_abort.fail_info,
-    dummy_append_abort.abort);
-
   testing::TestResult<READ_ONLY> dummy_append_skipped{
     testing::TestState::SKIPPED,
     false,
@@ -151,14 +141,6 @@ test_recorder_test_suite(
   ++log_readback;
 
   {
-    const char *name = "Read back dummy append abort";
-    testing::TestResult<READ_WRITE> test_result(*log_readback);
-    std::string errors = verify_result(test_result, dummy_append_abort);
-    recorder.expect_true(name, errors.size() == 0, errors);
-  }
-  ++log_readback;
-
-  {
     const char *name = "Read back dummy append skipped";
     testing::TestResult<READ_WRITE> test_result(*log_readback);
     std::string errors = verify_result(test_result, dummy_append_skipped);
@@ -173,6 +155,29 @@ test_recorder_test_suite(
       "Evaluate Future in TestExpression",
       testing::TestFuture<decltype(val)>(fval) == testing::TestVal(val));
   }
+  ++log_readback;
+
+  testing::TestResult<READ_ONLY> dummy_append_abort{
+    testing::TestState::FAILURE,
+      true,
+      "Dummy append_abort",
+      "Expected abort"};
+  recorder.append_failure(
+    dummy_append_abort.name,
+    dummy_append_abort.fail_info,
+    dummy_append_abort.abort);
+
+  {
+    const char *name = "Read back dummy append abort";
+    testing::TestResult<READ_WRITE> test_result(*log_readback);
+    std::string errors = verify_result(test_result, dummy_append_abort);
+    // note that the following logs a "SKIPPED" result, since the logged ABORT
+    // causes all following tests to be skipped; nevertheless, if the test
+    // runner compares outputs, the error message "errors" will signify an error
+    // in logging
+    recorder.expect_true(name, errors.size() == 0, errors);
+  }
+  ++log_readback;
 }
 
 int
