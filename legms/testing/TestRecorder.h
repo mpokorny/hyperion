@@ -34,6 +34,7 @@ public:
   append(const TestResult<M>& tr) {
     if (!m_aborted || tr.state == testing::TestState::SKIPPED) {
       m_log_iter <<= tr;
+      m_aborted = m_aborted || tr.abort;
     } else {
       TestResult<READ_ONLY> tr1{
         testing::TestState::SKIPPED, false, tr.name, ""};
@@ -49,7 +50,7 @@ public:
     const std::string& fail_info = "",
     bool abort = false) {
 
-    append(TestResult<READ_ONLY>{ state, abort, name, fail_info});
+    append(TestResult<READ_ONLY>{ state, abort, name, fail_info });
   }
 
   inline void
@@ -84,19 +85,16 @@ public:
       append_skipped(name);
     } else {
       try {
-        if (expr() == state) {
+        if (expr() == state)
           append_success(name);
-        } else {
+        else
           append_failure(
             name,
             ((fail_info.size() > 0) ? fail_info : expr.reason(!state)),
             assert);
-          m_aborted = assert;
-        }
       } catch (const std::exception& e) {
         std::string fail_info = "unexpected exception: ";
         append_failure(name, fail_info + e.what(), assert);
-        m_aborted = assert;
       }
     }
   }
