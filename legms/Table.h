@@ -30,10 +30,12 @@ public:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
+    const std::vector<std::string>& index_axes,
     const std::unordered_map<std::string, casacore::DataType>& kws =
     std::unordered_map<std::string, casacore::DataType>())
     : WithKeywords(ctx, runtime, kws)
     , m_name(name)
+    , m_index_axes(index_axes)
     , m_context(ctx)
     , m_runtime(runtime) {
   };
@@ -42,9 +44,11 @@ public:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
+    const std::vector<std::string>& index_axes,
     Legion::LogicalRegion keywords)
     : WithKeywords(ctx, runtime, keywords)
     , m_name(name)
+    , m_index_axes(index_axes)
     , m_context(ctx)
     , m_runtime(runtime) {
   };
@@ -79,6 +83,11 @@ public:
   virtual const std::string&
   max_rank_column_name() const = 0;
 
+  const std::vector<std::string>&
+  index_axes() const {
+    return m_index_axes;
+  }
+
   Legion::Context&
   context() const {
     return m_context;
@@ -103,6 +112,8 @@ private:
 
   std::string m_name;
 
+  std::vector<std::string> m_index_axes;
+
 protected:
 
   mutable Legion::Context m_context;
@@ -116,6 +127,7 @@ struct TableGenArgs {
   // TODO: should I add a type tag here to catch errors in calling () with the
   // wrong type?
   std::string name;
+  std::vector<std::string> index_axes;
   std::vector<ColumnGenArgs> col_genargs;
   Legion::LogicalRegion keywords;
 
@@ -142,6 +154,7 @@ public:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
+    const std::vector<std::string>& index_axes,
     const std::vector<typename ColumnT<D>::Generator>& column_generators,
     const std::unordered_map<std::string, casacore::DataType>& kws =
     std::unordered_map<std::string, casacore::DataType>())
@@ -149,6 +162,7 @@ public:
       ctx,
       runtime,
       name,
+      index_axes,
       column_generators.begin(),
       column_generators.end(),
       kws) {}
@@ -158,11 +172,12 @@ public:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
+    const std::vector<std::string>& index_axes,
     GeneratorIter generator_first,
     GeneratorIter generator_last,
     const std::unordered_map<std::string, casacore::DataType>& kws =
     std::unordered_map<std::string, casacore::DataType>())
-    : Table(ctx, runtime, name, kws) {
+    : Table(ctx, runtime, name, index_axes, kws) {
 
     std::transform(
       generator_first,
@@ -182,9 +197,10 @@ public:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
+    const std::vector<std::string>& index_axes,
     const std::vector<ColumnGenArgs>& col_genargs,
     Legion::LogicalRegion keywords)
-    : Table(ctx, runtime, name, keywords) {
+    : Table(ctx, runtime, name, index_axes, keywords) {
 
     std::transform(
       col_genargs.begin(),
@@ -283,7 +299,14 @@ TableGenArgs::operator()(
   Legion::Context ctx,
   Legion::Runtime* runtime) const {
 
-  return std::make_unique<TableT<D>>(ctx, runtime, name, col_genargs, keywords);
+  return
+    std::make_unique<TableT<D>>(
+      ctx,
+      runtime,
+      name,
+      index_axes,
+      col_genargs,
+      keywords);
 }
 
 
@@ -301,6 +324,7 @@ from_ms(
       ctx,
       runtime,
       builder.name(),
+      std::vector<std::string>{"ROW"},
       builder.column_generators(),
       builder.keywords());
 }
@@ -312,7 +336,9 @@ public:
   static constexpr const char* TASK_NAME = "index_column_task";
   static constexpr Legion::FieldID rows_fid = Column::value_fid + 10;
 
-  IndexColumnTask(const std::shared_ptr<Column>& column);
+  IndexColumnTask(
+    const std::shared_ptr<Column>& column,
+    int axis);
 
   static void
   register_task(Legion::Runtime* runtime);
@@ -342,6 +368,7 @@ public:
 
   ReindexedTableTask(
     const std::string& name,
+    const std::vector<std::string>& index_axes,
     Legion::LogicalRegion keywords_region,
     const std::vector<Legion::Future>& reindexed);
 
@@ -374,7 +401,8 @@ public:
   ReindexColumnTask(
     const std::shared_ptr<Column>& col,
     ssize_t row_axis_offset,
-    const std::vector<Legion::Future>& ixcol_futures,
+    const std::vector<std::shared_ptr<Column>>& ixcols,
+    const std::vector<int>& index_axes,
     bool allow_rows);
 
   static void
@@ -396,6 +424,7 @@ private:
 
   struct TaskArgs {
     bool allow_rows;
+    std::vector<int> index_axes;
     Legion::IndexPartition row_partition;
     ColumnGenArgs col;
 
@@ -455,27 +484,7 @@ reindexed(
   // name
   //
   // TODO: add support for index columns that already exist in the table
-  if (
-    !std::all_of(
-      axes.begin(),
-      axes.end(),
-      [table](auto& d) {
-        auto name = D::axis_names().at(d);
-        if (table->has_column(name)) {
-          // TODO: [this is related to the comment above] it might be possible
-          // to support reindexing a partially indexed Table, but for simplicity
-          // we currently don't allow that, meaning that a column associated
-          // with an index may have only the "row" or "index" axis (the
-          // extension would be to allow columns that have multiple axes, but
-          // with a row axis at the bottom). NB: partial implementation exists,
-          // but correctness needs to be verified.
-          auto axes = table->columnT(name)->axes();
-          return
-            axes.size() == 1 &&
-            static_cast<int>(axes[axes.size() - 1]) <= static_cast<int>(D::ROW);
-        }
-        return false;
-      }))
+  if (table->index_axes().size() > 1 || table->index_axes().back() != "ROW")
     return std::nullopt;
 
   // for every column in table, determine which axes need indexing
@@ -488,7 +497,7 @@ reindexed(
       std::vector<D> ax;
       auto col_axes = table->columnT(nm)->axesT();
       // skip the column if it does not have a "row" axis
-      if (find(col_axes.begin(), col_axes.end(), D::ROW) != col_axes.end()) {
+      if (col_axes.back() == D::ROW) {
         // if column is a reindexing axis, reindexing depends only on itself
         auto myaxis = column_is_axis(nm, axes);
         if (myaxis) {
@@ -525,7 +534,7 @@ reindexed(
         [table, &index_cols](auto& d) {
           if (index_cols.count(d) == 0) {
             auto col = table->columnT(D::axis_names().at(d));
-            IndexColumnTask task(col);
+            IndexColumnTask task(col, static_cast<int>(d));
             index_cols[d] = task.dispatch(table->context(), table->runtime());
           }
         });
@@ -566,7 +575,18 @@ reindexed(
     });
 
   // launch task that creates the reindexed table
-  ReindexedTableTask task(table->name(), table->keywords_region(), reindexed);
+  std::vector<std::string> index_axes;
+  std::transform(
+    index_axes.begin(),
+    index_axes.end(),
+    std::back_inserter(index_axes),
+    [](auto& d) {
+      return D::axis_names.at(d);
+    });
+  if (allow_rows)
+    index_axes.push_back("ROW");
+  ReindexedTableTask
+    task(table->name(), index_axes, table->keywords_region(), reindexed);
   return task.dispatch(table->context(), table->runtime());
 }
 
