@@ -5,6 +5,7 @@
 #include <limits>
 #include <numeric>
 #include <optional>
+#include <ostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -753,6 +754,13 @@ private:
 };
 
 } // end namespace legms
+
+template <typename COORD_T>
+std::ostream&
+operator<<(std::ostream& stream, const legms::IndexTree<COORD_T>& it) {
+  stream << it.show();
+  return stream;
+}
 
 #endif // LEGMS_INDEX_TREE_H_
 
