@@ -27,7 +27,7 @@ list(APPEND Legion_ARGS Legion_USE_GASNet)
 set(Legion_USE_LLVM OFF CACHE BOOL "Use LLVM JIT operations")
 list(APPEND Legion_ARGS Legion_USE_LLVM)
 
-set(Legion_USE_HDF5 OFF CACHE BOOL "Enable support for HDF5")
+set(Legion_USE_HDF5 ${legms_USE_HDF5} CACHE BOOL "Enable support for HDF5")
 list(APPEND Legion_ARGS Legion_USE_HDF5)
 
 set(Legion_USE_LIBDL ON CACHE BOOL "Enable support for libdl")

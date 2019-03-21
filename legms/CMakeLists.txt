@@ -138,6 +138,10 @@ list(APPEND
 # TODO: find a better way of passing the legms_COMPILE_DEFINITIONS to all
 # targets, both in this directory and all sub-directories...evil runtime errors
 # occur when the wrong or inconsistent LEGMS_MAX_DIM values are used
+if (legms_USE_HDF)
+  list(APPEND legms_COMPILE_DEFINITIONS "USE_HDF")
+endif()
+
 set_target_properties(legms PROPERTIES
   CXX_STANDARD 17
   COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
@@ -153,6 +157,10 @@ target_link_libraries(legms PUBLIC legion)
 target_link_libraries(legms PUBLIC realm)
 target_link_libraries(legms PUBLIC casa_tables)
 target_link_libraries(legms PUBLIC casa_casa)
+if (legms_USE_HDF)
+  target_include_directories(legms PUBLIC ${HDF5_INCLUDE_DIRS})
+  target_link_libraries(legms PUBLIC ${HDF5_LIBRARIES})
+endif()
 set_target_properties(legms PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(legms PROPERTIES SOVERSION ${SOVERSION})
 
