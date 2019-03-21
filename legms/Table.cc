@@ -2,6 +2,7 @@
 #include <array>
 #include <numeric>
 #include <tuple>
+#include <vector>
 
 #include "Column.h"
 #include "Table.h"
@@ -9,6 +10,8 @@
 using namespace legms;
 using namespace std;
 using namespace Legion;
+
+#undef HIERARCHICAL_COMPUTE_RECTANGLES
 
 std::unique_ptr<Table>
 Table::from_ms(
@@ -19,11 +22,11 @@ Table::from_ms(
 
   std::string table_name = path.filename();
 
-#define FROM_MS_TABLE(N)                                \
-  do {                                                  \
-    if (table_name == MSTable<MSTables::N>::name)       \
+#define FROM_MS_TABLE(N)                            \
+  do {                                              \
+    if (table_name == MSTable<MSTables::N>::name)   \
       return legms:: template from_ms<MSTables::N>( \
-        ctx, runtime, path, column_selections);         \
+        ctx, runtime, path, column_selections);     \
   } while (0)
 
   FROM_MS_TABLE(MAIN);
@@ -57,11 +60,19 @@ Table::from_ms(
 
 size_t
 TableGenArgs::legion_buffer_size(void) const {
+  size_t ia_size =
+    accumulate(
+      index_axes.begin(),
+      index_axes.end(),
+      sizeof(size_t),
+      [](auto& acc, auto& ax) {
+        return acc + ax.size() + 1;
+      });
   size_t result =
     accumulate(
       col_genargs.begin(),
       col_genargs.end(),
-      name.size() + 1 + sizeof(size_t),
+      name.size() + 1 + sizeof(size_t) + ia_size,
       [](auto& acc, auto& cg) {
         return acc + cg.legion_buffer_size();
       });
@@ -75,6 +86,17 @@ TableGenArgs::legion_serialize(void *buffer) const {
   size_t s = name.size() + 1;
   memcpy(buff, name.c_str(), s);
   buff += s;
+
+  *reinterpret_cast<size_t*>(buff) = index_axes.size();
+  buff += sizeof(size_t);
+  std::for_each(
+    index_axes.begin(),
+    index_axes.end(),
+    [&buff](auto& ax) {
+      size_t len = ax.size() + 1;
+      memcpy(buff, ax.c_str(), len);
+      buff += len;
+    });
 
   size_t csz = col_genargs.size();
   s = sizeof(csz);
@@ -104,6 +126,14 @@ TableGenArgs::legion_deserialize(const void *buffer) {
   name = *buff;
   buff += name.size() + 1;
 
+  size_t nax = *reinterpret_cast<const size_t *>(buff);
+  buff += sizeof(nax);
+  index_axes.clear();
+  for (size_t i = 0; i < nax; ++i) {
+    index_axes.push_back(std::string(buff));
+    buff += index_axes.back().size() + 1;
+  }
+
   size_t ncg = *reinterpret_cast<const size_t *>(buff);
   buff += sizeof(ncg);
 
@@ -124,12 +154,14 @@ Legion::TaskID ReindexedTableTask::TASK_ID;
 
 ReindexedTableTask::ReindexedTableTask(
   const std::string& name,
+  const std::vector<std::string>& index_axes,
   LogicalRegion keywords_region,
   const std::vector<Future>& reindexed) {
 
   // reuse TableGenArgsSerializer to pass task arguments
   TableGenArgs args;
   args.name = name;
+  args.index_axes = index_axes;
   args.keywords = keywords_region;
 
   size_t buffsz = args.legion_buffer_size();
@@ -293,7 +325,7 @@ public:
         "legms::IndexAccumulateTasks",
         NUM_CASACORE_DATATYPES);
 
-#define REG_TASK(DT) \
+#define REG_TASK(DT)                                                    \
     IndexAccumulateTask<DataType<DT>::ValueType>::register_task(runtime, tid0);
 
     FOREACH_DATATYPE(REG_TASK);
@@ -302,11 +334,13 @@ public:
 
 Legion::TaskID IndexColumnTask::TASK_ID;
 
-IndexColumnTask::IndexColumnTask(const std::shared_ptr<Column>& column) {
+IndexColumnTask::IndexColumnTask(
+  const std::shared_ptr<Column>& column,
+  int axis) {
 
   ColumnGenArgs args = column->generator_args();
   args.axes.clear();
-  args.axes.push_back(-1);
+  args.axes.push_back(axis);
   size_t buffsz = args.legion_buffer_size();
   m_args = std::make_unique<char[]>(buffsz);
   args.legion_serialize(m_args.get());
@@ -457,6 +491,8 @@ IndexColumnTask::base_impl(
   return result;
 }
 
+#ifdef HIERARCHICAL_COMPUTE_RECTANGLES
+
 class ComputeRectanglesTask {
 public:
 
@@ -464,46 +500,72 @@ public:
   static constexpr const char* TASK_NAME = "compute_rectangles_task";
 
   ComputeRectanglesTask(
-    LogicalRegion new_rects,
     bool allow_rows,
     IndexPartition row_partition,
     const std::vector<LogicalRegion>& ix_columns,
+    LogicalRegion new_rects,
+    const std::vector<PhysicalRegion>& parent_regions,
     const std::vector<coord_t>& ix0,
-    const std::vector<DomainPoint>& rows)
-    : m_args{new_rects, allow_rows, row_partition, ix_columns, ix0, rows} {
+    const std::vector<DomainPoint>& rows) {
+
+    TaskArgs args{allow_rows, row_partition, ix0, rows};
+    auto idx = args.ix0.size();
+    m_args_buffer = std::make_unique<char[]>(args.serialized_size());
+    args.serialize(m_args_buffer.get());
+    m_launcher =
+      IndexTaskLauncher(
+        TASK_ID,
+        ix_columns[idx].get_index_space(),
+        TaskArgument(m_args_buffer.get(), args.serialized_size()),
+        ArgumentMap());
+
+    bool has_parent = false/*parent_regions.size() > 0*/;
+    std::cout << "ix_columns " << ix_columns.size()
+              << "; idx " << idx
+              << " (";
+    std::for_each(
+      ix0.begin(),
+      ix0.end(),
+      [](auto& d) { std::cout << d << " "; });
+    std::cout << ")" << std::endl;
+
+    for (size_t i = 0; i < ix_columns.size(); ++i) {
+      RegionRequirement req;
+      if (i == idx)
+        req =
+          RegionRequirement(
+            ix_columns[i],
+            0,
+            READ_ONLY,
+            EXCLUSIVE,
+            (has_parent
+             ? parent_regions[i].get_logical_region()
+             : ix_columns[i]));
+      else
+        req =
+          RegionRequirement(
+            ix_columns[i],
+            READ_ONLY,
+            EXCLUSIVE,
+            (has_parent
+             ? parent_regions[i].get_logical_region()
+             : ix_columns[i]));
+      req.add_field(IndexColumnTask::rows_fid);
+      m_launcher.add_region_requirement(req);
+    }
+
+    RegionRequirement req(
+      new_rects,
+      WRITE_DISCARD,
+      SIMULTANEOUS,
+      (has_parent ? parent_regions.back().get_logical_region() : new_rects));
+    req.add_field(ReindexColumnTask::row_rects_fid);
+    m_launcher.add_region_requirement(req);
   };
 
   void
   dispatch(Context ctx, Runtime* runtime) {
-
-    auto i = m_args.ix0.size();
-    std::unique_ptr<char[]> args_buffer =
-      std::make_unique<char[]>(m_args.serialized_size());
-    m_args.serialize(args_buffer.get());
-    IndexTaskLauncher launcher(
-      TASK_ID,
-      m_args.ix_columns[i].get_index_space(),
-      TaskArgument(args_buffer.get(), m_args.serialized_size()),
-      ArgumentMap());
-
-    RegionRequirement ixc_req(
-      m_args.ix_columns[i],
-      0,
-      READ_ONLY,
-      EXCLUSIVE,
-      m_args.ix_columns[i]);
-    ixc_req.add_field(IndexColumnTask::rows_fid);
-    launcher.add_region_requirement(ixc_req);
-    if (i == m_args.ix_columns.size() - 1) {
-      RegionRequirement new_rects_req(
-        m_args.new_rects,
-        WRITE_DISCARD,
-        EXCLUSIVE, // TODO: ATOMIC?
-        m_args.new_rects);
-      new_rects_req.add_field(ReindexColumnTask::row_rects_fid);
-      launcher.add_region_requirement(new_rects_req);
-    }
-    runtime->execute_index_space(ctx, launcher);
+    runtime->execute_index_space(ctx, m_launcher);
   }
 
   static void
@@ -522,21 +584,26 @@ public:
       1,
       coord_t,
       AffineAccessor<std::vector<DomainPoint>, 1, coord_t>,
-      false> rows(regions[0], IndexColumnTask::rows_fid);
+      false> rows(regions[args.ix0.size()], IndexColumnTask::rows_fid);
 
-    args.ix0.push_back(task->index_point[0]);
+    auto pt = task->index_point[0];
+    args.ix0.push_back(pt);
     if (args.ix0.size() == 1)
-      args.rows = rows[0];
+      args.rows = rows[pt];
     else
-      args.rows = intersection(args.rows, rows[0]);
+      args.rows = intersection(args.rows, rows[pt]);
     if (args.rows.size() > 0) {
-      if (regions.size() == 1) {
+      if (args.ix0.size() < regions.size() - 1) {
         // start task at next index level
+        std::vector<LogicalRegion> col_lrs;
+        for (size_t i = 0; i < regions.size() - 1; ++i)
+          col_lrs.push_back(regions[i].get_logical_region());
         ComputeRectanglesTask task(
-          args.new_rects,
           args.allow_rows,
           args.row_partition,
-          args.ix_columns,
+          col_lrs,
+          regions.back().get_logical_region(),
+          regions,
           args.ix0,
           args.rows);
         task.dispatch(ctx, runtime);
@@ -545,7 +612,7 @@ public:
 
         auto rowdim = args.rows[0].get_dim();
         auto rectdim =
-          args.ix_columns.size() + args.row_partition.get_dim() - rowdim
+          regions.size() - 1 + args.row_partition.get_dim() - rowdim
           + (args.allow_rows ? 1 : 0);
 
         if (args.allow_rows || args.rows.size() == 1) {
@@ -558,7 +625,7 @@ public:
               ROWDIM, \
               coord_t, \
               AffineAccessor<Rect<RECTDIM>, ROWDIM, coord_t>, \
-              false> rects(regions[1], ReindexColumnTask::row_rects_fid); \
+              false> rects(regions.back(), ReindexColumnTask::row_rects_fid); \
                                                                         \
             for (size_t i = 0; i < args.rows.size(); ++i) {             \
               Domain row_d =                                            \
@@ -588,43 +655,13 @@ public:
             break;                                                      \
           }
 
-        switch (rowdim * LEGMS_MAX_DIM + rectdim) {
-          LEGMS_FOREACH_MN(WRITE_RECTS);
-        default:
-          assert(false);
-          break;
-        }
-#undef WRITE_RECTS
-
-        } else {
-
-#define WRITE_EMPTY_RECTS(ROWDIM, RECTDIM)                              \
-          case (ROWDIM * LEGMS_MAX_DIM + RECTDIM): {                    \
-            const FieldAccessor<                                        \
-              WRITE_DISCARD, \
-              Rect<RECTDIM>, \
-              ROWDIM, \
-              coord_t, \
-              AffineAccessor<Rect<RECTDIM>, ROWDIM, coord_t>, \
-              false> rects(regions[1], ReindexColumnTask::row_rects_fid); \
-                                                                        \
-            Rect<RECTDIM> row_rect;                                     \
-            row_rect.lo[0] = 1;                                         \
-            row_rect.hi[0] = 0;                                         \
-            assert(row_rect.empty());                                   \
-            for (size_t i = 0; i < args.rows.size(); ++i) {             \
-              rects[args.rows[i]] = row_rect;                           \
-            }                                                           \
-            break;                                                      \
+          switch (rowdim * LEGMS_MAX_DIM + rectdim) {
+            LEGMS_FOREACH_MN(WRITE_RECTS);
+          default:
+            assert(false);
+            break;
           }
-
-        switch (rowdim * LEGMS_MAX_DIM + rectdim) {
-          LEGMS_FOREACH_MN(WRITE_EMPTY_RECTS);
-        default:
-          assert(false);
-          break;
-        }
-#undef WRITE_EMPTY_RECTS
+#undef WRITE_RECTS
 
         }
       }
@@ -645,19 +682,15 @@ public:
 private:
 
   struct TaskArgs {
-    LogicalRegion new_rects;
     bool allow_rows;
     IndexPartition row_partition;
-    std::vector<LogicalRegion> ix_columns;
     std::vector<coord_t> ix0;
     std::vector<DomainPoint> rows;
 
     size_t
     serialized_size() const {
       return
-        sizeof(new_rects) + sizeof(allow_rows) + sizeof(row_partition)
-        + vector_serdez<decltype(ix_columns)::value_type>::serialized_size(
-          ix_columns)
+        sizeof(allow_rows) + sizeof(row_partition)
         + vector_serdez<decltype(ix0)::value_type>::serialized_size(ix0)
         + vector_serdez<decltype(rows)::value_type>::serialized_size(rows);
     }
@@ -666,16 +699,10 @@ private:
     serialize(void *buffer) const {
       size_t result = 0;
       char* buff = static_cast<char*>(buffer);
-      memcpy(buff, &new_rects, sizeof(new_rects));
-      result += sizeof(new_rects);
       memcpy(buff + result, &allow_rows, sizeof(allow_rows));
       result += sizeof(allow_rows);
       memcpy(buff + result, &row_partition, sizeof(row_partition));
       result += sizeof(row_partition);
-      result +=
-        vector_serdez<decltype(ix_columns)::value_type>::serialize(
-          ix_columns,
-          buff + result);
       result +=
         vector_serdez<decltype(ix0)::value_type>::serialize(
           ix0,
@@ -691,16 +718,10 @@ private:
     deserialize(TaskArgs& val, const void *buffer) {
       size_t result = 0;
       const char* buff = static_cast<const char*>(buffer);
-      memcpy(&val.new_rects, buff, sizeof(new_rects));
-      result += sizeof(new_rects);
       memcpy(&val.allow_rows, buff + result, sizeof(allow_rows));
       result += sizeof(allow_rows);
       memcpy(&val.row_partition, buff + result, sizeof(row_partition));
       result += sizeof(row_partition);
-      result +=
-        vector_serdez<decltype(ix_columns)::value_type>::deserialize(
-          val.ix_columns,
-          buff + result);
       result +=
         vector_serdez<decltype(ix0)::value_type>::deserialize(
           val.ix0,
@@ -713,7 +734,9 @@ private:
     }
   };
 
-  TaskArgs m_args;
+  std::unique_ptr<char[]> m_args_buffer;
+
+  IndexTaskLauncher m_launcher;
 
   static std::vector<DomainPoint>
   intersection(
@@ -730,6 +753,236 @@ private:
     return result;
   }
 };
+
+#else // !HIERARCHICAL_COMPUTE_RECTANGLES
+
+class ComputeRectanglesTask {
+public:
+
+  static TaskID TASK_ID;
+  static constexpr const char* TASK_NAME = "compute_rectangles_task";
+
+  ComputeRectanglesTask(
+    bool allow_rows,
+    IndexPartition row_partition,
+    const std::vector<LogicalRegion>& ix_columns,
+    LogicalRegion new_rects)
+    : m_allow_rows(allow_rows)
+    , m_row_partition(row_partition)
+    , m_ix_columns(ix_columns)
+    , m_new_rects(new_rects) {
+  };
+
+  void
+  dispatch(Context ctx, Runtime* runtime) {
+
+    IndexTaskLauncher launcher;
+    std::unique_ptr<char[]> args_buffer;
+    TaskArgs args{m_allow_rows, m_row_partition};
+    args_buffer = std::make_unique<char[]>(args.serialized_size());
+    args.serialize(args_buffer.get());
+
+#define INIT_LAUNCHER(DIM)                                          \
+    case DIM: {                                                     \
+      Rect<DIM> bounds;                                             \
+      for (size_t i = 0; i < DIM; ++i) {                            \
+        IndexSpaceT<1> cis(m_ix_columns[i].get_index_space());      \
+        Rect<1> dom(runtime->get_index_space_domain(cis));          \
+        bounds.lo[i] = dom.lo[0];                                   \
+        bounds.hi[i] = dom.hi[0];                                   \
+      }                                                             \
+      launcher =                                                    \
+        IndexTaskLauncher(                                          \
+          TASK_ID,                                                  \
+          bounds,                                                   \
+          TaskArgument(args_buffer.get(), args.serialized_size()),  \
+          ArgumentMap());                                           \
+      break;                                                        \
+    }
+
+    switch (m_ix_columns.size()) {
+      LEGMS_FOREACH_N(INIT_LAUNCHER);
+    default:
+      assert(false);
+      break;
+    }
+#undef INIT_LAUNCHER
+
+    std::for_each(
+      m_ix_columns.begin(),
+      m_ix_columns.end(),
+      [&launcher](auto& lr) {
+        RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+        req.add_field(IndexColumnTask::rows_fid);
+        launcher.add_region_requirement(req);
+      });
+
+    RegionRequirement
+      req(m_new_rects, WRITE_DISCARD, SIMULTANEOUS, m_new_rects);
+    req.add_field(ReindexColumnTask::row_rects_fid);
+    launcher.add_region_requirement(req);
+
+    runtime->execute_index_space(ctx, launcher);
+  }
+
+  static void
+  base_impl(
+    const Task* task,
+    const std::vector<PhysicalRegion>& regions,
+    Context ctx,
+    Runtime *runtime) {
+
+    TaskArgs args;
+    TaskArgs::deserialize(args, static_cast<const void *>(task->args));
+
+    typedef const FieldAccessor<
+      READ_ONLY,
+      std::vector<DomainPoint>,
+      1,
+      coord_t,
+      AffineAccessor<std::vector<DomainPoint>, 1, coord_t>,
+      false> rows_acc_t;
+
+    auto ixdim = regions.size() - 1;
+
+    std::vector<DomainPoint> common_rows;
+    {
+      rows_acc_t rows(regions[0], IndexColumnTask::rows_fid);
+      common_rows = rows[task->index_point[0]];
+    }
+    for (size_t i = 1; i < ixdim; ++i) {
+      rows_acc_t rows(regions[i], IndexColumnTask::rows_fid);
+      common_rows = intersection(common_rows, rows[task->index_point[i]]);
+    }
+
+#define WRITE_RECTS(ROWDIM, RECTDIM)                                    \
+    case (ROWDIM * LEGMS_MAX_DIM + RECTDIM): {                          \
+      const FieldAccessor<                                              \
+        WRITE_DISCARD, \
+        Rect<RECTDIM>, \
+        ROWDIM, \
+        coord_t, \
+        AffineAccessor<Rect<RECTDIM>, ROWDIM, coord_t>, \
+        false> rects(regions.back(), ReindexColumnTask::row_rects_fid); \
+                                                                        \
+      for (size_t i = 0; i < common_rows.size(); ++i) {                 \
+        Domain row_d =                                                  \
+          runtime->get_index_space_domain(                              \
+            ctx,                                                        \
+            runtime->get_index_subspace(                                \
+              ctx,                                                      \
+              args.row_partition,                                       \
+              common_rows[i]));                                         \
+        Rect<RECTDIM> row_rect;                                         \
+        size_t j = 0;                                                   \
+        for (; j < ixdim; ++j) {                                        \
+          row_rect.lo[j] = task->index_point[j];                        \
+          row_rect.hi[j] = task->index_point[j];                        \
+        }                                                               \
+        if (args.allow_rows) {                                          \
+          row_rect.lo[j] = i;                                           \
+          row_rect.hi[j] = i;                                           \
+          ++j;                                                          \
+        }                                                               \
+        for (; j < RECTDIM; ++j) {                                      \
+          row_rect.lo[j] = row_d.lo()[j - (RECTDIM - ROWDIM)];          \
+          row_rect.hi[j] = row_d.hi()[j - (RECTDIM - ROWDIM)];          \
+        }                                                               \
+        rects[common_rows[i]] = row_rect;                               \
+      }                                                                 \
+      break;                                                            \
+    }
+
+    if (common_rows.size() > 0) {
+      auto rowdim = common_rows[0].get_dim();
+      auto rectdim =
+        regions.size() - 1 + args.row_partition.get_dim() -
+        rowdim + (args.allow_rows ? 1 : 0);
+      if (args.allow_rows || common_rows.size() == 1) {
+        switch (rowdim * LEGMS_MAX_DIM + rectdim) {
+          LEGMS_FOREACH_MN(WRITE_RECTS);
+        default:
+          assert(false);
+          break;
+        }
+      }
+    }
+
+#undef WRITE_RECTS
+
+  }
+
+  static void
+  register_task(Runtime* runtime) {
+    TASK_ID =
+      runtime->generate_library_task_ids("legms::ComputeRectanglesTask", 1);
+    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_idempotent();
+    registrar.set_replicable();
+    registrar.set_leaf();
+    runtime->register_task_variant<base_impl>(registrar);
+  }
+
+private:
+
+  struct TaskArgs {
+    bool allow_rows;
+    IndexPartition row_partition;
+
+    size_t
+    serialized_size() const {
+      return sizeof(allow_rows) + sizeof(row_partition);
+    }
+
+    size_t
+    serialize(void *buffer) const {
+      size_t result = 0;
+      char* buff = static_cast<char*>(buffer);
+      memcpy(buff + result, &allow_rows, sizeof(allow_rows));
+      result += sizeof(allow_rows);
+      memcpy(buff + result, &row_partition, sizeof(row_partition));
+      result += sizeof(row_partition);
+      return result;
+    }
+
+    static size_t
+    deserialize(TaskArgs& val, const void *buffer) {
+      size_t result = 0;
+      const char* buff = static_cast<const char*>(buffer);
+      memcpy(&val.allow_rows, buff + result, sizeof(allow_rows));
+      result += sizeof(allow_rows);
+      memcpy(&val.row_partition, buff + result, sizeof(row_partition));
+      result += sizeof(row_partition);
+      return result;
+    }
+  };
+
+  bool m_allow_rows;
+
+  IndexPartition m_row_partition;
+
+  std::vector<LogicalRegion> m_ix_columns;
+
+  LogicalRegion m_new_rects;
+
+  static std::vector<DomainPoint>
+  intersection(
+    const std::vector<DomainPoint>& first,
+    const std::vector<DomainPoint>& second) {
+
+    std::vector<DomainPoint> result;
+    std::set_intersection(
+      first.begin(),
+      first.end(),
+      second.begin(),
+      second.end(),
+      std::back_inserter(result));
+    return result;
+  }
+};
+
+#endif
 
 TaskID ComputeRectanglesTask::TASK_ID;
 
@@ -811,7 +1064,10 @@ Legion::TaskID ReindexColumnTask::TASK_ID;
 size_t
 ReindexColumnTask::TaskArgs::serialized_size() const {
   return
-    sizeof(allow_rows) + sizeof(row_partition) + col.legion_buffer_size();
+    sizeof(allow_rows)
+    + vector_serdez<int>::serialized_size(index_axes)
+    + sizeof(row_partition)
+    + col.legion_buffer_size();
 }
 
 size_t
@@ -819,7 +1075,8 @@ ReindexColumnTask::TaskArgs::serialize(void* buffer) const {
   char* buff = static_cast<char*>(buffer);
   memcpy(buff, &allow_rows, sizeof(allow_rows));
   buff += sizeof(allow_rows);
-  memcpy(buff, &row_partition, sizeof(row_partition));
+  buff += vector_serdez<int>::serialize(index_axes, buff);
+  *reinterpret_cast<decltype(row_partition)*>(buff) = row_partition;
   buff += sizeof(row_partition);
   buff += col.legion_serialize(buff);
   return buff - static_cast<char*>(buffer);
@@ -833,6 +1090,7 @@ ReindexColumnTask::TaskArgs::deserialize(
   const char* buff = static_cast<const char*>(buffer);
   val.allow_rows = *reinterpret_cast<const decltype(val.allow_rows)*>(buff);
   buff += sizeof(val.allow_rows);
+  buff += vector_serdez<int>::deserialize(val.index_axes, buff);
   val.row_partition =
     *reinterpret_cast<const decltype(val.row_partition)*>(buff);
   buff += sizeof(val.row_partition);
@@ -843,33 +1101,47 @@ ReindexColumnTask::TaskArgs::deserialize(
 ReindexColumnTask::ReindexColumnTask(
   const std::shared_ptr<Column>& col,
   ssize_t row_axis_offset,
-  const std::vector<Future>& ixcol_futures,
+  const std::vector<std::shared_ptr<Column>>& ixcols,
+  const std::vector<int>& index_axes,
   bool allow_rows) {
+
+  assert(ixcols.size() == index_axes.size());
 
   // get column partition down to row axis
   assert(row_axis_offset >= 0);
   std::vector<int> col_part_axes;
-  std::copy(
+  std::copy_n(
     col->axes().begin(),
-    col->axes().begin() + row_axis_offset,
+    row_axis_offset + 1,
     std::back_inserter(col_part_axes));
   m_partition = col->partition_on_axes(col_part_axes);
 
-  TaskArgs args {allow_rows, m_partition->index_partition(),
+  TaskArgs args {allow_rows, index_axes, m_partition->index_partition(),
                  col->generator_args()};
   m_args_buffer = std::make_unique<char[]>(args.serialized_size());
   args.serialize(m_args_buffer.get());
   m_launcher =
     TaskLauncher(
       TASK_ID,
-      TaskArgument(m_args_buffer.get(), sizeof(args.serialized_size())));
-
-  // add the futures for all the index columns at once (Legion Futures are not
-  // allowed to escape the context in which they were created)
+      TaskArgument(m_args_buffer.get(), args.serialized_size()));
+  RegionRequirement
+    col_req(
+      col->logical_region(),
+      READ_ONLY,
+      EXCLUSIVE,
+      col->logical_region());
+  col_req.add_field(Column::value_fid);
+  m_launcher.add_region_requirement(col_req);
   std::for_each(
-    ixcol_futures.begin(),
-    ixcol_futures.end(),
-    [this](auto& f) { m_launcher.add_future(f); });
+    ixcols.begin(),
+    ixcols.end(),
+    [this](auto& ixc) {
+      auto lr = ixc->logical_region();
+      assert(lr != LogicalRegion::NO_REGION);
+      RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+      req.add_field(IndexColumnTask::rows_fid);
+      m_launcher.add_region_requirement(req);
+    });
 }
 
 Future
@@ -881,7 +1153,7 @@ template <int OLDDIM, int NEWDIM>
 ColumnGenArgs
 reindex_column(
   const ReindexColumnTask::TaskArgs& args,
-  const std::vector<ColumnGenArgs>& ixcols,
+  const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime *runtime) {
 
@@ -900,21 +1172,48 @@ reindex_column(
   auto new_rects_lr =
     runtime->create_logical_region(ctx, rows_is, new_rects_fs);
 
-  // task to compute new index space rectangle for each row in column
-  std::vector<LogicalRegion> ixcs;
+  // initialize new_rects_lr values to empty rectangles
+  Rect<NEWDIM> empty;
+  assert(empty.empty());
+  runtime->fill_field(
+    ctx,
+    new_rects_lr,
+    new_rects_lr,
+    ReindexColumnTask::row_rects_fid,
+    empty);
+
+  // Set RegionRequirements for this task and its children
+  // RegionRequirement
+  //   new_rects_req(new_rects_lr, READ_WRITE, EXCLUSIVE, new_rects_lr);
+  // new_rects_req.add_field(ReindexColumnTask::row_rects_fid);
+  // PhysicalRegion new_rects_pr = runtime->map_region(ctx, new_rects_req);
+
+  std::vector<LogicalRegion> ix_lrs;
   std::transform(
-    ixcols.begin(),
-    ixcols.end(),
-    std::back_inserter(ixcs),
-    [](auto& ic){ return ic.values; });
+    regions.begin() + 1,
+    regions.end(),
+    std::back_inserter(ix_lrs),
+    [](auto& rg) { return rg.get_logical_region(); });
+
+  // task to compute new index space rectangle for each row in column
+#ifdef HIERARCHICAL_COMPUTE_RECTANGLES
   ComputeRectanglesTask
     new_rects_task(
-      new_rects_lr,
       args.allow_rows,
       args.row_partition,
-      ixcs,
+      ix_lrs,
+      new_rects_lr,
+      {},
       {},
       {});
+#else
+  ComputeRectanglesTask
+    new_rects_task(
+      args.allow_rows,
+      args.row_partition,
+      ix_lrs,
+      new_rects_lr);
+#endif
   new_rects_task.dispatch(ctx, runtime);
 
   // create the new index space via create_partition_by_image_range based on
@@ -933,12 +1232,12 @@ reindex_column(
       ++i; ++j;
     }
     // append new index axes
-    for (size_t k = 0; k < ixcols.size(); ++k) {
+    for (size_t k = 0; k < ix_lrs.size(); ++k) {
       Rect<1> ix_domain =
-        runtime->get_index_space_domain(ixcols[k].values.get_index_space());
+        runtime->get_index_space_domain(ix_lrs[k].get_index_space());
       new_bounds.lo[i] = ix_domain.lo[0];
       new_bounds.hi[i] = ix_domain.hi[0];
-      new_axes[i] = ixcols[k].axes[0];
+      new_axes[i] = args.index_axes[k];
       ++i;
     }
     // append row axis, if allowed
@@ -1026,43 +1325,26 @@ reindex_column(
 ColumnGenArgs
 ReindexColumnTask::base_impl(
   const Task* task,
-  const std::vector<PhysicalRegion>&,
+  const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime *runtime) {
 
   TaskArgs args;
   ReindexColumnTask::TaskArgs::deserialize(args, task->args);
-  std::vector<ColumnGenArgs> ixcols;
-  std::transform(
-    task->futures.begin(),
-    task->futures.end(),
-    std::back_inserter(ixcols),
-    [](auto& f) { return f.template get_result<ColumnGenArgs>(); });
-
-  if (std::any_of(
-        ixcols.begin(),
-        ixcols.end(),
-        [](auto& cg) {
-          return cg.values == LogicalRegion::NO_REGION;
-        })) {
-    ColumnGenArgs result {args.col.name, args.col.datatype, args.col.axes,
-                          LogicalRegion::NO_REGION, args.col.keywords};
-    return result;
-  }
 
   auto olddim = args.row_partition.get_dim();
   auto eltdim =
     olddim
     - runtime->get_index_partition_color_space(ctx, args.row_partition)
-      .get_dim();
-  auto newdim = ixcols.size() + eltdim + (args.allow_rows ? 1 : 0);
+    .get_dim();
+  auto newdim = (regions.size() - 1) + eltdim + (args.allow_rows ? 1 : 0);
 
-#define REINDEX_COLUMN(OLDDIM, NEWDIM) \
-  case (OLDDIM * LEGMS_MAX_DIM + NEWDIM): { \
-    return \
+#define REINDEX_COLUMN(OLDDIM, NEWDIM)          \
+  case (OLDDIM * LEGMS_MAX_DIM + NEWDIM): {     \
+    return                                      \
       reindex_column<OLDDIM, NEWDIM>(           \
         args,                                   \
-        ixcols,                                 \
+        regions,                                \
         ctx,                                    \
         runtime);                               \
     break;                                      \
