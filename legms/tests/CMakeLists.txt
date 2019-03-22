@@ -22,12 +22,12 @@ add_test(
 if (legms_USE_HDF)
   include_directories(${HDF5_INCLUDE_DIRS})
   link_libraries(${HDF5_LIBRARIES})
-endif()
 
-add_executable(utUtility utUtility.cc)
-set_target_properties(utUtility PROPERTIES
-  CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
-add_test(
-  NAME UtilityUnitTest
-  COMMAND ../testing/TestRunner.py ./utUtility)
+  add_executable(utHdf5 utHdf5.cc)
+  set_target_properties(utHdf5 PROPERTIES
+    CXX_STANDARD 17
+    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+  add_test(
+    NAME Hdf5UnitTest
+    COMMAND ../testing/TestRunner.py ./utHdf5)
+endif()
