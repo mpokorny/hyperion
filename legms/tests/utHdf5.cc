@@ -103,7 +103,7 @@ hdf5_test_suite(
     tree_tests(fid, dataset_name, recorder, IndexTreeL(84000), "small-tree");
 
     IndexTreeL tree1(4);
-    while (tree1.serialized_size() < 100000)
+    while (tree1.serialized_size() < large_tree_min)
       tree1 = IndexTreeL({{0, tree1}});
     tree_tests(fid, dataset_name, recorder, tree1, "large-tree");
 
