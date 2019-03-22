@@ -1,4 +1,4 @@
-#include "utility.h"
+#include "legms_hdf5.h"
 
 #include "TestSuiteDriver.h"
 #include "TestRecorder.h"
@@ -10,38 +10,14 @@
 #include <unistd.h>
 
 using namespace legms;
+using namespace legms::hdf5;
 using namespace Legion;
 
 enum {
   HDF5_TEST_SUITE,
 };
 
-template <typename COORD_T = Legion::coord_t>
-struct binary_index_tree_serdez {
-
-  typedef COORD_T coord_t;
-  static const constexpr uint8_t id = 10 + sizeof(COORD_T);
-
-  static size_t
-  serialized_size(const IndexTree<COORD_T>& tree) {
-    return tree.serialized_size();
-  }
-
-  static size_t
-  serialize(const IndexTree<COORD_T>& tree, void *buffer) {
-    return tree.serialize(static_cast<char*>(buffer));
-  }
-
-  static size_t
-  deserialize(IndexTree<COORD_T>& tree, const void* buffer) {
-    tree = IndexTree<COORD_T>::deserialize(static_cast<const char*>(buffer));
-    return tree.serialized_size();
-  }
-};
-
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
-
-#ifdef USE_HDF
 
 void
 tree_tests(
@@ -124,12 +100,12 @@ hdf5_test_suite(
     assert(dset >= 0);
     H5Dclose(dset);
 
-    tree_tests(fid, dataset_name, recorder, IndexTreeL(84000), "tree0");
+    tree_tests(fid, dataset_name, recorder, IndexTreeL(84000), "small-tree");
 
     IndexTreeL tree1(4);
     while (tree1.serialized_size() < 100000)
       tree1 = IndexTreeL({{0, tree1}});
-    tree_tests(fid, dataset_name, recorder, tree1, "tree1");
+    tree_tests(fid, dataset_name, recorder, tree1, "large-tree");
 
     H5Fclose(fid);
     unlink(fname.c_str());
@@ -150,7 +126,6 @@ main(int argc, char* argv[]) {
   return driver.start(argc, argv);
 
 }
-#endif
 
 // Local Variables:
 // mode: c++

@@ -124,6 +124,12 @@ list(APPEND LEGMS_SRC
   WithKeywordsBuilder.h
   WithKeywords.h)
 
+if(legms_USE_HDF)
+  list(APPEND LEGMS_SRC
+    legms_hdf5.h
+    legms_hdf5.cc)
+endif()
+
 set(LEGMS_INCLUDE LEGMS_SRC)
 list(FILTER LEGMS_INCLUDE INCLUDE REGEX ".*\.h")
 
@@ -147,20 +153,22 @@ set_target_properties(legms PROPERTIES
   COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
 add_dependencies(legms legion_build)
 target_include_directories(legms
-  PRIVATE ${Legion_INSTALL_DIR}/include
-  PRIVATE ${CASACORE}/include
+  PUBLIC ${Legion_INSTALL_DIR}/include
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(legms SYSTEM
+  PUBLIC ${CASACORE}/include)
 target_link_directories(legms PUBLIC ${CASACORE}/lib)
 target_link_directories(legms PUBLIC ${Legion_INSTALL_DIR}/lib64)
+if (legms_USE_HDF)
+  target_include_directories(legms SYSTEM
+    PUBLIC ${HDF5_INCLUDE_DIRS})
+  target_link_libraries(legms PUBLIC ${HDF5_LIBRARIES})
+endif()
 target_link_libraries(legms PUBLIC stdc++fs)
 target_link_libraries(legms PUBLIC legion)
 target_link_libraries(legms PUBLIC realm)
 target_link_libraries(legms PUBLIC casa_tables)
 target_link_libraries(legms PUBLIC casa_casa)
-if (legms_USE_HDF)
-  target_include_directories(legms PUBLIC ${HDF5_INCLUDE_DIRS})
-  target_link_libraries(legms PUBLIC ${HDF5_LIBRARIES})
-endif()
 set_target_properties(legms PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(legms PROPERTIES SOVERSION ${SOVERSION})
 
