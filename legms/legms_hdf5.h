@@ -15,6 +15,10 @@
 namespace legms {
 namespace hdf5 {
 
+const size_t large_tree_min = (64 * (1 << 10));
+const char* table_index_axes_attr_name = "index_axes";
+const size_t table_index_axes_attr_max_length = 160;
+
 // TODO: it might be nice to support use of types of IndexSpace descriptions
 // other than IndexTree...this might require some sort of type registration
 // interface, the descriptions would have to support a
@@ -52,8 +56,8 @@ write_index_tree_to_attr(
   std::vector<char> buf(size);
   SERDEZ::serialize(spec, buf.data());
   hsize_t value_dims = size;
-  hid_t value_space_id = H5Screate_simple(1, &value_dims, &value_dims);
-  if (size < (64 * (1 << 10))) {
+  hid_t value_space_id = H5Screate_simple(1, &value_dims, NULL);
+  if (size < large_tree_min) {
     // small serialized size: save byte string as an attribute
     hid_t attr_id =
       H5Acreate_by_name(
@@ -91,7 +95,7 @@ write_index_tree_to_attr(
     assert(rc >= 0);
 
     hsize_t ref_dims = 1;
-    hid_t ref_space_id = H5Screate_simple(1, &ref_dims, &ref_dims);
+    hid_t ref_space_id = H5Screate_simple(1, &ref_dims, NULL);
     hid_t attr_type = H5T_STD_REF_OBJ;
     hid_t attr_id =
       H5Acreate_by_name(
@@ -117,7 +121,7 @@ write_index_tree_to_attr(
   {
     std::string md_name = attr_name + "-metadata";
     hsize_t md_dims = 1;
-    hid_t md_space_id = H5Screate_simple(1, &md_dims, &md_dims);
+    hid_t md_space_id = H5Screate_simple(1, &md_dims, NULL);
     hid_t md_attr_id =
       H5Acreate_by_name(
         loc_id,
@@ -217,6 +221,20 @@ read_index_tree_from_attr(
   H5Tclose(attr_type);
   return result;
 }
+
+void
+write_column(
+  hid_t table_id,
+  const std::shared_ptr<Column>& column,
+  hid_t creation_pl = H5P_DEFAULT,
+  hid_t access_pl = H5P_DEFAULT,
+  hid_t transfer_pl = H5P_DEFAULT);
+
+void
+write_keywords(hid_t loc_id, Legion::LogicalRegion& keywords);
+
+void
+write_table(hid_t loc_id, const std::shared_ptr<Table>& table);
 
 template <typename COORD_T = Legion::coord_t>
 struct binary_index_tree_serdez {
