@@ -554,12 +554,16 @@ reindexed(
         return index_cols.at(ds[0]);
 
       // create reindexing task launcher
-      std::vector<Legion::Future> ixcol_futures;
-      std::transform(
-        ds.begin(),
-        ds.end(),
-        std::back_inserter(ixcol_futures),
-        [&index_cols](auto& d) { return index_cols.at(d); });
+      // TODO: start intermediary task dependent on Futures of index columns
+      std::vector<std::shared_ptr<Column>> ixcols;
+      std::vector<int> index_axes;
+      for (auto d : ds) {
+        ixcols.push_back(
+          index_cols.at(d)
+          .template get_result<ColumnGenArgs>()
+          .operator()<T>(table->context(), table->runtim()));
+        index_axes.push_back(static_cast<int>(d));
+      }
       auto col = table->columnT(nm);
       auto col_axes = col->axesT();
       auto row_axis_offset =
@@ -569,7 +573,8 @@ reindexed(
       ReindexColumnTask task(
         col,
         row_axis_offset,
-        ixcol_futures,
+        ixcols,
+        index_axes,
         allow_rows);
       return task.dispatch(table->context(), table->runtime());
     });
