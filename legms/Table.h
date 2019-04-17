@@ -402,7 +402,6 @@ public:
     const std::shared_ptr<Column>& col,
     ssize_t row_axis_offset,
     const std::vector<std::shared_ptr<Column>>& ixcols,
-    const std::vector<int>& index_axes,
     bool allow_rows);
 
   static void
