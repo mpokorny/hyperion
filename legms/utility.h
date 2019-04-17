@@ -380,16 +380,36 @@ public:
 };
 
 template <typename T>
+struct acc_field_redop_rhs {
+  std::vector<std::tuple<T, std::vector<Legion::DomainPoint>>> v;
+
+  size_t
+  legion_buffer_size(void) const {
+    return acc_field_serdez<T>::serialized_size(v);
+  }
+
+  size_t
+  legion_serialize(void* buffer) const {
+    return acc_field_serdez<T>::serialize(v, buffer);
+  }
+
+  size_t
+  legion_deserialize(const void* buffer) {
+    return acc_field_serdez<T>::deserialize(v, buffer);
+  }
+};
+
+template <typename T>
 class acc_field_redop {
 public:
   typedef std::vector<std::tuple<T, std::vector<Legion::DomainPoint>>> LHS;
-  typedef std::vector<std::tuple<T, std::vector<Legion::DomainPoint>>> RHS;
+  typedef acc_field_redop_rhs<T> RHS;
 
   static void
   combine(LHS& lhs, const RHS& rhs) {
     std::for_each(
-      rhs.begin(),
-      rhs.end(),
+      rhs.v.begin(),
+      rhs.v.end(),
       [&lhs](auto& t_rns) {
         auto& [t, rns] = t_rns;
         if (rns.size() > 0) {
@@ -436,13 +456,33 @@ public:
   template <bool EXCL>
   static void
   fold(RHS& rhs1, const RHS& rhs2) {
-    combine(rhs1, rhs2);
+    combine(rhs1.v, rhs2);
   }
-  
+
+  static void
+  init_fn(
+    const Legion::ReductionOp*,
+    void *& state,
+    size_t& sz __attribute__((unused))) {
+    assert(sz >= sizeof(RHS));
+    ::new(state) RHS;
+  }
+
+  static void
+  fold_fn(
+    const Legion::ReductionOp* reduction_op,
+    void *& state,
+    size_t& sz __attribute__((unused)),
+    const void* result) {
+    RHS rhs;
+    rhs.legion_deserialize(result);
+    reduction_op->fold(state, &rhs, 1, true);
+  }
 };
 
 template <typename T>
-typename acc_field_redop<T>::RHS const acc_field_redop<T>::identity = {};
+typename acc_field_redop<T>::RHS const acc_field_redop<T>::identity =
+  acc_field_redop_rhs<T>{{}};
 
 class OpsManager {
 public:
@@ -510,30 +550,66 @@ public:
         Legion::Runtime::register_custom_serdez_op<
           vector_serdez<casacore::DComplex>>(CASACORE_V_DCOMPLEX_SID);
 
-        Legion::Runtime::register_reduction_op<
-          acc_field_redop<casacore::String>>(ACC_FIELD_STRING_REDOP);
-        Legion::Runtime::register_reduction_op<
-          acc_field_redop<casacore::Bool>>(ACC_FIELD_BOOL_REDOP);
-        Legion::Runtime::register_reduction_op<
-          acc_field_redop<casacore::Char>>(ACC_FIELD_CHAR_REDOP);
-        Legion::Runtime::register_reduction_op<
-          acc_field_redop<casacore::uChar>>(ACC_FIELD_UCHAR_REDOP);
-        Legion::Runtime::register_reduction_op<
-          acc_field_redop<casacore::Short>>(ACC_FIELD_SHORT_REDOP);
-        Legion::Runtime::register_reduction_op<
-          acc_field_redop<casacore::uShort>>(ACC_FIELD_USHORT_REDOP);
-        Legion::Runtime::register_reduction_op<
-          acc_field_redop<casacore::Int>>(ACC_FIELD_INT_REDOP);
-        Legion::Runtime::register_reduction_op<
-          acc_field_redop<casacore::uInt>>(ACC_FIELD_UINT_REDOP);
-        Legion::Runtime::register_reduction_op<
-          acc_field_redop<casacore::Float>>(ACC_FIELD_FLOAT_REDOP);
-        Legion::Runtime::register_reduction_op<
-          acc_field_redop<casacore::Double>>(ACC_FIELD_DOUBLE_REDOP);
-        Legion::Runtime::register_reduction_op<
-          acc_field_redop<casacore::Complex>>(ACC_FIELD_COMPLEX_REDOP);
-        Legion::Runtime::register_reduction_op<
-          acc_field_redop<casacore::DComplex>>(ACC_FIELD_DCOMPLEX_REDOP);
+        Legion::Runtime::register_reduction_op(
+          ACC_FIELD_STRING_REDOP,
+          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::String>>(),
+          acc_field_redop<casacore::String>::init_fn,
+          acc_field_redop<casacore::String>::fold_fn);
+        Legion::Runtime::register_reduction_op(
+          ACC_FIELD_BOOL_REDOP,
+          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Bool>>(),
+          acc_field_redop<casacore::Bool>::init_fn,
+          acc_field_redop<casacore::Bool>::fold_fn);
+        Legion::Runtime::register_reduction_op(
+          ACC_FIELD_CHAR_REDOP,
+          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Char>>(),
+          acc_field_redop<casacore::Char>::init_fn,
+          acc_field_redop<casacore::Char>::fold_fn);
+        Legion::Runtime::register_reduction_op(
+          ACC_FIELD_UCHAR_REDOP,
+          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::uChar>>(),
+          acc_field_redop<casacore::uChar>::init_fn,
+          acc_field_redop<casacore::uChar>::fold_fn);
+        Legion::Runtime::register_reduction_op(
+          ACC_FIELD_SHORT_REDOP,
+          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Short>>(),
+          acc_field_redop<casacore::Short>::init_fn,
+          acc_field_redop<casacore::Short>::fold_fn);
+        Legion::Runtime::register_reduction_op(
+          ACC_FIELD_USHORT_REDOP,
+          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::uShort>>(),
+          acc_field_redop<casacore::uShort>::init_fn,
+          acc_field_redop<casacore::uShort>::fold_fn);
+        Legion::Runtime::register_reduction_op(
+          ACC_FIELD_INT_REDOP,
+          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Int>>(),
+          acc_field_redop<casacore::Int>::init_fn,
+          acc_field_redop<casacore::Int>::fold_fn);
+        Legion::Runtime::register_reduction_op(
+          ACC_FIELD_UINT_REDOP,
+          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::uInt>>(),
+          acc_field_redop<casacore::uInt>::init_fn,
+          acc_field_redop<casacore::uInt>::fold_fn);
+        Legion::Runtime::register_reduction_op(
+          ACC_FIELD_FLOAT_REDOP,
+          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Float>>(),
+          acc_field_redop<casacore::Float>::init_fn,
+          acc_field_redop<casacore::Float>::fold_fn);
+        Legion::Runtime::register_reduction_op(
+          ACC_FIELD_DOUBLE_REDOP,
+          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Double>>(),
+          acc_field_redop<casacore::Double>::init_fn,
+          acc_field_redop<casacore::Double>::fold_fn);
+        Legion::Runtime::register_reduction_op(
+          ACC_FIELD_COMPLEX_REDOP,
+          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Complex>>(),
+          acc_field_redop<casacore::Complex>::init_fn,
+          acc_field_redop<casacore::Complex>::fold_fn);
+        Legion::Runtime::register_reduction_op(
+          ACC_FIELD_DCOMPLEX_REDOP,
+          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::DComplex>>(),
+          acc_field_redop<casacore::DComplex>::init_fn,
+          acc_field_redop<casacore::DComplex>::fold_fn);
       });
   }
 
