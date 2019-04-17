@@ -182,9 +182,9 @@ ReindexedTableTask::register_task(Runtime* runtime) {
   TASK_ID = runtime->generate_library_task_ids("legms::ReindexedTableTask", 1);
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-  registrar.set_inner();
-  registrar.set_idempotent();
-  registrar.set_replicable();
+  // registrar.set_inner();
+  // registrar.set_idempotent();
+  // registrar.set_replicable();
   runtime->register_task_variant<TableGenArgs,base_impl>(registrar);
 }
 
@@ -338,8 +338,8 @@ IndexColumnTask::register_task(Runtime* runtime) {
   TASK_ID = runtime->generate_dynamic_task_id();
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-  registrar.set_idempotent();
-  registrar.set_replicable();
+  // registrar.set_idempotent();
+  // registrar.set_replicable();
   runtime->register_task_variant<ColumnGenArgs,base_impl>(registrar);
 }
 
@@ -624,8 +624,8 @@ public:
       runtime->generate_library_task_ids("legms::ComputeRectanglesTask", 1);
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.set_idempotent();
-    registrar.set_replicable();
+    // registrar.set_idempotent();
+    // registrar.set_replicable();
     runtime->register_task_variant<base_impl>(registrar);
   }
 
@@ -716,7 +716,7 @@ public:
     bool allow_rows,
     IndexPartition row_partition,
     const std::vector<LogicalRegion>& ix_columns,
-    LogicalRegion new_rects)
+    PhysicalRegion new_rects)
     : m_allow_rows(allow_rows)
     , m_row_partition(row_partition)
     , m_ix_columns(ix_columns)
@@ -732,6 +732,14 @@ public:
     args_buffer = std::make_unique<char[]>(args.serialized_size());
     args.serialize(args_buffer.get());
 
+    LogicalRegion new_rects_lr = m_new_rects.get_logical_region();
+    // AcquireLauncher acquire(new_rects_lr, new_rects_lr, m_new_rects);
+    // acquire.add_field(ReindexColumnTask::row_rects_fid);
+    // PhaseBarrier acquired = runtime->create_phase_barrier(ctx, 1);
+    // acquire.add_arrival_barrier(acquired);
+    // runtime->issue_acquire(ctx, acquire);
+
+    //PhaseBarrier released;
 #define INIT_LAUNCHER(DIM)                                          \
     case DIM: {                                                     \
       Rect<DIM> bounds;                                             \
@@ -741,12 +749,16 @@ public:
         bounds.lo[i] = dom.lo[0];                                   \
         bounds.hi[i] = dom.hi[0];                                   \
       }                                                             \
+      /*released = runtime->create_phase_barrier(ctx, bounds.volume());*/ \
+      std::cout << "bounds " << bounds << std::endl;                    \
       launcher =                                                    \
         IndexTaskLauncher(                                          \
           TASK_ID,                                                  \
           bounds,                                                   \
           TaskArgument(args_buffer.get(), args.serialized_size()),  \
           ArgumentMap());                                           \
+      /*launcher.add_wait_barrier(acquired);                       */ \
+      /*launcher.add_arrival_barrier(released);                    */ \
       break;                                                        \
     }
 
@@ -764,15 +776,24 @@ public:
       [&launcher](auto& lr) {
         RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
         req.add_field(IndexColumnTask::rows_fid);
+        std::cout << "rect ix " << req.region << std::endl;
         launcher.add_region_requirement(req);
       });
 
     RegionRequirement
-      req(m_new_rects, WRITE_DISCARD, SIMULTANEOUS, m_new_rects);
+      req(new_rects_lr, WRITE_DISCARD, SIMULTANEOUS, new_rects_lr);
     req.add_field(ReindexColumnTask::row_rects_fid);
+    std::cout << "row rect " << req.region
+              << ", prop " << req.prop << std::endl;
     launcher.add_region_requirement(req);
 
     runtime->execute_index_space(ctx, launcher);
+
+    // PhaseBarrier complete = runtime->advance_phase_barrier(ctx, released);
+    // ReleaseLauncher release(new_rects_lr, new_rects_lr, m_new_rects);
+    // release.add_field(ReindexColumnTask::row_rects_fid);
+    // release.add_wait_barrier(complete);
+    // runtime->issue_release(ctx, release);
   }
 
   static void
@@ -868,9 +889,9 @@ public:
       runtime->generate_library_task_ids("legms::ComputeRectanglesTask", 1);
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.set_idempotent();
-    registrar.set_replicable();
-    registrar.set_leaf();
+    // registrar.set_idempotent();
+    // registrar.set_replicable();
+    // registrar.set_leaf();
     runtime->register_task_variant<base_impl>(registrar);
   }
 
@@ -914,7 +935,7 @@ private:
 
   std::vector<LogicalRegion> m_ix_columns;
 
-  LogicalRegion m_new_rects;
+  PhysicalRegion m_new_rects;
 
   static std::vector<DomainPoint>
   intersection(
@@ -1124,6 +1145,8 @@ reindex_column(
 
   // initialize new_rects_lr values to empty rectangles
   Rect<NEWDIM> empty;
+  empty.lo[0] = 0;
+  empty.hi[0] = -1;
   assert(empty.empty());
   runtime->fill_field(
     ctx,
@@ -1133,10 +1156,12 @@ reindex_column(
     empty);
 
   // Set RegionRequirements for this task and its children
-  // RegionRequirement
-  //   new_rects_req(new_rects_lr, READ_WRITE, EXCLUSIVE, new_rects_lr);
-  // new_rects_req.add_field(ReindexColumnTask::row_rects_fid);
-  // PhysicalRegion new_rects_pr = runtime->map_region(ctx, new_rects_req);
+  RegionRequirement
+    new_rects_req(new_rects_lr, WRITE_DISCARD, SIMULTANEOUS, new_rects_lr);
+  std::cout << "new_rects_lr " << new_rects_lr
+            << ", prop " << new_rects_req.prop << std::endl;
+  new_rects_req.add_field(ReindexColumnTask::row_rects_fid);
+  PhysicalRegion new_rects_pr = runtime->map_region(ctx, new_rects_req);
 
   std::vector<LogicalRegion> ix_lrs;
   std::transform(
@@ -1144,6 +1169,13 @@ reindex_column(
     regions.end(),
     std::back_inserter(ix_lrs),
     [](auto& rg) { return rg.get_logical_region(); });
+
+  std::for_each(
+    ix_lrs.begin(),
+    ix_lrs.end(),
+    [](auto& lr) { std::cout << "ix_lr " << lr << std::endl; });
+
+  std::cout << "col lr " << regions[0].get_logical_region() << std::endl;
 
   // task to compute new index space rectangle for each row in column
 #ifdef HIERARCHICAL_COMPUTE_RECTANGLES
@@ -1162,7 +1194,7 @@ reindex_column(
       args.allow_rows,
       args.row_partition,
       ix_lrs,
-      new_rects_lr);
+      new_rects_pr);
 #endif
   new_rects_task.dispatch(ctx, runtime);
 
@@ -1314,9 +1346,9 @@ ReindexColumnTask::register_task(Runtime* runtime) {
   TASK_ID = runtime->generate_library_task_ids("legms::ReindexColumnTask", 1);
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-  registrar.set_inner();
-  registrar.set_idempotent();
-  registrar.set_replicable();
+  // registrar.set_inner();
+  // registrar.set_idempotent();
+  // registrar.set_replicable();
   runtime->register_task_variant<ColumnGenArgs,base_impl>(registrar);
 }
 
