@@ -214,14 +214,6 @@ ReindexedTableTask::base_impl(
 }
 
 template <typename T>
-struct IndexAcc {
-  typedef std::vector<std::tuple<T, std::vector<DomainPoint>>> field_t;
-};
-
-template <typename T>
-using acc_field_t = typename IndexAcc<T>::field_t;
-
-template <typename T>
 class IndexAccumulateTask {
 public:
 
@@ -230,9 +222,7 @@ public:
   static TaskID TASK_ID;
   static char TASK_NAME[40];
 
-  IndexAccumulateTask(
-    const RegionRequirement& col_req,
-    const LogicalRegion& acc_lr) {
+  IndexAccumulateTask(const RegionRequirement& col_req) {
 
     m_launcher =
       IndexTaskLauncher(
@@ -247,19 +237,12 @@ public:
         READ_ONLY,
         EXCLUSIVE,
         col_req.region));
-    m_launcher.add_region_requirement(
-      RegionRequirement(
-        acc_lr,
-        DT::af_redop_id,
-        EXCLUSIVE,
-        acc_lr));
     m_launcher.add_field(0, Column::value_fid);
-    m_launcher.add_field(1, 0);
   }
 
-  void
+  Future
   dispatch(Context ctx, Runtime* runtime) {
-    runtime->execute_index_space(ctx, m_launcher);
+    return runtime->execute_index_space(ctx, m_launcher, DT::af_redop_id);
   }
 
   static void
@@ -271,13 +254,14 @@ public:
     TASK_NAME[sizeof(TASK_NAME) - 1] = '\0';
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.set_leaf();
-    registrar.set_idempotent();
-    registrar.set_replicable();
-    runtime->register_task_variant<base_impl>(registrar);
+    // registrar.set_leaf();
+    // registrar.set_idempotent();
+    // registrar.set_replicable();
+    runtime->register_task_variant<acc_field_redop_rhs<T>, base_impl>(
+      registrar);
   }
 
-  static void
+  static acc_field_redop_rhs<T>
   base_impl(
     const Task* task,
     const std::vector<PhysicalRegion>& regions,
@@ -292,16 +276,8 @@ public:
       AffineAccessor<T, 1, coord_t>,
       false> values(regions[0], Column::value_fid);
 
-    const ReductionAccessor<
-      acc_field_redop<T>,
-      true,
-      1,
-      coord_t,
-      AffineAccessor<typename acc_field_redop<T>::LHS, 1, coord_t>,
-      false> acc(regions[1], 0, DT::af_redop_id);
-
     std::vector<DomainPoint> pt { task->index_point };
-    acc[0] <<= {std::make_tuple(values[pt[0][0]], pt)};
+    return acc_field_redop_rhs<T>{{std::make_tuple(values[pt[0][0]], pt)}};
   }
 
 private:
@@ -381,38 +357,16 @@ index_column(
   casacore::DataType dt,
   const RegionRequirement& col_req) {
 
-  // create accumulator lr
-  auto acc_is = runtime->create_index_space(ctx, Rect<1>(0, 0));
-  auto acc_fs = runtime->create_field_space(ctx);
-  {
-    auto fa = runtime->create_field_allocator(ctx, acc_fs);
-    fa.allocate_field(
-      sizeof(typename acc_field_redop<T>::LHS),
-      0,
-      DataType<ValueType<T>::DataType>::af_serdez_id);
-  }
-  auto acc_lr = runtime->create_logical_region(ctx, acc_is, acc_fs);
-  RegionRequirement acc_init_req(acc_lr, READ_WRITE, EXCLUSIVE, acc_lr);
-  acc_init_req.add_field(0);
-  InlineLauncher acc_init_task(acc_init_req);
-  PhysicalRegion acc_pr = runtime->map_region(ctx, acc_init_task);
-  const FieldAccessor<
-    WRITE_DISCARD,
-    typename acc_field_redop<T>::LHS,
-    1,
-    coord_t,
-    AffineAccessor<typename acc_field_redop<T>::LHS, 1, coord_t>,
-    false> rows_acc(acc_pr, 0);
-  ::new (rows_acc.ptr(0)) typename acc_field_redop<T>::LHS;
-  assert(rows_acc[0].size() == 0);
-
-  // launch index space task on input region to write to accumulator lr
-  IndexAccumulateTask<T> acc_index_task(col_req, acc_lr);
-  acc_index_task.dispatch(ctx, runtime);
+  // launch index space task on input region to compute accumulator value
+  IndexAccumulateTask<T> acc_index_task(col_req);
+  Future acc_future = acc_index_task.dispatch(ctx, runtime);
+  // TODO: create and initialize the resulting LogicalRegion in another task, so
+  // we don't have to wait on this future explicitly
+  auto acc =
+    acc_future.get_result<typename acc_field_redop<T>::LHS>();
 
   LogicalRegionT<1> result_lr;
-  const typename acc_field_redop<T>::LHS& acc_field = rows_acc[0];
-  if (acc_field.size() > 0) {
+  if (acc.size() > 0) {
     auto result_fs = runtime->create_field_space(ctx);
     {
       auto fa = runtime->create_field_allocator(ctx, result_fs);
@@ -423,7 +377,7 @@ index_column(
         OpsManager::V_DOMAIN_POINT_SID);
     }
     IndexSpaceT<1> result_is =
-      runtime->create_index_space(ctx, Rect<1>(0, acc_field.size() - 1));
+      runtime->create_index_space(ctx, Rect<1>(0, acc.size() - 1));
     result_lr = runtime->create_logical_region(ctx, result_is, result_fs);
 
     // transfer values and row numbers from acc_lr to result_lr
@@ -446,18 +400,14 @@ index_column(
       coord_t,
       AffineAccessor<std::vector<DomainPoint>, 1, coord_t>,
       false> rns(result_pr, IndexColumnTask::rows_fid);
-    for (size_t i = 0; i < acc_field.size(); ++i) {
+    for (size_t i = 0; i < acc.size(); ++i) {
       ::new (rns.ptr(i)) std::vector<DomainPoint>;
-      std::tie(values[i], rns[i]) = acc_field[i];
+      std::tie(values[i], rns[i]) = acc[i];
     }
 
     runtime->destroy_field_space(ctx, result_fs);
     runtime->destroy_index_space(ctx, result_is);
   }
-
-  runtime->destroy_logical_region(ctx, acc_lr);
-  runtime->destroy_field_space(ctx, acc_fs);
-  runtime->destroy_index_space(ctx, acc_is);
   return result_lr;
 }
 
