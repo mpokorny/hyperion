@@ -152,12 +152,7 @@ reindex_column_task_test_suite(
       ics.push_back(std::move(col));
     });
 
-  ReindexColumnTask rcz(
-    table0.columnT("Z"),
-    0,
-    ics,
-    {static_cast<int>(Table0Axes::X), static_cast<int>(Table0Axes::Y)},
-    false);
+  ReindexColumnTask rcz(table0.columnT("Z"), 0, ics, false);
   Future fz = rcz.dispatch(context, runtime);
   auto cz =
     fz.get_result<ColumnGenArgs>().operator()<Table0Axes>(context, runtime);
