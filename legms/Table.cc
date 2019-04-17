@@ -12,6 +12,7 @@ using namespace std;
 using namespace Legion;
 
 #undef HIERARCHICAL_COMPUTE_RECTANGLES
+#undef WORKAROUND
 
 unique_ptr<Table>
 Table::from_ms(
@@ -716,11 +717,11 @@ public:
     bool allow_rows,
     IndexPartition row_partition,
     const vector<LogicalRegion>& ix_columns,
-    PhysicalRegion new_rects)
+    LogicalRegion new_rects)
     : m_allow_rows(allow_rows)
     , m_row_partition(row_partition)
     , m_ix_columns(ix_columns)
-    , m_new_rects(new_rects) {
+    , m_new_rects_lr(new_rects) {
   };
 
   void
@@ -732,7 +733,7 @@ public:
     args_buffer = make_unique<char[]>(args.serialized_size());
     args.serialize(args_buffer.get());
 
-    LogicalRegion new_rects_lr = m_new_rects.get_logical_region();
+    //LogicalRegion new_rects_lr = m_new_rects.get_logical_region();
     // AcquireLauncher acquire(new_rects_lr, new_rects_lr, m_new_rects);
     // acquire.add_field(ReindexColumnTask::row_rects_fid);
     // PhaseBarrier acquired = runtime->create_phase_barrier(ctx, 1);
@@ -740,26 +741,19 @@ public:
     // runtime->issue_acquire(ctx, acquire);
 
     //PhaseBarrier released;
-#define INIT_LAUNCHER(DIM)                                          \
-    case DIM: {                                                     \
-      Rect<DIM> bounds;                                             \
-      for (size_t i = 0; i < DIM; ++i) {                            \
-        IndexSpaceT<1> cis(m_ix_columns[i].get_index_space());      \
-        Rect<1> dom(runtime->get_index_space_domain(cis));          \
-        bounds.lo[i] = dom.lo[0];                                   \
-        bounds.hi[i] = dom.hi[0];                                   \
-      }                                                             \
-      /*released = runtime->create_phase_barrier(ctx, bounds.volume());*/ \
-      cout << "bounds " << bounds << endl;                    \
-      launcher =                                                    \
-        IndexTaskLauncher(                                          \
-          TASK_ID,                                                  \
-          bounds,                                                   \
-          TaskArgument(args_buffer.get(), args.serialized_size()),  \
-          ArgumentMap());                                           \
-      /*launcher.add_wait_barrier(acquired);                       */ \
-      /*launcher.add_arrival_barrier(released);                    */ \
-      break;                                                        \
+    Domain bounds;
+
+#define INIT_LAUNCHER(DIM)                                      \
+    case DIM: {                                                 \
+      Rect<DIM> rect;                                           \
+      for (size_t i = 0; i < DIM; ++i) {                        \
+        IndexSpaceT<1> cis(m_ix_columns[i].get_index_space());  \
+        Rect<1> dom(runtime->get_index_space_domain(cis));      \
+        rect.lo[i] = dom.lo[0];                                 \
+        rect.hi[i] = dom.hi[0];                                 \
+      }                                                         \
+      bounds = rect;                                            \
+      break;                                                    \
     }
 
     switch (m_ix_columns.size()) {
@@ -770,21 +764,28 @@ public:
     }
 #undef INIT_LAUNCHER
 
+    /*released = runtime->create_phase_barrier(ctx, rect.volume());*/ 
+    launcher = 
+      IndexTaskLauncher(                                          
+        TASK_ID, 
+        bounds,                                                   
+        TaskArgument(args_buffer.get(), args.serialized_size()), 
+        ArgumentMap()); 
+    /*launcher.add_wait_barrier(acquired);                       */
+    /*launcher.add_arrival_barrier(released);                    */
+
     for_each(
       m_ix_columns.begin(),
       m_ix_columns.end(),
       [&launcher](auto& lr) {
         RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
         req.add_field(IndexColumnTask::rows_fid);
-        cout << "rect ix " << req.region << endl;
         launcher.add_region_requirement(req);
       });
 
     RegionRequirement
-      req(new_rects_lr, WRITE_DISCARD, SIMULTANEOUS, new_rects_lr);
+      req(m_new_rects_lr, WRITE_DISCARD, SIMULTANEOUS, m_new_rects_lr);
     req.add_field(ReindexColumnTask::row_rects_fid);
-    cout << "row rect " << req.region
-              << ", prop " << req.prop << endl;
     launcher.add_region_requirement(req);
 
     runtime->execute_index_space(ctx, launcher);
@@ -863,12 +864,11 @@ public:
       }                                                                 \
       break;                                                            \
     }
-
     if (common_rows.size() > 0) {
       auto rowdim = common_rows[0].get_dim();
       auto rectdim =
-        regions.size() - 1 + args.row_partition.get_dim() -
-        rowdim + (args.allow_rows ? 1 : 0);
+        ixdim + args.row_partition.get_dim()
+        - rowdim + (args.allow_rows ? 1 : 0);
       if (args.allow_rows || common_rows.size() == 1) {
         switch (rowdim * LEGMS_MAX_DIM + rectdim) {
           LEGMS_FOREACH_MN(WRITE_RECTS);
@@ -935,7 +935,7 @@ private:
 
   vector<LogicalRegion> m_ix_columns;
 
-  PhysicalRegion m_new_rects;
+  LogicalRegion m_new_rects_lr;
 
   static vector<DomainPoint>
   intersection(
@@ -960,27 +960,79 @@ TaskID ComputeRectanglesTask::TASK_ID;
 class ReindexColumnCopyTask {
 public:
 
+  static TaskID TASK_ID;
+  static constexpr const char* TASK_NAME = "reindex_column_copy_task";
+
   ReindexColumnCopyTask(
     LogicalRegion column,
+    casacore::DataType column_dt,
     IndexPartition row_partition,
     LogicalRegion new_rects_lr,
     LogicalRegion new_col_lr)
     : m_column(column)
+    , m_column_dt(column_dt)
     , m_row_partition(row_partition)
     , m_new_rects_lr(new_rects_lr)
     , m_new_col_lr(new_col_lr) {
   }
 
+  template <casacore::DataType DT, int DIM>
+  using SA = FieldAccessor<
+    READ_ONLY,
+    typename DataType<DT>::ValueType,
+    DIM,
+    coord_t,
+    AffineAccessor<typename DataType<DT>::ValueType, DIM, coord_t>,
+    true>;
+
+  template <casacore::DataType DT, int DIM>
+  using DA = FieldAccessor<
+    WRITE_ONLY,
+    typename DataType<DT>::ValueType,
+    DIM,
+    coord_t,
+    AffineAccessor<typename DataType<DT>::ValueType, DIM, coord_t>,
+    true>;
+
+  template <casacore::DataType DT>
+  static void
+  copy(const PhysicalRegion& src, const PhysicalRegion& dst) {
+
+#define CPY(SRCDIM, DSTDIM)                             \
+    case (SRCDIM * LEGMS_MAX_DIM + DSTDIM): {           \
+      const SA<DT,SRCDIM> from(src, Column::value_fid); \
+      const DA<DT,DSTDIM> to(dst, Column::value_fid);   \
+      DomainT<SRCDIM> src_bounds(src);                  \
+      DomainT<DSTDIM> dst_bounds(dst);                  \
+      PointInDomainIterator<SRCDIM> s(src_bounds);      \
+      PointInDomainIterator<DSTDIM> d(dst_bounds);      \
+      while (s()) {                                     \
+        to[*d] = from[*s];                              \
+        d++; s++;                                       \
+      }                                                 \
+      break;                                            \
+    }
+
+    int srcdim = src.get_logical_region().get_dim();
+    int dstdim = dst.get_logical_region().get_dim();
+    switch (srcdim * LEGMS_MAX_DIM + dstdim) {
+      LEGMS_FOREACH_MN(CPY)
+    default:
+        assert(false);
+      break;
+    }
+  }
+
   void
   dispatch(Context ctx, Runtime* runtime) {
 
-    IndexSpace row_colors =
-      runtime->get_index_partition_color_space_name(m_row_partition);
-
     // use partition of m_new_rects_lr by m_row_partition to get partition of
-    // m_new_col_lr index space
+    // m_new_col_lr index space: FIXME
+    IndexSpace new_rects_is = m_new_rects_lr.get_index_space();
+    IndexPartition new_rects_ip =
+      runtime->create_equal_partition(ctx, new_rects_is, new_rects_is);
     LogicalPartition new_rects_lp =
-      runtime->get_logical_partition(ctx, m_new_rects_lr, m_row_partition);
+      runtime->get_logical_partition(ctx, m_new_rects_lr, new_rects_ip);
 
     IndexPartition new_col_ip =
       runtime->create_partition_by_image_range(
@@ -989,7 +1041,7 @@ public:
         new_rects_lp,
         m_new_rects_lr,
         ReindexColumnTask::row_rects_fid,
-        row_colors);
+        new_rects_is);
 
     LogicalPartition new_col_lp =
       runtime->get_logical_partition(ctx, m_new_col_lr, new_col_ip);
@@ -1008,20 +1060,65 @@ public:
     RegionRequirement dst_req(
       new_col_lp,
       0,
-      WRITE_DISCARD,
+      WRITE_ONLY,
       EXCLUSIVE,
       m_new_col_lr);
     dst_req.add_field(Column::value_fid);
 
-    IndexCopyLauncher copier(row_colors);
-    copier.add_copy_requirements(src_req, dst_req);
+    IndexTaskLauncher
+      copier(
+        TASK_ID,
+        new_rects_is,
+        TaskArgument(&m_column_dt, sizeof(m_column_dt)),
+        ArgumentMap());
+    copier.add_region_requirement(src_req);
+    copier.add_region_requirement(dst_req);
+    runtime->execute_index_space(ctx, copier);
 
-    runtime->issue_copy_operation(ctx, copier);
+    // IndexCopyLauncher copier(new_rects_is);
+    // copier.add_copy_requirements(src_req, dst_req);
+
+    // runtime->issue_copy_operation(ctx, copier);
+  }
+
+  static void
+  base_impl(
+    const Task* task,
+    const vector<PhysicalRegion>& regions,
+    Context,
+    Runtime*) {
+
+    casacore::DataType dt = *static_cast<casacore::DataType*>(task->args);
+
+#define CPYDT(DT) \
+    case (DT): copy<DT>(regions[0], regions[1]); break;
+
+    switch (dt) {
+      FOREACH_DATATYPE(CPYDT)
+    default:
+        assert(false);
+      break;
+    }
+#undef CPYDT
+  }
+
+  static void
+  register_task(Runtime* runtime) {
+    TASK_ID =
+      runtime->generate_library_task_ids("legms::ReindexColumnCopyTask", 1);
+    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_leaf();
+    // registrar.set_idempotent();
+    // registrar.set_replicable();
+    runtime->register_task_variant<base_impl>(registrar);
   }
 
 private:
 
   LogicalRegion m_column;
+
+  casacore::DataType m_column_dt;
 
   IndexPartition m_row_partition;
 
@@ -1029,6 +1126,8 @@ private:
 
   LogicalRegion m_new_col_lr;
 };
+
+TaskID ReindexColumnCopyTask::TASK_ID;
 
 TaskID ReindexColumnTask::TASK_ID;
 
@@ -1162,12 +1261,11 @@ reindex_column(
     empty);
 
   // Set RegionRequirements for this task and its children
-  RegionRequirement
-    new_rects_req(new_rects_lr, WRITE_DISCARD, SIMULTANEOUS, new_rects_lr);
-  cout << "new_rects_lr " << new_rects_lr
-            << ", prop " << new_rects_req.prop << endl;
-  new_rects_req.add_field(ReindexColumnTask::row_rects_fid);
-  PhysicalRegion new_rects_pr = runtime->map_region(ctx, new_rects_req);
+  // RegionRequirement
+  //   new_rects_req(new_rects_lr, WRITE_DISCARD, SIMULTANEOUS, new_rects_lr);
+  // cout << "new_rects_lr " << new_rects_lr << endl;
+  // new_rects_req.add_field(ReindexColumnTask::row_rects_fid);
+  // PhysicalRegion new_rects_pr = runtime->map_region(ctx, new_rects_req);
 
   vector<LogicalRegion> ix_lrs;
   transform(
@@ -1175,13 +1273,6 @@ reindex_column(
     regions.end(),
     back_inserter(ix_lrs),
     [](auto& rg) { return rg.get_logical_region(); });
-
-  for_each(
-    ix_lrs.begin(),
-    ix_lrs.end(),
-    [](auto& lr) { cout << "ix_lr " << lr << endl; });
-
-  cout << "col lr " << regions[0].get_logical_region() << endl;
 
   // task to compute new index space rectangle for each row in column
 #ifdef HIERARCHICAL_COMPUTE_RECTANGLES
@@ -1200,7 +1291,7 @@ reindex_column(
       args.allow_rows,
       args.row_partition,
       ix_lrs,
-      new_rects_pr);
+      new_rects_lr);
 #endif
   new_rects_task.dispatch(ctx, runtime);
 
@@ -1248,6 +1339,37 @@ reindex_column(
   }
   auto new_bounds_is = runtime->create_index_space(ctx, new_bounds);
 
+#ifdef WORKAROUND
+  {
+    RegionRequirement req(new_rects_lr, READ_ONLY, EXCLUSIVE, new_rects_lr);
+    req.add_field(ReindexColumnTask::row_rects_fid);
+    PhysicalRegion pr = runtime->map_region(ctx, req);
+
+#define PRINTIT(N)     \
+    case (N): { \
+      const FieldAccessor< \
+        READ_ONLY,\
+        Rect<NEWDIM>,\
+        N,\
+        coord_t,\
+        AffineAccessor<Rect<NEWDIM>, N, coord_t>, \
+        true> rr(pr, ReindexColumnTask::row_rects_fid);\
+      for (PointInDomainIterator<N> pid(runtime->get_index_space_domain(ctx, rows_is)); \
+           pid();                                                       \
+           pid++)                                                       \
+        cout << *pid << ": " << rr[*pid] << endl;                       \
+      break;                                                            \
+    }
+    switch (rows_is.get_dim()) {
+      LEGMS_FOREACH_N(PRINTIT)
+    default:
+      assert(false);
+      break;
+    }
+#undef PRINTIT
+  }
+  return ColumnGenArgs {};
+#endif
   // to do this, we need a logical partition of new_rects_lr, which will
   // comprise a single index subspace
   IndexSpaceT<1> unitary_cs = runtime->create_index_space(ctx, Rect<1>(0, 0));
@@ -1284,11 +1406,17 @@ reindex_column(
       auto fa = runtime->create_field_allocator(ctx, new_col_fs);
       add_field(args.col.datatype, fa, Column::value_fid);
     }
-    auto new_col_lr = runtime->create_logical_region(ctx, new_col_is, new_col_fs);
+    auto new_col_lr =
+      runtime->create_logical_region(ctx, new_col_is, new_col_fs);
 
     // copy values from the column logical region to new_col_lr
     ReindexColumnCopyTask
-      copy_task(args.col.values, args.row_partition, new_rects_lr, new_col_lr);
+      copy_task(
+        args.col.values,
+        args.col.datatype,
+        args.row_partition,
+        new_rects_lr,
+        new_col_lr);
     copy_task.dispatch(ctx, runtime);
 
     result.values = new_col_lr;
@@ -1365,6 +1493,7 @@ Table::register_tasks(Runtime* runtime) {
   IndexAccumulateTasks::register_tasks(runtime);
   ComputeRectanglesTask::register_task(runtime);
   ReindexColumnTask::register_task(runtime);
+  ReindexColumnCopyTask::register_task(runtime);
 }
 
 // Local Variables:
