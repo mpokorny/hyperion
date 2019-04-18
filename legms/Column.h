@@ -143,10 +143,6 @@ protected:
     , m_rank(
       static_cast<decltype(m_rank)>(values.get_index_space().get_dim())) {
 
-    assert(values.get_index_space().get_dim() == 1);
-    assert(
-      m_runtime->get_index_space_domain(values.get_index_space())
-      .lo()[0] == 0);
     init(values);
   }
 
