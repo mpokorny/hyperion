@@ -135,7 +135,7 @@ reindex_column_task_test_suite(
   auto col_y =
     attach_table0_col(table0.columnT("Y").get(), table0_y, context, runtime);
   auto col_z =
-    attach_table0_col(table0.columnT("Z").get(), table0_y, context, runtime);
+    attach_table0_col(table0.columnT("Z").get(), table0_z, context, runtime);
 
   IndexColumnTask icx(table0.columnT("X"), static_cast<int>(Table0Axes::X));
   IndexColumnTask icy(table0.columnT("Y"), static_cast<int>(Table0Axes::Y));
@@ -154,15 +154,34 @@ reindex_column_task_test_suite(
 
   ReindexColumnTask rcz(table0.columnT("Z"), 0, ics, false);
   Future fz = rcz.dispatch(context, runtime);
-  fz.wait();
-  // auto cz =
-  //   fz.get_result<ColumnGenArgs>().operator()<Table0Axes>(context, runtime);
-  // recorder.assert_true(
-  //   "Reindexed column index space rank is 2",
-  //   TE(cz->rank()) == 2);
-  // recorder.expect_true(
-  //   "Reindexed column index space dimensions are X and Y",
-  //   TE(cz->axesT()) == std::vector<Table0Axes>{ Table0Axes::X, Table0Axes::Y });
+  auto cz =
+    fz.get_result<ColumnGenArgs>().operator()<Table0Axes>(context, runtime);
+  recorder.assert_true(
+    "Reindexed column index space rank is 2",
+    TE(cz->rank()) == 2);
+  recorder.expect_true(
+    "Reindexed column index space dimensions are X and Y",
+    TE(cz->axesT()) == std::vector<Table0Axes>{ Table0Axes::X, Table0Axes::Y });
+  {
+    RegionRequirement
+      req(cz->logical_region(), READ_ONLY, EXCLUSIVE, cz->logical_region());
+    req.add_field(Column::value_fid);
+    PhysicalRegion pr = runtime->map_region(context, req);
+    DomainT<2> d(pr);
+    const FieldAccessor<
+      READ_ONLY, unsigned, 2, coord_t,
+      AffineAccessor<unsigned, 2, coord_t>, false> z(pr, Column::value_fid);
+    recorder.expect_true(
+      "Reindexed column values are correct",
+      testing::TestEval(
+        [&d, &z]() {
+          bool all_eq = true;
+          for (PointInDomainIterator<2> pid(d); all_eq && pid(); pid++)
+            all_eq = z[*pid] == pid[0] * TABLE0_NUM_Y + pid[1];
+          return all_eq;
+        },
+        "all(z[x,y] == x * TABLE0_NUM_Y + y)"));
+  }
 
   runtime->detach_external_resource(context, col_x);
   runtime->detach_external_resource(context, col_y);
