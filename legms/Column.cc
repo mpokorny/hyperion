@@ -27,11 +27,34 @@ Column::init() {
 
 void
 Column::init(LogicalRegion region) {
+
   m_logical_region = region;
-  m_index_tree =
-    IndexTreeL(
-      m_runtime->get_index_space_domain(m_logical_region.get_index_space())
-      .hi()[0] + 1);
+
+  Domain dom = m_runtime->get_index_space_domain(region.get_index_space());
+  assert(dom.dense()); // FIXME: remove
+
+#define TREE(N)                                     \
+  case (N): {                                       \
+    Rect<N> rect(dom);                              \
+    m_index_tree = IndexTreeL();                    \
+    for (size_t i = N; i > 0; --i) {                \
+      m_index_tree =                                \
+        IndexTreeL({                                \
+            std::make_tuple(                        \
+              rect.lo[i - 1],                       \
+              rect.hi[i - 1] - rect.lo[i - 1] + 1,  \
+              m_index_tree)});                      \
+    }                                               \
+    break;                                          \
+  }
+
+  switch (dom.get_dim()) {
+    LEGMS_FOREACH_N(TREE)
+  default:
+      assert(false);
+    break;
+  }
+#undef TREE
 }
 
 std::unique_ptr<ColumnPartition>
