@@ -106,6 +106,8 @@ ProjectedIndexPartitionTask::base_impl(
   Context ctx,
   Runtime *runtime) {
 
+  const ProjectedIndexPartitionTask::args* targs =
+    static_cast<const ProjectedIndexPartitionTask::args*>(task->args);
   IndexSpace is = task->regions[0].region.get_index_space();
   switch (is.get_dim()) {
 #if LEGMS_MAX_DIM >= 1
