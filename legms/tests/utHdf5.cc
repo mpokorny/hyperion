@@ -100,7 +100,12 @@ hdf5_test_suite(
     assert(dset >= 0);
     H5Dclose(dset);
 
-    tree_tests(fid, dataset_name, recorder, IndexTreeL(84000), "small-tree");
+    tree_tests(
+      fid,
+      dataset_name,
+      recorder,
+      IndexTreeL(large_tree_min / 2 + 1),
+      "small-tree");
 
     IndexTreeL tree1(4);
     while (tree1.serialized_size() < large_tree_min)
