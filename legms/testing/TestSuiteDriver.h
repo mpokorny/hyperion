@@ -104,6 +104,9 @@ protected:
       TASK_NAME);
     Legion::Runtime::set_top_level_task_id(TASK_ID);
     OpsManager::register_ops();
+#ifdef USE_HDF
+    H5DatatypeManager::register_datatypes();
+#endif
   }
 
 private:

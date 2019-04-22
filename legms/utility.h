@@ -13,6 +13,7 @@
 
 #ifdef USE_HDF
 # include <hdf5.h>
+# define LEGMS_H5_STRING_DATATYPE_SIZE 80
 #endif
 
 #include <casacore/casa/aipstype.h>
@@ -727,15 +728,9 @@ struct DataType<casacore::DataType::TpBool> {
   constexpr static int v_serdez_id = OpsManager::CASACORE_V_BOOL_SID;
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_BOOL_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_BOOL_REDOP;
-  constexpr static unsigned h5t_native_id =
-    H5DatatypeManager::CASACORE_BOOL_H5T;
-};
-
-template <>
-struct DataType<casacore::DataType::TpArrayBool> {
-  typedef std::vector<casacore::Bool> ValueType;
-  constexpr static unsigned h5t_native_id =
-    H5DatatypeManager::CASACORE_BOOL_V_H5T;
+#ifdef USE_HDF
+  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_BOOL_H5T;
+#endif
 };
 
 template <>
@@ -747,8 +742,9 @@ struct DataType<casacore::DataType::TpChar> {
   constexpr static int v_serdez_id = OpsManager::CASACORE_V_CHAR_SID;
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_CHAR_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_CHAR_REDOP;
-  constexpr static unsigned h5t_native_id =
-    H5DatatypeManager::CASACORE_CHAR_H5T;
+#ifdef USE_HDF
+  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_CHAR_H5T;
+#endif
 };
 
 template <>
@@ -760,8 +756,9 @@ struct DataType<casacore::DataType::TpUChar> {
   constexpr static int v_serdez_id = OpsManager::CASACORE_V_UCHAR_SID;
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_UCHAR_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_UCHAR_REDOP;
-  constexpr static unsigned h5t_native_id =
-    H5DatatypeManager::CASACORE_UCHAR_H5T;
+#ifdef USE_HDF
+  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_UCHAR_H5T;
+#endif
 };
 
 template <>
@@ -773,8 +770,9 @@ struct DataType<casacore::DataType::TpShort> {
   constexpr static int v_serdez_id = OpsManager::CASACORE_V_SHORT_SID;
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_SHORT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_SHORT_REDOP;
-  constexpr static unsigned h5t_native_id =
-    H5DatatypeManager::CASACORE_SHORT_H5T;
+#ifdef USE_HDF
+  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_SHORT_H5T;
+#endif
 };
 
 template <>
@@ -786,8 +784,9 @@ struct DataType<casacore::DataType::TpUShort> {
   constexpr static int v_serdez_id = OpsManager::CASACORE_V_USHORT_SID;
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_USHORT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_USHORT_REDOP;
-  constexpr static unsigned h5t_native_id =
-    H5DatatypeManager::CASACORE_USHORT_H5T;
+#ifdef USE_HDF
+  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_USHORT_H5T;
+#endif
 };
 
 template <>
@@ -799,8 +798,9 @@ struct DataType<casacore::DataType::TpInt> {
   constexpr static int v_serdez_id = OpsManager::CASACORE_V_INT_SID;
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_INT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_INT_REDOP;
-  constexpr static unsigned h5t_native_id =
-    H5DatatypeManager::CASACORE_INT_H5T;
+#ifdef USE_HDF
+  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_INT_H5T;
+#endif
 };
 
 template <>
@@ -812,8 +812,9 @@ struct DataType<casacore::DataType::TpUInt> {
   constexpr static int v_serdez_id = OpsManager::CASACORE_V_UINT_SID;
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_UINT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_UINT_REDOP;
-  constexpr static unsigned h5t_native_id =
-    H5DatatypeManager::CASACORE_UINT_H5T;
+#ifdef USE_HDF
+  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_UINT_H5T;
+#endif
 };
 
 template <>
@@ -825,8 +826,9 @@ struct DataType<casacore::DataType::TpFloat> {
   constexpr static int v_serdez_id = OpsManager::CASACORE_V_FLOAT_SID;
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_FLOAT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_FLOAT_REDOP;
-  constexpr static unsigned h5t_native_id =
-    H5DatatypeManager::CASACORE_FLOAT_H5T;
+#ifdef USE_HDF
+  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_FLOAT_H5T;
+#endif
 };
 
 template <>
@@ -838,8 +840,9 @@ struct DataType<casacore::DataType::TpDouble> {
   constexpr static int v_serdez_id = OpsManager::CASACORE_V_DOUBLE_SID;
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_DOUBLE_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_DOUBLE_REDOP;
-  constexpr static unsigned h5t_native_id =
-    H5DatatypeManager::CASACORE_DOUBLE_H5T;
+#ifdef USE_HDF
+  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_DOUBLE_H5T;
+#endif
 };
 
 template <>
@@ -851,8 +854,10 @@ struct DataType<casacore::DataType::TpComplex> {
   constexpr static int v_serdez_id = OpsManager::CASACORE_V_COMPLEX_SID;
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_COMPLEX_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_COMPLEX_REDOP;
-  constexpr static unsigned h5t_native_id =
+#ifdef USE_HDF
+  constexpr static hid_t h5t_native_id =
     H5DatatypeManager::CASACORE_COMPLEX_H5T;
+#endif
 };
 
 template <>
@@ -864,8 +869,10 @@ struct DataType<casacore::DataType::TpDComplex> {
   constexpr static int v_serdez_id = OpsManager::CASACORE_V_DCOMPLEX_SID;
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_DCOMPLEX_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_DCOMPLEX_REDOP;
-  constexpr static unsigned h5t_native_id =
+#ifdef USE_HDF
+  constexpr static hid_t h5t_native_id =
     H5DatatypeManager::CASACORE_DCOMPLEX_H5T;
+#endif
 };
 
 template <>
@@ -876,9 +883,10 @@ struct DataType<casacore::DataType::TpString> {
   constexpr static int serdez_id = OpsManager::CASACORE_STRING_SID;
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_STRING_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_STRING_REDOP;
-  constexpr static int serdez_id = SerdezManager::CASACORE_STRING_SID;
-  constexpr static unsigned h5t_native_id =
+#ifdef USE_HDF
+  constexpr static hid_t h5t_native_id =
     H5DatatypeManager::CASACORE_STRING_H5T;
+#endif
 };
 
 #define NUM_CASACORE_DATATYPES (DataType<casacore::DataType::TpString>::id + 1)

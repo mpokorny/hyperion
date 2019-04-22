@@ -652,6 +652,39 @@ legms::register_tasks(Runtime* runtime) {
   Table::register_tasks(runtime);
 }
 
+hid_t
+legms::H5DatatypeManager::datatypes_[CASACORE_STRING_H5T + 1];
+
+void
+legms::H5DatatypeManager::register_datatypes() {
+  legms::H5DatatypeManager::datatypes_[CASACORE_BOOL_H5T] = H5T_NATIVE_HBOOL;
+  legms::H5DatatypeManager::datatypes_[CASACORE_CHAR_H5T] = H5T_NATIVE_SCHAR;
+  legms::H5DatatypeManager::datatypes_[CASACORE_UCHAR_H5T] = H5T_NATIVE_UCHAR;
+  legms::H5DatatypeManager::datatypes_[CASACORE_SHORT_H5T] = H5T_NATIVE_SHORT;
+  legms::H5DatatypeManager::datatypes_[CASACORE_USHORT_H5T] = H5T_NATIVE_USHORT;
+  legms::H5DatatypeManager::datatypes_[CASACORE_INT_H5T] = H5T_NATIVE_INT;
+  legms::H5DatatypeManager::datatypes_[CASACORE_UINT_H5T] = H5T_NATIVE_UINT;
+  legms::H5DatatypeManager::datatypes_[CASACORE_FLOAT_H5T] = H5T_NATIVE_FLOAT;
+  legms::H5DatatypeManager::datatypes_[CASACORE_DOUBLE_H5T] = H5T_NATIVE_DOUBLE;
+  {
+    hid_t dt = H5Tcreate(H5T_COMPOUND, 2 * sizeof(float));
+    H5Tinsert(dt, "real", 0, H5T_NATIVE_FLOAT);
+    H5Tinsert(dt, "imag", sizeof(float), H5T_NATIVE_FLOAT);
+    legms::H5DatatypeManager::datatypes_[CASACORE_COMPLEX_H5T] = dt;
+  }
+  {
+    hid_t dt = H5Tcreate(H5T_COMPOUND, 2 * sizeof(double));
+    H5Tinsert(dt, "real", 0, H5T_NATIVE_DOUBLE);
+    H5Tinsert(dt, "imag", sizeof(double), H5T_NATIVE_DOUBLE);
+    legms::H5DatatypeManager::datatypes_[CASACORE_DCOMPLEX_H5T] = dt;
+  }
+  {
+    hid_t dt = H5Tcopy(H5T_C_S1);
+    H5Tset_size(dt, LEGMS_H5_STRING_DATATYPE_SIZE);
+    legms::H5DatatypeManager::datatypes_[CASACORE_STRING_H5T] = dt;
+  }
+}
+
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2
