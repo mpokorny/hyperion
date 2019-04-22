@@ -21,13 +21,8 @@ public:
     Legion::Runtime* runtime,
     const std::unordered_map<std::string, casacore::DataType>& kws)
     : m_context(ctx)
-    , m_runtime(runtime) {
-
-    std::transform(
-      kws.begin(),
-      kws.end(),
-      std::back_inserter(m_keywords),
-      [](auto& nm_dt) { return std::get<0>(nm_dt); });
+    , m_runtime(runtime)
+    , m_keywords(kws) {
 
     if (kws.size() > 0) {
       auto is = m_runtime->create_index_space(m_context, Legion::Rect<1>(0, 0));
@@ -64,7 +59,7 @@ public:
       m_runtime->destroy_logical_region(m_context, m_keywords_region);
   }
 
-  const std::vector<std::string>&
+  const std::unordered_map<std::string, casacore::DataType>&
   keywords() const {
     return m_keywords;
   }
@@ -80,7 +75,7 @@ private:
 
   Legion::Runtime* m_runtime;
 
-  std::vector<std::string> m_keywords;
+  std::unordered_map<std::string, casacore::DataType> m_keywords;
 
   Legion::LogicalRegion m_keywords_region;
 };
