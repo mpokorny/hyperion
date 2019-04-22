@@ -106,6 +106,16 @@ public:
   virtual ColumnGenArgs
   generator_args() const = 0;
 
+  Legion::Runtime*
+  runtime() const {
+    return m_runtime;
+  }
+
+  Legion::Context&
+  context() const {
+    return m_context;
+  }
+
   static constexpr Legion::FieldID value_fid = 0;
 
 protected:
@@ -146,9 +156,9 @@ protected:
     init(values);
   }
 
-  Legion::Context m_context;
+  mutable Legion::Context m_context;
 
-  Legion::Runtime* m_runtime;
+  mutable Legion::Runtime* m_runtime;
 
 private:
 
