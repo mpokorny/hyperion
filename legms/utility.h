@@ -8,7 +8,6 @@
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <mutex>
 #include <numeric>
 #include <optional>
 
@@ -490,128 +489,136 @@ public:
 
   static void
   register_ops() {
-    std::call_once(
-      initialized,
-      []() {
-        Legion::Runtime::register_custom_serdez_op<index_tree_serdez>(
-          INDEX_TREE_SID);
+    Legion::Runtime::register_custom_serdez_op<index_tree_serdez>(
+      INDEX_TREE_SID);
 
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<Legion::DomainPoint>>(V_DOMAIN_POINT_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      vector_serdez<Legion::DomainPoint>>(V_DOMAIN_POINT_SID);
 
-        Legion::Runtime::register_custom_serdez_op<
-          acc_field_serdez<casacore::String>>(ACC_FIELD_STRING_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          acc_field_serdez<casacore::Bool>>(ACC_FIELD_BOOL_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          acc_field_serdez<casacore::Char>>(ACC_FIELD_CHAR_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          acc_field_serdez<casacore::uChar>>(ACC_FIELD_UCHAR_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          acc_field_serdez<casacore::Short>>(ACC_FIELD_SHORT_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          acc_field_serdez<casacore::uShort>>(ACC_FIELD_USHORT_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          acc_field_serdez<casacore::Int>>(ACC_FIELD_INT_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          acc_field_serdez<casacore::uInt>>(ACC_FIELD_UINT_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          acc_field_serdez<casacore::Float>>(ACC_FIELD_FLOAT_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          acc_field_serdez<casacore::Double>>(ACC_FIELD_DOUBLE_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          acc_field_serdez<casacore::Complex>>(ACC_FIELD_COMPLEX_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          acc_field_serdez<casacore::DComplex>>(ACC_FIELD_DCOMPLEX_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      acc_field_serdez<casacore::String>>(ACC_FIELD_STRING_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      acc_field_serdez<casacore::Bool>>(ACC_FIELD_BOOL_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      acc_field_serdez<casacore::Char>>(ACC_FIELD_CHAR_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      acc_field_serdez<casacore::uChar>>(ACC_FIELD_UCHAR_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      acc_field_serdez<casacore::Short>>(ACC_FIELD_SHORT_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      acc_field_serdez<casacore::uShort>>(ACC_FIELD_USHORT_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      acc_field_serdez<casacore::Int>>(ACC_FIELD_INT_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      acc_field_serdez<casacore::uInt>>(ACC_FIELD_UINT_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      acc_field_serdez<casacore::Float>>(ACC_FIELD_FLOAT_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      acc_field_serdez<casacore::Double>>(ACC_FIELD_DOUBLE_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      acc_field_serdez<casacore::Complex>>(ACC_FIELD_COMPLEX_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      acc_field_serdez<casacore::DComplex>>(ACC_FIELD_DCOMPLEX_SID);
 
-        Legion::Runtime::register_reduction_op<bool_or_redop>(BOOL_OR_REDOP);
+    Legion::Runtime::register_reduction_op<bool_or_redop>(BOOL_OR_REDOP);
 
-        Legion::Runtime::register_custom_serdez_op<
-          string_serdez<casacore::String>>(CASACORE_STRING_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Bool>>(CASACORE_V_BOOL_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Char>>(CASACORE_V_CHAR_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::uChar>>(CASACORE_V_UCHAR_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Short>>(CASACORE_V_SHORT_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::uShort>>(CASACORE_V_USHORT_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Int>>(CASACORE_V_INT_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::uInt>>(CASACORE_V_UINT_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Float>>(CASACORE_V_FLOAT_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Double>>(CASACORE_V_DOUBLE_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::Complex>>(CASACORE_V_COMPLEX_SID);
-        Legion::Runtime::register_custom_serdez_op<
-          vector_serdez<casacore::DComplex>>(CASACORE_V_DCOMPLEX_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      string_serdez<casacore::String>>(CASACORE_STRING_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      vector_serdez<casacore::Bool>>(CASACORE_V_BOOL_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      vector_serdez<casacore::Char>>(CASACORE_V_CHAR_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      vector_serdez<casacore::uChar>>(CASACORE_V_UCHAR_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      vector_serdez<casacore::Short>>(CASACORE_V_SHORT_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      vector_serdez<casacore::uShort>>(CASACORE_V_USHORT_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      vector_serdez<casacore::Int>>(CASACORE_V_INT_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      vector_serdez<casacore::uInt>>(CASACORE_V_UINT_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      vector_serdez<casacore::Float>>(CASACORE_V_FLOAT_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      vector_serdez<casacore::Double>>(CASACORE_V_DOUBLE_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      vector_serdez<casacore::Complex>>(CASACORE_V_COMPLEX_SID);
+    Legion::Runtime::register_custom_serdez_op<
+      vector_serdez<casacore::DComplex>>(CASACORE_V_DCOMPLEX_SID);
 
-        Legion::Runtime::register_reduction_op(
-          ACC_FIELD_STRING_REDOP,
-          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::String>>(),
-          acc_field_redop<casacore::String>::init_fn,
-          acc_field_redop<casacore::String>::fold_fn);
-        Legion::Runtime::register_reduction_op(
-          ACC_FIELD_BOOL_REDOP,
-          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Bool>>(),
-          acc_field_redop<casacore::Bool>::init_fn,
-          acc_field_redop<casacore::Bool>::fold_fn);
-        Legion::Runtime::register_reduction_op(
-          ACC_FIELD_CHAR_REDOP,
-          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Char>>(),
-          acc_field_redop<casacore::Char>::init_fn,
-          acc_field_redop<casacore::Char>::fold_fn);
-        Legion::Runtime::register_reduction_op(
-          ACC_FIELD_UCHAR_REDOP,
-          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::uChar>>(),
-          acc_field_redop<casacore::uChar>::init_fn,
-          acc_field_redop<casacore::uChar>::fold_fn);
-        Legion::Runtime::register_reduction_op(
-          ACC_FIELD_SHORT_REDOP,
-          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Short>>(),
-          acc_field_redop<casacore::Short>::init_fn,
-          acc_field_redop<casacore::Short>::fold_fn);
-        Legion::Runtime::register_reduction_op(
-          ACC_FIELD_USHORT_REDOP,
-          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::uShort>>(),
-          acc_field_redop<casacore::uShort>::init_fn,
-          acc_field_redop<casacore::uShort>::fold_fn);
-        Legion::Runtime::register_reduction_op(
-          ACC_FIELD_INT_REDOP,
-          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Int>>(),
-          acc_field_redop<casacore::Int>::init_fn,
-          acc_field_redop<casacore::Int>::fold_fn);
-        Legion::Runtime::register_reduction_op(
-          ACC_FIELD_UINT_REDOP,
-          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::uInt>>(),
-          acc_field_redop<casacore::uInt>::init_fn,
-          acc_field_redop<casacore::uInt>::fold_fn);
-        Legion::Runtime::register_reduction_op(
-          ACC_FIELD_FLOAT_REDOP,
-          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Float>>(),
-          acc_field_redop<casacore::Float>::init_fn,
-          acc_field_redop<casacore::Float>::fold_fn);
-        Legion::Runtime::register_reduction_op(
-          ACC_FIELD_DOUBLE_REDOP,
-          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Double>>(),
-          acc_field_redop<casacore::Double>::init_fn,
-          acc_field_redop<casacore::Double>::fold_fn);
-        Legion::Runtime::register_reduction_op(
-          ACC_FIELD_COMPLEX_REDOP,
-          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::Complex>>(),
-          acc_field_redop<casacore::Complex>::init_fn,
-          acc_field_redop<casacore::Complex>::fold_fn);
-        Legion::Runtime::register_reduction_op(
-          ACC_FIELD_DCOMPLEX_REDOP,
-          Realm::ReductionOpUntyped::create_reduction_op<acc_field_redop<casacore::DComplex>>(),
-          acc_field_redop<casacore::DComplex>::init_fn,
-          acc_field_redop<casacore::DComplex>::fold_fn);
-      });
+    Legion::Runtime::register_reduction_op(
+      ACC_FIELD_STRING_REDOP,
+      Realm::ReductionOpUntyped::create_reduction_op<
+      acc_field_redop<casacore::String>>(),
+      acc_field_redop<casacore::String>::init_fn,
+      acc_field_redop<casacore::String>::fold_fn);
+    Legion::Runtime::register_reduction_op(
+      ACC_FIELD_BOOL_REDOP,
+      Realm::ReductionOpUntyped::create_reduction_op<
+      acc_field_redop<casacore::Bool>>(),
+      acc_field_redop<casacore::Bool>::init_fn,
+      acc_field_redop<casacore::Bool>::fold_fn);
+    Legion::Runtime::register_reduction_op(
+      ACC_FIELD_CHAR_REDOP,
+      Realm::ReductionOpUntyped::create_reduction_op<
+      acc_field_redop<casacore::Char>>(),
+      acc_field_redop<casacore::Char>::init_fn,
+      acc_field_redop<casacore::Char>::fold_fn);
+    Legion::Runtime::register_reduction_op(
+      ACC_FIELD_UCHAR_REDOP,
+      Realm::ReductionOpUntyped::create_reduction_op<
+      acc_field_redop<casacore::uChar>>(),
+      acc_field_redop<casacore::uChar>::init_fn,
+      acc_field_redop<casacore::uChar>::fold_fn);
+    Legion::Runtime::register_reduction_op(
+      ACC_FIELD_SHORT_REDOP,
+      Realm::ReductionOpUntyped::create_reduction_op<
+      acc_field_redop<casacore::Short>>(),
+      acc_field_redop<casacore::Short>::init_fn,
+      acc_field_redop<casacore::Short>::fold_fn);
+    Legion::Runtime::register_reduction_op(
+      ACC_FIELD_USHORT_REDOP,
+      Realm::ReductionOpUntyped::create_reduction_op<
+      acc_field_redop<casacore::uShort>>(),
+      acc_field_redop<casacore::uShort>::init_fn,
+      acc_field_redop<casacore::uShort>::fold_fn);
+    Legion::Runtime::register_reduction_op(
+      ACC_FIELD_INT_REDOP,
+      Realm::ReductionOpUntyped::create_reduction_op<
+      acc_field_redop<casacore::Int>>(),
+      acc_field_redop<casacore::Int>::init_fn,
+      acc_field_redop<casacore::Int>::fold_fn);
+    Legion::Runtime::register_reduction_op(
+      ACC_FIELD_UINT_REDOP,
+      Realm::ReductionOpUntyped::create_reduction_op<
+      acc_field_redop<casacore::uInt>>(),
+      acc_field_redop<casacore::uInt>::init_fn,
+      acc_field_redop<casacore::uInt>::fold_fn);
+    Legion::Runtime::register_reduction_op(
+      ACC_FIELD_FLOAT_REDOP,
+      Realm::ReductionOpUntyped::create_reduction_op<
+      acc_field_redop<casacore::Float>>(),
+      acc_field_redop<casacore::Float>::init_fn,
+      acc_field_redop<casacore::Float>::fold_fn);
+    Legion::Runtime::register_reduction_op(
+      ACC_FIELD_DOUBLE_REDOP,
+      Realm::ReductionOpUntyped::create_reduction_op<
+      acc_field_redop<casacore::Double>>(),
+      acc_field_redop<casacore::Double>::init_fn,
+      acc_field_redop<casacore::Double>::fold_fn);
+    Legion::Runtime::register_reduction_op(
+      ACC_FIELD_COMPLEX_REDOP,
+      Realm::ReductionOpUntyped::create_reduction_op<
+      acc_field_redop<casacore::Complex>>(),
+      acc_field_redop<casacore::Complex>::init_fn,
+      acc_field_redop<casacore::Complex>::fold_fn);
+    Legion::Runtime::register_reduction_op(
+      ACC_FIELD_DCOMPLEX_REDOP,
+      Realm::ReductionOpUntyped::create_reduction_op<
+      acc_field_redop<casacore::DComplex>>(),
+      acc_field_redop<casacore::DComplex>::init_fn,
+      acc_field_redop<casacore::DComplex>::fold_fn);
   }
 
   enum {
@@ -662,42 +669,42 @@ public:
     ACC_FIELD_COMPLEX_REDOP,
     ACC_FIELD_DCOMPLEX_REDOP,
   };
-
-private:
-
-  static std::once_flag initialized;
 };
 
+#ifdef USE_HDF
 class H5DatatypeManager {
 public:
 
+  // TODO: add support for non-native types in HDF5 files
+
   enum {
-    CASACORE_BOOL_H5T,
-    CASACORE_BOOL_V_H5T,
+    CASACORE_BOOL_H5T = 0,
     CASACORE_CHAR_H5T,
-    CASACORE_CHAR_V_H5T,
     CASACORE_UCHAR_H5T,
-    CASACORE_UCHAR_V_H5T,
     CASACORE_SHORT_H5T,
-    CASACORE_SHORT_V_H5T,
     CASACORE_USHORT_H5T,
-    CASACORE_USHORT_V_H5T,
     CASACORE_INT_H5T,
-    CASACORE_INT_V_H5T,
     CASACORE_UINT_H5T,
-    CASACORE_UINT_V_H5T,
     CASACORE_FLOAT_H5T,
-    CASACORE_FLOAT_V_H5T,
     CASACORE_DOUBLE_H5T,
-    CASACORE_DOUBLE_V_H5T,
     CASACORE_COMPLEX_H5T,
-    CASACORE_COMPLEX_V_H5T,
     CASACORE_DCOMPLEX_H5T,
-    CASACORE_DCOMPLEX_V_H5T,
     CASACORE_STRING_H5T,
-    CASACORE_STRING_V_H5T,
   };
+
+  static void
+  register_datatypes();
+
+  static const hid_t*
+  datatypes() {
+    return datatypes_;
+  }
+
+private:
+
+  static hid_t datatypes_[CASACORE_STRING_H5T + 1];
 };
+#endif
 
 Legion::FieldID
 add_field(

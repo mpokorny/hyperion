@@ -8,8 +8,6 @@
 using namespace legms;
 using namespace Legion;
 
-std::once_flag OpsManager::initialized;
-
 FieldID
 legms::add_field(
   casacore::DataType datatype,
