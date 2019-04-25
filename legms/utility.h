@@ -13,7 +13,9 @@
 
 #ifdef USE_HDF
 # include <hdf5.h>
-# define LEGMS_H5_STRING_DATATYPE_SIZE 80
+# ifndef LEGMS_H5_STRING_SIZE
+#  define LEGMS_H5_STRING_SIZE 80
+# endif
 #endif
 
 #include <casacore/casa/aipstype.h>
