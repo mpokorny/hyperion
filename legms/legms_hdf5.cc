@@ -18,7 +18,8 @@ legms::hdf5::read_index_tree_attr_metadata(
 
   optional<uint8_t> result;
 
-  string md_id_name = attr_name + "-sid";
+  string md_id_name =
+    string(LEGMS_ATTRIBUTE_NAME_PREFIX) + attr_name + "-sid";
   if (H5Aexists_by_name(
         loc_id,
         obj_name.c_str(),

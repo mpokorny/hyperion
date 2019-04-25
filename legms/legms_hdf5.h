@@ -167,10 +167,12 @@ read_index_tree_from_attr(
   if (!metadata || metadata.value() != SERDEZ::id)
     return result;
 
+  std::string legms_attr_name =
+    std::string(LEGMS_ATTRIBUTE_NAME_PREFIX) + attr_name;
   if (!H5Aexists_by_name(
         loc_id,
         obj_name.c_str(),
-        attr_name.c_str(),
+        legms_attr_name.c_str(),
         H5P_DEFAULT))
     return result;
 
@@ -178,7 +180,7 @@ read_index_tree_from_attr(
     H5Aopen_by_name(
       loc_id,
       obj_name.c_str(),
-      attr_name.c_str(),
+      legms_attr_name.c_str(),
       H5P_DEFAULT,
       H5P_DEFAULT);
 
