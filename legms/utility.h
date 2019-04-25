@@ -703,6 +703,10 @@ public:
     return datatypes_;
   }
 
+  template <casacore::DataType DT>
+  static hid_t
+  datatype();
+
 private:
 
   static hid_t datatypes_[CASACORE_STRING_H5T + 1];
@@ -890,6 +894,14 @@ struct DataType<casacore::DataType::TpString> {
     H5DatatypeManager::CASACORE_STRING_H5T;
 #endif
 };
+
+#ifdef USE_HDF
+template <casacore::DataType DT>
+hid_t
+H5DatatypeManager::datatype() {
+  return datatypes()[DataType<DT>::h5t_native_id];
+}
+#endif
 
 #define NUM_CASACORE_DATATYPES (DataType<casacore::DataType::TpString>::id + 1)
 
