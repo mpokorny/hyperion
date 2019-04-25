@@ -59,30 +59,44 @@ unsigned table0_z[2 * TABLE0_NUM_ROWS];
 
 ColumnT<Table0Axes>::Generator
 table0_col(const std::string& name) {
-  if (name != "Z")
+  if (name == "X") {
     return
       [name](Context context, Runtime* runtime) {
-      return
-        std::make_unique<ColumnT<Table0Axes>>(
-          context,
-          runtime,
-          name,
-          ValueType<unsigned>::DataType,
-          std::vector<Table0Axes>{Table0Axes::ROW},
-          IndexTreeL(TABLE0_NUM_ROWS));
-    };
-  else
+        return
+          std::make_unique<ColumnT<Table0Axes>>(
+            context,
+            runtime,
+            name,
+            ValueType<unsigned>::DataType,
+            std::vector<Table0Axes>{Table0Axes::ROW},
+            IndexTreeL(TABLE0_NUM_ROWS));
+      };
+  } else if (name == "Y"){
     return
       [name](Context context, Runtime* runtime) {
-      return
-        std::make_unique<ColumnT<Table0Axes>>(
-          context,
-          runtime,
-          name,
-          ValueType<unsigned>::DataType,
-          std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP},
-          IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
-    };
+        return
+          std::make_unique<ColumnT<Table0Axes>>(
+            context,
+            runtime,
+            name,
+            ValueType<unsigned>::DataType,
+            std::vector<Table0Axes>{Table0Axes::ROW},
+            IndexTreeL(TABLE0_NUM_ROWS),
+            WithKeywords::kw_desc_t{{"perfect", ValueType<short>::DataType}});
+      };
+  } else /* name == "Z" */ {
+    return
+      [name](Context context, Runtime* runtime) {
+        return
+          std::make_unique<ColumnT<Table0Axes>>(
+            context,
+            runtime,
+            name,
+            ValueType<unsigned>::DataType,
+            std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP},
+            IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
+      };
+  }
 }
 
 PhysicalRegion
@@ -234,6 +248,7 @@ table_tests(
     attach_table0_col(table0.columnT("Z").get(), table0_z, context, runtime);
 
   {
+    // initialize table0 keyword values
     RegionRequirement kw_req(
       table0.keywords_region(),
       WRITE_ONLY,
@@ -259,6 +274,26 @@ table_tests(
       true> name(kws, 1);
     ms_version[0] = -42.1f;
     name[0] = "test";
+    runtime->unmap_region(context, kws);
+  }
+  {
+    // initialize column Y keyword value
+    auto cy = table0.columnT("Y");
+    RegionRequirement kw_req(
+      cy->keywords_region(),
+      WRITE_ONLY,
+      EXCLUSIVE,
+      cy->keywords_region());
+    kw_req.add_field(0);
+    PhysicalRegion kws = runtime->map_region(context, kw_req);
+    const FieldAccessor<
+      WRITE_ONLY,
+      short,
+      1,
+      coord_t,
+      AffineAccessor<short, 1, coord_t>,
+      true> perfect(kws, 0);
+    perfect[0] = 496;
     runtime->unmap_region(context, kws);
   }
   
