@@ -106,16 +106,6 @@ public:
   virtual ColumnGenArgs
   generator_args() const = 0;
 
-  Legion::Runtime*
-  runtime() const {
-    return m_runtime;
-  }
-
-  Legion::Context&
-  context() const {
-    return m_context;
-  }
-
   static constexpr Legion::FieldID value_fid = 0;
 
 protected:
@@ -128,8 +118,6 @@ protected:
     const IndexTreeL& index_tree,
     const std::unordered_map<std::string, casacore::DataType>& kws)
     : WithKeywords(ctx, runtime, kws)
-    , m_context(ctx)
-    , m_runtime(runtime)
     , m_name(name)
     , m_datatype(datatype)
     , m_rank(index_tree.rank().value())
@@ -146,8 +134,6 @@ protected:
     Legion::LogicalRegion values,
     Legion::LogicalRegion keywords)
     : WithKeywords(ctx, runtime, keywords)
-    , m_context(ctx)
-    , m_runtime(runtime)
     , m_name(name)
     , m_datatype(datatype)
     , m_rank(
@@ -155,10 +141,6 @@ protected:
 
     init(values);
   }
-
-  mutable Legion::Context m_context;
-
-  mutable Legion::Runtime* m_runtime;
 
 private:
 

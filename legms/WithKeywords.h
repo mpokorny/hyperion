@@ -69,11 +69,23 @@ public:
     return m_keywords_region;
   }
 
+  Legion::Context&
+  context() const {
+    return m_context;
+  }
+
+  Legion::Runtime*
+  runtime() const {
+    return m_runtime;
+  }
+
+protected:
+
+  mutable Legion::Context m_context;
+
+  mutable Legion::Runtime* m_runtime;
+
 private:
-
-  Legion::Context m_context;
-
-  Legion::Runtime* m_runtime;
 
   std::unordered_map<std::string, casacore::DataType> m_keywords;
 
