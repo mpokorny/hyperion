@@ -3,7 +3,7 @@
 
 #include <string>
 #include <tuple>
-#include <unordered_map>
+#include <vector>
 
 #include <casacore/casa/Utilities/DataType.h>
 
@@ -16,17 +16,17 @@ public:
 
   void
   add_keyword(const std::string& name, casacore::DataType datatype) {
-    m_keywords.emplace(name, datatype);
+    m_keywords.emplace_back(name, datatype);
   }
 
-  const std::unordered_map<std::string, casacore::DataType>&
+  const std::vector<std::tuple<std::string, casacore::DataType>>&
   keywords() const {
     return m_keywords;
   }
 
 private:
 
-  std::unordered_map<std::string, casacore::DataType> m_keywords;
+  std::vector<std::tuple<std::string, casacore::DataType>> m_keywords;
 
 };
 

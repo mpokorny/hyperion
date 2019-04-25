@@ -30,6 +30,7 @@ struct ColumnGenArgs {
   std::vector<int> axes;
   Legion::LogicalRegion values;
   Legion::LogicalRegion keywords;
+  std::vector<casacore::DataType> keyword_datatypes;
 
   template <typename D>
   std::unique_ptr<ColumnT<D>>
@@ -116,7 +117,7 @@ protected:
     const std::string& name,
     casacore::DataType datatype,
     const IndexTreeL& index_tree,
-    const std::unordered_map<std::string, casacore::DataType>& kws)
+    const kw_desc_t& kws = kw_desc_t())
     : WithKeywords(ctx, runtime, kws)
     , m_name(name)
     , m_datatype(datatype)
@@ -132,8 +133,9 @@ protected:
     const std::string& name,
     casacore::DataType datatype,
     Legion::LogicalRegion values,
-    Legion::LogicalRegion keywords)
-    : WithKeywords(ctx, runtime, keywords)
+    Legion::LogicalRegion keywords,
+    const std::vector<casacore::DataType>& kw_datatypes)
+    : WithKeywords(ctx, runtime, keywords, kw_datatypes)
     , m_name(name)
     , m_datatype(datatype)
     , m_rank(
@@ -191,8 +193,7 @@ public:
     casacore::DataType datatype,
     const std::vector<D>& axes,
     const IndexTreeL& index_tree_,
-    const std::unordered_map<std::string, casacore::DataType>& kws =
-    std::unordered_map<std::string, casacore::DataType>())
+    const kw_desc_t& kws = kw_desc_t())
     : Column(
       ctx,
       runtime,
@@ -209,14 +210,16 @@ public:
     casacore::DataType datatype,
     const std::vector<D>& axes,
     Legion::LogicalRegion values,
-    Legion::LogicalRegion keywords)
+    Legion::LogicalRegion keywords,
+    const std::vector<casacore::DataType>& kw_datatypes)
     : Column(
       ctx,
       runtime,
       name,
       datatype,
       values,
-      keywords)
+      keywords,
+      kw_datatypes)
     , m_axes(axes) {}
 
   virtual ~ColumnT() {}
@@ -246,7 +249,8 @@ public:
         datatype(),
         axes(),
         logical_region(),
-        keywords_region()};
+        keywords_region(),
+        keywords_datatypes()};
   }
 
   std::unique_ptr<ColumnPartition>
@@ -723,7 +727,8 @@ public:
           genargs.datatype,
           axes,
           genargs.values,
-          genargs.keywords);
+          genargs.keywords,
+          genargs.keyword_datatypes);
     };
   }
 
