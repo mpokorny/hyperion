@@ -8,15 +8,21 @@
 #include <string>
 #include <vector>
 
+#include <experimental/filesystem>
+
 #include <hdf5.h>
 
 #include "IndexTree.h"
+#include "Column.h"
+#include "Table.h"
 
 namespace legms {
 namespace hdf5 {
 
 const size_t large_tree_min = (64 * (1 << 10));
-const char* table_index_axes_attr_name = "index_axes";
+#define LEGMS_ATTRIBUTE_NAME_PREFIX "legms::"
+const char* table_index_axes_attr_name =
+  LEGMS_ATTRIBUTE_NAME_PREFIX "index_axes";
 const size_t table_index_axes_attr_max_length = 160;
 
 // TODO: it might be nice to support use of types of IndexSpace descriptions
@@ -36,17 +42,20 @@ write_index_tree_to_attr(
   const std::string& attr_name) {
 
   // remove current attribute value
-  std::string attr_ds_name = obj_name + "-" + attr_name;
+  std::string legms_attr_name =
+    std::string(LEGMS_ATTRIBUTE_NAME_PREFIX) + attr_name;
+  std::string attr_ds_name =
+    std::string(LEGMS_ATTRIBUTE_NAME_PREFIX) + obj_name + "-" + attr_name;
 
   if (H5Aexists_by_name(
         loc_id,
         obj_name.c_str(),
-        attr_name.c_str(),
+        legms_attr_name.c_str(),
         H5P_DEFAULT)) {
     H5Adelete_by_name(
       loc_id,
       obj_name.c_str(),
-      attr_name.c_str(),
+      legms_attr_name.c_str(),
       H5P_DEFAULT);
     if (H5Lexists(loc_id, attr_ds_name.c_str(), H5P_DEFAULT) > 0)
       H5Ldelete(loc_id, attr_ds_name.c_str(), H5P_DEFAULT);
@@ -63,7 +72,7 @@ write_index_tree_to_attr(
       H5Acreate_by_name(
         loc_id,
         obj_name.c_str(),
-        attr_name.c_str(),
+        legms_attr_name.c_str(),
         H5T_NATIVE_UINT8,
         value_space_id,
         H5P_DEFAULT,
@@ -101,7 +110,7 @@ write_index_tree_to_attr(
       H5Acreate_by_name(
         loc_id,
         obj_name.c_str(),
-        attr_name.c_str(),
+        legms_attr_name.c_str(),
         attr_type,
         ref_space_id,
         H5P_DEFAULT,
@@ -119,7 +128,7 @@ write_index_tree_to_attr(
 
   // write serdez id
   {
-    std::string md_name = attr_name + "-metadata";
+    std::string md_name = legms_attr_name + "-sid";
     hsize_t md_dims = 1;
     hid_t md_space_id = H5Screate_simple(1, &md_dims, NULL);
     hid_t md_attr_id =
@@ -223,18 +232,27 @@ read_index_tree_from_attr(
 }
 
 void
+write_keywords(hid_t loc_id, const WithKeywords* with_keywords);
+
+void
 write_column(
+  const std::experimental::filesystem::path& path,
   hid_t table_id,
-  const std::shared_ptr<Column>& column,
+  const std::string& table_name,
+  const Column* column,
   hid_t creation_pl = H5P_DEFAULT,
   hid_t access_pl = H5P_DEFAULT,
   hid_t transfer_pl = H5P_DEFAULT);
 
 void
-write_keywords(hid_t loc_id, Legion::LogicalRegion& keywords);
-
-void
-write_table(hid_t loc_id, const std::shared_ptr<Table>& table);
+write_table(
+  const std::experimental::filesystem::path& path,
+  hid_t loc_id,
+  const Table* table,
+  hid_t link_creation_pl = H5P_DEFAULT,
+  hid_t link_access_pl = H5P_DEFAULT,
+  hid_t group_creation_pl = H5P_DEFAULT,
+  hid_t group_access_pl = H5P_DEFAULT);
 
 template <typename COORD_T = Legion::coord_t>
 struct binary_index_tree_serdez {
@@ -259,29 +277,30 @@ struct binary_index_tree_serdez {
   }
 };
 
-// template <typename COORD_T = Legion::coord_t>
-// struct string_index_tree_serdez {
+template <typename COORD_T = Legion::coord_t>
+struct string_index_tree_serdez {
 
-//   typedef COORD_T coord_t;
-//   static const constexpr uint8_t id = 20 + sizeof(COORD_T);
+  typedef COORD_T coord_t;
+  static const constexpr uint8_t id = 20 + sizeof(COORD_T);
 
-//   static size_t
-//   serialized_size(const IndexTree<COORD_T>& tree) {
-//     return tree.show().size() + 1;
-//   }
+  static size_t
+  serialized_size(const IndexTree<COORD_T>& tree) {
+    return tree.show().size() + 1;
+  }
 
-//   static size_t
-//   serialize(const IndexTree<COORD_T>& tree, void *buffer) {
-//     auto tr = tree.show();
-//     std::memcpy(static_cast<char*>(buffer), tr.c_str(), tr.size() + 1);
-//     return return tr.size() + 1;
-//   }
+  static size_t
+  serialize(const IndexTree<COORD_T>& tree, void *buffer) {
+    auto tr = tree.show();
+    std::memcpy(static_cast<char*>(buffer), tr.c_str(), tr.size() + 1);
+    return tr.size() + 1;
+  }
 
-//   static size_t
-//   deserialize(IndexTree<COORD_T>& tree, const void* buffer) {
-//     // TODO
-//   }
-// };
+  static size_t
+  deserialize(IndexTree<COORD_T>& tree, const void* buffer) {
+    // TODO
+    assert(false);
+  }
+};
 
 } // end namespace hdf5
 } // end namespace legms
