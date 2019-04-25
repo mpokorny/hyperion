@@ -302,8 +302,7 @@ table_tests(
   assert(fd != -1);
   std::cout << "test file name: " << fname << std::endl;
   close(fd);
-  hid_t fid =
-    H5Fcreate(fname.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+  hid_t fid = H5DatatypeManager::create(fname, H5F_ACC_TRUNC);
   hid_t root_loc = H5Gopen(fid, "/", H5P_DEFAULT);
   assert(root_loc >= 0);
   write_table(fname, root_loc, &table0);

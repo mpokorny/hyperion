@@ -685,6 +685,61 @@ legms::H5DatatypeManager::register_datatypes() {
   }
 }
 
+herr_t
+legms::H5DatatypeManager::commit_derived(
+  hid_t loc_id,
+  hid_t lcpl_id,
+  hid_t tcpl_id,
+  hid_t tapl_id) {
+
+  herr_t result =
+    H5Tcommit(
+      loc_id,
+      "legms::complex",
+      legms::H5DatatypeManager::datatypes_[CASACORE_COMPLEX_H5T],
+      lcpl_id,
+      tcpl_id,
+      tapl_id);
+  if (result < 0)
+    return result;
+
+  result =
+    H5Tcommit(
+      loc_id,
+      "legms::dcomplex",
+      legms::H5DatatypeManager::datatypes_[CASACORE_DCOMPLEX_H5T],
+      lcpl_id,
+      tcpl_id,
+      tapl_id);
+  if (result < 0)
+    return result;
+
+  result =
+    H5Tcommit(
+      loc_id,
+      "legms::string",
+      legms::H5DatatypeManager::datatypes_[CASACORE_STRING_H5T],
+      lcpl_id,
+      tcpl_id,
+      tapl_id);
+  return result;
+}
+
+hid_t
+legms::H5DatatypeManager::create(
+  const std::experimental::filesystem::path& path,
+  unsigned flags,
+  hid_t fcpl_t,
+  hid_t fapl_t) {
+
+  hid_t result = H5Fcreate(path.c_str(), flags, fcpl_t, fapl_t);
+  if (result >= 0) {
+    herr_t rc = commit_derived(result);
+    assert(rc >= 0);
+  }
+  return result;
+}
+
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2

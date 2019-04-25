@@ -16,6 +16,7 @@
 # ifndef LEGMS_H5_STRING_SIZE
 #  define LEGMS_H5_STRING_SIZE 80
 # endif
+# include <experimental/filesystem>
 #endif
 
 #include <casacore/casa/aipstype.h>
@@ -706,6 +707,20 @@ public:
   template <casacore::DataType DT>
   static hid_t
   datatype();
+
+  static herr_t
+  commit_derived(
+    hid_t loc_id,
+    hid_t lcpl_id = H5P_DEFAULT,
+    hid_t tcpl_id = H5P_DEFAULT,
+    hid_t tapl_id = H5P_DEFAULT);
+
+  static hid_t
+  create(
+    const std::experimental::filesystem::path& path,
+    unsigned flags,
+    hid_t fcpl_t = H5P_DEFAULT,
+    hid_t fapl_t = H5P_DEFAULT);
 
 private:
 
