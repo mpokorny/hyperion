@@ -29,15 +29,12 @@ public:
       auto is = m_runtime->create_index_space(m_context, Legion::Rect<1>(0, 0));
       auto fs = m_runtime->create_field_space(m_context);
       auto fa = m_runtime->create_field_allocator(m_context, fs);
-      std::for_each(
-        kws.begin(),
-        kws.end(),
-        [&](auto& nm_dt) {
-          auto& [nm, dt] = nm_dt;
-          auto fid = add_field(dt, fa);
-          m_runtime->attach_name(fs, fid, nm.c_str());
-          datatypes.push_back(dt);
-        });
+      for (size_t i = 0; i < kws.size(); ++i) {
+        auto& [nm, dt] = kws[i];
+        add_field(dt, fa, i);
+        m_runtime->attach_name(fs, i, nm.c_str());
+        datatypes.push_back(dt);
+      }
       m_keywords_region = m_runtime->create_logical_region(m_context, is, fs);
       m_runtime->destroy_field_space(m_context, fs);
       m_runtime->destroy_index_space(m_context, is);
@@ -65,8 +62,7 @@ public:
       m_runtime->destroy_logical_region(m_context, m_keywords_region);
   }
 
-  const std::vector<
-    std::tuple<std::string, Legion::FieldID, casacore::DataType>>&
+  const kw_desc_t&
   keywords() const {
     return m_keywords;
   }
@@ -83,8 +79,13 @@ public:
       m_keywords.begin(),
       m_keywords.end(),
       std::back_inserter(result),
-      [](auto& kw) { return std::get<2>(kw); });
+      [](auto& kw) { return std::get<1>(kw); });
     return result;
+  }
+
+  size_t
+  num_keywords() const {
+    return m_keywords.size();
   }
 
   Legion::Context&
@@ -103,13 +104,10 @@ private:
   init(const std::vector<casacore::DataType>& datatypes) {
     if (m_keywords_region != Legion::LogicalRegion::NO_REGION) {
       Legion::FieldSpace fs = m_keywords_region.get_field_space();
-      std::vector<Legion::FieldID> fids;
-      m_runtime->get_field_space_fields(m_context, fs, fids);
-      assert(fids.size() == datatypes.size());
       for (size_t i = 0; i < datatypes.size(); ++i) {
         const char* name;
-        m_runtime->retrieve_name(fs, fids[i], name);
-        m_keywords.emplace_back(name, fids[i], datatypes[i]);
+        m_runtime->retrieve_name(fs, i, name);
+        m_keywords.emplace_back(name, datatypes[i]);
       }
     }
   }
@@ -121,8 +119,7 @@ protected:
 
 private:
 
-  std::vector<std::tuple<std::string, Legion::FieldID, casacore::DataType>>
-  m_keywords;
+  kw_desc_t m_keywords;
 
   Legion::LogicalRegion m_keywords_region;
 };
