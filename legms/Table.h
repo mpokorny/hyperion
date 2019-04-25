@@ -30,8 +30,7 @@ public:
     Legion::Runtime* runtime,
     const std::string& name,
     const std::vector<std::string>& index_axes,
-    const std::unordered_map<std::string, casacore::DataType>& kws =
-    std::unordered_map<std::string, casacore::DataType>())
+    const kw_desc_t& kws = kw_desc_t())
     : WithKeywords(ctx, runtime, kws)
     , m_name(name)
     , m_index_axes(index_axes) {
@@ -42,8 +41,9 @@ public:
     Legion::Runtime* runtime,
     const std::string& name,
     const std::vector<std::string>& index_axes,
-    Legion::LogicalRegion keywords)
-    : WithKeywords(ctx, runtime, keywords)
+    Legion::LogicalRegion keywords,
+    std::vector<casacore::DataType>& datatypes)
+    : WithKeywords(ctx, runtime, keywords, datatypes)
     , m_name(name)
     , m_index_axes(index_axes) {
   };
@@ -109,6 +109,7 @@ struct TableGenArgs {
   std::vector<std::string> index_axes;
   std::vector<ColumnGenArgs> col_genargs;
   Legion::LogicalRegion keywords;
+  std::vector<casacore::DataType> keyword_datatypes;
 
   template <typename D>
   std::unique_ptr<TableT<D>>
@@ -135,8 +136,7 @@ public:
     const std::string& name,
     const std::vector<std::string>& index_axes,
     const std::vector<typename ColumnT<D>::Generator>& column_generators,
-    const std::unordered_map<std::string, casacore::DataType>& kws =
-    std::unordered_map<std::string, casacore::DataType>())
+    const kw_desc_t& kws = kw_desc_t())
     : TableT(
       ctx,
       runtime,
@@ -154,8 +154,7 @@ public:
     const std::vector<std::string>& index_axes,
     GeneratorIter generator_first,
     GeneratorIter generator_last,
-    const std::unordered_map<std::string, casacore::DataType>& kws =
-    std::unordered_map<std::string, casacore::DataType>())
+    const kw_desc_t& kws = kw_desc_t())
     : Table(ctx, runtime, name, index_axes, kws) {
 
     std::transform(
@@ -178,8 +177,9 @@ public:
     const std::string& name,
     const std::vector<std::string>& index_axes,
     const std::vector<ColumnGenArgs>& col_genargs,
-    Legion::LogicalRegion keywords)
-    : Table(ctx, runtime, name, index_axes, keywords) {
+    Legion::LogicalRegion keywords,
+    const std::vector<casacore::DataType>& kw_datatypes)
+    : Table(ctx, runtime, name, index_axes, keywords, kw_datatypes) {
 
     std::transform(
       col_genargs.begin(),
@@ -231,7 +231,8 @@ public:
     return TableGenArgs {
       name(),
         col_genargs, // TODO: std::move?
-        keywords_region()};
+        keywords_region(),
+        keywords_datatypes()};
   }
 
 protected:
@@ -285,7 +286,8 @@ TableGenArgs::operator()(
       name,
       index_axes,
       col_genargs,
-      keywords);
+      keywords,
+      keyword_datatypes);
 }
 
 

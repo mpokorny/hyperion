@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <string>
 #include <tuple>
-#include <unordered_map>
 #include <vector>
 
 #include <casacore/casa/Utilities/DataType.h>
@@ -16,14 +15,16 @@ namespace legms {
 class WithKeywords {
 public:
 
+  typedef std::vector<std::tuple<std::string, casacore::DataType>> kw_desc_t;
+
   WithKeywords(
     Legion::Context ctx,
     Legion::Runtime* runtime,
-    const std::unordered_map<std::string, casacore::DataType>& kws)
+    const kw_desc_t& kws)
     : m_context(ctx)
-    , m_runtime(runtime)
-    , m_keywords(kws) {
+    , m_runtime(runtime) {
 
+    std::vector<casacore::DataType> datatypes;
     if (kws.size() > 0) {
       auto is = m_runtime->create_index_space(m_context, Legion::Rect<1>(0, 0));
       auto fs = m_runtime->create_field_space(m_context);
@@ -35,6 +36,7 @@ public:
           auto& [nm, dt] = nm_dt;
           auto fid = add_field(dt, fa);
           m_runtime->attach_name(fs, fid, nm.c_str());
+          datatypes.push_back(dt);
         });
       m_keywords_region = m_runtime->create_logical_region(m_context, is, fs);
       m_runtime->destroy_field_space(m_context, fs);
@@ -43,15 +45,19 @@ public:
     else {
       m_keywords_region = Legion::LogicalRegion::NO_REGION;
     }
+    init(datatypes);
   }
 
   WithKeywords(
     Legion::Context ctx,
     Legion::Runtime* runtime,
-    Legion::LogicalRegion region)
+    Legion::LogicalRegion region,
+    const std::vector<casacore::DataType>& datatypes)
     : m_context(ctx)
     , m_runtime(runtime)
     , m_keywords_region(region) {
+
+    init(datatypes);
   }
 
   virtual ~WithKeywords() {
@@ -59,7 +65,8 @@ public:
       m_runtime->destroy_logical_region(m_context, m_keywords_region);
   }
 
-  const std::unordered_map<std::string, casacore::DataType>&
+  const std::vector<
+    std::tuple<std::string, Legion::FieldID, casacore::DataType>>&
   keywords() const {
     return m_keywords;
   }
@@ -67,6 +74,17 @@ public:
   Legion::LogicalRegion
   keywords_region() const {
     return m_keywords_region;
+  }
+
+  std::vector<casacore::DataType>
+  keywords_datatypes() const {
+    std::vector<casacore::DataType> result;
+    std::transform(
+      m_keywords.begin(),
+      m_keywords.end(),
+      std::back_inserter(result),
+      [](auto& kw) { return std::get<2>(kw); });
+    return result;
   }
 
   Legion::Context&
@@ -79,6 +97,22 @@ public:
     return m_runtime;
   }
 
+private:
+
+  void
+  init(const std::vector<casacore::DataType>& datatypes) {
+    if (m_keywords_region != Legion::LogicalRegion::NO_REGION) {
+      Legion::FieldSpace fs = m_keywords_region.get_field_space();
+      std::vector<Legion::FieldID> fids;
+      m_runtime->get_field_space_fields(m_context, fs, fids);
+      assert(fids.size() == datatypes.size());
+      for (size_t i = 0; i < datatypes.size(); ++i) {
+        const char* name;
+        m_runtime->retrieve_name(fs, fids[i], name);
+        m_keywords.emplace_back(name, fids[i], datatypes[i]);
+      }
+    }
+  }
 protected:
 
   mutable Legion::Context m_context;
@@ -87,7 +121,8 @@ protected:
 
 private:
 
-  std::unordered_map<std::string, casacore::DataType> m_keywords;
+  std::vector<std::tuple<std::string, Legion::FieldID, casacore::DataType>>
+  m_keywords;
 
   Legion::LogicalRegion m_keywords_region;
 };
