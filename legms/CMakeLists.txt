@@ -146,6 +146,9 @@ list(APPEND
 # occur when the wrong or inconsistent LEGMS_MAX_DIM values are used
 if (legms_USE_HDF)
   list(APPEND legms_COMPILE_DEFINITIONS "USE_HDF")
+  list(APPEND
+    legms_COMPILE_DEFINITIONS
+    "LEGMS_H5_STRING_SIZE=${legms_H5_STRING_SIZE}")
 endif()
 
 set_target_properties(legms PROPERTIES
