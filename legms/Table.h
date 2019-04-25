@@ -34,9 +34,7 @@ public:
     std::unordered_map<std::string, casacore::DataType>())
     : WithKeywords(ctx, runtime, kws)
     , m_name(name)
-    , m_index_axes(index_axes)
-    , m_context(ctx)
-    , m_runtime(runtime) {
+    , m_index_axes(index_axes) {
   };
 
   Table(
@@ -47,9 +45,7 @@ public:
     Legion::LogicalRegion keywords)
     : WithKeywords(ctx, runtime, keywords)
     , m_name(name)
-    , m_index_axes(index_axes)
-    , m_context(ctx)
-    , m_runtime(runtime) {
+    , m_index_axes(index_axes) {
   };
 
   virtual ~Table() {
@@ -87,16 +83,6 @@ public:
     return m_index_axes;
   }
 
-  Legion::Context&
-  context() const {
-    return m_context;
-  }
-
-  Legion::Runtime*
-  runtime() const {
-    return m_runtime;
-  }
-
   static std::unique_ptr<Table>
   from_ms(
     Legion::Context ctx,
@@ -112,12 +98,6 @@ private:
   std::string m_name;
 
   std::vector<std::string> m_index_axes;
-
-protected:
-
-  mutable Legion::Context m_context;
-
-  mutable Legion::Runtime* m_runtime;
 };
 
 template <typename D> class TableT;
