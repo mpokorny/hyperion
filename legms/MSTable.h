@@ -54,6 +54,12 @@ struct MSTableAxis {
     static const constexpr char* name = #A;                         \
   }
 
+#define MS_TABLE_AXES_UID(T)                          \
+  template <>                                         \
+  struct AxesUID<MSTable<MSTables::T>::Axes> {        \
+    static const constexpr char *id = "legms::" #T;   \
+  }
+
 // N.B.: dimension indexes in comments of the Axes members of the MSTable
 // specializations in this file correspond to the order of column axes as
 // provided in the MS specification document, which is in column-major order; in
@@ -137,6 +143,8 @@ MS_AXIS_NAME(MAIN, ARRAY_ID);
 MS_AXIS_NAME(MAIN, OBSERVATION_ID);
 MS_AXIS_NAME(MAIN, STATE_ID);
 
+MS_TABLE_AXES_UID(MAIN);
+
 template <>
 struct MSTable<MSTables::ANTENNA> {
   static const constexpr char* name = "ANTENNA";
@@ -165,6 +173,8 @@ MS_AXIS_NAME(ANTENNA, POSITION);
 MS_AXIS_NAME(ANTENNA, OFFSET);
 MS_AXIS_NAME(ANTENNA, MEAN_ORBIT);
 
+MS_TABLE_AXES_UID(ANTENNA);
+
 template <>
 struct MSTable<MSTables::DATA_DESCRIPTION> {
   static const constexpr char* name = "DATA_DESCRIPTION";
@@ -183,6 +193,8 @@ struct MSTable<MSTables::DATA_DESCRIPTION> {
 };
 
 MS_AXIS_NAME(DATA_DESCRIPTION, ROW);
+
+MS_TABLE_AXES_UID(DATA_DESCRIPTION);
 
 template <>
 struct MSTable<MSTables::DOPPLER> {
@@ -214,6 +226,8 @@ MS_AXIS_NAME(DOPPLER, ROW);
 MS_AXIS_NAME(DOPPLER, DOPPLER_ID);
 MS_AXIS_NAME(DOPPLER, SOURCE_ID);
 MS_AXIS_NAME(DOPPLER, TRANSITION_ID);
+
+MS_TABLE_AXES_UID(DOPPLER);
 
 template <>
 struct MSTable<MSTables::FEED> {
@@ -260,6 +274,8 @@ MS_AXIS_NAME(FEED, SPECTRAL_WINDOW_ID);
 MS_AXIS_NAME(FEED, TIME);
 MS_AXIS_NAME(FEED, INTERVAL);
 
+MS_TABLE_AXES_UID(FEED);
+
 template <>
 struct MSTable<MSTables::FIELD> {
   static const constexpr char* name = "FIELD";
@@ -293,6 +309,8 @@ MS_AXIS_NAME(FIELD, DIRECTION);
 MS_AXIS_NAME(FIELD, SOURCE_ID);
 MS_AXIS_NAME(FIELD, EPHEMERIS_ID);
 
+MS_TABLE_AXES_UID(FIELD);
+
 template <>
 struct MSTable<MSTables::FLAG_CMD> {
   static const constexpr char *name = "FLAG_CMD";
@@ -319,6 +337,8 @@ struct MSTable<MSTables::FLAG_CMD> {
 MS_AXIS_NAME(FLAG_CMD, ROW);
 MS_AXIS_NAME(FLAG_CMD, TIME);
 MS_AXIS_NAME(FLAG_CMD, INTERVAL);
+
+MS_TABLE_AXES_UID(FLAG_CMD);
 
 template <>
 struct MSTable<MSTables::FREQ_OFFSET> {
@@ -355,6 +375,8 @@ MS_AXIS_NAME(FREQ_OFFSET, SPECTRAL_WINDOW_ID);
 MS_AXIS_NAME(FREQ_OFFSET, TIME);
 MS_AXIS_NAME(FREQ_OFFSET, INTERVAL);
 
+MS_TABLE_AXES_UID(FREQ_OFFSET);
+
 template <>
 struct MSTable<MSTables::HISTORY> {
   static const constexpr char* name = "HISTORY";
@@ -388,6 +410,8 @@ MS_AXIS_NAME(HISTORY, APP_PARAM);
 MS_AXIS_NAME(HISTORY, TIME);
 MS_AXIS_NAME(HISTORY, OBSERVATION_ID);
 
+MS_TABLE_AXES_UID(HISTORY);
+
 template <>
 struct MSTable<MSTables::OBSERVATION> {
   static const constexpr char* name = "OBSERVATION";
@@ -415,6 +439,8 @@ MS_AXIS_NAME(OBSERVATION, ROW);
 MS_AXIS_NAME(OBSERVATION, TIME_RANGE);
 MS_AXIS_NAME(OBSERVATION, LOG);
 MS_AXIS_NAME(OBSERVATION, SCHEDULE);
+
+MS_TABLE_AXES_UID(OBSERVATION);
 
 template <>
 struct MSTable<MSTables::POINTING> {
@@ -451,6 +477,8 @@ MS_AXIS_NAME(POINTING, ANTENNA_ID);
 MS_AXIS_NAME(POINTING, TIME);
 MS_AXIS_NAME(POINTING, INTERVAL);
 
+MS_TABLE_AXES_UID(POINTING);
+
 template <>
 struct MSTable<MSTables::POLARIZATION> {
   static const constexpr char* name = "POLARIZATION";
@@ -476,6 +504,8 @@ MS_AXIS_NAME(POLARIZATION, ROW);
 MS_AXIS_NAME(POLARIZATION, CORRELATION);
 MS_AXIS_NAME(POLARIZATION, PRODUCT);
 
+MS_TABLE_AXES_UID(POLARIZATION);
+
 template <>
 struct MSTable<MSTables::PROCESSOR> {
   static const constexpr char* name = "PROCESSOR";
@@ -495,6 +525,7 @@ struct MSTable<MSTables::PROCESSOR> {
 
 MS_AXIS_NAME(PROCESSOR, ROW);
 
+MS_TABLE_AXES_UID(PROCESSOR);
 
 template <>
 struct MSTable<MSTables::SOURCE> {
@@ -543,6 +574,8 @@ MS_AXIS_NAME(SOURCE, INTERVAL);
 MS_AXIS_NAME(SOURCE, SPECTRAL_WINDOW_ID);
 MS_AXIS_NAME(SOURCE, PULSAR_ID);
 
+MS_TABLE_AXES_UID(SOURCE);
+
 template <>
 struct MSTable<MSTables::SPECTRAL_WINDOW> {
   static const constexpr char* name = "SPECTRAL_WINDOW";
@@ -568,6 +601,8 @@ MS_AXIS_NAME(SPECTRAL_WINDOW, ROW);
 MS_AXIS_NAME(SPECTRAL_WINDOW, CHANNEL);
 MS_AXIS_NAME(SPECTRAL_WINDOW, ASSOC_SPW);
 
+MS_TABLE_AXES_UID(SPECTRAL_WINDOW);
+
 template <>
 struct MSTable<MSTables::STATE> {
   static const constexpr char* name = "STATE";
@@ -586,6 +621,8 @@ struct MSTable<MSTables::STATE> {
 };
 
 MS_AXIS_NAME(STATE, ROW);
+
+MS_TABLE_AXES_UID(STATE);
 
 template <>
 struct MSTable<MSTables::SYSCAL> {
@@ -629,6 +666,8 @@ MS_AXIS_NAME(SYSCAL, SPECTRAL_WINDOW_ID);
 MS_AXIS_NAME(SYSCAL, TIME);
 MS_AXIS_NAME(SYSCAL, INTERVAL);
 
+MS_TABLE_AXES_UID(SYSCAL);
+
 template <>
 struct MSTable<MSTables::WEATHER> {
   static const constexpr char* name = "WEATHER";
@@ -658,7 +697,11 @@ MS_AXIS_NAME(WEATHER, ANTENNA_ID);
 MS_AXIS_NAME(WEATHER, TIME);
 MS_AXIS_NAME(WEATHER, INTERVAL);
 
+MS_TABLE_AXES_UID(WEATHER);
+
 #undef MS_AXIS_NAME
+
+#undef MS_TABLE_AXES_UID
 
 } // end namespace legms
 

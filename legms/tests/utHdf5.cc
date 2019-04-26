@@ -26,6 +26,11 @@ enum struct Table0Axes {
   ZP
 };
 
+template <>
+struct legms::AxesUID<Table0Axes> {
+  static constexpr const char* id = "Table0Axes";
+};
+
 std::ostream&
 operator<<(std::ostream& stream, const Table0Axes& ax) {
   switch (ax) {
