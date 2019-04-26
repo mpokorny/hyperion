@@ -683,6 +683,19 @@ legms::H5DatatypeManager::register_datatypes() {
     H5Tset_size(dt, LEGMS_MAX_STRING_SIZE);
     legms::H5DatatypeManager::datatypes_[CASACORE_STRING_H5T] = dt;
   }
+  {
+    hid_t dt = H5Tenum_create(H5T_NATIVE_UCHAR);
+
+#define DTINSERT(T) do {                          \
+      unsigned char val = casacore::DataType::T;  \
+      herr_t err = H5Tenum_insert(dt, #T, &val);  \
+      assert(err >= 0);                           \
+    } while(0);
+
+    FOREACH_BARE_DATATYPE(DTINSERT);
+
+    legms::H5DatatypeManager::datatypes_[CASACORE_DATATYPE_H5T] = dt;
+  }
 }
 
 herr_t
@@ -719,6 +732,17 @@ legms::H5DatatypeManager::commit_derived(
       loc_id,
       "legms::string",
       legms::H5DatatypeManager::datatypes_[CASACORE_STRING_H5T],
+      lcpl_id,
+      tcpl_id,
+      tapl_id);
+  if (result < 0)
+    return result;
+
+  result =
+    H5Tcommit(
+      loc_id,
+      "casacore::DataType",
+      legms::H5DatatypeManager::datatypes_[CASACORE_DATATYPE_H5T],
       lcpl_id,
       tcpl_id,
       tapl_id);

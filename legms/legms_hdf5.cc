@@ -63,20 +63,69 @@ using KW =
     Legion::coord_t>,
   false>;
 
-hid_t
-init_kw_attr(hid_t loc_id, const char *attr_name, hid_t type_id) {
-  htri_t rc = H5Aexists(loc_id, attr_name);
+void
+init_datatype_attr(hid_t loc_id, const char* name, casacore::DataType dt) {
+
+  const char* suffix = ((std::strlen(name) > 0) ? "-dt" : "dt");
+  std::string attr_name =
+    std::string(LEGMS_ATTRIBUTE_NAME_PREFIX) + name + suffix;
+
+  htri_t rc = H5Aexists(loc_id, attr_name.c_str());
   if (rc > 0) {
-    herr_t err = H5Adelete(loc_id, attr_name);
+    herr_t err = H5Adelete(loc_id, attr_name.c_str());
     assert(err >= 0);
   }
-  hid_t attr_ds = H5Screate(H5S_SCALAR);
-  assert(attr_ds >= 0);
-  hid_t result =
-    H5Acreate(loc_id, attr_name, type_id, attr_ds, H5P_DEFAULT, H5P_DEFAULT);
-  assert(result >= 0);
-  herr_t err = H5Sclose(attr_ds);
+
+  hid_t ds = H5Screate(H5S_SCALAR);
+  assert(ds >= 0);
+  hid_t did = legms::H5DatatypeManager::datatypes()[
+    legms::H5DatatypeManager::CASACORE_DATATYPE_H5T];
+  hid_t attr_id =
+    H5Acreate(
+      loc_id,
+      attr_name.c_str(),
+      did,
+      ds,
+      H5P_DEFAULT,
+      H5P_DEFAULT);
+  assert(attr_id >= 0);
+  unsigned char udt = dt;
+  // herr_t err =
+  //   H5Tconvert(H5T_NATIVE_UCHAR, attr_dt, 1, &udt, NULL, H5P_DEFAULT);
+  // assert(err >= 0);
+  herr_t err = H5Awrite(attr_id, did, &udt);
   assert(err >= 0);
+  err = H5Sclose(ds);
+  assert(err >= 0);
+  err = H5Aclose(attr_id);
+  assert(err >= 0);
+}
+
+hid_t
+init_kw_attr(
+  hid_t loc_id,
+  const char *attr_name,
+  hid_t type_id,
+  casacore::DataType dt) {
+
+  {
+    htri_t rc = H5Aexists(loc_id, attr_name);
+    if (rc > 0) {
+      herr_t err = H5Adelete(loc_id, attr_name);
+      assert(err >= 0);
+    }
+  }
+  init_datatype_attr(loc_id, attr_name, dt);
+  hid_t result;
+  {
+    hid_t attr_ds = H5Screate(H5S_SCALAR);
+    assert(attr_ds >= 0);
+    result =
+      H5Acreate(loc_id, attr_name, type_id, attr_ds, H5P_DEFAULT, H5P_DEFAULT);
+    assert(result >= 0);
+    herr_t err = H5Sclose(attr_ds);
+    assert(err >= 0);
+  }
   return result;
 }
 
@@ -89,7 +138,7 @@ write_kw_attr(
   Legion::FieldID fid) {
 
   hid_t dt = legms::H5DatatypeManager::datatype<DT>();
-  hid_t attr = init_kw_attr(loc_id, attr_name, dt);
+  hid_t attr = init_kw_attr(loc_id, attr_name, dt, DT);
   if (region) {
     const KW<DT> kw(region.value(), fid);
     herr_t err = H5Awrite(attr, dt, kw.ptr(0));
@@ -108,7 +157,7 @@ write_kw_attr<casacore::TpString> (
   Legion::FieldID fid) {
 
   hid_t dt = legms::H5DatatypeManager::datatype<casacore::TpString>();
-  hid_t attr = init_kw_attr(loc_id, attr_name, dt);
+  hid_t attr = init_kw_attr(loc_id, attr_name, dt, casacore::TpString);
   if (region) {
     const KW<casacore::TpString> kw(region.value(), fid);
     const string& val = kw[0];
@@ -247,6 +296,9 @@ legms::hdf5::write_column(
     herr_t err = H5Sclose(ds);
     assert(err >= 0);
   }
+
+  // write column value datatype
+  init_datatype_attr(col_id, "", column->datatype());
 
   // write axes attribute to column
   {
