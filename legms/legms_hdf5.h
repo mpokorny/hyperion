@@ -6,6 +6,7 @@
 #include <cstring>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <experimental/filesystem>
@@ -240,7 +241,10 @@ read_index_tree_from_attr(
 }
 
 void
-write_keywords(hid_t loc_id, const WithKeywords* with_keywords);
+write_keywords(
+  hid_t loc_id,
+  const WithKeywords* with_keywords,
+  bool with_data = true);
 
 void
 write_column(
@@ -248,6 +252,7 @@ write_column(
   hid_t table_id,
   const std::string& table_name,
   const Column* column,
+  bool with_data = true,
   hid_t creation_pl = H5P_DEFAULT,
   hid_t access_pl = H5P_DEFAULT,
   hid_t transfer_pl = H5P_DEFAULT);
@@ -257,6 +262,8 @@ write_table(
   const std::experimental::filesystem::path& path,
   hid_t loc_id,
   const Table* table,
+  const std::unordered_set<std::string>& excluded_columns = {},
+  bool with_data = true,
   hid_t link_creation_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t group_creation_pl = H5P_DEFAULT,
