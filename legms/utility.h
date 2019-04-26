@@ -231,39 +231,31 @@ public:
   typedef typename S::size_type size_type;
   typedef typename S::value_type value_type;
 
-  static const size_t MAX_SERIALIZED_SIZE =
-    std::numeric_limits<size_type>::max();
+  static const size_t MAX_SERIALIZED_SIZE = LEGMS_MAX_STRING_SIZE;
 
   static size_t
   serialized_size(const S& val) {
-    return sizeof(size_type) + val.size() * sizeof(value_type);
+    assert(val.size() < LEGMS_MAX_STRING_SIZE);
+    return LEGMS_MAX_STRING_SIZE;
   }
 
   static size_t
   serialize(const S& val, void *buffer) {
-    size_t result = serialized_size(val);
-    size_type nch = val.size();
-    std::memcpy(static_cast<size_type *>(buffer), &nch, sizeof(nch));
-    if (nch > 0) {
-      value_type* chbuf =
-        reinterpret_cast<value_type *>(static_cast<size_type *>(buffer) + 1);
-      std::memcpy(chbuf, val.data(), result - sizeof(size_type));
-    }
-    return result;
+    assert(val.size() < LEGMS_MAX_STRING_SIZE);
+    char* buff = static_cast<char*>(buffer);
+    std::strncpy(
+      buff,
+      val.c_str(),
+      std::min(val.size() + 1, static_cast<size_t>(LEGMS_MAX_STRING_SIZE)));
+    buff[LEGMS_MAX_STRING_SIZE - 1] = '\0';
+    return LEGMS_MAX_STRING_SIZE;
   }
 
   static size_t
   deserialize(S& val, const void *buffer) {
-    size_type nch = *static_cast<const size_type *>(buffer);
-    val.clear();
-    if (nch > 0) {
-      val.reserve(nch);
-      val.append(
-        reinterpret_cast<const value_type*>(
-          static_cast<const size_type *>(buffer) + 1),
-        nch);
-    }
-    return serialized_size(val);
+    const char* buff = static_cast<const char*>(buffer);
+    val = buff;
+    return LEGMS_MAX_STRING_SIZE;
   }
 
   static void
