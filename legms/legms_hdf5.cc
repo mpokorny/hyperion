@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 #include <numeric>
+#include <optional>
 #include <sstream>
 
 using namespace legms::hdf5;
@@ -84,16 +85,18 @@ void
 write_kw_attr(
   hid_t loc_id,
   const char *attr_name,
-  Legion::PhysicalRegion& region,
+  std::optional<Legion::PhysicalRegion>& region,
   Legion::FieldID fid) {
 
   hid_t dt = legms::H5DatatypeManager::datatype<DT>();
   hid_t attr = init_kw_attr(loc_id, attr_name, dt);
-  const KW<DT> kw(region, fid);
-  herr_t rc = H5Awrite(attr, dt, kw.ptr(0));
-  assert(rc >= 0);
-  H5Aclose(attr);
-  assert(rc >= 0);
+  if (region) {
+    const KW<DT> kw(region.value(), fid);
+    herr_t err = H5Awrite(attr, dt, kw.ptr(0));
+    assert(err >= 0);
+  }
+  herr_t err = H5Aclose(attr);
+  assert(err >= 0);
 }
 
 template <>
@@ -101,27 +104,30 @@ void
 write_kw_attr<casacore::TpString> (
   hid_t loc_id,
   const char *attr_name,
-  Legion::PhysicalRegion& region,
+  std::optional<Legion::PhysicalRegion>& region,
   Legion::FieldID fid) {
 
   hid_t dt = legms::H5DatatypeManager::datatype<casacore::TpString>();
   hid_t attr = init_kw_attr(loc_id, attr_name, dt);
-  const KW<casacore::TpString> kw(region, fid);
-  const string& val = kw[0];
-  char buf[LEGMS_H5_STRING_SIZE];
-  assert(val.size() < sizeof(buf));
-  strncpy(buf, val.c_str(), sizeof(buf));
-  buf[sizeof(buf) - 1] = '\0';
-  herr_t rc = H5Awrite(attr, dt, buf);
-  assert(rc >= 0);
-  rc = H5Aclose(attr);
-  assert(rc >= 0);
+  if (region) {
+    const KW<casacore::TpString> kw(region.value(), fid);
+    const string& val = kw[0];
+    char buf[LEGMS_H5_STRING_SIZE];
+    assert(val.size() < sizeof(buf));
+    strncpy(buf, val.c_str(), sizeof(buf));
+    buf[sizeof(buf) - 1] = '\0';
+    herr_t err = H5Awrite(attr, dt, buf);
+    assert(err >= 0);
+  }
+  herr_t err = H5Aclose(attr);
+  assert(err >= 0);
 }
 
 void
 legms::hdf5::write_keywords(
   hid_t loc_id,
-  const WithKeywords* with_keywords) {
+  const WithKeywords* with_keywords,
+  bool with_data) {
 
   if (with_keywords->keywords_region() == Legion::LogicalRegion::NO_REGION)
     return;
@@ -129,15 +135,18 @@ legms::hdf5::write_keywords(
   Legion::Runtime* runtime = with_keywords->runtime();
   Legion::Context context = with_keywords->context();
 
-  std::vector<Legion::FieldID> fids(with_keywords->num_keywords());
-  std::iota(fids.begin(), fids.end(), 0);
-  Legion::RegionRequirement req(
-    with_keywords->keywords_region(),
-    READ_ONLY,
-    EXCLUSIVE,
-    with_keywords->keywords_region());
-  req.add_fields(fids);
-  Legion::PhysicalRegion pr = runtime->map_region(context, req);
+  std::optional<Legion::PhysicalRegion> pr;
+  if (with_data) {
+    Legion::RegionRequirement req(
+      with_keywords->keywords_region(),
+      READ_ONLY,
+      EXCLUSIVE,
+      with_keywords->keywords_region());
+    std::vector<Legion::FieldID> fids(with_keywords->num_keywords());
+    std::iota(fids.begin(), fids.end(), 0);
+    req.add_fields(fids);
+    pr = runtime->map_region(context, req);
+  }
 
   auto kws = with_keywords->keywords();
   for (size_t i = 0; i < kws.size(); ++i) {
@@ -167,6 +176,7 @@ legms::hdf5::write_column(
   hid_t table_id,
   const string& table_name,
   const Column* column,
+  bool with_data,
   hid_t creation_pl,
   hid_t access_pl,
   hid_t transfer_pl) {
@@ -283,36 +293,37 @@ legms::hdf5::write_column(
   }
 
   // write data to dataset
-  string column_ds_name = string("/") + table_name + "/" + column->name();
-  map<Legion::FieldID, const char*>
-    field_map{{Column::value_fid, column_ds_name.c_str()}};
-  Legion::LogicalRegion values_lr =
-    runtime->create_logical_region(
-      context,
-      column->index_space(),
-      column->logical_region().get_field_space());
-  Legion::AttachLauncher attach(EXTERNAL_HDF5_FILE, values_lr, values_lr);
-  attach.attach_hdf5(path.c_str(), field_map, LEGION_FILE_READ_WRITE);
-  Legion::PhysicalRegion values_pr =
-    runtime->attach_external_resource(context, attach);
-  Legion::RegionRequirement src(
-    column->logical_region(),
-    READ_ONLY,
-    EXCLUSIVE,
-    column->logical_region());
-  src.add_field(Column::value_fid);
-  Legion::RegionRequirement dst(
-    values_lr,
-    WRITE_ONLY,
-    EXCLUSIVE,
-    values_lr);
-  dst.add_field(Column::value_fid);
-  Legion::CopyLauncher copy;
-  copy.add_copy_requirements(src, dst);
-  runtime->issue_copy_operation(context, copy);
-  runtime->detach_external_resource(context, values_pr);
-
-  write_keywords(col_id, column);
+  if (with_data) {
+    string column_ds_name = string("/") + table_name + "/" + column->name();
+    map<Legion::FieldID, const char*>
+      field_map{{Column::value_fid, column_ds_name.c_str()}};
+    Legion::LogicalRegion values_lr =
+      runtime->create_logical_region(
+        context,
+        column->index_space(),
+        column->logical_region().get_field_space());
+    Legion::AttachLauncher attach(EXTERNAL_HDF5_FILE, values_lr, values_lr);
+    attach.attach_hdf5(path.c_str(), field_map, LEGION_FILE_READ_WRITE);
+    Legion::PhysicalRegion values_pr =
+      runtime->attach_external_resource(context, attach);
+    Legion::RegionRequirement src(
+      column->logical_region(),
+      READ_ONLY,
+      EXCLUSIVE,
+      column->logical_region());
+    src.add_field(Column::value_fid);
+    Legion::RegionRequirement dst(
+      values_lr,
+      WRITE_ONLY,
+      EXCLUSIVE,
+      values_lr);
+    dst.add_field(Column::value_fid);
+    Legion::CopyLauncher copy;
+    copy.add_copy_requirements(src, dst);
+    runtime->issue_copy_operation(context, copy);
+    runtime->detach_external_resource(context, values_pr);
+  }
+  write_keywords(col_id, column, with_data);
   herr_t rc = H5Dclose(col_id);
   assert(rc >= 0);
 
@@ -328,6 +339,8 @@ legms::hdf5::write_table(
   const experimental::filesystem::path& path,
   hid_t loc_id,
   const Table* table,
+  const std::unordered_set<std::string>& excluded_columns,
+  bool with_data,
   hid_t link_creation_pl,
   hid_t link_access_pl,
   hid_t group_creation_pl,
@@ -441,11 +454,17 @@ legms::hdf5::write_table(
     for_each(
       table->column_names().begin(),
       table->column_names().end(),
-      [&path, &table, table_id](auto& nm) {
-        write_column(path, table_id, table->name(), table->column(nm).get());
+      [&path, &table, &excluded_columns, &with_data, table_id](auto& nm) {
+        if (excluded_columns.count(nm) == 0)
+          write_column(
+            path,
+            table_id,
+            table->name(),
+            table->column(nm).get(),
+            with_data);
       });
 
-    write_keywords(table_id, table);
+    write_keywords(table_id, table, with_data);
 
   } catch (...) {
     herr_t err = H5Gclose(table_id);
