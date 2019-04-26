@@ -62,14 +62,7 @@ Table::from_ms(
 
 size_t
 TableGenArgs::legion_buffer_size(void) const {
-  size_t ia_size =
-    accumulate(
-      index_axes.begin(),
-      index_axes.end(),
-      sizeof(size_t),
-      [](auto& acc, auto& ax) {
-        return acc + ax.size() + 1;
-      });
+  size_t ia_size = vector_serdez<int>::serialized_size(index_axes);
   size_t result =
     accumulate(
       col_genargs.begin(),
@@ -89,16 +82,7 @@ TableGenArgs::legion_serialize(void *buffer) const {
   memcpy(buff, name.c_str(), s);
   buff += s;
 
-  *reinterpret_cast<size_t*>(buff) = index_axes.size();
-  buff += sizeof(size_t);
-  for_each(
-    index_axes.begin(),
-    index_axes.end(),
-    [&buff](auto& ax) {
-      size_t len = ax.size() + 1;
-      memcpy(buff, ax.c_str(), len);
-      buff += len;
-    });
+  buff += vector_serdez<int>::serialize(index_axes, buff);
 
   size_t csz = col_genargs.size();
   s = sizeof(csz);
@@ -128,13 +112,7 @@ TableGenArgs::legion_deserialize(const void *buffer) {
   name = *buff;
   buff += name.size() + 1;
 
-  size_t nax = *reinterpret_cast<const size_t *>(buff);
-  buff += sizeof(nax);
-  index_axes.clear();
-  for (size_t i = 0; i < nax; ++i) {
-    index_axes.push_back(string(buff));
-    buff += index_axes.back().size() + 1;
-  }
+  buff += vector_serdez<int>::deserialize(index_axes, buff);
 
   size_t ncg = *reinterpret_cast<const size_t *>(buff);
   buff += sizeof(ncg);
@@ -156,7 +134,7 @@ TaskID ReindexedTableTask::TASK_ID;
 
 ReindexedTableTask::ReindexedTableTask(
   const string& name,
-  const vector<string>& index_axes,
+  const vector<int>& index_axes,
   LogicalRegion keywords_region,
   const vector<Future>& reindexed) {
 
