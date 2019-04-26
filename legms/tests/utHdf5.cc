@@ -124,6 +124,27 @@ attach_table0_col(
 
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 
+struct other_index_tree_serdez {
+
+  static const constexpr char* id = "other_index_tree_serdez";
+
+  static size_t
+  serialized_size(const IndexTreeL& tree) {
+    return tree.serialized_size();
+  }
+
+  static size_t
+  serialize(const IndexTreeL& tree, void *buffer) {
+    return tree.serialize(static_cast<char*>(buffer));
+  }
+
+  static size_t
+  deserialize(IndexTreeL& tree, const void* buffer) {
+    tree = IndexTreeL::deserialize(static_cast<const char*>(buffer));
+    return tree.serialized_size();
+  }
+};
+
 void
 test_index_tree_attribute(
   hid_t fid,
@@ -132,11 +153,11 @@ test_index_tree_attribute(
   const IndexTreeL& tree,
   const std::string& tree_name) {
 
-  write_index_tree_to_attr<binary_index_tree_serdez<Legion::coord_t>>(
+  write_index_tree_to_attr<binary_index_tree_serdez>(
     tree,
     fid,
-    dataset_name.c_str(),
-    tree_name.c_str());
+    dataset_name,
+    tree_name);
 
   auto tree_md =
     read_index_tree_attr_metadata(fid, dataset_name.c_str(), tree_name.c_str());
@@ -147,12 +168,12 @@ test_index_tree_attribute(
     std::string("IndexTree attribute ") + tree_name
     + " metadata has expected serializer id",
     TE(tree_md.value())
-    == binary_index_tree_serdez<Legion::coord_t>::id);
+    == std::string(binary_index_tree_serdez::id));
   auto optTree =
-    read_index_tree_from_attr<binary_index_tree_serdez<Legion::coord_t>>(
+    read_index_tree_from_attr<binary_index_tree_serdez>(
       fid,
-      dataset_name.c_str(),
-      tree_name.c_str());
+      dataset_name,
+      tree_name);
   recorder.assert_true(
     std::string("IndexTree attribute ") + tree_name + " value exists",
     optTree.has_value());
@@ -161,7 +182,7 @@ test_index_tree_attribute(
     TE(optTree.value()) == tree);
 
   auto optTree_bad =
-    read_index_tree_from_attr<binary_index_tree_serdez<unsigned char>>(
+    read_index_tree_from_attr<other_index_tree_serdez>(
       fid,
       dataset_name.c_str(),
       tree_name.c_str());

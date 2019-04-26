@@ -23,7 +23,6 @@ const size_t large_tree_min = (64 * (1 << 10));
 #define LEGMS_ATTRIBUTE_NAME_PREFIX "legms::"
 const char* table_index_axes_attr_name =
   LEGMS_ATTRIBUTE_NAME_PREFIX "index_axes";
-const size_t table_index_axes_attr_max_length = 160;
 
 // TODO: it might be nice to support use of types of IndexSpace descriptions
 // other than IndexTree...this might require some sort of type registration
@@ -36,7 +35,7 @@ const size_t table_index_axes_attr_max_length = 160;
 template <typename SERDEZ>
 void
 write_index_tree_to_attr(
-  const IndexTree<typename SERDEZ::coord_t>& spec,
+  const IndexTreeL& spec,
   hid_t loc_id,
   const std::string& obj_name,
   const std::string& attr_name) {
@@ -129,42 +128,45 @@ write_index_tree_to_attr(
   // write serdez id
   {
     std::string md_name = legms_attr_name + "-sid";
-    hsize_t md_dims = 1;
-    hid_t md_space_id = H5Screate_simple(1, &md_dims, NULL);
+    hid_t md_space_id = H5Screate(H5S_SCALAR);
+    hid_t md_attr_dt =
+      legms::H5DatatypeManager::datatype<ValueType<casacore::String>::DataType>();
     hid_t md_attr_id =
       H5Acreate_by_name(
         loc_id,
         obj_name.c_str(),
         md_name.c_str(),
-        H5T_NATIVE_UINT8,
+        md_attr_dt,
         md_space_id,
         H5P_DEFAULT,
         H5P_DEFAULT,
         H5P_DEFAULT);
     assert(md_attr_id >= 0);
-    uint8_t metadata = SERDEZ::id;
-    herr_t rc = H5Awrite(md_attr_id, H5T_NATIVE_UINT8, &metadata);
+    char attr[LEGMS_H5_STRING_SIZE];
+    std::strncpy(attr, SERDEZ::id, sizeof(attr));
+    attr[sizeof(attr) - 1] = '\0';
+    herr_t rc = H5Awrite(md_attr_id, md_attr_dt, attr);
     assert(rc >= 0);
   }
 }
 
-std::optional<uint8_t>
+std::optional<std::string>
 read_index_tree_attr_metadata(
   hid_t loc_id,
   const std::string& obj_name,
   const std::string& attr_name);
 
 template <typename SERDEZ>
-std::optional<IndexTree<typename SERDEZ::coord_t>>
+std::optional<IndexTreeL>
 read_index_tree_from_attr(
   hid_t loc_id,
   const std::string& obj_name,
   const std::string& attr_name) {
 
-  std::optional<IndexTree<typename SERDEZ::coord_t>> result;
+  std::optional<IndexTreeL> result;
 
   auto metadata = read_index_tree_attr_metadata(loc_id, obj_name, attr_name);
-  if (!metadata || metadata.value() != SERDEZ::id)
+  if (!metadata || std::strcmp(metadata.value().c_str(), SERDEZ::id) != 0)
     return result;
 
   std::string legms_attr_name =
@@ -198,7 +200,7 @@ read_index_tree_from_attr(
     std::vector<char> buf(static_cast<size_t>(attr_sz));
     herr_t rc = H5Aread(attr_id, H5T_NATIVE_UINT8, buf.data());
     assert(rc >= 0);
-    IndexTree<typename SERDEZ::coord_t> tree;
+    IndexTreeL tree;
     SERDEZ::deserialize(tree, buf.data());
     result = tree;
 
@@ -225,7 +227,7 @@ read_index_tree_from_attr(
     assert(rc >= 0);
     H5Dclose(attr_ds);
     H5Sclose(attr_sp);
-    IndexTree<typename SERDEZ::coord_t> tree;
+    IndexTreeL tree;
     SERDEZ::deserialize(tree, buf.data());
     result = tree;
   }
@@ -256,49 +258,45 @@ write_table(
   hid_t group_creation_pl = H5P_DEFAULT,
   hid_t group_access_pl = H5P_DEFAULT);
 
-template <typename COORD_T = Legion::coord_t>
 struct binary_index_tree_serdez {
 
-  typedef COORD_T coord_t;
-  static const constexpr uint8_t id = 10 + sizeof(COORD_T);
+  static const constexpr char* id = "legms::hdf5::binary_index_tree_serdez";
 
   static size_t
-  serialized_size(const IndexTree<COORD_T>& tree) {
+  serialized_size(const IndexTreeL& tree) {
     return tree.serialized_size();
   }
 
   static size_t
-  serialize(const IndexTree<COORD_T>& tree, void *buffer) {
+  serialize(const IndexTreeL& tree, void *buffer) {
     return tree.serialize(static_cast<char*>(buffer));
   }
 
   static size_t
-  deserialize(IndexTree<COORD_T>& tree, const void* buffer) {
-    tree = IndexTree<COORD_T>::deserialize(static_cast<const char*>(buffer));
+  deserialize(IndexTreeL& tree, const void* buffer) {
+    tree = IndexTreeL::deserialize(static_cast<const char*>(buffer));
     return tree.serialized_size();
   }
 };
 
-template <typename COORD_T = Legion::coord_t>
 struct string_index_tree_serdez {
 
-  typedef COORD_T coord_t;
-  static const constexpr uint8_t id = 20 + sizeof(COORD_T);
+  static const constexpr char* id = "legms::hdf5::string_index_tree_serdez";
 
   static size_t
-  serialized_size(const IndexTree<COORD_T>& tree) {
+  serialized_size(const IndexTreeL& tree) {
     return tree.show().size() + 1;
   }
 
   static size_t
-  serialize(const IndexTree<COORD_T>& tree, void *buffer) {
+  serialize(const IndexTreeL& tree, void *buffer) {
     auto tr = tree.show();
     std::memcpy(static_cast<char*>(buffer), tr.c_str(), tr.size() + 1);
     return tr.size() + 1;
   }
 
   static size_t
-  deserialize(IndexTree<COORD_T>& tree, const void* buffer) {
+  deserialize(IndexTreeL& tree, const void* buffer) {
     // TODO
     assert(false);
   }
