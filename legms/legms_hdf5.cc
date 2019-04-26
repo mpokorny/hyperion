@@ -40,7 +40,7 @@ legms::hdf5::read_index_tree_attr_metadata(
         legms::H5DatatypeManager::datatype<
           ValueType<casacore::String>::DataType>();
       if (H5Tequal(attr_type, attr_dt) > 0) {
-        char metadata[LEGMS_H5_STRING_SIZE];
+        char metadata[LEGMS_MAX_STRING_SIZE];
         herr_t rc = H5Aread(attr_id, attr_dt, metadata);
         assert(rc >= 0);
         result = std::string(metadata);
@@ -112,7 +112,7 @@ write_kw_attr<casacore::TpString> (
   if (region) {
     const KW<casacore::TpString> kw(region.value(), fid);
     const string& val = kw[0];
-    char buf[LEGMS_H5_STRING_SIZE];
+    char buf[LEGMS_MAX_STRING_SIZE];
     assert(val.size() < sizeof(buf));
     strncpy(buf, val.c_str(), sizeof(buf));
     buf[sizeof(buf) - 1] = '\0';
@@ -392,7 +392,7 @@ legms::hdf5::write_table(
     }
     assert(axes_uid_id >= 0);
     try {
-      char buff[LEGMS_H5_STRING_SIZE];
+      char buff[LEGMS_MAX_STRING_SIZE];
       assert(std::strlen(table->axes_uid()) < sizeof(buff));
       strncpy(buff, table->axes_uid(), sizeof(buff));
       buff[sizeof(buff) - 1] = '\0';

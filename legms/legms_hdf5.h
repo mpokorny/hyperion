@@ -147,7 +147,7 @@ write_index_tree_to_attr(
         H5P_DEFAULT,
         H5P_DEFAULT);
     assert(md_attr_id >= 0);
-    char attr[LEGMS_H5_STRING_SIZE];
+    char attr[LEGMS_MAX_STRING_SIZE];
     std::strncpy(attr, SERDEZ::id, sizeof(attr));
     attr[sizeof(attr) - 1] = '\0';
     herr_t rc = H5Awrite(md_attr_id, md_attr_dt, attr);

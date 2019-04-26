@@ -680,7 +680,7 @@ legms::H5DatatypeManager::register_datatypes() {
   }
   {
     hid_t dt = H5Tcopy(H5T_C_S1);
-    H5Tset_size(dt, LEGMS_H5_STRING_SIZE);
+    H5Tset_size(dt, LEGMS_MAX_STRING_SIZE);
     legms::H5DatatypeManager::datatypes_[CASACORE_STRING_H5T] = dt;
   }
 }
