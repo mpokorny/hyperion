@@ -689,6 +689,7 @@ public:
     CASACORE_COMPLEX_H5T,
     CASACORE_DCOMPLEX_H5T,
     CASACORE_STRING_H5T,
+    CASACORE_DATATYPE_H5T,
   };
 
   static void
@@ -928,6 +929,20 @@ __func__(casacore::DataType::TpDouble)              \
 __func__(casacore::DataType::TpComplex)             \
 __func__(casacore::DataType::TpDComplex)            \
 __func__(casacore::DataType::TpString)
+
+#define FOREACH_BARE_DATATYPE(__func__)  \
+  __func__(TpBool)          \
+  __func__(TpChar)          \
+  __func__(TpUChar)         \
+  __func__(TpShort)         \
+  __func__(TpUShort)        \
+  __func__(TpInt)           \
+  __func__(TpUInt)          \
+  __func__(TpFloat)         \
+  __func__(TpDouble)        \
+  __func__(TpComplex)       \
+  __func__(TpDComplex)      \
+  __func__(TpString)
 
 template <typename T>
 struct ValueType {
