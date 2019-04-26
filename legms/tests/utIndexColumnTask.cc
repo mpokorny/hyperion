@@ -107,7 +107,7 @@ index_column_task_test_suite(
       context,
       runtime,
       "table0",
-      {"ROW"},
+      {static_cast<int>(Table0Axes::ROW)},
       {table0_col("X"),
        table0_col("Y")});
   auto col_x =
