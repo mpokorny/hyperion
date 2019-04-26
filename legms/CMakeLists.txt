@@ -124,7 +124,7 @@ list(APPEND LEGMS_SRC
   WithKeywordsBuilder.h
   WithKeywords.h)
 
-if(legms_USE_HDF)
+if(legms_USE_HDF5)
   list(APPEND LEGMS_SRC
     legms_hdf5.h
     legms_hdf5.cc)
@@ -144,11 +144,8 @@ list(APPEND
 # TODO: find a better way of passing the legms_COMPILE_DEFINITIONS to all
 # targets, both in this directory and all sub-directories...evil runtime errors
 # occur when the wrong or inconsistent LEGMS_MAX_DIM values are used
-if (legms_USE_HDF)
-  list(APPEND legms_COMPILE_DEFINITIONS "USE_HDF")
-  list(APPEND
-    legms_COMPILE_DEFINITIONS
-    "LEGMS_H5_STRING_SIZE=${legms_H5_STRING_SIZE}")
+if (legms_USE_HDF5)
+  list(APPEND legms_COMPILE_DEFINITIONS "USE_HDF5")
 endif()
 
 set_target_properties(legms PROPERTIES
@@ -162,7 +159,7 @@ target_include_directories(legms SYSTEM
   PUBLIC ${CASACORE}/include)
 target_link_directories(legms PUBLIC ${CASACORE}/lib)
 target_link_directories(legms PUBLIC ${Legion_INSTALL_DIR}/lib64)
-if (legms_USE_HDF)
+if (legms_USE_HDF5)
   target_include_directories(legms SYSTEM
     PUBLIC ${HDF5_INCLUDE_DIRS})
   target_link_libraries(legms PUBLIC ${HDF5_LIBRARIES})

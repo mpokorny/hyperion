@@ -5,8 +5,6 @@
 #include <numeric>
 #include <sstream>
 
-#ifdef USE_HDF
-
 using namespace legms::hdf5;
 using namespace std;
 
@@ -385,8 +383,6 @@ legms::hdf5::write_table(
   }
   H5Gclose(table_id);
 }
-
-#endif
 
 // Local Variables:
 // mode: c++
