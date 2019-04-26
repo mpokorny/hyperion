@@ -307,65 +307,64 @@ legms::hdf5::write_table(
   }
 
   try {
-    {
-      hid_t index_axes_dt =
-        legms::H5DatatypeManager::datatype<ValueType<casacore::String>::DataType>();
+    hid_t index_axes_dt =
+      legms::H5DatatypeManager::datatype<
+        ValueType<casacore::String>::DataType>();
 
-      hid_t index_axes_id = -1;
-      htri_t rc = H5Aexists(table_id, table_index_axes_attr_name);
+    hid_t index_axes_id = -1;
+    htri_t rc = H5Aexists(table_id, table_index_axes_attr_name);
 
-      try {
-        if (rc == 0) {
-          hid_t index_axes_ds = H5Screate(H5S_SCALAR);
-          assert(index_axes_ds >= 0);
-          index_axes_id =
-            H5Acreate(
-              table_id,
-              table_index_axes_attr_name,
-              index_axes_dt,
-              index_axes_ds,
-              H5P_DEFAULT,
-              H5P_DEFAULT);
-          herr_t err = H5Sclose(index_axes_ds);
-          assert(err >= 0);
-        } else {
-          assert(rc > 0);
-          index_axes_id =
-            H5Aopen(table_id, table_index_axes_attr_name, H5P_DEFAULT);
-        }
-        assert(index_axes_id >= 0);
-
-        const char* sep = "";
-        ostringstream oss;
-        for_each(
-          table->index_axes().begin(),
-          table->index_axes().end(),
-          [&oss, &sep](auto& a) {
-            oss << sep << a;
-            sep = ",";
-          });
-        string index_axes = oss.str();
-        // FIXME: return errors from this function
-        assert(index_axes.size() < LEGMS_H5_STRING_SIZE);
-        char index_axes_buf[LEGMS_H5_STRING_SIZE];
-        std::strncpy(
-          index_axes_buf,
-          index_axes.c_str(),
-          sizeof(index_axes_buf));
-        index_axes_buf[sizeof(index_axes_buf) - 1] = '\0';
-        herr_t err = H5Awrite(index_axes_id, index_axes_dt, index_axes_buf);
+    try {
+      if (rc == 0) {
+        hid_t index_axes_ds = H5Screate(H5S_SCALAR);
+        assert(index_axes_ds >= 0);
+        index_axes_id =
+          H5Acreate(
+            table_id,
+            table_index_axes_attr_name,
+            index_axes_dt,
+            index_axes_ds,
+            H5P_DEFAULT,
+            H5P_DEFAULT);
+        herr_t err = H5Sclose(index_axes_ds);
         assert(err >= 0);
-      } catch (...) {
-        if (index_axes_id >= 0) {
-          herr_t err = H5Aclose(index_axes_id);
-          assert(err >= 0);
-        }
-        throw;
+      } else {
+        assert(rc > 0);
+        index_axes_id =
+          H5Aopen(table_id, table_index_axes_attr_name, H5P_DEFAULT);
       }
+      assert(index_axes_id >= 0);
+
+      const char* sep = "";
+      ostringstream oss;
+      for_each(
+        table->index_axes().begin(),
+        table->index_axes().end(),
+        [&oss, &sep](auto& a) {
+          oss << sep << a;
+          sep = ",";
+        });
+      string index_axes = oss.str();
+      // FIXME: return errors from this function
+      assert(index_axes.size() < LEGMS_H5_STRING_SIZE);
+      char index_axes_buf[LEGMS_H5_STRING_SIZE];
+      std::strncpy(
+        index_axes_buf,
+        index_axes.c_str(),
+        sizeof(index_axes_buf));
+      index_axes_buf[sizeof(index_axes_buf) - 1] = '\0';
+      herr_t err = H5Awrite(index_axes_id, index_axes_dt, index_axes_buf);
+      assert(err >= 0);
+    } catch (...) {
       if (index_axes_id >= 0) {
         herr_t err = H5Aclose(index_axes_id);
         assert(err >= 0);
       }
+      throw;
+    }
+    if (index_axes_id >= 0) {
+      herr_t err = H5Aclose(index_axes_id);
+      assert(err >= 0);
     }
 
     for_each(
@@ -376,12 +375,14 @@ legms::hdf5::write_table(
       });
 
     write_keywords(table_id, table);
-    
+
   } catch (...) {
-    H5Gclose(table_id);
+    herr_t err = H5Gclose(table_id);
+    assert(err >= 0);
     throw;
   }
-  H5Gclose(table_id);
+  herr_t err = H5Gclose(table_id);
+  assert(err >= 0);
 }
 
 // Local Variables:
