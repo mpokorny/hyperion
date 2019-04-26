@@ -53,6 +53,12 @@ dimensions_map(const std::vector<D>& from, const std::vector<D>& to) {
   return result;
 }
 
+// uid of axes
+template <typename T>
+struct AxesUID {
+  // static const char* id;
+};
+
 template <typename T>
 class vector_serdez {
 public:
