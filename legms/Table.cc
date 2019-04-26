@@ -62,16 +62,21 @@ Table::from_ms(
 
 size_t
 TableGenArgs::legion_buffer_size(void) const {
-  size_t ia_size = vector_serdez<int>::serialized_size(index_axes);
-  size_t result =
+  size_t result = name.size() + 1;
+  result += axes_uid.size() + 1;
+  result += vector_serdez<int>::serialized_size(index_axes);
+  result =
     accumulate(
       col_genargs.begin(),
       col_genargs.end(),
-      name.size() + 1 + sizeof(size_t) + ia_size,
+      result + sizeof(size_t),
       [](auto& acc, auto& cg) {
         return acc + cg.legion_buffer_size();
       });
-  return result + 2 * sizeof(LogicalRegion);
+  result += sizeof(LogicalRegion);
+  result +=
+    vector_serdez<casacore::DataType>::serialized_size(keyword_datatypes);
+  return result;
 }
 
 size_t
@@ -80,6 +85,10 @@ TableGenArgs::legion_serialize(void *buffer) const {
 
   size_t s = name.size() + 1;
   memcpy(buff, name.c_str(), s);
+  buff += s;
+
+  s = axes_uid.size() + 1;
+  memcpy(buff, axes_uid.c_str(), s);
   buff += s;
 
   buff += vector_serdez<int>::serialize(index_axes, buff);
@@ -102,6 +111,8 @@ TableGenArgs::legion_serialize(void *buffer) const {
   memcpy(buff, &keywords, s);
   buff += s;
 
+  buff += vector_serdez<casacore::DataType>::serialize(keyword_datatypes, buff);
+
   return buff - static_cast<char*>(buffer);
 }
 
@@ -112,11 +123,13 @@ TableGenArgs::legion_deserialize(const void *buffer) {
   name = *buff;
   buff += name.size() + 1;
 
+  axes_uid = *buff;
+  buff += axes_uid.size() + 1;
+
   buff += vector_serdez<int>::deserialize(index_axes, buff);
 
   size_t ncg = *reinterpret_cast<const size_t *>(buff);
   buff += sizeof(ncg);
-
   col_genargs.clear();
   for (size_t i = 0; i < ncg; ++i) {
     ColumnGenArgs genargs;
@@ -127,6 +140,9 @@ TableGenArgs::legion_deserialize(const void *buffer) {
   keywords = *(const decltype(keywords) *)buff;
   buff += sizeof(keywords);
 
+  buff +=
+    vector_serdez<casacore::DataType>::deserialize(keyword_datatypes, buff);
+
   return buff - static_cast<const char*>(buffer);
 }
 
@@ -134,6 +150,7 @@ TaskID ReindexedTableTask::TASK_ID;
 
 ReindexedTableTask::ReindexedTableTask(
   const string& name,
+  const char* axes_uid,
   const vector<int>& index_axes,
   LogicalRegion keywords_region,
   const vector<Future>& reindexed) {
@@ -141,6 +158,7 @@ ReindexedTableTask::ReindexedTableTask(
   // reuse TableGenArgsSerializer to pass task arguments
   TableGenArgs args;
   args.name = name;
+  args.axes_uid = axes_uid;
   args.index_axes = index_axes;
   args.keywords = keywords_region;
 
@@ -452,8 +470,8 @@ public:
 
     bool has_parent = false/*parent_regions.size() > 0*/;
     cout << "ix_columns " << ix_columns.size()
-              << "; idx " << idx
-              << " (";
+         << "; idx " << idx
+         << " (";
     for_each(
       ix0.begin(),
       ix0.end(),
@@ -1070,7 +1088,7 @@ public:
 
     casacore::DataType dt = *static_cast<casacore::DataType*>(task->args);
 
-#define CPYDT(DT) \
+#define CPYDT(DT)                                       \
     case (DT): copy<DT>(regions[0], regions[1]); break;
 
     switch (dt) {
@@ -1375,8 +1393,15 @@ reindex_column(
   IndexSpaceT<NEWDIM> new_col_is(
     runtime->get_index_subspace(new_bounds_ip, 0));
 
-  ColumnGenArgs result {args.col.name, args.col.datatype, new_axes,
-                        LogicalRegion::NO_REGION, args.col.keywords};
+  ColumnGenArgs
+    result {
+    args.col.name,
+    args.col.axes_uid,
+    args.col.datatype,
+    new_axes,
+    LogicalRegion::NO_REGION,
+    args.col.keywords,
+    args.col.keyword_datatypes};
 
   // if reindexing failed, new_col_is should be empty
   if (!runtime->get_index_space_domain(ctx, new_col_is).empty()) {

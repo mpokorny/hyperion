@@ -78,6 +78,9 @@ public:
   virtual const std::string&
   max_rank_column_name() const = 0;
 
+  virtual const char*
+  axes_uid() const = 0;
+
   const std::vector<int>&
   index_axes() const {
     return m_index_axes;
@@ -103,9 +106,8 @@ private:
 template <typename D> class TableT;
 
 struct TableGenArgs {
-  // TODO: should I add a type tag here to catch errors in calling () with the
-  // wrong type?
   std::string name;
+  std::string axes_uid;
   std::vector<int> index_axes;
   std::vector<ColumnGenArgs> col_genargs;
   Legion::LogicalRegion keywords;
@@ -197,6 +199,11 @@ public:
   virtual ~TableT() {
   }
 
+  const char*
+  axes_uid() const override {
+    return AxesUID<D>::id;
+  }
+
   std::unordered_set<std::string>
   column_names() const override {
     std::unordered_set<std::string> result;
@@ -222,7 +229,7 @@ public:
 
   TableGenArgs
   generator_args() const {
-    std::unordered_set<ColumnGenArgs> col_genargs;
+    std::vector<ColumnGenArgs> col_genargs;
     std::transform(
       column_names().begin(),
       column_names().end(),
@@ -230,6 +237,8 @@ public:
       [](auto& nm) { return columnT(nm)->generator_args(); });
     return TableGenArgs {
       name(),
+        axes_uid(),
+        index_axes(),
         col_genargs, // TODO: std::move?
         keywords_region(),
         keywords_datatypes()};
@@ -279,6 +288,9 @@ TableGenArgs::operator()(
   Legion::Context ctx,
   Legion::Runtime* runtime) const {
 
+  // TODO: convert this assertion to an exception
+  assert(std::string(AxesUID<D>::id) == axes_uid);
+
   return
     std::make_unique<TableT<D>>(
       ctx,
@@ -289,7 +301,6 @@ TableGenArgs::operator()(
       keywords,
       keyword_datatypes);
 }
-
 
 template <MSTables T>
 static std::unique_ptr<TableT<typename MSTable<T>::Axes>>
@@ -350,6 +361,7 @@ public:
 
   ReindexedTableTask(
     const std::string& name,
+    const char* axes_uid,
     const std::vector<int>& index_axes,
     Legion::LogicalRegion keywords_region,
     const std::vector<Legion::Future>& reindexed);
@@ -573,7 +585,12 @@ reindexed(
   if (allow_rows)
     index_axes.push_back(static_cast<int>(D::ROW));
   ReindexedTableTask
-    task(table->name(), index_axes, table->keywords_region(), reindexed);
+    task(
+      table->name(),
+      table->axes_uid(),
+      index_axes,
+      table->keywords_region(),
+      reindexed);
   return task.dispatch(table->context(), table->runtime());
 }
 

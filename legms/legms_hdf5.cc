@@ -175,6 +175,7 @@ legms::hdf5::write_column(
   Legion::Runtime* runtime = column->runtime();
   Legion::Context context = column->context();
 
+  // delete column dataset if it exists
   htri_t ds_exists =
     H5Lexists(table_id, column->name().c_str(), H5P_DEFAULT);
   if (ds_exists > 0) {
@@ -184,6 +185,7 @@ legms::hdf5::write_column(
     assert(ds_exists == 0);
   }
 
+  // create column dataset
   hid_t col_id;
   {
     int rank = column->index_space().get_dim();
@@ -236,6 +238,51 @@ legms::hdf5::write_column(
     assert(err >= 0);
   }
 
+  // write axes attribute to column
+  {
+    hid_t axes_dt =
+      legms::H5DatatypeManager::datatype<ValueType<int>::DataType>();
+
+    htri_t rc = H5Aexists(table_id, column_axes_attr_name);
+    if (rc > 0) {
+      herr_t err = H5Adelete(table_id, column_axes_attr_name);
+      assert(err >= 0);
+    }
+
+    hsize_t dims = column->axes().size();
+    hid_t axes_ds = H5Screate_simple(1, &dims, NULL);
+    assert(axes_ds >= 0);
+
+    try {
+      hid_t axes_id =
+        H5Acreate(
+          col_id,
+          column_axes_attr_name,
+          axes_dt,
+          axes_ds,
+          H5P_DEFAULT,
+          H5P_DEFAULT);
+      try {
+        assert(axes_id >= 0);
+        herr_t err = H5Awrite(axes_id, axes_dt, column->axes().data());
+        assert(err >= 0);
+      } catch (...) {
+        herr_t err = H5Aclose(axes_id);
+        assert(err >= 0);
+        throw;
+      }
+      herr_t err = H5Aclose(axes_id);
+      assert(err >= 0);
+    } catch (...) {
+      herr_t err = H5Sclose(axes_ds);
+      assert(err >= 0);
+      throw;
+    }
+    herr_t err = H5Sclose(axes_ds);
+    assert(err >= 0);
+  }
+
+  // write data to dataset
   string column_ds_name = string("/") + table_name + "/" + column->name();
   map<Legion::FieldID, const char*>
     field_map{{Column::value_fid, column_ds_name.c_str()}};
@@ -265,7 +312,6 @@ legms::hdf5::write_column(
   runtime->issue_copy_operation(context, copy);
   runtime->detach_external_resource(context, values_pr);
 
-  // FIXME: write column axes attribute
   write_keywords(col_id, column);
   herr_t rc = H5Dclose(col_id);
   assert(rc >= 0);
@@ -306,6 +352,49 @@ legms::hdf5::write_table(
     assert(table_id >= 0);
   }
 
+  // write axes uid attribute to table
+  {
+    hid_t axes_uid_dt =
+      legms::H5DatatypeManager::datatype<
+        ValueType<casacore::String>::DataType>();
+
+    htri_t rc = H5Aexists(table_id, table_axes_uid_attr_name);
+    assert(rc >= 0);
+
+    hid_t axes_uid_id;
+    if (rc == 0) {
+      hid_t axes_uid_ds = H5Screate(H5S_SCALAR);
+      assert(axes_uid_ds >= 0);
+      axes_uid_id =
+        H5Acreate(
+          table_id,
+          table_axes_uid_attr_name,
+          axes_uid_dt,
+          axes_uid_ds,
+          H5P_DEFAULT,
+          H5P_DEFAULT);
+      H5Sclose(axes_uid_ds);
+    } else {
+      axes_uid_id = H5Aopen(table_id, table_axes_uid_attr_name, H5P_DEFAULT);
+    }
+    assert(axes_uid_id >= 0);
+    try {
+      char buff[LEGMS_H5_STRING_SIZE];
+      assert(std::strlen(table->axes_uid()) < sizeof(buff));
+      strncpy(buff, table->axes_uid(), sizeof(buff));
+      buff[sizeof(buff) - 1] = '\0';
+      herr_t err = H5Awrite(axes_uid_id, axes_uid_dt, buff);
+      assert(err >= 0);
+    } catch (...) {
+      herr_t err = H5Aclose(axes_uid_id);
+      assert(err >= 0);
+      throw;
+    }
+    herr_t err = H5Aclose(axes_uid_id);
+    assert(err >= 0);
+  }
+
+  // write index axes attribute to table
   try {
     hid_t index_axes_dt =
       legms::H5DatatypeManager::datatype<ValueType<int>::DataType>();
