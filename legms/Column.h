@@ -23,9 +23,8 @@ template <typename T>
 class ColumnT;
 
 struct ColumnGenArgs {
-  // TODO: should I add a type tag here to catch errors in calling () with the
-  // wrong type?
   std::string name;
+  std::string axes_uid;
   casacore::DataType datatype;
   std::vector<int> axes;
   Legion::LogicalRegion values;
@@ -59,6 +58,9 @@ public:
   name() const {
     return m_name;
   }
+
+  virtual const char*
+  axes_uid() const = 0;
 
   virtual std::vector<int>
   axes() const = 0;
@@ -224,6 +226,11 @@ public:
 
   virtual ~ColumnT() {}
 
+  const char*
+  axes_uid() const override {
+    return AxesUID<D>::id;
+  }
+
   std::vector<int>
   axes() const override {
     std::vector<int> result;
@@ -246,6 +253,7 @@ public:
     return
       ColumnGenArgs {
       name(),
+        AxesUID<D>::id,
         datatype(),
         axes(),
         logical_region(),
@@ -711,6 +719,9 @@ public:
   static Generator
   generator(const ColumnGenArgs& genargs) {
 
+    // TODO: convert this assertion to an exception
+    assert(std::string(AxesUID<D>::id) == genargs.axes_uid);
+
     std::vector<D> axes;
     std::transform(
       genargs.axes.begin(),
@@ -742,6 +753,9 @@ std::unique_ptr<ColumnT<D>>
 ColumnGenArgs::operator()(
   Legion::Context ctx,
   Legion::Runtime* runtime) const {
+
+  // TODO: convert this assertion to an exception
+  assert(std::string(AxesUID<D>::id) == axes_uid);
 
   return ColumnT<D>::generator(*this)(ctx, runtime);
 }

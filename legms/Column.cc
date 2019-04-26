@@ -89,9 +89,11 @@ size_t
 ColumnGenArgs::legion_buffer_size(void) const {
   return
     name.size() * sizeof(decltype(name)::value_type) + 1
+    + axes_uid.size() * sizeof(decltype(axes_uid)::value_type) + 1
     + sizeof(datatype)
-    + sizeof(size_t) + axes.size() * sizeof(decltype(axes)::value_type)
-    + 2 * sizeof(Legion::LogicalRegion);
+    + vector_serdez<int>::serialized_size(axes)
+    + 2 * sizeof(Legion::LogicalRegion)
+    + vector_serdez<casacore::DataType>::serialized_size(keyword_datatypes);
 }
 
 size_t
@@ -102,18 +104,15 @@ ColumnGenArgs::legion_serialize(void *buffer) const {
   memcpy(buff, name.c_str(), s);
   buff += s;
 
+  s = axes_uid.size() * sizeof(decltype(axes_uid)::value_type) + 1;
+  memcpy(buff, axes_uid.c_str(), s);
+  buff += s;
+
   s = sizeof(datatype);
   memcpy(buff, &datatype, s);
   buff += s;
 
-  size_t asz = axes.size();
-  s = sizeof(asz);
-  memcpy(buff, &asz, s);
-  buff += s;
-
-  s = asz * sizeof(decltype(axes)::value_type);
-  memcpy(buff, axes.data(), s);
-  buff += s;
+  buff += vector_serdez<int>::serialize(axes, buff);
 
   s = sizeof(Legion::LogicalRegion);
   memcpy(buff, &values, s);
@@ -121,6 +120,8 @@ ColumnGenArgs::legion_serialize(void *buffer) const {
 
   memcpy(buff, &keywords, s);
   buff += s;
+
+  buff += vector_serdez<casacore::DataType>::serialize(keyword_datatypes, buff);
 
   return buff - static_cast<char *>(buffer);
 }
@@ -132,20 +133,22 @@ ColumnGenArgs::legion_deserialize(const void *buffer) {
   name = *buff;
   buff += name.size() * sizeof(decltype(name)::value_type) + 1;
 
+  axes_uid = *buff;
+  buff += axes_uid.size() * sizeof(decltype(axes_uid)::value_type) + 1;
+
   datatype = *reinterpret_cast<const decltype(datatype) *>(buff);
   buff += sizeof(datatype);
 
-  axes.resize(*reinterpret_cast<const size_t *>(buff));
-  buff += sizeof(size_t);
-
-  memcpy(axes.data(), buff, axes.size() * sizeof(decltype(axes)::value_type));
-  buff += axes.size() * sizeof(decltype(axes)::value_type);
+  buff += vector_serdez<int>::deserialize(axes, buff);
 
   values = *reinterpret_cast<const decltype(values) *>(buff);
   buff += sizeof(values);
 
   keywords = *reinterpret_cast<const decltype(values) *>(buff);
   buff += sizeof(keywords);
+
+  buff +=
+    vector_serdez<casacore::DataType>::deserialize(keyword_datatypes, buff);
 
   return buff - static_cast<const char*>(buffer);
 }

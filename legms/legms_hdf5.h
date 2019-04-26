@@ -23,6 +23,10 @@ const size_t large_tree_min = (64 * (1 << 10));
 #define LEGMS_ATTRIBUTE_NAME_PREFIX "legms::"
 const char* table_index_axes_attr_name =
   LEGMS_ATTRIBUTE_NAME_PREFIX "index_axes";
+const char* table_axes_uid_attr_name =
+  LEGMS_ATTRIBUTE_NAME_PREFIX "axes_uid";
+const char* column_axes_attr_name =
+  LEGMS_ATTRIBUTE_NAME_PREFIX "axes";
 
 // TODO: it might be nice to support use of types of IndexSpace descriptions
 // other than IndexTree...this might require some sort of type registration
