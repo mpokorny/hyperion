@@ -19,7 +19,7 @@ set_target_properties(utReindexColumnTask PROPERTIES
 add_test(
   NAME ReindexColumnTaskUnitTest
   COMMAND ../testing/TestRunner.py ./utReindexColumnTask)
-if (legms_USE_HDF)
+if (legms_USE_HDF5)
   include_directories(${HDF5_INCLUDE_DIRS})
   link_libraries(${HDF5_LIBRARIES})
 
