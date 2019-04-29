@@ -17,8 +17,7 @@ legms::hdf5::read_index_tree_attr_metadata(
 
   optional<string> result;
 
-  string md_id_name =
-    string(LEGMS_ATTRIBUTE_NAME_PREFIX) + attr_name + "-sid";
+  string md_id_name = string(LEGMS_INDEX_TREE_SID_PREFIX) + attr_name;
   if (H5Aexists_by_name(
         loc_id,
         obj_name.c_str(),
@@ -66,9 +65,10 @@ using KW =
 void
 init_datatype_attr(hid_t loc_id, const char* name, casacore::DataType dt) {
 
-  const char* suffix = ((std::strlen(name) > 0) ? "-dt" : "dt");
   std::string attr_name =
-    std::string(LEGMS_ATTRIBUTE_NAME_PREFIX) + name + suffix;
+    std::string(
+      (std::strlen(name) > 0) ? LEGMS_ATTRIBUTE_DT_PREFIX : LEGMS_ATTRIBUTE_DT)
+    + name;
 
   htri_t rc = H5Aexists(loc_id, attr_name.c_str());
   if (rc > 0) {

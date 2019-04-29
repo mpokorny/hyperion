@@ -29,6 +29,10 @@ const char* table_axes_uid_attr_name =
 const char* column_axes_attr_name =
   LEGMS_ATTRIBUTE_NAME_PREFIX "axes";
 
+#define LEGMS_ATTRIBUTE_DT LEGMS_ATTRIBUTE_NAME_PREFIX "dt"
+#define LEGMS_ATTRIBUTE_DT_PREFIX LEGMS_ATTRIBUTE_DT "::"
+#define LEGMS_INDEX_TREE_SID_PREFIX LEGMS_ATTRIBUTE_NAME_PREFIX "sid::"
+
 // TODO: it might be nice to support use of types of IndexSpace descriptions
 // other than IndexTree...this might require some sort of type registration
 // interface, the descriptions would have to support a
@@ -132,7 +136,8 @@ write_index_tree_to_attr(
 
   // write serdez id
   {
-    std::string md_name = legms_attr_name + "-sid";
+    std::string md_name =
+      std::string(LEGMS_INDEX_TREE_SID_PREFIX) + attr_name;
     hid_t md_space_id = H5Screate(H5S_SCALAR);
     hid_t md_attr_dt =
       legms::H5DatatypeManager::datatype<ValueType<casacore::String>::DataType>();
