@@ -164,8 +164,9 @@ test_index_tree_attribute(
     dataset_name,
     tree_name);
 
-  auto tree_md =
-    read_index_tree_attr_metadata(fid, dataset_name.c_str(), tree_name.c_str());
+  hid_t ds = H5Dopen(fid, dataset_name.c_str(), H5P_DEFAULT);
+  assert(ds >= 0);
+  auto tree_md = read_index_tree_attr_metadata(ds, tree_name.c_str());
   recorder.assert_true(
     std::string("IndexTree attribute ") + tree_name + " metadata exists",
     tree_md.has_value());
@@ -175,10 +176,7 @@ test_index_tree_attribute(
     TE(tree_md.value())
     == std::string(binary_index_tree_serdez::id));
   auto optTree =
-    read_index_tree_from_attr<binary_index_tree_serdez>(
-      fid,
-      dataset_name,
-      tree_name);
+    read_index_tree_from_attr<binary_index_tree_serdez>(ds, tree_name.c_str());
   recorder.assert_true(
     std::string("IndexTree attribute ") + tree_name + " value exists",
     optTree.has_value());
@@ -187,14 +185,13 @@ test_index_tree_attribute(
     TE(optTree.value()) == tree);
 
   auto optTree_bad =
-    read_index_tree_from_attr<other_index_tree_serdez>(
-      fid,
-      dataset_name.c_str(),
-      tree_name.c_str());
+    read_index_tree_from_attr<other_index_tree_serdez>(ds, tree_name.c_str());
   recorder.expect_false(
     std::string("Failure to read IndexTree attribute ") + tree_name
     + " with incorrect deserializer",
     optTree_bad.has_value());
+  herr_t err = H5Dclose(ds);
+  assert(err >= 0);
 }
 
 void

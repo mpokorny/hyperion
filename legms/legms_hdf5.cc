@@ -12,25 +12,14 @@ using namespace std;
 optional<std::string>
 legms::hdf5::read_index_tree_attr_metadata(
   hid_t loc_id,
-  const string& obj_name,
   const string& attr_name) {
 
   optional<string> result;
 
   string md_id_name = string(LEGMS_INDEX_TREE_SID_PREFIX) + attr_name;
-  if (H5Aexists_by_name(
-        loc_id,
-        obj_name.c_str(),
-        md_id_name.c_str(),
-        H5P_DEFAULT)) {
+  if (H5Aexists(loc_id, md_id_name.c_str())) {
 
-    hid_t attr_id =
-      H5Aopen_by_name(
-        loc_id,
-        obj_name.c_str(),
-        md_id_name.c_str(),
-        H5P_DEFAULT,
-        H5P_DEFAULT);
+    hid_t attr_id = H5Aopen(loc_id, md_id_name.c_str(), H5P_DEFAULT);
 
     if (attr_id >= 0) {
       hid_t attr_type = H5Aget_type(attr_id);
