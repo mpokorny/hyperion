@@ -45,7 +45,7 @@ template <typename SERDEZ>
 void
 write_index_tree_to_attr(
   const IndexTreeL& spec,
-  hid_t loc_id,
+  hid_t parent_id,
   const std::string& obj_name,
   const std::string& attr_name) {
 
@@ -56,17 +56,17 @@ write_index_tree_to_attr(
     std::string(LEGMS_ATTRIBUTE_NAME_PREFIX) + obj_name + "-" + attr_name;
 
   if (H5Aexists_by_name(
-        loc_id,
+        parent_id,
         obj_name.c_str(),
         legms_attr_name.c_str(),
         H5P_DEFAULT)) {
     H5Adelete_by_name(
-      loc_id,
+      parent_id,
       obj_name.c_str(),
       legms_attr_name.c_str(),
       H5P_DEFAULT);
-    if (H5Lexists(loc_id, attr_ds_name.c_str(), H5P_DEFAULT) > 0)
-      H5Ldelete(loc_id, attr_ds_name.c_str(), H5P_DEFAULT);
+    if (H5Lexists(parent_id, attr_ds_name.c_str(), H5P_DEFAULT) > 0)
+      H5Ldelete(parent_id, attr_ds_name.c_str(), H5P_DEFAULT);
   }
 
   auto size = SERDEZ::serialized_size(spec);
@@ -78,7 +78,7 @@ write_index_tree_to_attr(
     // small serialized size: save byte string as an attribute
     hid_t attr_id =
       H5Acreate_by_name(
-        loc_id,
+        parent_id,
         obj_name.c_str(),
         legms_attr_name.c_str(),
         H5T_NATIVE_UINT8,
@@ -94,7 +94,7 @@ write_index_tree_to_attr(
     // save reference to that dataset as attribute
     hid_t attr_ds =
       H5Dcreate(
-        loc_id,
+        parent_id,
         attr_ds_name.c_str(),
         H5T_NATIVE_UINT8,
         value_space_id,
@@ -111,12 +111,11 @@ write_index_tree_to_attr(
         buf.data());
     assert(rc >= 0);
 
-    hsize_t ref_dims = 1;
-    hid_t ref_space_id = H5Screate_simple(1, &ref_dims, NULL);
+    hid_t ref_space_id = H5Screate(H5S_SCALAR);
     hid_t attr_type = H5T_STD_REF_OBJ;
     hid_t attr_id =
       H5Acreate_by_name(
-        loc_id,
+        parent_id,
         obj_name.c_str(),
         legms_attr_name.c_str(),
         attr_type,
@@ -126,7 +125,7 @@ write_index_tree_to_attr(
         H5P_DEFAULT);
     assert(attr_id >= 0);
     hobj_ref_t attr_ref;
-    rc = H5Rcreate(&attr_ref, loc_id, attr_ds_name.c_str(), H5R_OBJECT, -1);
+    rc = H5Rcreate(&attr_ref, parent_id, attr_ds_name.c_str(), H5R_OBJECT, -1);
     assert (rc >= 0);
     rc = H5Awrite(attr_id, H5T_STD_REF_OBJ, &attr_ref);
     assert (rc >= 0);
@@ -143,7 +142,7 @@ write_index_tree_to_attr(
       legms::H5DatatypeManager::datatype<ValueType<casacore::String>::DataType>();
     hid_t md_attr_id =
       H5Acreate_by_name(
-        loc_id,
+        parent_id,
         obj_name.c_str(),
         md_name.c_str(),
         md_attr_dt,
@@ -161,40 +160,24 @@ write_index_tree_to_attr(
 }
 
 std::optional<std::string>
-read_index_tree_attr_metadata(
-  hid_t loc_id,
-  const std::string& obj_name,
-  const std::string& attr_name);
+read_index_tree_attr_metadata(hid_t loc_id, const std::string& attr_name);
 
 template <typename SERDEZ>
 std::optional<IndexTreeL>
-read_index_tree_from_attr(
-  hid_t loc_id,
-  const std::string& obj_name,
-  const std::string& attr_name) {
+read_index_tree_from_attr(hid_t loc_id, const std::string& attr_name) {
 
   std::optional<IndexTreeL> result;
 
-  auto metadata = read_index_tree_attr_metadata(loc_id, obj_name, attr_name);
+  auto metadata = read_index_tree_attr_metadata(loc_id, attr_name);
   if (!metadata || std::strcmp(metadata.value().c_str(), SERDEZ::id) != 0)
     return result;
 
   std::string legms_attr_name =
     std::string(LEGMS_ATTRIBUTE_NAME_PREFIX) + attr_name;
-  if (!H5Aexists_by_name(
-        loc_id,
-        obj_name.c_str(),
-        legms_attr_name.c_str(),
-        H5P_DEFAULT))
+  if (!H5Aexists(loc_id, legms_attr_name.c_str()))
     return result;
 
-  hid_t attr_id =
-    H5Aopen_by_name(
-      loc_id,
-      obj_name.c_str(),
-      legms_attr_name.c_str(),
-      H5P_DEFAULT,
-      H5P_DEFAULT);
+  hid_t attr_id = H5Aopen(loc_id, legms_attr_name.c_str(), H5P_DEFAULT);
 
   if (attr_id < 0)
     return result;
