@@ -206,6 +206,40 @@ public:
     expect_throw<Exc>(name, TestEval(f), true);
   }
 
+  template <typename T, template <typename> typename E>
+  void
+  expect_no_throw(
+    const std::string& name,
+    const TestExpression<T, E>& expr,
+    bool assert=false) {
+
+    try {
+      (void)expr();
+      append_success(name);
+    } catch (const std::exception& e) {
+      std::string fail_info = "unexpected exception: ";
+      append_failure(name, fail_info + e.what(), assert);
+    }
+  }
+
+  // template <typename F>
+  // void
+  // expect_no_throw(const std::string& name, const F& f, bool assert=false) {
+  //   expect_no_throw(name, TestEval(f), assert);
+  // }
+
+  template <typename T, template <typename> typename E>
+  void
+  assert_no_throw(const std::string& name, const TestExpression<T, E>& expr) {
+    expect_no_throw(name, expr, true);
+  }
+
+  // template <typename F>
+  // void
+  // assert_no_throw(const std::string& name, const F& f) {
+  //   expect_no_throw(name, TestEval(f), true);
+  // }
+
 private:
 
   TestLog<MODE> m_log;
