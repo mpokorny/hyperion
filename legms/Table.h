@@ -42,7 +42,7 @@ public:
     const std::string& name,
     const std::vector<int>& index_axes,
     Legion::LogicalRegion keywords,
-    std::vector<casacore::DataType>& datatypes)
+    const std::vector<casacore::DataType>& datatypes)
     : WithKeywords(ctx, runtime, keywords, datatypes)
     , m_name(name)
     , m_index_axes(index_axes) {
