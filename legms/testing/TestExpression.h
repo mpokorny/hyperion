@@ -2,7 +2,9 @@
 #define LEGMS_TESTING_TEST_EXPRESSION_H_
 
 #include <optional>
+#include <ostream>
 #include <sstream>
+#include <typeinfo>
 
 #include "legion.h"
 #include "TestRecorder.h"
@@ -64,11 +66,26 @@ struct TestExpression {
 };
 
 template <typename T>
+struct insertion_op {
+  std::ostream& operator()(std::ostream& s, const T& t) {
+    return s << t;
+  }
+};
+
+template <typename T,
+          typename =
+          typename std::invoke_result_t<insertion_op<T>, std::ostringstream, T>>
 std::string
 to_string(T v) {
   std::ostringstream oss;
   oss << v;
   return oss.str();
+}
+
+template <typename T>
+std::string
+to_string(T) {
+  return typeid(T).name();
 }
 
 template <typename T>
