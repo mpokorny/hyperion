@@ -178,7 +178,7 @@ public:
     bool assert=false) {
 
     try {
-      (void)expr()();
+      (void)expr();
       append_failure(name, "no exception thrown", assert);
     } catch (const Exc& e) {
       append_success(name);
