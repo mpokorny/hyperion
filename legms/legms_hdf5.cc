@@ -6,6 +6,8 @@
 #include <optional>
 #include <sstream>
 
+#include "tree_index_space.h"
+
 using namespace legms::hdf5;
 using namespace std;
 
@@ -515,6 +517,321 @@ legms::hdf5::write_table(
   herr_t err = H5Gclose(table_id);
   assert(err >= 0);
 }
+
+bool
+starts_with(const char* str, const char* pref) {
+  bool result = true;
+  while (result && *str != '\0' && *pref != '\0') {
+    result = *str == *pref;
+    ++str; ++pref;
+  }
+  return result && *pref == '\0';
+}
+
+bool
+ends_with(const char* str, const char* suff) {
+  bool result = true;
+  const char* estr = std::strchr(str, '\0');
+  const char* esuff = std::strchr(suff, '\0');
+  do {
+    --estr; --esuff;
+    result = *estr == *esuff;
+  } while (result && estr != str && esuff != suff);
+  return result && esuff == suff;
+}
+
+herr_t
+acc_kw_desc(
+  hid_t location_id,
+  const char* attr_name,
+  const H5A_info_t*,
+  void* op_data) {
+
+  legms::WithKeywords::kw_desc_t* acc =
+    static_cast<legms::WithKeywords::kw_desc_t*>(op_data);
+  if (starts_with(attr_name, LEGMS_ATTRIBUTE_DT_PREFIX)) {
+
+    hid_t attr_id = H5Aopen(location_id, attr_name, H5P_DEFAULT);
+    assert(attr_id >= 0);
+
+    hid_t did = legms::H5DatatypeManager::datatypes()[
+      legms::H5DatatypeManager::CASACORE_DATATYPE_H5T];
+    unsigned char dt;
+    herr_t err = H5Aread(attr_id, did, &dt);
+    assert(err >= 0);
+
+    const char* attr_begin = attr_name + sizeof(LEGMS_ATTRIBUTE_DT_PREFIX) - 1;
+    acc->emplace_back(attr_begin, static_cast<casacore::DataType>(dt));
+    err = H5Aclose(attr_id);
+    assert(err >= 0);
+  }
+  return 0;
+}
+
+std::tuple<Legion::LogicalRegion, std::vector<casacore::DataType>>
+legms::hdf5::init_keywords(
+  hid_t loc_id,
+  Legion::Runtime* runtime,
+  Legion::Context context) {
+
+  legms::WithKeywords::kw_desc_t kws;
+  hsize_t n = 0;
+  herr_t err =
+    H5Aiterate(
+      loc_id,
+      // TODO: verify that H5_INDEX_CRT_ORDER sufficient to maintain attribute
+      // order across write/read cycles?
+      H5_INDEX_CRT_ORDER,
+      H5_ITER_INC,
+      &n,
+      acc_kw_desc,
+      &kws);
+  assert(err >= 0);
+
+  Legion::IndexSpaceT<1> is =
+    runtime->create_index_space(context, Legion::Rect<1>(0, 0));
+  Legion::FieldSpace fs = runtime->create_field_space(context);
+  Legion::FieldAllocator fa = runtime->create_field_allocator(context, fs);
+  std::vector<casacore::DataType> dts;
+  for (size_t i = 0; i < kws.size(); ++i) {
+    auto [nm, dt] = kws[i];
+    add_field(dt, fa, i);
+    runtime->attach_name(fs, i, nm.c_str());
+    dts.push_back(dt);
+  }
+  Legion::LogicalRegion region =
+    runtime->create_logical_region(context, is, fs);
+  runtime->destroy_field_space(context, fs);
+  runtime->destroy_index_space(context, is);
+  return std::make_tuple(region, std::move(dts));
+}
+
+std::optional<legms::ColumnGenArgs>
+legms::hdf5::init_column(
+  hid_t loc_id,
+  Legion::Runtime* runtime,
+  Legion::Context context,
+  hid_t attribute_access_pl) {
+
+  std::optional<legms::ColumnGenArgs> result;
+
+  casacore::DataType datatype;
+  hid_t datatype_id = -1;
+  std::vector<int> axes;
+  hid_t axes_id = -1;
+  hid_t axes_id_ds = -1;
+  Legion::LogicalRegion values = Legion::LogicalRegion::NO_REGION;
+  Legion::LogicalRegion keywords = Legion::LogicalRegion::NO_REGION;
+  std::vector<casacore::DataType> keyword_datatypes;
+  {
+    std::string datatype_name(LEGMS_ATTRIBUTE_DT);
+    htri_t datatype_exists = H5Aexists(loc_id, datatype_name.c_str());
+    assert(datatype_exists >= 0);
+    hid_t did = legms::H5DatatypeManager::datatypes()[
+      legms::H5DatatypeManager::CASACORE_DATATYPE_H5T];
+    unsigned char dt;
+    if (datatype_exists == 0)
+      goto return_nothing;
+    datatype_id = H5Aopen(loc_id, datatype_name.c_str(), attribute_access_pl);
+    assert(datatype_id >= 0);
+    herr_t err = H5Aread(datatype_id, did, &dt);
+    assert(err >= 0);
+    datatype = static_cast<casacore::DataType>(dt);
+  }
+  {
+    std::string axes_name = std::string(LEGMS_ATTRIBUTE_NAME_PREFIX) + "axes";
+    htri_t axes_exists = H5Aexists(loc_id, axes_name.c_str());
+    assert(axes_exists >= 0);
+    if (axes_exists == 0)
+      goto return_nothing;
+    axes_id = H5Aopen(loc_id, axes_name.c_str(), attribute_access_pl);
+    assert(axes_id >= 0);
+    axes_id_ds = H5Aget_space(axes_id);
+    assert(axes_id_ds >= 0);
+    int ndims = H5Sget_simple_extent_ndims(axes_id_ds);
+    if (ndims != 1)
+      goto return_nothing;
+    axes.resize(H5Sget_simple_extent_npoints(axes_id_ds));
+    hid_t axes_dt =
+      legms::H5DatatypeManager::datatype<ValueType<int>::DataType>();
+    herr_t err = H5Aread(axes_id, axes_dt, axes.data());
+    assert(err >= 0);
+  }
+  {
+    optional<string> sid =
+      read_index_tree_attr_metadata(loc_id, "index_tree");
+    if (!sid || sid.value() != "legms::hdf5::binary_index_tree_serdez")
+      goto return_nothing;
+    optional<IndexTreeL> ixtree =
+      read_index_tree_from_attr<binary_index_tree_serdez>(loc_id, "index_tree");
+    assert(ixtree);
+    Legion::IndexSpace is =
+      legms::tree_index_space(ixtree.value(), context, runtime);
+    Legion::FieldSpace fs = runtime->create_field_space(context);
+    Legion::FieldAllocator fa = runtime->create_field_allocator(context, fs);
+    add_field(datatype, fa, Column::value_fid);
+    values = runtime->create_logical_region(context, is, fs);
+    runtime->destroy_field_space(context, fs);
+    runtime->destroy_index_space(context, is);
+  }
+
+  std::tie(keywords, keyword_datatypes) =
+    init_keywords(loc_id, runtime, context);
+
+  result =
+    ColumnGenArgs{"", "", datatype, axes, values, keywords, keyword_datatypes};
+
+return_nothing:
+  if (datatype_id >= 0) {
+    herr_t err = H5Aclose(datatype_id);
+    assert(err >= 0);
+  }
+  if (axes_id_ds >= 0) {
+    herr_t err = H5Sclose(axes_id_ds);
+    assert(err >= 0);
+  }
+  if (axes_id >= 0) {
+    herr_t err = H5Aclose(axes_id);
+    assert(err >= 0);
+  }
+  return result;
+}
+
+struct acc_col_genargs_ctx {
+  std::vector<legms::ColumnGenArgs>* acc;
+  std::string axes_uid;
+  Legion::Runtime* runtime;
+  Legion::Context context;
+};
+
+herr_t
+acc_col_genargs(
+  hid_t table_id,
+  const char* name,
+  const H5L_info_t*,
+  void* ctx) {
+
+  struct acc_col_genargs_ctx *args =
+    static_cast<struct acc_col_genargs_ctx*>(ctx);
+  H5O_info_t infobuf;
+  H5Oget_info_by_name(table_id, name, &infobuf, H5P_DEFAULT);
+  if (infobuf.type == H5O_TYPE_DATASET) {
+    hid_t col_id = H5Dopen(table_id, name, H5P_DEFAULT);
+    assert(col_id >= 0);
+    auto cga = init_column(col_id, args->runtime, args->context, H5P_DEFAULT);
+    if (cga) {
+      legms::ColumnGenArgs& a = cga.value();
+      a.name = name;
+      a.axes_uid = args->axes_uid;
+      args->acc->push_back(std::move(a));
+    }
+    herr_t err = H5Dclose(col_id);
+    assert(err >= 0);
+  }
+  return 0;
+}
+
+std::optional<legms::TableGenArgs>
+legms::hdf5::init_table(
+  hid_t loc_id,
+  Legion::Runtime* runtime,
+  Legion::Context context,
+  hid_t attribute_access_pl) {
+
+  std::optional<legms::TableGenArgs> result;
+
+  std::vector<int> index_axes;
+  hid_t index_axes_id = -1;
+  hid_t index_axes_id_ds = -1;
+  std::string axes_uid;
+  std::vector<ColumnGenArgs> col_genargs;
+  Legion::LogicalRegion keywords = Legion::LogicalRegion::NO_REGION;
+  std::vector<casacore::DataType> keyword_datatypes;
+  {
+    std::string index_axes_name =
+      std::string(LEGMS_ATTRIBUTE_NAME_PREFIX) + "index_axes";
+    htri_t index_axes_exists = H5Aexists(loc_id, index_axes_name.c_str());
+    assert(index_axes_exists >= 0);
+    if (index_axes_exists == 0)
+      goto return_nothing;
+    index_axes_id =
+      H5Aopen(loc_id, index_axes_name.c_str(), attribute_access_pl);
+    assert(index_axes_id >= 0);
+    index_axes_id_ds = H5Aget_space(index_axes_id);
+    assert(index_axes_id_ds >= 0);
+    int ndims = H5Sget_simple_extent_ndims(index_axes_id_ds);
+    if (ndims != 1)
+      goto return_nothing;
+    index_axes.resize(H5Sget_simple_extent_npoints(index_axes_id_ds));
+    hid_t index_axes_dt =
+      legms::H5DatatypeManager::datatype<ValueType<int>::DataType>();
+    herr_t err = H5Aread(index_axes_id, index_axes_dt, index_axes.data());
+    assert(err >= 0);
+  }
+  {
+    string axes_uid_name =
+      string(LEGMS_ATTRIBUTE_NAME_PREFIX) + "axes_uid";
+    htri_t axes_uid_exists = H5Aexists(loc_id, axes_uid_name.c_str());
+    assert(axes_uid_exists >= 0);
+    if (axes_uid_exists == 0)
+      goto return_nothing;
+    hid_t did = legms::H5DatatypeManager::datatypes()[
+      legms::H5DatatypeManager::CASACORE_STRING_H5T];
+    char str[LEGMS_MAX_STRING_SIZE];
+    hid_t axes_uid_id =
+      H5Aopen(loc_id, axes_uid_name.c_str(), attribute_access_pl);
+    assert(axes_uid_id >= 0);
+    herr_t err = H5Aread(axes_uid_id, did, str);
+    assert(err >= 0);
+    axes_uid = str;
+    err = H5Aclose(axes_uid_id);
+    assert(err >= 0);
+  }
+  {
+    struct acc_col_genargs_ctx ctx{&col_genargs, axes_uid, runtime, context};
+    hsize_t position = 0;
+    herr_t err =
+      H5Literate(
+        loc_id,
+        H5_INDEX_NAME,
+        H5_ITER_NATIVE,
+        &position,
+        acc_col_genargs,
+        &ctx);
+    assert(err >= 0);
+  }
+
+  std::tie(keywords, keyword_datatypes) =
+    init_keywords(loc_id, runtime, context);
+
+  result =
+    TableGenArgs{
+    "",
+    axes_uid,
+    index_axes,
+    col_genargs,
+    keywords,
+    keyword_datatypes};
+
+return_nothing:
+  if (index_axes_id_ds >= 0) {
+    herr_t err = H5Sclose(index_axes_id_ds);
+    assert(err >= 0);
+  }
+  if (index_axes_id >= 0) {
+    herr_t err = H5Aclose(index_axes_id);
+    assert(err >= 0);
+  }
+  return result;
+}
+
+
+// std::vector<std::pair<Legion::PhysicalRegion, Legion::PhysicalRegion>>
+// attach_table_columns(
+//   const std::experimental::filesystem::path& path,
+//   hid_t loc_id,
+//   const Table* table,
+//   const std::vector<std::string>& columns);
 
 // Local Variables:
 // mode: c++

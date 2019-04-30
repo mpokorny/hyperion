@@ -13,6 +13,7 @@
 
 #include <hdf5.h>
 
+#include "utility.h"
 #include "IndexTree.h"
 #include "Column.h"
 #include "Table.h"
@@ -256,6 +257,33 @@ write_table(
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t group_creation_pl = H5P_DEFAULT,
   hid_t group_access_pl = H5P_DEFAULT);
+
+std::tuple<Legion::LogicalRegion, std::vector<casacore::DataType>>
+init_keywords(
+  hid_t loc_id,
+  Legion::Runtime* runtime,
+  Legion::Context context);
+
+std::optional<legms::ColumnGenArgs>
+init_column(
+  hid_t loc_id,
+  Legion::Runtime* runtime,
+  Legion::Context context,
+  hid_t attribute_access_pl = H5P_DEFAULT);
+
+std::optional<legms::TableGenArgs>
+init_table(
+  hid_t loc_id,
+  Legion::Runtime* runtime,
+  Legion::Context context,
+  hid_t dataset_access_pl = H5P_DEFAULT);
+
+// std::vector<std::pair<Legion::PhysicalRegion, Legion::PhysicalRegion>>
+// attach_table_columns(
+//   const std::experimental::filesystem::path& path,
+//   hid_t loc_id,
+//   const Table* table,
+//   const std::vector<std::string>& columns);
 
 struct binary_index_tree_serdez {
 
