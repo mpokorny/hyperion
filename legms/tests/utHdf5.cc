@@ -319,21 +319,74 @@ table_tests(
     perfect[0] = 496;
     runtime->unmap_region(context, kws);
   }
-  
+
+  // write HDF5 file
   std::string fname = "h5.XXXXXX";
   int fd = mkstemp(fname.data());
   assert(fd != -1);
   std::cout << "test file name: " << fname << std::endl;
   close(fd);
-  hid_t fid = H5DatatypeManager::create(fname, H5F_ACC_TRUNC);
-  hid_t root_loc = H5Gopen(fid, "/", H5P_DEFAULT);
-  assert(root_loc >= 0);
-  write_table(fname, root_loc, &table0);
-  H5Fclose(fid);
+  recorder.assert_no_throw(
+    "Write to HDF5 file",
+    testing::TestEval(
+      [&table0, &fname]() {
+        hid_t fid = H5DatatypeManager::create(fname, H5F_ACC_TRUNC);
+        hid_t root_loc = H5Gopen(fid, "/", H5P_DEFAULT);
+        assert(root_loc >= 0);
+        write_table(fname, root_loc, &table0);
+        H5Fclose(fid);
+        return true;
+      }));
 
   runtime->detach_external_resource(context, col_x);
   runtime->detach_external_resource(context, col_y);
   runtime->detach_external_resource(context, col_z);
+
+  // read back metadata
+  hid_t fid = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+  assert(fid >= 0);
+  hid_t root_loc = H5Gopen(fid, "/table0", H5P_DEFAULT);
+  assert(root_loc >= 0);
+  auto table_ga = init_table(root_loc, runtime, context);
+  recorder.assert_true(
+    "Table generator arguments read back from HDF5",
+    TE(table_ga.has_value()));
+  auto tb0 = table_ga.value().template operator()<Table0Axes>(context, runtime);
+  recorder.assert_true(
+    "Table recreated from generator arguments",
+    TE(bool(tb0)));
+
+  {
+    auto cx = tb0->columnT("X");
+    recorder.assert_true("Column X logically recreated", TE(bool(cx)));
+    recorder.expect_true(
+      "Column X has expected axes",
+      TE(cx->axesT()) == std::vector<Table0Axes>{Table0Axes::ROW});
+    recorder.expect_true(
+      "Column X has expected indexes",
+      TE(cx->index_tree()) == IndexTreeL(TABLE0_NUM_ROWS));
+  }
+  {
+    auto cy = tb0->columnT("Y");
+    recorder.assert_true("Column Y logically recreated", TE(bool(cy)));
+    recorder.expect_true(
+      "Column Y has expected axes",
+      TE(cy->axesT()) == std::vector<Table0Axes>{Table0Axes::ROW});
+    recorder.expect_true(
+      "Column Y has expected indexes",
+      TE(cy->index_tree()) == IndexTreeL(TABLE0_NUM_ROWS));
+  }
+  {
+    auto cz = tb0->columnT("Z");
+    recorder.assert_true("Column Z logically recreated", TE(bool(cz)));
+    recorder.expect_true(
+      "Column Z has expected axes",
+      TE(cz->axesT())
+      == std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP});
+    recorder.expect_true(
+      "Column Z has expected indexes",
+      TE(cz->index_tree()) == IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
+  }
 }
 
 void
