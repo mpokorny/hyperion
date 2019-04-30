@@ -485,7 +485,7 @@ create_partition_on_axes(
   IndexSpaceT<IS_DIM> is,
   const std::vector<AxisPartition<int>>& parts) {
 
-  Rect<IS_DIM> is_rect = runtime->get_index_space_domain(is);
+  Rect<IS_DIM> is_rect = runtime->get_index_space_domain(is).bounds;
 
   // partition color space
   Rect<PART_DIM> cs_rect;

@@ -748,7 +748,7 @@ public:
       Rect<DIM> rect;                                           \
       for (size_t i = 0; i < DIM; ++i) {                        \
         IndexSpaceT<1> cis(m_ix_columns[i].get_index_space());  \
-        Rect<1> dom(runtime->get_index_space_domain(cis));      \
+        Rect<1> dom = runtime->get_index_space_domain(cis).bounds;  \
         rect.lo[i] = dom.lo[0];                                 \
         rect.hi[i] = dom.hi[0];                                 \
       }                                                         \
