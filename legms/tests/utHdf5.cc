@@ -4,6 +4,7 @@
 #include "TestRecorder.h"
 #include "TestExpression.h"
 
+#include <array>
 #include <cassert>
 #include <hdf5.h>
 #include <numeric>
@@ -240,6 +241,56 @@ tree_tests(testing::TestRecorder<WRITE_DISCARD>& recorder) {
   }
 }
 
+template <legion_privilege_mode_t MODE, typename FT, int N>
+using FA =
+  FieldAccessor<
+  MODE,
+  FT,
+  N,
+  coord_t,
+  AffineAccessor<FT, N, coord_t>,
+  true>;
+
+template <size_t N>
+bool
+verify_col(
+  const unsigned* expected,
+  const PhysicalRegion& region,
+  const std::array<size_t, N>& dims) {
+
+  bool result = true;
+  //const FA<READ_ONLY, unsigned, N> acc(region, Column::value_fid);
+  const FieldAccessor<READ_ONLY, unsigned, N> acc(region, Column::value_fid);
+  PointInDomainIterator<N> pid(region.get_bounds<N, Legion::coord_t>(), false);
+  std::array<size_t, N> pt;
+  pt.fill(0);
+  size_t off = 0;
+  while (result && pid() && pt[0] < dims[0]) {
+    std::cout << "pid " << *pid
+              << "; dims [";
+    for (size_t i = 0; i < N; ++i)
+      std::cout << dims[i] << ",";
+    std::cout << "]"
+              << "; off " << off
+              << "; val " << acc[*pid]
+              << "; exp " << expected[off]
+              << std::endl;
+    result = acc[*pid] == expected[off];
+    pid++;
+    ++off;
+    size_t i = N - 1;
+    ++pt[i];
+    while (i > 0 && pt[i] == dims[i]) {
+      pt[i] = 0;
+      --i;
+      ++pt[i];
+    }
+  }
+  result = result && !pid();
+
+  return result;
+}
+
 void
 table_tests(
   testing::TestRecorder<WRITE_DISCARD>& recorder,
@@ -263,6 +314,9 @@ table_tests(
       {{"MS_VERSION", ValueType<float>::DataType},
        {"NAME", ValueType<casacore::String>::DataType}});
 
+  const float ms_vn = -42.1f;
+  const casacore::String ms_nm = "test";
+
   auto col_x =
     attach_table0_col(table0.columnT("X").get(), table0_x, context, runtime);
   auto col_y =
@@ -281,22 +335,10 @@ table_tests(
     std::iota(fids.begin(), fids.end(), 0);
     kw_req.add_fields(fids);
     PhysicalRegion kws = runtime->map_region(context, kw_req);
-    const FieldAccessor<
-      WRITE_ONLY,
-      float,
-      1,
-      coord_t,
-      AffineAccessor<float, 1, coord_t>,
-      true> ms_version(kws, 0);
-    const FieldAccessor<
-      WRITE_ONLY,
-      casacore::String,
-      1,
-      coord_t,
-      AffineAccessor<casacore::String, 1, coord_t>,
-      true> name(kws, 1);
-    ms_version[0] = -42.1f;
-    name[0] = "test";
+    const FA<WRITE_ONLY, float, 1> ms_version(kws, 0);
+    const FA<WRITE_ONLY, casacore::String, 1> name(kws, 1);
+    ms_version[0] = ms_vn;
+    name[0] = ms_nm;
     runtime->unmap_region(context, kws);
   }
   {
@@ -309,13 +351,7 @@ table_tests(
       cy->keywords_region());
     kw_req.add_field(0);
     PhysicalRegion kws = runtime->map_region(context, kw_req);
-    const FieldAccessor<
-      WRITE_ONLY,
-      short,
-      1,
-      coord_t,
-      AffineAccessor<short, 1, coord_t>,
-      true> perfect(kws, 0);
+    const FA<WRITE_ONLY, short, 1> perfect(kws, 0);
     perfect[0] = 496;
     runtime->unmap_region(context, kws);
   }
@@ -343,11 +379,7 @@ table_tests(
   runtime->detach_external_resource(context, col_z);
 
   // read back metadata
-  hid_t fid = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
-  assert(fid >= 0);
-  hid_t root_loc = H5Gopen(fid, "/table0", H5P_DEFAULT);
-  assert(root_loc >= 0);
-  auto table_ga = init_table(root_loc, runtime, context);
+  auto table_ga = init_table(fname, "/table0", runtime, context);
   recorder.assert_true(
     "Table generator arguments read back from HDF5",
     TE(table_ga.has_value()));
@@ -355,6 +387,14 @@ table_tests(
   recorder.assert_true(
     "Table recreated from generator arguments",
     TE(bool(tb0)));
+  {
+    recorder.assert_true(
+      "Table has expected keywords",
+      TE(tb0->keywords())
+      == std::vector<std::tuple<std::string, casacore::DataType>>{
+        {"MS_VERSION", ValueType<float>::DataType},
+        {"NAME", ValueType<casacore::String>::DataType}});
+  }
 
   {
     auto cx = tb0->columnT("X");
@@ -387,11 +427,59 @@ table_tests(
       "Column Z has expected indexes",
       TE(cz->index_tree()) == IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
   }
+
+  // attach to file, and read back data (FIXME: keywords)
+  {
+    auto tb_cols =
+      attach_table_columns(
+        fname,
+        "/",
+        tb0.get(),
+        {"X", "Y", "Z"},
+        runtime,
+        context);
+    recorder.expect_true(
+      "Table columns attached",
+      TE(
+        std::all_of(
+          tb_cols.begin(),
+          tb_cols.end(),
+          [](auto& pr2) {
+            return std::get<0>(pr2).has_value();
+          })));
+
+    // auto prx = std::get<0>(tb_cols[0]).value();
+    // recorder.expect_true(
+    //   "Column 'X' values as expected",
+    //   TE(verify_col<1>(table0_x, prx, {TABLE0_NUM_ROWS})));
+    // auto pry = std::get<0>(tb_cols[1]).value();
+    // recorder.expect_true(
+    //   "Column 'Y' values as expected",
+    //   TE(verify_col<1>(table0_y, pry, {TABLE0_NUM_ROWS})));
+    // auto prz = std::get<0>(tb_cols[2]).value();
+    // recorder.expect_true(
+    //   "Column 'Z' values as expected",
+    //   TE(verify_col<2>(table0_z, prz, {TABLE0_NUM_ROWS, 2})));
+
+    // recorder.expect_no_throw(
+    //   "Table columns detached",
+    //   testing::TestEval(
+    //     [&tb_cols, &runtime, &context]() {
+    //       std::for_each(
+    //         tb_cols.begin(),
+    //         tb_cols.end(),
+    //         [&runtime, &context](auto& pr2) {
+    //           runtime
+    //             ->detach_external_resource(context, std::get<0>(pr2).value());
+    //         });
+    //       return true;
+    //     }));
+  }
 }
 
 void
 hdf5_test_suite(
-  const Task* task,
+  const Task*,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime *runtime) {

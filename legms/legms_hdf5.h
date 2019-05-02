@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <optional>
 #include <string>
 #include <unordered_set>
@@ -21,18 +22,23 @@
 namespace legms {
 namespace hdf5 {
 
-const size_t large_tree_min = (64 * (1 << 10));
-#define LEGMS_ATTRIBUTE_NAME_PREFIX "legms::"
-const char* table_index_axes_attr_name =
-  LEGMS_ATTRIBUTE_NAME_PREFIX "index_axes";
-const char* table_axes_uid_attr_name =
-  LEGMS_ATTRIBUTE_NAME_PREFIX "axes_uid";
-const char* column_axes_attr_name =
-  LEGMS_ATTRIBUTE_NAME_PREFIX "axes";
+#define LEGMS_ATTRIBUTE_NAMESPACE "legms"
+#define LEGMS_ATTRIBUTE_NAME_SEP "::"
+#define LEGMS_ATTRIBUTE_NAMESPACE_PREFIX LEGMS_ATTRIBUTE_NAMESPACE LEGMS_ATTRIBUTE_NAME_SEP
+#define LEGMS_ATTRIBUTE_DT LEGMS_ATTRIBUTE_NAMESPACE_PREFIX "dt"
+#define LEGMS_ATTRIBUTE_DT_PREFIX LEGMS_ATTRIBUTE_DT LEGMS_ATTRIBUTE_NAME_SEP
+#define LEGMS_ATTRIBUTE_SID LEGMS_ATTRIBUTE_NAMESPACE_PREFIX "sid"
+#define LEGMS_ATTRIBUTE_SID_PREFIX LEGMS_ATTRIBUTE_SID LEGMS_ATTRIBUTE_NAME_SEP
+#define LEGMS_ATTRIBUTE_DS LEGMS_ATTRIBUTE_NAMESPACE_PREFIX "ds"
+#define LEGMS_ATTRIBUTE_DS_PREFIX LEGMS_ATTRIBUTE_DS LEGMS_ATTRIBUTE_NAME_SEP
 
-#define LEGMS_ATTRIBUTE_DT LEGMS_ATTRIBUTE_NAME_PREFIX "dt"
-#define LEGMS_ATTRIBUTE_DT_PREFIX LEGMS_ATTRIBUTE_DT "::"
-#define LEGMS_INDEX_TREE_SID_PREFIX LEGMS_ATTRIBUTE_NAME_PREFIX "sid::"
+const size_t large_tree_min = (64 * (1 << 10));
+const char* table_index_axes_attr_name =
+  LEGMS_ATTRIBUTE_NAMESPACE_PREFIX "index_axes";
+const char* table_axes_uid_attr_name =
+  LEGMS_ATTRIBUTE_NAMESPACE_PREFIX "axes_uid";
+const char* column_axes_attr_name =
+  LEGMS_ATTRIBUTE_NAMESPACE_PREFIX "axes";
 
 // TODO: it might be nice to support use of types of IndexSpace descriptions
 // other than IndexTree...this might require some sort of type registration
@@ -52,9 +58,12 @@ write_index_tree_to_attr(
 
   // remove current attribute value
   std::string legms_attr_name =
-    std::string(LEGMS_ATTRIBUTE_NAME_PREFIX) + attr_name;
+    std::string(LEGMS_ATTRIBUTE_NAMESPACE_PREFIX) + attr_name;
   std::string attr_ds_name =
-    std::string(LEGMS_ATTRIBUTE_NAME_PREFIX) + obj_name + "-" + attr_name;
+    std::string(LEGMS_ATTRIBUTE_DS_PREFIX)
+    + obj_name
+    + std::string(LEGMS_ATTRIBUTE_NAME_SEP)
+    + attr_name;
 
   if (H5Aexists_by_name(
         parent_id,
@@ -136,8 +145,7 @@ write_index_tree_to_attr(
 
   // write serdez id
   {
-    std::string md_name =
-      std::string(LEGMS_INDEX_TREE_SID_PREFIX) + attr_name;
+    std::string md_name = std::string(LEGMS_ATTRIBUTE_SID_PREFIX) + attr_name;
     hid_t md_space_id = H5Screate(H5S_SCALAR);
     hid_t md_attr_dt =
       legms::H5DatatypeManager::datatype<ValueType<casacore::String>::DataType>();
@@ -174,7 +182,7 @@ read_index_tree_from_attr(hid_t loc_id, const std::string& attr_name) {
     return result;
 
   std::string legms_attr_name =
-    std::string(LEGMS_ATTRIBUTE_NAME_PREFIX) + attr_name;
+    std::string(LEGMS_ATTRIBUTE_NAMESPACE_PREFIX) + attr_name;
   if (!H5Aexists(loc_id, legms_attr_name.c_str()))
     return result;
 
@@ -273,17 +281,55 @@ init_column(
 
 std::optional<legms::TableGenArgs>
 init_table(
+  const std::experimental::filesystem::path& file_path,
+  const std::string& table_path,
+  Legion::Runtime* runtime,
+  Legion::Context context,
+  unsigned flags = H5F_ACC_RDONLY,
+  hid_t file_access_pl = H5P_DEFAULT,
+  hid_t table_access_pl = H5P_DEFAULT,
+  hid_t dataset_access_pl = H5P_DEFAULT);
+
+std::optional<legms::TableGenArgs>
+init_table(
   hid_t loc_id,
   Legion::Runtime* runtime,
   Legion::Context context,
   hid_t dataset_access_pl = H5P_DEFAULT);
 
-// std::vector<std::pair<Legion::PhysicalRegion, Legion::PhysicalRegion>>
-// attach_table_columns(
-//   const std::experimental::filesystem::path& path,
-//   hid_t loc_id,
-//   const Table* table,
-//   const std::vector<std::string>& columns);
+// FIXME: the following is broken because of the way keywords are saved as
+// attributes, not datasets
+std::optional<Legion::PhysicalRegion>
+attach_keywords(
+  const std::experimental::filesystem::path& file_path,
+  const std::string& with_keywords_path,
+  const WithKeywords* with_keywords,
+  Legion::Runtime* runtime,
+  Legion::Context context,
+  bool read_only = true);
+
+// returns value/keywords region pairs by column
+std::vector<
+  std::tuple<
+    std::optional<Legion::PhysicalRegion>,
+    std::optional<Legion::PhysicalRegion>>>
+attach_table_columns(
+  const std::experimental::filesystem::path& file_path,
+  const std::string& root_path,
+  const Table* table,
+  const std::vector<std::string>& columns,
+  Legion::Runtime* runtime,
+  Legion::Context context,
+  bool read_only = true);
+
+std::optional<Legion::PhysicalRegion>
+attach_table_keywords(
+  const std::experimental::filesystem::path& file_path,
+  const std::string& root_path,
+  const Table* table,
+  Legion::Runtime* runtime,
+  Legion::Context context,
+  bool read_only = true);
 
 struct binary_index_tree_serdez {
 

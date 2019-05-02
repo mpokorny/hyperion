@@ -10,6 +10,7 @@
 
 using namespace legms::hdf5;
 using namespace std;
+using namespace Legion;
 
 optional<string>
 legms::hdf5::read_index_tree_attr_metadata(
@@ -18,7 +19,7 @@ legms::hdf5::read_index_tree_attr_metadata(
 
   optional<string> result;
 
-  string md_id_name = string(LEGMS_INDEX_TREE_SID_PREFIX) + attr_name;
+  string md_id_name = string(LEGMS_ATTRIBUTE_SID_PREFIX) + attr_name;
   if (H5Aexists(loc_id, md_id_name.c_str())) {
 
     hid_t attr_id = H5Aopen(loc_id, md_id_name.c_str(), H5P_DEFAULT);
@@ -41,15 +42,15 @@ legms::hdf5::read_index_tree_attr_metadata(
 
 template <casacore::DataType DT>
 using KW =
-  Legion::FieldAccessor<
+  FieldAccessor<
   READ_ONLY,
   typename legms::DataType<DT>::ValueType,
   1,
-  Legion::coord_t,
-  Legion::AffineAccessor<
+  coord_t,
+  AffineAccessor<
     typename legms::DataType<DT>::ValueType,
     1,
-    Legion::coord_t>,
+    coord_t>,
   false>;
 
 static void
@@ -124,8 +125,8 @@ static void
 write_kw_attr(
   hid_t loc_id,
   const char *attr_name,
-  optional<Legion::PhysicalRegion>& region,
-  Legion::FieldID fid) {
+  optional<PhysicalRegion>& region,
+  FieldID fid) {
 
   hid_t dt = legms::H5DatatypeManager::datatype<DT>();
   hid_t attr = init_kw_attr(loc_id, attr_name, dt, DT);
@@ -143,8 +144,8 @@ void
 write_kw_attr<casacore::TpString> (
   hid_t loc_id,
   const char *attr_name,
-  optional<Legion::PhysicalRegion>& region,
-  Legion::FieldID fid) {
+  optional<PhysicalRegion>& region,
+  FieldID fid) {
 
   hid_t dt = legms::H5DatatypeManager::datatype<casacore::TpString>();
   hid_t attr = init_kw_attr(loc_id, attr_name, dt, casacore::TpString);
@@ -168,20 +169,20 @@ legms::hdf5::write_keywords(
   const WithKeywords* with_keywords,
   bool with_data) {
 
-  if (with_keywords->keywords_region() == Legion::LogicalRegion::NO_REGION)
+  if (with_keywords->keywords_region() == LogicalRegion::NO_REGION)
     return;
 
-  Legion::Runtime* runtime = with_keywords->runtime();
-  Legion::Context context = with_keywords->context();
+  Runtime* runtime = with_keywords->runtime();
+  Context context = with_keywords->context();
 
-  optional<Legion::PhysicalRegion> pr;
+  optional<PhysicalRegion> pr;
   if (with_data) {
-    Legion::RegionRequirement req(
+    RegionRequirement req(
       with_keywords->keywords_region(),
       READ_ONLY,
       EXCLUSIVE,
       with_keywords->keywords_region());
-    vector<Legion::FieldID> fids(with_keywords->num_keywords());
+    vector<FieldID> fids(with_keywords->num_keywords());
     iota(fids.begin(), fids.end(), 0);
     req.add_fields(fids);
     pr = runtime->map_region(context, req);
@@ -190,8 +191,8 @@ legms::hdf5::write_keywords(
   auto kws = with_keywords->keywords();
   for (size_t i = 0; i < kws.size(); ++i) {
     auto [nm, dt] = kws[i];
-    assert(nm.substr(0, sizeof(LEGMS_ATTRIBUTE_NAME_PREFIX) - 1)
-           != LEGMS_ATTRIBUTE_NAME_PREFIX);
+    assert(nm.substr(0, sizeof(LEGMS_ATTRIBUTE_NAMESPACE_PREFIX) - 1)
+           != LEGMS_ATTRIBUTE_NAMESPACE_PREFIX);
 
 #define WRITE_KW(DT)                                  \
     case (DT): {                                      \
@@ -220,8 +221,8 @@ legms::hdf5::write_column(
   hid_t access_pl,
   hid_t transfer_pl) {
 
-  Legion::Runtime* runtime = column->runtime();
-  Legion::Context context = column->context();
+  Runtime* runtime = column->runtime();
+  Context context = column->context();
 
   // delete column dataset if it exists
   htri_t ds_exists =
@@ -241,9 +242,9 @@ legms::hdf5::write_column(
 
 #define DIMS(N) \
     case N: {\
-      Legion::Rect<N> rect =                                            \
+      Rect<N> rect =                                            \
         runtime->get_index_space_domain(context, column->index_space()) \
-        .bounds<N, Legion::coord_t>();                                  \
+        .bounds<N, coord_t>();                                  \
       for (size_t i = 0; i < N; ++i)                                    \
         dims[i] = rect.hi[i] + 1;                                       \
       break;                                                            \
@@ -335,30 +336,30 @@ legms::hdf5::write_column(
   // write data to dataset
   if (with_data) {
     string column_ds_name = string("/") + table_name + "/" + column->name();
-    map<Legion::FieldID, const char*>
+    map<FieldID, const char*>
       field_map{{Column::value_fid, column_ds_name.c_str()}};
-    Legion::LogicalRegion values_lr =
+    LogicalRegion values_lr =
       runtime->create_logical_region(
         context,
         column->index_space(),
         column->logical_region().get_field_space());
-    Legion::AttachLauncher attach(EXTERNAL_HDF5_FILE, values_lr, values_lr);
+    AttachLauncher attach(EXTERNAL_HDF5_FILE, values_lr, values_lr);
     attach.attach_hdf5(path.c_str(), field_map, LEGION_FILE_READ_WRITE);
-    Legion::PhysicalRegion values_pr =
+    PhysicalRegion values_pr =
       runtime->attach_external_resource(context, attach);
-    Legion::RegionRequirement src(
+    RegionRequirement src(
       column->logical_region(),
       READ_ONLY,
       EXCLUSIVE,
       column->logical_region());
     src.add_field(Column::value_fid);
-    Legion::RegionRequirement dst(
+    RegionRequirement dst(
       values_lr,
       WRITE_ONLY,
       EXCLUSIVE,
       values_lr);
     dst.add_field(Column::value_fid);
-    Legion::CopyLauncher copy;
+    CopyLauncher copy;
     copy.add_copy_requirements(src, dst);
     runtime->issue_copy_operation(context, copy);
     runtime->detach_external_resource(context, values_pr);
@@ -565,11 +566,8 @@ acc_kw_desc(
   return 0;
 }
 
-tuple<Legion::LogicalRegion, vector<casacore::DataType>>
-legms::hdf5::init_keywords(
-  hid_t loc_id,
-  Legion::Runtime* runtime,
-  Legion::Context context) {
+tuple<LogicalRegion, vector<casacore::DataType>>
+legms::hdf5::init_keywords(hid_t loc_id, Runtime* runtime, Context context) {
 
   WithKeywords::kw_desc_t kws;
   hsize_t n = 0;
@@ -585,10 +583,10 @@ legms::hdf5::init_keywords(
       &kws);
   assert(err >= 0);
 
-  Legion::IndexSpaceT<1> is =
-    runtime->create_index_space(context, Legion::Rect<1>(0, 0));
-  Legion::FieldSpace fs = runtime->create_field_space(context);
-  Legion::FieldAllocator fa = runtime->create_field_allocator(context, fs);
+  IndexSpaceT<1> is =
+    runtime->create_index_space(context, Rect<1>(0, 0));
+  FieldSpace fs = runtime->create_field_space(context);
+  FieldAllocator fa = runtime->create_field_allocator(context, fs);
   vector<casacore::DataType> dts;
   for (size_t i = 0; i < kws.size(); ++i) {
     auto [nm, dt] = kws[i];
@@ -596,7 +594,7 @@ legms::hdf5::init_keywords(
     runtime->attach_name(fs, i, nm.c_str());
     dts.push_back(dt);
   }
-  Legion::LogicalRegion region =
+  LogicalRegion region =
     runtime->create_logical_region(context, is, fs);
   runtime->destroy_field_space(context, fs);
   runtime->destroy_index_space(context, is);
@@ -606,8 +604,8 @@ legms::hdf5::init_keywords(
 optional<legms::ColumnGenArgs>
 legms::hdf5::init_column(
   hid_t loc_id,
-  Legion::Runtime* runtime,
-  Legion::Context context,
+  Runtime* runtime,
+  Context context,
   hid_t attribute_access_pl) {
 
   optional<ColumnGenArgs> result;
@@ -617,8 +615,8 @@ legms::hdf5::init_column(
   vector<int> axes;
   hid_t axes_id = -1;
   hid_t axes_id_ds = -1;
-  Legion::LogicalRegion values = Legion::LogicalRegion::NO_REGION;
-  Legion::LogicalRegion keywords = Legion::LogicalRegion::NO_REGION;
+  LogicalRegion values = LogicalRegion::NO_REGION;
+  LogicalRegion keywords = LogicalRegion::NO_REGION;
   vector<casacore::DataType> keyword_datatypes;
   {
     string datatype_name(LEGMS_ATTRIBUTE_DT);
@@ -636,12 +634,11 @@ legms::hdf5::init_column(
     datatype = static_cast<casacore::DataType>(dt);
   }
   {
-    string axes_name = string(LEGMS_ATTRIBUTE_NAME_PREFIX) + "axes";
-    htri_t axes_exists = H5Aexists(loc_id, axes_name.c_str());
+    htri_t axes_exists = H5Aexists(loc_id, column_axes_attr_name);
     assert(axes_exists >= 0);
     if (axes_exists == 0)
       goto return_nothing;
-    axes_id = H5Aopen(loc_id, axes_name.c_str(), attribute_access_pl);
+    axes_id = H5Aopen(loc_id, column_axes_attr_name, attribute_access_pl);
     assert(axes_id >= 0);
     axes_id_ds = H5Aget_space(axes_id);
     assert(axes_id_ds >= 0);
@@ -661,9 +658,9 @@ legms::hdf5::init_column(
     optional<IndexTreeL> ixtree =
       read_index_tree_from_attr<binary_index_tree_serdez>(loc_id, "index_tree");
     assert(ixtree);
-    Legion::IndexSpace is = tree_index_space(ixtree.value(), context, runtime);
-    Legion::FieldSpace fs = runtime->create_field_space(context);
-    Legion::FieldAllocator fa = runtime->create_field_allocator(context, fs);
+    IndexSpace is = tree_index_space(ixtree.value(), context, runtime);
+    FieldSpace fs = runtime->create_field_space(context);
+    FieldAllocator fa = runtime->create_field_allocator(context, fs);
     add_field(datatype, fa, Column::value_fid);
     values = runtime->create_logical_region(context, is, fs);
     runtime->destroy_field_space(context, fs);
@@ -695,8 +692,8 @@ return_nothing:
 struct acc_col_genargs_ctx {
   vector<legms::ColumnGenArgs>* acc;
   string axes_uid;
-  Legion::Runtime* runtime;
-  Legion::Context context;
+  Runtime* runtime;
+  Context context;
 };
 
 static herr_t
@@ -729,8 +726,8 @@ acc_col_genargs(
 optional<legms::TableGenArgs>
 legms::hdf5::init_table(
   hid_t loc_id,
-  Legion::Runtime* runtime,
-  Legion::Context context,
+  Runtime* runtime,
+  Context context,
   hid_t attribute_access_pl) {
 
   optional<TableGenArgs> result;
@@ -740,17 +737,15 @@ legms::hdf5::init_table(
   hid_t index_axes_id_ds = -1;
   string axes_uid;
   vector<ColumnGenArgs> col_genargs;
-  Legion::LogicalRegion keywords = Legion::LogicalRegion::NO_REGION;
+  LogicalRegion keywords = LogicalRegion::NO_REGION;
   vector<casacore::DataType> keyword_datatypes;
   {
-    string index_axes_name =
-      string(LEGMS_ATTRIBUTE_NAME_PREFIX) + "index_axes";
-    htri_t index_axes_exists = H5Aexists(loc_id, index_axes_name.c_str());
+    htri_t index_axes_exists = H5Aexists(loc_id, table_index_axes_attr_name);
     assert(index_axes_exists >= 0);
     if (index_axes_exists == 0)
       goto return_nothing;
     index_axes_id =
-      H5Aopen(loc_id, index_axes_name.c_str(), attribute_access_pl);
+      H5Aopen(loc_id, table_index_axes_attr_name, attribute_access_pl);
     assert(index_axes_id >= 0);
     index_axes_id_ds = H5Aget_space(index_axes_id);
     assert(index_axes_id_ds >= 0);
@@ -764,9 +759,7 @@ legms::hdf5::init_table(
     assert(err >= 0);
   }
   {
-    string axes_uid_name =
-      string(LEGMS_ATTRIBUTE_NAME_PREFIX) + "axes_uid";
-    htri_t axes_uid_exists = H5Aexists(loc_id, axes_uid_name.c_str());
+    htri_t axes_uid_exists = H5Aexists(loc_id, table_axes_uid_attr_name);
     assert(axes_uid_exists >= 0);
     if (axes_uid_exists == 0)
       goto return_nothing;
@@ -774,7 +767,7 @@ legms::hdf5::init_table(
       H5DatatypeManager::datatypes()[H5DatatypeManager::CASACORE_STRING_H5T];
     char str[LEGMS_MAX_STRING_SIZE];
     hid_t axes_uid_id =
-      H5Aopen(loc_id, axes_uid_name.c_str(), attribute_access_pl);
+      H5Aopen(loc_id, table_axes_uid_attr_name, attribute_access_pl);
     assert(axes_uid_id >= 0);
     herr_t err = H5Aread(axes_uid_id, did, str);
     assert(err >= 0);
@@ -820,13 +813,148 @@ return_nothing:
   return result;
 }
 
+std::optional<legms::TableGenArgs>
+legms::hdf5::init_table(
+  const experimental::filesystem::path& file_path,
+  const string& table_path,
+  Runtime* runtime,
+  Context context,
+  unsigned flags,
+  hid_t file_access_pl,
+  hid_t table_access_pl,
+  hid_t dataset_access_pl) {
 
-// std::vector<std::pair<Legion::PhysicalRegion, Legion::PhysicalRegion>>
-// attach_table_columns(
-//   const std::experimental::filesystem::path& path,
-//   hid_t loc_id,
-//   const Table* table,
-//   const std::vector<std::string>& columns);
+  optional<TableGenArgs> result;
+
+  hid_t fid = H5Fopen(file_path.c_str(), flags, file_access_pl);
+  if (fid >= 0) {
+    try {
+      hid_t table_loc = H5Gopen(fid, table_path.c_str(), table_access_pl);
+      if (table_loc >= 0) {
+        try {
+          result = init_table(table_loc, runtime, context, dataset_access_pl);
+          result.value().name = table_path.substr(table_path.rfind('/') + 1);
+        } catch (...) {
+          herr_t err = H5Gclose(table_loc);
+          assert(err >= 0);
+          throw;
+        }
+        herr_t err = H5Gclose(table_loc);
+        assert(err >= 0);
+      }
+    } catch (...) {
+      herr_t err = H5Fclose(fid);
+      assert(err >= 0);
+      throw;
+    }
+    herr_t err = H5Fclose(fid);
+    assert(err >= 0);
+  }
+  return result;
+}
+
+optional<PhysicalRegion>
+legms::hdf5::attach_keywords(
+  const experimental::filesystem::path& file_path,
+  const string& with_keywords_path,
+  const WithKeywords* with_keywords,
+  Runtime* runtime,
+  Context context,
+  bool read_only) {
+
+  optional<PhysicalRegion> result;
+  return result; // FIXME
+  auto kws = with_keywords->keywords_region();
+  if (kws != LogicalRegion::NO_REGION) {
+    vector<string> field_paths(with_keywords->num_keywords());
+    map<FieldID, const char*> fields;
+    for (size_t i = 0; i < with_keywords->num_keywords(); ++i) {
+      field_paths[i] =
+        with_keywords_path + "/" + get<0>(with_keywords->keywords()[i]);
+      fields[i] = field_paths[i].c_str();
+    }
+    AttachLauncher kws_attach(EXTERNAL_HDF5_FILE, kws, kws);
+    kws_attach.attach_hdf5(
+      file_path.c_str(),
+      fields,
+      read_only ? LEGION_FILE_READ_ONLY : LEGION_FILE_READ_WRITE);
+    result = runtime->attach_external_resource(context, kws_attach);
+  }
+  return result;
+}
+
+vector<
+  tuple<
+    optional<PhysicalRegion>,
+    optional<PhysicalRegion>>>
+legms::hdf5::attach_table_columns(
+  const experimental::filesystem::path& file_path,
+  const string& root_path,
+  const Table* table,
+  const std::vector<std::string>& columns,
+  Runtime* runtime,
+  Context context,
+  bool read_only) {
+
+  vector<
+    tuple<
+      optional<PhysicalRegion>,
+      optional<PhysicalRegion>>> result;
+  string table_root = root_path;
+  if (table_root.back() != '/')
+    table_root.push_back('/');
+  table_root += table->name() + "/";
+  transform(
+    columns.begin(),
+    columns.end(),
+    back_inserter(result),
+    [&file_path,&table_root, &table, &runtime, &context, &read_only](auto& nm) {
+      auto c = table->column(nm);
+      tuple<optional<PhysicalRegion>, optional<PhysicalRegion>> regions;
+      if (c) {
+        auto col = c->logical_region();
+        if (col != LogicalRegion::NO_REGION) {
+          AttachLauncher col_attach(EXTERNAL_HDF5_FILE, col, col);
+          string col_path = table_root + c->name();
+          map<FieldID, const char*>
+            fields{{Column::value_fid, col_path.c_str()}};
+          col_attach.attach_hdf5(
+            file_path.c_str(),
+            fields,
+            read_only ? LEGION_FILE_READ_ONLY : LEGION_FILE_READ_WRITE);
+          get<0>(regions) =
+            runtime->attach_external_resource(context, col_attach);
+          get<1>(regions) =
+            attach_keywords(
+              file_path,
+              col_path,
+              c.get(),
+              runtime,
+              context,
+              read_only);
+        }
+      }
+      return regions;
+    });
+  return result;
+}
+
+optional<PhysicalRegion>
+legms::hdf5::attach_table_keywords(
+  const experimental::filesystem::path& file_path,
+  const string& root_path,
+  const Table* table,
+  Runtime* runtime,
+  Context context,
+  bool read_only) {
+
+  string table_root = root_path;
+  if (table_root.back() != '/')
+    table_root.push_back('/');
+  table_root += table->name();
+  return
+    attach_keywords(file_path, table_root, table, runtime, context, read_only);
+}
 
 // Local Variables:
 // mode: c++
