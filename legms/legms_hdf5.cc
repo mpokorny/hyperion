@@ -191,8 +191,8 @@ legms::hdf5::write_keywords(
   auto kws = with_keywords->keywords();
   for (size_t i = 0; i < kws.size(); ++i) {
     auto [nm, dt] = kws[i];
-    assert(nm.substr(0, sizeof(LEGMS_ATTRIBUTE_NAMESPACE_PREFIX) - 1)
-           != LEGMS_ATTRIBUTE_NAMESPACE_PREFIX);
+    assert(nm.substr(0, sizeof(LEGMS_NAMESPACE_PREFIX) - 1)
+           != LEGMS_NAMESPACE_PREFIX);
 
 #define WRITE_KW(DT)                                  \
     case (DT): {                                      \
@@ -233,6 +233,16 @@ legms::hdf5::write_column(
   } else {
     assert(ds_exists == 0);
   }
+
+  // create column group
+  hid_t col_group_id =
+    H5Gcreate(
+      table_id,
+      column->name().c_str(),
+      H5P_DEFAULT,
+      H5P_DEFAULT,
+      H5P_DEFAULT);
+  assert(col_group_id >= 0);
 
   // create column dataset
   hid_t col_id;
@@ -275,8 +285,8 @@ legms::hdf5::write_column(
 
     col_id =
       H5Dcreate(
-        table_id,
-        column->name().c_str(),
+        col_group_id,
+        LEGMS_COLUMN_DS,
         dt,
         ds,
         H5P_DEFAULT, // TODO
@@ -285,18 +295,20 @@ legms::hdf5::write_column(
     assert(col_id >= 0);
     herr_t err = H5Sclose(ds);
     assert(err >= 0);
+    err = H5Dclose(col_id);
+    assert(err >= 0);
   }
 
   // write column value datatype
-  init_datatype_attr(col_id, "", column->datatype());
+  init_datatype_attr(col_group_id, "", column->datatype());
 
   // write axes attribute to column
   {
     hid_t axes_dt = H5DatatypeManager::datatype<ValueType<int>::DataType>();
 
-    htri_t rc = H5Aexists(table_id, column_axes_attr_name);
+    htri_t rc = H5Aexists(col_group_id, column_axes_attr_name);
     if (rc > 0) {
-      herr_t err = H5Adelete(table_id, column_axes_attr_name);
+      herr_t err = H5Adelete(col_group_id, column_axes_attr_name);
       assert(err >= 0);
     }
 
@@ -307,7 +319,7 @@ legms::hdf5::write_column(
     try {
       hid_t axes_id =
         H5Acreate(
-          col_id,
+          col_group_id,
           column_axes_attr_name,
           axes_dt,
           axes_ds,
@@ -335,7 +347,8 @@ legms::hdf5::write_column(
 
   // write data to dataset
   if (with_data) {
-    string column_ds_name = string("/") + table_name + "/" + column->name();
+    string column_ds_name =
+      string("/") + table_name + "/" + column->name() + "/" + LEGMS_COLUMN_DS;
     map<FieldID, const char*>
       field_map{{Column::value_fid, column_ds_name.c_str()}};
     LogicalRegion values_lr =
@@ -364,9 +377,9 @@ legms::hdf5::write_column(
     runtime->issue_copy_operation(context, copy);
     runtime->detach_external_resource(context, values_pr);
   }
-  write_keywords(col_id, column, with_data);
-  herr_t rc = H5Dclose(col_id);
-  assert(rc >= 0);
+  write_keywords(col_group_id, column, with_data);
+  herr_t err = H5Gclose(col_group_id);
+  assert(err >= 0);
 
   write_index_tree_to_attr<binary_index_tree_serdez>(
     column->index_tree(),
@@ -610,7 +623,7 @@ legms::hdf5::init_column(
 
   optional<ColumnGenArgs> result;
 
-  casacore::DataType datatype;
+  casacore::DataType datatype = ValueType<int>::DataType;
   hid_t datatype_id = -1;
   vector<int> axes;
   hid_t axes_id = -1;
@@ -618,55 +631,66 @@ legms::hdf5::init_column(
   LogicalRegion values = LogicalRegion::NO_REGION;
   LogicalRegion keywords = LogicalRegion::NO_REGION;
   vector<casacore::DataType> keyword_datatypes;
-  {
-    string datatype_name(LEGMS_ATTRIBUTE_DT);
-    htri_t datatype_exists = H5Aexists(loc_id, datatype_name.c_str());
-    assert(datatype_exists >= 0);
-    hid_t did =
-      H5DatatypeManager::datatypes()[H5DatatypeManager::CASACORE_DATATYPE_H5T];
-    unsigned char dt;
-    if (datatype_exists == 0)
-      goto return_nothing;
-    datatype_id = H5Aopen(loc_id, datatype_name.c_str(), attribute_access_pl);
-    assert(datatype_id >= 0);
-    herr_t err = H5Aread(datatype_id, did, &dt);
-    assert(err >= 0);
-    datatype = static_cast<casacore::DataType>(dt);
-  }
-  {
-    htri_t axes_exists = H5Aexists(loc_id, column_axes_attr_name);
-    assert(axes_exists >= 0);
-    if (axes_exists == 0)
-      goto return_nothing;
-    axes_id = H5Aopen(loc_id, column_axes_attr_name, attribute_access_pl);
-    assert(axes_id >= 0);
-    axes_id_ds = H5Aget_space(axes_id);
-    assert(axes_id_ds >= 0);
-    int ndims = H5Sget_simple_extent_ndims(axes_id_ds);
-    if (ndims != 1)
-      goto return_nothing;
-    axes.resize(H5Sget_simple_extent_npoints(axes_id_ds));
-    hid_t axes_dt = H5DatatypeManager::datatype<ValueType<int>::DataType>();
-    herr_t err = H5Aread(axes_id, axes_dt, axes.data());
-    assert(err >= 0);
-  }
-  {
-    optional<string> sid =
-      read_index_tree_attr_metadata(loc_id, "index_tree");
-    if (!sid || sid.value() != "legms::hdf5::binary_index_tree_serdez")
-      goto return_nothing;
-    optional<IndexTreeL> ixtree =
-      read_index_tree_from_attr<binary_index_tree_serdez>(loc_id, "index_tree");
-    assert(ixtree);
-    IndexSpace is = tree_index_space(ixtree.value(), context, runtime);
-    FieldSpace fs = runtime->create_field_space(context);
-    FieldAllocator fa = runtime->create_field_allocator(context, fs);
-    add_field(datatype, fa, Column::value_fid);
-    values = runtime->create_logical_region(context, is, fs);
-    runtime->destroy_field_space(context, fs);
-    runtime->destroy_index_space(context, is);
-  }
 
+  htri_t rc = H5Lexists(loc_id, LEGMS_COLUMN_DS, H5P_DEFAULT);
+  if (rc > 0) {
+    H5O_info_t infobuf;
+    H5Oget_info_by_name(loc_id, LEGMS_COLUMN_DS, &infobuf, H5P_DEFAULT);
+    if (infobuf.type == H5O_TYPE_DATASET) {
+      {
+        string datatype_name(LEGMS_ATTRIBUTE_DT);
+        htri_t datatype_exists = H5Aexists(loc_id, datatype_name.c_str());
+        assert(datatype_exists >= 0);
+        hid_t did =
+          H5DatatypeManager::datatypes()[
+            H5DatatypeManager::CASACORE_DATATYPE_H5T];
+        unsigned char dt;
+        if (datatype_exists == 0)
+          goto return_nothing;
+        datatype_id =
+          H5Aopen(loc_id, datatype_name.c_str(), attribute_access_pl);
+        assert(datatype_id >= 0);
+        herr_t err = H5Aread(datatype_id, did, &dt);
+        assert(err >= 0);
+        datatype = static_cast<casacore::DataType>(dt);
+      }
+      {
+        htri_t axes_exists = H5Aexists(loc_id, column_axes_attr_name);
+        assert(axes_exists >= 0);
+        if (axes_exists == 0)
+          goto return_nothing;
+        axes_id = H5Aopen(loc_id, column_axes_attr_name, attribute_access_pl);
+        assert(axes_id >= 0);
+        axes_id_ds = H5Aget_space(axes_id);
+        assert(axes_id_ds >= 0);
+        int ndims = H5Sget_simple_extent_ndims(axes_id_ds);
+        if (ndims != 1)
+          goto return_nothing;
+        axes.resize(H5Sget_simple_extent_npoints(axes_id_ds));
+        hid_t axes_dt = H5DatatypeManager::datatype<ValueType<int>::DataType>();
+        herr_t err = H5Aread(axes_id, axes_dt, axes.data());
+        assert(err >= 0);
+      }
+      {
+        optional<string> sid =
+          read_index_tree_attr_metadata(loc_id, "index_tree");
+        if (!sid || sid.value() != "legms::hdf5::binary_index_tree_serdez")
+          goto return_nothing;
+        optional<IndexTreeL> ixtree =
+          read_index_tree_from_attr<binary_index_tree_serdez>(
+            loc_id,
+            "index_tree");
+        assert(ixtree);
+        IndexSpace is = tree_index_space(ixtree.value(), context, runtime);
+        FieldSpace fs = runtime->create_field_space(context);
+        FieldAllocator fa = runtime->create_field_allocator(context, fs);
+        add_field(datatype, fa, Column::value_fid);
+        values = runtime->create_logical_region(context, is, fs);
+        runtime->destroy_field_space(context, fs);
+        runtime->destroy_index_space(context, is);
+      }
+    }
+  }
   tie(keywords, keyword_datatypes) =
     init_keywords(loc_id, runtime, context);
 
@@ -705,20 +729,22 @@ acc_col_genargs(
 
   struct acc_col_genargs_ctx *args =
     static_cast<struct acc_col_genargs_ctx*>(ctx);
-  H5O_info_t infobuf;
-  H5Oget_info_by_name(table_id, name, &infobuf, H5P_DEFAULT);
-  if (infobuf.type == H5O_TYPE_DATASET) {
-    hid_t col_id = H5Dopen(table_id, name, H5P_DEFAULT);
-    assert(col_id >= 0);
-    auto cga = init_column(col_id, args->runtime, args->context, H5P_DEFAULT);
-    if (cga) {
-      legms::ColumnGenArgs& a = cga.value();
-      a.name = name;
-      a.axes_uid = args->axes_uid;
-      args->acc->push_back(move(a));
+  htri_t rc = H5Lexists(table_id, name, H5P_DEFAULT);
+  if (rc > 0) {
+    H5O_info_t infobuf;
+    H5Oget_info_by_name(table_id, name, &infobuf, H5P_DEFAULT);
+    if (infobuf.type == H5O_TYPE_GROUP) {
+      hid_t col_group_id = H5Gopen(table_id, name, H5P_DEFAULT);
+      assert(col_group_id >= 0);
+      auto cga =
+        init_column(col_group_id, args->runtime, args->context, H5P_DEFAULT);
+      if (cga) {
+        legms::ColumnGenArgs& a = cga.value();
+        a.name = name;
+        a.axes_uid = args->axes_uid;
+        args->acc->push_back(move(a));
+      }
     }
-    herr_t err = H5Dclose(col_id);
-    assert(err >= 0);
   }
   return 0;
 }
