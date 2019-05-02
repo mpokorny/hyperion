@@ -22,23 +22,24 @@
 namespace legms {
 namespace hdf5 {
 
-#define LEGMS_ATTRIBUTE_NAMESPACE "legms"
-#define LEGMS_ATTRIBUTE_NAME_SEP "::"
-#define LEGMS_ATTRIBUTE_NAMESPACE_PREFIX LEGMS_ATTRIBUTE_NAMESPACE LEGMS_ATTRIBUTE_NAME_SEP
-#define LEGMS_ATTRIBUTE_DT LEGMS_ATTRIBUTE_NAMESPACE_PREFIX "dt"
-#define LEGMS_ATTRIBUTE_DT_PREFIX LEGMS_ATTRIBUTE_DT LEGMS_ATTRIBUTE_NAME_SEP
-#define LEGMS_ATTRIBUTE_SID LEGMS_ATTRIBUTE_NAMESPACE_PREFIX "sid"
-#define LEGMS_ATTRIBUTE_SID_PREFIX LEGMS_ATTRIBUTE_SID LEGMS_ATTRIBUTE_NAME_SEP
-#define LEGMS_ATTRIBUTE_DS LEGMS_ATTRIBUTE_NAMESPACE_PREFIX "ds"
-#define LEGMS_ATTRIBUTE_DS_PREFIX LEGMS_ATTRIBUTE_DS LEGMS_ATTRIBUTE_NAME_SEP
+#define LEGMS_NAMESPACE "legms"
+#define LEGMS_NAME_SEP "::"
+#define LEGMS_NAMESPACE_PREFIX LEGMS_NAMESPACE LEGMS_NAME_SEP
+#define LEGMS_ATTRIBUTE_DT LEGMS_NAMESPACE_PREFIX "dt"
+#define LEGMS_ATTRIBUTE_DT_PREFIX LEGMS_ATTRIBUTE_DT LEGMS_NAME_SEP
+#define LEGMS_ATTRIBUTE_SID LEGMS_NAMESPACE_PREFIX "sid"
+#define LEGMS_ATTRIBUTE_SID_PREFIX LEGMS_ATTRIBUTE_SID LEGMS_NAME_SEP
+#define LEGMS_ATTRIBUTE_DS LEGMS_NAMESPACE_PREFIX "ds"
+#define LEGMS_ATTRIBUTE_DS_PREFIX LEGMS_ATTRIBUTE_DS LEGMS_NAME_SEP
+#define LEGMS_COLUMN_DS LEGMS_NAMESPACE_PREFIX "ds"
 
 const size_t large_tree_min = (64 * (1 << 10));
 const char* table_index_axes_attr_name =
-  LEGMS_ATTRIBUTE_NAMESPACE_PREFIX "index_axes";
+  LEGMS_NAMESPACE_PREFIX "index_axes";
 const char* table_axes_uid_attr_name =
-  LEGMS_ATTRIBUTE_NAMESPACE_PREFIX "axes_uid";
+  LEGMS_NAMESPACE_PREFIX "axes_uid";
 const char* column_axes_attr_name =
-  LEGMS_ATTRIBUTE_NAMESPACE_PREFIX "axes";
+  LEGMS_NAMESPACE_PREFIX "axes";
 
 // TODO: it might be nice to support use of types of IndexSpace descriptions
 // other than IndexTree...this might require some sort of type registration
@@ -58,11 +59,11 @@ write_index_tree_to_attr(
 
   // remove current attribute value
   std::string legms_attr_name =
-    std::string(LEGMS_ATTRIBUTE_NAMESPACE_PREFIX) + attr_name;
+    std::string(LEGMS_NAMESPACE_PREFIX) + attr_name;
   std::string attr_ds_name =
     std::string(LEGMS_ATTRIBUTE_DS_PREFIX)
     + obj_name
-    + std::string(LEGMS_ATTRIBUTE_NAME_SEP)
+    + std::string(LEGMS_NAME_SEP)
     + attr_name;
 
   if (H5Aexists_by_name(
@@ -182,7 +183,7 @@ read_index_tree_from_attr(hid_t loc_id, const std::string& attr_name) {
     return result;
 
   std::string legms_attr_name =
-    std::string(LEGMS_ATTRIBUTE_NAMESPACE_PREFIX) + attr_name;
+    std::string(LEGMS_NAMESPACE_PREFIX) + attr_name;
   if (!H5Aexists(loc_id, legms_attr_name.c_str()))
     return result;
 
