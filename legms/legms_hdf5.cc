@@ -54,16 +54,11 @@ using KW =
   false>;
 
 static void
-init_datatype_attr(hid_t loc_id, const char* name, casacore::DataType dt) {
+init_datatype_attr(hid_t loc_id, casacore::DataType dt) {
 
-  string attr_name =
-    string(
-      (strlen(name) > 0) ? LEGMS_ATTRIBUTE_DT_PREFIX : LEGMS_ATTRIBUTE_DT)
-    + name;
-
-  htri_t rc = H5Aexists(loc_id, attr_name.c_str());
+  htri_t rc = H5Aexists(loc_id, LEGMS_ATTRIBUTE_DT);
   if (rc > 0) {
-    herr_t err = H5Adelete(loc_id, attr_name.c_str());
+    herr_t err = H5Adelete(loc_id, LEGMS_ATTRIBUTE_DT);
     assert(err >= 0);
   }
 
@@ -74,7 +69,7 @@ init_datatype_attr(hid_t loc_id, const char* name, casacore::DataType dt) {
   hid_t attr_id =
     H5Acreate(
       loc_id,
-      attr_name.c_str(),
+      LEGMS_ATTRIBUTE_DT,
       did,
       ds,
       H5P_DEFAULT,
@@ -93,7 +88,7 @@ init_datatype_attr(hid_t loc_id, const char* name, casacore::DataType dt) {
 }
 
 static hid_t
-init_kw_ds(
+init_kw(
   hid_t loc_id,
   const char *attr_name,
   hid_t type_id,
@@ -107,7 +102,6 @@ init_kw_ds(
       assert(err >= 0);
     }
   }
-  init_datatype_attr(loc_id, attr_name, dt);
   hid_t result;
   {
     hid_t attr_ds = H5Screate(H5S_SCALAR);
@@ -125,19 +119,20 @@ init_kw_ds(
     herr_t err = H5Sclose(attr_ds);
     assert(err >= 0);
   }
+  init_datatype_attr(result, dt);
   return result;
 }
 
 template <casacore::DataType DT>
 static void
-write_kw_ds(
+write_kw(
   hid_t loc_id,
   const char *attr_name,
   optional<PhysicalRegion>& region,
   FieldID fid) {
 
   hid_t dt = legms::H5DatatypeManager::datatype<DT>();
-  hid_t attr_id = init_kw_ds(loc_id, attr_name, dt, DT);
+  hid_t attr_id = init_kw(loc_id, attr_name, dt, DT);
   if (region) {
     const KW<DT> kw(region.value(), fid);
     herr_t err =
@@ -150,14 +145,14 @@ write_kw_ds(
 
 template <>
 void
-write_kw_ds<casacore::TpString> (
+write_kw<casacore::TpString> (
   hid_t loc_id,
   const char *attr_name,
   optional<PhysicalRegion>& region,
   FieldID fid) {
 
   hid_t dt = legms::H5DatatypeManager::datatype<casacore::TpString>();
-  hid_t attr_id = init_kw_ds(loc_id, attr_name, dt, casacore::TpString);
+  hid_t attr_id = init_kw(loc_id, attr_name, dt, casacore::TpString);
   if (region) {
     const KW<casacore::TpString> kw(region.value(), fid);
     const string& val = kw[0];
@@ -205,7 +200,7 @@ legms::hdf5::write_keywords(
 
 #define WRITE_KW(DT)                                  \
     case (DT): {                                      \
-      write_kw_ds<DT>(loc_id, nm.c_str(), pr, i);     \
+      write_kw<DT>(loc_id, nm.c_str(), pr, i);        \
       break;                                          \
     }
 
@@ -304,12 +299,13 @@ legms::hdf5::write_column(
     assert(col_id >= 0);
     herr_t err = H5Sclose(ds);
     assert(err >= 0);
+
+    // write column value datatype
+    init_datatype_attr(col_id, column->datatype());
+
     err = H5Dclose(col_id);
     assert(err >= 0);
   }
-
-  // write column value datatype
-  init_datatype_attr(col_group_id, "", column->datatype());
 
   // write axes attribute to column
   {
@@ -604,16 +600,20 @@ legms::hdf5::init_keywords(hid_t loc_id, Runtime* runtime, Context context) {
     kw_names.end(),
     back_inserter(kws),
     [&loc_id, &did](auto& nm) {
-      string attr_dt_name = string(LEGMS_ATTRIBUTE_DT_PREFIX) + nm;
-      hid_t attr_id = H5Aopen(loc_id, attr_dt_name.c_str(), H5P_DEFAULT);
-      assert(attr_id >= 0);
+      hid_t dt_id =
+        H5Aopen_by_name(
+          loc_id,
+          nm.c_str(),
+          LEGMS_ATTRIBUTE_DT,
+          H5P_DEFAULT,
+          H5P_DEFAULT);
+      assert(dt_id >= 0);
 
       unsigned char dt;
-      herr_t err = H5Aread(attr_id, did, &dt);
+      herr_t err = H5Aread(dt_id, did, &dt);
       assert(err >= 0);
-      err = H5Aclose(attr_id);
+      err = H5Aclose(dt_id);
       assert(err >= 0);
-
       return make_tuple(nm, static_cast<casacore::DataType>(dt));
     });
 
@@ -659,23 +659,6 @@ legms::hdf5::init_column(
     H5Oget_info_by_name(loc_id, LEGMS_COLUMN_DS, &infobuf, H5P_DEFAULT);
     if (infobuf.type == H5O_TYPE_DATASET) {
       {
-        string datatype_name(LEGMS_ATTRIBUTE_DT);
-        htri_t datatype_exists = H5Aexists(loc_id, datatype_name.c_str());
-        assert(datatype_exists >= 0);
-        hid_t did =
-          H5DatatypeManager::datatypes()[
-            H5DatatypeManager::CASACORE_DATATYPE_H5T];
-        unsigned char dt;
-        if (datatype_exists == 0)
-          goto return_nothing;
-        datatype_id =
-          H5Aopen(loc_id, datatype_name.c_str(), attribute_access_pl);
-        assert(datatype_id >= 0);
-        herr_t err = H5Aread(datatype_id, did, &dt);
-        assert(err >= 0);
-        datatype = static_cast<casacore::DataType>(dt);
-      }
-      {
         htri_t axes_exists = H5Aexists(loc_id, column_axes_attr_name);
         assert(axes_exists >= 0);
         if (axes_exists == 0)
@@ -709,6 +692,33 @@ legms::hdf5::init_column(
         values = runtime->create_logical_region(context, is, fs);
         runtime->destroy_field_space(context, fs);
         runtime->destroy_index_space(context, is);
+      }
+      {
+        string datatype_name(LEGMS_ATTRIBUTE_DT);
+        htri_t datatype_exists =
+          H5Aexists_by_name(
+            loc_id,
+            LEGMS_COLUMN_DS,
+            datatype_name.c_str(),
+            H5P_DEFAULT);
+        assert(datatype_exists >= 0);
+        hid_t did =
+          H5DatatypeManager::datatypes()[
+            H5DatatypeManager::CASACORE_DATATYPE_H5T];
+        unsigned char dt;
+        if (datatype_exists == 0)
+          goto return_nothing;
+        datatype_id =
+          H5Aopen_by_name(
+            loc_id,
+            LEGMS_COLUMN_DS,
+            datatype_name.c_str(),
+            attribute_access_pl,
+            H5P_DEFAULT);
+        assert(datatype_id >= 0);
+        herr_t err = H5Aread(datatype_id, did, &dt);
+        assert(err >= 0);
+        datatype = static_cast<casacore::DataType>(dt);
       }
     }
   }
