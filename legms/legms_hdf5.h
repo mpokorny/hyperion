@@ -298,8 +298,6 @@ init_table(
   Legion::Context context,
   hid_t dataset_access_pl = H5P_DEFAULT);
 
-// FIXME: the following is broken because of the way keywords are saved as
-// attributes, not datasets
 std::optional<Legion::PhysicalRegion>
 attach_keywords(
   const std::experimental::filesystem::path& file_path,

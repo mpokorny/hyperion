@@ -93,16 +93,17 @@ init_datatype_attr(hid_t loc_id, const char* name, casacore::DataType dt) {
 }
 
 static hid_t
-init_kw_attr(
+init_kw_ds(
   hid_t loc_id,
   const char *attr_name,
   hid_t type_id,
   casacore::DataType dt) {
 
   {
-    htri_t rc = H5Aexists(loc_id, attr_name);
+    htri_t rc = H5Lexists(loc_id, attr_name, H5P_DEFAULT);
+    assert(rc >= 0);
     if (rc > 0) {
-      herr_t err = H5Adelete(loc_id, attr_name);
+      herr_t err = H5Ldelete(loc_id, attr_name, H5P_DEFAULT);
       assert(err >= 0);
     }
   }
@@ -112,7 +113,14 @@ init_kw_attr(
     hid_t attr_ds = H5Screate(H5S_SCALAR);
     assert(attr_ds >= 0);
     result =
-      H5Acreate(loc_id, attr_name, type_id, attr_ds, H5P_DEFAULT, H5P_DEFAULT);
+      H5Dcreate(
+        loc_id,
+        attr_name,
+        type_id,
+        attr_ds,
+        H5P_DEFAULT,
+        H5P_DEFAULT,
+        H5P_DEFAULT);
     assert(result >= 0);
     herr_t err = H5Sclose(attr_ds);
     assert(err >= 0);
@@ -122,33 +130,34 @@ init_kw_attr(
 
 template <casacore::DataType DT>
 static void
-write_kw_attr(
+write_kw_ds(
   hid_t loc_id,
   const char *attr_name,
   optional<PhysicalRegion>& region,
   FieldID fid) {
 
   hid_t dt = legms::H5DatatypeManager::datatype<DT>();
-  hid_t attr = init_kw_attr(loc_id, attr_name, dt, DT);
+  hid_t attr_id = init_kw_ds(loc_id, attr_name, dt, DT);
   if (region) {
     const KW<DT> kw(region.value(), fid);
-    herr_t err = H5Awrite(attr, dt, kw.ptr(0));
+    herr_t err =
+      H5Dwrite(attr_id, dt, H5S_ALL, H5S_ALL, H5P_DEFAULT, kw.ptr(0));
     assert(err >= 0);
   }
-  herr_t err = H5Aclose(attr);
+  herr_t err = H5Dclose(attr_id);
   assert(err >= 0);
 }
 
 template <>
 void
-write_kw_attr<casacore::TpString> (
+write_kw_ds<casacore::TpString> (
   hid_t loc_id,
   const char *attr_name,
   optional<PhysicalRegion>& region,
   FieldID fid) {
 
   hid_t dt = legms::H5DatatypeManager::datatype<casacore::TpString>();
-  hid_t attr = init_kw_attr(loc_id, attr_name, dt, casacore::TpString);
+  hid_t attr_id = init_kw_ds(loc_id, attr_name, dt, casacore::TpString);
   if (region) {
     const KW<casacore::TpString> kw(region.value(), fid);
     const string& val = kw[0];
@@ -156,10 +165,10 @@ write_kw_attr<casacore::TpString> (
     assert(val.size() < sizeof(buf));
     strncpy(buf, val.c_str(), sizeof(buf));
     buf[sizeof(buf) - 1] = '\0';
-    herr_t err = H5Awrite(attr, dt, buf);
+    herr_t err = H5Dwrite(attr_id, dt, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf);
     assert(err >= 0);
   }
-  herr_t err = H5Aclose(attr);
+  herr_t err = H5Dclose(attr_id);
   assert(err >= 0);
 }
 
@@ -196,7 +205,7 @@ legms::hdf5::write_keywords(
 
 #define WRITE_KW(DT)                                  \
     case (DT): {                                      \
-      write_kw_attr<DT>(loc_id, nm.c_str(), pr, i);   \
+      write_kw_ds<DT>(loc_id, nm.c_str(), pr, i);     \
       break;                                          \
     }
 
@@ -551,30 +560,19 @@ starts_with(const char* str, const char* pref) {
 // }
 
 static herr_t
-acc_kw_desc(
-  hid_t location_id,
-  const char* attr_name,
-  const H5A_info_t*,
-  void* op_data) {
+acc_kw_names(
+  hid_t loc_id,
+  const char* name,
+  const H5L_info_t*,
+  void* ctx) {
 
-  legms::WithKeywords::kw_desc_t* acc =
-    static_cast<legms::WithKeywords::kw_desc_t*>(op_data);
-  if (starts_with(attr_name, LEGMS_ATTRIBUTE_DT_PREFIX)) {
-
-    hid_t attr_id = H5Aopen(location_id, attr_name, H5P_DEFAULT);
-    assert(attr_id >= 0);
-
-    hid_t did =
-      legms::H5DatatypeManager::datatypes()[
-        legms::H5DatatypeManager::CASACORE_DATATYPE_H5T];
-    unsigned char dt;
-    herr_t err = H5Aread(attr_id, did, &dt);
+  vector<string>* acc = static_cast<vector<string>*>(ctx);
+  if (!starts_with(name, LEGMS_NAMESPACE_PREFIX)) {
+    H5O_info_t infobuf;
+    herr_t err = H5Oget_info_by_name(loc_id, name, &infobuf, H5P_DEFAULT);
     assert(err >= 0);
-
-    const char* attr_begin = attr_name + sizeof(LEGMS_ATTRIBUTE_DT_PREFIX) - 1;
-    acc->emplace_back(attr_begin, static_cast<casacore::DataType>(dt));
-    err = H5Aclose(attr_id);
-    assert(err >= 0);
+    if (infobuf.type == H5O_TYPE_DATASET)
+      acc->push_back(name);
   }
   return 0;
 }
@@ -582,19 +580,42 @@ acc_kw_desc(
 tuple<LogicalRegion, vector<casacore::DataType>>
 legms::hdf5::init_keywords(hid_t loc_id, Runtime* runtime, Context context) {
 
-  WithKeywords::kw_desc_t kws;
+  vector<string> kw_names;
   hsize_t n = 0;
   herr_t err =
-    H5Aiterate(
+    H5Literate(
       loc_id,
-      // TODO: verify that H5_INDEX_CRT_ORDER sufficient to maintain attribute
-      // order across write/read cycles?
-      H5_INDEX_CRT_ORDER,
+      H5_INDEX_NAME,
       H5_ITER_INC,
       &n,
-      acc_kw_desc,
-      &kws);
+      acc_kw_names,
+      &kw_names);
   assert(err >= 0);
+
+  if (kw_names.size() == 0)
+    return make_tuple(LogicalRegion::NO_REGION, vector<casacore::DataType>());
+
+  WithKeywords::kw_desc_t kws;
+  hid_t did =
+    legms::H5DatatypeManager::datatypes()[
+      legms::H5DatatypeManager::CASACORE_DATATYPE_H5T];
+  transform(
+    kw_names.begin(),
+    kw_names.end(),
+    back_inserter(kws),
+    [&loc_id, &did](auto& nm) {
+      string attr_dt_name = string(LEGMS_ATTRIBUTE_DT_PREFIX) + nm;
+      hid_t attr_id = H5Aopen(loc_id, attr_dt_name.c_str(), H5P_DEFAULT);
+      assert(attr_id >= 0);
+
+      unsigned char dt;
+      herr_t err = H5Aread(attr_id, did, &dt);
+      assert(err >= 0);
+      err = H5Aclose(attr_id);
+      assert(err >= 0);
+
+      return make_tuple(nm, static_cast<casacore::DataType>(dt));
+    });
 
   IndexSpaceT<1> is =
     runtime->create_index_space(context, Rect<1>(0, 0));
@@ -889,7 +910,6 @@ legms::hdf5::attach_keywords(
   bool read_only) {
 
   optional<PhysicalRegion> result;
-  return result; // FIXME
   auto kws = with_keywords->keywords_region();
   if (kws != LogicalRegion::NO_REGION) {
     vector<string> field_paths(with_keywords->num_keywords());
