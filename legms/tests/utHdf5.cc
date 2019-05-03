@@ -4,10 +4,12 @@
 #include "TestRecorder.h"
 #include "TestExpression.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <hdf5.h>
 #include <numeric>
+#include <set>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -390,10 +392,16 @@ table_tests(
   {
     recorder.assert_true(
       "Table has expected keywords",
-      TE(tb0->keywords())
-      == std::vector<std::tuple<std::string, casacore::DataType>>{
-        {"MS_VERSION", ValueType<float>::DataType},
-        {"NAME", ValueType<casacore::String>::DataType}});
+      testing::TestEval(
+        [&tb0]() {
+          auto tbkw_v = tb0->keywords();
+          std::set<std::tuple<std::string, casacore::DataType>>
+            tbkw(tbkw_v.begin(), tbkw_v.end());
+          std::set<std::tuple<std::string, casacore::DataType>>
+            kw{{"MS_VERSION", ValueType<float>::DataType},
+               {"NAME", ValueType<casacore::String>::DataType}};
+          return tbkw == kw;
+        }));
   }
 
   {
@@ -428,7 +436,34 @@ table_tests(
       TE(cz->index_tree()) == IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
   }
 
-  // attach to file, and read back data (FIXME: keywords)
+  // attach to file, and read back keywords
+  {
+    auto tb_kws =
+      attach_table_keywords(
+        fname,
+        "/",
+        tb0.get(),
+        runtime,
+        context);
+    recorder.assert_true(
+      "Table keywords attached",
+      TE(tb_kws.has_value()));
+    // std::map<std::string, size_t> fids;
+    // for (size_t i = 0; i < tb0->keywords().size(); ++i)
+    //   fids[std::get<0>(tb0->keywords()[i])] = i;
+    // auto prtkw = tb_kws.value();
+    // recorder.expect_true(
+    //   "Table has expected keyword values",
+    //   testing::TestEval(
+    //     [&prtkw, &fids, &ms_vn, &ms_nm]() {
+    //       const FieldAccessor<READ_ONLY, float, 1>
+    //         vn(prtkw, fids.at("MS_VERSION"));
+    //       const FieldAccessor<READ_ONLY, casacore::String, 1>
+    //         nm(prtkw, fids.at("NAME"));
+    //       return vn[0] == ms_vn && nm[0] == ms_nm;
+    //      }));
+  }
+  // attach to file, and read back values
   {
     auto tb_cols =
       attach_table_columns(
@@ -438,7 +473,7 @@ table_tests(
         {"X", "Y", "Z"},
         runtime,
         context);
-    recorder.expect_true(
+    recorder.assert_true(
       "Table columns attached",
       TE(
         std::all_of(
@@ -447,7 +482,11 @@ table_tests(
           [](auto& pr2) {
             return std::get<0>(pr2).has_value();
           })));
-
+    recorder.assert_true(
+      "Column keywords attached only when present",
+      TE(!std::get<1>(tb_cols[0]).has_value()
+         && std::get<1>(tb_cols[1]).has_value()
+         && !std::get<1>(tb_cols[2]).has_value()));
     // auto prx = std::get<0>(tb_cols[0]).value();
     // recorder.expect_true(
     //   "Column 'X' values as expected",
