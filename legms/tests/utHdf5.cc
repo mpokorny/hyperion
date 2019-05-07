@@ -448,20 +448,20 @@ table_tests(
     recorder.assert_true(
       "Table keywords attached",
       TE(tb_kws.has_value()));
-    // std::map<std::string, size_t> fids;
-    // for (size_t i = 0; i < tb0->keywords().size(); ++i)
-    //   fids[std::get<0>(tb0->keywords()[i])] = i;
-    // auto prtkw = tb_kws.value();
-    // recorder.expect_true(
-    //   "Table has expected keyword values",
-    //   testing::TestEval(
-    //     [&prtkw, &fids, &ms_vn, &ms_nm]() {
-    //       const FieldAccessor<READ_ONLY, float, 1>
-    //         vn(prtkw, fids.at("MS_VERSION"));
-    //       const FieldAccessor<READ_ONLY, casacore::String, 1>
-    //         nm(prtkw, fids.at("NAME"));
-    //       return vn[0] == ms_vn && nm[0] == ms_nm;
-    //      }));
+    std::map<std::string, size_t> fids;
+    for (size_t i = 0; i < tb0->keywords().size(); ++i)
+      fids[std::get<0>(tb0->keywords()[i])] = i;
+    auto prtkw = tb_kws.value();
+    recorder.expect_true(
+      "Table has expected keyword values",
+      testing::TestEval(
+        [&prtkw, &fids, &ms_vn, &ms_nm]() {
+          const FieldAccessor<READ_ONLY, float, 1>
+            vn(prtkw, fids.at("MS_VERSION"));
+          const FieldAccessor<READ_ONLY, casacore::String, 1>
+            nm(prtkw, fids.at("NAME"));
+          return vn[0] == ms_vn && nm[0] == ms_nm;
+         }));
   }
   // attach to file, and read back values
   {
