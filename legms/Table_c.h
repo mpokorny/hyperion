@@ -1,7 +1,7 @@
 #ifndef LEGMS_TABLE_C_H_
 #define LEGMS_TABLE_C_H_
 
-#include "legion/legion_c.h"
+#include "utility_c.h"
 #include "Column_c.h"
 
 #ifdef __cplusplus

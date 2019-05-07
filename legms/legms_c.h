@@ -1,15 +1,10 @@
-#ifndef LEGMS_C_H_
-#define LEGMS_C_H_
+#ifndef LEGMS_LEGMS_C_H_
+#define LEGMS_LEGMS_C_H_
 
-#include "utility_c.h"
-#include "Grids_c.h"
-#include "Column_c.h"
-#include "ColumnPartition_c.h"
-#include "MSTable_c.h"
-#include "Table_c.h"
-#include "TableReadTask_c.h"
+#include "legion/legion_c.h"
+#include "legms_config.h"
 
-#endif // LEGMS_C_H_
+#endif // LEGMS_LEGMS_C_H_
 
 // Local Variables:
 // mode: c

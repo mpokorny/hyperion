@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <vector>
 
-#include "legion.h"
+#include "legms.h"
 
 namespace legms {
 

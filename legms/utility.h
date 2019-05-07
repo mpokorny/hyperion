@@ -12,17 +12,14 @@
 #include <numeric>
 #include <optional>
 
-#ifndef LEGMS_MAX_DIM
-# define LEGMS_MAX_DIM 3
-#endif
-
 #include <casacore/casa/aipstype.h>
 #include <casacore/casa/Arrays/IPosition.h>
 #include <casacore/casa/BasicSL/String.h>
 #include <casacore/casa/Utilities/DataType.h>
-#include "legion.h"
-#include "IndexTree.h"
 
+#include "legms.h"
+
+#include "IndexTree.h"
 namespace legms {
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;

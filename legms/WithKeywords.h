@@ -9,8 +9,7 @@
 
 #include <casacore/casa/Utilities/DataType.h>
 
-#include "legion.h"
-#include "utility.h"
+#include "legms.h"
 
 namespace legms {
 

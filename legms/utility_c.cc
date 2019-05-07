@@ -1,7 +1,6 @@
-#include "utility_c.h"
 #include "utility.h"
+#include "utility_c.h"
 #include "legion/legion_c_util.h"
-#include "legion.h"
 
 void
 legms_register_tasks(legion_runtime_t runtime) {

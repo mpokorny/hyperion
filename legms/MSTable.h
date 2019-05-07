@@ -6,6 +6,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "legms.h"
+#include "utility.h"
+
 namespace legms {
 
 enum struct MSTables {

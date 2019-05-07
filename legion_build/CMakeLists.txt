@@ -6,7 +6,8 @@ else()
 endif()
 set(legms_LEGION_TAG "master" CACHE STRING "Legion repository git tag")
 
-set(Legion_MAX_DIM ${legms_MAX_DIM} CACHE STRING "UNIMPLEMENTED" FORCE)
+set(Legion_MAX_DIM ${legms_MAX_DIM} CACHE STRING "Maximum number of dimensions")
+list(APPEND Legion_ARGS Legion_MAX_DIM)
 
 set(Legion_OUTPUT_LEVEL "DEBUG" CACHE STRING "Compile time logging level")
 list(APPEND Legion_ARGS Legion_OUTPUT_LEVEL)
@@ -51,6 +52,7 @@ ExternalProject_Add(legion_build
   CMAKE_ARGS -DBUILD_SHARED_LIBS=ON
   CMAKE_ARGS -DLegion_BUILD_BINDINGS=ON
   CMAKE_ARGS -DLegion_OUTPUT_LEVEL=${Legion_OUTPUT_LEVEL}
+  CMAKE_ARGS -DLegion_MAX_DIM=${Legion_MAX_DIM}
   CMAKE_ARGS -DLegion_USE_OpenMP=${Legion_USE_OpenMP}
   CMAKE_ARGS -DLegion_USE_Python=${Legion_USE_Python}
   CMAKE_ARGS -DLegion_USE_CUDA=${Legion_USE_CUDA}

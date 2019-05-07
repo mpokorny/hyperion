@@ -1,7 +1,7 @@
 #ifndef LEGMS_TABLE_READ_TASK_C_H_
 #define LEGMS_TABLE_READ_TASK_C_H_
 
-#include "legion/legion_c.h"
+#include "utility_c.h"
 #include "Table_c.h"
 
 #ifdef __cplusplus

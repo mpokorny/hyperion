@@ -6,7 +6,7 @@
 #include <ostream>
 #include <vector>
 
-#include "legion.h"
+#include "legms.h"
 #include "utility.h"
 #include "IndexTree.h"
 
@@ -169,11 +169,12 @@ public:
   static void
   register_task(Legion::Runtime* runtime, Legion::TaskID tid) {
     TASK_ID = tid;
-    Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
+    std::string task_name = std::string(TASK_NAME) + std::to_string(DIM);
+    Legion::TaskVariantRegistrar registrar(TASK_ID, task_name.c_str(), false);
     registrar.add_constraint(
       Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     registrar.set_idempotent();
-    registrar.set_replicable();
+    //registrar.set_replicable();
     runtime->register_task_variant<base_impl>(registrar);
   }
 };
@@ -292,11 +293,12 @@ public:
   static void
   register_task(Legion::Runtime* runtime, Legion::TaskID tid) {
     TASK_ID = tid;
-    Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
+    std::string task_name = std::string(TASK_NAME) + "1";
+    Legion::TaskVariantRegistrar registrar(TASK_ID, task_name.c_str(), false);
     registrar.add_constraint(
       Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     registrar.set_idempotent();
-    registrar.set_replicable();
+    //registrar.set_replicable();
     runtime->register_task_variant<base_impl>(registrar);
   }
 };
@@ -306,7 +308,7 @@ Legion::TaskID TreeIndexSpaceTask<DIM>::TASK_ID;
 
 template <int DIM>
 class ChildInputInitTask
-  : Legion::InlineLauncher {
+  : public Legion::InlineLauncher {
 public:
 
   ChildInputInitTask(Legion::LogicalRegion lr, ssize_t n)
@@ -351,7 +353,7 @@ public:
 
 template <int DIM>
 class ChildOutputCollectTask
-  : Legion::InlineLauncher {
+  : public Legion::InlineLauncher {
 public:
 
   ChildOutputCollectTask(Legion::LogicalRegion lr, ssize_t n)

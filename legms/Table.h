@@ -10,8 +10,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "legion.h"
-
+#include "legms.h"
 #include "utility.h"
 #include "WithKeywords.h"
 #include "TableBuilder.h"

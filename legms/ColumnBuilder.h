@@ -11,8 +11,8 @@
 
 #include <casacore/casa/aipstype.h>
 #include <casacore/casa/Utilities/DataType.h>
-#include "legion.h"
 
+#include "legms.h"
 #include "utility.h"
 #include "WithKeywordsBuilder.h"
 #include "IndexTree.h"

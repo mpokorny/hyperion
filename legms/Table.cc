@@ -4,6 +4,7 @@
 #include <tuple>
 #include <vector>
 
+#include "legms.h"
 #include "Column.h"
 #include "Table.h"
 
@@ -250,7 +251,7 @@ public:
   register_task(Runtime* runtime, int tid0) {
     TASK_ID = tid0 + DT::id;
     string tname =
-      string("index_column_task<") + DT::s + string(">");
+      string("index_accumulate_task<") + DT::s + string(">");
     strncpy(TASK_NAME, tname.c_str(), sizeof(TASK_NAME));
     TASK_NAME[sizeof(TASK_NAME) - 1] = '\0';
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
@@ -306,6 +307,7 @@ public:
     IndexAccumulateTask<DataType<DT>::ValueType>::register_task(runtime, tid0);
 
     FOREACH_DATATYPE(REG_TASK);
+#undef REG_TASK
   }
 };
 

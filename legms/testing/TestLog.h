@@ -6,8 +6,6 @@
 #include <optional>
 #include <tuple>
 
-#include "legion.h"
-
 #include "utility.h"
 
 namespace legms {

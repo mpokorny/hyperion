@@ -10,12 +10,11 @@
 #include <unordered_set>
 #include <vector>
 
-#include "legion.h"
-
 #include <casacore/casa/aipstype.h>
 #include <casacore/casa/BasicSL/String.h>
 #include <casacore/tables/Tables.h>
 
+#include "legms.h"
 #include "WithKeywordsBuilder.h"
 #include "ColumnBuilder.h"
 #include "Column.h"

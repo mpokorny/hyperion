@@ -1,8 +1,6 @@
-#include "TestLog.h"
-
 #include <algorithm>
 
-#include "utility.h"
+#include "TestLog.h"
 
 using namespace legms::testing;
 using namespace Legion;

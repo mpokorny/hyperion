@@ -3,7 +3,6 @@
 
 #include <array>
 
-#include "legion.h"
 #include "utility.h"
 
 #ifndef TEST_SUITE_DRIVER_TASK_ID

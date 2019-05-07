@@ -19,6 +19,11 @@ import os, platform, subprocess, sys
 
 os_name = platform.system()
 
+if 'MAX_DIM' in os.environ:
+    max_dim = os.environ['MAX_DIM']
+else:
+    max_dim = "@MAX_DIM@"
+
 # Find Regent.
 if 'REGENT_DIR' in os.environ:
     regent_dir = os.path.realpath(os.environ['REGENT_DIR'])
@@ -114,8 +119,8 @@ def regent(args, env = {}, **kwargs):
     cmd_env = dict(os.environ.items())
     cmd_env.update(terra_env)
     cmd_env.update(env)
-    return subprocess.Popen(
-        cmd, env = cmd_env, **kwargs)
+    cmd_env['MAX_DIM'] = max_dim
+    return subprocess.Popen(cmd, env = cmd_env, **kwargs)
 
 if __name__ == '__main__':
     sys.exit(regent(sys.argv[1:]).wait())

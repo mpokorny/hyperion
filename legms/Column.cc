@@ -1,5 +1,6 @@
 #include <cassert>
 
+#include "legms.h"
 #include "tree_index_space.h"
 #include "Column.h"
 #include "Table.h"

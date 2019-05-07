@@ -5,11 +5,10 @@
 #include <memory>
 #include <ostream>
 #include <vector>
+
 #include "utility.h"
 #include "Table.h"
 #include "Column.h"
-
-#include "legion.h"
 
 using namespace legms;
 using namespace Legion;

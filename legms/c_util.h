@@ -1,8 +1,9 @@
 #ifndef LEGMS_C_UTIL_H_
 #define LEGMS_C_UTIL_H_
 
-#include "Table_c.h"
+#include "legms_c.h"
 #include "Column_c.h"
+#include "Table_c.h"
 
 #ifdef __cplusplus
 #include <memory>

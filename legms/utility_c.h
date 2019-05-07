@@ -1,7 +1,7 @@
 #ifndef LEGMS_UTILITY_C_H_
 #define LEGMS_UTILITY_C_H_
 
-#include "legion/legion_c.h"
+#include "legms_c.h"
 
 #ifdef __cplusplus
 extern "C" {

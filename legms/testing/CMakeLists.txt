@@ -18,7 +18,8 @@ list(FILTER TESTING_INCLUDE INCLUDE REGEX ".*\.h")
 
 add_library(legms_testing SHARED ${TESTING_SRC})
 set_target_properties(legms_testing PROPERTIES
-  CXX_STANDARD 17)
+  CXX_STANDARD 17
+  COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
 add_dependencies(legms_testing legms)
 target_include_directories(legms_testing
   PRIVATE ${Legion_INSTALL_DIR}/include

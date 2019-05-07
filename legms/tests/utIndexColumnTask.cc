@@ -9,8 +9,6 @@
 #include "Table.h"
 #include "Column.h"
 
-#include "legion.h"
-
 using namespace legms;
 using namespace Legion;
 

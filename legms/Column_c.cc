@@ -1,7 +1,7 @@
 #include <vector>
 
-#include "Column_c.h"
 #include "c_util.h"
+#include "Column_c.h"
 
 #include "legion/legion_c_util.h"
 

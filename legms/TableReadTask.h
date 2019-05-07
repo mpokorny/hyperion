@@ -10,7 +10,8 @@
 #include <casacore/casa/aipstype.h>
 #include <casacore/casa/Arrays.h>
 #include <casacore/tables/Tables.h>
-#include "legion.h"
+
+#include "legms.h"
 #include "Table.h"
 #include "utility.h"
 #include "Column.h"
