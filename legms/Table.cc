@@ -120,10 +120,10 @@ size_t
 TableGenArgs::legion_deserialize(const void *buffer) {
   const char *buff = static_cast<const char*>(buffer);
 
-  name = *buff;
+  name = buff;
   buff += name.size() + 1;
 
-  axes_uid = *buff;
+  axes_uid = buff;
   buff += axes_uid.size() + 1;
 
   buff += vector_serdez<int>::deserialize(index_axes, buff);
