@@ -130,10 +130,10 @@ size_t
 ColumnGenArgs::legion_deserialize(const void *buffer) {
   const char *buff = static_cast<const char*>(buffer);
 
-  name = *buff;
+  name = buff;
   buff += name.size() * sizeof(decltype(name)::value_type) + 1;
 
-  axes_uid = *buff;
+  axes_uid = buff;
   buff += axes_uid.size() * sizeof(decltype(axes_uid)::value_type) + 1;
 
   datatype = *reinterpret_cast<const decltype(datatype) *>(buff);
