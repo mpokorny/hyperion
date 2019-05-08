@@ -15,14 +15,15 @@ using namespace Legion;
 optional<string>
 legms::hdf5::read_index_tree_attr_metadata(
   hid_t loc_id,
-  const string& attr_name) {
+  const string& attr_name,
+  hid_t access_pl) {
 
   optional<string> result;
 
   string md_id_name = string(LEGMS_ATTRIBUTE_SID_PREFIX) + attr_name;
   if (H5Aexists(loc_id, md_id_name.c_str())) {
 
-    hid_t attr_id = H5Aopen(loc_id, md_id_name.c_str(), H5P_DEFAULT);
+    hid_t attr_id = H5Aopen(loc_id, md_id_name.c_str(), access_pl);
 
     if (attr_id >= 0) {
       hid_t attr_type = H5Aget_type(attr_id);
@@ -54,7 +55,18 @@ using KW =
   false>;
 
 static void
-init_datatype_attr(hid_t loc_id, casacore::DataType dt) {
+init_datatype_attr(
+  hid_t loc_id,
+  casacore::DataType dt,
+  hid_t creation_pl = H5P_DEFAULT,
+  hid_t access_pl = H5P_DEFAULT);
+
+static void
+init_datatype_attr(
+  hid_t loc_id,
+  casacore::DataType dt,
+  hid_t creation_pl,
+  hid_t access_pl) {
 
   htri_t rc = H5Aexists(loc_id, LEGMS_ATTRIBUTE_DT);
   if (rc > 0) {
@@ -72,8 +84,8 @@ init_datatype_attr(hid_t loc_id, casacore::DataType dt) {
       LEGMS_ATTRIBUTE_DT,
       did,
       ds,
-      H5P_DEFAULT,
-      H5P_DEFAULT);
+      creation_pl,
+      access_pl);
   assert(attr_id >= 0);
   unsigned char udt = dt;
   // herr_t err =
@@ -92,13 +104,28 @@ init_kw(
   hid_t loc_id,
   const char *attr_name,
   hid_t type_id,
-  casacore::DataType dt) {
+  casacore::DataType dt,
+  hid_t link_creation_pl = H5P_DEFAULT,
+  hid_t link_access_pl = H5P_DEFAULT,
+  hid_t dataset_creation_pl = H5P_DEFAULT,
+  hid_t dataset_access_pl = H5P_DEFAULT);
+
+static hid_t
+init_kw(
+  hid_t loc_id,
+  const char *attr_name,
+  hid_t type_id,
+  casacore::DataType dt,
+  hid_t link_creation_pl,
+  hid_t link_access_pl,
+  hid_t dataset_creation_pl,
+  hid_t dataset_access_pl) {
 
   {
-    htri_t rc = H5Lexists(loc_id, attr_name, H5P_DEFAULT);
+    htri_t rc = H5Lexists(loc_id, attr_name, link_access_pl);
     assert(rc >= 0);
     if (rc > 0) {
-      herr_t err = H5Ldelete(loc_id, attr_name, H5P_DEFAULT);
+      herr_t err = H5Ldelete(loc_id, attr_name, link_access_pl);
       assert(err >= 0);
     }
   }
@@ -112,9 +139,9 @@ init_kw(
         attr_name,
         type_id,
         attr_ds,
-        H5P_DEFAULT,
-        H5P_DEFAULT,
-        H5P_DEFAULT);
+        link_creation_pl,
+        dataset_creation_pl,
+        dataset_access_pl);
     assert(result >= 0);
     herr_t err = H5Sclose(attr_ds);
     assert(err >= 0);
@@ -129,14 +156,40 @@ write_kw(
   hid_t loc_id,
   const char *attr_name,
   optional<PhysicalRegion>& region,
-  FieldID fid) {
+  FieldID fid,
+  hid_t link_creation_pl = H5P_DEFAULT,
+  hid_t link_access_pl = H5P_DEFAULT,
+  hid_t dataset_creation_pl = H5P_DEFAULT,
+  hid_t dataset_access_pl = H5P_DEFAULT,
+  hid_t xfer_pl = H5P_DEFAULT);
+
+template <casacore::DataType DT>
+static void
+write_kw(
+  hid_t loc_id,
+  const char *attr_name,
+  optional<PhysicalRegion>& region,
+  FieldID fid,
+  hid_t link_creation_pl,
+  hid_t link_access_pl,
+  hid_t dataset_creation_pl,
+  hid_t dataset_access_pl,
+  hid_t xfer_pl) {
 
   hid_t dt = legms::H5DatatypeManager::datatype<DT>();
-  hid_t attr_id = init_kw(loc_id, attr_name, dt, DT);
+  hid_t attr_id =
+    init_kw(
+      loc_id,
+      attr_name,
+      dt,
+      DT,
+      link_creation_pl,
+      link_access_pl,
+      dataset_creation_pl,
+      dataset_access_pl);
   if (region) {
     const KW<DT> kw(region.value(), fid);
-    herr_t err =
-      H5Dwrite(attr_id, dt, H5S_ALL, H5S_ALL, H5P_DEFAULT, kw.ptr(0));
+    herr_t err = H5Dwrite(attr_id, dt, H5S_ALL, H5S_ALL, xfer_pl, kw.ptr(0));
     assert(err >= 0);
   }
   herr_t err = H5Dclose(attr_id);
@@ -149,10 +202,24 @@ write_kw<casacore::TpString> (
   hid_t loc_id,
   const char *attr_name,
   optional<PhysicalRegion>& region,
-  FieldID fid) {
+  FieldID fid,
+  hid_t link_creation_pl,
+  hid_t link_access_pl,
+  hid_t dataset_creation_pl,
+  hid_t dataset_access_pl,
+  hid_t xfer_pl) {
 
   hid_t dt = legms::H5DatatypeManager::datatype<casacore::TpString>();
-  hid_t attr_id = init_kw(loc_id, attr_name, dt, casacore::TpString);
+  hid_t attr_id =
+    init_kw(
+      loc_id,
+      attr_name,
+      dt,
+      casacore::TpString,
+      link_creation_pl,
+      link_access_pl,
+      dataset_creation_pl,
+      dataset_access_pl);
   if (region) {
     const KW<casacore::TpString> kw(region.value(), fid);
     const string& val = kw[0];
@@ -160,7 +227,7 @@ write_kw<casacore::TpString> (
     assert(val.size() < sizeof(buf));
     strncpy(buf, val.c_str(), sizeof(buf));
     buf[sizeof(buf) - 1] = '\0';
-    herr_t err = H5Dwrite(attr_id, dt, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf);
+    herr_t err = H5Dwrite(attr_id, dt, H5S_ALL, H5S_ALL, xfer_pl, buf);
     assert(err >= 0);
   }
   herr_t err = H5Dclose(attr_id);
@@ -171,7 +238,12 @@ void
 legms::hdf5::write_keywords(
   hid_t loc_id,
   const WithKeywords* with_keywords,
-  bool with_data) {
+  bool with_data,
+  hid_t link_creation_pl,
+  hid_t link_access_pl,
+  hid_t dataset_creation_pl,
+  hid_t dataset_access_pl,
+  hid_t xfer_pl) {
 
   if (with_keywords->keywords_region() == LogicalRegion::NO_REGION)
     return;
@@ -198,10 +270,19 @@ legms::hdf5::write_keywords(
     assert(nm.substr(0, sizeof(LEGMS_NAMESPACE_PREFIX) - 1)
            != LEGMS_NAMESPACE_PREFIX);
 
-#define WRITE_KW(DT)                                  \
-    case (DT): {                                      \
-      write_kw<DT>(loc_id, nm.c_str(), pr, i);        \
-      break;                                          \
+#define WRITE_KW(DT)                            \
+    case (DT): {                                \
+      write_kw<DT>(                             \
+        loc_id,                                 \
+        nm.c_str(),                             \
+        pr,                                     \
+        i,                                      \
+        link_creation_pl,                       \
+        link_access_pl,                         \
+        dataset_creation_pl,                    \
+        dataset_access_pl,                      \
+        xfer_pl);                               \
+      break;                                    \
     }
 
     switch (dt) {
@@ -221,18 +302,24 @@ legms::hdf5::write_column(
   const string& table_name,
   const Column* column,
   bool with_data,
-  hid_t creation_pl,
-  hid_t access_pl,
-  hid_t transfer_pl) {
+  hid_t link_creation_pl,
+  hid_t link_access_pl,
+  hid_t group_creation_pl,
+  hid_t group_access_pl,
+  hid_t dataset_creation_pl,
+  hid_t dataset_access_pl,
+  hid_t attr_creation_pl,
+  hid_t attr_access_pl,
+  hid_t xfer_pl) {
 
   Runtime* runtime = column->runtime();
   Context context = column->context();
 
   // delete column dataset if it exists
   htri_t ds_exists =
-    H5Lexists(table_id, column->name().c_str(), H5P_DEFAULT);
+    H5Lexists(table_id, column->name().c_str(), link_access_pl);
   if (ds_exists > 0) {
-    herr_t err = H5Ldelete(table_id, column->name().c_str(), H5P_DEFAULT);
+    herr_t err = H5Ldelete(table_id, column->name().c_str(), link_access_pl);
     assert(err >= 0);
   } else {
     assert(ds_exists == 0);
@@ -243,9 +330,9 @@ legms::hdf5::write_column(
     H5Gcreate(
       table_id,
       column->name().c_str(),
-      H5P_DEFAULT,
-      H5P_DEFAULT,
-      H5P_DEFAULT);
+      link_creation_pl,
+      group_creation_pl,
+      group_access_pl);
   assert(col_group_id >= 0);
 
   // create column dataset
@@ -293,9 +380,9 @@ legms::hdf5::write_column(
         LEGMS_COLUMN_DS,
         dt,
         ds,
-        H5P_DEFAULT, // TODO
-        H5P_DEFAULT, // TODO
-        H5P_DEFAULT); // TODO
+        link_creation_pl,
+        dataset_creation_pl,
+        dataset_access_pl);
     assert(col_id >= 0);
     herr_t err = H5Sclose(ds);
     assert(err >= 0);
@@ -328,8 +415,8 @@ legms::hdf5::write_column(
           column_axes_attr_name,
           axes_dt,
           axes_ds,
-          H5P_DEFAULT,
-          H5P_DEFAULT);
+          attr_creation_pl,
+          attr_access_pl);
       try {
         assert(axes_id >= 0);
         herr_t err = H5Awrite(axes_id, axes_dt, column->axes().data());
@@ -390,7 +477,12 @@ legms::hdf5::write_column(
     column->index_tree(),
     table_id,
     column->name(),
-    "index_tree");
+    "index_tree",
+    link_creation_pl,
+    link_access_pl,
+    dataset_creation_pl,
+    dataset_access_pl,
+    xfer_pl);
 }
 
 void
@@ -403,7 +495,12 @@ legms::hdf5::write_table(
   hid_t link_creation_pl,
   hid_t link_access_pl,
   hid_t group_creation_pl,
-  hid_t group_access_pl) {
+  hid_t group_access_pl,
+  hid_t dataset_creation_pl,
+  hid_t dataset_access_pl,
+  hid_t attr_creation_pl,
+  hid_t attr_access_pl,
+  hid_t xfer_pl) {
 
   // open or create the group for the table
   hid_t table_id;
@@ -442,11 +539,11 @@ legms::hdf5::write_table(
           table_axes_uid_attr_name,
           axes_uid_dt,
           axes_uid_ds,
-          H5P_DEFAULT,
-          H5P_DEFAULT);
+          attr_creation_pl,
+          attr_access_pl);
       H5Sclose(axes_uid_ds);
     } else {
-      axes_uid_id = H5Aopen(table_id, table_axes_uid_attr_name, H5P_DEFAULT);
+      axes_uid_id = H5Aopen(table_id, table_axes_uid_attr_name, attr_access_pl);
     }
     assert(axes_uid_id >= 0);
     try {
@@ -487,8 +584,8 @@ legms::hdf5::write_table(
           table_index_axes_attr_name,
           index_axes_dt,
           index_axes_ds,
-          H5P_DEFAULT,
-          H5P_DEFAULT);
+          attr_creation_pl,
+          attr_access_pl);
       try {
         assert(index_axes_id >= 0);
         herr_t err =
@@ -512,17 +609,34 @@ legms::hdf5::write_table(
     for_each(
       table->column_names().begin(),
       table->column_names().end(),
-      [&path, &table, &excluded_columns, &with_data, table_id](auto& nm) {
+      [&](auto& nm) {
         if (excluded_columns.count(nm) == 0)
           write_column(
             path,
             table_id,
             table->name(),
             table->column(nm).get(),
-            with_data);
+            with_data,
+            link_creation_pl,
+            link_access_pl,
+            group_creation_pl,
+            group_access_pl,
+            dataset_creation_pl,
+            dataset_access_pl,
+            attr_creation_pl,
+            attr_access_pl,
+            xfer_pl);
       });
 
-    write_keywords(table_id, table, with_data);
+    write_keywords(
+      table_id,
+      table,
+      with_data,
+      link_creation_pl,
+      link_access_pl,
+      dataset_creation_pl,
+      dataset_access_pl,
+      xfer_pl);
 
   } catch (...) {
     herr_t err = H5Gclose(table_id);
@@ -574,7 +688,12 @@ acc_kw_names(
 }
 
 tuple<LogicalRegion, vector<casacore::DataType>>
-legms::hdf5::init_keywords(hid_t loc_id, Runtime* runtime, Context context) {
+legms::hdf5::init_keywords(
+  hid_t loc_id,
+  Runtime* runtime,
+  Context context,
+  hid_t attr_access_pl,
+  hid_t link_access_pl) {
 
   vector<string> kw_names;
   hsize_t n = 0;
@@ -599,14 +718,14 @@ legms::hdf5::init_keywords(hid_t loc_id, Runtime* runtime, Context context) {
     kw_names.begin(),
     kw_names.end(),
     back_inserter(kws),
-    [&loc_id, &did](auto& nm) {
+    [&](auto& nm) {
       hid_t dt_id =
         H5Aopen_by_name(
           loc_id,
           nm.c_str(),
           LEGMS_ATTRIBUTE_DT,
-          H5P_DEFAULT,
-          H5P_DEFAULT);
+          attr_access_pl,
+          link_access_pl);
       assert(dt_id >= 0);
 
       unsigned char dt;
@@ -640,7 +759,9 @@ legms::hdf5::init_column(
   hid_t loc_id,
   Runtime* runtime,
   Context context,
-  hid_t attribute_access_pl) {
+  hid_t attr_access_pl,
+  hid_t link_access_pl,
+  hid_t xfer_pl) {
 
   optional<ColumnGenArgs> result;
 
@@ -653,7 +774,7 @@ legms::hdf5::init_column(
   LogicalRegion keywords = LogicalRegion::NO_REGION;
   vector<casacore::DataType> keyword_datatypes;
 
-  htri_t rc = H5Lexists(loc_id, LEGMS_COLUMN_DS, H5P_DEFAULT);
+  htri_t rc = H5Lexists(loc_id, LEGMS_COLUMN_DS, link_access_pl);
   if (rc > 0) {
     H5O_info_t infobuf;
     H5Oget_info_by_name(loc_id, LEGMS_COLUMN_DS, &infobuf, H5P_DEFAULT);
@@ -663,7 +784,7 @@ legms::hdf5::init_column(
         assert(axes_exists >= 0);
         if (axes_exists == 0)
           goto return_nothing;
-        axes_id = H5Aopen(loc_id, column_axes_attr_name, attribute_access_pl);
+        axes_id = H5Aopen(loc_id, column_axes_attr_name, attr_access_pl);
         assert(axes_id >= 0);
         axes_id_ds = H5Aget_space(axes_id);
         assert(axes_id_ds >= 0);
@@ -683,7 +804,9 @@ legms::hdf5::init_column(
         optional<IndexTreeL> ixtree =
           read_index_tree_from_attr<binary_index_tree_serdez>(
             loc_id,
-            "index_tree");
+            "index_tree",
+            attr_access_pl,
+            xfer_pl);
         assert(ixtree);
         IndexSpace is = tree_index_space(ixtree.value(), context, runtime);
         FieldSpace fs = runtime->create_field_space(context);
@@ -700,7 +823,7 @@ legms::hdf5::init_column(
             loc_id,
             LEGMS_COLUMN_DS,
             datatype_name.c_str(),
-            H5P_DEFAULT);
+            link_access_pl);
         assert(datatype_exists >= 0);
         hid_t did =
           H5DatatypeManager::datatypes()[
@@ -713,8 +836,8 @@ legms::hdf5::init_column(
             loc_id,
             LEGMS_COLUMN_DS,
             datatype_name.c_str(),
-            attribute_access_pl,
-            H5P_DEFAULT);
+            attr_access_pl,
+            link_access_pl);
         assert(datatype_id >= 0);
         herr_t err = H5Aread(datatype_id, did, &dt);
         assert(err >= 0);
@@ -723,7 +846,7 @@ legms::hdf5::init_column(
     }
   }
   tie(keywords, keyword_datatypes) =
-    init_keywords(loc_id, runtime, context);
+    init_keywords(loc_id, runtime, context, attr_access_pl, link_access_pl);
 
   result =
     ColumnGenArgs{"", "", datatype, axes, values, keywords, keyword_datatypes};
@@ -747,6 +870,9 @@ return_nothing:
 struct acc_col_genargs_ctx {
   vector<legms::ColumnGenArgs>* acc;
   string axes_uid;
+  hid_t attr_access_pl;
+  hid_t link_access_pl;
+  hid_t xfer_pl;
   Runtime* runtime;
   Context context;
 };
@@ -768,7 +894,13 @@ acc_col_genargs(
       hid_t col_group_id = H5Gopen(table_id, name, H5P_DEFAULT);
       assert(col_group_id >= 0);
       auto cga =
-        init_column(col_group_id, args->runtime, args->context, H5P_DEFAULT);
+        init_column(
+          col_group_id,
+          args->runtime,
+          args->context,
+          args->attr_access_pl,
+          args->link_access_pl,
+          args->xfer_pl);
       if (cga) {
         legms::ColumnGenArgs& a = cga.value();
         a.name = name;
@@ -785,7 +917,9 @@ legms::hdf5::init_table(
   hid_t loc_id,
   Runtime* runtime,
   Context context,
-  hid_t attribute_access_pl) {
+  hid_t attr_access_pl,
+  hid_t link_access_pl,
+  hid_t xfer_pl) {
 
   optional<TableGenArgs> result;
 
@@ -802,7 +936,7 @@ legms::hdf5::init_table(
     if (index_axes_exists == 0)
       goto return_nothing;
     index_axes_id =
-      H5Aopen(loc_id, table_index_axes_attr_name, attribute_access_pl);
+      H5Aopen(loc_id, table_index_axes_attr_name, attr_access_pl);
     assert(index_axes_id >= 0);
     index_axes_id_ds = H5Aget_space(index_axes_id);
     assert(index_axes_id_ds >= 0);
@@ -824,7 +958,7 @@ legms::hdf5::init_table(
       H5DatatypeManager::datatypes()[H5DatatypeManager::CASACORE_STRING_H5T];
     char str[LEGMS_MAX_STRING_SIZE];
     hid_t axes_uid_id =
-      H5Aopen(loc_id, table_axes_uid_attr_name, attribute_access_pl);
+      H5Aopen(loc_id, table_axes_uid_attr_name, attr_access_pl);
     assert(axes_uid_id >= 0);
     herr_t err = H5Aread(axes_uid_id, did, str);
     assert(err >= 0);
@@ -833,7 +967,9 @@ legms::hdf5::init_table(
     assert(err >= 0);
   }
   {
-    struct acc_col_genargs_ctx ctx{&col_genargs, axes_uid, runtime, context};
+    struct acc_col_genargs_ctx ctx{
+      &col_genargs, axes_uid, attr_access_pl, link_access_pl, xfer_pl,
+      runtime, context};
     hsize_t position = 0;
     herr_t err =
       H5Literate(
@@ -847,7 +983,7 @@ legms::hdf5::init_table(
   }
 
   tie(keywords, keyword_datatypes) =
-    init_keywords(loc_id, runtime, context);
+    init_keywords(loc_id, runtime, context, attr_access_pl, link_access_pl);
 
   result =
     TableGenArgs{
@@ -879,7 +1015,9 @@ legms::hdf5::init_table(
   unsigned flags,
   hid_t file_access_pl,
   hid_t table_access_pl,
-  hid_t dataset_access_pl) {
+  hid_t attr_access_pl,
+  hid_t link_access_pl,
+  hid_t xfer_pl) {
 
   optional<TableGenArgs> result;
 
@@ -889,7 +1027,14 @@ legms::hdf5::init_table(
       hid_t table_loc = H5Gopen(fid, table_path.c_str(), table_access_pl);
       if (table_loc >= 0) {
         try {
-          result = init_table(table_loc, runtime, context, dataset_access_pl);
+          result =
+            init_table(
+              table_loc,
+              runtime,
+              context,
+              attr_access_pl,
+              link_access_pl,
+              xfer_pl);
           result.value().name = table_path.substr(table_path.rfind('/') + 1);
         } catch (...) {
           herr_t err = H5Gclose(table_loc);

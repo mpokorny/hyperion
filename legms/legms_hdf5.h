@@ -55,7 +55,12 @@ write_index_tree_to_attr(
   const IndexTreeL& spec,
   hid_t parent_id,
   const std::string& obj_name,
-  const std::string& attr_name) {
+  const std::string& attr_name,
+  hid_t link_creation_pl = H5P_DEFAULT,
+  hid_t link_access_pl = H5P_DEFAULT,
+  hid_t dataset_creation_pl = H5P_DEFAULT,
+  hid_t dataset_access_pl = H5P_DEFAULT,
+  hid_t xfer_pl = H5P_DEFAULT) {
 
   // remove current attribute value
   std::string legms_attr_name =
@@ -70,14 +75,14 @@ write_index_tree_to_attr(
         parent_id,
         obj_name.c_str(),
         legms_attr_name.c_str(),
-        H5P_DEFAULT)) {
+        link_access_pl)) {
     H5Adelete_by_name(
       parent_id,
       obj_name.c_str(),
       legms_attr_name.c_str(),
-      H5P_DEFAULT);
-    if (H5Lexists(parent_id, attr_ds_name.c_str(), H5P_DEFAULT) > 0)
-      H5Ldelete(parent_id, attr_ds_name.c_str(), H5P_DEFAULT);
+      link_access_pl);
+    if (H5Lexists(parent_id, attr_ds_name.c_str(), link_access_pl) > 0)
+      H5Ldelete(parent_id, attr_ds_name.c_str(), link_access_pl);
   }
 
   auto size = SERDEZ::serialized_size(spec);
@@ -96,7 +101,7 @@ write_index_tree_to_attr(
         value_space_id,
         H5P_DEFAULT,
         H5P_DEFAULT,
-        H5P_DEFAULT);
+        link_access_pl);
     assert(attr_id >= 0);
     herr_t rc = H5Awrite(attr_id, H5T_NATIVE_UINT8, buf.data());
     assert (rc >= 0);
@@ -109,16 +114,16 @@ write_index_tree_to_attr(
         attr_ds_name.c_str(),
         H5T_NATIVE_UINT8,
         value_space_id,
-        H5P_DEFAULT,
-        H5P_DEFAULT,
-        H5P_DEFAULT);
+        link_creation_pl,
+        dataset_creation_pl,
+        dataset_access_pl);
     herr_t rc =
       H5Dwrite(
         attr_ds,
         H5T_NATIVE_UINT8,
         H5S_ALL,
         H5S_ALL,
-        H5P_DEFAULT,
+        xfer_pl,
         buf.data());
     assert(rc >= 0);
 
@@ -133,7 +138,7 @@ write_index_tree_to_attr(
         ref_space_id,
         H5P_DEFAULT,
         H5P_DEFAULT,
-        H5P_DEFAULT);
+        link_access_pl);
     assert(attr_id >= 0);
     hobj_ref_t attr_ref;
     rc = H5Rcreate(&attr_ref, parent_id, attr_ds_name.c_str(), H5R_OBJECT, -1);
@@ -159,7 +164,7 @@ write_index_tree_to_attr(
         md_space_id,
         H5P_DEFAULT,
         H5P_DEFAULT,
-        H5P_DEFAULT);
+        link_access_pl);
     assert(md_attr_id >= 0);
     char attr[LEGMS_MAX_STRING_SIZE];
     std::strncpy(attr, SERDEZ::id, sizeof(attr));
@@ -170,11 +175,18 @@ write_index_tree_to_attr(
 }
 
 std::optional<std::string>
-read_index_tree_attr_metadata(hid_t loc_id, const std::string& attr_name);
+read_index_tree_attr_metadata(
+  hid_t loc_id,
+  const std::string& attr_name,
+  hid_t access_pl = H5P_DEFAULT);
 
 template <typename SERDEZ>
 std::optional<IndexTreeL>
-read_index_tree_from_attr(hid_t loc_id, const std::string& attr_name) {
+read_index_tree_from_attr(
+  hid_t loc_id,
+  const std::string& attr_name,
+  hid_t attr_access_pl = H5P_DEFAULT,
+  hid_t xfer_pl = H5P_DEFAULT) {
 
   std::optional<IndexTreeL> result;
 
@@ -187,7 +199,7 @@ read_index_tree_from_attr(hid_t loc_id, const std::string& attr_name) {
   if (!H5Aexists(loc_id, legms_attr_name.c_str()))
     return result;
 
-  hid_t attr_id = H5Aopen(loc_id, legms_attr_name.c_str(), H5P_DEFAULT);
+  hid_t attr_id = H5Aopen(loc_id, legms_attr_name.c_str(), attr_access_pl);
 
   if (attr_id < 0)
     return result;
@@ -225,7 +237,7 @@ read_index_tree_from_attr(hid_t loc_id, const std::string& attr_name) {
         H5T_NATIVE_UINT8,
         H5S_ALL,
         H5S_ALL,
-        H5P_DEFAULT,
+        xfer_pl,
         buf.data());
     assert(rc >= 0);
     H5Dclose(attr_ds);
@@ -242,7 +254,12 @@ void
 write_keywords(
   hid_t loc_id,
   const WithKeywords* with_keywords,
-  bool with_data = true);
+  bool with_data = true,
+  hid_t link_creation_pl = H5P_DEFAULT,
+  hid_t link_access_pl = H5P_DEFAULT,
+  hid_t dataset_creation_pl = H5P_DEFAULT,
+  hid_t dataset_access_pl = H5P_DEFAULT,
+  hid_t xfer_pl = H5P_DEFAULT);
 
 void
 write_column(
@@ -251,9 +268,15 @@ write_column(
   const std::string& table_name,
   const Column* column,
   bool with_data = true,
-  hid_t creation_pl = H5P_DEFAULT,
-  hid_t access_pl = H5P_DEFAULT,
-  hid_t transfer_pl = H5P_DEFAULT);
+  hid_t link_creation_pl = H5P_DEFAULT,
+  hid_t link_access_pl = H5P_DEFAULT,
+  hid_t group_creation_pl = H5P_DEFAULT,
+  hid_t group_access_pl = H5P_DEFAULT,
+  hid_t dataset_creation_pl = H5P_DEFAULT,
+  hid_t dataset_access_pl = H5P_DEFAULT,
+  hid_t attr_creation_pl = H5P_DEFAULT,
+  hid_t attr_access_pl = H5P_DEFAULT,
+  hid_t xfer_pl = H5P_DEFAULT);
 
 void
 write_table(
@@ -265,20 +288,29 @@ write_table(
   hid_t link_creation_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t group_creation_pl = H5P_DEFAULT,
-  hid_t group_access_pl = H5P_DEFAULT);
+  hid_t group_access_pl = H5P_DEFAULT,
+  hid_t dataset_creation_pl = H5P_DEFAULT,
+  hid_t dataset_access_pl = H5P_DEFAULT,
+  hid_t attr_creation_pl = H5P_DEFAULT,
+  hid_t attr_access_pl = H5P_DEFAULT,
+  hid_t xfer_pl = H5P_DEFAULT);
 
 std::tuple<Legion::LogicalRegion, std::vector<casacore::DataType>>
 init_keywords(
   hid_t loc_id,
   Legion::Runtime* runtime,
-  Legion::Context context);
+  Legion::Context context,
+  hid_t attr_access_pl = H5P_DEFAULT,
+  hid_t link_access_pl = H5P_DEFAULT);
 
 std::optional<legms::ColumnGenArgs>
 init_column(
   hid_t loc_id,
   Legion::Runtime* runtime,
   Legion::Context context,
-  hid_t attribute_access_pl = H5P_DEFAULT);
+  hid_t attr_access_pl = H5P_DEFAULT,
+  hid_t link_access_pl = H5P_DEFAULT,
+  hid_t xfer_pl = H5P_DEFAULT);
 
 std::optional<legms::TableGenArgs>
 init_table(
@@ -289,14 +321,18 @@ init_table(
   unsigned flags = H5F_ACC_RDONLY,
   hid_t file_access_pl = H5P_DEFAULT,
   hid_t table_access_pl = H5P_DEFAULT,
-  hid_t dataset_access_pl = H5P_DEFAULT);
+  hid_t attr_access_pl = H5P_DEFAULT,
+  hid_t link_access_pl = H5P_DEFAULT,
+  hid_t xfer_pl = H5P_DEFAULT);
 
 std::optional<legms::TableGenArgs>
 init_table(
   hid_t loc_id,
   Legion::Runtime* runtime,
   Legion::Context context,
-  hid_t dataset_access_pl = H5P_DEFAULT);
+  hid_t attr_access_pl = H5P_DEFAULT,
+  hid_t link_access_pl = H5P_DEFAULT,
+  hid_t xfer_pl = H5P_DEFAULT);
 
 std::optional<Legion::PhysicalRegion>
 attach_keywords(
