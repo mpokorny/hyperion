@@ -1116,7 +1116,7 @@ legms::hdf5::attach_table_columns(
         auto col = c->logical_region();
         if (col != LogicalRegion::NO_REGION) {
           AttachLauncher col_attach(EXTERNAL_HDF5_FILE, col, col);
-          string col_path = table_root + c->name();
+          string col_path = table_root + c->name() + "/" + LEGMS_COLUMN_DS;
           map<FieldID, const char*>
             fields{{Column::value_fid, col_path.c_str()}};
           col_attach.attach_hdf5(
