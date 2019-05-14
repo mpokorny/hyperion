@@ -19,9 +19,8 @@ legms::add_field(
 #define ALLOC_FLD(tp)                           \
   case tp:                                      \
     result = fa.allocate_field(                 \
-      sizeof(DataType<tp>::ValueType),          \
-      field_id,                                 \
-      DataType<tp>::serdez_id);                 \
+      DataType<tp>::serdez_size,                \
+      field_id);                                \
     break;
 
   switch (datatype) {

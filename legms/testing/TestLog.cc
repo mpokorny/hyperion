@@ -22,11 +22,11 @@ TestLogReference::TestLogReference(
     fa.allocate_field(
       sizeof(std::string),
       NAME_FID,
-      OpsManager::CASACORE_STRING_SID);
+      OpsManager::STD_STRING_SID);
     fa.allocate_field(
       sizeof(std::string),
       FAIL_INFO_FID,
-      OpsManager::CASACORE_STRING_SID);
+      OpsManager::STD_STRING_SID);
 
     IndexSpaceT<1> is =
       runtime->create_index_space(context, Rect<1>(0, length - 1));

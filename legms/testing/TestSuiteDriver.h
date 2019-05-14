@@ -3,6 +3,7 @@
 
 #include <array>
 
+#include "legms.h"
 #include "utility.h"
 
 #ifndef TEST_SUITE_DRIVER_TASK_ID

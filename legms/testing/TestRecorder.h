@@ -3,6 +3,7 @@
 
 #include <exception>
 
+#include "legms.h"
 #include "TestLog.h"
 #include "TestExpression.h"
 

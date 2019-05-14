@@ -20,9 +20,9 @@ Table::from_ms(
   Context ctx,
   Runtime* runtime,
   const experimental::filesystem::path& path,
-  const unordered_set<string>& column_selections) {
+  const unordered_set<std::string>& column_selections) {
 
-  string table_name = path.filename();
+  std::string table_name = path.filename();
 
 #define FROM_MS_TABLE(N)                            \
   do {                                              \
@@ -149,7 +149,7 @@ TableGenArgs::legion_deserialize(const void *buffer) {
 TaskID ReindexedTableTask::TASK_ID;
 
 ReindexedTableTask::ReindexedTableTask(
-  const string& name,
+  const std::string& name,
   const char* axes_uid,
   const vector<int>& index_axes,
   LogicalRegion keywords_region,
@@ -246,8 +246,8 @@ public:
   static void
   register_task(Runtime* runtime, int tid0) {
     TASK_ID = tid0 + DT::id;
-    string tname =
-      string("index_accumulate_task<") + DT::s + string(">");
+    std::string tname =
+      std::string("index_accumulate_task<") + DT::s + std::string(">");
     strncpy(TASK_NAME, tname.c_str(), sizeof(TASK_NAME));
     TASK_NAME[sizeof(TASK_NAME) - 1] = '\0';
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
