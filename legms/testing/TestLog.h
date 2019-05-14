@@ -11,9 +11,7 @@
 namespace legms {
 namespace testing {
 
-// TODO: we'd prefer TEST_STATE_TYPE to be "int", but that causes a test
-// failure, probably due to a Legion bug
-#define TEST_STATE_TYPE Legion::coord_t
+#define TEST_STATE_TYPE int
 
 enum TestState : TEST_STATE_TYPE {
   SUCCESS,
@@ -61,52 +59,64 @@ public:
   }
 
   std::array<Legion::RegionRequirement, 2>
-  rw_requirements(Legion::LogicalRegionT<1> log_child) const;
+  rw_requirements(
+    Legion::LogicalRegionT<1> log_child,
+    Legion::LogicalRegionT<1> log_parent) const;
 
   std::array<Legion::RegionRequirement, 2>
-  ro_requirements(Legion::LogicalRegionT<1> log_child) const;
+  ro_requirements(
+    Legion::LogicalRegionT<1> log_child,
+    Legion::LogicalRegionT<1> log_parent) const;
 
   std::array<Legion::RegionRequirement, 2>
-  wd_requirements(Legion::LogicalRegionT<1> log_child) const;
+  wd_requirements(
+    Legion::LogicalRegionT<1> log_child,
+    Legion::LogicalRegionT<1> log_parent) const;
 
   std::array<Legion::RegionRequirement, 2>
   rw_requirements(
     Legion::LogicalPartitionT<1> log_partition,
+    Legion::LogicalRegionT<1> log_parent,
     int projection_id) const;
 
   std::array<Legion::RegionRequirement, 2>
   ro_requirements(
     Legion::LogicalPartitionT<1> log_partition,
+    Legion::LogicalRegionT<1> log_parent,
     int projection_id) const;
 
   std::array<Legion::RegionRequirement, 2>
   wd_requirements(
     Legion::LogicalPartitionT<1> log_partition,
+    Legion::LogicalRegionT<1> log_parent,
     int projection_id) const;
 
   std::array<Legion::RegionRequirement, 2>
   rw_requirements() const {
-    return rw_requirements(m_log_handle);
+    return rw_requirements(m_log_handle, m_log_parent);
   }
 
   std::array<Legion::RegionRequirement, 2>
   ro_requirements() const {
-    return ro_requirements(m_log_handle);
+    return ro_requirements(m_log_handle, m_log_parent);
   };
 
   std::array<Legion::RegionRequirement, 2>
   wd_requirements() const {
-    return wd_requirements(m_log_handle);
+    return wd_requirements(m_log_handle, m_log_parent);
   }
 
   template <legion_privilege_mode_t MODE>
   std::array<Legion::RegionRequirement, 2>
-  requirements(Legion::LogicalRegionT<1> log_child) const;
+  requirements(
+    Legion::LogicalRegionT<1> log_child,
+    Legion::LogicalRegionT<1> log_parent) const;
 
   template <legion_privilege_mode_t MODE>
   std::array<Legion::RegionRequirement, 2>
   requirements(
     Legion::LogicalPartitionT<1> log_partition,
+    Legion::LogicalRegionT<1> log_parent,
     int projection_id=0) const;
 
   template <legion_privilege_mode_t MODE>
@@ -122,10 +132,13 @@ public:
   using state_accessor =
     Legion::FieldAccessor<
     MODE,
-    TEST_STATE_TYPE,
+    Legion::Point<1, TEST_STATE_TYPE>,
     1,
     Legion::coord_t,
-    Legion::AffineAccessor<TEST_STATE_TYPE, 1, Legion::coord_t>,
+    Legion::AffineAccessor<
+      Legion::Point<1, TEST_STATE_TYPE>,
+      1,
+      Legion::coord_t>,
     false>;
 
   template <legion_privilege_mode_t MODE>
@@ -231,46 +244,52 @@ TestLogReference::requirements<WRITE_DISCARD>() const {
 template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<READ_ONLY>(
-  Legion::LogicalRegionT<1> log_child) const {
-  return ro_requirements(log_child);
+  Legion::LogicalRegionT<1> log_child,
+  Legion::LogicalRegionT<1> log_parent) const {
+  return ro_requirements(log_child, log_parent);
 };
 
 template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<READ_WRITE>(
-  Legion::LogicalRegionT<1> log_child) const {
-  return rw_requirements(log_child);
+  Legion::LogicalRegionT<1> log_child,
+  Legion::LogicalRegionT<1> log_parent) const {
+  return rw_requirements(log_child, log_parent);
 };
 
 template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<WRITE_DISCARD>(
-  Legion::LogicalRegionT<1> log_child) const {
-  return wd_requirements(log_child);
+  Legion::LogicalRegionT<1> log_child,
+  Legion::LogicalRegionT<1> log_parent) const {
+  return wd_requirements(log_child, log_parent);
 };
 
 template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<READ_ONLY>(
   Legion::LogicalPartitionT<1> log_partition,
+  Legion::LogicalRegionT<1> log_parent,
   int projection_id) const {
-  return ro_requirements(log_partition, projection_id);
+  return ro_requirements(log_partition, log_parent, projection_id);
 };
 
 template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<READ_WRITE>(
   Legion::LogicalPartitionT<1> log_partition,
+  Legion::LogicalRegionT<1> log_parent,
   int projection_id) const {
-  return rw_requirements(log_partition, projection_id);
+  return rw_requirements(log_partition, log_parent, projection_id);
 };
 
 template <> inline
 std::array<Legion::RegionRequirement, 2>
 TestLogReference::requirements<WRITE_DISCARD>(
   Legion::LogicalPartitionT<1> log_partition,
+  Legion::LogicalRegionT<1> log_parent,
   int projection_id) const {
-  return wd_requirements(log_partition, projection_id);
+  return wd_requirements(log_partition, log_parent, projection_id);
 };
 
 template <legion_privilege_mode_t MODE>
@@ -977,7 +996,9 @@ public:
       std::back_inserter(result),
       [this, &logref, &lp](auto& st) {
         Legion::LogicalRegionT<1> log(
-          m_runtime->get_logical_subregion_by_color(m_context, lp, st));
+          m_runtime->get_logical_subregion_by_color(
+            lp,
+            Legion::Point<1,TEST_STATE_TYPE>(st)));
         return
           TestLogReference(
             log,
@@ -1156,7 +1177,9 @@ public:
       std::back_inserter(result),
       [this, &logref, &lp](auto& st) {
         Legion::LogicalRegionT<1> log(
-          m_runtime->get_logical_subregion_by_color(m_context, lp, st));
+          m_runtime->get_logical_subregion_by_color(
+            lp,
+            Legion::Point<1,TEST_STATE_TYPE>(st)));
         return
           TestLogReference(
             log,
@@ -1335,7 +1358,9 @@ public:
       std::back_inserter(result),
       [this, &logref, &lp](auto& st) {
         Legion::LogicalRegionT<1> log(
-          m_runtime->get_logical_subregion_by_color(m_context, lp, st));
+          m_runtime->get_logical_subregion_by_color(
+            lp,
+            Legion::Point<1,TEST_STATE_TYPE>(st)));
         return
           TestLogReference(
             log,

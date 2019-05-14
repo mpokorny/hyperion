@@ -17,7 +17,7 @@ TestLogReference::TestLogReference(
     FieldSpace fs = runtime->create_field_space(context);
 
     FieldAllocator fa = runtime->create_field_allocator(context, fs);
-    fa.allocate_field(sizeof(TestState), STATE_FID);
+    fa.allocate_field(sizeof(Point<1,TEST_STATE_TYPE>), STATE_FID);
     fa.allocate_field(sizeof(bool), ABORT_FID);
     fa.allocate_field(
       sizeof(std::string),
@@ -72,7 +72,9 @@ TestLogReference::~TestLogReference() {
 }
 
 std::array<RegionRequirement, 2>
-TestLogReference::rw_requirements(LogicalRegionT<1> child) const {
+TestLogReference::rw_requirements(
+  LogicalRegionT<1> child,
+  LogicalRegionT<1> log_parent) const {
 
   RegionRequirement
     log_req(
@@ -81,7 +83,7 @@ TestLogReference::rw_requirements(LogicalRegionT<1> child) const {
       {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       READ_WRITE,
       EXCLUSIVE,
-      m_log_handle);
+      log_parent);
 
   RegionRequirement
     abort_state_req(
@@ -99,7 +101,9 @@ TestLogReference::rw_requirements(LogicalRegionT<1> child) const {
 }
 
 std::array<RegionRequirement, 2>
-TestLogReference::ro_requirements(LogicalRegionT<1> child) const {
+TestLogReference::ro_requirements(
+  LogicalRegionT<1> child,
+  Legion::LogicalRegionT<1> log_parent) const {
 
   RegionRequirement
     log_req(
@@ -108,7 +112,7 @@ TestLogReference::ro_requirements(LogicalRegionT<1> child) const {
       {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       READ_ONLY,
       EXCLUSIVE,
-      m_log_handle);
+      log_parent);
 
   RegionRequirement
     abort_state_req(
@@ -126,7 +130,9 @@ TestLogReference::ro_requirements(LogicalRegionT<1> child) const {
 }
 
 std::array<RegionRequirement, 2>
-TestLogReference::wd_requirements(LogicalRegionT<1> child) const {
+TestLogReference::wd_requirements(
+  LogicalRegionT<1> child,
+  Legion::LogicalRegionT<1> log_parent) const {
 
   RegionRequirement
     log_req(
@@ -135,7 +141,7 @@ TestLogReference::wd_requirements(LogicalRegionT<1> child) const {
       {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       WRITE_DISCARD,
       EXCLUSIVE,
-      m_log_handle);
+      log_parent);
 
   RegionRequirement
     abort_state_req(
@@ -155,6 +161,7 @@ TestLogReference::wd_requirements(LogicalRegionT<1> child) const {
 std::array<RegionRequirement, 2>
 TestLogReference::rw_requirements(
   LogicalPartitionT<1> log_partition,
+  LogicalRegionT<1> log_parent,
   int projection_id) const {
 
   RegionRequirement
@@ -165,7 +172,7 @@ TestLogReference::rw_requirements(
       {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       READ_WRITE,
       EXCLUSIVE,
-      m_log_handle);
+      log_parent);
 
   RegionRequirement
     abort_state_req(
@@ -185,6 +192,7 @@ TestLogReference::rw_requirements(
 std::array<RegionRequirement, 2>
 TestLogReference::ro_requirements(
   LogicalPartitionT<1> log_partition,
+  LogicalRegionT<1> log_parent,
   int projection_id) const {
 
   RegionRequirement
@@ -195,7 +203,7 @@ TestLogReference::ro_requirements(
       {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       READ_ONLY,
       EXCLUSIVE,
-      m_log_handle);
+      log_parent);
 
   RegionRequirement
     abort_state_req(
@@ -215,6 +223,7 @@ TestLogReference::ro_requirements(
 std::array<RegionRequirement, 2>
 TestLogReference::wd_requirements(
   LogicalPartitionT<1> log_partition,
+  LogicalRegionT<1> log_parent,
   int projection_id) const {
 
   RegionRequirement
@@ -225,7 +234,7 @@ TestLogReference::wd_requirements(
       {STATE_FID, ABORT_FID, NAME_FID, FAIL_INFO_FID},
       WRITE_DISCARD,
       EXCLUSIVE,
-      m_log_handle);
+      log_parent);
 
   RegionRequirement
     abort_state_req(
