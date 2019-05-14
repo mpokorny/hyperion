@@ -123,25 +123,29 @@ test_log_test_suite(
   log_output <<= test_result;
   ++log_output;
 
-  auto subtask_is = runtime->create_index_space(ctx, Rect<1>(0, 1));
+  IndexSpace subtask_is(runtime->create_index_space(ctx, Rect<1>(0, 1)));
   auto remaining_log =
     log.get_log_references_by_state({testing::TestState::UNKNOWN})[0];
-  IndexPartitionT<1> subtask_log_ip(
+  IndexPartition subtask_log_ip =
     runtime->create_equal_partition(
       ctx,
       remaining_log.log_region().get_index_space(),
-      subtask_is));
+      subtask_is);
   LogicalPartitionT<1> subtask_logs(
     runtime->get_logical_partition(
       ctx,
-      regions[0].get_logical_region(),
+      remaining_log.log_region(),
       subtask_log_ip));
   IndexTaskLauncher subtasks(
     TEST_LOG_SUBTASK_ID,
     subtask_is,
-    TaskArgument(),
+    TaskArgument(NULL, 0),
     ArgumentMap());
-  auto reqs = log.log_reference().requirements<READ_WRITE>(subtask_logs, 0);
+  auto reqs =
+    remaining_log.requirements<READ_WRITE>(
+      subtask_logs,
+      log.log_reference().log_region(),
+      0);
   std::for_each(
     reqs.begin(),
     reqs.end(),
