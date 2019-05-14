@@ -142,6 +142,7 @@ public:
     const std::vector<Legion::PhysicalRegion>& regions) {
 
     typedef typename DataType<DT>::ValueType T;
+    typedef typename DataType<DT>::CasacoreType CT;
 
     typedef Legion::FieldAccessor<
       WRITE_DISCARD,
@@ -153,9 +154,9 @@ public:
 
     const ValueAccessor values(regions[0], Column::value_fid);
 
-    casacore::ScalarColumn<T> col(table, col_desc.name());
+    casacore::ScalarColumn<CT> col(table, col_desc.name());
     Legion::coord_t row_number;
-    T col_value;
+    CT col_value;
     {
       Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
       row_number = pid[0];
@@ -169,11 +170,7 @@ public:
         row_number = pid[0];
         col.get(row_number, col_value);
       }
-      // field_init() is a necessary because the memory in the allocated region
-      // is uninitialized, which can be a problem with non-trivially copyable
-      // types (such as strings)
-      field_init(values.ptr(*pid));
-      values[*pid] = col_value;
+      DataType<DT>::from_casacore(values[*pid], col_value);
     }
   }
 
@@ -186,6 +183,7 @@ public:
     const std::vector<Legion::PhysicalRegion>& regions) {
 
     typedef typename DataType<DT>::ValueType T;
+    typedef typename DataType<DT>::CasacoreType CT;
 
     typedef Legion::FieldAccessor<
       WRITE_DISCARD,
@@ -197,7 +195,7 @@ public:
 
     const ValueAccessor values(regions[0], Column::value_fid);
 
-    casacore::ArrayColumn<T> col(table, col_desc.name());
+    casacore::ArrayColumn<CT> col(table, col_desc.name());
     Legion::coord_t row_number;
     unsigned array_cell_rank;
     {
@@ -206,11 +204,11 @@ public:
       array_cell_rank = col.ndim(row_number);
     }
 
-    casacore::Array<T> col_array;
+    casacore::Array<CT> col_array;
     col.get(row_number, col_array, true);
     switch (array_cell_rank) {
     case 1: {
-      casacore::Vector<T> col_vector;
+      casacore::Vector<CT> col_vector;
       col_vector.reference(col_array);
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
            pid();
@@ -220,14 +218,13 @@ public:
           col.get(row_number, col_array, true);
           col_vector.reference(col_array);
         }
-        field_init(values.ptr(*pid));
-        values[*pid] = col_vector[pid[DIM - 1]];
+        DataType<DT>::from_casacore(values[*pid], col_vector[pid[DIM - 1]]);
       }
       break;
     }
     case 2: {
       casacore::IPosition ip(2);
-      casacore::Matrix<T> col_matrix;
+      casacore::Matrix<CT> col_matrix;
       col_matrix.reference(col_array);
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
            pid();
@@ -239,14 +236,13 @@ public:
         }
         ip[0] = pid[DIM - 1];
         ip[1] = pid[DIM - 2];
-        field_init(values.ptr(*pid));
-        values[*pid] = col_matrix(ip);
+        DataType<DT>::from_casacore(values[*pid], col_matrix(ip));
       }
       break;
     }
     case 3: {
       casacore::IPosition ip(3);
-      casacore::Cube<T> col_cube;
+      casacore::Cube<CT> col_cube;
       col_cube.reference(col_array);
       for (Legion::PointInDomainIterator<DIM> pid(reg_domain, false);
            pid();
@@ -259,8 +255,7 @@ public:
         ip[0] = pid[DIM - 1];
         ip[1] = pid[DIM - 2];
         ip[2] = pid[DIM - 3];
-        field_init(values.ptr(*pid));
-        values[*pid] = col_cube(ip);
+        DataType<DT>::from_casacore(values[*pid], col_cube(ip));
       }
       break;
     }
@@ -275,8 +270,7 @@ public:
         }
         for (unsigned i = 0; i < array_cell_rank; ++i)
           ip[i] = pid[DIM - i - 1];
-        field_init(values.ptr(*pid));
-        values[*pid] = col_array(ip);
+        DataType<DT>::from_casacore(values[*pid], col_array(ip));
       }
       break;
     }
@@ -296,18 +290,6 @@ private:
   std::vector<std::shared_ptr<Column>> m_columns;
 
   std::unique_ptr<ColumnPartition> m_blockp;
-
-  template <typename T>
-  static inline
-  typename std::enable_if_t<std::is_trivially_copyable_v<T>>
-  field_init(T*) {}
-
-  template <typename T>
-  static inline
-  typename std::enable_if_t<!std::is_trivially_copyable_v<T>>
-  field_init(T* fld) {
-    ::new (fld) T;
-  }
 
   template <typename T>
   static inline void

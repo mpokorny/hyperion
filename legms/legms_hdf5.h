@@ -154,7 +154,7 @@ write_index_tree_to_attr(
     std::string md_name = std::string(LEGMS_ATTRIBUTE_SID_PREFIX) + attr_name;
     hid_t md_space_id = H5Screate(H5S_SCALAR);
     hid_t md_attr_dt =
-      legms::H5DatatypeManager::datatype<ValueType<casacore::String>::DataType>();
+      legms::H5DatatypeManager::datatype<ValueType<std::string>::DataType>();
     hid_t md_attr_id =
       H5Acreate_by_name(
         parent_id,
@@ -191,7 +191,7 @@ read_index_tree_from_attr(
   std::optional<IndexTreeL> result;
 
   auto metadata = read_index_tree_attr_metadata(loc_id, attr_name);
-  if (!metadata || std::strcmp(metadata.value().c_str(), SERDEZ::id) != 0)
+  if (!metadata || std::strcmp(metadata.value(), SERDEZ::id) != 0)
     return result;
 
   std::string legms_attr_name =

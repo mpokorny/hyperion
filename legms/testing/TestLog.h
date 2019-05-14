@@ -6,6 +6,7 @@
 #include <optional>
 #include <tuple>
 
+#include "legms.h"
 #include "utility.h"
 
 namespace legms {

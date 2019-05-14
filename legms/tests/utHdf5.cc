@@ -209,8 +209,7 @@ test_index_tree_attribute(
   recorder.expect_true(
     std::string("IndexTree attribute ") + tree_name
     + " metadata has expected serializer id",
-    TE(tree_md.value())
-    == std::string(binary_index_tree_serdez::id));
+    TE(std::string(tree_md.value().val)) == binary_index_tree_serdez::id);
   auto optTree =
     read_index_tree_from_attr<binary_index_tree_serdez>(ds, tree_name.c_str());
   recorder.assert_true(
@@ -355,10 +354,10 @@ table_tests(
        table0_col("Y"),
        table0_col("Z")},
       {{"MS_VERSION", ValueType<float>::DataType},
-       {"NAME", ValueType<casacore::String>::DataType}});
+       {"NAME", ValueType<std::string>::DataType}});
 
   const float ms_vn = -42.1f;
-  const casacore::String ms_nm = "test";
+  const std::string ms_nm = "test";
 
   auto col_x =
     attach_table0_col(table0.columnT("X").get(), table0_x, context, runtime);
@@ -379,9 +378,9 @@ table_tests(
     kw_req.add_fields(fids);
     PhysicalRegion kws = runtime->map_region(context, kw_req);
     const FA<WRITE_ONLY, float, 1> ms_version(kws, 0);
-    const FA<WRITE_ONLY, casacore::String, 1> name(kws, 1);
+    const FA<WRITE_ONLY, legms::string, 1> name(kws, 1);
     ms_version[0] = ms_vn;
-    name[0] = ms_nm;
+    DataType<casacore::DataType::TpString>::from_casacore(name[0], ms_nm);
     runtime->unmap_region(context, kws);
   }
   {
@@ -440,7 +439,7 @@ table_tests(
             tbkw(tbkw_v.begin(), tbkw_v.end());
           std::set<std::tuple<std::string, casacore::DataType>>
             kw{{"MS_VERSION", ValueType<float>::DataType},
-               {"NAME", ValueType<casacore::String>::DataType}};
+               {"NAME", ValueType<std::string>::DataType}};
           return tbkw == kw;
         }));
   }
