@@ -10,16 +10,18 @@
 #include <unordered_set>
 #include <vector>
 
-#include <casacore/casa/aipstype.h>
-#include <casacore/casa/BasicSL/String.h>
-#include <casacore/tables/Tables.h>
-
 #include "legms.h"
 #include "WithKeywordsBuilder.h"
 #include "ColumnBuilder.h"
 #include "Column.h"
 #include "IndexTree.h"
 #include "MSTable.h"
+
+#ifdef USE_CASACORE
+# include <casacore/casa/aipstype.h>
+# include <casacore/casa/BasicSL/String.h>
+# include <casacore/tables/Tables.h>
+#endif
 
 namespace legms {
 
@@ -149,7 +151,7 @@ protected:
     return result;
   }
 
-  template <casacore::DataType DT>
+  template <TypeTag DT>
   void
   add_from_table_column(
     const std::string& nm,
@@ -239,62 +241,62 @@ public:
         auto axes = element_axes.at(nm);
         switch (tdesc[nm].dataType()) {
         case casacore::DataType::TpBool:
-          result.template add_from_table_column<casacore::DataType::TpBool>(
+          result.template add_from_table_column<TypeTag::TpBool>(
             nm, axes, array_names);
           break;
 
         case casacore::DataType::TpChar:
-          result.template add_from_table_column<casacore::DataType::TpChar>(
+          result.template add_from_table_column<TypeTag::TpChar>(
             nm, axes, array_names);
           break;
 
         case casacore::DataType::TpUChar:
-          result.template add_from_table_column<casacore::DataType::TpUChar>(
+          result.template add_from_table_column<TypeTag::TpUChar>(
             nm, axes, array_names);
           break;
 
         case casacore::DataType::TpShort:
-          result.template add_from_table_column<casacore::DataType::TpShort>(
+          result.template add_from_table_column<TypeTag::TpShort>(
             nm, axes, array_names);
           break;
 
         case casacore::DataType::TpUShort:
-          result.template add_from_table_column<casacore::DataType::TpUShort>(
+          result.template add_from_table_column<TypeTag::TpUShort>(
             nm, axes, array_names);
           break;
 
         case casacore::DataType::TpInt:
-          result.template add_from_table_column<casacore::DataType::TpInt>(
+          result.template add_from_table_column<TypeTag::TpInt>(
             nm, axes, array_names);
           break;
 
         case casacore::DataType::TpUInt:
-          result.template add_from_table_column<casacore::DataType::TpUInt>(
+          result.template add_from_table_column<TypeTag::TpUInt>(
             nm, axes, array_names);
           break;
 
         case casacore::DataType::TpFloat:
-          result.template add_from_table_column<casacore::DataType::TpFloat>(
+          result.template add_from_table_column<TypeTag::TpFloat>(
             nm, axes, array_names);
           break;
 
         case casacore::DataType::TpDouble:
-          result.template add_from_table_column<casacore::DataType::TpDouble>(
+          result.template add_from_table_column<TypeTag::TpDouble>(
             nm, axes, array_names);
           break;
 
         case casacore::DataType::TpComplex:
-          result.template add_from_table_column<casacore::DataType::TpComplex>(
+          result.template add_from_table_column<TypeTag::TpComplex>(
             nm, axes, array_names);
           break;
 
         case casacore::DataType::TpDComplex:
-          result.template add_from_table_column<casacore::DataType::TpDComplex>(
+          result.template add_from_table_column<TypeTag::TpDComplex>(
             nm, axes, array_names);
           break;
 
         case casacore::DataType::TpString:
-          result.template add_from_table_column<casacore::DataType::TpString>(
+          result.template add_from_table_column<TypeTag::TpString>(
             nm, axes, array_names);
           break;
 

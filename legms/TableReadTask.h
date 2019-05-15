@@ -7,14 +7,17 @@
 #include <type_traits>
 #include <unordered_map>
 
-#include <casacore/casa/aipstype.h>
-#include <casacore/casa/Arrays.h>
-#include <casacore/tables/Tables.h>
-
 #include "legms.h"
+
+#ifdef USE_CASACORE
+
 #include "Table.h"
 #include "utility.h"
 #include "Column.h"
+
+#include <casacore/casa/aipstype.h>
+#include <casacore/casa/Arrays.h>
+#include <casacore/tables/Tables.h>
 
 namespace legms {
 
@@ -23,7 +26,7 @@ struct TableReadTaskArgs {
   char table_name[80];
   char column_name[20];
   unsigned column_rank;
-  casacore::DataType column_datatype;
+  TypeTag column_datatype;
 };
 
 class TableReadTask {
@@ -81,23 +84,23 @@ public:
   read_column(
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
-    casacore::DataType lr_datatype,
+    TypeTag lr_datatype,
     Legion::DomainT<DIM> reg_domain,
     const std::vector<Legion::PhysicalRegion>& regions) {
 
-#define READ_COL(dt)                                          \
-    casacore::DataType::Tp##dt:                               \
-      switch (col_desc.trueDataType()) {                      \
-      case casacore::DataType::Tp##dt:                        \
-        read_scalar_column<DIM, casacore::DataType::Tp##dt>(  \
-          table, col_desc, reg_domain, regions);              \
-        break;                                                \
-      case casacore::DataType::TpArray##dt:                   \
-        read_array_column<DIM, casacore::DataType::Tp##dt>(   \
-          table, col_desc, reg_domain, regions);              \
-        break;                                                \
-      default:                                                \
-        assert(false);                                        \
+#define READ_COL(dt)                                \
+    TypeTag::Tp##dt:                              \
+      switch (col_desc.trueDataType()) {            \
+      case casacore::DataType::Tp##dt:              \
+        read_scalar_column<DIM, TypeTag::Tp##dt>( \
+          table, col_desc, reg_domain, regions);    \
+        break;                                      \
+      case casacore::DataType::TpArray##dt:         \
+        read_array_column<DIM, TypeTag::Tp##dt>(  \
+          table, col_desc, reg_domain, regions);    \
+        break;                                      \
+      default:                                      \
+        assert(false);                              \
       }
 
     switch (lr_datatype) {
@@ -133,7 +136,7 @@ public:
 #undef READ_COL
   }
 
-  template <int DIM, casacore::DataType DT>
+  template <int DIM, TypeTag DT>
   static void
   read_scalar_column(
     const casacore::Table& table,
@@ -174,7 +177,7 @@ public:
     }
   }
 
-  template <int DIM, casacore::DataType DT>
+  template <int DIM, TypeTag DT>
   static void
   read_array_column(
     const casacore::Table& table,
@@ -308,6 +311,7 @@ private:
 
 } // end namespace legms
 
+#endif // USE_CASACORE
 #endif // LEGMS_TABLE_READ_TASK_H_
 
 // Local Variables:

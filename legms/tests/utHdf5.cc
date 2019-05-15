@@ -209,7 +209,7 @@ test_index_tree_attribute(
   recorder.expect_true(
     std::string("IndexTree attribute ") + tree_name
     + " metadata has expected serializer id",
-    TE(std::string(tree_md.value().val)) == binary_index_tree_serdez::id);
+    TE(std::string(tree_md.value())) == binary_index_tree_serdez::id);
   auto optTree =
     read_index_tree_from_attr<binary_index_tree_serdez>(ds, tree_name.c_str());
   recorder.assert_true(
@@ -380,7 +380,7 @@ table_tests(
     const FA<WRITE_ONLY, float, 1> ms_version(kws, 0);
     const FA<WRITE_ONLY, legms::string, 1> name(kws, 1);
     ms_version[0] = ms_vn;
-    DataType<casacore::DataType::TpString>::from_casacore(name[0], ms_nm);
+    DataType<legms::TypeTag::TpString>::from_casacore(name[0], ms_nm);
     runtime->unmap_region(context, kws);
   }
   {
@@ -435,9 +435,9 @@ table_tests(
       testing::TestEval(
         [&tb0]() {
           auto tbkw_v = tb0->keywords();
-          std::set<std::tuple<std::string, casacore::DataType>>
+          std::set<std::tuple<std::string, legms::TypeTag>>
             tbkw(tbkw_v.begin(), tbkw_v.end());
-          std::set<std::tuple<std::string, casacore::DataType>>
+          std::set<std::tuple<std::string, legms::TypeTag>>
             kw{{"MS_VERSION", ValueType<float>::DataType},
                {"NAME", ValueType<std::string>::DataType}};
           return tbkw == kw;

@@ -7,6 +7,8 @@
 # define LEGMS_MAX_STRING_SIZE 80
 #endif
 
+#define USE_CASACORE 1
+
 #endif // LEGMS_LEGMS_CONFIG_H_
 
 // Local Variables:

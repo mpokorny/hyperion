@@ -93,7 +93,7 @@ ColumnGenArgs::legion_buffer_size(void) const {
     + sizeof(datatype)
     + vector_serdez<int>::serialized_size(axes)
     + 2 * sizeof(Legion::LogicalRegion)
-    + vector_serdez<casacore::DataType>::serialized_size(keyword_datatypes);
+    + vector_serdez<TypeTag>::serialized_size(keyword_datatypes);
 }
 
 size_t
@@ -121,7 +121,7 @@ ColumnGenArgs::legion_serialize(void *buffer) const {
   memcpy(buff, &keywords, s);
   buff += s;
 
-  buff += vector_serdez<casacore::DataType>::serialize(keyword_datatypes, buff);
+  buff += vector_serdez<TypeTag>::serialize(keyword_datatypes, buff);
 
   return buff - static_cast<char *>(buffer);
 }
@@ -147,8 +147,7 @@ ColumnGenArgs::legion_deserialize(const void *buffer) {
   keywords = *reinterpret_cast<const decltype(values) *>(buff);
   buff += sizeof(keywords);
 
-  buff +=
-    vector_serdez<casacore::DataType>::deserialize(keyword_datatypes, buff);
+  buff += vector_serdez<TypeTag>::deserialize(keyword_datatypes, buff);
 
   return buff - static_cast<const char*>(buffer);
 }

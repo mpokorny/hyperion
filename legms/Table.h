@@ -42,7 +42,7 @@ public:
     const std::string& name,
     const std::vector<int>& index_axes,
     Legion::LogicalRegion keywords,
-    const std::vector<casacore::DataType>& datatypes)
+    const std::vector<TypeTag>& datatypes)
     : WithKeywords(ctx, runtime, keywords, datatypes)
     , m_name(name)
     , m_index_axes(index_axes) {
@@ -111,7 +111,7 @@ struct TableGenArgs {
   std::vector<int> index_axes;
   std::vector<ColumnGenArgs> col_genargs;
   Legion::LogicalRegion keywords;
-  std::vector<casacore::DataType> keyword_datatypes;
+  std::vector<TypeTag> keyword_datatypes;
 
   template <typename D>
   std::unique_ptr<TableT<D>>
@@ -180,7 +180,7 @@ public:
     const std::vector<int>& index_axes,
     const std::vector<ColumnGenArgs>& col_genargs,
     Legion::LogicalRegion keywords,
-    const std::vector<casacore::DataType>& kw_datatypes)
+    const std::vector<TypeTag>& kw_datatypes)
     : Table(ctx, runtime, name, index_axes, keywords, kw_datatypes) {
 
     std::transform(

@@ -9,9 +9,6 @@
 #include <optional>
 #include <vector>
 
-#include <casacore/casa/aipstype.h>
-#include <casacore/casa/Utilities/DataType.h>
-
 #include "legms.h"
 #include "utility.h"
 #include "WithKeywordsBuilder.h"
@@ -26,7 +23,7 @@ public:
 
   ColumnBuilder(
     const std::string& name,
-    casacore::DataType datatype,
+    TypeTag datatype,
     const std::vector<D>& axes)
     : WithKeywordsBuilder()
     , m_name(name)
@@ -45,7 +42,7 @@ public:
     return m_name;
   }
 
-  casacore::DataType
+  TypeTag
   datatype() const {
     return m_datatype;
   }
@@ -91,7 +88,7 @@ private:
 
   std::string m_name;
 
-  casacore::DataType m_datatype;
+  TypeTag m_datatype;
 
   std::vector<D> m_axes;
 
@@ -107,7 +104,7 @@ public:
 
   ScalarColumnBuilder(
     const std::string& name,
-    casacore::DataType datatype)
+    TypeTag datatype)
     : ColumnBuilder<D>(name, datatype, {D::ROW}) {
   }
 
@@ -137,7 +134,7 @@ public:
 
   ArrayColumnBuilder(
     const std::string& name,
-    casacore::DataType datatype,
+    TypeTag datatype,
     const std::vector<D>& axes,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)> element_shape)
     : ColumnBuilder<D>(name, datatype, axes)

@@ -74,8 +74,7 @@ TableGenArgs::legion_buffer_size(void) const {
         return acc + cg.legion_buffer_size();
       });
   result += sizeof(LogicalRegion);
-  result +=
-    vector_serdez<casacore::DataType>::serialized_size(keyword_datatypes);
+  result += vector_serdez<legms::TypeTag>::serialized_size(keyword_datatypes);
   return result;
 }
 
@@ -111,7 +110,7 @@ TableGenArgs::legion_serialize(void *buffer) const {
   memcpy(buff, &keywords, s);
   buff += s;
 
-  buff += vector_serdez<casacore::DataType>::serialize(keyword_datatypes, buff);
+  buff += vector_serdez<legms::TypeTag>::serialize(keyword_datatypes, buff);
 
   return buff - static_cast<char*>(buffer);
 }
@@ -140,8 +139,7 @@ TableGenArgs::legion_deserialize(const void *buffer) {
   keywords = *(const decltype(keywords) *)buff;
   buff += sizeof(keywords);
 
-  buff +=
-    vector_serdez<casacore::DataType>::deserialize(keyword_datatypes, buff);
+  buff += vector_serdez<legms::TypeTag>::deserialize(keyword_datatypes, buff);
 
   return buff - static_cast<const char*>(buffer);
 }
@@ -353,7 +351,7 @@ index_column(
   const Task*,
   Context ctx,
   Runtime *runtime,
-  casacore::DataType dt,
+  legms::TypeTag dt,
   const RegionRequirement& col_req) {
 
   // launch index space task on input region to compute accumulator value
@@ -963,7 +961,7 @@ public:
 
   ReindexColumnCopyTask(
     LogicalRegion column,
-    casacore::DataType column_dt,
+    legms::TypeTag column_dt,
     IndexPartition row_partition,
     LogicalRegion new_rects_lr,
     LogicalRegion new_col_lr)
@@ -974,7 +972,7 @@ public:
     , m_new_col_lr(new_col_lr) {
   }
 
-  template <casacore::DataType DT, int DIM>
+  template <legms::TypeTag DT, int DIM>
   using SA = FieldAccessor<
     READ_ONLY,
     typename DataType<DT>::ValueType,
@@ -983,7 +981,7 @@ public:
     AffineAccessor<typename DataType<DT>::ValueType, DIM, coord_t>,
     true>;
 
-  template <casacore::DataType DT, int DIM>
+  template <legms::TypeTag DT, int DIM>
   using DA = FieldAccessor<
     WRITE_ONLY,
     typename DataType<DT>::ValueType,
@@ -992,7 +990,7 @@ public:
     AffineAccessor<typename DataType<DT>::ValueType, DIM, coord_t>,
     true>;
 
-  template <casacore::DataType DT>
+  template <legms::TypeTag DT>
   static void
   copy(const PhysicalRegion& src, const PhysicalRegion& dst) {
 
@@ -1086,7 +1084,7 @@ public:
     Context,
     Runtime*) {
 
-    casacore::DataType dt = *static_cast<casacore::DataType*>(task->args);
+    legms::TypeTag dt = *static_cast<legms::TypeTag*>(task->args);
 
 #define CPYDT(DT)                                       \
     case (DT): copy<DT>(regions[0], regions[1]); break;
@@ -1116,7 +1114,7 @@ private:
 
   LogicalRegion m_column;
 
-  casacore::DataType m_column_dt;
+  legms::TypeTag m_column_dt;
 
   IndexPartition m_row_partition;
 

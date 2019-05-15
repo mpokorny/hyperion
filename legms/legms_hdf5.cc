@@ -18,7 +18,7 @@ legms::hdf5::read_index_tree_attr_metadata(
   const std::string& attr_name,
   hid_t access_pl) {
 
-  std::optional<string> result;
+  std::optional<std::string> result;
 
   std::string md_id_name = std::string(LEGMS_ATTRIBUTE_SID_PREFIX) + attr_name;
   if (H5Aexists(loc_id, md_id_name.c_str())) {
@@ -34,22 +34,22 @@ legms::hdf5::read_index_tree_attr_metadata(
         string attr;
         herr_t rc = H5Aread(attr_id, attr_dt, attr.val);
         assert(rc >= 0);
-        result = std::move(attr);
+        result = attr.val;
       }
     }
   }
   return result;
 }
 
-template <casacore::DataType DT>
+template <legms::TypeTag DT>
 using KW =
   FieldAccessor<
   READ_ONLY,
-  typename legms::DataType<DT>::ValueType,
+  typename DataType<DT>::ValueType,
   1,
   coord_t,
   AffineAccessor<
-    typename legms::DataType<DT>::ValueType,
+    typename DataType<DT>::ValueType,
     1,
     coord_t>,
   false>;
@@ -57,14 +57,14 @@ using KW =
 static void
 init_datatype_attr(
   hid_t loc_id,
-  casacore::DataType dt,
+  legms::TypeTag dt,
   hid_t creation_pl = H5P_DEFAULT,
   hid_t access_pl = H5P_DEFAULT);
 
 static void
 init_datatype_attr(
   hid_t loc_id,
-  casacore::DataType dt,
+  legms::TypeTag dt,
   hid_t creation_pl,
   hid_t access_pl) {
 
@@ -77,7 +77,7 @@ init_datatype_attr(
   hid_t ds = H5Screate(H5S_SCALAR);
   assert(ds >= 0);
   hid_t did = legms::H5DatatypeManager::datatypes()[
-    legms::H5DatatypeManager::CASACORE_DATATYPE_H5T];
+    legms::H5DatatypeManager::DATATYPE_H5T];
   hid_t attr_id =
     H5Acreate(
       loc_id,
@@ -87,11 +87,7 @@ init_datatype_attr(
       creation_pl,
       access_pl);
   assert(attr_id >= 0);
-  unsigned char udt = dt;
-  // herr_t err =
-  //   H5Tconvert(H5T_NATIVE_UCHAR, attr_dt, 1, &udt, NULL, H5P_DEFAULT);
-  // assert(err >= 0);
-  herr_t err = H5Awrite(attr_id, did, &udt);
+  herr_t err = H5Awrite(attr_id, did, &dt);
   assert(err >= 0);
   err = H5Sclose(ds);
   assert(err >= 0);
@@ -104,7 +100,7 @@ init_kw(
   hid_t loc_id,
   const char *attr_name,
   hid_t type_id,
-  casacore::DataType dt,
+  legms::TypeTag dt,
   hid_t link_creation_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t dataset_creation_pl = H5P_DEFAULT,
@@ -115,7 +111,7 @@ init_kw(
   hid_t loc_id,
   const char *attr_name,
   hid_t type_id,
-  casacore::DataType dt,
+  legms::TypeTag dt,
   hid_t link_creation_pl,
   hid_t link_access_pl,
   hid_t dataset_creation_pl,
@@ -150,7 +146,7 @@ init_kw(
   return result;
 }
 
-template <casacore::DataType DT>
+template <legms::TypeTag DT>
 static void
 write_kw(
   hid_t loc_id,
@@ -163,7 +159,7 @@ write_kw(
   hid_t dataset_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
-template <casacore::DataType DT>
+template <legms::TypeTag DT>
 static void
 write_kw(
   hid_t loc_id,
@@ -198,7 +194,7 @@ write_kw(
 
 template <>
 void
-write_kw<casacore::TpString> (
+write_kw<legms::TypeTag::TpString> (
   hid_t loc_id,
   const char *attr_name,
   std::optional<PhysicalRegion>& region,
@@ -209,19 +205,19 @@ write_kw<casacore::TpString> (
   hid_t dataset_access_pl,
   hid_t xfer_pl) {
 
-  hid_t dt = legms::H5DatatypeManager::datatype<casacore::TpString>();
+  hid_t dt = legms::H5DatatypeManager::datatype<legms::TypeTag::TpString>();
   hid_t attr_id =
     init_kw(
       loc_id,
       attr_name,
       dt,
-      casacore::TpString,
+      legms::TypeTag::TpString,
       link_creation_pl,
       link_access_pl,
       dataset_creation_pl,
       dataset_access_pl);
   if (region) {
-    const KW<casacore::TpString> kw(region.value(), fid);
+    const KW<legms::TypeTag::TpString> kw(region.value(), fid);
     const legms::string& kwval = kw[0];
     legms::string buf;
     strncpy(buf.val, kwval.val, sizeof(buf));
@@ -687,7 +683,22 @@ acc_kw_names(
   return 0;
 }
 
-std::tuple<LogicalRegion, std::vector<casacore::DataType>>
+static legms::TypeTag
+read_dt_value(hid_t dt_id) {
+  hid_t did =
+    legms::H5DatatypeManager::datatypes()[
+      legms::H5DatatypeManager::DATATYPE_H5T];
+  legms::TypeTag dt;
+  // enumeration datatypes are converted by libhdf5 based on symbol names, which
+  // ensures interoperability for legms HDF5 files written with one enumeration
+  // definition and read with a different enumeration definition (for example,
+  // in two legms codes built with and without USE_CASACORE)
+  herr_t err = H5Aread(dt_id, did, &dt);
+  assert(err >= 0);
+  return dt;
+}
+
+std::tuple<LogicalRegion, std::vector<legms::TypeTag>>
 legms::hdf5::init_keywords(
   hid_t loc_id,
   Runtime* runtime,
@@ -708,13 +719,9 @@ legms::hdf5::init_keywords(
   assert(err >= 0);
 
   if (kw_names.size() == 0)
-    return
-      std::make_tuple(LogicalRegion::NO_REGION, vector<casacore::DataType>());
+    return std::make_tuple(LogicalRegion::NO_REGION, vector<legms::TypeTag>());
 
   WithKeywords::kw_desc_t kws;
-  hid_t did =
-    legms::H5DatatypeManager::datatypes()[
-      legms::H5DatatypeManager::CASACORE_DATATYPE_H5T];
   std::transform(
     kw_names.begin(),
     kw_names.end(),
@@ -728,20 +735,17 @@ legms::hdf5::init_keywords(
           attr_access_pl,
           link_access_pl);
       assert(dt_id >= 0);
-
-      unsigned char dt;
-      herr_t err = H5Aread(dt_id, did, &dt);
-      assert(err >= 0);
+      legms::TypeTag dt = read_dt_value(dt_id);
       err = H5Aclose(dt_id);
       assert(err >= 0);
-      return std::make_tuple(nm, static_cast<casacore::DataType>(dt));
+      return std::make_tuple(nm, dt);
     });
 
   IndexSpaceT<1> is =
     runtime->create_index_space(context, Rect<1>(0, 0));
   FieldSpace fs = runtime->create_field_space(context);
   FieldAllocator fa = runtime->create_field_allocator(context, fs);
-  std::vector<casacore::DataType> dts;
+  std::vector<legms::TypeTag> dts;
   for (size_t i = 0; i < kws.size(); ++i) {
     auto [nm, dt] = kws[i];
     add_field(dt, fa, i);
@@ -765,14 +769,14 @@ legms::hdf5::init_column(
 
   std::optional<ColumnGenArgs> result;
 
-  casacore::DataType datatype = ValueType<int>::DataType;
+  legms::TypeTag datatype = ValueType<int>::DataType;
   hid_t datatype_id = -1;
   std::vector<int> axes;
   hid_t axes_id = -1;
   hid_t axes_id_ds = -1;
   LogicalRegion values = LogicalRegion::NO_REGION;
   LogicalRegion keywords = LogicalRegion::NO_REGION;
-  std::vector<casacore::DataType> keyword_datatypes;
+  std::vector<legms::TypeTag> keyword_datatypes;
 
   htri_t rc = H5Lexists(loc_id, LEGMS_COLUMN_DS, link_access_pl);
   if (rc > 0) {
@@ -797,11 +801,10 @@ legms::hdf5::init_column(
         assert(err >= 0);
       }
       {
-        std::optional<string> sid =
+        std::optional<std::string> sid =
           read_index_tree_attr_metadata(loc_id, "index_tree");
         if (!sid
-            || (std::string(sid.value().val)
-                != "legms::hdf5::binary_index_tree_serdez"))
+            || (sid.value() != "legms::hdf5::binary_index_tree_serdez"))
           goto return_nothing;
         std::optional<IndexTreeL> ixtree =
           read_index_tree_from_attr<binary_index_tree_serdez>(
@@ -826,11 +829,6 @@ legms::hdf5::init_column(
             LEGMS_COLUMN_DS,
             datatype_name.c_str(),
             link_access_pl);
-        assert(datatype_exists >= 0);
-        hid_t did =
-          H5DatatypeManager::datatypes()[
-            H5DatatypeManager::CASACORE_DATATYPE_H5T];
-        unsigned char dt;
         if (datatype_exists == 0)
           goto return_nothing;
         datatype_id =
@@ -841,9 +839,7 @@ legms::hdf5::init_column(
             attr_access_pl,
             link_access_pl);
         assert(datatype_id >= 0);
-        herr_t err = H5Aread(datatype_id, did, &dt);
-        assert(err >= 0);
-        datatype = static_cast<casacore::DataType>(dt);
+        datatype = read_dt_value(datatype_id);
       }
     }
   }
@@ -931,7 +927,7 @@ legms::hdf5::init_table(
   std::string axes_uid;
   std::vector<ColumnGenArgs> col_genargs;
   LogicalRegion keywords = LogicalRegion::NO_REGION;
-  std::vector<casacore::DataType> keyword_datatypes;
+  std::vector<legms::TypeTag> keyword_datatypes;
   {
     htri_t index_axes_exists = H5Aexists(loc_id, table_index_axes_attr_name);
     assert(index_axes_exists >= 0);
@@ -956,8 +952,7 @@ legms::hdf5::init_table(
     assert(axes_uid_exists >= 0);
     if (axes_uid_exists == 0)
       goto return_nothing;
-    hid_t did =
-      H5DatatypeManager::datatypes()[H5DatatypeManager::CASACORE_STRING_H5T];
+    hid_t did = H5DatatypeManager::datatypes()[H5DatatypeManager::STRING_H5T];
     legms::string str;
     hid_t axes_uid_id =
       H5Aopen(loc_id, table_axes_uid_attr_name, attr_access_pl);
