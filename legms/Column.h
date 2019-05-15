@@ -7,9 +7,6 @@
 #include <tuple>
 #include <unordered_map>
 
-#include <casacore/casa/aipstype.h>
-#include <casacore/casa/Utilities/DataType.h>
-
 #include "legms.h"
 #include "utility.h"
 #include "WithKeywords.h"
@@ -25,11 +22,11 @@ class ColumnT;
 struct ColumnGenArgs {
   std::string name;
   std::string axes_uid;
-  casacore::DataType datatype;
+  TypeTag datatype;
   std::vector<int> axes;
   Legion::LogicalRegion values;
   Legion::LogicalRegion keywords;
-  std::vector<casacore::DataType> keyword_datatypes;
+  std::vector<TypeTag> keyword_datatypes;
 
   template <typename D>
   std::unique_ptr<ColumnT<D>>
@@ -75,7 +72,7 @@ public:
     return m_index_tree;
   }
 
-  casacore::DataType
+  TypeTag
   datatype() const {
     return m_datatype;
   }
@@ -117,7 +114,7 @@ protected:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
-    casacore::DataType datatype,
+    TypeTag datatype,
     const IndexTreeL& index_tree,
     const kw_desc_t& kws = kw_desc_t())
     : WithKeywords(ctx, runtime, kws)
@@ -133,10 +130,10 @@ protected:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
-    casacore::DataType datatype,
+    TypeTag datatype,
     Legion::LogicalRegion values,
     Legion::LogicalRegion keywords,
-    const std::vector<casacore::DataType>& kw_datatypes)
+    const std::vector<TypeTag>& kw_datatypes)
     : WithKeywords(ctx, runtime, keywords, kw_datatypes)
     , m_name(name)
     , m_datatype(datatype)
@@ -156,7 +153,7 @@ private:
 
   std::string m_name;
 
-  casacore::DataType m_datatype;
+  TypeTag m_datatype;
 
   unsigned m_rank;
 
@@ -192,7 +189,7 @@ public:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
-    casacore::DataType datatype,
+    TypeTag datatype,
     const std::vector<D>& axes,
     const IndexTreeL& index_tree_,
     const kw_desc_t& kws = kw_desc_t())
@@ -209,11 +206,11 @@ public:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::string& name,
-    casacore::DataType datatype,
+    TypeTag datatype,
     const std::vector<D>& axes,
     Legion::LogicalRegion values,
     Legion::LogicalRegion keywords,
-    const std::vector<casacore::DataType>& kw_datatypes)
+    const std::vector<TypeTag>& kw_datatypes)
     : Column(
       ctx,
       runtime,
@@ -655,11 +652,11 @@ public:
   static Generator
   generator(
     const std::string& name,
-    casacore::DataType datatype,
+    TypeTag datatype,
     const std::vector<D>& axes,
     const IndexTreeL& index_tree,
-    const std::unordered_map<std::string, casacore::DataType>& kws =
-    std::unordered_map<std::string, casacore::DataType>()) {
+    const std::unordered_map<std::string, TypeTag>& kws =
+    std::unordered_map<std::string, TypeTag>()) {
 
     return
       [=](Legion::Context ctx, Legion::Runtime* runtime) {
@@ -678,12 +675,12 @@ public:
   static Generator
   generator(
     const std::string& name,
-    casacore::DataType datatype,
+    TypeTag datatype,
     const std::vector<D>& axes,
     const IndexTreeL& row_index_pattern,
     unsigned num_rows,
-    const std::unordered_map<std::string, casacore::DataType>& kws =
-    std::unordered_map<std::string, casacore::DataType>()) {
+    const std::unordered_map<std::string, TypeTag>& kws =
+    std::unordered_map<std::string, TypeTag>()) {
 
     return
       generator(
@@ -697,13 +694,13 @@ public:
   static Generator
   generator(
     const std::string& name,
-    casacore::DataType datatype,
+    TypeTag datatype,
     const std::vector<D>& axes,
     const IndexTreeL& row_index_pattern,
     const IndexTreeL& row_pattern,
     unsigned num_rows,
-    const std::unordered_map<std::string, casacore::DataType>& kws =
-    std::unordered_map<std::string, casacore::DataType>()) {
+    const std::unordered_map<std::string, TypeTag>& kws =
+    std::unordered_map<std::string, TypeTag>()) {
 
     return
       generator(

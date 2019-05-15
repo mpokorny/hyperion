@@ -8,9 +8,131 @@
 using namespace legms;
 using namespace Legion;
 
+void
+legms::OpsManager::register_ops() {
+  Runtime::register_custom_serdez_op<index_tree_serdez>(
+    INDEX_TREE_SID);
+
+  Runtime::register_custom_serdez_op<
+    vector_serdez<DomainPoint>>(V_DOMAIN_POINT_SID);
+  Runtime::register_custom_serdez_op<
+    string_serdez<std::string>>(STD_STRING_SID);
+
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<std::string>>(ACC_FIELD_STRING_SID);
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<TypeTag::TpBool>::ValueType>>(
+      ACC_FIELD_BOOL_SID);
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<TypeTag::TpChar>::ValueType>>(
+      ACC_FIELD_CHAR_SID);
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<TypeTag::TpUChar>::ValueType>>(
+      ACC_FIELD_UCHAR_SID);
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<TypeTag::TpShort>::ValueType>>(
+      ACC_FIELD_SHORT_SID);
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<TypeTag::TpUShort>::ValueType>>(
+      ACC_FIELD_USHORT_SID);
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<TypeTag::TpInt>::ValueType>>(
+      ACC_FIELD_INT_SID);
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<TypeTag::TpUInt>::ValueType>>(
+      ACC_FIELD_UINT_SID);
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<TypeTag::TpFloat>::ValueType>>(
+      ACC_FIELD_FLOAT_SID);
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<TypeTag::TpDouble>::ValueType>>(
+      ACC_FIELD_DOUBLE_SID);
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<TypeTag::TpComplex>::ValueType>>(
+      ACC_FIELD_COMPLEX_SID);
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<TypeTag::TpDComplex>::ValueType>>(
+      ACC_FIELD_DCOMPLEX_SID);
+
+  Runtime::register_reduction_op<bool_or_redop>(BOOL_OR_REDOP);
+
+  Runtime::register_reduction_op(
+    ACC_FIELD_STRING_REDOP,
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<std::string>>(),
+    acc_field_redop<std::string>::init_fn,
+    acc_field_redop<std::string>::fold_fn);
+  Runtime::register_reduction_op(
+    ACC_FIELD_BOOL_REDOP,
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<TypeTag::TpBool>::ValueType>>(),
+    acc_field_redop<DataType<TypeTag::TpBool>::ValueType>::init_fn,
+    acc_field_redop<DataType<TypeTag::TpBool>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    ACC_FIELD_CHAR_REDOP,
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<TypeTag::TpChar>::ValueType>>(),
+    acc_field_redop<DataType<TypeTag::TpChar>::ValueType>::init_fn,
+    acc_field_redop<DataType<TypeTag::TpChar>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    ACC_FIELD_UCHAR_REDOP,
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<TypeTag::TpUChar>::ValueType>>(),
+    acc_field_redop<DataType<TypeTag::TpUChar>::ValueType>::init_fn,
+    acc_field_redop<DataType<TypeTag::TpUChar>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    ACC_FIELD_SHORT_REDOP,
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<TypeTag::TpShort>::ValueType>>(),
+    acc_field_redop<DataType<TypeTag::TpShort>::ValueType>::init_fn,
+    acc_field_redop<DataType<TypeTag::TpShort>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    ACC_FIELD_USHORT_REDOP,
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<TypeTag::TpUShort>::ValueType>>(),
+    acc_field_redop<DataType<TypeTag::TpUShort>::ValueType>::init_fn,
+    acc_field_redop<DataType<TypeTag::TpUShort>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    ACC_FIELD_INT_REDOP,
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<TypeTag::TpInt>::ValueType>>(),
+    acc_field_redop<DataType<TypeTag::TpInt>::ValueType>::init_fn,
+    acc_field_redop<DataType<TypeTag::TpInt>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    ACC_FIELD_UINT_REDOP,
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<TypeTag::TpUInt>::ValueType>>(),
+    acc_field_redop<DataType<TypeTag::TpUInt>::ValueType>::init_fn,
+    acc_field_redop<DataType<TypeTag::TpUInt>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    ACC_FIELD_FLOAT_REDOP,
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<TypeTag::TpFloat>::ValueType>>(),
+    acc_field_redop<DataType<TypeTag::TpFloat>::ValueType>::init_fn,
+    acc_field_redop<DataType<TypeTag::TpFloat>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    ACC_FIELD_DOUBLE_REDOP,
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<TypeTag::TpDouble>::ValueType>>(),
+    acc_field_redop<DataType<TypeTag::TpDouble>::ValueType>::init_fn,
+    acc_field_redop<DataType<TypeTag::TpDouble>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    ACC_FIELD_COMPLEX_REDOP,
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<TypeTag::TpComplex>::ValueType>>(),
+    acc_field_redop<DataType<TypeTag::TpComplex>::ValueType>::init_fn,
+    acc_field_redop<DataType<TypeTag::TpComplex>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    ACC_FIELD_DCOMPLEX_REDOP,
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<TypeTag::TpDComplex>::ValueType>>(),
+    acc_field_redop<DataType<TypeTag::TpDComplex>::ValueType>::init_fn,
+    acc_field_redop<DataType<TypeTag::TpDComplex>::ValueType>::fold_fn);
+}
+
 FieldID
 legms::add_field(
-  casacore::DataType datatype,
+  TypeTag datatype,
   FieldAllocator fa,
   FieldID field_id) {
 
@@ -19,7 +141,7 @@ legms::add_field(
 #define ALLOC_FLD(tp)                           \
   case tp:                                      \
     result = fa.allocate_field(                 \
-      DataType<tp>::serdez_size,                \
+      sizeof(DataType<tp>::ValueType),          \
       field_id);                                \
     break;
 
@@ -652,48 +774,48 @@ legms::register_tasks(Runtime* runtime) {
 }
 
 hid_t
-legms::H5DatatypeManager::datatypes_[CASACORE_STRING_H5T + 1];
+legms::H5DatatypeManager::datatypes_[DATATYPE_H5T + 1];
 
 void
 legms::H5DatatypeManager::register_datatypes() {
-  legms::H5DatatypeManager::datatypes_[CASACORE_BOOL_H5T] = H5T_NATIVE_HBOOL;
-  legms::H5DatatypeManager::datatypes_[CASACORE_CHAR_H5T] = H5T_NATIVE_SCHAR;
-  legms::H5DatatypeManager::datatypes_[CASACORE_UCHAR_H5T] = H5T_NATIVE_UCHAR;
-  legms::H5DatatypeManager::datatypes_[CASACORE_SHORT_H5T] = H5T_NATIVE_SHORT;
-  legms::H5DatatypeManager::datatypes_[CASACORE_USHORT_H5T] = H5T_NATIVE_USHORT;
-  legms::H5DatatypeManager::datatypes_[CASACORE_INT_H5T] = H5T_NATIVE_INT;
-  legms::H5DatatypeManager::datatypes_[CASACORE_UINT_H5T] = H5T_NATIVE_UINT;
-  legms::H5DatatypeManager::datatypes_[CASACORE_FLOAT_H5T] = H5T_NATIVE_FLOAT;
-  legms::H5DatatypeManager::datatypes_[CASACORE_DOUBLE_H5T] = H5T_NATIVE_DOUBLE;
+  datatypes_[BOOL_H5T] = H5T_NATIVE_HBOOL;
+  datatypes_[CHAR_H5T] = H5T_NATIVE_SCHAR;
+  datatypes_[UCHAR_H5T] = H5T_NATIVE_UCHAR;
+  datatypes_[SHORT_H5T] = H5T_NATIVE_SHORT;
+  datatypes_[USHORT_H5T] = H5T_NATIVE_USHORT;
+  datatypes_[INT_H5T] = H5T_NATIVE_INT;
+  datatypes_[UINT_H5T] = H5T_NATIVE_UINT;
+  datatypes_[FLOAT_H5T] = H5T_NATIVE_FLOAT;
+  datatypes_[DOUBLE_H5T] = H5T_NATIVE_DOUBLE;
   {
     hid_t dt = H5Tcreate(H5T_COMPOUND, 2 * sizeof(float));
     H5Tinsert(dt, "real", 0, H5T_NATIVE_FLOAT);
     H5Tinsert(dt, "imag", sizeof(float), H5T_NATIVE_FLOAT);
-    legms::H5DatatypeManager::datatypes_[CASACORE_COMPLEX_H5T] = dt;
+    datatypes_[COMPLEX_H5T] = dt;
   }
   {
     hid_t dt = H5Tcreate(H5T_COMPOUND, 2 * sizeof(double));
     H5Tinsert(dt, "real", 0, H5T_NATIVE_DOUBLE);
     H5Tinsert(dt, "imag", sizeof(double), H5T_NATIVE_DOUBLE);
-    legms::H5DatatypeManager::datatypes_[CASACORE_DCOMPLEX_H5T] = dt;
+    datatypes_[DCOMPLEX_H5T] = dt;
   }
   {
     hid_t dt = H5Tcopy(H5T_C_S1);
     H5Tset_size(dt, LEGMS_MAX_STRING_SIZE);
-    legms::H5DatatypeManager::datatypes_[CASACORE_STRING_H5T] = dt;
+    datatypes_[STRING_H5T] = dt;
   }
   {
     hid_t dt = H5Tenum_create(H5T_NATIVE_UCHAR);
 
 #define DTINSERT(T) do {                          \
-      unsigned char val = casacore::DataType::T;  \
+      unsigned char val = TypeTag::T;           \
       herr_t err = H5Tenum_insert(dt, #T, &val);  \
       assert(err >= 0);                           \
     } while(0);
 
     FOREACH_BARE_DATATYPE(DTINSERT);
 
-    legms::H5DatatypeManager::datatypes_[CASACORE_DATATYPE_H5T] = dt;
+    datatypes_[DATATYPE_H5T] = dt;
   }
 }
 
@@ -708,7 +830,7 @@ legms::H5DatatypeManager::commit_derived(
     H5Tcommit(
       loc_id,
       "legms::complex",
-      legms::H5DatatypeManager::datatypes_[CASACORE_COMPLEX_H5T],
+      datatypes_[COMPLEX_H5T],
       lcpl_id,
       tcpl_id,
       tapl_id);
@@ -719,7 +841,7 @@ legms::H5DatatypeManager::commit_derived(
     H5Tcommit(
       loc_id,
       "legms::dcomplex",
-      legms::H5DatatypeManager::datatypes_[CASACORE_DCOMPLEX_H5T],
+      datatypes_[DCOMPLEX_H5T],
       lcpl_id,
       tcpl_id,
       tapl_id);
@@ -730,7 +852,7 @@ legms::H5DatatypeManager::commit_derived(
     H5Tcommit(
       loc_id,
       "legms::string",
-      legms::H5DatatypeManager::datatypes_[CASACORE_STRING_H5T],
+      datatypes_[STRING_H5T],
       lcpl_id,
       tcpl_id,
       tapl_id);
@@ -740,8 +862,8 @@ legms::H5DatatypeManager::commit_derived(
   result =
     H5Tcommit(
       loc_id,
-      "casacore::DataType",
-      legms::H5DatatypeManager::datatypes_[CASACORE_DATATYPE_H5T],
+      "legms::TypeTag",
+      datatypes_[DATATYPE_H5T],
       lcpl_id,
       tcpl_id,
       tapl_id);

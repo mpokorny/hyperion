@@ -5,7 +5,8 @@
 #include <tuple>
 #include <vector>
 
-#include <casacore/casa/Utilities/DataType.h>
+#include "legms.h"
+#include "utility.h"
 
 namespace legms {
 
@@ -15,18 +16,18 @@ public:
   WithKeywordsBuilder() {}
 
   void
-  add_keyword(const std::string& name, casacore::DataType datatype) {
+  add_keyword(const std::string& name, TypeTag datatype) {
     m_keywords.emplace_back(name, datatype);
   }
 
-  const std::vector<std::tuple<std::string, casacore::DataType>>&
+  const std::vector<std::tuple<std::string, TypeTag>>&
   keywords() const {
     return m_keywords;
   }
 
 private:
 
-  std::vector<std::tuple<std::string, casacore::DataType>> m_keywords;
+  std::vector<std::tuple<std::string, TypeTag>> m_keywords;
 
 };
 

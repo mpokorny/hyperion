@@ -191,7 +191,7 @@ read_index_tree_from_attr(
   std::optional<IndexTreeL> result;
 
   auto metadata = read_index_tree_attr_metadata(loc_id, attr_name);
-  if (!metadata || std::strcmp(metadata.value(), SERDEZ::id) != 0)
+  if (!metadata || metadata.value() != SERDEZ::id)
     return result;
 
   std::string legms_attr_name =
@@ -295,7 +295,7 @@ write_table(
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
-std::tuple<Legion::LogicalRegion, std::vector<casacore::DataType>>
+std::tuple<Legion::LogicalRegion, std::vector<TypeTag>>
 init_keywords(
   hid_t loc_id,
   Legion::Runtime* runtime,
@@ -404,7 +404,7 @@ struct string_index_tree_serdez {
   }
 
   static size_t
-  deserialize(IndexTreeL& tree, const void* buffer) {
+  deserialize(IndexTreeL&, const void*) {
     // TODO
     assert(false);
   }

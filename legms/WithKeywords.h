@@ -6,16 +6,15 @@
 #include <tuple>
 #include <vector>
 
-#include <casacore/casa/Utilities/DataType.h>
-
 #include "legms.h"
+#include "utility.h"
 
 namespace legms {
 
 class WithKeywords {
 public:
 
-  typedef std::vector<std::tuple<std::string, casacore::DataType>> kw_desc_t;
+  typedef std::vector<std::tuple<std::string, TypeTag>> kw_desc_t;
 
   WithKeywords(
     Legion::Context ctx,
@@ -24,7 +23,7 @@ public:
     : m_context(ctx)
     , m_runtime(runtime) {
 
-    std::vector<casacore::DataType> datatypes;
+    std::vector<TypeTag> datatypes;
     if (kws.size() > 0) {
       auto is = m_runtime->create_index_space(m_context, Legion::Rect<1>(0, 0));
       auto fs = m_runtime->create_field_space(m_context);
@@ -49,7 +48,7 @@ public:
     Legion::Context ctx,
     Legion::Runtime* runtime,
     Legion::LogicalRegion region,
-    const std::vector<casacore::DataType>& datatypes)
+    const std::vector<TypeTag>& datatypes)
     : m_context(ctx)
     , m_runtime(runtime)
     , m_keywords_region(region) {
@@ -72,9 +71,9 @@ public:
     return m_keywords_region;
   }
 
-  std::vector<casacore::DataType>
+  std::vector<TypeTag>
   keywords_datatypes() const {
-    std::vector<casacore::DataType> result;
+    std::vector<TypeTag> result;
     std::transform(
       m_keywords.begin(),
       m_keywords.end(),
@@ -101,7 +100,7 @@ public:
 private:
 
   void
-  init(const std::vector<casacore::DataType>& datatypes) {
+  init(const std::vector<TypeTag>& datatypes) {
     if (m_keywords_region != Legion::LogicalRegion::NO_REGION) {
       Legion::FieldSpace fs = m_keywords_region.get_field_space();
       for (size_t i = 0; i < datatypes.size(); ++i) {

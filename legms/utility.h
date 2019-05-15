@@ -5,25 +5,28 @@
 #include <array>
 #include <atomic>
 #include <cassert>
+#include <complex>
 #include <cstring>
 #include <limits>
 #include <memory>
 #include <numeric>
 #include <optional>
 
+#include "legms.h"
+#include "IndexTree.h"
+
 #ifdef USE_HDF5
 # include <hdf5.h>
 # include <experimental/filesystem>
 #endif
 
-#include <casacore/casa/aipstype.h>
-#include <casacore/casa/Arrays/IPosition.h>
-#include <casacore/casa/BasicSL/String.h>
-#include <casacore/casa/Utilities/DataType.h>
+#ifdef USE_CASACORE
+# include <casacore/casa/aipstype.h>
+# include <casacore/casa/Arrays/IPosition.h>
+# include <casacore/casa/BasicSL/String.h>
+# include <casacore/casa/Utilities/DataType.h>
+#endif
 
-#include "legms.h"
-
-#include "IndexTree.h"
 namespace legms {
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;
@@ -52,6 +55,27 @@ dimensions_map(const std::vector<D>& from, const std::vector<D>& to) {
   }
   return result;
 }
+
+#ifdef USE_CASACORE
+# define TTDEF(dt) dt = casacore::DataType::dt
+#else
+# define TTDEF(dt) dt
+#endif
+enum TypeTag : unsigned char {
+  TTDEF(TpBool),
+  TTDEF(TpChar),
+  TTDEF(TpUChar),
+  TTDEF(TpShort),
+  TTDEF(TpUShort),
+  TTDEF(TpInt),
+  TTDEF(TpUInt),
+  TTDEF(TpFloat),
+  TTDEF(TpDouble),
+  TTDEF(TpComplex),
+  TTDEF(TpDComplex),
+  TTDEF(TpString)
+};
+#undef TTDEF
 
 // uid of axes
 template <typename T>
@@ -490,119 +514,17 @@ template <typename T>
 typename acc_field_redop<T>::RHS const acc_field_redop<T>::identity =
   acc_field_redop_rhs<T>{{}};
 
-class OpsManager {
+template <TypeTag T>
+struct DataType {
+
+  //typedef X ValueType;
+};
+
+struct OpsManager {
 public:
 
   static void
-  register_ops() {
-    Legion::Runtime::register_custom_serdez_op<index_tree_serdez>(
-      INDEX_TREE_SID);
-
-    Legion::Runtime::register_custom_serdez_op<
-      vector_serdez<Legion::DomainPoint>>(V_DOMAIN_POINT_SID);
-    Legion::Runtime::register_custom_serdez_op<
-      string_serdez<std::string>>(STD_STRING_SID);
-
-    Legion::Runtime::register_custom_serdez_op<
-      acc_field_serdez<std::string>>(ACC_FIELD_STRING_SID);
-    Legion::Runtime::register_custom_serdez_op<
-      acc_field_serdez<casacore::Bool>>(ACC_FIELD_BOOL_SID);
-    Legion::Runtime::register_custom_serdez_op<
-      acc_field_serdez<casacore::Char>>(ACC_FIELD_CHAR_SID);
-    Legion::Runtime::register_custom_serdez_op<
-      acc_field_serdez<casacore::uChar>>(ACC_FIELD_UCHAR_SID);
-    Legion::Runtime::register_custom_serdez_op<
-      acc_field_serdez<casacore::Short>>(ACC_FIELD_SHORT_SID);
-    Legion::Runtime::register_custom_serdez_op<
-      acc_field_serdez<casacore::uShort>>(ACC_FIELD_USHORT_SID);
-    Legion::Runtime::register_custom_serdez_op<
-      acc_field_serdez<casacore::Int>>(ACC_FIELD_INT_SID);
-    Legion::Runtime::register_custom_serdez_op<
-      acc_field_serdez<casacore::uInt>>(ACC_FIELD_UINT_SID);
-    Legion::Runtime::register_custom_serdez_op<
-      acc_field_serdez<casacore::Float>>(ACC_FIELD_FLOAT_SID);
-    Legion::Runtime::register_custom_serdez_op<
-      acc_field_serdez<casacore::Double>>(ACC_FIELD_DOUBLE_SID);
-    Legion::Runtime::register_custom_serdez_op<
-      acc_field_serdez<casacore::Complex>>(ACC_FIELD_COMPLEX_SID);
-    Legion::Runtime::register_custom_serdez_op<
-      acc_field_serdez<casacore::DComplex>>(ACC_FIELD_DCOMPLEX_SID);
-
-    Legion::Runtime::register_reduction_op<bool_or_redop>(BOOL_OR_REDOP);
-
-    Legion::Runtime::register_reduction_op(
-      ACC_FIELD_STRING_REDOP,
-      Realm::ReductionOpUntyped::create_reduction_op<
-      acc_field_redop<std::string>>(),
-      acc_field_redop<std::string>::init_fn,
-      acc_field_redop<std::string>::fold_fn);
-    Legion::Runtime::register_reduction_op(
-      ACC_FIELD_BOOL_REDOP,
-      Realm::ReductionOpUntyped::create_reduction_op<
-      acc_field_redop<casacore::Bool>>(),
-      acc_field_redop<casacore::Bool>::init_fn,
-      acc_field_redop<casacore::Bool>::fold_fn);
-    Legion::Runtime::register_reduction_op(
-      ACC_FIELD_CHAR_REDOP,
-      Realm::ReductionOpUntyped::create_reduction_op<
-      acc_field_redop<casacore::Char>>(),
-      acc_field_redop<casacore::Char>::init_fn,
-      acc_field_redop<casacore::Char>::fold_fn);
-    Legion::Runtime::register_reduction_op(
-      ACC_FIELD_UCHAR_REDOP,
-      Realm::ReductionOpUntyped::create_reduction_op<
-      acc_field_redop<casacore::uChar>>(),
-      acc_field_redop<casacore::uChar>::init_fn,
-      acc_field_redop<casacore::uChar>::fold_fn);
-    Legion::Runtime::register_reduction_op(
-      ACC_FIELD_SHORT_REDOP,
-      Realm::ReductionOpUntyped::create_reduction_op<
-      acc_field_redop<casacore::Short>>(),
-      acc_field_redop<casacore::Short>::init_fn,
-      acc_field_redop<casacore::Short>::fold_fn);
-    Legion::Runtime::register_reduction_op(
-      ACC_FIELD_USHORT_REDOP,
-      Realm::ReductionOpUntyped::create_reduction_op<
-      acc_field_redop<casacore::uShort>>(),
-      acc_field_redop<casacore::uShort>::init_fn,
-      acc_field_redop<casacore::uShort>::fold_fn);
-    Legion::Runtime::register_reduction_op(
-      ACC_FIELD_INT_REDOP,
-      Realm::ReductionOpUntyped::create_reduction_op<
-      acc_field_redop<casacore::Int>>(),
-      acc_field_redop<casacore::Int>::init_fn,
-      acc_field_redop<casacore::Int>::fold_fn);
-    Legion::Runtime::register_reduction_op(
-      ACC_FIELD_UINT_REDOP,
-      Realm::ReductionOpUntyped::create_reduction_op<
-      acc_field_redop<casacore::uInt>>(),
-      acc_field_redop<casacore::uInt>::init_fn,
-      acc_field_redop<casacore::uInt>::fold_fn);
-    Legion::Runtime::register_reduction_op(
-      ACC_FIELD_FLOAT_REDOP,
-      Realm::ReductionOpUntyped::create_reduction_op<
-      acc_field_redop<casacore::Float>>(),
-      acc_field_redop<casacore::Float>::init_fn,
-      acc_field_redop<casacore::Float>::fold_fn);
-    Legion::Runtime::register_reduction_op(
-      ACC_FIELD_DOUBLE_REDOP,
-      Realm::ReductionOpUntyped::create_reduction_op<
-      acc_field_redop<casacore::Double>>(),
-      acc_field_redop<casacore::Double>::init_fn,
-      acc_field_redop<casacore::Double>::fold_fn);
-    Legion::Runtime::register_reduction_op(
-      ACC_FIELD_COMPLEX_REDOP,
-      Realm::ReductionOpUntyped::create_reduction_op<
-      acc_field_redop<casacore::Complex>>(),
-      acc_field_redop<casacore::Complex>::init_fn,
-      acc_field_redop<casacore::Complex>::fold_fn);
-    Legion::Runtime::register_reduction_op(
-      ACC_FIELD_DCOMPLEX_REDOP,
-      Realm::ReductionOpUntyped::create_reduction_op<
-      acc_field_redop<casacore::DComplex>>(),
-      acc_field_redop<casacore::DComplex>::init_fn,
-      acc_field_redop<casacore::DComplex>::fold_fn);
-  }
+  register_ops();
 
   enum {
     INDEX_TREE_SID = 1,
@@ -650,19 +572,19 @@ public:
   // TODO: add support for non-native types in HDF5 files
 
   enum {
-    CASACORE_BOOL_H5T = 0,
-    CASACORE_CHAR_H5T,
-    CASACORE_UCHAR_H5T,
-    CASACORE_SHORT_H5T,
-    CASACORE_USHORT_H5T,
-    CASACORE_INT_H5T,
-    CASACORE_UINT_H5T,
-    CASACORE_FLOAT_H5T,
-    CASACORE_DOUBLE_H5T,
-    CASACORE_COMPLEX_H5T,
-    CASACORE_DCOMPLEX_H5T,
-    CASACORE_STRING_H5T,
-    CASACORE_DATATYPE_H5T,
+    BOOL_H5T = 0,
+    CHAR_H5T,
+    UCHAR_H5T,
+    SHORT_H5T,
+    USHORT_H5T,
+    INT_H5T,
+    UINT_H5T,
+    FLOAT_H5T,
+    DOUBLE_H5T,
+    COMPLEX_H5T,
+    DCOMPLEX_H5T,
+    STRING_H5T,
+    DATATYPE_H5T,
   };
 
   static void
@@ -673,7 +595,7 @@ public:
     return datatypes_;
   }
 
-  template <casacore::DataType DT>
+  template <TypeTag DT>
   static hid_t
   datatype();
 
@@ -693,269 +615,284 @@ public:
 
 private:
 
-  static hid_t datatypes_[CASACORE_STRING_H5T + 1];
+  static hid_t datatypes_[DATATYPE_H5T + 1];
 };
 #endif
 
 Legion::FieldID
 add_field(
-  casacore::DataType datatype,
+  TypeTag datatype,
   Legion::FieldAllocator fa,
   Legion::FieldID field_id = AUTO_GENERATE_ID);
-
-template <casacore::DataType T>
-struct DataType {
-
-  //typedef X ValueType;
-};
 
 struct string {
   char val[LEGMS_MAX_STRING_SIZE];
 };
 
 template <>
-struct DataType<casacore::DataType::TpBool> {
-  typedef casacore::Bool ValueType;
-  typedef casacore::Bool CasacoreType;
-  constexpr static const char* s = "Bool";
+struct DataType<TypeTag::TpBool> {
+  typedef bool ValueType;
+  constexpr static const char* s = "bool";
   constexpr static int id = 0;
-  constexpr static size_t serdez_size = sizeof(casacore::Bool);
+  constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_BOOL_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_BOOL_REDOP;
-#ifdef USE_HDF5
-  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_BOOL_H5T;
-#endif
+#ifdef USE_CASACORE
+  typedef casacore::Bool CasacoreType;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
   }
+#endif
+#ifdef USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::BOOL_H5T;
+#endif
 };
 
 template <>
-struct DataType<casacore::DataType::TpChar> {
-  typedef casacore::Char ValueType;
-  typedef casacore::Char CasacoreType;
-  constexpr static const char* s = "Char";
+struct DataType<TypeTag::TpChar> {
+  typedef char ValueType;
+  constexpr static const char* s = "char";
   constexpr static int id = 1;
-  constexpr static size_t serdez_size = sizeof(casacore::Char);
+  constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_CHAR_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_CHAR_REDOP;
-#ifdef USE_HDF5
-  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_CHAR_H5T;
-#endif
+#ifdef USE_CASACORE
+  typedef casacore::Char CasacoreType;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
   }
+#endif
+#ifdef USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::CHAR_H5T;
+#endif
 };
 
 template <>
-struct DataType<casacore::DataType::TpUChar> {
-  typedef casacore::uChar ValueType;
-  typedef casacore::uChar CasacoreType;
+struct DataType<TypeTag::TpUChar> {
+  typedef unsigned char ValueType;
   constexpr static const char* s = "uChar";
   constexpr static int id = 2;
-    constexpr static size_t serdez_size = sizeof(casacore::uChar);
+  constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_UCHAR_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_UCHAR_REDOP;
-#ifdef USE_HDF5
-  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_UCHAR_H5T;
-#endif
+#ifdef USE_CASACORE
+  typedef casacore::uChar CasacoreType;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
   }
+#endif
+#ifdef USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::UCHAR_H5T;
+#endif
 };
 
 template <>
-struct DataType<casacore::DataType::TpShort> {
-  typedef casacore::Short ValueType;
-  typedef casacore::Short CasacoreType;
-  constexpr static const char* s = "Short";
+struct DataType<TypeTag::TpShort> {
+  typedef short ValueType;
+  constexpr static const char* s = "short";
   constexpr static int id = 3;
-  constexpr static size_t serdez_size = sizeof(casacore::Short);
+  constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_SHORT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_SHORT_REDOP;
-#ifdef USE_HDF5
-  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_SHORT_H5T;
-#endif
+#ifdef USE_CASACORE
+  typedef casacore::Short CasacoreType;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
   }
+#endif
+#ifdef USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::SHORT_H5T;
+#endif
 };
 
 template <>
-struct DataType<casacore::DataType::TpUShort> {
-  typedef casacore::uShort ValueType;
-  typedef casacore::uShort CasacoreType;
+struct DataType<TypeTag::TpUShort> {
+  typedef unsigned short ValueType;
   constexpr static const char* s = "uShort";
   constexpr static int id = 4;
-  constexpr static size_t serdez_size = sizeof(casacore::uShort);
+  constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_USHORT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_USHORT_REDOP;
-#ifdef USE_HDF5
-  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_USHORT_H5T;
-#endif
+#ifdef USE_CASACORE
+  typedef casacore::uShort CasacoreType;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
   }
+#endif
+#ifdef USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::USHORT_H5T;
+#endif
 };
 
 template <>
-struct DataType<casacore::DataType::TpInt> {
-  typedef casacore::Int ValueType;
-  typedef casacore::Int CasacoreType;
-  constexpr static const char* s = "Int";
+struct DataType<TypeTag::TpInt> {
+  typedef int ValueType;
+  constexpr static const char* s = "int";
   constexpr static int id = 5;
-    constexpr static size_t serdez_size = sizeof(casacore::Int);
+  constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_INT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_INT_REDOP;
-#ifdef USE_HDF5
-  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_INT_H5T;
-#endif
+#ifdef USE_CASACORE
+  typedef casacore::Int CasacoreType;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
   }
+#endif
+#ifdef USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::INT_H5T;
+#endif
 };
 
 template <>
-struct DataType<casacore::DataType::TpUInt> {
-  typedef casacore::uInt ValueType;
-  typedef casacore::uInt CasacoreType;
+struct DataType<TypeTag::TpUInt> {
+  typedef unsigned int ValueType;
   constexpr static const char* s = "uInt";
   constexpr static int id = 6;
-    constexpr static size_t serdez_size = sizeof(casacore::uInt);
+  constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_UINT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_UINT_REDOP;
-#ifdef USE_HDF5
-  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_UINT_H5T;
-#endif
+#ifdef USE_CASACORE
+  typedef casacore::uInt CasacoreType;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
   }
+#endif
+#ifdef USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::UINT_H5T;
+#endif
 };
 
 template <>
-struct DataType<casacore::DataType::TpFloat> {
-  typedef casacore::Float ValueType;
-  typedef casacore::Float CasacoreType;
-  constexpr static const char* s = "Float";
+struct DataType<TypeTag::TpFloat> {
+  typedef float ValueType;
+  constexpr static const char* s = "float";
   constexpr static int id = 7;
-    constexpr static size_t serdez_size = sizeof(casacore::Float);
+  constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_FLOAT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_FLOAT_REDOP;
-#ifdef USE_HDF5
-  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_FLOAT_H5T;
-#endif
+#ifdef USE_CASACORE
+  typedef casacore::Float CasacoreType;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
   }
+#endif
+#ifdef USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::FLOAT_H5T;
+#endif
 };
 
 template <>
-struct DataType<casacore::DataType::TpDouble> {
-  typedef casacore::Double ValueType;
-  typedef casacore::Double CasacoreType;
-  constexpr static const char* s = "Double";
+struct DataType<TypeTag::TpDouble> {
+  typedef double ValueType;
+  constexpr static const char* s = "double";
   constexpr static int id = 8;
-    constexpr static size_t serdez_size = sizeof(casacore::Double);
+  constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_DOUBLE_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_DOUBLE_REDOP;
-#ifdef USE_HDF5
-  constexpr static hid_t h5t_native_id = H5DatatypeManager::CASACORE_DOUBLE_H5T;
-#endif
+#ifdef USE_CASACORE
+  typedef casacore::Double CasacoreType;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
   }
+#endif
+#ifdef USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::DOUBLE_H5T;
+#endif
 };
 
 template <>
-struct DataType<casacore::DataType::TpComplex> {
-  typedef casacore::Complex ValueType;
-  typedef casacore::Complex CasacoreType;
-  constexpr static const char* s = "Complex";
+struct DataType<TypeTag::TpComplex> {
+  typedef std::complex<float> ValueType;
+  constexpr static const char* s = "complex";
   constexpr static int id = 9;
-    constexpr static size_t serdez_size = sizeof(casacore::Complex);
+  constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_COMPLEX_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_COMPLEX_REDOP;
-#ifdef USE_HDF5
-  constexpr static hid_t h5t_native_id =
-    H5DatatypeManager::CASACORE_COMPLEX_H5T;
-#endif
+#ifdef USE_CASACORE
+  typedef casacore::Complex CasacoreType;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
   }
+#endif
+#ifdef USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::COMPLEX_H5T;
+#endif
 };
 
 template <>
-struct DataType<casacore::DataType::TpDComplex> {
-  typedef casacore::DComplex ValueType;
-  typedef casacore::DComplex CasacoreType;
-  constexpr static const char* s = "DComplex";
+struct DataType<TypeTag::TpDComplex> {
+  typedef std::complex<double> ValueType;
+  constexpr static const char* s = "dComplex";
   constexpr static int id = 10;
-    constexpr static size_t serdez_size = sizeof(casacore::DComplex);
+  constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_DCOMPLEX_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_DCOMPLEX_REDOP;
-#ifdef USE_HDF5
-  constexpr static hid_t h5t_native_id =
-    H5DatatypeManager::CASACORE_DCOMPLEX_H5T;
-#endif
+#ifdef USE_CASACORE
+  typedef casacore::DComplex CasacoreType;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
   }
+#endif
+#ifdef USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::DCOMPLEX_H5T;
+#endif
 };
 
 template <>
-struct DataType<casacore::DataType::TpString> {
+struct DataType<TypeTag::TpString> {
   typedef string ValueType;
-  typedef casacore::String CasacoreType;
-  constexpr static const char* s = "String";
+  constexpr static const char* s = "string";
   constexpr static int id = 11;
-    constexpr static size_t serdez_size = LEGMS_MAX_STRING_SIZE;
+  constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_STRING_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_STRING_REDOP;
-#ifdef USE_HDF5
-  constexpr static hid_t h5t_native_id =
-    H5DatatypeManager::CASACORE_STRING_H5T;
-#endif
+#ifdef USE_CASACORE
+  typedef casacore::String CasacoreType;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     std::strncpy(v.val, c.c_str(), sizeof(v.val));
     v.val[sizeof(v.val) - 1] = '\0';
   }
+#endif
+#ifdef USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::STRING_H5T;
+#endif
 };
 
 #ifdef USE_HDF5
-template <casacore::DataType DT>
+template <TypeTag DT>
 hid_t
 H5DatatypeManager::datatype() {
-  return datatypes()[DataType<DT>::h5t_native_id];
+  return datatypes()[DataType<DT>::h5t_id];
 }
 #endif
 
-#define NUM_CASACORE_DATATYPES (DataType<casacore::DataType::TpString>::id + 1)
+#define NUM_CASACORE_DATATYPES (DataType<legms::TypeTag::TpString>::id + 1)
 
-#define FOREACH_DATATYPE(__func__)                  \
-__func__(casacore::DataType::TpBool)                \
-__func__(casacore::DataType::TpChar)                \
-__func__(casacore::DataType::TpUChar)               \
-__func__(casacore::DataType::TpShort)               \
-__func__(casacore::DataType::TpUShort)              \
-__func__(casacore::DataType::TpInt)                 \
-__func__(casacore::DataType::TpUInt)                \
-__func__(casacore::DataType::TpFloat)               \
-__func__(casacore::DataType::TpDouble)              \
-__func__(casacore::DataType::TpComplex)             \
-__func__(casacore::DataType::TpDComplex)            \
-__func__(casacore::DataType::TpString)
+#define FOREACH_DATATYPE(__func__)              \
+  __func__(legms::TypeTag::TpBool)              \
+  __func__(legms::TypeTag::TpChar)              \
+  __func__(legms::TypeTag::TpUChar)             \
+  __func__(legms::TypeTag::TpShort)             \
+  __func__(legms::TypeTag::TpUShort)            \
+  __func__(legms::TypeTag::TpInt)               \
+  __func__(legms::TypeTag::TpUInt)              \
+  __func__(legms::TypeTag::TpFloat)             \
+  __func__(legms::TypeTag::TpDouble)            \
+  __func__(legms::TypeTag::TpComplex)           \
+  __func__(legms::TypeTag::TpDComplex)          \
+  __func__(legms::TypeTag::TpString)
 
 #define FOREACH_BARE_DATATYPE(__func__)  \
   __func__(TpBool)          \
@@ -973,73 +910,22 @@ __func__(casacore::DataType::TpString)
 
 template <typename T>
 struct ValueType {
-  // constexpr static const casacore::DataType DataType;
+  // constexpr static const TypeTag DataType;
 };
 
-template <>
-struct ValueType<casacore::Bool> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpBool;
-};
+#define VT(dt)                                  \
+  template <>                                   \
+  struct ValueType<DataType<dt>::ValueType> {   \
+    constexpr static TypeTag DataType = dt;   \
+  };
 
-template <>
-struct ValueType<casacore::Char> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpChar;
-};
-
-template <>
-struct ValueType<casacore::uChar> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpUChar;
-};
-
-template <>
-struct ValueType<casacore::Short> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpShort;
-};
-
-template <>
-struct ValueType<casacore::uShort> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpUShort;
-};
-
-template <>
-struct ValueType<casacore::Int> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpInt;
-};
-
-template <>
-struct ValueType<casacore::uInt> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpUInt;
-};
-
-template <>
-struct ValueType<casacore::Float> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpFloat;
-};
-
-template <>
-struct ValueType<casacore::Double> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpDouble;
-};
-
-template <>
-struct ValueType<casacore::Complex> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpComplex;
-};
-
-template <>
-struct ValueType<casacore::DComplex> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpDComplex;
-};
+FOREACH_DATATYPE(VT)
 
 template <>
 struct ValueType<std::string> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpString;
+  constexpr static TypeTag DataType = TypeTag::TpString;
 };
-
-template <>
-struct ValueType<string> {
-  constexpr static casacore::DataType DataType = casacore::DataType::TpString;
-};
+#undef VT
 
 class ProjectedIndexPartitionTask
   : Legion::IndexTaskLauncher {
