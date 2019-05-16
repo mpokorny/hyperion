@@ -253,7 +253,7 @@ legms::hdf5::write_keywords(
       READ_ONLY,
       EXCLUSIVE,
       with_keywords->keywords_region());
-    vector<FieldID> fids(with_keywords->num_keywords());
+    std::vector<FieldID> fids(with_keywords->num_keywords());
     std::iota(fids.begin(), fids.end(), 0);
     req.add_fields(fids);
     pr = runtime->map_region(context, req);
@@ -719,7 +719,8 @@ legms::hdf5::init_keywords(
   assert(err >= 0);
 
   if (kw_names.size() == 0)
-    return std::make_tuple(LogicalRegion::NO_REGION, vector<legms::TypeTag>());
+    return
+      std::make_tuple(LogicalRegion::NO_REGION, std::vector<legms::TypeTag>());
 
   WithKeywords::kw_desc_t kws;
   std::transform(

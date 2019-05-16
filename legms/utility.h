@@ -34,6 +34,35 @@ typedef IndexTree<Legion::coord_t> IndexTreeL;
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
+struct string {
+  char val[LEGMS_MAX_STRING_SIZE];
+
+  bool
+  operator==(const string& other) {
+    return std::strncmp(val, other.val, LEGMS_MAX_STRING_SIZE) == 0;
+  }
+
+  bool
+  operator!=(const string& other) {
+    return std::strncmp(val, other.val, LEGMS_MAX_STRING_SIZE) != 0;
+  }
+
+  bool
+  operator<(const string& other) {
+    return std::strncmp(val, other.val, LEGMS_MAX_STRING_SIZE) < 0;
+  }
+};
+
+template <typename F>
+bool
+operator<(const std::complex<F>& a, const std::complex<F>& b) {
+  if (a.real() < b.real())
+    return true;
+  if (a.real() > b.real())
+    return false;
+  return a.imag() < b.imag();
+}
+
 template <typename D>
 bool
 has_unique_values(const std::vector<D>& axes) {
@@ -295,11 +324,11 @@ public:
 };
 
 template <>
-class acc_field_serdez<std::string> {
+class acc_field_serdez<legms::string> {
 public:
 
   typedef std::vector<
-  std::tuple<std::string, std::vector<Legion::DomainPoint>>> FIELD_TYPE;
+  std::tuple<legms::string, std::vector<Legion::DomainPoint>>> FIELD_TYPE;
 
   static const size_t MAX_SERIALIZED_SIZE =
     std::numeric_limits<size_t>::max();
@@ -314,7 +343,7 @@ public:
         [](auto& acc, auto& t) {
           return
             acc
-            + string_serdez<std::string>::serialized_size(std::get<0>(t))
+            + sizeof(legms::string)
             + vector_serdez<Legion::DomainPoint>::serialized_size(
               std::get<1>(t));
         });
@@ -329,7 +358,8 @@ public:
     char* buff = static_cast<char*>(buffer);
     for (size_t i = 0; i < n; ++i) {
       auto& [t, rns] = val[i];
-      buff += string_serdez<std::string>::serialize(t, buff);
+      std::memcpy(buff, t.val, sizeof(legms::string));
+      buff += sizeof(legms::string);
       buff += vector_serdez<Legion::DomainPoint>::serialize(rns, buff);
     }
     return result;
@@ -343,8 +373,9 @@ public:
     val.reserve(n);
     const char* buff = static_cast<const char*>(buffer);
     for (size_t i = 0; i < n; ++i) {
-      std::string str;
-      buff += string_serdez<std::string>::deserialize(str, buff);
+      legms::string str;
+      std::memcpy(str.val, buff, sizeof(legms::string));
+      buff += sizeof(legms::string);
       std::vector<Legion::DomainPoint> rns;
       buff += vector_serdez<Legion::DomainPoint>::deserialize(rns, buff);
       val.emplace_back(str, rns);
@@ -625,10 +656,6 @@ add_field(
   Legion::FieldAllocator fa,
   Legion::FieldID field_id = AUTO_GENERATE_ID);
 
-struct string {
-  char val[LEGMS_MAX_STRING_SIZE];
-};
-
 template <>
 struct DataType<TypeTag::TpBool> {
   typedef bool ValueType;
@@ -851,7 +878,7 @@ struct DataType<TypeTag::TpDComplex> {
 
 template <>
 struct DataType<TypeTag::TpString> {
-  typedef string ValueType;
+  typedef legms::string ValueType;
   constexpr static const char* s = "string";
   constexpr static int id = 11;
   constexpr static size_t serdez_size = sizeof(ValueType);
@@ -878,7 +905,7 @@ H5DatatypeManager::datatype() {
 }
 #endif
 
-#define NUM_CASACORE_DATATYPES (DataType<legms::TypeTag::TpString>::id + 1)
+#define NUM_LEGMS_DATATYPES (DataType<legms::TypeTag::TpString>::id + 1)
 
 #define FOREACH_DATATYPE(__func__)              \
   __func__(legms::TypeTag::TpBool)              \
