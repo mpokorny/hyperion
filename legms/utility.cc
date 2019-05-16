@@ -2,6 +2,7 @@
 
 #include "utility.h"
 #include "Column.h"
+#include "Table.h"
 #include "TableReadTask.h"
 #include "tree_index_space.h"
 
@@ -19,7 +20,8 @@ legms::OpsManager::register_ops() {
     string_serdez<std::string>>(STD_STRING_SID);
 
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<std::string>>(ACC_FIELD_STRING_SID);
+    acc_field_serdez<DataType<TypeTag::TpString>::ValueType>>(
+      ACC_FIELD_STRING_SID);
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<TypeTag::TpBool>::ValueType>>(
       ACC_FIELD_BOOL_SID);
@@ -59,9 +61,9 @@ legms::OpsManager::register_ops() {
   Runtime::register_reduction_op(
     ACC_FIELD_STRING_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<std::string>>(),
-    acc_field_redop<std::string>::init_fn,
-    acc_field_redop<std::string>::fold_fn);
+    acc_field_redop<DataType<TypeTag::TpString>::ValueType>>(),
+    acc_field_redop<DataType<TypeTag::TpString>::ValueType>::init_fn,
+    acc_field_redop<DataType<TypeTag::TpString>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_BOOL_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<

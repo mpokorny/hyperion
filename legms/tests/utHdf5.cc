@@ -357,7 +357,8 @@ table_tests(
        {"NAME", ValueType<std::string>::DataType}});
 
   const float ms_vn = -42.1f;
-  const std::string ms_nm = "test";
+  legms::string ms_nm;
+  std::strcpy(ms_nm.val, "test");
 
   auto col_x =
     attach_table0_col(table0.columnT("X").get(), table0_x, context, runtime);
@@ -380,7 +381,7 @@ table_tests(
     const FA<WRITE_ONLY, float, 1> ms_version(kws, 0);
     const FA<WRITE_ONLY, legms::string, 1> name(kws, 1);
     ms_version[0] = ms_vn;
-    DataType<legms::TypeTag::TpString>::from_casacore(name[0], ms_nm);
+    std::strcpy(name[0].val, ms_nm.val);
     runtime->unmap_region(context, kws);
   }
   {
