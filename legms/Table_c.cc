@@ -102,6 +102,7 @@ table_destroy(table_t table) {
   destroy(table);
 }
 
+#ifdef USE_CASACORE
 table_t
 table_from_ms(
   legion_context_t context,
@@ -123,6 +124,7 @@ table_from_ms(
         path,
         cs));
 }
+#endif // USE_CASACORE
 
 // Local Variables:
 // mode: c++

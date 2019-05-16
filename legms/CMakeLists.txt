@@ -100,11 +100,11 @@ list(APPEND LEGMS_SRC
   utility.h
   utility_c.cc
   utility_c.h
-  ColumnBuilder.h
   Column.cc
   Column.h
   Column_c.cc
   Column_c.h
+  ColumnBuilder.h
   ColumnPartition_c.cc
   ColumnPartition_c.h
   c_util.h
@@ -112,18 +112,21 @@ list(APPEND LEGMS_SRC
   MSTable.h
   MSTable_c.cc
   MSTable_c.h
-  TableBuilder.h
   Table.cc
   Table.h
   Table_c.cc
   Table_c.h
-  TableReadTask.cc
-  TableReadTask.h
-  TableReadTask_c.cc
-  TableReadTask_c.h
   WithKeywordsBuilder.h
   WithKeywords.h)
 
+if(legms_USE_CASACORE)
+  list(APPEND LEGMS_SRC
+    TableBuilder.h
+    TableReadTask.cc
+    TableReadTask.h
+    TableReadTask_c.cc
+    TableReadTask_c.h)
+endif()
 if(legms_USE_HDF5)
   list(APPEND LEGMS_SRC
     legms_hdf5.h
@@ -144,6 +147,9 @@ list(APPEND
 # TODO: find a better way of passing the legms_COMPILE_DEFINITIONS to all
 # targets, both in this directory and all sub-directories...evil runtime errors
 # occur when the wrong or inconsistent LEGMS_MAX_DIM values are used
+if (legms_USE_CASACORE)
+  list(APPEND legms_COMPILE_DEFINITIONS "USE_CASACORE")
+endif()
 if (legms_USE_HDF5)
   list(APPEND legms_COMPILE_DEFINITIONS "USE_HDF5")
 endif()
@@ -155,20 +161,20 @@ add_dependencies(legms legion_build)
 target_include_directories(legms
   PUBLIC ${Legion_INSTALL_DIR}/include
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(legms SYSTEM
-  PUBLIC ${CASACORE}/include)
-target_link_directories(legms PUBLIC ${CASACORE}/lib)
 target_link_directories(legms PUBLIC ${Legion_INSTALL_DIR}/lib64)
+if (legms_USE_CASACORE)
+  target_include_directories(legms PUBLIC ${casacore_INCLUDE_DIR})
+  target_link_directories(legms PUBLIC ${casacore_LIBRARY_DIR})
+  target_link_libraries(legms PUBLIC casa_tables)
+  target_link_libraries(legms PUBLIC casa_casa)
+endif()
 if (legms_USE_HDF5)
-  target_include_directories(legms SYSTEM
-    PUBLIC ${HDF5_INCLUDE_DIRS})
+  target_include_directories(legms PUBLIC ${HDF5_INCLUDE_DIRS})
   target_link_libraries(legms PUBLIC ${HDF5_LIBRARIES})
 endif()
 target_link_libraries(legms PUBLIC stdc++fs)
 target_link_libraries(legms PUBLIC legion)
 target_link_libraries(legms PUBLIC realm)
-target_link_libraries(legms PUBLIC casa_tables)
-target_link_libraries(legms PUBLIC casa_casa)
 set_target_properties(legms PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(legms PROPERTIES SOVERSION ${SOVERSION})
 

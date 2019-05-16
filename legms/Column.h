@@ -11,8 +11,8 @@
 #include "utility.h"
 #include "WithKeywords.h"
 #include "IndexTree.h"
-#include "ColumnBuilder.h"
 #include "ColumnPartition.h"
+#include "ColumnBuilder.h"
 
 namespace legms {
 

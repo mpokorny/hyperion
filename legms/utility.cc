@@ -767,7 +767,9 @@ legms::create_partition_on_axes(
 
 void
 legms::register_tasks(Runtime* runtime) {
+#ifdef USE_CASACORE
   TableReadTask::register_task(runtime);
+#endif
   TreeIndexSpace::register_tasks(runtime);
   ProjectedIndexPartitionTask::register_task(runtime);
   Table::register_tasks(runtime);

@@ -51,6 +51,7 @@ table_row_partition(
 void
 table_destroy(table_t table);
 
+#ifdef USE_CASACORE
 table_t
 table_from_ms(
   legion_context_t context,
@@ -58,6 +59,7 @@ table_from_ms(
   const char* path,
   // NULL-terminated array of string pointers
   const char** column_selections);
+#endif
 
 #ifdef __cplusplus
 }

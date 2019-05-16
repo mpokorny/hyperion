@@ -121,6 +121,7 @@ public:
 
 protected:
 
+#ifdef USE_CASACORE
   struct SizeArgs {
     std::shared_ptr<casacore::TableColumn> tcol;
     unsigned *row;
@@ -185,6 +186,7 @@ protected:
       break;
     }
   }
+#endif // USE_CASACORE
 
   void
   add_column(std::unique_ptr<ColumnBuilder<D>>&& col) {
@@ -202,6 +204,7 @@ protected:
 
 public:
 
+#ifdef USE_CASACORE
   static TableBuilderT
   from_casacore_table(
     const std::experimental::filesystem::path& path,
@@ -333,8 +336,10 @@ public:
 
     return result;
   }
+#endif // USE_CASACORE
 };
 
+#ifdef USE_CASACORE
 struct TableBuilder {
 
   template <MSTables T>
@@ -352,6 +357,7 @@ struct TableBuilder {
         MSTable<T>::element_axes);
   }
 };
+#endif // USE_CASACORE
 
 } // end namespace legms
 
