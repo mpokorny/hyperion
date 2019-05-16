@@ -86,12 +86,14 @@ public:
     return m_index_axes;
   }
 
+#ifdef USE_CASACORE
   static std::unique_ptr<Table>
   from_ms(
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::experimental::filesystem::path& path,
     const std::unordered_set<std::string>& column_selections);
+#endif // USE_CASACORE
 
   static void
   register_tasks(Legion::Runtime* runtime);
@@ -302,6 +304,7 @@ TableGenArgs::operator()(
       keyword_datatypes);
 }
 
+#ifdef USE_CASACORE
 template <MSTables T>
 static std::unique_ptr<TableT<typename MSTable<T>::Axes>>
 from_ms(
@@ -321,6 +324,7 @@ from_ms(
       builder.column_generators(),
       builder.keywords());
 }
+#endif
 
 class IndexColumnTask {
 public:

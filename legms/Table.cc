@@ -15,6 +15,8 @@ using namespace Legion;
 #undef HIERARCHICAL_COMPUTE_RECTANGLES
 #undef WORKAROUND
 
+#ifdef USE_CASACORE
+
 unique_ptr<Table>
 Table::from_ms(
   Context ctx,
@@ -59,6 +61,8 @@ Table::from_ms(
 
 #undef FROM_MS_TABLE
 }
+
+#endif // USE_CASACORE
 
 size_t
 TableGenArgs::legion_buffer_size(void) const {
@@ -295,7 +299,7 @@ public:
     auto tid0 =
       runtime->generate_library_task_ids(
         "legms::IndexAccumulateTasks",
-        NUM_CASACORE_DATATYPES);
+        NUM_LEGMS_DATATYPES);
 
 #define REG_TASK(DT)                                                    \
     IndexAccumulateTask<DataType<DT>::ValueType>::register_task(runtime, tid0);
