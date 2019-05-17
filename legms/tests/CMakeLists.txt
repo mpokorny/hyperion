@@ -35,3 +35,5 @@ if (legms_USE_HDF5)
     NAME Hdf5UnitTest
     COMMAND ../testing/TestRunner.py ./utHdf5)
 endif()
+
+add_subdirectory(data)
