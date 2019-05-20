@@ -4,22 +4,25 @@
 #include <memory>
 #include <vector>
 
-#include "legion.h"
-
+#include "legms.h"
+#include "utility.h"
 #include "IndexTree.h"
 #include "Column.h"
 #include "Table.h"
 #include "TableBuilder.h"
 #include "TableReadTask.h"
 
+#include "TestSuiteDriver.h"
+#include "TestRecorder.h"
+#include "TestExpression.h"
+
 namespace fs = std::experimental::filesystem;
 
 using namespace legms;
-using namespace legms::ms;
 using namespace Legion;
 
 enum {
-  TOP_LEVEL_TASK_ID,
+  MS_TEST_SUITE,
 };
 
 class TopLevelTask {
@@ -40,7 +43,7 @@ public:
   static std::vector<MSTable<MSTables::POINTING>::Axes>
   pointing_direction_axes() {
     std::vector<MSTable<MSTables::POINTING>::Axes> result = {
-      MSTable<MSTables::POINTING>::Axes::row
+      MSTable<MSTables::POINTING>::Axes::ROW
     };
     auto dir_axes = MSTable<MSTables::POINTING>::element_axes.at("DIRECTION");
     std::copy(
@@ -144,7 +147,7 @@ public:
       ColumnT<MSTable<MSTables::POINTING>::Axes>::Generator colgen =
         ColumnT<MSTable<MSTables::POINTING>::Axes>::generator(
           "DIRECTION",
-          casacore::TpDouble,
+          legms::TypeTag::TpDouble,
           pointing_direction_axes(),
           IndexTreeL(1),
           IndexTreeL({{1, IndexTreeL({{1, IndexTreeL(2)}})}}),
@@ -154,7 +157,7 @@ public:
           ctx,
           runtime,
           table_name,
-          {MSTable<MSTables::POINTING>::Axes::row},
+          {static_cast<int>(MSTable<MSTables::POINTING>::Axes::ROW)},
           {colgen}));
     } else {
       // general test case: create Table by scanning shape of MS table
@@ -303,7 +306,6 @@ public:
                 EXCLUSIVE,
                 std::get<2>(rlr)));
             launcher.add_field(Column::value_fid);
-            launcher.add_field(Column::row_number_fid);
             return runtime->map_region(ctx, launcher);
           });
         return prs1;
@@ -343,8 +345,8 @@ public:
     Runtime* runtime,
     const Table* table,
     const std::vector<
-      std::vector<
-        std::tuple<std::string, LogicalRegion, LogicalRegion>>>& read_lrs,
+    std::vector<
+    std::tuple<std::string, LogicalRegion, LogicalRegion>>>& read_lrs,
     const std::vector<std::vector<PhysicalRegion>>& prs,
     size_t max_rank_idx) {
 
@@ -354,7 +356,7 @@ public:
       oss << std::get<0>(read_lrs[0][i]) << " ";
 
     oss << std::endl;
-    auto row_rank = table->row_rank();
+    auto row_rank = table->index_axes().size();
     auto num_subspaces = read_lrs.size();
     auto num_col = read_lrs[0].size();
 
@@ -443,63 +445,63 @@ public:
     std::ostringstream& oss) {
 
     switch (col->datatype()) {
-    case casacore::DataType::TpBool:
-      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpBool>(
+    case legms::TypeTag::TpBool:
+      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpBool>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpChar:
-      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpChar>(
+    case legms::TypeTag::TpChar:
+      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpChar>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpUChar:
-      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpUChar>(
+    case legms::TypeTag::TpUChar:
+      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpUChar>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpShort:
-      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpShort>(
+    case legms::TypeTag::TpShort:
+      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpShort>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpUShort:
-      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpUShort>(
+    case legms::TypeTag::TpUShort:
+      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpUShort>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpInt:
-      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpInt>(
+    case legms::TypeTag::TpInt:
+      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpInt>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpUInt:
-      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpUInt>(
+    case legms::TypeTag::TpUInt:
+      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpUInt>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpFloat:
-      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpFloat>(
+    case legms::TypeTag::TpFloat:
+      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpFloat>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpDouble:
-      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpDouble>(
+    case legms::TypeTag::TpDouble:
+      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpDouble>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpComplex:
-      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpComplex>(
+    case legms::TypeTag::TpComplex:
+      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpComplex>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpDComplex:
-      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpDComplex>(
+    case legms::TypeTag::TpDComplex:
+      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpDComplex>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case casacore::DataType::TpString:
-      show_scalar_column_values<TDIM, CDIM, casacore::DataType::TpString>(
+    case legms::TypeTag::TpString:
+      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpString>(
         rlf, pr, pid0, row, oss);
       break;
 
@@ -509,7 +511,7 @@ public:
     }
   }
 
-  template <int TDIM, int CDIM, casacore::DataType DT>
+  template <int TDIM, int CDIM, legms::TypeTag DT>
   static void
   show_scalar_column_values(
     const std::tuple<std::string, LogicalRegion, LogicalRegion>& rlf,
@@ -570,42 +572,91 @@ TopLevelTask::to_point(const coord_t vals[1]) {
   return Point<1>(vals[0]);
 }
 
+#define TE(f) testing::TestEval([&](){ return f; }, #f)
+
 void
-usage() {
-  std::cout << "usage: test [MS](/[TABLE]) [COL]+" << std::endl;
+read_full_ms(
+  testing::TestRecorder<WRITE_DISCARD>& recorder,
+  Context context,
+  Runtime* runtime) {
+
+  std::unique_ptr<const Table> table =
+    Table::from_ms(context, runtime, "data/t0.ms", {"*"});
+  recorder.assert_true(
+    "t0.ms MAIN table successfully read",
+    bool(table));
+  recorder.expect_true(
+    "t0.ms main table name is 'MAIN'",
+    TE(table->name()) == "MAIN");
+  recorder.expect_true(
+    "t0.ms main table is not empty",
+    TE(!table->is_empty()));
+
+  if (colnames_set.count("*") > 0) {
+    colnames.clear();
+    auto cols = table->column_names();
+    std::copy(cols.begin(), cols.end(), std::back_inserter(colnames));
+  }
+
+  // check for empty columns, which we will skip hereafter
+  auto end_present_colnames =
+    std::remove_if(
+      colnames.begin(),
+      colnames.end(),
+      [cols=table->column_names()](auto& nm) {
+        return cols.count(nm) == 0;
+      });
+  if (end_present_colnames != colnames.end()) {
+    std::cout << "Empty columns: " << *end_present_colnames;
+    std::for_each(
+      end_present_colnames + 1,
+      colnames.end(),
+      [](auto &nm) {
+        std::cout << ", " << nm;
+      });
+    std::cout << std::endl;
+  }
+
+  //
+  // read MS table columns to initialize the Column LogicalRegions
+  //
+
+  {
+    TableReadTask table_read_task(
+      table_path.value(),
+      table.get(),
+      colnames.begin(),
+      end_present_colnames,
+      10000);
+    table_read_task.dispatch();
+  }
+
+}
+
+void
+ms_test_suite(
+  const Task*,
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime* runtime) {
+
+  register_tasks(runtime);
+
+  testing::TestLog<WRITE_DISCARD> log(regions[0], regions[1], ctx, runtime);
+  testing::TestRecorder<WRITE_DISCARD> recorder(log);
+
+  read_full_ms(recorder, ctx, runtime);
 }
 
 int
 main(int argc, char** argv) {
 
-  int app_argc = 0;
-  std::optional<int> dir_arg;
-  for (int i = 1; i < argc; ++i) {
-    if (*argv[i] != '-') {
-      if (!dir_arg)
-        dir_arg = i;
-      ++app_argc;
-    } else {
-      ++i; // skip option argument
-    }
-  }
-  if (app_argc < 2) {
-    usage();
-    return 1;
-  }
-  auto arg1_fs_status = fs::status(argv[dir_arg.value()]);
-  if (!fs::is_directory(arg1_fs_status)) {
-    std::cout << "directory '" << argv[dir_arg.value()]
-              << "' does not exist"
-              << std::endl;
-    usage();
-    return 1;
-  }
+  testing::TestSuiteDriver driver =
+    testing::TestSuiteDriver::make<ms_test_suite>(
+      MS_TEST_SUITE,
+      "ms_test_suite");
 
-  Runtime::set_top_level_task_id(TopLevelTask::TASK_ID);
-  TopLevelTask::register_task();
-  SerdezManager::register_ops();
-  return Runtime::start(argc, argv);
+  return driver.start(argc, argv);
 }
 
 // Local Variables:
