@@ -7,7 +7,6 @@
 #include <typeinfo>
 
 #include "legms.h"
-#include "legion.h"
 #include "TestRecorder.h"
 
 namespace legms{

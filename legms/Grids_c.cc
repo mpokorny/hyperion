@@ -1,7 +1,7 @@
 #include "Grids_c.h"
 #include "Grids.h"
 
-#include "legion.h"
+#include "legms_c.h"
 #include "legion/legion_c_util.h"
 
 void

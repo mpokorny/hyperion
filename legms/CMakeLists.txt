@@ -119,7 +119,7 @@ list(APPEND LEGMS_SRC
   WithKeywordsBuilder.h
   WithKeywords.h)
 
-if(legms_USE_CASACORE)
+if(USE_CASACORE)
   list(APPEND LEGMS_SRC
     TableBuilder.h
     TableReadTask.cc
@@ -127,7 +127,7 @@ if(legms_USE_CASACORE)
     TableReadTask_c.cc
     TableReadTask_c.h)
 endif()
-if(legms_USE_HDF5)
+if(USE_HDF5)
   list(APPEND LEGMS_SRC
     legms_hdf5.h
     legms_hdf5.cc)
@@ -141,16 +141,20 @@ set(CASACORE
   CACHE PATH "Path to casacore installation")
 
 add_library(legms SHARED ${LEGMS_SRC})
-set(legms_COMPILE_DEFINITIONS LEGION_USE_CMAKE REALM_USE_CMAKE)
+set(legms_COMPILE_DEFINITIONS "")
 list(APPEND
-  legms_COMPILE_DEFINITIONS "LEGMS_MAX_STRING_SIZE=${legms_MAX_STRING_SIZE}")
+  legms_COMPILE_DEFINITIONS "LEGION_MAX_DIM=${MAX_DIM}")
+list(APPEND
+  legms_COMPILE_DEFINITIONS "REALM_MAX_DIM=${MAX_DIM}")
+list(APPEND
+  legms_COMPILE_DEFINITIONS "LEGMS_MAX_STRING_SIZE=${MAX_STRING_SIZE}")
 # TODO: find a better way of passing the legms_COMPILE_DEFINITIONS to all
 # targets, both in this directory and all sub-directories...evil runtime errors
 # occur when the wrong or inconsistent LEGMS_MAX_DIM values are used
-if (legms_USE_CASACORE)
+if (USE_CASACORE)
   list(APPEND legms_COMPILE_DEFINITIONS "USE_CASACORE")
 endif()
-if (legms_USE_HDF5)
+if (USE_HDF5)
   list(APPEND legms_COMPILE_DEFINITIONS "USE_HDF5")
 endif()
 
@@ -162,13 +166,13 @@ target_include_directories(legms
   PUBLIC ${Legion_INSTALL_DIR}/include
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_directories(legms PUBLIC ${Legion_INSTALL_DIR}/lib64)
-if (legms_USE_CASACORE)
+if (USE_CASACORE)
   target_include_directories(legms PUBLIC ${casacore_INCLUDE_DIR})
   target_link_directories(legms PUBLIC ${casacore_LIBRARY_DIR})
   target_link_libraries(legms PUBLIC casa_tables)
   target_link_libraries(legms PUBLIC casa_casa)
 endif()
-if (legms_USE_HDF5)
+if (USE_HDF5)
   target_include_directories(legms PUBLIC ${HDF5_INCLUDE_DIRS})
   target_link_libraries(legms PUBLIC ${HDF5_LIBRARIES})
 endif()

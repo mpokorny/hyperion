@@ -360,10 +360,10 @@ public:
     std::vector<int> dmap = dimensions_map(axesT(), cpt->axesT());
 
     switch (cpt->axes().size()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       switch (rank()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
       case 1:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -378,7 +378,7 @@ public:
             m_axes);
         break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
       case 2:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -393,7 +393,7 @@ public:
             m_axes);
         break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
       case 3:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -408,7 +408,7 @@ public:
             m_axes);
         break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
       case 4:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -429,10 +429,10 @@ public:
       }
       break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
     case 2:
       switch (rank()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
       case 1:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -447,7 +447,7 @@ public:
             m_axes);
         break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
       case 2:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -462,7 +462,7 @@ public:
             m_axes);
         break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
       case 3:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -477,7 +477,7 @@ public:
             m_axes);
         break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
       case 4:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -498,10 +498,10 @@ public:
       }
       break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
     case 3:
       switch (rank()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
       case 1:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -516,7 +516,7 @@ public:
             m_axes);
         break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
       case 2:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -531,7 +531,7 @@ public:
             m_axes);
         break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
       case 3:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -546,7 +546,7 @@ public:
             m_axes);
         break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
       case 4:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -567,10 +567,10 @@ public:
       }
       break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
     case 4:
       switch (rank()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
       case 1:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -585,7 +585,7 @@ public:
             m_axes);
         break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
       case 2:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -600,7 +600,7 @@ public:
             m_axes);
         break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
       case 3:
         return
           std::make_unique<ColumnPartitionT<D>>(
@@ -615,7 +615,7 @@ public:
             m_axes);
         break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
       case 4:
         return
           std::make_unique<ColumnPartitionT<D>>(

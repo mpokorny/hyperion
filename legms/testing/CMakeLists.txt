@@ -25,7 +25,7 @@ target_include_directories(legms_testing
   PRIVATE ${Legion_INSTALL_DIR}/include
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
-if (legms_USE_CASACORE)
+if (USE_CASACORE)
 target_include_directories(legms_testing PRIVATE ${casacore_INCLUDE_DIR})
 endif()
 target_link_directories(legms_testing PUBLIC ${Legion_INSTALL_DIR}/lib64)

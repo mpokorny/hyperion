@@ -233,25 +233,25 @@ ProjectedIndexPartitionTask::base_impl(
     static_cast<const ProjectedIndexPartitionTask::args*>(task->args);
   IndexSpace is = task->regions[0].region.get_index_space();
   switch (is.get_dim()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
   case 1:
     switch (targs->prjdim) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       ::pipt_impl<1, 1>(task, regions, ctx, runtime);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
     case 2:
       ::pipt_impl<1, 2>(task, regions, ctx, runtime);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
     case 3:
       ::pipt_impl<1, 3>(task, regions, ctx, runtime);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
     case 4:
       ::pipt_impl<1, 4>(task, regions, ctx, runtime);
       break;
@@ -262,25 +262,25 @@ ProjectedIndexPartitionTask::base_impl(
     }
     break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
   case 2:
     switch (targs->prjdim) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       ::pipt_impl<2, 1>(task, regions, ctx, runtime);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
     case 2:
       ::pipt_impl<2, 2>(task, regions, ctx, runtime);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
     case 3:
       ::pipt_impl<2, 3>(task, regions, ctx, runtime);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
     case 4:
       ::pipt_impl<2, 4>(task, regions, ctx, runtime);
       break;
@@ -291,25 +291,25 @@ ProjectedIndexPartitionTask::base_impl(
     }
     break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
   case 3:
     switch (targs->prjdim) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       ::pipt_impl<3, 1>(task, regions, ctx, runtime);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
     case 2:
       ::pipt_impl<3, 2>(task, regions, ctx, runtime);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
     case 3:
       ::pipt_impl<3, 3>(task, regions, ctx, runtime);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
     case 4:
       ::pipt_impl<3, 4>(task, regions, ctx, runtime);
       break;
@@ -320,25 +320,25 @@ ProjectedIndexPartitionTask::base_impl(
     }
     break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
   case 4:
     switch (targs->prjdim) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       ::pipt_impl<4, 1>(task, regions, ctx, runtime);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
     case 2:
       ::pipt_impl<4, 2>(task, regions, ctx, runtime);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
     case 3:
       ::pipt_impl<4, 3>(task, regions, ctx, runtime);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
     case 4:
       ::pipt_impl<4, 4>(task, regions, ctx, runtime);
       break;
@@ -362,8 +362,8 @@ ProjectedIndexPartitionTask::register_task(Runtime* runtime) {
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
   registrar.set_leaf();
-  registrar.set_idempotent();
-  registrar.set_replicable();
+  //registrar.set_idempotent();
+  //registrar.set_replicable();
   runtime->register_task_variant<base_impl>(registrar);
 }
 
@@ -381,10 +381,10 @@ legms::projected_index_partition(
     return IndexPartition::NO_PART;
 
   switch (ip.get_dim()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
   case 1:
     switch (prj_is.get_dim()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       return
         projected_index_partition(
@@ -395,7 +395,7 @@ legms::projected_index_partition(
           {dmap[0]});
       break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
     case 2:
       return
         projected_index_partition(
@@ -406,7 +406,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1]});
       break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
     case 3:
       return
         projected_index_partition(
@@ -417,7 +417,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1], dmap[2]});
       break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
     case 4:
       return
         projected_index_partition(
@@ -434,10 +434,10 @@ legms::projected_index_partition(
     }
     break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
   case 2:
     switch (prj_is.get_dim()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       return
         projected_index_partition(
@@ -448,7 +448,7 @@ legms::projected_index_partition(
           {dmap[0]});
       break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
     case 2:
       return
         projected_index_partition(
@@ -459,7 +459,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1]});
       break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
     case 3:
       return
         projected_index_partition(
@@ -470,7 +470,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1], dmap[2]});
       break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
     case 4:
       return
         projected_index_partition(
@@ -487,10 +487,10 @@ legms::projected_index_partition(
     }
     break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
   case 3:
     switch (prj_is.get_dim()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       return
         projected_index_partition(
@@ -501,7 +501,7 @@ legms::projected_index_partition(
           {dmap[0]});
       break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
     case 2:
       return
         projected_index_partition(
@@ -512,7 +512,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1]});
       break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
     case 3:
       return
         projected_index_partition(
@@ -523,7 +523,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1], dmap[2]});
       break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
     case 4:
       return
         projected_index_partition(
@@ -540,10 +540,10 @@ legms::projected_index_partition(
     }
     break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
   case 4:
     switch (prj_is.get_dim()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       return
         projected_index_partition(
@@ -554,7 +554,7 @@ legms::projected_index_partition(
           {dmap[0]});
       break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
     case 2:
       return
         projected_index_partition(
@@ -565,7 +565,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1]});
       break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
     case 3:
       return
         projected_index_partition(
@@ -576,7 +576,7 @@ legms::projected_index_partition(
           {dmap[0], dmap[1], dmap[2]});
       break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
     case 4:
       return
         projected_index_partition(
@@ -664,10 +664,10 @@ legms::create_partition_on_axes(
       }));
 
   switch (is.get_dim()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
   case 1:
     switch (parts.size()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       return
         ::create_partition_on_axes<1,1>(ctx, runtime, IndexSpaceT<1>(is), parts);
@@ -679,16 +679,16 @@ legms::create_partition_on_axes(
     }
     break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
   case 2:
     switch (parts.size()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       return
         ::create_partition_on_axes<2,1>(ctx, runtime, IndexSpaceT<2>(is), parts);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
     case 2:
       return
         ::create_partition_on_axes<2,2>(ctx, runtime, IndexSpaceT<2>(is), parts);
@@ -700,22 +700,22 @@ legms::create_partition_on_axes(
     }
     break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
   case 3:
     switch (parts.size()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       return
         ::create_partition_on_axes<3,1>(ctx, runtime, IndexSpaceT<3>(is), parts);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
     case 2:
       return
         ::create_partition_on_axes<3,2>(ctx, runtime, IndexSpaceT<3>(is), parts);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
     case 3:
       return
         ::create_partition_on_axes<3,3>(ctx, runtime, IndexSpaceT<3>(is), parts);
@@ -727,28 +727,28 @@ legms::create_partition_on_axes(
     }
     break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
   case 4:
     switch (parts.size()) {
-#if LEGMS_MAX_DIM >= 1
+#if LEGION_MAX_DIM >= 1
     case 1:
       return
         ::create_partition_on_axes<4,1>(ctx, runtime, IndexSpaceT<4>(is), parts);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 2
+#if LEGION_MAX_DIM >= 2
     case 2:
       return
         ::create_partition_on_axes<4,2>(ctx, runtime, IndexSpaceT<4>(is), parts);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 3
+#if LEGION_MAX_DIM >= 3
     case 3:
       return
         ::create_partition_on_axes<4,3>(ctx, runtime, IndexSpaceT<4>(is), parts);
       break;
 #endif
-#if LEGMS_MAX_DIM >= 4
+#if LEGION_MAX_DIM >= 4
     case 4:
       return
         ::create_partition_on_axes<4,4>(ctx, runtime, IndexSpaceT<4>(is), parts);

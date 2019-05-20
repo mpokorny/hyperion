@@ -1,12 +1,12 @@
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/..
-  ${Legion_INSTALL_DIR}/include
-  ${CASACORE}/include)
+  ${Legion_INSTALL_DIR}/include)
 link_libraries(legms_testing)
 
 add_executable(utTestLog utTestLog.cc)
 set_target_properties(utTestLog PROPERTIES
-  CXX_STANDARD 17)
+  CXX_STANDARD 17
+  COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
 configure_file(
   utTestLog.expected ${CMAKE_CURRENT_BINARY_DIR}/utTestLog.expected COPYONLY)
 add_test(
@@ -17,7 +17,8 @@ add_test(
 
 add_executable(utTestRecorder utTestRecorder.cc)
 set_target_properties(utTestRecorder PROPERTIES
-  CXX_STANDARD 17)
+  CXX_STANDARD 17
+  COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
 configure_file(
   utTestRecorder.expected ${CMAKE_CURRENT_BINARY_DIR}/utTestRecorder.expected COPYONLY)
 add_test(

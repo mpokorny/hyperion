@@ -569,7 +569,7 @@ public:
         if (args.allow_rows || args.rows.size() == 1) {
 
 #define WRITE_RECTS(ROWDIM, RECTDIM)                                    \
-          case (ROWDIM * LEGMS_MAX_DIM + RECTDIM): {                    \
+          case (ROWDIM * LEGION_MAX_DIM + RECTDIM): {                   \
             const FieldAccessor<                                        \
               WRITE_DISCARD, \
               Rect<RECTDIM>, \
@@ -606,7 +606,7 @@ public:
             break;                                                      \
           }
 
-          switch (rowdim * LEGMS_MAX_DIM + rectdim) {
+          switch (rowdim * LEGION_MAX_DIM + rectdim) {
             LEGMS_FOREACH_MN(WRITE_RECTS);
           default:
             assert(false);
@@ -828,7 +828,7 @@ public:
     }
 
 #define WRITE_RECTS(ROWDIM, RECTDIM)                                    \
-    case (ROWDIM * LEGMS_MAX_DIM + RECTDIM): {                          \
+    case (ROWDIM * LEGION_MAX_DIM + RECTDIM): {                         \
       const FieldAccessor<                                              \
         WRITE_DISCARD, \
         Rect<RECTDIM>, \
@@ -870,7 +870,7 @@ public:
         ixdim + args.row_partition.get_dim()
         - rowdim + (args.allow_rows ? 1 : 0);
       if (args.allow_rows || common_rows.size() == 1) {
-        switch (rowdim * LEGMS_MAX_DIM + rectdim) {
+        switch (rowdim * LEGION_MAX_DIM + rectdim) {
           LEGMS_FOREACH_MN(WRITE_RECTS);
         default:
           assert(false);
@@ -999,7 +999,7 @@ public:
   copy(const PhysicalRegion& src, const PhysicalRegion& dst) {
 
 #define CPY(SRCDIM, DSTDIM)                             \
-    case (SRCDIM * LEGMS_MAX_DIM + DSTDIM): {           \
+    case (SRCDIM * LEGION_MAX_DIM + DSTDIM): {          \
       const SA<DT,SRCDIM> from(src, Column::value_fid); \
       const DA<DT,DSTDIM> to(dst, Column::value_fid);   \
       DomainT<SRCDIM> src_bounds(src);                  \
@@ -1015,7 +1015,7 @@ public:
 
     int srcdim = src.get_logical_region().get_dim();
     int dstdim = dst.get_logical_region().get_dim();
-    switch (srcdim * LEGMS_MAX_DIM + dstdim) {
+    switch (srcdim * LEGION_MAX_DIM + dstdim) {
       LEGMS_FOREACH_MN(CPY)
     default:
         assert(false);
@@ -1463,7 +1463,7 @@ ReindexColumnTask::base_impl(
   auto newdim = (regions.size() - 1) + eltdim + (args.allow_rows ? 1 : 0);
 
 #define REINDEX_COLUMN(OLDDIM, NEWDIM)          \
-  case (OLDDIM * LEGMS_MAX_DIM + NEWDIM): {     \
+  case (OLDDIM * LEGION_MAX_DIM + NEWDIM): {    \
     return                                      \
       reindex_column<OLDDIM, NEWDIM>(           \
         args,                                   \
@@ -1473,7 +1473,7 @@ ReindexColumnTask::base_impl(
     break;                                      \
   }
 
-  switch (olddim * LEGMS_MAX_DIM + newdim) {
+  switch (olddim * LEGION_MAX_DIM + newdim) {
     LEGMS_FOREACH_MN(REINDEX_COLUMN);
   default:
     assert(false);

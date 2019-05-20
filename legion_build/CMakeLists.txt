@@ -6,7 +6,7 @@ else()
 endif()
 set(legms_LEGION_TAG "master" CACHE STRING "Legion repository git tag")
 
-set(Legion_MAX_DIM ${legms_MAX_DIM} CACHE STRING "Maximum number of dimensions")
+set(Legion_MAX_DIM ${MAX_DIM} CACHE STRING "Maximum number of dimensions")
 list(APPEND Legion_ARGS Legion_MAX_DIM)
 
 set(Legion_OUTPUT_LEVEL "DEBUG" CACHE STRING "Compile time logging level")
@@ -27,7 +27,7 @@ list(APPEND Legion_ARGS Legion_USE_GASNet)
 set(Legion_USE_LLVM OFF CACHE BOOL "Use LLVM JIT operations")
 list(APPEND Legion_ARGS Legion_USE_LLVM)
 
-set(Legion_USE_HDF5 ${legms_USE_HDF5} CACHE BOOL "Enable support for HDF5")
+set(Legion_USE_HDF5 ${USE_HDF5} CACHE BOOL "Enable support for HDF5")
 list(APPEND Legion_ARGS Legion_USE_HDF5)
 
 set(Legion_USE_LIBDL ON CACHE BOOL "Enable support for libdl")
@@ -42,6 +42,10 @@ list(APPEND Legion_ARGS Legion_MAX_FIELDS)
 set(Legion_ENABLE_TLS OFF CACHE BOOL "Enable support for TLS storage of Legion context")
 list(APPEND Legion_ARGS Legion_ENABLE_TLS)
 
+# to define CXX_FLAGS for Legion build, add something like this to
+# ExternalProject_add command:
+#
+# CMAKE_ARGS -DCMAKE_CXX_FLAGS=-DPRIVILEGE_CHECKS\ -DBOUNDS_CHECKS
 include(ExternalProject)
 ExternalProject_Add(legion_build
   GIT_REPOSITORY ${legms_LEGION_GIT_REPO}

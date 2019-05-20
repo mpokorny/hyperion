@@ -27,11 +27,11 @@ public:
   template <int DIM>
   static Legion::TaskID
   task_id(Legion::Runtime* runtime) {
-    static_assert(DIM <= LEGMS_MAX_DIM);
+    static_assert(DIM <= LEGION_MAX_DIM);
     return
       runtime->generate_library_task_ids(
         "legms::TreeIndexSpaceTask",
-        LEGMS_MAX_DIM)
+        LEGION_MAX_DIM)
       + DIM - 1;
   }
 
