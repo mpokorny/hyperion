@@ -37,9 +37,6 @@ protected:
     , m_runtime(runtime)
     , m_index_partition(ip)
     , m_axes(axes) {
-
-    auto is_dim = runtime->get_parent_index_space(ip).get_dim();
-    assert(static_cast<size_t>(is_dim) == axes.size());
   }
 
   Legion::Context m_context;
