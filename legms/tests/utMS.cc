@@ -824,7 +824,7 @@ read_full_ms(
       table.get(),
       expected_columns.begin(),
       expected_columns.end(),
-      20000);
+      2000);
     table_read_task.dispatch();
   }
 
