@@ -1701,6 +1701,9 @@ register_tasks(Legion::Runtime* runtime);
 
 } // end namespace legms
 
+std::ostream&
+operator<<(std::ostream& stream, const legms::string& str);
+
 #endif // LEGMS_UTILITY_H_
 
 // Local Variables:

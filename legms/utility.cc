@@ -9,6 +9,12 @@
 using namespace legms;
 using namespace Legion;
 
+std::ostream&
+operator<<(std::ostream& stream, const legms::string& str) {
+  stream << str.val;
+  return stream;
+}
+
 void
 legms::OpsManager::register_ops() {
   Runtime::register_custom_serdez_op<index_tree_serdez>(
