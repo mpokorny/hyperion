@@ -674,6 +674,9 @@ struct DataType<TypeTag::TpBool> {
 #ifdef USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::BOOL_H5T;
 #endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
 };
 
 template <>
@@ -694,6 +697,9 @@ struct DataType<TypeTag::TpChar> {
 #ifdef USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::CHAR_H5T;
 #endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
 };
 
 template <>
@@ -714,6 +720,9 @@ struct DataType<TypeTag::TpUChar> {
 #ifdef USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::UCHAR_H5T;
 #endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
 };
 
 template <>
@@ -734,6 +743,9 @@ struct DataType<TypeTag::TpShort> {
 #ifdef USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::SHORT_H5T;
 #endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
 };
 
 template <>
@@ -754,6 +766,9 @@ struct DataType<TypeTag::TpUShort> {
 #ifdef USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::USHORT_H5T;
 #endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
 };
 
 template <>
@@ -774,6 +789,9 @@ struct DataType<TypeTag::TpInt> {
 #ifdef USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::INT_H5T;
 #endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
 };
 
 template <>
@@ -794,6 +812,9 @@ struct DataType<TypeTag::TpUInt> {
 #ifdef USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::UINT_H5T;
 #endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
 };
 
 template <>
@@ -814,6 +835,9 @@ struct DataType<TypeTag::TpFloat> {
 #ifdef USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::FLOAT_H5T;
 #endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
 };
 
 template <>
@@ -834,6 +858,9 @@ struct DataType<TypeTag::TpDouble> {
 #ifdef USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::DOUBLE_H5T;
 #endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
 };
 
 template <>
@@ -854,6 +881,9 @@ struct DataType<TypeTag::TpComplex> {
 #ifdef USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::COMPLEX_H5T;
 #endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
 };
 
 template <>
@@ -874,6 +904,9 @@ struct DataType<TypeTag::TpDComplex> {
 #ifdef USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::DCOMPLEX_H5T;
 #endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
 };
 
 template <>
@@ -895,6 +928,9 @@ struct DataType<TypeTag::TpString> {
 #ifdef USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::STRING_H5T;
 #endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return std::strcmp(a.val, b.val) == 0;
+  }
 };
 
 #ifdef USE_HDF5
