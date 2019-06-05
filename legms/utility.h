@@ -35,21 +35,36 @@ template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
 struct string {
+
+  string() {
+    val[0] = '\0';
+  }
+
+  string(const std::string& s) {
+    std::strncpy(val, s.c_str(), sizeof(val));
+    val[sizeof(val) - 1] = '\0';
+  }
+
+  string(const char* s) {
+    std::strncpy(val, s, sizeof(val));
+    val[sizeof(val) - 1] = '\0';  
+  }
+
   char val[LEGMS_MAX_STRING_SIZE];
 
   bool
   operator==(const string& other) {
-    return std::strncmp(val, other.val, LEGMS_MAX_STRING_SIZE) == 0;
+    return std::strncmp(val, other.val, sizeof(val)) == 0;
   }
 
   bool
   operator!=(const string& other) {
-    return std::strncmp(val, other.val, LEGMS_MAX_STRING_SIZE) != 0;
+    return std::strncmp(val, other.val, sizeof(val)) != 0;
   }
 
   bool
   operator<(const string& other) {
-    return std::strncmp(val, other.val, LEGMS_MAX_STRING_SIZE) < 0;
+    return std::strncmp(val, other.val, sizeof(val)) < 0;
   }
 };
 
