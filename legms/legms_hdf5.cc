@@ -333,8 +333,7 @@ legms::hdf5::write_column(
   // create column dataset
   hid_t col_id;
   {
-    int rank = column->index_space().get_dim();
-    hsize_t dims[rank];
+    hsize_t dims[column->rank()];
 
 #define DIMS(N) \
     case N: {\
@@ -346,7 +345,7 @@ legms::hdf5::write_column(
       break;                                                            \
     }
 
-    switch (rank) {
+    switch (column->rank()) {
       LEGMS_FOREACH_N(DIMS)
     default:
       assert(false);
@@ -354,7 +353,7 @@ legms::hdf5::write_column(
     }
 #undef DIMS
 
-    hid_t ds = H5Screate_simple(rank, dims, NULL);
+    hid_t ds = H5Screate_simple(column->rank(), dims, NULL);
     assert(ds >= 0);
 
     hid_t dt;
@@ -434,6 +433,9 @@ legms::hdf5::write_column(
 
   // write data to dataset
   if (with_data) {
+    // FIXME: the value of column_ds_name is only correct when the table group
+    // occurs at the HDF5 root...must add some way to pass in the path to the
+    // table HDF5 group
     std::string column_ds_name =
       std::string("/") + table_name + "/" + column->name()
       + "/" + LEGMS_COLUMN_DS;
