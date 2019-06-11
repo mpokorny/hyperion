@@ -12,12 +12,12 @@
 
 #include <experimental/filesystem>
 
-#include <hdf5.h>
-
 #include "utility.h"
 #include "IndexTree.h"
 #include "Column.h"
 #include "Table.h"
+
+#include <hdf5.h>
 
 namespace legms {
 namespace hdf5 {
