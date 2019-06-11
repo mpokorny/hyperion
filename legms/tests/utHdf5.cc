@@ -33,6 +33,23 @@ template <>
 struct legms::AxesUID<Table0Axes> {
   static constexpr const char* id = "Table0Axes";
 };
+hid_t
+h5_dt() {
+  hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
+  Table0Axes a = Table0Axes::ROW;
+  herr_t err = H5Tenum_insert(result, "ROW", &a);
+  assert(err >= 0);
+  a = Table0Axes::X;
+  err = H5Tenum_insert(result, "X", &a);
+  a = Table0Axes::Y;
+  err = H5Tenum_insert(result, "Y", &a);
+  a = Table0Axes::ZP;
+  err = H5Tenum_insert(result, "ZP", &a);
+  return result;
+}
+
+template <>
+hid_t TableT<Table0Axes>::m_h5_axes_datatype = h5_dt();
 
 std::ostream&
 operator<<(std::ostream& stream, const Table0Axes& ax) {

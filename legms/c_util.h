@@ -130,26 +130,6 @@ destroy(Wrapper wrapper) {
 }
 #endif // __cplusplus
 
-#define FOREACH_MS_TABLE_T(__func__)            \
-  __func__(MAIN);                               \
-  __func__(ANTENNA);                            \
-  __func__(DATA_DESCRIPTION);                   \
-  __func__(DOPPLER);                            \
-  __func__(FEED);                               \
-  __func__(FIELD);                              \
-  __func__(FLAG_CMD);                           \
-  __func__(FREQ_OFFSET);                        \
-  __func__(HISTORY);                            \
-  __func__(OBSERVATION);                        \
-  __func__(POINTING);                           \
-  __func__(POLARIZATION);                       \
-  __func__(PROCESSOR);                          \
-  __func__(SOURCE);                             \
-  __func__(SPECTRAL_WINDOW);                    \
-  __func__(STATE);                              \
-  __func__(SYSCAL);                             \
-  __func__(WEATHER);
-
 #define FOREACH_MS_TABLE_Tt(__func__)           \
   __func__(MAIN, main);                         \
   __func__(ANTENNA, antenna);                   \

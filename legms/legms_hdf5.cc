@@ -7,6 +7,7 @@
 #include <sstream>
 
 #include "tree_index_space.h"
+#include "MSTable.h"
 
 using namespace legms::hdf5;
 using namespace legms;
@@ -296,6 +297,7 @@ legms::hdf5::write_column(
   hid_t table_id,
   const std::string& table_name,
   const Column* column,
+  hid_t table_axes_dt,
   bool with_data,
   hid_t link_creation_pl,
   hid_t link_access_pl,
@@ -390,8 +392,6 @@ legms::hdf5::write_column(
 
   // write axes attribute to column
   {
-    hid_t axes_dt = H5DatatypeManager::datatype<ValueType<int>::DataType>();
-
     htri_t rc = H5Aexists(col_group_id, column_axes_attr_name);
     if (rc > 0) {
       herr_t err = H5Adelete(col_group_id, column_axes_attr_name);
@@ -407,13 +407,18 @@ legms::hdf5::write_column(
         H5Acreate(
           col_group_id,
           column_axes_attr_name,
-          axes_dt,
+          table_axes_dt,
           axes_ds,
           attr_creation_pl,
           attr_access_pl);
+      assert(axes_id >= 0);
       try {
+        auto axes = column->axes();
+        std::vector<unsigned char> ax;
+        ax.reserve(axes.size());
+        std::copy(axes.begin(), axes.end(), std::back_inserter(ax));
         assert(axes_id >= 0);
-        herr_t err = H5Awrite(axes_id, axes_dt, column->axes().data());
+        herr_t err = H5Awrite(axes_id, table_axes_dt, ax.data());
         assert(err >= 0);
       } catch (...) {
         herr_t err = H5Aclose(axes_id);
@@ -494,6 +499,8 @@ legms::hdf5::write_table(
   hid_t link_access_pl,
   hid_t group_creation_pl,
   hid_t group_access_pl,
+  hid_t type_creation_pl,
+  hid_t type_access_pl,
   hid_t dataset_creation_pl,
   hid_t dataset_access_pl,
   hid_t attr_creation_pl,
@@ -519,52 +526,22 @@ legms::hdf5::write_table(
     assert(table_id >= 0);
   }
 
-  // write axes uid attribute to table
+  // write axes datatype to table
+  hid_t table_axes_dt = table->h5_axes_datatype();
   {
-    hid_t axes_uid_dt =
-      H5DatatypeManager::datatype<ValueType<std::string>::DataType>();
-
-    htri_t rc = H5Aexists(table_id, table_axes_uid_attr_name);
-    assert(rc >= 0);
-
-    hid_t axes_uid_id;
-    if (rc == 0) {
-      hid_t axes_uid_ds = H5Screate(H5S_SCALAR);
-      assert(axes_uid_ds >= 0);
-      axes_uid_id =
-        H5Acreate(
-          table_id,
-          table_axes_uid_attr_name,
-          axes_uid_dt,
-          axes_uid_ds,
-          attr_creation_pl,
-          attr_access_pl);
-      H5Sclose(axes_uid_ds);
-    } else {
-      axes_uid_id = H5Aopen(table_id, table_axes_uid_attr_name, attr_access_pl);
-    }
-    assert(axes_uid_id >= 0);
-    try {
-      legms::string buff;
-      assert(strlen(table->axes_uid()) < sizeof(buff.val));
-      std::strncpy(buff.val, table->axes_uid(), sizeof(buff.val));
-      buff.val[sizeof(buff.val) - 1] = '\0';
-      herr_t err = H5Awrite(axes_uid_id, axes_uid_dt, buff.val);
-      assert(err >= 0);
-    } catch (...) {
-      herr_t err = H5Aclose(axes_uid_id);
-      assert(err >= 0);
-      throw;
-    }
-    herr_t err = H5Aclose(axes_uid_id);
+    herr_t err =
+      H5Tcommit(
+        table_id,
+        table_axes_dt_name,
+        table_axes_dt,
+        link_creation_pl,
+        type_creation_pl,
+        type_access_pl);
     assert(err >= 0);
   }
 
   // write index axes attribute to table
   try {
-    hid_t index_axes_dt =
-      H5DatatypeManager::datatype<ValueType<int>::DataType>();
-
     htri_t rc = H5Aexists(table_id, table_index_axes_attr_name);
     if (rc > 0) {
       herr_t err = H5Adelete(table_id, table_index_axes_attr_name);
@@ -580,14 +557,17 @@ legms::hdf5::write_table(
         H5Acreate(
           table_id,
           table_index_axes_attr_name,
-          index_axes_dt,
+          table_axes_dt,
           index_axes_ds,
           attr_creation_pl,
           attr_access_pl);
+      assert(index_axes_id >= 0);
       try {
-        assert(index_axes_id >= 0);
-        herr_t err =
-          H5Awrite(index_axes_id, index_axes_dt, table->index_axes().data());
+        auto axes = table->index_axes();
+        std::vector<unsigned char> ax;
+        ax.reserve(axes.size());
+        std::copy(axes.begin(), axes.end(), std::back_inserter(ax));
+        herr_t err = H5Awrite(index_axes_id, table_axes_dt, ax.data());
         assert(err >= 0);
       } catch (...) {
         herr_t err = H5Aclose(index_axes_id);
@@ -615,6 +595,7 @@ legms::hdf5::write_table(
             table_id,
             table->name(),
             table->column(nm).get(),
+            table_axes_dt,
             with_data,
             link_creation_pl,
             link_access_pl,
@@ -640,9 +621,13 @@ legms::hdf5::write_table(
   } catch (...) {
     herr_t err = H5Gclose(table_id);
     assert(err >= 0);
+    err = H5Tclose(table_axes_dt);
+    assert(err >= 0);
     throw;
   }
   herr_t err = H5Gclose(table_id);
+  assert(err >= 0);
+  err = H5Tclose(table_axes_dt);
   assert(err >= 0);
 }
 
@@ -765,6 +750,7 @@ legms::hdf5::init_keywords(
 std::optional<legms::ColumnGenArgs>
 legms::hdf5::init_column(
   hid_t loc_id,
+  hid_t axes_dt,
   Runtime* runtime,
   Context context,
   hid_t attr_access_pl,
@@ -799,10 +785,11 @@ legms::hdf5::init_column(
         int ndims = H5Sget_simple_extent_ndims(axes_id_ds);
         if (ndims != 1)
           goto return_nothing;
-        axes.resize(H5Sget_simple_extent_npoints(axes_id_ds));
-        hid_t axes_dt = H5DatatypeManager::datatype<ValueType<int>::DataType>();
+        std::vector<unsigned char> ax(H5Sget_simple_extent_npoints(axes_id_ds));
         herr_t err = H5Aread(axes_id, axes_dt, axes.data());
         assert(err >= 0);
+        axes.reserve(ax.size());
+        std::copy(ax.begin(), ax.end(), std::back_inserter(axes));
       }
       {
         std::optional<std::string> sid =
@@ -872,6 +859,7 @@ return_nothing:
 struct acc_col_genargs_ctx {
   std::vector<legms::ColumnGenArgs>* acc;
   std::string axes_uid;
+  hid_t axes_dt;
   hid_t attr_access_pl;
   hid_t link_access_pl;
   hid_t xfer_pl;
@@ -898,6 +886,7 @@ acc_col_genargs(
       auto cga =
         init_column(
           col_group_id,
+          args->axes_dt,
           args->runtime,
           args->context,
           args->attr_access_pl,
@@ -919,6 +908,7 @@ legms::hdf5::init_table(
   hid_t loc_id,
   Runtime* runtime,
   Context context,
+  hid_t type_access_pl,
   hid_t attr_access_pl,
   hid_t link_access_pl,
   hid_t xfer_pl) {
@@ -932,6 +922,15 @@ legms::hdf5::init_table(
   std::vector<ColumnGenArgs> col_genargs;
   LogicalRegion keywords = LogicalRegion::NO_REGION;
   std::vector<legms::TypeTag> keyword_datatypes;
+  hid_t axes_dt;
+  {
+    const char* uid;
+    axes_dt = H5Topen(loc_id, table_axes_dt_name, type_access_pl);
+    match_h5_axes_datatype(axes_dt, uid);
+    if (axes_dt < 0)
+      goto return_nothing;
+    axes_uid = uid;
+  }
   {
     htri_t index_axes_exists = H5Aexists(loc_id, table_index_axes_attr_name);
     assert(index_axes_exists >= 0);
@@ -945,31 +944,16 @@ legms::hdf5::init_table(
     int ndims = H5Sget_simple_extent_ndims(index_axes_id_ds);
     if (ndims != 1)
       goto return_nothing;
-    index_axes.resize(H5Sget_simple_extent_npoints(index_axes_id_ds));
-    hid_t index_axes_dt =
-      H5DatatypeManager::datatype<ValueType<int>::DataType>();
-    herr_t err = H5Aread(index_axes_id, index_axes_dt, index_axes.data());
+    std::vector<unsigned char>
+      ax(H5Sget_simple_extent_npoints(index_axes_id_ds));
+    herr_t err = H5Aread(index_axes_id, axes_dt, ax.data());
     assert(err >= 0);
-  }
-  {
-    htri_t axes_uid_exists = H5Aexists(loc_id, table_axes_uid_attr_name);
-    assert(axes_uid_exists >= 0);
-    if (axes_uid_exists == 0)
-      goto return_nothing;
-    hid_t did = H5DatatypeManager::datatypes()[H5DatatypeManager::STRING_H5T];
-    legms::string str;
-    hid_t axes_uid_id =
-      H5Aopen(loc_id, table_axes_uid_attr_name, attr_access_pl);
-    assert(axes_uid_id >= 0);
-    herr_t err = H5Aread(axes_uid_id, did, str.val);
-    assert(err >= 0);
-    axes_uid = str.val;
-    err = H5Aclose(axes_uid_id);
-    assert(err >= 0);
+    index_axes.reserve(ax.size());
+    std::copy(ax.begin(), ax.end(), std::back_inserter(index_axes));
   }
   {
     struct acc_col_genargs_ctx ctx{
-      &col_genargs, axes_uid, attr_access_pl, link_access_pl, xfer_pl,
+      &col_genargs, axes_uid, axes_dt, attr_access_pl, link_access_pl, xfer_pl,
       runtime, context};
     hsize_t position = 0;
     herr_t err =
@@ -1016,6 +1000,7 @@ legms::hdf5::init_table(
   unsigned flags,
   hid_t file_access_pl,
   hid_t table_access_pl,
+  hid_t type_access_pl,
   hid_t attr_access_pl,
   hid_t link_access_pl,
   hid_t xfer_pl) {

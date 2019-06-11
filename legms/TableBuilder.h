@@ -15,7 +15,6 @@
 #include "ColumnBuilder.h"
 #include "Column.h"
 #include "IndexTree.h"
-#include "MSTable.h"
 
 #ifdef USE_CASACORE
 # include <casacore/casa/aipstype.h>
@@ -338,26 +337,6 @@ public:
   }
 #endif // USE_CASACORE
 };
-
-#ifdef USE_CASACORE
-struct TableBuilder {
-
-  template <MSTables T>
-  static TableBuilderT<typename MSTable<T>::Axes>
-  from_ms(
-    const std::experimental::filesystem::path& path,
-    const std::unordered_set<std::string>& column_selections) {
-
-    return
-      TableBuilderT<typename MSTable<T>::Axes>::from_casacore_table(
-        ((path.filename() == MSTable<T>::name)
-         ? path
-         : (path / MSTable<T>::name)),
-        column_selections,
-        MSTable<T>::element_axes);
-  }
-};
-#endif // USE_CASACORE
 
 } // end namespace legms
 

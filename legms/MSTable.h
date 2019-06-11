@@ -8,6 +8,12 @@
 
 #include "legms.h"
 #include "utility.h"
+#include "Table.h"
+#include "TableBuilder.h"
+
+#if USE_HDF5
+# include <hdf5.h>
+#endif // USE_HDF5
 
 namespace legms {
 
@@ -32,13 +38,33 @@ enum struct MSTables {
   WEATHER
 };
 
+#define LEGMS_FOREACH_MSTABLE(FUNC) \
+  FUNC(MSTables::MAIN)              \
+  FUNC(MSTables::ANTENNA) \
+  FUNC(MSTables::DATA_DESCRIPTION) \
+  FUNC(MSTables::DOPPLER) \
+  FUNC(MSTables::FEED) \
+  FUNC(MSTables::FIELD) \
+  FUNC(MSTables::FLAG_CMD) \
+  FUNC(MSTables::FREQ_OFFSET) \
+  FUNC(MSTables::HISTORY) \
+  FUNC(MSTables::OBSERVATION) \
+  FUNC(MSTables::POINTING) \
+  FUNC(MSTables::POLARIZATION) \
+  FUNC(MSTables::PROCESSOR) \
+  FUNC(MSTables::SOURCE) \
+  FUNC(MSTables::SPECTRAL_WINDOW) \
+  FUNC(MSTables::STATE) \
+  FUNC(MSTables::SYSCAL) \
+  FUNC(MSTables::WEATHER)
+
 template <MSTables T>
 struct MSTable {
-  // static const char* name;
-  // enum struct Axes;
-  // static const std::unordered_map<std::string, std::vector<Axes>>
-  // element_axes;
-  // static const std::unordered_map<Axes, std::string>& axis_names();
+  static const char* name;
+  enum struct Axes;
+  static const std::unordered_map<std::string, std::vector<Axes>>
+  element_axes;
+  static const std::unordered_map<Axes, std::string>& axis_names();
 };
 
 // defining axis names with the following helper structure should help prevent
@@ -702,6 +728,229 @@ MS_TABLE_AXES_UID(WEATHER);
 #undef MS_AXIS_NAME
 
 #undef MS_TABLE_AXES_UID
+
+#if USE_CASACORE
+
+struct TableBuilder {
+
+  template <MSTables T>
+  static TableBuilderT<typename MSTable<T>::Axes>
+  from_ms(
+    const std::experimental::filesystem::path& path,
+    const std::unordered_set<std::string>& column_selections) {
+
+    return
+      TableBuilderT<typename MSTable<T>::Axes>::from_casacore_table(
+        ((path.filename() == MSTable<T>::name)
+         ? path
+         : (path / MSTable<T>::name)),
+        column_selections,
+        MSTable<T>::element_axes);
+  }
+};
+
+template <MSTables T>
+static std::unique_ptr<TableT<typename MSTable<T>::Axes>>
+from_ms(
+  Legion::Context ctx,
+  Legion::Runtime* runtime,
+  const std::experimental::filesystem::path& path,
+  const std::unordered_set<std::string>& column_selections) {
+
+  typedef typename MSTable<T>::Axes D;
+  auto builder = TableBuilder::from_ms<T>(path, column_selections);
+  return
+    std::make_unique<TableT<typename MSTable<T>::Axes>>(
+      ctx,
+      runtime,
+      builder.name(),
+      std::vector<int>{static_cast<int>(D::ROW)},
+      builder.column_generators(),
+      builder.keywords());
+}
+
+#endif // USE_CASACORE
+
+#if USE_HDF5
+
+template <MSTables T>
+hid_t
+h5_axes_datatype() {
+  hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
+  typedef typename MSTable<T>::Axes Axes;
+  for (auto a = static_cast<unsigned char>(Axes::ROW);
+       a <= static_cast<unsigned char>(Axes::last);
+       ++a) {
+    herr_t err =
+      H5Tenum_insert(
+        result,
+        MSTable<T>::axis_names().at(static_cast<Axes>(a)).c_str(),
+        &a);
+    assert(err >= 0);
+  }
+  return result;
+}
+
+void
+match_h5_axes_datatype(hid_t& id, const char*& uid);
+
+#endif // USE_HDF5
+
+template <MSTables T>
+static std::optional<typename MSTable<T>::Axes>
+column_is_axis(
+  const std::string& colname,
+  const std::vector<typename MSTable<T>::Axes>& axes) {
+  auto axis_names = MSTable<T>::axis_names();
+  auto colax =
+    find(
+      axes.begin(),
+      axes.end(),
+      [&axis_names, &colname](auto& ax) {
+        return colname == axis_names.at(ax);
+      });
+  return ((colax != axes.end()) ? *colax : std::nullopt);
+}
+
+template <MSTables T>
+static std::optional<Legion::Future/*TableGenArgs*/>
+reindexed(
+  const TableT<typename MSTable<T>::Axes>* table,
+  const std::vector<typename MSTable<T>::Axes>& axes,
+  bool allow_rows = true) {
+
+  typedef typename MSTable<T>::Axes D;
+
+  // 'allow_rows' is intended to support the case where the reindexing may not
+  // result in a single value in a column per aggregate index, necessitating the
+  // maintenance of a row index. A value of 'true' for this argument is always
+  // safe, but may result in a degenerate axis when an aggregate index always
+  // identifies a single value in a column. If the value is 'false' and a
+  // non-degenerate axis is required by the reindexing, this method will return
+  // an empty value. TODO: remove degenerate axes after the fact, and do that
+  // automatically in this method, which would allow us to remove the
+  // 'allow_rows' argument.
+
+  // can only reindex along an axis if table has a column with the associated
+  // name
+  //
+  // TODO: add support for index columns that already exist in the table
+  if ((table->index_axes().size() > 1)
+      || (table->index_axes().back() != static_cast<int>(D::ROW)))
+    return std::nullopt;
+
+  // for every column in table, determine which axes need indexing
+  std::unordered_map<std::string, std::vector<D>> col_reindex_axes;
+  std::transform(
+    table->column_names().begin(),
+    table->column_names().end(),
+    std::inserter(col_reindex_axes, col_reindex_axes.end()),
+    [table, &axes](auto& nm) {
+      std::vector<D> ax;
+      auto col_axes = table->columnT(nm)->axesT();
+      // skip the column if it does not have a "row" axis
+      if (col_axes.back() == D::ROW) {
+        // if column is a reindexing axis, reindexing depends only on itself
+        auto myaxis = column_is_axis(nm, axes);
+        if (myaxis) {
+          ax.push_back(myaxis.value());
+        } else {
+          // select those axes in "axes" that are not already an axis of the
+          // column
+          std::for_each(
+            axes.begin(),
+            axes.end(),
+            [&col_axes, &ax](auto& d) {
+              if (find(col_axes.begin(), col_axes.end(), d) == col_axes.end())
+                ax.push_back(d);
+            });
+        }
+      }
+      return std::pair(nm, std::move(ax));
+    });
+
+  // index associated columns; the Future in "index_cols" below contains a
+  // ColumnGenArgs of a LogicalRegion with two fields: at Column::value_fid, the
+  // column values (sorted in ascending order); and at Column::value_fid +
+  // IndexColumnTask::rows_fid, a sorted vector of DomainPoints in the original
+  // column.
+  std::unordered_map<D, Legion::Future> index_cols;
+  std::for_each(
+    col_reindex_axes.begin(),
+    col_reindex_axes.end(),
+    [table, &index_cols](auto& nm_ds) {
+      const std::vector<D>& ds = std::get<1>(nm_ds);
+      std::for_each(
+        ds.begin(),
+        ds.end(),
+        [table, &index_cols](auto& d) {
+          if (index_cols.count(d) == 0) {
+            auto col = table->columnT(D::axis_names().at(d));
+            IndexColumnTask task(col, static_cast<int>(d));
+            index_cols[d] = task.dispatch(table->context(), table->runtime());
+          }
+        });
+    });
+
+  // do reindexing of columns
+  std::vector<Legion::Future> reindexed;
+  std::transform(
+    col_reindex_axes.begin(),
+    col_reindex_axes.end(),
+    std::back_inserter(reindexed),
+    [table, &index_cols, &allow_rows](auto& nm_ds) {
+      auto& [nm, ds] = nm_ds;
+      // if this column is an index column, we've already launched a task to
+      // create its logical region, so we can use that
+      if (ds.size() == 1 && index_cols.count(ds[0]) > 0)
+        return index_cols.at(ds[0]);
+
+      // create reindexing task launcher
+      // TODO: start intermediary task dependent on Futures of index columns
+      std::vector<std::shared_ptr<Column>> ixcols;
+      std::vector<int> index_axes;
+      for (auto d : ds) {
+        ixcols.push_back(
+          index_cols.at(d)
+          .template get_result<ColumnGenArgs>()
+          .operator()<T>(table->context(), table->runtime()));
+        index_axes.push_back(static_cast<int>(d));
+      }
+      auto col = table->columnT(nm);
+      auto col_axes = col->axesT();
+      auto row_axis_offset =
+        std::distance(
+          col_axes.begin(),
+          find(col_axes.begin(), col_axes.end(), D::ROW));
+      ReindexColumnTask task(
+        col,
+        row_axis_offset,
+        ixcols,
+        index_axes,
+        allow_rows);
+      return task.dispatch(table->context(), table->runtime());
+    });
+
+  // launch task that creates the reindexed table
+  std::vector<int> index_axes;
+  std::transform(
+    axes.begin(),
+    axes.end(),
+    std::back_inserter(index_axes),
+    [](auto& d) {
+      return static_cast<int>(d);
+    });
+  if (allow_rows)
+    index_axes.push_back(static_cast<int>(D::ROW));
+  ReindexedTableTask
+    task(
+      table->name(),
+      table->axes_uid(),
+      index_axes,
+      table->keywords_region(),
+      reindexed);
+  return task.dispatch(table->context(), table->runtime());
+}
 
 } // end namespace legms
 

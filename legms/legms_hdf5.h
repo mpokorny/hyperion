@@ -36,8 +36,8 @@ namespace hdf5 {
 const size_t large_tree_min = (64 * (1 << 10));
 const char* table_index_axes_attr_name =
   LEGMS_NAMESPACE_PREFIX "index_axes";
-const char* table_axes_uid_attr_name =
-  LEGMS_NAMESPACE_PREFIX "axes_uid";
+const char* table_axes_dt_name =
+  LEGMS_NAMESPACE_PREFIX "table_axes";
 const char* column_axes_attr_name =
   LEGMS_NAMESPACE_PREFIX "axes";
 
@@ -267,6 +267,7 @@ write_column(
   hid_t table_id,
   const std::string& table_name,
   const Column* column,
+  hid_t table_axes_dt,
   bool with_data = true,
   hid_t link_creation_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT,
@@ -289,6 +290,8 @@ write_table(
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t group_creation_pl = H5P_DEFAULT,
   hid_t group_access_pl = H5P_DEFAULT,
+  hid_t type_creation_pl = H5P_DEFAULT,
+  hid_t type_access_pl = H5P_DEFAULT,
   hid_t dataset_creation_pl = H5P_DEFAULT,
   hid_t dataset_access_pl = H5P_DEFAULT,
   hid_t attr_creation_pl = H5P_DEFAULT,
@@ -306,6 +309,7 @@ init_keywords(
 std::optional<legms::ColumnGenArgs>
 init_column(
   hid_t loc_id,
+  hid_t axes_dt,
   Legion::Runtime* runtime,
   Legion::Context context,
   hid_t attr_access_pl = H5P_DEFAULT,
@@ -321,6 +325,7 @@ init_table(
   unsigned flags = H5F_ACC_RDONLY,
   hid_t file_access_pl = H5P_DEFAULT,
   hid_t table_access_pl = H5P_DEFAULT,
+  hid_t type_access_pl = H5P_DEFAULT,
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
@@ -330,6 +335,7 @@ init_table(
   hid_t loc_id,
   Legion::Runtime* runtime,
   Legion::Context context,
+  hid_t type_access_pl = H5P_DEFAULT,
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);

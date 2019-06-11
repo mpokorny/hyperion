@@ -15,55 +15,6 @@ using namespace Legion;
 #undef HIERARCHICAL_COMPUTE_RECTANGLES
 #undef WORKAROUND
 
-#ifdef USE_CASACORE
-
-unique_ptr<Table>
-Table::from_ms(
-  Context ctx,
-  Runtime* runtime,
-  const experimental::filesystem::path& path,
-  const unordered_set<std::string>& column_selections) {
-
-  std::string table_name = path.filename();
-
-#define FROM_MS_TABLE(N)                            \
-  do {                                              \
-    if (table_name == MSTable<MSTables::N>::name)   \
-      return legms:: template from_ms<MSTables::N>( \
-        ctx, runtime, path, column_selections);     \
-  } while (0)
-
-  FROM_MS_TABLE(MAIN);
-  FROM_MS_TABLE(ANTENNA);
-  FROM_MS_TABLE(DATA_DESCRIPTION);
-  FROM_MS_TABLE(DOPPLER);
-  FROM_MS_TABLE(FEED);
-  FROM_MS_TABLE(FIELD);
-  FROM_MS_TABLE(FLAG_CMD);
-  FROM_MS_TABLE(FREQ_OFFSET);
-  FROM_MS_TABLE(HISTORY);
-  FROM_MS_TABLE(OBSERVATION);
-  FROM_MS_TABLE(POINTING);
-  FROM_MS_TABLE(POLARIZATION);
-  FROM_MS_TABLE(PROCESSOR);
-  FROM_MS_TABLE(SOURCE);
-  FROM_MS_TABLE(SPECTRAL_WINDOW);
-  FROM_MS_TABLE(STATE);
-  FROM_MS_TABLE(SYSCAL);
-  FROM_MS_TABLE(WEATHER);
-  // try to read as main table
-  return
-    legms:: template from_ms<MSTables::MAIN>(
-      ctx,
-      runtime,
-      path,
-      column_selections);
-
-#undef FROM_MS_TABLE
-}
-
-#endif // USE_CASACORE
-
 size_t
 TableGenArgs::legion_buffer_size(void) const {
   size_t result = name.size() + 1;

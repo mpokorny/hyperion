@@ -82,13 +82,13 @@ MSTable<MSTables::MAIN>::element_axes = {
 };
 
 #define AXIS_NAMES(T)                                                 \
-const std::unordered_map<MSTable<MSTables::T>::Axes, std::string>&    \
-MSTable<MSTables::T>::axis_names() {                                  \
-  static std::once_flag initialized;                                    \
-  static std::unordered_map<MSTable<MSTables::T>::Axes, std::string> result; \
-  std::call_once(initialized, add_axis_names<MSTables::T>, result);     \
-  return result;                                                      \
-}
+  const std::unordered_map<MSTable<T>::Axes, std::string>&            \
+  MSTable<T>::axis_names() {                                          \
+    static std::once_flag initialized;                                \
+    static std::unordered_map<MSTable<T>::Axes, std::string> result;  \
+    std::call_once(initialized, add_axis_names<T>, result);           \
+    return result;                                                    \
+  }
 
 const std::unordered_map<
   std::string,
@@ -380,7 +380,71 @@ MSTable<MSTables::WEATHER>::element_axes = {
   {"WIND_SPEED_FLAG", {}}
 };
 
-FOREACH_MS_TABLE_T(AXIS_NAMES);
+LEGMS_FOREACH_MSTABLE(AXIS_NAMES);
+
+#ifdef USE_CASACORE
+
+std::unique_ptr<Table>
+Table::from_ms(
+  Legion::Context ctx,
+  Legion::Runtime* runtime,
+  const std::experimental::filesystem::path& path,
+  const std::unordered_set<std::string>& column_selections) {
+
+  std::string table_name = path.filename();
+
+#define FROM_MS_TABLE(N)                                                \
+  do {                                                                  \
+    if (table_name == MSTable<N>::name)                                 \
+      return                                                            \
+        legms:: template from_ms<N>(ctx, runtime, path, column_selections); \
+  } while (0);
+
+  LEGMS_FOREACH_MSTABLE(FROM_MS_TABLE);
+
+  // try to read as main table
+  return
+    legms:: template from_ms<MSTables::MAIN>(
+      ctx,
+      runtime,
+      path,
+      column_selections);
+
+#undef FROM_MS_TABLE
+}
+
+#endif // USE_CASACORE
+
+#if USE_HDF5
+
+#define H5_AXES_DATATYPE(T)                                     \
+  template <>                                                   \
+  hid_t TableT<typename MSTable<T>::Axes>::m_h5_axes_datatype = \
+    legms::h5_axes_datatype<T>();
+
+LEGMS_FOREACH_MSTABLE(H5_AXES_DATATYPE)
+
+#undef H5_AXES_DATATYPE
+
+void
+legms::match_h5_axes_datatype(hid_t& id, const char*& uid) {
+  if (id < 0)
+    return;
+
+#define MATCH_DT(T)                                                 \
+  if (H5Tequal(id, TableT<typename MSTable<T>::Axes>::h5_axes())) { \
+    id = TableT<typename MSTable<T>::Axes>::h5_axes();              \
+    uid = AxesUID<typename MSTable<T>::Axes>::id;                   \
+    return;                                                         \
+  }
+
+  LEGMS_FOREACH_MSTABLE(MATCH_DT);
+#undef MATCH_DT
+
+  id = -1;
+}
+
+#endif // USE_HDF5
 
 // Local Variables:
 // mode: c++
