@@ -608,7 +608,8 @@ legms::hdf5::write_table(
       table->column_names().begin(),
       table->column_names().end(),
       [&](auto& nm) {
-        if (excluded_columns.count(nm) == 0)
+        if (excluded_columns.count(nm) == 0
+            && table->column(nm)->index_space() != IndexSpace::NO_SPACE)
           write_column(
             path,
             table_id,
