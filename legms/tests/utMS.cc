@@ -149,7 +149,7 @@ public:
       ColumnT<MSTable<MSTables::POINTING>::Axes>::Generator colgen =
         ColumnT<MSTable<MSTables::POINTING>::Axes>::generator(
           "DIRECTION",
-          legms::TypeTag::TpDouble,
+          LEGMS_TYPE_DOUBLE,
           pointing_direction_axes(),
           IndexTreeL(1),
           IndexTreeL({{1, IndexTreeL({{1, IndexTreeL(2)}})}}),
@@ -447,63 +447,63 @@ public:
     std::ostringstream& oss) {
 
     switch (col->datatype()) {
-    case legms::TypeTag::TpBool:
-      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpBool>(
+    case LEGMS_TYPE_BOOL:
+      show_scalar_column_values<TDIM, CDIM, LEGMS_TYPE_BOOL>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case legms::TypeTag::TpChar:
-      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpChar>(
+    case LEGMS_TYPE_CHAR:
+      show_scalar_column_values<TDIM, CDIM, LEGMS_TYPE_CHAR>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case legms::TypeTag::TpUChar:
-      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpUChar>(
+    case LEGMS_TYPE_UCHAR:
+      show_scalar_column_values<TDIM, CDIM, LEGMS_TYPE_UCHAR>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case legms::TypeTag::TpShort:
-      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpShort>(
+    case LEGMS_TYPE_SHORT:
+      show_scalar_column_values<TDIM, CDIM, LEGMS_TYPE_SHORT>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case legms::TypeTag::TpUShort:
-      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpUShort>(
+    case LEGMS_TYPE_USHORT:
+      show_scalar_column_values<TDIM, CDIM, LEGMS_TYPE_USHORT>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case legms::TypeTag::TpInt:
-      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpInt>(
+    case LEGMS_TYPE_INT:
+      show_scalar_column_values<TDIM, CDIM, LEGMS_TYPE_INT>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case legms::TypeTag::TpUInt:
-      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpUInt>(
+    case LEGMS_TYPE_UINT:
+      show_scalar_column_values<TDIM, CDIM, LEGMS_TYPE_UINT>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case legms::TypeTag::TpFloat:
-      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpFloat>(
+    case LEGMS_TYPE_FLOAT:
+      show_scalar_column_values<TDIM, CDIM, LEGMS_TYPE_FLOAT>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case legms::TypeTag::TpDouble:
-      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpDouble>(
+    case LEGMS_TYPE_DOUBLE:
+      show_scalar_column_values<TDIM, CDIM, LEGMS_TYPE_DOUBLE>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case legms::TypeTag::TpComplex:
-      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpComplex>(
+    case LEGMS_TYPE_COMPLEX:
+      show_scalar_column_values<TDIM, CDIM, LEGMS_TYPE_COMPLEX>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case legms::TypeTag::TpDComplex:
-      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpDComplex>(
+    case LEGMS_TYPE_DCOMPLEX:
+      show_scalar_column_values<TDIM, CDIM, LEGMS_TYPE_DCOMPLEX>(
         rlf, pr, pid0, row, oss);
       break;
 
-    case legms::TypeTag::TpString:
-      show_scalar_column_values<TDIM, CDIM, legms::TypeTag::TpString>(
+    case LEGMS_TYPE_STRING:
+      show_scalar_column_values<TDIM, CDIM, LEGMS_TYPE_STRING>(
         rlf, pr, pid0, row, oss);
       break;
 

@@ -16,7 +16,7 @@ operator<<(std::ostream& stream, const legms::string& str) {
 }
 
 void
-legms::OpsManager::register_ops() {
+legms::OpsManager::preregister_ops() {
   Runtime::register_custom_serdez_op<index_tree_serdez>(
     INDEX_TREE_SID);
 
@@ -26,40 +26,40 @@ legms::OpsManager::register_ops() {
     string_serdez<std::string>>(STD_STRING_SID);
 
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<TypeTag::TpString>::ValueType>>(
+    acc_field_serdez<DataType<LEGMS_TYPE_STRING>::ValueType>>(
       ACC_FIELD_STRING_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<TypeTag::TpBool>::ValueType>>(
+    acc_field_serdez<DataType<LEGMS_TYPE_BOOL>::ValueType>>(
       ACC_FIELD_BOOL_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<TypeTag::TpChar>::ValueType>>(
+    acc_field_serdez<DataType<LEGMS_TYPE_CHAR>::ValueType>>(
       ACC_FIELD_CHAR_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<TypeTag::TpUChar>::ValueType>>(
+    acc_field_serdez<DataType<LEGMS_TYPE_UCHAR>::ValueType>>(
       ACC_FIELD_UCHAR_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<TypeTag::TpShort>::ValueType>>(
+    acc_field_serdez<DataType<LEGMS_TYPE_SHORT>::ValueType>>(
       ACC_FIELD_SHORT_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<TypeTag::TpUShort>::ValueType>>(
+    acc_field_serdez<DataType<LEGMS_TYPE_USHORT>::ValueType>>(
       ACC_FIELD_USHORT_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<TypeTag::TpInt>::ValueType>>(
+    acc_field_serdez<DataType<LEGMS_TYPE_INT>::ValueType>>(
       ACC_FIELD_INT_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<TypeTag::TpUInt>::ValueType>>(
+    acc_field_serdez<DataType<LEGMS_TYPE_UINT>::ValueType>>(
       ACC_FIELD_UINT_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<TypeTag::TpFloat>::ValueType>>(
+    acc_field_serdez<DataType<LEGMS_TYPE_FLOAT>::ValueType>>(
       ACC_FIELD_FLOAT_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<TypeTag::TpDouble>::ValueType>>(
+    acc_field_serdez<DataType<LEGMS_TYPE_DOUBLE>::ValueType>>(
       ACC_FIELD_DOUBLE_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<TypeTag::TpComplex>::ValueType>>(
+    acc_field_serdez<DataType<LEGMS_TYPE_COMPLEX>::ValueType>>(
       ACC_FIELD_COMPLEX_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<TypeTag::TpDComplex>::ValueType>>(
+    acc_field_serdez<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>>(
       ACC_FIELD_DCOMPLEX_SID);
 
   Runtime::register_reduction_op<bool_or_redop>(BOOL_OR_REDOP);
@@ -67,75 +67,75 @@ legms::OpsManager::register_ops() {
   Runtime::register_reduction_op(
     ACC_FIELD_STRING_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<TypeTag::TpString>::ValueType>>(),
-    acc_field_redop<DataType<TypeTag::TpString>::ValueType>::init_fn,
-    acc_field_redop<DataType<TypeTag::TpString>::ValueType>::fold_fn);
+    acc_field_redop<DataType<LEGMS_TYPE_STRING>::ValueType>>(),
+    acc_field_redop<DataType<LEGMS_TYPE_STRING>::ValueType>::init_fn,
+    acc_field_redop<DataType<LEGMS_TYPE_STRING>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_BOOL_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<TypeTag::TpBool>::ValueType>>(),
-    acc_field_redop<DataType<TypeTag::TpBool>::ValueType>::init_fn,
-    acc_field_redop<DataType<TypeTag::TpBool>::ValueType>::fold_fn);
+    acc_field_redop<DataType<LEGMS_TYPE_BOOL>::ValueType>>(),
+    acc_field_redop<DataType<LEGMS_TYPE_BOOL>::ValueType>::init_fn,
+    acc_field_redop<DataType<LEGMS_TYPE_BOOL>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_CHAR_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<TypeTag::TpChar>::ValueType>>(),
-    acc_field_redop<DataType<TypeTag::TpChar>::ValueType>::init_fn,
-    acc_field_redop<DataType<TypeTag::TpChar>::ValueType>::fold_fn);
+    acc_field_redop<DataType<LEGMS_TYPE_CHAR>::ValueType>>(),
+    acc_field_redop<DataType<LEGMS_TYPE_CHAR>::ValueType>::init_fn,
+    acc_field_redop<DataType<LEGMS_TYPE_CHAR>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_UCHAR_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<TypeTag::TpUChar>::ValueType>>(),
-    acc_field_redop<DataType<TypeTag::TpUChar>::ValueType>::init_fn,
-    acc_field_redop<DataType<TypeTag::TpUChar>::ValueType>::fold_fn);
+    acc_field_redop<DataType<LEGMS_TYPE_UCHAR>::ValueType>>(),
+    acc_field_redop<DataType<LEGMS_TYPE_UCHAR>::ValueType>::init_fn,
+    acc_field_redop<DataType<LEGMS_TYPE_UCHAR>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_SHORT_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<TypeTag::TpShort>::ValueType>>(),
-    acc_field_redop<DataType<TypeTag::TpShort>::ValueType>::init_fn,
-    acc_field_redop<DataType<TypeTag::TpShort>::ValueType>::fold_fn);
+    acc_field_redop<DataType<LEGMS_TYPE_SHORT>::ValueType>>(),
+    acc_field_redop<DataType<LEGMS_TYPE_SHORT>::ValueType>::init_fn,
+    acc_field_redop<DataType<LEGMS_TYPE_SHORT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_USHORT_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<TypeTag::TpUShort>::ValueType>>(),
-    acc_field_redop<DataType<TypeTag::TpUShort>::ValueType>::init_fn,
-    acc_field_redop<DataType<TypeTag::TpUShort>::ValueType>::fold_fn);
+    acc_field_redop<DataType<LEGMS_TYPE_USHORT>::ValueType>>(),
+    acc_field_redop<DataType<LEGMS_TYPE_USHORT>::ValueType>::init_fn,
+    acc_field_redop<DataType<LEGMS_TYPE_USHORT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_INT_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<TypeTag::TpInt>::ValueType>>(),
-    acc_field_redop<DataType<TypeTag::TpInt>::ValueType>::init_fn,
-    acc_field_redop<DataType<TypeTag::TpInt>::ValueType>::fold_fn);
+    acc_field_redop<DataType<LEGMS_TYPE_INT>::ValueType>>(),
+    acc_field_redop<DataType<LEGMS_TYPE_INT>::ValueType>::init_fn,
+    acc_field_redop<DataType<LEGMS_TYPE_INT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_UINT_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<TypeTag::TpUInt>::ValueType>>(),
-    acc_field_redop<DataType<TypeTag::TpUInt>::ValueType>::init_fn,
-    acc_field_redop<DataType<TypeTag::TpUInt>::ValueType>::fold_fn);
+    acc_field_redop<DataType<LEGMS_TYPE_UINT>::ValueType>>(),
+    acc_field_redop<DataType<LEGMS_TYPE_UINT>::ValueType>::init_fn,
+    acc_field_redop<DataType<LEGMS_TYPE_UINT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_FLOAT_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<TypeTag::TpFloat>::ValueType>>(),
-    acc_field_redop<DataType<TypeTag::TpFloat>::ValueType>::init_fn,
-    acc_field_redop<DataType<TypeTag::TpFloat>::ValueType>::fold_fn);
+    acc_field_redop<DataType<LEGMS_TYPE_FLOAT>::ValueType>>(),
+    acc_field_redop<DataType<LEGMS_TYPE_FLOAT>::ValueType>::init_fn,
+    acc_field_redop<DataType<LEGMS_TYPE_FLOAT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_DOUBLE_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<TypeTag::TpDouble>::ValueType>>(),
-    acc_field_redop<DataType<TypeTag::TpDouble>::ValueType>::init_fn,
-    acc_field_redop<DataType<TypeTag::TpDouble>::ValueType>::fold_fn);
+    acc_field_redop<DataType<LEGMS_TYPE_DOUBLE>::ValueType>>(),
+    acc_field_redop<DataType<LEGMS_TYPE_DOUBLE>::ValueType>::init_fn,
+    acc_field_redop<DataType<LEGMS_TYPE_DOUBLE>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_COMPLEX_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<TypeTag::TpComplex>::ValueType>>(),
-    acc_field_redop<DataType<TypeTag::TpComplex>::ValueType>::init_fn,
-    acc_field_redop<DataType<TypeTag::TpComplex>::ValueType>::fold_fn);
+    acc_field_redop<DataType<LEGMS_TYPE_COMPLEX>::ValueType>>(),
+    acc_field_redop<DataType<LEGMS_TYPE_COMPLEX>::ValueType>::init_fn,
+    acc_field_redop<DataType<LEGMS_TYPE_COMPLEX>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_DCOMPLEX_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<TypeTag::TpDComplex>::ValueType>>(),
-    acc_field_redop<DataType<TypeTag::TpDComplex>::ValueType>::init_fn,
-    acc_field_redop<DataType<TypeTag::TpDComplex>::ValueType>::fold_fn);
+    acc_field_redop<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>>(),
+    acc_field_redop<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>::init_fn,
+    acc_field_redop<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>::fold_fn);
 }
 
 FieldID
@@ -774,6 +774,14 @@ legms::create_partition_on_axes(
 }
 
 void
+legms::preregister_all() {
+  OpsManager::preregister_ops();
+#ifdef USE_HDF5
+  H5DatatypeManager::preregister_datatypes();
+#endif
+}
+
+void
 legms::register_tasks(Runtime* runtime) {
 #ifdef USE_CASACORE
   TableReadTask::register_task(runtime);
@@ -783,11 +791,12 @@ legms::register_tasks(Runtime* runtime) {
   Table::register_tasks(runtime);
 }
 
+#ifdef USE_HDF5
 hid_t
 legms::H5DatatypeManager::datatypes_[DATATYPE_H5T + 1];
 
 void
-legms::H5DatatypeManager::register_datatypes() {
+legms::H5DatatypeManager::preregister_datatypes() {
   datatypes_[BOOL_H5T] = H5T_NATIVE_HBOOL;
   datatypes_[CHAR_H5T] = H5T_NATIVE_SCHAR;
   datatypes_[UCHAR_H5T] = H5T_NATIVE_UCHAR;
@@ -818,7 +827,7 @@ legms::H5DatatypeManager::register_datatypes() {
     hid_t dt = H5Tenum_create(H5T_NATIVE_UCHAR);
 
 #define DTINSERT(T) do {                          \
-      unsigned char val = TypeTag::T;           \
+      unsigned char val = LEGMS_TYPE_##T;         \
       herr_t err = H5Tenum_insert(dt, #T, &val);  \
       assert(err >= 0);                           \
     } while(0);
@@ -894,6 +903,7 @@ legms::H5DatatypeManager::create(
   }
   return result;
 }
+#endif // USE_HDF5
 
 // Local Variables:
 // mode: c++

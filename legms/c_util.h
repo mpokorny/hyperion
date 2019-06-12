@@ -2,16 +2,9 @@
 #define LEGMS_C_UTIL_H_
 
 #include "legms_c.h"
-#include "Column_c.h"
-#include "Table_c.h"
 
 #ifdef __cplusplus
 #include <memory>
-
-#include "Table.h"
-#include "Column.h"
-#include "ColumnPartition.h"
-#include "ColumnPartition_c.h"
 
 namespace legms {
 namespace CObjectWrapper {
@@ -36,39 +29,6 @@ struct UniqueWrapper {
 template <typename Wrapped>
 struct SharedWrapper {
   // typedef type_t
-};
-
-template <>
-struct UniqueWrapper<Table> {
-  typedef table_t type_t;
-};
-
-template <>
-struct UniqueWrapped<table_t> {
-  typedef Table type_t;
-  typedef std::unique_ptr<type_t> impl_t;
-};
-
-template <>
-struct UniqueWrapper<ColumnPartition> {
-  typedef column_partition_t type_t;
-};
-
-template <>
-struct UniqueWrapped<column_partition_t> {
-  typedef ColumnPartition type_t;
-  typedef std::unique_ptr<type_t> impl_t;
-};
-
-template <>
-struct SharedWrapper<Column> {
-  typedef column_t type_t;
-};
-
-template <>
-struct SharedWrapped<column_t> {
-  typedef Column type_t;
-  typedef std::shared_ptr<type_t> impl_t;
 };
 
 template <typename Wrapped>
@@ -131,44 +91,44 @@ destroy(Wrapper wrapper) {
 #endif // __cplusplus
 
 #define FOREACH_MS_TABLE_Tt(__func__)           \
-  __func__(MAIN, main);                         \
-  __func__(ANTENNA, antenna);                   \
-  __func__(DATA_DESCRIPTION, data_description); \
-  __func__(DOPPLER, doppler);                   \
-  __func__(FEED, feed);                         \
-  __func__(FIELD, field);                       \
-  __func__(FLAG_CMD, flag_cmd);                 \
-  __func__(FREQ_OFFSET, freq_offset);           \
-  __func__(HISTORY, history);                   \
-  __func__(OBSERVATION, observation);           \
-  __func__(POINTING, pointing);                 \
-  __func__(POLARIZATION, polarization);         \
-  __func__(PROCESSOR, processor);               \
-  __func__(SOURCE, source);                     \
-  __func__(SPECTRAL_WINDOW, spectral_window);   \
-  __func__(STATE, state);                       \
-  __func__(SYSCAL, syscal);                     \
-  __func__(WEATHER, weather);
+  __func__(MAIN, main)                         \
+  __func__(ANTENNA, antenna)                   \
+  __func__(DATA_DESCRIPTION, data_description) \
+  __func__(DOPPLER, doppler)                   \
+  __func__(FEED, feed)                         \
+  __func__(FIELD, field)                       \
+  __func__(FLAG_CMD, flag_cmd)                 \
+  __func__(FREQ_OFFSET, freq_offset)           \
+  __func__(HISTORY, history)                   \
+  __func__(OBSERVATION, observation)           \
+  __func__(POINTING, pointing)                 \
+  __func__(POLARIZATION, polarization)         \
+  __func__(PROCESSOR, processor)               \
+  __func__(SOURCE, source)                     \
+  __func__(SPECTRAL_WINDOW, spectral_window)   \
+  __func__(STATE, state)                       \
+  __func__(SYSCAL, syscal)                     \
+  __func__(WEATHER, weather)
 
 #define FOREACH_MS_TABLE_t(__func__)            \
-  __func__(main);                               \
-  __func__(antenna);                            \
-  __func__(data_description);                   \
-  __func__(doppler);                            \
-  __func__(feed);                               \
-  __func__(field);                              \
-  __func__(flag_cmd);                           \
-  __func__(freq_offset);                        \
-  __func__(history);                            \
-  __func__(observation);                        \
-  __func__(pointing);                           \
-  __func__(polarization);                       \
-  __func__(processor);                          \
-  __func__(source);                             \
-  __func__(spectral_window);                    \
-  __func__(state);                              \
-  __func__(syscal);                             \
-  __func__(weather);
+  __func__(main)                               \
+  __func__(antenna)                            \
+  __func__(data_description)                   \
+  __func__(doppler)                            \
+  __func__(feed)                               \
+  __func__(field)                              \
+  __func__(flag_cmd)                           \
+  __func__(freq_offset)                        \
+  __func__(history)                            \
+  __func__(observation)                        \
+  __func__(pointing)                           \
+  __func__(polarization)                       \
+  __func__(processor)                          \
+  __func__(source)                             \
+  __func__(spectral_window)                    \
+  __func__(state)                              \
+  __func__(syscal)                             \
+  __func__(weather)
 
 #endif // LEGMS_C_UTIL_H_
 

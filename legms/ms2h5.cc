@@ -90,9 +90,7 @@ public:
       runtime->create_index_space(context, Rect<1>(0, MAX_TABLES - 1));
     FieldSpace fs = runtime->create_field_space(context);
     FieldAllocator fa = runtime->create_field_allocator(context, fs);
-    fa.allocate_field(
-      sizeof(DataType<legms::TypeTag::TpString>::ValueType),
-      NAME_FID);
+    fa.allocate_field(sizeof(DataType<LEGMS_TYPE_STRING>::ValueType), NAME_FID);
     LogicalRegion result = runtime->create_logical_region(context, is, fs);
     runtime->destroy_field_space(context, fs);
     runtime->destroy_index_space(context, is);
@@ -397,8 +395,7 @@ main(int argc, char** argv) {
   TopLevelTask::register_task();
   TableNameCollectorTask::register_task();
   Runtime::set_top_level_task_id(TopLevelTask::TASK_ID);
-  OpsManager::register_ops();
-  H5DatatypeManager::register_datatypes();
+  preregister_all();
   return Runtime::start(argc, argv);
 }
 

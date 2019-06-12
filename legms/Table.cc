@@ -7,6 +7,11 @@
 #include "legms.h"
 #include "Column.h"
 #include "Table.h"
+#include "TableBuilder.h"
+
+#if USE_HDF5
+# include <hdf5.h>
+#endif
 
 using namespace legms;
 using namespace std;
@@ -1453,6 +1458,69 @@ Table::register_tasks(Runtime* runtime) {
   ReindexColumnTask::register_task(runtime);
   ReindexColumnCopyTask::register_task(runtime);
 }
+
+#ifdef USE_CASACORE
+
+std::unique_ptr<Table>
+Table::from_ms(
+  Legion::Context ctx,
+  Legion::Runtime* runtime,
+  const std::experimental::filesystem::path& path,
+  const std::unordered_set<std::string>& column_selections) {
+
+  std::string table_name = path.filename();
+
+#define FROM_MS_TABLE(N)                                                \
+  do {                                                                  \
+    if (table_name == MSTable<MS_##N>::name)                            \
+      return                                                            \
+        legms:: template from_ms<MS_##N>(ctx, runtime, path, column_selections); \
+  } while (0);
+
+  LEGMS_FOREACH_MSTABLE(FROM_MS_TABLE);
+
+  // try to read as main table
+  return
+    legms:: template from_ms<MS_MAIN>(
+      ctx,
+      runtime,
+      path,
+      column_selections);
+
+#undef FROM_MS_TABLE
+}
+
+#endif // USE_CASACORE
+
+#if USE_HDF5
+
+#define H5_AXES_DATATYPE(T)                                             \
+  template <>                                                           \
+  hid_t legms::TableT<typename MSTable<MS_##T>::Axes>::m_h5_axes_datatype = \
+    legms::h5_axes_datatype<MS_##T>();
+
+LEGMS_FOREACH_MSTABLE(H5_AXES_DATATYPE)
+
+#undef H5_AXES_DATATYPE
+
+void
+legms::match_h5_axes_datatype(hid_t& id, const char*& uid) {
+  if (id < 0)
+    return;
+
+#define MATCH_DT(T)                                                     \
+  if (H5Tequal(id, TableT<typename MSTable<MS_##T>::Axes>::h5_axes())) { \
+    id = TableT<typename MSTable<MS_##T>::Axes>::h5_axes();             \
+    uid = AxesUID<typename MSTable<MS_##T>::Axes>::id;                  \
+    return;                                                             \
+  }
+
+  LEGMS_FOREACH_MSTABLE(MATCH_DT);
+#undef MATCH_DT
+
+  id = -1;
+}
+#endif //USE_HDF5
 
 // Local Variables:
 // mode: c++

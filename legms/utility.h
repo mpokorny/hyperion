@@ -15,6 +15,8 @@
 #include "legms.h"
 #include "IndexTree.h"
 
+#include "utility_c.h"
+
 #ifdef USE_HDF5
 # include <hdf5.h>
 # include <experimental/filesystem>
@@ -100,21 +102,7 @@ dimensions_map(const std::vector<D>& from, const std::vector<D>& to) {
   return result;
 }
 
-enum TypeTag : unsigned char {
-  TpBool,
-  TpChar,
-  TpUChar,
-  TpShort,
-  TpUShort,
-  TpInt,
-  TpUInt,
-  TpFloat,
-  TpDouble,
-  TpComplex,
-  TpDComplex,
-  TpString
-};
-#undef TTDEF
+typedef ::legms_type_tag_t TypeTag;
 
 // uid of axes
 template <typename T>
@@ -565,7 +553,7 @@ struct OpsManager {
 public:
 
   static void
-  register_ops();
+  preregister_ops();
 
   enum {
     INDEX_TREE_SID = 1,
@@ -629,7 +617,7 @@ public:
   };
 
   static void
-  register_datatypes();
+  preregister_datatypes();
 
   static const hid_t*
   datatypes() {
@@ -667,7 +655,7 @@ add_field(
   Legion::FieldID field_id = AUTO_GENERATE_ID);
 
 template <>
-struct DataType<TypeTag::TpBool> {
+struct DataType<LEGMS_TYPE_BOOL> {
   typedef bool ValueType;
   constexpr static const char* s = "bool";
   constexpr static int id = 0;
@@ -694,7 +682,7 @@ struct DataType<TypeTag::TpBool> {
 };
 
 template <>
-struct DataType<TypeTag::TpChar> {
+struct DataType<LEGMS_TYPE_CHAR> {
   typedef char ValueType;
   constexpr static const char* s = "char";
   constexpr static int id = 1;
@@ -721,7 +709,7 @@ struct DataType<TypeTag::TpChar> {
 };
 
 template <>
-struct DataType<TypeTag::TpUChar> {
+struct DataType<LEGMS_TYPE_UCHAR> {
   typedef unsigned char ValueType;
   constexpr static const char* s = "uChar";
   constexpr static int id = 2;
@@ -748,7 +736,7 @@ struct DataType<TypeTag::TpUChar> {
 };
 
 template <>
-struct DataType<TypeTag::TpShort> {
+struct DataType<LEGMS_TYPE_SHORT> {
   typedef short ValueType;
   constexpr static const char* s = "short";
   constexpr static int id = 3;
@@ -775,7 +763,7 @@ struct DataType<TypeTag::TpShort> {
 };
 
 template <>
-struct DataType<TypeTag::TpUShort> {
+struct DataType<LEGMS_TYPE_USHORT> {
   typedef unsigned short ValueType;
   constexpr static const char* s = "uShort";
   constexpr static int id = 4;
@@ -802,7 +790,7 @@ struct DataType<TypeTag::TpUShort> {
 };
 
 template <>
-struct DataType<TypeTag::TpInt> {
+struct DataType<LEGMS_TYPE_INT> {
   typedef int ValueType;
   constexpr static const char* s = "int";
   constexpr static int id = 5;
@@ -829,7 +817,7 @@ struct DataType<TypeTag::TpInt> {
 };
 
 template <>
-struct DataType<TypeTag::TpUInt> {
+struct DataType<LEGMS_TYPE_UINT> {
   typedef unsigned int ValueType;
   constexpr static const char* s = "uInt";
   constexpr static int id = 6;
@@ -856,7 +844,7 @@ struct DataType<TypeTag::TpUInt> {
 };
 
 template <>
-struct DataType<TypeTag::TpFloat> {
+struct DataType<LEGMS_TYPE_FLOAT> {
   typedef float ValueType;
   constexpr static const char* s = "float";
   constexpr static int id = 7;
@@ -883,7 +871,7 @@ struct DataType<TypeTag::TpFloat> {
 };
 
 template <>
-struct DataType<TypeTag::TpDouble> {
+struct DataType<LEGMS_TYPE_DOUBLE> {
   typedef double ValueType;
   constexpr static const char* s = "double";
   constexpr static int id = 8;
@@ -910,7 +898,7 @@ struct DataType<TypeTag::TpDouble> {
 };
 
 template <>
-struct DataType<TypeTag::TpComplex> {
+struct DataType<LEGMS_TYPE_COMPLEX> {
   typedef std::complex<float> ValueType;
   constexpr static const char* s = "complex";
   constexpr static int id = 9;
@@ -937,7 +925,7 @@ struct DataType<TypeTag::TpComplex> {
 };
 
 template <>
-struct DataType<TypeTag::TpDComplex> {
+struct DataType<LEGMS_TYPE_DCOMPLEX> {
   typedef std::complex<double> ValueType;
   constexpr static const char* s = "dComplex";
   constexpr static int id = 10;
@@ -964,7 +952,7 @@ struct DataType<TypeTag::TpDComplex> {
 };
 
 template <>
-struct DataType<TypeTag::TpString> {
+struct DataType<LEGMS_TYPE_STRING> {
   typedef legms::string ValueType;
   constexpr static const char* s = "string";
   constexpr static int id = 11;
@@ -999,35 +987,35 @@ H5DatatypeManager::datatype() {
 }
 #endif
 
-#define NUM_LEGMS_DATATYPES (DataType<legms::TypeTag::TpString>::id + 1)
+#define NUM_LEGMS_DATATYPES (DataType<LEGMS_TYPE_STRING>::id + 1)
 
 #define LEGMS_FOREACH_DATATYPE(__func__)              \
-  __func__(legms::TypeTag::TpBool)              \
-  __func__(legms::TypeTag::TpChar)              \
-  __func__(legms::TypeTag::TpUChar)             \
-  __func__(legms::TypeTag::TpShort)             \
-  __func__(legms::TypeTag::TpUShort)            \
-  __func__(legms::TypeTag::TpInt)               \
-  __func__(legms::TypeTag::TpUInt)              \
-  __func__(legms::TypeTag::TpFloat)             \
-  __func__(legms::TypeTag::TpDouble)            \
-  __func__(legms::TypeTag::TpComplex)           \
-  __func__(legms::TypeTag::TpDComplex)          \
-  __func__(legms::TypeTag::TpString)
+  __func__(LEGMS_TYPE_BOOL)              \
+  __func__(LEGMS_TYPE_CHAR)              \
+  __func__(LEGMS_TYPE_UCHAR)             \
+  __func__(LEGMS_TYPE_SHORT)             \
+  __func__(LEGMS_TYPE_USHORT)            \
+  __func__(LEGMS_TYPE_INT)               \
+  __func__(LEGMS_TYPE_UINT)              \
+  __func__(LEGMS_TYPE_FLOAT)             \
+  __func__(LEGMS_TYPE_DOUBLE)            \
+  __func__(LEGMS_TYPE_COMPLEX)           \
+  __func__(LEGMS_TYPE_DCOMPLEX)          \
+  __func__(LEGMS_TYPE_STRING)
 
 #define LEGMS_FOREACH_BARE_DATATYPE(__func__)  \
-  __func__(TpBool)          \
-  __func__(TpChar)          \
-  __func__(TpUChar)         \
-  __func__(TpShort)         \
-  __func__(TpUShort)        \
-  __func__(TpInt)           \
-  __func__(TpUInt)          \
-  __func__(TpFloat)         \
-  __func__(TpDouble)        \
-  __func__(TpComplex)       \
-  __func__(TpDComplex)      \
-  __func__(TpString)
+  __func__(BOOL)          \
+  __func__(CHAR)          \
+  __func__(UCHAR)         \
+  __func__(SHORT)         \
+  __func__(USHORT)        \
+  __func__(INT)           \
+  __func__(UINT)          \
+  __func__(FLOAT)         \
+  __func__(DOUBLE)        \
+  __func__(COMPLEX)       \
+  __func__(DCOMPLEX)      \
+  __func__(STRING)
 
 template <typename T>
 struct ValueType {
@@ -1044,7 +1032,7 @@ LEGMS_FOREACH_DATATYPE(VT)
 
 template <>
 struct ValueType<std::string> {
-  constexpr static TypeTag DataType = TypeTag::TpString;
+  constexpr static TypeTag DataType = LEGMS_TYPE_STRING;
 };
 #undef VT
 
@@ -1200,6 +1188,9 @@ create_partition_on_axes(
   Legion::Runtime* runtime,
   Legion::IndexSpace is,
   const std::vector<AxisPartition<int>>& parts);
+
+void
+preregister_all();
 
 void
 register_tasks(Legion::Runtime* runtime);

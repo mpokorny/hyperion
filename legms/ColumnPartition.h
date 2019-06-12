@@ -6,6 +6,10 @@
 
 #include "legms.h"
 
+#include "ColumnPartition_c.h"
+
+#include "c_util.h"
+
 namespace legms {
 
 class ColumnPartition {
@@ -79,6 +83,17 @@ public:
       [](auto& i) { return static_cast<D>(i); });
     return result;
   }
+};
+
+template <>
+struct CObjectWrapper::UniqueWrapper<ColumnPartition> {
+  typedef legms_column_partition_t type_t;
+};
+
+template <>
+struct CObjectWrapper::UniqueWrapped<legms_column_partition_t> {
+  typedef ColumnPartition type_t;
+  typedef std::unique_ptr<type_t> impl_t;
 };
 
 } // end namespace legms

@@ -9,15 +9,12 @@ extern "C" {
 #endif
 
 void
-table_block_read_task(
+legms_table_block_read_task(
   const char* path,
-  table_t table,
+  legms_table_t table,
   // NULL-terminated array of string pointers
   const char** column_names,
   size_t block_length);
-
-void
-table_read_task_register(legion_runtime_t runtime);
 
 #ifdef __cplusplus
 }

@@ -9,10 +9,14 @@
 
 #include "legms.h"
 #include "utility.h"
+
+#include "Column_c.h"
+
 #include "WithKeywords.h"
 #include "IndexTree.h"
 #include "ColumnPartition.h"
-#include "ColumnBuilder.h"
+
+#include "c_util.h"
 
 namespace legms {
 
@@ -171,19 +175,6 @@ public:
 
   typedef std::function<
   std::unique_ptr<ColumnT<D>>(Legion::Context, Legion::Runtime*)> Generator;
-
-  ColumnT(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const ColumnBuilder<D>& builder)
-    : Column(
-      ctx,
-      runtime,
-      builder.name(),
-      builder.datatype(),
-      builder.index_tree(),
-      builder.keywords())
-    , m_axes(builder.axes()) {}
 
   ColumnT(
     Legion::Context ctx,
@@ -756,6 +747,17 @@ ColumnGenArgs::operator()(
 
   return ColumnT<D>::generator(*this)(ctx, runtime);
 }
+
+template <>
+struct CObjectWrapper::SharedWrapper<Column> {
+  typedef legms_column_t type_t;
+};
+
+template <>
+struct CObjectWrapper::SharedWrapped<legms_column_t> {
+  typedef Column type_t;
+  typedef std::shared_ptr<type_t> impl_t;
+};
 
 } // end namespace legms
 

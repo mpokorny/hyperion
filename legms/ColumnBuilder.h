@@ -1,6 +1,8 @@
 #ifndef LEGMS_COLUMN_BUILDER_H_
 #define LEGMS_COLUMN_BUILDER_H_
 
+#ifdef USE_CASACORE
+
 #include <any>
 #include <cassert>
 #include <functional>
@@ -13,25 +15,29 @@
 #include "utility.h"
 #include "WithKeywordsBuilder.h"
 #include "IndexTree.h"
+#include "Column.h"
+#include "MSTable.h"
 
 namespace legms {
 
-template <typename D>
+template <MSTables D>
 class ColumnBuilder
   : public WithKeywordsBuilder {
 public:
 
+  typedef typename MSTable<D>::Axes Axes;
+
   ColumnBuilder(
     const std::string& name,
     TypeTag datatype,
-    const std::vector<D>& axes)
+    const std::vector<Axes>& axes)
     : WithKeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
     , m_axes(axes)
     , m_num_rows(0) {
 
-    assert(axes[0] == D::ROW);
+    assert(axes[0] == MSTable<D>::ROW_AXIS);
     assert(has_unique_values(m_axes));
   }
 
@@ -47,7 +53,7 @@ public:
     return m_datatype;
   }
 
-  const std::vector<D>&
+  const std::vector<Axes>&
   axes() const {
     return m_axes;
   }
@@ -75,6 +81,19 @@ public:
   virtual void
   add_row(const std::any&) = 0;
 
+  std::unique_ptr<ColumnT<typename MSTable<D>::Axes>>
+  column(Legion::Context ctx, Legion::Runtime* runtime) const {
+    return
+      std::make_unique<ColumnT<typename MSTable<D>::Axes>>(
+        ctx,
+        runtime,
+        name(),
+        datatype(),
+        axes(),
+        index_tree(),
+        keywords());
+  }
+
 protected:
 
   void
@@ -90,14 +109,14 @@ private:
 
   TypeTag m_datatype;
 
-  std::vector<D> m_axes;
+  std::vector<Axes> m_axes;
 
   size_t m_num_rows;
 
   IndexTreeL m_index_tree;
 };
 
-template <typename D>
+template <MSTables D>
 class ScalarColumnBuilder
   : public ColumnBuilder<D> {
 public:
@@ -105,7 +124,7 @@ public:
   ScalarColumnBuilder(
     const std::string& name,
     TypeTag datatype)
-    : ColumnBuilder<D>(name, datatype, {D::ROW}) {
+    : ColumnBuilder<D>(name, datatype, {MSTable<D>::ROW_AXIS}) {
   }
 
   template <typename T>
@@ -127,15 +146,17 @@ public:
   }
 };
 
-template <typename D, int ARRAYDIM>
+template <MSTables D, int ARRAYDIM>
 class ArrayColumnBuilder
   : public ColumnBuilder<D> {
 public:
 
+  typedef typename MSTable<D>::Axes Axes;
+
   ArrayColumnBuilder(
     const std::string& name,
     TypeTag datatype,
-    const std::vector<D>& axes,
+    const std::vector<Axes>& axes,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)> element_shape)
     : ColumnBuilder<D>(name, datatype, axes)
     , m_element_shape(element_shape) {
@@ -153,7 +174,7 @@ public:
     element_shape) {
 
     return
-      [=](const std::vector<D>& axes) {
+      [=](const std::vector<Axes>& axes) {
         return std::make_unique<ArrayColumnBuilder<D, ARRAYDIM>>(
           name,
           ValueType<T>::DataType,
@@ -182,6 +203,8 @@ private:
 };
 
 } // end namespace legms
+
+#endif // USE_CASACORE
 
 #endif // LEGMS_COLUMN_BUILDER_H_
 

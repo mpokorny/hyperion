@@ -8,8 +8,8 @@
 
 #include "legms.h"
 #include "utility.h"
-#include "Table.h"
-#include "TableBuilder.h"
+
+#include "MSTable_c.h"
 
 #if USE_HDF5
 # include <hdf5.h>
@@ -17,54 +17,37 @@
 
 namespace legms {
 
-enum struct MSTables {
-  MAIN,
-  ANTENNA,
-  DATA_DESCRIPTION,
-  DOPPLER,
-  FEED,
-  FIELD,
-  FLAG_CMD,
-  FREQ_OFFSET,
-  HISTORY,
-  OBSERVATION,
-  POINTING,
-  POLARIZATION,
-  PROCESSOR,
-  SOURCE,
-  SPECTRAL_WINDOW,
-  STATE,
-  SYSCAL,
-  WEATHER
-};
+typedef ::legms_ms_tables_t MSTables;
 
 #define LEGMS_FOREACH_MSTABLE(FUNC) \
-  FUNC(MSTables::MAIN)              \
-  FUNC(MSTables::ANTENNA) \
-  FUNC(MSTables::DATA_DESCRIPTION) \
-  FUNC(MSTables::DOPPLER) \
-  FUNC(MSTables::FEED) \
-  FUNC(MSTables::FIELD) \
-  FUNC(MSTables::FLAG_CMD) \
-  FUNC(MSTables::FREQ_OFFSET) \
-  FUNC(MSTables::HISTORY) \
-  FUNC(MSTables::OBSERVATION) \
-  FUNC(MSTables::POINTING) \
-  FUNC(MSTables::POLARIZATION) \
-  FUNC(MSTables::PROCESSOR) \
-  FUNC(MSTables::SOURCE) \
-  FUNC(MSTables::SPECTRAL_WINDOW) \
-  FUNC(MSTables::STATE) \
-  FUNC(MSTables::SYSCAL) \
-  FUNC(MSTables::WEATHER)
+  FUNC(MAIN)              \
+  FUNC(ANTENNA) \
+  FUNC(DATA_DESCRIPTION) \
+  FUNC(DOPPLER) \
+  FUNC(FEED) \
+  FUNC(FIELD) \
+  FUNC(FLAG_CMD) \
+  FUNC(FREQ_OFFSET) \
+  FUNC(HISTORY) \
+  FUNC(OBSERVATION) \
+  FUNC(POINTING) \
+  FUNC(POLARIZATION) \
+  FUNC(PROCESSOR) \
+  FUNC(SOURCE) \
+  FUNC(SPECTRAL_WINDOW) \
+  FUNC(STATE) \
+  FUNC(SYSCAL) \
+  FUNC(WEATHER)
 
 template <MSTables T>
 struct MSTable {
   static const char* name;
-  enum struct Axes;
-  static const std::unordered_map<std::string, std::vector<Axes>>
-  element_axes;
-  static const std::unordered_map<Axes, std::string>& axis_names();
+  //typedef ... Axes;
+  // static const Axes ROW_AXIS;
+  // static const Axes LAST_AXIS;
+  // static const std::unordered_map<std::string, std::vector<Axes>>
+  // element_axes;
+  // static const std::unordered_map<Axes, std::string>& axis_names();
 };
 
 // defining axis names with the following helper structure should help prevent
@@ -74,15 +57,15 @@ struct MSTableAxis {
   // static const char* name;
 };
 
-#define MS_AXIS_NAME(T, A)                                          \
-  template <>                                                       \
-  struct MSTableAxis<MSTables::T, MSTable<MSTables::T>::Axes::A> {  \
-    static const constexpr char* name = #A;                         \
+#define MS_AXIS_NAME(T, A)                      \
+  template <>                                   \
+  struct MSTableAxis<MS_##T, T##_##A> {         \
+    static const constexpr char* name = #A;     \
   }
 
 #define MS_TABLE_AXES_UID(T)                          \
   template <>                                         \
-  struct AxesUID<MSTable<MSTables::T>::Axes> {        \
+  struct AxesUID<MSTable<MS_##T>::Axes> {        \
     static const constexpr char *id = "legms::" #T;   \
   }
 
@@ -96,48 +79,14 @@ struct MSTableAxis {
 // indexing)
 
 template <>
-struct MSTable<MSTables::MAIN> {
+struct MSTable<MS_MAIN> {
   static const constexpr char *name = "MAIN";
 
-  enum struct Axes {
-    index = -1,
+  typedef ::legms_ms_main_axes_t Axes;
 
-    ROW = 0,
-    // UVW(0)
-    UVW,
-    // DATA(0), FLOAT_DATA(0), VIDEO_POINT(0), LAG_DATA(0), SIGMA(0),
-    // SIGMA_SPECTRUM(0), WEIGHT_SPECTRUM(0), FLAG(0), FLAG_CATEGORY(0)
-    CORRELATOR,
-    // DATA(1), FLOAT_DATA(1), SIGMA_SPECTRUM(1), WEIGHT_SPECTRUM(1), FLAG(1),
-    // FLAG_CATEGORY(1)
-    FREQUENCY_CHANNEL,
-    // LAG_DATA(1)
-    LAG,
-    // FLAG_CATEGORY(2)
-    FLAG_CATEGORY,
+  static const Axes ROW_AXIS = MAIN_ROW;
 
-    // key column axes
-    TIME,
-    TIME_EXTRA_PREC,
-    ANTENNA1,
-    ANTENNA2,
-    ANTENNA3,
-    FEED1,
-    FEED2,
-    FEED3,
-    DATA_DESC_ID,
-    PROCESSOR_ID,
-    PHASE_ID,
-    FIELD_ID,
-
-    // additional index column axes
-    SCAN_NUMBER,
-    ARRAY_ID,
-    OBSERVATION_ID,
-    STATE_ID,
-
-    last = STATE_ID
-  };
+  static const Axes LAST_AXIS = MAIN_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -172,20 +121,14 @@ MS_AXIS_NAME(MAIN, STATE_ID);
 MS_TABLE_AXES_UID(MAIN);
 
 template <>
-struct MSTable<MSTables::ANTENNA> {
+struct MSTable<MS_ANTENNA> {
   static const constexpr char* name = "ANTENNA";
 
-  enum struct Axes {
-    ROW = 0,
-    // POSITION(0)
-    POSITION,
-    // OFFSET(0)
-    OFFSET,
-    // MEAN_ORBIT(0)
-    MEAN_ORBIT,
+  typedef ::legms_ms_antenna_axes_t Axes;
 
-    last = MEAN_ORBIT
-  };
+  static const Axes ROW_AXIS = ANTENNA_ROW;
+
+  static const Axes LAST_AXIS = ANTENNA_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -202,14 +145,14 @@ MS_AXIS_NAME(ANTENNA, MEAN_ORBIT);
 MS_TABLE_AXES_UID(ANTENNA);
 
 template <>
-struct MSTable<MSTables::DATA_DESCRIPTION> {
+struct MSTable<MS_DATA_DESCRIPTION> {
   static const constexpr char* name = "DATA_DESCRIPTION";
 
-  enum struct Axes {
-    ROW,
+  typedef ::legms_ms_data_description_axes_t Axes;
 
-    last = ROW
-  };
+  static const Axes ROW_AXIS = DATA_DESCRIPTION_ROW;
+
+  static const Axes LAST_AXIS = DATA_DESCRIPTION_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -223,23 +166,14 @@ MS_AXIS_NAME(DATA_DESCRIPTION, ROW);
 MS_TABLE_AXES_UID(DATA_DESCRIPTION);
 
 template <>
-struct MSTable<MSTables::DOPPLER> {
+struct MSTable<MS_DOPPLER> {
   static const constexpr char *name = "DOPPLER";
 
-  enum struct Axes {
-    index = -1,
+  typedef ::legms_ms_doppler_axes_t Axes;
 
-    ROW = 0,
+  static const Axes ROW_AXIS = DOPPLER_ROW;
 
-    // key column axes
-    DOPPLER_ID,
-    SOURCE_ID,
-
-    // additional index column axes
-    TRANSITION_ID,
-
-    last = TRANSITION_ID
-  };
+  static const Axes LAST_AXIS = DOPPLER_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -256,31 +190,14 @@ MS_AXIS_NAME(DOPPLER, TRANSITION_ID);
 MS_TABLE_AXES_UID(DOPPLER);
 
 template <>
-struct MSTable<MSTables::FEED> {
+struct MSTable<MS_FEED> {
   static const constexpr char *name = "FEED";
 
-  enum struct Axes {
-    index = -1,
+  typedef ::legms_ms_feed_axes_t Axes;
 
-    ROW = 0,
-    // BEAM_OFFSET(1), POLARIZATION_TYPE(0), POL_RESPONSE(0), RECEPTOR_ANGLE(0)
-    RECEPTOR,
-    // POL_RESPONSE(1)
-    RECEPTOR1,
-    // BEAM_OFFSET(0)
-    DIRECTION,
-    // POSITION(0)
-    POSITION,
+  static const Axes ROW_AXIS = FEED_ROW;
 
-    // key column axes
-    ANTENNA_ID,
-    FEED_ID,
-    SPECTRAL_WINDOW_ID,
-    TIME,
-    INTERVAL,
-
-    last = INTERVAL
-  };
+  static const Axes LAST_AXIS = FEED_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -303,24 +220,14 @@ MS_AXIS_NAME(FEED, INTERVAL);
 MS_TABLE_AXES_UID(FEED);
 
 template <>
-struct MSTable<MSTables::FIELD> {
+struct MSTable<MS_FIELD> {
   static const constexpr char* name = "FIELD";
 
-  enum struct Axes {
-    index = -1,
+  typedef ::legms_ms_field_axes_t Axes;
 
-    ROW = 0,
-    // DELAY_DIR(1), PHASE_DIR(1), REFERENCE_DIR(1)
-    POLYNOMIAL,
-    // DELAY_DIR(0), PHASE_DIR(0), REFERENCE_DIR(0)
-    DIRECTION,
+  static const Axes ROW_AXIS = FIELD_ROW;
 
-    // additional index column axes
-    SOURCE_ID,
-    EPHEMERIS_ID,
-
-    last = EPHEMERIS_ID
-  };
+  static const Axes LAST_AXIS = FIELD_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -338,20 +245,14 @@ MS_AXIS_NAME(FIELD, EPHEMERIS_ID);
 MS_TABLE_AXES_UID(FIELD);
 
 template <>
-struct MSTable<MSTables::FLAG_CMD> {
+struct MSTable<MS_FLAG_CMD> {
   static const constexpr char *name = "FLAG_CMD";
 
-  enum struct Axes {
-    index = -1,
+  typedef ::legms_ms_flag_cmd_axes_t Axes;
 
-    ROW = 0,
+  static const Axes ROW_AXIS = FLAG_CMD_ROW;
 
-    // key column axes
-    TIME,
-    INTERVAL,
-
-    last = INTERVAL
-  };
+  static const Axes LAST_AXIS = FLAG_CMD_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -367,24 +268,14 @@ MS_AXIS_NAME(FLAG_CMD, INTERVAL);
 MS_TABLE_AXES_UID(FLAG_CMD);
 
 template <>
-struct MSTable<MSTables::FREQ_OFFSET> {
+struct MSTable<MS_FREQ_OFFSET> {
   static const constexpr char* name = "FREQ_OFFSET";
 
-  enum struct Axes {
-    index = -1,
+  typedef ::legms_ms_freq_offset_axes_t Axes;
 
-    ROW = 0,
+  static const Axes ROW_AXIS = FREQ_OFFSET_ROW;
 
-    // key column axes
-    ANTENNA1,
-    ANTENNA2,
-    FEED_ID,
-    SPECTRAL_WINDOW_ID,
-    TIME,
-    INTERVAL,
-
-    last = INTERVAL
-  };
+  static const Axes LAST_AXIS = FREQ_OFFSET_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -404,24 +295,14 @@ MS_AXIS_NAME(FREQ_OFFSET, INTERVAL);
 MS_TABLE_AXES_UID(FREQ_OFFSET);
 
 template <>
-struct MSTable<MSTables::HISTORY> {
+struct MSTable<MS_HISTORY> {
   static const constexpr char* name = "HISTORY";
 
-  enum struct Axes {
-    index = -1,
+  typedef ::legms_ms_history_axes_t Axes;
 
-    ROW = 0,
-    // CLI_COMMAND(0)
-    CLI_COMMAND,
-    // APP_PARAMS(0)
-    APP_PARAM,
+  static const Axes ROW_AXIS = HISTORY_ROW;
 
-    // key column axes
-    TIME,
-    OBSERVATION_ID,
-
-    last = OBSERVATION_ID
-  };
+  static const Axes LAST_AXIS = HISTORY_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -439,20 +320,14 @@ MS_AXIS_NAME(HISTORY, OBSERVATION_ID);
 MS_TABLE_AXES_UID(HISTORY);
 
 template <>
-struct MSTable<MSTables::OBSERVATION> {
+struct MSTable<MS_OBSERVATION> {
   static const constexpr char* name = "OBSERVATION";
 
-  enum struct Axes {
-    ROW,
-    // TIME_RANGE(0)
-    TIME_RANGE,
-    // LOG(0)
-    LOG,
-    // SCHEDULE(0)
-    SCHEDULE,
+  typedef ::legms_ms_observation_axes_t Axes;
 
-    last = SCHEDULE
-  };
+  static const Axes ROW_AXIS = OBSERVATION_ROW;
+
+  static const Axes LAST_AXIS = OBSERVATION_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -469,25 +344,14 @@ MS_AXIS_NAME(OBSERVATION, SCHEDULE);
 MS_TABLE_AXES_UID(OBSERVATION);
 
 template <>
-struct MSTable<MSTables::POINTING> {
+struct MSTable<MS_POINTING> {
   static const constexpr char* name = "POINTING";
 
-  enum struct Axes {
-    index = -1,
+  typedef ::legms_ms_pointing_axes_t Axes;
 
-    ROW = 0,
-    // DIRECTION(1), TARGET(1), POINTING_OFFSET(1), SOURCE_OFFSET(1)
-    POLYNOMIAL,
-    // DIRECTION(0), TARGET(0), POINTING_OFFSET(0), SOURCE_OFFSET(0), ENCODER(0)
-    DIRECTION,
+  static const Axes ROW_AXIS = POINTING_ROW;
 
-    // key column axes
-    ANTENNA_ID,
-    TIME,
-    INTERVAL,
-
-    last = INTERVAL
-  };
+  static const Axes LAST_AXIS = POINTING_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -506,18 +370,14 @@ MS_AXIS_NAME(POINTING, INTERVAL);
 MS_TABLE_AXES_UID(POINTING);
 
 template <>
-struct MSTable<MSTables::POLARIZATION> {
+struct MSTable<MS_POLARIZATION> {
   static const constexpr char* name = "POLARIZATION";
 
-  enum struct Axes {
-    ROW,
-    // CORR_TYPE(0), CORR_PRODUCT(1)
-    CORRELATION,
-    // CORR_PRODUCT(0)
-    PRODUCT,
+  typedef ::legms_ms_polarization_axes_t Axes;
 
-    last = PRODUCT
-  };
+  static const Axes ROW_AXIS = POLARIZATION_ROW;
+
+  static const Axes LAST_AXIS = POLARIZATION_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -533,14 +393,14 @@ MS_AXIS_NAME(POLARIZATION, PRODUCT);
 MS_TABLE_AXES_UID(POLARIZATION);
 
 template <>
-struct MSTable<MSTables::PROCESSOR> {
+struct MSTable<MS_PROCESSOR> {
   static const constexpr char* name = "PROCESSOR";
 
-  enum struct Axes {
-    ROW,
+  typedef ::legms_ms_processor_axes_t Axes;
 
-    last = ROW
-  };
+  static const Axes ROW_AXIS = PROCESSOR_ROW;
+
+  static const Axes LAST_AXIS = PROCESSOR_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -554,33 +414,14 @@ MS_AXIS_NAME(PROCESSOR, ROW);
 MS_TABLE_AXES_UID(PROCESSOR);
 
 template <>
-struct MSTable<MSTables::SOURCE> {
+struct MSTable<MS_SOURCE> {
   static const constexpr char* name = "SOURCE";
 
-  enum struct Axes {
-    index = -1,
+  typedef ::legms_ms_source_axes_t Axes;
 
-    ROW = 0,
-    // DIRECTION(0)
-    DIRECTION,
-    // POSITION(0)
-    POSITION,
-    // PROPER_MOTION(0)
-    PROPER_MOTION,
-    // TRANSITION(0), REST_FREQUENCY(0), SYSVEL(0)
-    LINE,
+  static const Axes ROW_AXIS = SOURCE_ROW;
 
-    // key column axes
-    SOURCE_ID,
-    TIME,
-    INTERVAL,
-    SPECTRAL_WINDOW_ID,
-
-    // additional column index axes
-    PULSAR_ID,
-
-    last = PULSAR_ID
-  };
+  static const Axes LAST_AXIS = SOURCE_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -603,18 +444,14 @@ MS_AXIS_NAME(SOURCE, PULSAR_ID);
 MS_TABLE_AXES_UID(SOURCE);
 
 template <>
-struct MSTable<MSTables::SPECTRAL_WINDOW> {
+struct MSTable<MS_SPECTRAL_WINDOW> {
   static const constexpr char* name = "SPECTRAL_WINDOW";
 
-  enum struct Axes {
-    ROW,
-    // CHAN_FREQ(0), CHAN_WIDTH(0), EFFECTIVE_BW(0), RESOLUTION(0)
-    CHANNEL,
-    // ASSOC_SPW_ID(0), ASSOC_NATURE(0)
-    ASSOC_SPW,
+  typedef ::legms_ms_spectral_window_axes_t Axes;
 
-    last = ASSOC_SPW
-  };
+  static const Axes ROW_AXIS = SPECTRAL_WINDOW_ROW;
+
+  static const Axes LAST_AXIS = SPECTRAL_WINDOW_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -630,14 +467,14 @@ MS_AXIS_NAME(SPECTRAL_WINDOW, ASSOC_SPW);
 MS_TABLE_AXES_UID(SPECTRAL_WINDOW);
 
 template <>
-struct MSTable<MSTables::STATE> {
+struct MSTable<MS_STATE> {
   static const constexpr char* name = "STATE";
 
-  enum struct Axes {
-    ROW,
+  typedef ::legms_ms_state_axes_t Axes;
 
-    last = ROW
-  };
+  static const Axes ROW_AXIS = STATE_ROW;
+
+  static const Axes LAST_AXIS = STATE_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -651,30 +488,14 @@ MS_AXIS_NAME(STATE, ROW);
 MS_TABLE_AXES_UID(STATE);
 
 template <>
-struct MSTable<MSTables::SYSCAL> {
+struct MSTable<MS_SYSCAL> {
   static const constexpr char* name = "SYSCAL";
 
-  enum struct Axes {
-    index = -1,
+  typedef ::legms_ms_syscal_axes_t Axes;
 
-    ROW = 0,
-    // TCAL(0), TRX(0), TSKY(0), TSYS(0), TANT(0), TANT_TSYS(0), TCAL_SPECTRUM(0),
-    // TRX_SPECTRUM(0), TSKY_SPECTRUM(0), TSYS_SPECTRUM(0), TANT_SPECTRUM(0),
-    // TANT_TSYS_SPECTRUM(0)
-    RECEPTOR,
-    // TCAL_SPECTRUM(1), TRX_SPECTRUM(1), TSKY_SPECTRUM(1), TSYS_SPECTRUM(1),
-    // TANT_SPECTRUM(1), TANT_TSYS_SPECTRUM(1)
-    CHANNEL,
+  static const Axes ROW_AXIS = SYSCAL_ROW;
 
-    // key column axes
-    ANTENNA_ID,
-    FEED_ID,
-    SPECTRAL_WINDOW_ID,
-    TIME,
-    INTERVAL,
-
-    last = INTERVAL
-  };
+  static const Axes LAST_AXIS = SYSCAL_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -695,21 +516,14 @@ MS_AXIS_NAME(SYSCAL, INTERVAL);
 MS_TABLE_AXES_UID(SYSCAL);
 
 template <>
-struct MSTable<MSTables::WEATHER> {
+struct MSTable<MS_WEATHER> {
   static const constexpr char* name = "WEATHER";
 
-  enum struct Axes {
-    index = -1,
+  typedef ::legms_ms_weather_axes_t Axes;
 
-    ROW,
+  static const Axes ROW_AXIS = WEATHER_ROW;
 
-    // key column axes
-    ANTENNA_ID,
-    TIME,
-    INTERVAL,
-
-    last = INTERVAL
-  };
+  static const Axes LAST_AXIS = WEATHER_last;
 
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
@@ -729,48 +543,6 @@ MS_TABLE_AXES_UID(WEATHER);
 
 #undef MS_TABLE_AXES_UID
 
-#if USE_CASACORE
-
-struct TableBuilder {
-
-  template <MSTables T>
-  static TableBuilderT<typename MSTable<T>::Axes>
-  from_ms(
-    const std::experimental::filesystem::path& path,
-    const std::unordered_set<std::string>& column_selections) {
-
-    return
-      TableBuilderT<typename MSTable<T>::Axes>::from_casacore_table(
-        ((path.filename() == MSTable<T>::name)
-         ? path
-         : (path / MSTable<T>::name)),
-        column_selections,
-        MSTable<T>::element_axes);
-  }
-};
-
-template <MSTables T>
-static std::unique_ptr<TableT<typename MSTable<T>::Axes>>
-from_ms(
-  Legion::Context ctx,
-  Legion::Runtime* runtime,
-  const std::experimental::filesystem::path& path,
-  const std::unordered_set<std::string>& column_selections) {
-
-  typedef typename MSTable<T>::Axes D;
-  auto builder = TableBuilder::from_ms<T>(path, column_selections);
-  return
-    std::make_unique<TableT<typename MSTable<T>::Axes>>(
-      ctx,
-      runtime,
-      builder.name(),
-      std::vector<int>{static_cast<int>(D::ROW)},
-      builder.column_generators(),
-      builder.keywords());
-}
-
-#endif // USE_CASACORE
-
 #if USE_HDF5
 
 template <MSTables T>
@@ -778,8 +550,8 @@ hid_t
 h5_axes_datatype() {
   hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
   typedef typename MSTable<T>::Axes Axes;
-  for (auto a = static_cast<unsigned char>(Axes::ROW);
-       a <= static_cast<unsigned char>(Axes::last);
+  for (auto a = static_cast<unsigned char>(MSTable<T>::ROW_AXIS);
+       a <= static_cast<unsigned char>(MSTable<T>::LAST_AXIS);
        ++a) {
     herr_t err =
       H5Tenum_insert(
@@ -810,146 +582,6 @@ column_is_axis(
         return colname == axis_names.at(ax);
       });
   return ((colax != axes.end()) ? *colax : std::nullopt);
-}
-
-template <MSTables T>
-static std::optional<Legion::Future/*TableGenArgs*/>
-reindexed(
-  const TableT<typename MSTable<T>::Axes>* table,
-  const std::vector<typename MSTable<T>::Axes>& axes,
-  bool allow_rows = true) {
-
-  typedef typename MSTable<T>::Axes D;
-
-  // 'allow_rows' is intended to support the case where the reindexing may not
-  // result in a single value in a column per aggregate index, necessitating the
-  // maintenance of a row index. A value of 'true' for this argument is always
-  // safe, but may result in a degenerate axis when an aggregate index always
-  // identifies a single value in a column. If the value is 'false' and a
-  // non-degenerate axis is required by the reindexing, this method will return
-  // an empty value. TODO: remove degenerate axes after the fact, and do that
-  // automatically in this method, which would allow us to remove the
-  // 'allow_rows' argument.
-
-  // can only reindex along an axis if table has a column with the associated
-  // name
-  //
-  // TODO: add support for index columns that already exist in the table
-  if ((table->index_axes().size() > 1)
-      || (table->index_axes().back() != static_cast<int>(D::ROW)))
-    return std::nullopt;
-
-  // for every column in table, determine which axes need indexing
-  std::unordered_map<std::string, std::vector<D>> col_reindex_axes;
-  std::transform(
-    table->column_names().begin(),
-    table->column_names().end(),
-    std::inserter(col_reindex_axes, col_reindex_axes.end()),
-    [table, &axes](auto& nm) {
-      std::vector<D> ax;
-      auto col_axes = table->columnT(nm)->axesT();
-      // skip the column if it does not have a "row" axis
-      if (col_axes.back() == D::ROW) {
-        // if column is a reindexing axis, reindexing depends only on itself
-        auto myaxis = column_is_axis(nm, axes);
-        if (myaxis) {
-          ax.push_back(myaxis.value());
-        } else {
-          // select those axes in "axes" that are not already an axis of the
-          // column
-          std::for_each(
-            axes.begin(),
-            axes.end(),
-            [&col_axes, &ax](auto& d) {
-              if (find(col_axes.begin(), col_axes.end(), d) == col_axes.end())
-                ax.push_back(d);
-            });
-        }
-      }
-      return std::pair(nm, std::move(ax));
-    });
-
-  // index associated columns; the Future in "index_cols" below contains a
-  // ColumnGenArgs of a LogicalRegion with two fields: at Column::value_fid, the
-  // column values (sorted in ascending order); and at Column::value_fid +
-  // IndexColumnTask::rows_fid, a sorted vector of DomainPoints in the original
-  // column.
-  std::unordered_map<D, Legion::Future> index_cols;
-  std::for_each(
-    col_reindex_axes.begin(),
-    col_reindex_axes.end(),
-    [table, &index_cols](auto& nm_ds) {
-      const std::vector<D>& ds = std::get<1>(nm_ds);
-      std::for_each(
-        ds.begin(),
-        ds.end(),
-        [table, &index_cols](auto& d) {
-          if (index_cols.count(d) == 0) {
-            auto col = table->columnT(D::axis_names().at(d));
-            IndexColumnTask task(col, static_cast<int>(d));
-            index_cols[d] = task.dispatch(table->context(), table->runtime());
-          }
-        });
-    });
-
-  // do reindexing of columns
-  std::vector<Legion::Future> reindexed;
-  std::transform(
-    col_reindex_axes.begin(),
-    col_reindex_axes.end(),
-    std::back_inserter(reindexed),
-    [table, &index_cols, &allow_rows](auto& nm_ds) {
-      auto& [nm, ds] = nm_ds;
-      // if this column is an index column, we've already launched a task to
-      // create its logical region, so we can use that
-      if (ds.size() == 1 && index_cols.count(ds[0]) > 0)
-        return index_cols.at(ds[0]);
-
-      // create reindexing task launcher
-      // TODO: start intermediary task dependent on Futures of index columns
-      std::vector<std::shared_ptr<Column>> ixcols;
-      std::vector<int> index_axes;
-      for (auto d : ds) {
-        ixcols.push_back(
-          index_cols.at(d)
-          .template get_result<ColumnGenArgs>()
-          .operator()<T>(table->context(), table->runtime()));
-        index_axes.push_back(static_cast<int>(d));
-      }
-      auto col = table->columnT(nm);
-      auto col_axes = col->axesT();
-      auto row_axis_offset =
-        std::distance(
-          col_axes.begin(),
-          find(col_axes.begin(), col_axes.end(), D::ROW));
-      ReindexColumnTask task(
-        col,
-        row_axis_offset,
-        ixcols,
-        index_axes,
-        allow_rows);
-      return task.dispatch(table->context(), table->runtime());
-    });
-
-  // launch task that creates the reindexed table
-  std::vector<int> index_axes;
-  std::transform(
-    axes.begin(),
-    axes.end(),
-    std::back_inserter(index_axes),
-    [](auto& d) {
-      return static_cast<int>(d);
-    });
-  if (allow_rows)
-    index_axes.push_back(static_cast<int>(D::ROW));
-  ReindexedTableTask
-    task(
-      table->name(),
-      table->axes_uid(),
-      index_axes,
-      table->keywords_region(),
-      reindexed);
-  return task.dispatch(table->context(), table->runtime());
 }
 
 } // end namespace legms

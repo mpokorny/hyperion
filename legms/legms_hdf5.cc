@@ -195,7 +195,7 @@ write_kw(
 
 template <>
 void
-write_kw<legms::TypeTag::TpString> (
+write_kw<LEGMS_TYPE_STRING> (
   hid_t loc_id,
   const char *attr_name,
   std::optional<PhysicalRegion>& region,
@@ -206,19 +206,19 @@ write_kw<legms::TypeTag::TpString> (
   hid_t dataset_access_pl,
   hid_t xfer_pl) {
 
-  hid_t dt = legms::H5DatatypeManager::datatype<legms::TypeTag::TpString>();
+  hid_t dt = legms::H5DatatypeManager::datatype<LEGMS_TYPE_STRING>();
   hid_t attr_id =
     init_kw(
       loc_id,
       attr_name,
       dt,
-      legms::TypeTag::TpString,
+      LEGMS_TYPE_STRING,
       link_creation_pl,
       link_access_pl,
       dataset_creation_pl,
       dataset_access_pl);
   if (region) {
-    const KW<legms::TypeTag::TpString> kw(region.value(), fid);
+    const KW<LEGMS_TYPE_STRING> kw(region.value(), fid);
     const legms::string& kwval = kw[0];
     legms::string buf;
     strncpy(buf.val, kwval.val, sizeof(buf));

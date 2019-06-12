@@ -8,52 +8,46 @@
 extern "C" {
 #endif
 
-typedef struct table_t { void* impl; } table_t;
+typedef struct legms_table_t { void* impl; } legms_table_t;
 
 const char*
-table_name(table_t table);
+legms_table_name(legms_table_t table);
 
 int
-table_is_empty(table_t table);
+legms_table_is_empty(legms_table_t table);
 
-char** // NULL-terminated array of string pointers
-table_column_names(table_t table);
+unsigned
+legms_table_num_columns(legms_table_t table);
 
-column_t
-table_column(table_t table, const char* name);
+// use legms_table_num_columns() to find required minimum length of vector
+// "names"; returned strings must be freed by caller
+void
+legms_table_column_names(legms_table_t table, char** names);
 
-const char *
-table_min_rank_column_name(table_t table);
+int
+legms_table_has_column(legms_table_t table, const char* name);
 
-const char *
-table_max_rank_column_name(table_t table);
+legms_column_t
+legms_table_column(legms_table_t table, const char* name);
 
-#if 0
-column_row_number_t
-table_num_rows(table_t table);
+const char*
+legms_table_min_rank_column_name(legms_table_t table);
 
-column_partition_t
-table_row_block_partition(table_t table, size_t block_length);
+const char*
+legms_table_max_rank_column_name(legms_table_t table);
 
-column_partition_t
-table_all_rows_partition(table_t table);
+const char*
+legms_table_axes_uid(legms_table_t table);
 
-column_partition_t
-table_row_partition(
-  table_t table,
-  // NULL-terminated array of vectors; first element
-  // of each vector is its length -1
-  column_row_number_t** rowp,
-  int include_unselected,
-  int sorted_selections);
-#endif
+const int*
+legms_table_index_axes(legms_table_t table);
 
 void
-table_destroy(table_t table);
+legms_table_destroy(legms_table_t table);
 
 #ifdef USE_CASACORE
-table_t
-table_from_ms(
+legms_table_t
+legms_table_from_ms(
   legion_context_t context,
   legion_runtime_t runtime,
   const char* path,

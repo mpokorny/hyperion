@@ -1,6 +1,8 @@
 #ifndef LEGMS_TABLE_BUILDER_H_
 #define LEGMS_TABLE_BUILDER_H_
 
+#ifdef USE_CASACORE
+
 #include <algorithm>
 #include <cassert>
 #include <experimental/filesystem>
@@ -15,25 +17,26 @@
 #include "ColumnBuilder.h"
 #include "Column.h"
 #include "IndexTree.h"
+#include "MSTable.h"
 
-#ifdef USE_CASACORE
 # include <casacore/casa/aipstype.h>
 # include <casacore/casa/BasicSL/String.h>
 # include <casacore/tables/Tables.h>
-#endif
 
 namespace legms {
 
 template <typename D>
 class TableT;
 
-template <typename D>
+template <MSTables D>
 class TableBuilderT
   : public WithKeywordsBuilder {
 
-  friend class TableT<D>;
+  friend class TableT<typename MSTable<D>::Axes>;
 
 public:
+
+  typedef typename MSTable<D>::Axes Axes;
 
   TableBuilderT(const std::string& name)
     : WithKeywordsBuilder()
@@ -57,10 +60,10 @@ public:
   void
   add_array_column(
     const std::string& name,
-    const std::vector<D>& element_axes,
+    const std::vector<Axes>& element_axes,
     std::function<std::array<size_t, DIM>(const std::any&)> element_shape) {
 
-    std::vector<D> axes {D::ROW};
+    std::vector<Axes> axes {MSTable<D>::ROW_AXIS};
     std::copy(
       element_axes.begin(),
       element_axes.end(),
@@ -102,9 +105,9 @@ public:
     return result;
   }
 
-  std::vector<typename ColumnT<D>::Generator>
+  std::vector<typename ColumnT<Axes>::Generator>
   column_generators() const {
-    std::vector<typename ColumnT<D>::Generator> result;
+    std::vector<typename ColumnT<Axes>::Generator> result;
     std::transform(
       m_columns.begin(),
       m_columns.end(),
@@ -112,7 +115,7 @@ public:
       [](auto& cb) {
         return
           [cb](Legion::Context ctx, Legion::Runtime *runtime) {
-            return std::make_unique<ColumnT<D>>(ctx, runtime, *cb.second);
+            return cb.second->column(ctx, runtime);
           };
       });
     return result;
@@ -120,7 +123,6 @@ public:
 
 protected:
 
-#ifdef USE_CASACORE
   struct SizeArgs {
     std::shared_ptr<casacore::TableColumn> tcol;
     unsigned *row;
@@ -155,7 +157,7 @@ protected:
   void
   add_from_table_column(
     const std::string& nm,
-    const std::vector<D>& element_axes,
+    const std::vector<Axes>& element_axes,
     std::unordered_set<std::string>& array_names) {
 
     typedef typename legms::DataType<DT>::ValueType VT;
@@ -185,7 +187,6 @@ protected:
       break;
     }
   }
-#endif // USE_CASACORE
 
   void
   add_column(std::unique_ptr<ColumnBuilder<D>>&& col) {
@@ -203,12 +204,11 @@ protected:
 
 public:
 
-#ifdef USE_CASACORE
   static TableBuilderT
   from_casacore_table(
     const std::experimental::filesystem::path& path,
     const std::unordered_set<std::string>& column_selections,
-    const std::unordered_map<std::string, std::vector<D>>& element_axes) {
+    const std::unordered_map<std::string, std::vector<Axes>>& element_axes) {
 
     casacore::Table table(
       casacore::String((path.filename() == "MAIN") ? path.parent_path() : path),
@@ -282,10 +282,50 @@ public:
 
     return result;
   }
-#endif // USE_CASACORE
 };
 
+#ifdef USE_CASACORE
+struct TableBuilder {
+
+  template <MSTables T>
+  static TableBuilderT<T>
+  from_ms(
+    const std::experimental::filesystem::path& path,
+    const std::unordered_set<std::string>& column_selections) {
+
+    return
+      TableBuilderT<T>::from_casacore_table(
+        ((path.filename() == MSTable<T>::name)
+         ? path
+         : (path / MSTable<T>::name)),
+        column_selections,
+        MSTable<T>::element_axes);
+  }
+};
+
+template <MSTables T>
+std::unique_ptr<TableT<typename MSTable<T>::Axes>>
+from_ms(
+  Legion::Context ctx,
+  Legion::Runtime* runtime,
+  const std::experimental::filesystem::path& path,
+  const std::unordered_set<std::string>& column_selections) {
+
+  auto builder = TableBuilder::from_ms<T>(path, column_selections);
+  return
+    std::make_unique<TableT<typename MSTable<T>::Axes>>(
+      ctx,
+      runtime,
+      builder.name(),
+      std::vector<int>{static_cast<int>(MSTable<T>::ROW_AXIS)},
+      builder.column_generators(),
+      builder.keywords());
+}
+#endif // USE_CASACORE
+
 } // end namespace legms
+
+#endif // USE_CASACORE
 
 #endif // LEGMS_TABLE_BUILDER_H_
 

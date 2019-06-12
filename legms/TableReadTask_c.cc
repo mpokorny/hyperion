@@ -15,9 +15,9 @@ find_null_ptr_value(const char** column_names) {
 }
 
 void
-table_block_read_task(
+legms_table_block_read_task(
   const char* path,
-  table_t table,
+  legms_table_t table,
   const char** column_names,
   size_t block_length) {
 
@@ -28,11 +28,6 @@ table_block_read_task(
     find_null_ptr_value(column_names),
     block_length);
   read_task.dispatch();
-}
-
-void
-table_read_task_register(legion_runtime_t runtime) {
-  TableReadTask::register_task(Legion::CObjectWrapper::unwrap(runtime));
 }
 
 // Local Variables:

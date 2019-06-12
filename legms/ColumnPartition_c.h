@@ -7,19 +7,22 @@
 extern "C" {
 #endif
 
-typedef struct column_partition_t { void* impl; } column_partition_t;
+typedef struct legms_column_partition_t {
+  void* impl;
+} legms_column_partition_t;
 
 legion_index_partition_t
-column_partition_index_partition(column_partition_t column_partition);
+legms_column_partition_index_partition(
+  legms_column_partition_t column_partition);
 
 const int *
-column_partition_axes(column_partition_t column_partition);
+legms_column_partition_axes(legms_column_partition_t column_partition);
 
 size_t
-column_partition_num_axes(column_partition_t column_partition);
+legms_column_partition_num_axes(legms_column_partition_t column_partition);
 
 void
-column_partition_destroy(column_partition_t column_partition);
+legms_column_partition_destroy(legms_column_partition_t column_partition);
 
 #ifdef __cplusplus
 }
