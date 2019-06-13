@@ -88,48 +88,22 @@ public:
     Legion::DomainT<DIM> reg_domain,
     const std::vector<Legion::PhysicalRegion>& regions) {
 
-#define READ_COL(dt)                                \
-    TypeTag::Tp##dt:                              \
-      switch (col_desc.trueDataType()) {            \
-      case casacore::DataType::Tp##dt:              \
-        read_scalar_column<DIM, TypeTag::Tp##dt>( \
-          table, col_desc, reg_domain, regions);    \
-        break;                                      \
-      case casacore::DataType::TpArray##dt:         \
-        read_array_column<DIM, TypeTag::Tp##dt>(  \
-          table, col_desc, reg_domain, regions);    \
-        break;                                      \
-      default:                                      \
-        assert(false);                              \
-      }
+#define READ_COL(DT)                                                    \
+    case DT:                                                            \
+      switch (col_desc.trueDataType()) {                                \
+      case DataType<DT>::CasacoreTypeTag:                               \
+        read_scalar_column<DIM, DT>(table, col_desc, reg_domain, regions); \
+        break;                                                          \
+      case DataType<DT>::CasacoreArrayTypeTag:                          \
+        read_array_column<DIM, DT>(table, col_desc, reg_domain, regions); \
+        break;                                                          \
+      default:                                                          \
+        assert(false);                                                  \
+      }                                                                 \
+      break;
 
     switch (lr_datatype) {
-    case READ_COL(Bool)
-      break;
-    case READ_COL(Char)
-      break;
-    case READ_COL(UChar)
-      break;
-    case READ_COL(Short)
-      break;
-    case READ_COL(UShort)
-      break;
-    case READ_COL(Int)
-      break;
-    case READ_COL(UInt)
-      break;
-    // case READ_COL(Int64, casacore::Int64)
-    //   break;
-    case READ_COL(Float)
-      break;
-    case READ_COL(Double)
-      break;
-    case READ_COL(Complex)
-      break;
-    case READ_COL(DComplex)
-      break;
-    case READ_COL(String)
-      break;
+      FOREACH_DATATYPE(READ_COL);
     default:
       assert(false);
     }

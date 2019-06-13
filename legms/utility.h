@@ -100,24 +100,19 @@ dimensions_map(const std::vector<D>& from, const std::vector<D>& to) {
   return result;
 }
 
-#ifdef USE_CASACORE
-# define TTDEF(dt) dt = casacore::DataType::dt
-#else
-# define TTDEF(dt) dt
-#endif
 enum TypeTag : unsigned char {
-  TTDEF(TpBool),
-  TTDEF(TpChar),
-  TTDEF(TpUChar),
-  TTDEF(TpShort),
-  TTDEF(TpUShort),
-  TTDEF(TpInt),
-  TTDEF(TpUInt),
-  TTDEF(TpFloat),
-  TTDEF(TpDouble),
-  TTDEF(TpComplex),
-  TTDEF(TpDComplex),
-  TTDEF(TpString)
+  TpBool,
+  TpChar,
+  TpUChar,
+  TpShort,
+  TpUShort,
+  TpInt,
+  TpUInt,
+  TpFloat,
+  TpDouble,
+  TpComplex,
+  TpDComplex,
+  TpString
 };
 #undef TTDEF
 
@@ -681,6 +676,10 @@ struct DataType<TypeTag::TpBool> {
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_BOOL_REDOP;
 #ifdef USE_CASACORE
   typedef casacore::Bool CasacoreType;
+  constexpr static casacore::DataType CasacoreTypeTag =
+    casacore::DataType::TpBool;
+  constexpr static casacore::DataType CasacoreArrayTypeTag =
+    casacore::DataType::TpArrayBool;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
@@ -704,6 +703,10 @@ struct DataType<TypeTag::TpChar> {
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_CHAR_REDOP;
 #ifdef USE_CASACORE
   typedef casacore::Char CasacoreType;
+  constexpr static casacore::DataType CasacoreTypeTag =
+    casacore::DataType::TpChar;
+  constexpr static casacore::DataType CasacoreArrayTypeTag =
+    casacore::DataType::TpArrayChar;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
@@ -727,6 +730,10 @@ struct DataType<TypeTag::TpUChar> {
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_UCHAR_REDOP;
 #ifdef USE_CASACORE
   typedef casacore::uChar CasacoreType;
+  constexpr static casacore::DataType CasacoreTypeTag =
+    casacore::DataType::TpUChar;
+  constexpr static casacore::DataType CasacoreArrayTypeTag =
+    casacore::DataType::TpArrayUChar;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
@@ -750,6 +757,10 @@ struct DataType<TypeTag::TpShort> {
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_SHORT_REDOP;
 #ifdef USE_CASACORE
   typedef casacore::Short CasacoreType;
+  constexpr static casacore::DataType CasacoreTypeTag =
+    casacore::DataType::TpShort;
+  constexpr static casacore::DataType CasacoreArrayTypeTag =
+    casacore::DataType::TpArrayShort;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
@@ -773,6 +784,10 @@ struct DataType<TypeTag::TpUShort> {
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_USHORT_REDOP;
 #ifdef USE_CASACORE
   typedef casacore::uShort CasacoreType;
+  constexpr static casacore::DataType CasacoreTypeTag =
+    casacore::DataType::TpUShort;
+  constexpr static casacore::DataType CasacoreArrayTypeTag =
+    casacore::DataType::TpArrayUShort;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
@@ -796,6 +811,10 @@ struct DataType<TypeTag::TpInt> {
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_INT_REDOP;
 #ifdef USE_CASACORE
   typedef casacore::Int CasacoreType;
+  constexpr static casacore::DataType CasacoreTypeTag =
+    casacore::DataType::TpInt;
+  constexpr static casacore::DataType CasacoreArrayTypeTag =
+    casacore::DataType::TpArrayInt;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
@@ -819,6 +838,10 @@ struct DataType<TypeTag::TpUInt> {
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_UINT_REDOP;
 #ifdef USE_CASACORE
   typedef casacore::uInt CasacoreType;
+  constexpr static casacore::DataType CasacoreTypeTag =
+    casacore::DataType::TpUInt;
+  constexpr static casacore::DataType CasacoreArrayTypeTag =
+    casacore::DataType::TpArrayUInt;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
@@ -842,6 +865,10 @@ struct DataType<TypeTag::TpFloat> {
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_FLOAT_REDOP;
 #ifdef USE_CASACORE
   typedef casacore::Float CasacoreType;
+  constexpr static casacore::DataType CasacoreTypeTag =
+    casacore::DataType::TpFloat;
+  constexpr static casacore::DataType CasacoreArrayTypeTag =
+    casacore::DataType::TpArrayFloat;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
@@ -865,6 +892,10 @@ struct DataType<TypeTag::TpDouble> {
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_DOUBLE_REDOP;
 #ifdef USE_CASACORE
   typedef casacore::Double CasacoreType;
+  constexpr static casacore::DataType CasacoreTypeTag =
+    casacore::DataType::TpDouble;
+  constexpr static casacore::DataType CasacoreArrayTypeTag =
+    casacore::DataType::TpArrayDouble;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
@@ -888,6 +919,10 @@ struct DataType<TypeTag::TpComplex> {
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_COMPLEX_REDOP;
 #ifdef USE_CASACORE
   typedef casacore::Complex CasacoreType;
+  constexpr static casacore::DataType CasacoreTypeTag =
+    casacore::DataType::TpComplex;
+  constexpr static casacore::DataType CasacoreArrayTypeTag =
+    casacore::DataType::TpArrayComplex;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
@@ -911,6 +946,10 @@ struct DataType<TypeTag::TpDComplex> {
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_DCOMPLEX_REDOP;
 #ifdef USE_CASACORE
   typedef casacore::DComplex CasacoreType;
+  constexpr static casacore::DataType CasacoreTypeTag =
+    casacore::DataType::TpDComplex;
+  constexpr static casacore::DataType CasacoreArrayTypeTag =
+    casacore::DataType::TpArrayDComplex;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     v = c;
@@ -934,6 +973,10 @@ struct DataType<TypeTag::TpString> {
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_STRING_REDOP;
 #ifdef USE_CASACORE
   typedef casacore::String CasacoreType;
+  constexpr static casacore::DataType CasacoreTypeTag =
+    casacore::DataType::TpString;
+  constexpr static casacore::DataType CasacoreArrayTypeTag =
+    casacore::DataType::TpArrayString;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
     std::strncpy(v.val, c.c_str(), sizeof(v.val));

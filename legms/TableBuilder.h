@@ -241,71 +241,18 @@ public:
       actual_column_selections.end(),
       [&result, &tdesc, &element_axes, &array_names](auto& nm) {
         auto axes = element_axes.at(nm);
+#define ADD_FROM_TCOL(DT)                                               \
+        case DataType<DT>::CasacoreTypeTag:                             \
+          result.template add_from_table_column<DT>(nm, axes, array_names); \
+          break;
+
         switch (tdesc[nm].dataType()) {
-        case casacore::DataType::TpBool:
-          result.template add_from_table_column<TypeTag::TpBool>(
-            nm, axes, array_names);
-          break;
-
-        case casacore::DataType::TpChar:
-          result.template add_from_table_column<TypeTag::TpChar>(
-            nm, axes, array_names);
-          break;
-
-        case casacore::DataType::TpUChar:
-          result.template add_from_table_column<TypeTag::TpUChar>(
-            nm, axes, array_names);
-          break;
-
-        case casacore::DataType::TpShort:
-          result.template add_from_table_column<TypeTag::TpShort>(
-            nm, axes, array_names);
-          break;
-
-        case casacore::DataType::TpUShort:
-          result.template add_from_table_column<TypeTag::TpUShort>(
-            nm, axes, array_names);
-          break;
-
-        case casacore::DataType::TpInt:
-          result.template add_from_table_column<TypeTag::TpInt>(
-            nm, axes, array_names);
-          break;
-
-        case casacore::DataType::TpUInt:
-          result.template add_from_table_column<TypeTag::TpUInt>(
-            nm, axes, array_names);
-          break;
-
-        case casacore::DataType::TpFloat:
-          result.template add_from_table_column<TypeTag::TpFloat>(
-            nm, axes, array_names);
-          break;
-
-        case casacore::DataType::TpDouble:
-          result.template add_from_table_column<TypeTag::TpDouble>(
-            nm, axes, array_names);
-          break;
-
-        case casacore::DataType::TpComplex:
-          result.template add_from_table_column<TypeTag::TpComplex>(
-            nm, axes, array_names);
-          break;
-
-        case casacore::DataType::TpDComplex:
-          result.template add_from_table_column<TypeTag::TpDComplex>(
-            nm, axes, array_names);
-          break;
-
-        case casacore::DataType::TpString:
-          result.template add_from_table_column<TypeTag::TpString>(
-            nm, axes, array_names);
-          break;
-
+          FOREACH_DATATYPE(ADD_FROM_TCOL);
         default:
           assert(false);
           break;
         }
+#undef ADD_FROM_TCOL
       });
 
     // scan rows to get shapes for all selected array columns
