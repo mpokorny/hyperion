@@ -247,7 +247,7 @@ public:
           break;
 
         switch (tdesc[nm].dataType()) {
-          FOREACH_DATATYPE(ADD_FROM_TCOL);
+          LEGMS_FOREACH_DATATYPE(ADD_FROM_TCOL);
         default:
           assert(false);
           break;

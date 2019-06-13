@@ -282,7 +282,7 @@ legms::hdf5::write_keywords(
     }
 
     switch (dt) {
-      FOREACH_DATATYPE(WRITE_KW)
+      LEGMS_FOREACH_DATATYPE(WRITE_KW)
     default:
         assert(false);
     }
@@ -363,7 +363,7 @@ legms::hdf5::write_column(
 #define DT(T) case T: { dt = H5DatatypeManager::datatype<T>(); break; }
 
     switch (column->datatype()) {
-      FOREACH_DATATYPE(DT)
+      LEGMS_FOREACH_DATATYPE(DT)
     default:
       assert(false);
       break;

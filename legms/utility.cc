@@ -154,7 +154,7 @@ legms::add_field(
     break;
 
   switch (datatype) {
-    FOREACH_DATATYPE(ALLOC_FLD);
+    LEGMS_FOREACH_DATATYPE(ALLOC_FLD);
   default:
     assert(false);
     break;
@@ -823,7 +823,7 @@ legms::H5DatatypeManager::register_datatypes() {
       assert(err >= 0);                           \
     } while(0);
 
-    FOREACH_BARE_DATATYPE(DTINSERT);
+    LEGMS_FOREACH_BARE_DATATYPE(DTINSERT);
 
     datatypes_[DATATYPE_H5T] = dt;
   }

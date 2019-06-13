@@ -1001,7 +1001,7 @@ H5DatatypeManager::datatype() {
 
 #define NUM_LEGMS_DATATYPES (DataType<legms::TypeTag::TpString>::id + 1)
 
-#define FOREACH_DATATYPE(__func__)              \
+#define LEGMS_FOREACH_DATATYPE(__func__)              \
   __func__(legms::TypeTag::TpBool)              \
   __func__(legms::TypeTag::TpChar)              \
   __func__(legms::TypeTag::TpUChar)             \
@@ -1015,7 +1015,7 @@ H5DatatypeManager::datatype() {
   __func__(legms::TypeTag::TpDComplex)          \
   __func__(legms::TypeTag::TpString)
 
-#define FOREACH_BARE_DATATYPE(__func__)  \
+#define LEGMS_FOREACH_BARE_DATATYPE(__func__)  \
   __func__(TpBool)          \
   __func__(TpChar)          \
   __func__(TpUChar)         \
@@ -1040,7 +1040,7 @@ struct ValueType {
     constexpr static TypeTag DataType = dt;   \
   };
 
-FOREACH_DATATYPE(VT)
+LEGMS_FOREACH_DATATYPE(VT)
 
 template <>
 struct ValueType<std::string> {

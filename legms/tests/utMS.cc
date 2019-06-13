@@ -629,7 +629,7 @@ verify_scalar_column(
   }
 
   switch (targs->tag) {
-    FOREACH_DATATYPE(CMP);
+    LEGMS_FOREACH_DATATYPE(CMP);
   }
 #undef CMP
 }
@@ -725,7 +725,7 @@ verify_array_column(
 }
 
   switch (targs->tag) {
-    FOREACH_DATATYPE(CMP);
+    LEGMS_FOREACH_DATATYPE(CMP);
   }
 #undef CMP
 

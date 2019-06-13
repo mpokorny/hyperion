@@ -255,7 +255,7 @@ public:
 #define REG_TASK(DT)                                                    \
     IndexAccumulateTask<DataType<DT>::ValueType>::register_task(runtime, tid0);
 
-    FOREACH_DATATYPE(REG_TASK);
+    LEGMS_FOREACH_DATATYPE(REG_TASK);
 #undef REG_TASK
   }
 };
@@ -385,7 +385,7 @@ IndexColumnTask::base_impl(
     break;
 
   switch (result.datatype) {
-    FOREACH_DATATYPE(ICR);
+    LEGMS_FOREACH_DATATYPE(ICR);
   default:
     assert(false);
     break;
@@ -1045,7 +1045,7 @@ public:
     case (DT): copy<DT>(regions[0], regions[1]); break;
 
     switch (dt) {
-      FOREACH_DATATYPE(CPYDT)
+      LEGMS_FOREACH_DATATYPE(CPYDT)
     default:
         assert(false);
       break;

@@ -103,7 +103,7 @@ public:
       break;
 
     switch (lr_datatype) {
-      FOREACH_DATATYPE(READ_COL);
+      LEGMS_FOREACH_DATATYPE(READ_COL);
     default:
       assert(false);
     }
