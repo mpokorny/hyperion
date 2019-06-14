@@ -23,18 +23,22 @@ void
 get_args(
   const int& argc,
   char** const& argv,
-  std::optional<fs::path>& dir,
-  std::vector<std::string>& tables) {
+  fs::path& ms_path,
+  std::vector<std::string>& tables,
+  fs::path& h5_path) {
 
-  dir.reset();
+  ms_path.clear();
   tables.clear();
+  h5_path.clear();
   for (int i = 1; i < argc; ++i) {
     if (*argv[i] != '-') {
-      if (!dir) {
+      if (ms_path.empty()) {
         std::string d = argv[i];
         while (d.size() > 0 && d.back() == '/')
           d.pop_back() ;
-        dir = d;
+        ms_path = d;
+      } else if (i == argc - 1) {
+        h5_path = argv[i];
       } else {
         tables.push_back(argv[i]);
       }
@@ -42,13 +46,6 @@ get_args(
       ++i; // skip option argument
     }
   }
-}
-
-fs::path
-h5_path(const fs::path& ms) {
-  auto result = ms;
-  result += ".h5";
-  return result;
 }
 
 class TableNameCollectorTask {
@@ -188,13 +185,14 @@ public:
     legms::register_tasks(runtime);
 
     const InputArgs& args = Runtime::get_input_args();
-    std::optional<fs::path> ms;
+    fs::path ms;
     std::vector<std::string> table_args;
-    get_args(args.argc, args.argv, ms, table_args);
+    fs::path h5;
+    get_args(args.argc, args.argv, ms, table_args, h5);
 
     LogicalRegion table_names_lr =
       TableNameCollectorTask::table_names_region(context, runtime);
-    TableNameCollectorTask tnames_launcher(ms.value(), table_names_lr);
+    TableNameCollectorTask tnames_launcher(ms, table_names_lr);
     tnames_launcher.dispatch(context, runtime);
 
     auto table_names =
@@ -209,9 +207,9 @@ public:
       [&ms, &context, runtime](auto& t) {
         fs::path path;
         if (t != "MAIN")
-          path = ms.value() / t;
+          path = ms / t;
         else
-          path = ms.value();
+          path = ms;
         auto result = Table::from_ms(context, runtime, path, {"*"});
         TableReadTask
           table_read_task(
@@ -226,9 +224,6 @@ public:
 
     // For now, we write the entire MS into a single HDF5 file.
     //
-    // TODO: provide options to write HDF5 files with a different structure, for
-    // example, one file per table or column, linked in a master file
-    auto h5 = h5_path(ms.value());
     hid_t fid = H5DatatypeManager::create(h5.c_str(), H5F_ACC_EXCL);
     assert(fid >= 0);
 
@@ -327,34 +322,49 @@ public:
 
 void
 usage() {
-  std::cerr << "usage: ms2h5 [OPTION...] MS [TABLE...]" << std::endl;
+  std::cerr << "usage: ms2h5 [OPTION...] MS [TABLE...] OUTPUT" << std::endl;
 }
 
 int
 main(int argc, char** argv) {
 
-  std::optional<fs::path> dir;
+  fs::path ms_path;
   std::vector<std::string> tables;
-  get_args(argc, argv, dir, tables);
+  fs::path h5_path;
+  get_args(argc, argv, ms_path, tables, h5_path);
 
-  if (!dir) {
+  if (ms_path.empty()) {
+    std::cerr << "MS directory path is missing from arguments" << std::endl;
     usage();
     return EXIT_FAILURE;
   }
 
-  auto dir_fs_status = fs::status(dir.value());
-  if (!fs::is_directory(dir_fs_status)) {
-    std::cerr << "MS directory '" << dir.value()
-              << "' does not exist"
+  if (h5_path.empty()) {
+    std::cerr << "Output HDF5 path is missing from arguments" << std::endl;
+    usage();
+    return EXIT_FAILURE;
+  }
+
+  auto ms_status = fs::status(ms_path);
+  if (!fs::is_directory(ms_status)) {
+    std::cerr << "MS directory " << ms_path
+              << " does not exist"
               << std::endl;
     return EXIT_FAILURE;
+  }
+
+  if (fs::exists(h5_path)) {
+    std::cerr << "HDF5 file path " << h5_path
+              << " exists and will not be overwritten"
+              << std::endl;
+    return EXIT_FAILURE;  
   }
 
   std::vector<std::string> missing_tables;
   std::for_each(
     tables.begin(),
     tables.end(),
-    [&missing_tables, d=dir.value()](std::string t) {
+    [&missing_tables, &ms_path](std::string t) {
       std::string T;
       std::transform(
         t.begin(),
@@ -362,7 +372,7 @@ main(int argc, char** argv) {
         std::back_inserter(T),
         [](unsigned char c) { return std::toupper(c); });
       if (T != "MAIN" && T != "." && T[0] != '~') {
-        auto stat = fs::status(d / T);
+        auto stat = fs::status(ms_path / T);
         if (!fs::is_directory(stat))
           missing_tables.push_back(t);
       }
@@ -380,15 +390,6 @@ main(int argc, char** argv) {
         sep = ", ";
       });
     std::cerr << oss.str() << std::endl;
-    return EXIT_FAILURE;
-  }
-
-  auto h5 = h5_path(dir.value());
-  auto h5_status = fs::status(h5);
-  if (fs::exists(h5_status)) {
-    std::cerr << "HDF5 file path '" << h5
-              << "' exists and will not be overwritten"
-              << std::endl;
     return EXIT_FAILURE;
   }
 
