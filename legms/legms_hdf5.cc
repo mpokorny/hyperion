@@ -1018,6 +1018,7 @@ legms::hdf5::init_table(
               table_loc,
               runtime,
               context,
+              type_access_pl,
               attr_access_pl,
               link_access_pl,
               xfer_pl);
