@@ -120,6 +120,89 @@ private:
 
 template <typename D> class TableT;
 
+class IndexColumnTask {
+public:
+
+  static Legion::TaskID TASK_ID;
+  static constexpr const char* TASK_NAME = "index_column_task";
+  static constexpr Legion::FieldID rows_fid = Column::value_fid + 10;
+
+  IndexColumnTask(
+    const std::shared_ptr<Column>& column,
+    int axis);
+
+  static void
+  register_task(Legion::Runtime* runtime);
+
+  Legion::Future
+  dispatch(Legion::Context ctx, Legion::Runtime* runtime);
+
+  static ColumnGenArgs
+  base_impl(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *runtime);
+
+private:
+
+  Legion::TaskLauncher m_launcher;
+
+  std::unique_ptr<char[]> m_args;
+};
+
+class ReindexColumnTask {
+public:
+
+  static Legion::TaskID TASK_ID;
+  static constexpr const char* TASK_NAME = "reindex_column_task";
+
+  ReindexColumnTask(
+    const std::shared_ptr<Column>& col,
+    ssize_t row_axis_offset,
+    const std::vector<std::shared_ptr<Column>>& ixcols,
+    bool allow_rows);
+
+  static void
+  register_task(Legion::Runtime* runtime);
+
+  Legion::Future
+  dispatch(Legion::Context ctx, Legion::Runtime* runtime);
+
+  static ColumnGenArgs
+  base_impl(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *runtime);
+
+  static constexpr const Legion::FieldID row_rects_fid = 0;
+
+private:
+
+  struct TaskArgs {
+    bool allow_rows;
+    std::vector<int> index_axes;
+    Legion::IndexPartition row_partition;
+    ColumnGenArgs col;
+
+    size_t
+    serialized_size() const;
+
+    size_t
+    serialize(void* buffer) const;
+
+    static size_t
+    deserialize(TaskArgs& val, const void* buffer);
+  };
+
+  std::unique_ptr<char[]> m_args_buffer;
+
+  std::unique_ptr<ColumnPartition> m_partition;
+
+  Legion::TaskLauncher m_launcher;
+};
+
 struct TableGenArgs {
   std::string name;
   std::string axes_uid;
@@ -141,6 +224,41 @@ struct TableGenArgs {
   size_t
   legion_deserialize(const void *buffer);
 };
+
+class ReindexedTableTask {
+public:
+
+  static Legion::TaskID TASK_ID;
+  static constexpr const char* TASK_NAME = "reindexed_table_task";
+
+  ReindexedTableTask(
+    const std::string& name,
+    const char* axes_uid,
+    const std::vector<int>& index_axes,
+    Legion::LogicalRegion keywords_region,
+    const std::vector<Legion::Future>& reindexed);
+
+  static void
+  register_task(Legion::Runtime* runtime);
+
+  Legion::Future
+  dispatch(Legion::Context ctx, Legion::Runtime* runtime);
+
+  static TableGenArgs
+  base_impl(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *runtime);
+
+private:
+
+  Legion::TaskLauncher m_launcher;
+
+  std::unique_ptr<char[]> m_args;
+};
+
+template <typename D> class TableT;
 
 template <typename D>
 class TableT
@@ -272,6 +390,134 @@ public:
         keywords_datatypes()};
   }
 
+  std::optional<Legion::Future/*TableGenArgs*/>
+  reindexed(const std::vector<D>& axes, bool allow_rows = true) const {
+
+    // 'allow_rows' is intended to support the case where the reindexing may not
+    // result in a single value in a column per aggregate index, necessitating the
+    // maintenance of a row index. A value of 'true' for this argument is always
+    // safe, but may result in a degenerate axis when an aggregate index always
+    // identifies a single value in a column. If the value is 'false' and a
+    // non-degenerate axis is required by the reindexing, this method will return
+    // an empty value. TODO: remove degenerate axes after the fact, and do that
+    // automatically in this method, which would allow us to remove the
+    // 'allow_rows' argument.
+
+    // can only reindex along an axis if table has a column with the associated
+    // name
+    //
+    // TODO: add support for index columns that already exist in the table
+    if ((index_axes().size() > 1)
+        || (index_axes().back() != static_cast<int>(D::ROW)))
+      return std::nullopt;
+
+    // for every column in table, determine which axes need indexing
+    std::unordered_map<std::string, std::vector<D>> col_reindex_axes;
+    std::transform(
+      column_names().begin(),
+      column_names().end(),
+      std::inserter(col_reindex_axes, col_reindex_axes.end()),
+      [this, &axes](auto& nm) {
+        std::vector<D> ax;
+        auto col_axes = columnT(nm)->axesT();
+        // skip the column if it does not have a "row" axis
+        if (col_axes.back() == D::ROW) {
+          // if column is a reindexing axis, reindexing depends only on itself
+          auto myaxis = column_is_axis(nm, axes);
+          if (myaxis) {
+            ax.push_back(myaxis.value());
+          } else {
+            // select those axes in "axes" that are not already an axis of the
+            // column
+            std::for_each(
+              axes.begin(),
+              axes.end(),
+              [&col_axes, &ax](auto& d) {
+                if (find(col_axes.begin(), col_axes.end(), d) == col_axes.end())
+                  ax.push_back(d);
+              });
+          }
+        }
+        return std::pair(nm, std::move(ax));
+      });
+
+    // index associated columns; the Future in "index_cols" below contains a
+    // ColumnGenArgs of a LogicalRegion with two fields: at Column::value_fid, the
+    // column values (sorted in ascending order); and at Column::value_fid +
+    // IndexColumnTask::rows_fid, a sorted vector of DomainPoints in the original
+    // column.
+    auto& axis_names = Axes<D>::names;
+    std::unordered_map<D, Legion::Future> index_cols;
+    std::for_each(
+      col_reindex_axes.begin(),
+      col_reindex_axes.end(),
+      [this, &axis_names, &index_cols](auto& nm_ds) {
+        const std::vector<D>& ds = std::get<1>(nm_ds);
+        std::for_each(
+          ds.begin(),
+          ds.end(),
+          [this, &axis_names, &index_cols](auto& d) {
+            if (index_cols.count(d) == 0) {
+              auto col = columnT(axis_names.at(d));
+              IndexColumnTask task(col, static_cast<int>(d));
+              index_cols[d] = task.dispatch(context(), runtime());
+            }
+          });
+      });
+
+    // do reindexing of columns
+    std::vector<Legion::Future> reindexed;
+    std::transform(
+      col_reindex_axes.begin(),
+      col_reindex_axes.end(),
+      std::back_inserter(reindexed),
+      [this, &index_cols, &allow_rows](auto& nm_ds) {
+        auto& [nm, ds] = nm_ds;
+        // if this column is an index column, we've already launched a task to
+        // create its logical region, so we can use that
+        if (ds.size() == 1 && index_cols.count(ds[0]) > 0)
+          return index_cols.at(ds[0]);
+
+        // create reindexing task launcher
+        // TODO: start intermediary task dependent on Futures of index columns
+        std::vector<std::shared_ptr<Column>> ixcols;
+        for (auto d : ds) {
+          ixcols.push_back(
+            index_cols.at(d)
+            .template get_result<ColumnGenArgs>()
+            .template operator()<D>(context(), runtime()));
+        }
+        auto col = columnT(nm);
+        auto col_axes = col->axesT();
+        auto row_axis_offset =
+          std::distance(
+            col_axes.begin(),
+            find(col_axes.begin(), col_axes.end(), D::ROW));
+        ReindexColumnTask task(col, row_axis_offset, ixcols, allow_rows);
+        return task.dispatch(context(), runtime());
+      });
+
+    // launch task that creates the reindexed table
+    std::vector<int> iaxes;
+    std::transform(
+      axes.begin(),
+      axes.end(),
+      std::back_inserter(iaxes),
+      [](auto& d) {
+        return static_cast<int>(d);
+      });
+    if (allow_rows)
+      iaxes.push_back(static_cast<int>(D::ROW));
+    ReindexedTableTask
+      task(
+        name(),
+        axes_uid(),
+        iaxes,
+        keywords_region(),
+        reindexed);
+    return task.dispatch(context(), runtime());
+  }
+
 protected:
 
   const std::string&
@@ -334,122 +580,6 @@ TableGenArgs::operator()(
       keyword_datatypes);
 }
 
-class IndexColumnTask {
-public:
-
-  static Legion::TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "index_column_task";
-  static constexpr Legion::FieldID rows_fid = Column::value_fid + 10;
-
-  IndexColumnTask(
-    const std::shared_ptr<Column>& column,
-    int axis);
-
-  static void
-  register_task(Legion::Runtime* runtime);
-
-  Legion::Future
-  dispatch(Legion::Context ctx, Legion::Runtime* runtime);
-
-  static ColumnGenArgs
-  base_impl(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime *runtime);
-
-private:
-
-  Legion::TaskLauncher m_launcher;
-
-  std::unique_ptr<char[]> m_args;
-};
-
-class ReindexedTableTask {
-public:
-
-  static Legion::TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "reindexed_table_task";
-
-  ReindexedTableTask(
-    const std::string& name,
-    const char* axes_uid,
-    const std::vector<int>& index_axes,
-    Legion::LogicalRegion keywords_region,
-    const std::vector<Legion::Future>& reindexed);
-
-  static void
-  register_task(Legion::Runtime* runtime);
-
-  Legion::Future
-  dispatch(Legion::Context ctx, Legion::Runtime* runtime);
-
-  static TableGenArgs
-  base_impl(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime *runtime);
-
-private:
-
-  Legion::TaskLauncher m_launcher;
-
-  std::unique_ptr<char[]> m_args;
-};
-
-class ReindexColumnTask {
-public:
-
-  static Legion::TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "reindex_column_task";
-
-  ReindexColumnTask(
-    const std::shared_ptr<Column>& col,
-    ssize_t row_axis_offset,
-    const std::vector<std::shared_ptr<Column>>& ixcols,
-    bool allow_rows);
-
-  static void
-  register_task(Legion::Runtime* runtime);
-
-  Legion::Future
-  dispatch(Legion::Context ctx, Legion::Runtime* runtime);
-
-  static ColumnGenArgs
-  base_impl(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime *runtime);
-
-  static constexpr const Legion::FieldID row_rects_fid = 0;
-
-private:
-
-  struct TaskArgs {
-    bool allow_rows;
-    std::vector<int> index_axes;
-    Legion::IndexPartition row_partition;
-    ColumnGenArgs col;
-
-    size_t
-    serialized_size() const;
-
-    size_t
-    serialize(void* buffer) const;
-
-    static size_t
-    deserialize(TaskArgs& val, const void* buffer);
-  };
-
-  std::unique_ptr<char[]> m_args_buffer;
-
-  std::unique_ptr<ColumnPartition> m_partition;
-
-  Legion::TaskLauncher m_launcher;
-};
-
 template <>
 struct CObjectWrapper::UniqueWrapper<Table> {
   typedef legms_table_t type_t;
@@ -460,140 +590,6 @@ struct CObjectWrapper::UniqueWrapped<legms_table_t> {
   typedef Table type_t;
   typedef std::unique_ptr<type_t> impl_t;
 };
-
-template <typename D>
-std::optional<Legion::Future/*TableGenArgs*/>
-reindexed(
-  const TableT<D>* table,
-  const std::vector<D>& axes,
-  bool allow_rows = true) {
-
-  // 'allow_rows' is intended to support the case where the reindexing may not
-  // result in a single value in a column per aggregate index, necessitating the
-  // maintenance of a row index. A value of 'true' for this argument is always
-  // safe, but may result in a degenerate axis when an aggregate index always
-  // identifies a single value in a column. If the value is 'false' and a
-  // non-degenerate axis is required by the reindexing, this method will return
-  // an empty value. TODO: remove degenerate axes after the fact, and do that
-  // automatically in this method, which would allow us to remove the
-  // 'allow_rows' argument.
-
-  // can only reindex along an axis if table has a column with the associated
-  // name
-  //
-  // TODO: add support for index columns that already exist in the table
-  if ((table->index_axes().size() > 1)
-      || (table->index_axes().back() != static_cast<int>(D::ROW)))
-    return std::nullopt;
-
-  // for every column in table, determine which axes need indexing
-  std::unordered_map<std::string, std::vector<D>> col_reindex_axes;
-  std::transform(
-    table->column_names().begin(),
-    table->column_names().end(),
-    std::inserter(col_reindex_axes, col_reindex_axes.end()),
-    [table, &axes](auto& nm) {
-      std::vector<D> ax;
-      auto col_axes = table->columnT(nm)->axesT();
-      // skip the column if it does not have a "row" axis
-      if (col_axes.back() == D::ROW) {
-        // if column is a reindexing axis, reindexing depends only on itself
-        auto myaxis = column_is_axis(nm, axes);
-        if (myaxis) {
-          ax.push_back(myaxis.value());
-        } else {
-          // select those axes in "axes" that are not already an axis of the
-          // column
-          std::for_each(
-            axes.begin(),
-            axes.end(),
-            [&col_axes, &ax](auto& d) {
-              if (find(col_axes.begin(), col_axes.end(), d) == col_axes.end())
-                ax.push_back(d);
-            });
-        }
-      }
-      return std::pair(nm, std::move(ax));
-    });
-
-  // index associated columns; the Future in "index_cols" below contains a
-  // ColumnGenArgs of a LogicalRegion with two fields: at Column::value_fid, the
-  // column values (sorted in ascending order); and at Column::value_fid +
-  // IndexColumnTask::rows_fid, a sorted vector of DomainPoints in the original
-  // column.
-  auto& axis_names = Axes<D>::names;
-  std::unordered_map<D, Legion::Future> index_cols;
-  std::for_each(
-    col_reindex_axes.begin(),
-    col_reindex_axes.end(),
-    [table, &axis_names, &index_cols](auto& nm_ds) {
-      const std::vector<D>& ds = std::get<1>(nm_ds);
-      std::for_each(
-        ds.begin(),
-        ds.end(),
-        [table, &axis_names, &index_cols](auto& d) {
-          if (index_cols.count(d) == 0) {
-            auto col = table->columnT(axis_names.at(d));
-            IndexColumnTask task(col, static_cast<int>(d));
-            index_cols[d] = task.dispatch(table->context(), table->runtime());
-          }
-        });
-    });
-
-  // do reindexing of columns
-  std::vector<Legion::Future> reindexed;
-  std::transform(
-    col_reindex_axes.begin(),
-    col_reindex_axes.end(),
-    std::back_inserter(reindexed),
-    [table, &index_cols, &allow_rows](auto& nm_ds) {
-      auto& [nm, ds] = nm_ds;
-      // if this column is an index column, we've already launched a task to
-      // create its logical region, so we can use that
-      if (ds.size() == 1 && index_cols.count(ds[0]) > 0)
-        return index_cols.at(ds[0]);
-
-      // create reindexing task launcher
-      // TODO: start intermediary task dependent on Futures of index columns
-      std::vector<std::shared_ptr<Column>> ixcols;
-      std::vector<int> index_axes;
-      for (auto d : ds) {
-        ixcols.push_back(
-          index_cols.at(d)
-          .template get_result<ColumnGenArgs>()
-          .template operator()<D>(table->context(), table->runtime()));
-        index_axes.push_back(static_cast<int>(d));
-      }
-      auto col = table->columnT(nm);
-      auto col_axes = col->axesT();
-      auto row_axis_offset =
-        std::distance(
-          col_axes.begin(),
-          find(col_axes.begin(), col_axes.end(), D::ROW));
-      ReindexColumnTask task(col, row_axis_offset, ixcols, allow_rows);
-      return task.dispatch(table->context(), table->runtime());
-    });
-
-  // launch task that creates the reindexed table
-  std::vector<int> index_axes;
-  std::transform(
-    axes.begin(),
-    axes.end(),
-    std::back_inserter(index_axes),
-    [](auto& d) {
-      return static_cast<int>(d);
-    });
-  if (allow_rows)
-    index_axes.push_back(static_cast<int>(D::ROW));
-  ReindexedTableTask
-    task(
-      table->name(),
-      table->axes_uid(),
-      index_axes,
-      table->keywords_region(),
-      reindexed);
-  return task.dispatch(table->context(), table->runtime());
-}
 
 } // end namespace legms
 

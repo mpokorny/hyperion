@@ -170,7 +170,7 @@ reindexed_test_suite(
   auto col_z =
     attach_table0_col(table0.columnT("Z").get(), table0_z, context, runtime);
 
-  auto of = legms::reindexed(&table0, {Table0Axes::X, Table0Axes::Y}, false);
+  auto of = table0.reindexed({Table0Axes::X, Table0Axes::Y}, false);
   recorder.assert_true(
     "Valid reindexed() returns non-empty optional",
     TE(of.has_value()));
