@@ -170,222 +170,162 @@ reindexed_test_suite(
   auto col_z =
     attach_table0_col(table0.columnT("Z").get(), table0_z, context, runtime);
 
-  auto of = table0.reindexed({Table0Axes::X, Table0Axes::Y}, false);
-  recorder.assert_true(
-    "Valid reindexed() returns non-empty optional",
-    TE(of.has_value()));
+  auto f = table0.reindexed({Table0Axes::X, Table0Axes::Y}, false);
 
-  auto ort =
-    map(
-      of,
-      [&context, runtime](const Future& f) {
-        return
-          f.get_result<TableGenArgs>()
-          .operator()<Table0Axes>(context, runtime);
-      });
+  auto rt =
+    f.get_result<TableGenArgs>().operator()<Table0Axes>(context, runtime);
+  recorder.expect_true("Reindexed table is not empty", TE(!rt->is_empty()));
 
   recorder.expect_true(
     "Reindexed table has ('X', 'Y') index axes",
-    map(
-      ort,
-      [](const std::unique_ptr<TableT<Table0Axes>>& rt) {
+    testing::TestEval(
+      [&rt]() {
         auto axes = rt->index_axes();
         return
           axes ==
           std::vector<int>{
           static_cast<int>(Table0Axes::X),
           static_cast<int>(Table0Axes::Y)};
-      }).value_or(false));
+      }));
 
   {
     recorder.assert_true(
       "Reindexed table has 'X' column",
-      TE(
-        map(
-          ort,
-          [](const std::unique_ptr<TableT<Table0Axes>>& rt) {
-            return rt->has_column("X");
-          }).value_or(false)));
-    auto orx =
-      map(
-        ort,
-        [](const std::unique_ptr<TableT<Table0Axes>>& rt) {
-          return rt->columnT("X");
-        });
+      TE(rt->has_column("X")));
+
+    auto rx = rt->columnT("X");
+
     recorder.expect_true(
       "Reindexed 'X' column has only 'X' axis",
-      TE(
-        map(
-          orx,
-          [](const std::shared_ptr<ColumnT<Table0Axes>>& c) {
-            return
-              c->axes() == std::vector<int>{static_cast<int>(Table0Axes::X)};
-          }).value_or(false)));
+      TE(rx->axes()) == std::vector<int>{static_cast<int>(Table0Axes::X)});
+
     recorder.assert_true(
       "Reindexed 'X' column has expected size",
-      TE(
-        map(
-          orx,
-          [&context, runtime](const std::shared_ptr<ColumnT<Table0Axes>>& c) {
-            auto is = c->index_space();
-            auto dom = runtime->get_index_space_domain(context, is);
-            Rect<1> r(dom.bounds<1,coord_t>());
-            return r == Rect<1>(0, TABLE0_NUM_X - 1);
-          }).value_or(false)));
+      testing::TestEval(
+        [&rx, &context, runtime]() {
+          auto is = rx->index_space();
+          auto dom = runtime->get_index_space_domain(context, is);
+          Rect<1> r(dom.bounds<1,coord_t>());
+          return r == Rect<1>(0, TABLE0_NUM_X - 1);
+        }));
 
     recorder.expect_true(
       "Reindexed 'X' column has expected values",
-      TE(
-        map(
-          orx,
-          [&context, runtime](const std::shared_ptr<ColumnT<Table0Axes>>& c) {
-            RegionRequirement
-              req(
-                c->logical_region(),
-                READ_ONLY,
-                EXCLUSIVE,
-                c->logical_region());
-            req.add_field(Column::value_fid);
-            PhysicalRegion pr = runtime->map_region(context, req);
-            const FieldAccessor<
-              READ_ONLY, unsigned, 1, coord_t,
-              AffineAccessor<unsigned, 1, coord_t>, true>
-              x(pr, Column::value_fid);
-            bool result =
-              x[0] == OX && x[1] == OX + 1 && x[2] == OX + 2 && x[3] == OX + 3;
-            runtime->unmap_region(context, pr);
-            return result;
-          }).value_or(false)));
+      testing::TestEval(
+        [&rx, &context, runtime]() {
+          RegionRequirement
+            req(
+              rx->logical_region(),
+              READ_ONLY,
+              EXCLUSIVE,
+              rx->logical_region());
+          req.add_field(Column::value_fid);
+          PhysicalRegion pr = runtime->map_region(context, req);
+          const FieldAccessor<
+            READ_ONLY, unsigned, 1, coord_t,
+            AffineAccessor<unsigned, 1, coord_t>, true>
+            x(pr, Column::value_fid);
+          bool result =
+            x[0] == OX && x[1] == OX + 1 && x[2] == OX + 2 && x[3] == OX + 3;
+          runtime->unmap_region(context, pr);
+          return result;
+        }));
   }
   {
     recorder.assert_true(
       "Reindexed table has 'Y' column",
-      TE(
-        map(
-          ort,
-          [](const std::unique_ptr<TableT<Table0Axes>>& rt) {
-            return rt->has_column("Y");
-          }).value_or(false)));
-    auto ory =
-      map(
-        ort,
-        [](const std::unique_ptr<TableT<Table0Axes>>& rt) {
-          return rt->columnT("Y");
-        });
+      TE(rt->has_column("Y")));
+
+    auto ry = rt->columnT("Y");
+
     recorder.expect_true(
       "Reindexed 'Y' column has only 'Y' axis",
-      TE(
-        map(
-          ory,
-          [](const std::shared_ptr<ColumnT<Table0Axes>>& c) {
-            return
-              c->axes() == std::vector<int>{static_cast<int>(Table0Axes::Y)};
-          }).value_or(false)));
+      TE(ry->axes()) == std::vector<int>{static_cast<int>(Table0Axes::Y)});
+
     recorder.assert_true(
       "Reindexed 'Y' column has expected size",
-      TE(
-        map(
-          ory,
-          [&context, runtime](const std::shared_ptr<ColumnT<Table0Axes>>& c) {
-            auto is = c->index_space();
-            auto dom = runtime->get_index_space_domain(context, is);
-            Rect<1> r(dom.bounds<1,coord_t>());
-            return r == Rect<1>(0, TABLE0_NUM_Y - 1);
-          }).value_or(false)));
+      testing::TestEval(
+        [&ry, &context, runtime]() {
+          auto is = ry->index_space();
+          auto dom = runtime->get_index_space_domain(context, is);
+          Rect<1> r(dom.bounds<1,coord_t>());
+          return r == Rect<1>(0, TABLE0_NUM_Y - 1);
+        }));
 
     recorder.expect_true(
       "Reindexed 'Y' column has expected values",
-      TE(
-        map(
-          ory,
-          [&context, runtime](const std::shared_ptr<ColumnT<Table0Axes>>& c) {
-            RegionRequirement
-              req(
-                c->logical_region(),
-                READ_ONLY,
-                EXCLUSIVE,
-                c->logical_region());
-            req.add_field(Column::value_fid);
-            PhysicalRegion pr = runtime->map_region(context, req);
-            const FieldAccessor<
-              READ_ONLY, unsigned, 1, coord_t,
-              AffineAccessor<unsigned, 1, coord_t>, true>
-              y(pr, Column::value_fid);
-            bool result =
-              y[0] == OY && y[1] == OY + 1 && y[2] == OY + 2;
-            runtime->unmap_region(context, pr);
-            return result;
-          }).value_or(false)));
+      testing::TestEval(
+        [&ry, &context, runtime]() {
+          RegionRequirement
+            req(
+              ry->logical_region(),
+              READ_ONLY,
+              EXCLUSIVE,
+              ry->logical_region());
+          req.add_field(Column::value_fid);
+          PhysicalRegion pr = runtime->map_region(context, req);
+          const FieldAccessor<
+            READ_ONLY, unsigned, 1, coord_t,
+            AffineAccessor<unsigned, 1, coord_t>, true>
+            y(pr, Column::value_fid);
+          bool result =
+            y[0] == OY && y[1] == OY + 1 && y[2] == OY + 2;
+          runtime->unmap_region(context, pr);
+          return result;
+        }));
   }
   {
     recorder.assert_true(
       "Reindexed table has 'Z' column",
-      TE(
-        map(
-          ort,
-          [](const std::unique_ptr<TableT<Table0Axes>>& rt) {
-            return rt->has_column("Z");
-          }).value_or(false)));
-    auto orz =
-      map(
-        ort,
-        [](const std::unique_ptr<TableT<Table0Axes>>& rt) {
-          return rt->columnT("Z");
-        });
+      TE(rt->has_column("Z")));
+
+    auto rz = rt->columnT("Z");
+
     recorder.expect_true(
       "Reindexed 'Z' column has only ('X', 'Y') axes",
-      TE(
-        map(
-          orz,
-          [](const std::shared_ptr<ColumnT<Table0Axes>>& c) {
-            return
-              c->axes() ==
-              std::vector<int>{
-              static_cast<int>(Table0Axes::X),
-              static_cast<int>(Table0Axes::Y)};
-          }).value_or(false)));
+      TE(rz->axes()) ==
+      std::vector<int>{
+        static_cast<int>(Table0Axes::X),
+        static_cast<int>(Table0Axes::Y)});
+
     recorder.expect_true(
       "Reindexed 'Z' column has expected size",
-      TE(
-        map(
-          orz,
-          [&context, runtime](const std::shared_ptr<ColumnT<Table0Axes>>& c) {
-            auto is = c->index_space();
-            auto dom = runtime->get_index_space_domain(context, is);
-            Rect<2> r(dom.bounds<2,coord_t>());
-            return
-              r ==
-              Rect<2>(
-                Point<2>(0, 0),
-                Point<2>(TABLE0_NUM_X - 1, TABLE0_NUM_Y - 1));
-          }).value_or(false)));
+      testing::TestEval(
+        [&rz, &context, runtime]() {
+          auto is = rz->index_space();
+          auto dom = runtime->get_index_space_domain(context, is);
+          Rect<2> r(dom.bounds<2,coord_t>());
+          return
+            r ==
+            Rect<2>(
+              Point<2>(0, 0),
+              Point<2>(TABLE0_NUM_X - 1, TABLE0_NUM_Y - 1));
+        }));
 
     recorder.expect_true(
       "Reindexed 'Z' column has expected values",
-      TE(
-        map(
-          orz,
-          [&context, runtime](const std::shared_ptr<ColumnT<Table0Axes>>& c) {
-            RegionRequirement
-              req(
-                c->logical_region(),
-                READ_ONLY,
-                EXCLUSIVE,
-                c->logical_region());
-            req.add_field(Column::value_fid);
-            PhysicalRegion pr = runtime->map_region(context, req);
-            const FieldAccessor<
-              READ_ONLY, unsigned, 2, coord_t,
-              AffineAccessor<unsigned, 2, coord_t>, true>
-              z(pr, Column::value_fid);
-            bool result = true;
-            DomainT<2> dom(pr);
-            for (PointInDomainIterator<2> pid(dom); pid(); pid++)
-              result = result &&
-                z[*pid] == table0_z[pid[0] * TABLE0_NUM_Y + pid[1]];
-            runtime->unmap_region(context, pr);
-            return result;
-          }).value_or(false)));
+      testing::TestEval(
+        [&rz, &context, runtime]() {
+          RegionRequirement
+            req(
+              rz->logical_region(),
+              READ_ONLY,
+              EXCLUSIVE,
+              rz->logical_region());
+          req.add_field(Column::value_fid);
+          PhysicalRegion pr = runtime->map_region(context, req);
+          const FieldAccessor<
+            READ_ONLY, unsigned, 2, coord_t,
+            AffineAccessor<unsigned, 2, coord_t>, true>
+            z(pr, Column::value_fid);
+          bool result = true;
+          DomainT<2> dom(pr);
+          for (PointInDomainIterator<2> pid(dom); pid(); pid++)
+            result = result &&
+              z[*pid] == table0_z[pid[0] * TABLE0_NUM_Y + pid[1]];
+          runtime->unmap_region(context, pr);
+          return result;
+        }));
   }
 }
 

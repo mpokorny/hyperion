@@ -392,7 +392,7 @@ public:
         keywords_datatypes()};
   }
 
-  std::optional<Legion::Future/*TableGenArgs*/>
+  Legion::Future/*TableGenArgs*/
   reindexed(const std::vector<D>& axes, bool allow_rows = true) const {
 
     // 'allow_rows' is intended to support the case where the reindexing may not
@@ -410,8 +410,10 @@ public:
     //
     // TODO: add support for index columns that already exist in the table
     if ((index_axes().size() > 1)
-        || (index_axes().back() != static_cast<int>(D::ROW)))
-      return std::nullopt;
+        || (index_axes().back() != static_cast<int>(D::ROW))) {
+      TableGenArgs empty{name(), axes_uid()};
+      return Legion::Future::from_value(runtime(), empty);
+    }
 
     // for every column in table, determine which axes need indexing
     std::unordered_map<std::string, std::vector<D>> col_reindex_axes;
