@@ -543,6 +543,17 @@ MS_TABLE_AXES_UID(WEATHER);
 
 #undef MS_TABLE_AXES_UID
 
+#define MSAXES(T)                                                       \
+  template <>                                                           \
+  struct Axes<typename MSTable<MS_##T>::Axes> {                         \
+    static const std::unordered_map<typename MSTable<MS_##T>::Axes, std::string> \
+    names;                                                              \
+  };
+
+LEGMS_FOREACH_MSTABLE(MSAXES);
+
+#undef MSAXES
+
 #if USE_HDF5
 
 template <MSTables T>
@@ -567,22 +578,6 @@ void
 match_h5_axes_datatype(hid_t& id, const char*& uid);
 
 #endif // USE_HDF5
-
-template <MSTables T>
-static std::optional<typename MSTable<T>::Axes>
-column_is_axis(
-  const std::string& colname,
-  const std::vector<typename MSTable<T>::Axes>& axes) {
-  auto axis_names = MSTable<T>::axis_names();
-  auto colax =
-    find(
-      axes.begin(),
-      axes.end(),
-      [&axis_names, &colname](auto& ax) {
-        return colname == axis_names.at(ax);
-      });
-  return ((colax != axes.end()) ? *colax : std::nullopt);
-}
 
 } // end namespace legms
 

@@ -36,6 +36,26 @@ typedef IndexTree<Legion::coord_t> IndexTreeL;
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
+
+template <typename D>
+struct Axes {
+  static const std::unordered_map<D, std::string> names;
+};
+
+template <typename D>
+std::optional<D>
+column_is_axis(const std::string& colname, const std::vector<D>& axes) {
+  auto& axis_names = Axes<D>::names;
+  auto colax =
+    std::find_if(
+      axes.begin(),
+      axes.end(),
+      [&axis_names, &colname](auto& ax) {
+        return colname == axis_names.at(ax);
+      });
+  return (colax != axes.end()) ? *colax : std::optional<D>();
+}
+
 struct string {
 
   string() {

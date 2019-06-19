@@ -370,6 +370,12 @@ MSTable<MS_WEATHER>::element_axes = {
 
 LEGMS_FOREACH_MSTABLE(AXIS_NAMES);
 
+#define MSAXES(T) \
+  const std::unordered_map<typename MSTable<MS_##T>::Axes, std::string> \
+  Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names();
+
+LEGMS_FOREACH_MSTABLE(MSAXES);
+
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2
