@@ -66,7 +66,9 @@ public:
 
   bool
   is_empty() const {
-    return column(min_rank_column_name())->index_tree() == IndexTreeL();
+    return
+      column_names().empty()
+      || column(min_rank_column_name().value())->index_tree() == IndexTreeL();
   }
 
   virtual std::unordered_set<std::string>
@@ -80,10 +82,10 @@ public:
   virtual std::shared_ptr<Column>
   column(const std::string& name) const = 0;
 
-  virtual const std::string&
+  virtual const std::optional<std::string>&
   min_rank_column_name() const = 0;
 
-  virtual const std::string&
+  virtual const std::optional<std::string>&
   max_rank_column_name() const = 0;
 
   virtual const char*
@@ -520,40 +522,42 @@ public:
 
 protected:
 
-  const std::string&
+  const std::optional<std::string>&
   min_rank_column_name() const override {
     return m_min_rank_colname;
   }
 
-  const std::string&
+  const std::optional<std::string>&
   max_rank_column_name() const override {
     return m_max_rank_colname;
   }
 
   void
   set_min_max_rank() {
-    auto col0 = (*m_columns.begin()).second;
-    std::tie(std::ignore, m_min_rank_colname, m_max_rank_colname) =
-      std::accumulate(
-        m_columns.begin(),
-        m_columns.end(),
-        std::make_tuple(col0->rank(), col0->name(), col0->name()),
-        [](auto &acc, auto& nc) {
-          auto& [mrank, mincol, maxcol] = acc;
-          auto& [name, col] = nc;
-          if (col->rank() < mrank)
-            return std::make_tuple(col->rank(), name, maxcol);
-          if (col->rank() > mrank)
-            return std::make_tuple(col->rank(), mincol, name);
-          return acc;
-        });
+    if (!m_columns.empty()) {
+      auto col0 = (*m_columns.begin()).second;
+      std::tie(std::ignore, m_min_rank_colname, m_max_rank_colname) =
+        std::accumulate(
+          m_columns.begin(),
+          m_columns.end(),
+          std::make_tuple(col0->rank(), col0->name(), col0->name()),
+          [](auto &acc, auto& nc) {
+            auto& [mrank, mincol, maxcol] = acc;
+            auto& [name, col] = nc;
+            if (col->rank() < mrank)
+              return std::make_tuple(col->rank(), name, maxcol);
+            if (col->rank() > mrank)
+              return std::make_tuple(col->rank(), mincol, name);
+            return acc;
+          });
+    }
   }
 
   std::unordered_map<std::string, std::shared_ptr<ColumnT<D>>> m_columns;
 
-  std::string m_min_rank_colname;
+  std::optional<std::string> m_min_rank_colname;
 
-  std::string m_max_rank_colname;
+  std::optional<std::string> m_max_rank_colname;
 
 #if USE_HDF5
   static hid_t m_h5_axes_datatype;

@@ -50,14 +50,18 @@ public:
     , m_table_path(table_path)
     , m_table_name(table->name()) {
 
-    std::transform(
+    if (table->is_empty())
+      return;
+
+    std::for_each(
       colname_iter,
       end_colname_iter,
-      std::back_inserter(m_columns),
-      [table](const auto& nm) { return table->column(nm); });
+      [this, table](const auto& nm) {
+        if (table->has_column(nm))
+          m_columns.push_back(table->column(nm));
+      });
 
-
-    auto c = table->column(table->min_rank_column_name());
+    auto c = table->column(table->min_rank_column_name().value());
     m_blockp = c->partition_on_axes({std::make_tuple(0, block_length)});
 
     // FIXME: the following is insufficient in the case of multiple nodes

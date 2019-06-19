@@ -53,12 +53,14 @@ legms_table_column(legms_table_t table, const char* name) {
 
 const char *
 legms_table_min_rank_column_name(legms_table_t table) {
-  return unwrap(table)->min_rank_column_name().c_str();
+  auto cn = unwrap(table)->min_rank_column_name();
+  return cn ? cn.value().c_str() : NULL;
 }
 
 const char *
 legms_table_max_rank_column_name(legms_table_t table) {
-  return unwrap(table)->max_rank_column_name().c_str();
+  auto cn = unwrap(table)->max_rank_column_name();
+  return cn ? cn.value().c_str() : NULL;
 }
 
 const char*
