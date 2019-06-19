@@ -26,6 +26,14 @@ add_test(
   NAME ReindexColumnTaskUnitTest
   COMMAND ../testing/TestRunner.py ./utReindexColumnTask)
 
+add_executable(utReindexed utReindexed.cc)
+set_target_properties(utReindexed PROPERTIES
+  CXX_STANDARD 17
+  COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+add_test(
+  NAME ReindexedUnitTest
+  COMMAND ../testing/TestRunner.py ./utReindexed)
+
 if (USE_HDF5)
   add_executable(utHdf5 utHdf5.cc)
   set_target_properties(utHdf5 PROPERTIES
