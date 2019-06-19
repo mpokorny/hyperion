@@ -26,8 +26,9 @@ public:
   }
 
   virtual ~ColumnPartition() {
-    if (m_index_partition != Legion::IndexPartition::NO_PART)
-      m_runtime->destroy_index_partition(m_context, m_index_partition);
+    // FIXME:
+    // if (m_index_partition != Legion::IndexPartition::NO_PART)
+    //   m_runtime->destroy_index_partition(m_context, m_index_partition);
   }
 
 protected:
