@@ -176,30 +176,30 @@ index_column_task_test_suite(
         runtime->unmap_region(context, pr);
         return result;
       }));
-  // recorder.expect_true(
-  //   "IndexColumnTask X result has expected index groups",
-  //   testing::TestEval(
-  //     [&context, runtime, &cx]() {
-  //       RegionRequirement
-  //         req(cx->logical_region(), READ_ONLY, EXCLUSIVE, cx->logical_region());
-  //       req.add_field(IndexColumnTask::rows_fid);
-  //       PhysicalRegion pr = runtime->map_region(context, req);
-  //       const FieldAccessor<
-  //         READ_ONLY, std::vector<DomainPoint>, 1, coord_t,
-  //         AffineAccessor<std::vector<DomainPoint>, 1, coord_t>, true>
-  //         x(pr, IndexColumnTask::rows_fid);
-  //       bool result =
-  //         (x[0] ==
-  //          std::vector<DomainPoint>{Point<1>(0), Point<1>(1), Point<1>(2)})
-  //         && (x[1] ==
-  //             std::vector<DomainPoint>{Point<1>(3), Point<1>(4), Point<1>(5)})
-  //         && (x[2] ==
-  //             std::vector<DomainPoint>{Point<1>(6), Point<1>(7), Point<1>(8)})
-  //         && (x[3] ==
-  //             std::vector<DomainPoint>{Point<1>(9), Point<1>(10), Point<1>(11)});
-  //       runtime->unmap_region(context, pr);
-  //       return result;
-  //     }));
+  recorder.expect_true(
+    "IndexColumnTask X result has expected index groups",
+    testing::TestEval(
+      [&context, runtime, &cx]() {
+        RegionRequirement
+          req(cx->logical_region(), READ_ONLY, EXCLUSIVE, cx->logical_region());
+        req.add_field(IndexColumnTask::rows_fid);
+        PhysicalRegion pr = runtime->map_region(context, req);
+        const FieldAccessor<
+          READ_ONLY, std::vector<DomainPoint>, 1, coord_t,
+          AffineAccessor<std::vector<DomainPoint>, 1, coord_t>, true>
+          x(pr, IndexColumnTask::rows_fid);
+        bool result =
+          (x[0] ==
+           std::vector<DomainPoint>{Point<1>(0), Point<1>(1), Point<1>(2)})
+          && (x[1] ==
+              std::vector<DomainPoint>{Point<1>(3), Point<1>(4), Point<1>(5)})
+          && (x[2] ==
+              std::vector<DomainPoint>{Point<1>(6), Point<1>(7), Point<1>(8)})
+          && (x[3] ==
+              std::vector<DomainPoint>{Point<1>(9), Point<1>(10), Point<1>(11)});
+        runtime->unmap_region(context, pr);
+        return result;
+      }));
 
   auto cy =
     fy.get_result<ColumnGenArgs>().operator()<Table0Axes>(context, runtime);
@@ -232,31 +232,31 @@ index_column_task_test_suite(
         runtime->unmap_region(context, pr);
         return result;
       }));
-  // recorder.expect_true(
-  //   "IndexColumnTask Y result has expected index groups",
-  //   testing::TestEval(
-  //     [&context, runtime, &cy]() {
-  //       RegionRequirement
-  //         req(cy->logical_region(), READ_ONLY, EXCLUSIVE, cy->logical_region());
-  //       req.add_field(IndexColumnTask::rows_fid);
-  //       PhysicalRegion pr = runtime->map_region(context, req);
-  //       const FieldAccessor<
-  //         READ_ONLY, std::vector<DomainPoint>, 1, coord_t,
-  //         AffineAccessor<std::vector<DomainPoint>, 1, coord_t>, true>
-  //         y(pr, IndexColumnTask::rows_fid);
-  //       bool result =
-  //         (y[0] ==
-  //          std::vector<DomainPoint>{
-  //           Point<1>(0), Point<1>(3), Point<1>(6), Point<1>(9)})
-  //         && (y[1] ==
-  //             std::vector<DomainPoint>{
-  //               Point<1>(1), Point<1>(4), Point<1>(7), Point<1>(10)})
-  //         && (y[2] ==
-  //             std::vector<DomainPoint>{
-  //               Point<1>(2), Point<1>(5), Point<1>(8), Point<1>(11)});
-  //       runtime->unmap_region(context, pr);
-  //       return result;
-  //     }));
+  recorder.expect_true(
+    "IndexColumnTask Y result has expected index groups",
+    testing::TestEval(
+      [&context, runtime, &cy]() {
+        RegionRequirement
+          req(cy->logical_region(), READ_ONLY, EXCLUSIVE, cy->logical_region());
+        req.add_field(IndexColumnTask::rows_fid);
+        PhysicalRegion pr = runtime->map_region(context, req);
+        const FieldAccessor<
+          READ_ONLY, std::vector<DomainPoint>, 1, coord_t,
+          AffineAccessor<std::vector<DomainPoint>, 1, coord_t>, true>
+          y(pr, IndexColumnTask::rows_fid);
+        bool result =
+          (y[0] ==
+           std::vector<DomainPoint>{
+            Point<1>(0), Point<1>(3), Point<1>(6), Point<1>(9)})
+          && (y[1] ==
+              std::vector<DomainPoint>{
+                Point<1>(1), Point<1>(4), Point<1>(7), Point<1>(10)})
+          && (y[2] ==
+              std::vector<DomainPoint>{
+                Point<1>(2), Point<1>(5), Point<1>(8), Point<1>(11)});
+        runtime->unmap_region(context, pr);
+        return result;
+      }));
 
   runtime->detach_external_resource(context, col_x);
   runtime->detach_external_resource(context, col_y);
