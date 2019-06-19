@@ -341,8 +341,7 @@ index_column(
     RegionRequirement result_req(result_lr, WRITE_DISCARD, EXCLUSIVE, result_lr);
     result_req.add_field(Column::value_fid);
     result_req.add_field(IndexColumnTask::rows_fid);
-    InlineLauncher result_task(result_req);
-    PhysicalRegion result_pr = runtime->map_region(ctx, result_task);
+    PhysicalRegion result_pr = runtime->map_region(ctx, result_req);
     const FieldAccessor<
       WRITE_DISCARD,
       T,
@@ -362,8 +361,10 @@ index_column(
       tie(values[i], rns[i]) = acc[i];
     }
 
-    runtime->destroy_field_space(ctx, result_fs);
-    runtime->destroy_index_space(ctx, result_is);
+    runtime->unmap_region(ctx, result_pr);
+    // TODO: keep?
+    //runtime->destroy_field_space(ctx, result_fs);
+    //runtime->destroy_index_space(ctx, result_is);
   }
   return result_lr;
 }
@@ -1385,18 +1386,18 @@ reindex_column(
     result.values = new_col_lr;
 
     // TODO: is the following OK? does new_col_lr retain needed reference?
-    runtime->destroy_field_space(ctx, new_col_fs);
+    //runtime->destroy_field_space(ctx, new_col_fs);
   }
 
-  runtime->destroy_field_space(ctx, new_rects_fs);
+  //runtime->destroy_field_space(ctx, new_rects_fs);
 
-  runtime->destroy_index_space(ctx, unitary_cs);
-  runtime->destroy_index_partition(ctx, unitary_rows_ip);
+  // runtime->destroy_index_space(ctx, unitary_cs);
+  // runtime->destroy_index_partition(ctx, unitary_rows_ip);
 
   // TODO: are the following OK? does new_col_lr retain needed references?
-  runtime->destroy_index_space(ctx, new_bounds_is);
-  runtime->destroy_index_partition(ctx, new_bounds_ip);
-  runtime->destroy_index_space(ctx, new_col_is);
+  // runtime->destroy_index_space(ctx, new_bounds_is);
+  // runtime->destroy_index_partition(ctx, new_bounds_ip);
+  // runtime->destroy_index_space(ctx, new_col_is);
 
   return result;
 }

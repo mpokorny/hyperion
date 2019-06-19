@@ -11,6 +11,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <unordered_map>
 
 #include "legms.h"
 #include "IndexTree.h"
@@ -36,6 +37,20 @@ typedef IndexTree<Legion::coord_t> IndexTreeL;
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
+template <typename T, typename F>
+std::optional<std::invoke_result_t<F, T>>
+map(const std::optional<T>& ot, F f) {
+  return
+    ot
+    ? std::make_optional(f(ot.value()))
+    : std::optional<std::invoke_result_t<F, T>>();
+}
+
+template <typename T, typename F>
+std::invoke_result_t<F, T>
+flatMap(const std::optional<T>& ot, F f) {
+  return ot ? f(ot.value()) : std::invoke_result_t<F, T>();
+}
 
 template <typename D>
 struct Axes {
@@ -1147,9 +1162,10 @@ projected_index_partition(
       0,
       ip_cs));
 
-  runtime->destroy_logical_partition(ctx, images_lp);
-  runtime->destroy_logical_region(ctx, images_lr);
-  runtime->destroy_field_space(ctx, images_fs);
+  // TODO: keep?
+  // runtime->destroy_logical_partition(ctx, images_lp);
+  // runtime->destroy_logical_region(ctx, images_lr);
+  // runtime->destroy_field_space(ctx, images_fs);
   return result;
 }
 

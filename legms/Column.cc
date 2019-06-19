@@ -20,7 +20,8 @@ Column::init() {
     m_runtime->attach_name(fs, value_fid, name().c_str());
     m_logical_region =
       m_runtime->create_logical_region(m_context, index_space, fs);
-    m_runtime->destroy_index_space(m_context, index_space);
+    // TODO: keep?
+    // m_runtime->destroy_index_space(m_context, index_space);
   } else {
     m_logical_region = LogicalRegion::NO_REGION;
   }

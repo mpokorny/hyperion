@@ -648,7 +648,8 @@ create_partition_on_axes(
   IndexSpaceT<PART_DIM> cs = runtime->create_index_space(ctx, cs_rect);
   IndexPartitionT<IS_DIM> result =
     runtime->create_partition_by_restriction(ctx, is, cs, transform, extent);
-  runtime->destroy_index_space(ctx, cs);
+  // TODO: keep?
+  //runtime->destroy_index_space(ctx, cs);
   return result;
 }
 

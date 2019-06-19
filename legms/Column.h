@@ -51,8 +51,9 @@ class Column
 public:
 
   virtual ~Column() {
-    if (m_logical_region != Legion::LogicalRegion::NO_REGION)
-      m_runtime->destroy_logical_region(m_context, m_logical_region);
+    // TODO: ???
+    // if (m_logical_region != Legion::LogicalRegion::NO_REGION)
+    //   m_runtime->destroy_logical_region(m_context, m_logical_region);
   };
 
   const std::string&
