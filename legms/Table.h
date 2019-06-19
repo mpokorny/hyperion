@@ -144,6 +144,7 @@ struct TableGenArgs {
 
 template <typename D>
 class TableT
+
   : public Table {
 public:
 
@@ -460,14 +461,12 @@ struct CObjectWrapper::UniqueWrapped<legms_table_t> {
   typedef std::unique_ptr<type_t> impl_t;
 };
 
-template <MSTables T>
+template <typename D>
 std::optional<Legion::Future/*TableGenArgs*/>
 reindexed(
-  const TableT<typename MSTable<T>::Axes>* table,
-  const std::vector<typename MSTable<T>::Axes>& axes,
+  const TableT<D>* table,
+  const std::vector<D>& axes,
   bool allow_rows = true) {
-
-  typedef typename MSTable<T>::Axes D;
 
   // 'allow_rows' is intended to support the case where the reindexing may not
   // result in a single value in a column per aggregate index, necessitating the
@@ -522,18 +521,19 @@ reindexed(
   // column values (sorted in ascending order); and at Column::value_fid +
   // IndexColumnTask::rows_fid, a sorted vector of DomainPoints in the original
   // column.
+  auto& axis_names = Axes<D>::names;
   std::unordered_map<D, Legion::Future> index_cols;
   std::for_each(
     col_reindex_axes.begin(),
     col_reindex_axes.end(),
-    [table, &index_cols](auto& nm_ds) {
+    [table, &axis_names, &index_cols](auto& nm_ds) {
       const std::vector<D>& ds = std::get<1>(nm_ds);
       std::for_each(
         ds.begin(),
         ds.end(),
-        [table, &index_cols](auto& d) {
+        [table, &axis_names, &index_cols](auto& d) {
           if (index_cols.count(d) == 0) {
-            auto col = table->columnT(D::axis_names().at(d));
+            auto col = table->columnT(axis_names.at(d));
             IndexColumnTask task(col, static_cast<int>(d));
             index_cols[d] = task.dispatch(table->context(), table->runtime());
           }
@@ -561,7 +561,7 @@ reindexed(
         ixcols.push_back(
           index_cols.at(d)
           .template get_result<ColumnGenArgs>()
-          .operator()<T>(table->context(), table->runtime()));
+          .template operator()<D>(table->context(), table->runtime()));
         index_axes.push_back(static_cast<int>(d));
       }
       auto col = table->columnT(nm);
@@ -570,12 +570,7 @@ reindexed(
         std::distance(
           col_axes.begin(),
           find(col_axes.begin(), col_axes.end(), D::ROW));
-      ReindexColumnTask task(
-        col,
-        row_axis_offset,
-        ixcols,
-        index_axes,
-        allow_rows);
+      ReindexColumnTask task(col, row_axis_offset, ixcols, allow_rows);
       return task.dispatch(table->context(), table->runtime());
     });
 
