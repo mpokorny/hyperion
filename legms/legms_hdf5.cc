@@ -924,12 +924,12 @@ legms::hdf5::init_table(
   std::vector<legms::TypeTag> keyword_datatypes;
   hid_t axes_dt;
   {
-    const char* uid;
-    axes_dt = H5Topen(loc_id, table_axes_dt_name, type_access_pl);
-    match_h5_axes_datatype(axes_dt, uid);
-    if (axes_dt < 0)
+    hid_t dt = H5Topen(loc_id, table_axes_dt_name, type_access_pl);
+    auto uid = H5DatatypeManager::match_axes_datatype(dt);
+    if (!uid)
       goto return_nothing;
-    axes_uid = uid;
+    axes_uid = uid.value();
+    axes_dt = H5DatatypeManager::axes_datatype(axes_uid);
   }
   {
     htri_t index_axes_exists = H5Aexists(loc_id, table_index_axes_attr_name);

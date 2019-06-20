@@ -18,16 +18,25 @@ enum {
 };
 
 enum struct Table0Axes {
-  index = -1,
   ROW = 0,
   X,
   Y
 };
 
 template <>
-struct legms::AxesUID<Table0Axes> {
-  static constexpr const char* id = "Table0Axes";
+struct legms::Axes<Table0Axes> {
+  static const constexpr char* uid = "Table0Axes";
+  static const std::vector<std::string> names;
+  static const unsigned num_axes = 3;
+#ifdef USE_HDF5
+  static const hid_t h5_datatype;
+#endif
 };
+
+const std::vector<std::string>
+legms::Axes<Table0Axes>::names{"ROW", "X", "Y"};
+
+#ifdef USE_HDF5
 hid_t
 h5_dt() {
   hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
@@ -41,15 +50,13 @@ h5_dt() {
   return result;
 }
 
-template <>
-hid_t TableT<Table0Axes>::m_h5_axes_datatype = h5_dt();
+const hid_t
+legms::Axes<Table0Axes>::h5_datatype = h5_dt();
+#endif
 
 std::ostream&
 operator<<(std::ostream& stream, const Table0Axes& ax) {
   switch (ax) {
-  case Table0Axes::index:
-    stream << "Table0Axes::index";
-    break;
   case Table0Axes::ROW:
     stream << "Table0Axes::ROW";
     break;
@@ -88,24 +95,24 @@ unsigned table0_y[TABLE0_NUM_ROWS] {
 unsigned table0_z[TABLE0_NUM_ROWS] {
                    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
 
-ColumnT<Table0Axes>::Generator
+Column::Generator
 table0_col(const std::string& name) {
   return
     [=](Context context, Runtime* runtime) {
       return
-        std::make_unique<ColumnT<Table0Axes>>(
+        std::make_unique<Column>(
           context,
           runtime,
           name,
-          ValueType<unsigned>::DataType,
           std::vector<Table0Axes>{Table0Axes::ROW},
+          ValueType<unsigned>::DataType,
           IndexTreeL(TABLE0_NUM_ROWS));
     };
 }
 
 PhysicalRegion
 attach_table0_col(
-  const ColumnT<Table0Axes>* col,
+  const Column* col,
   unsigned *base,
   Context context,
   Runtime* runtime) {
@@ -130,34 +137,39 @@ attach_table0_col(
 
 void
 reindex_column_task_test_suite(
-  const Task* task,
+  const Task*,
   const std::vector<PhysicalRegion>& regions,
   Context context,
   Runtime* runtime) {
 
   register_tasks(runtime);
+#ifdef USE_HDF5
+  H5DatatypeManager::register_axes_datatype(
+    Axes<Table0Axes>::uid,
+    Axes<Table0Axes>::h5_datatype);
+#endif
 
   testing::TestRecorder<WRITE_DISCARD> recorder(
     testing::TestLog<WRITE_DISCARD>(regions[0], regions[1], context, runtime));
 
-  TableT<Table0Axes>
+  Table
     table0(
       context,
       runtime,
       "table0",
-      {static_cast<int>(Table0Axes::ROW)},
+      std::vector<Table0Axes>{Table0Axes::ROW},
       {table0_col("X"),
        table0_col("Y"),
        table0_col("Z")});
   auto col_x =
-    attach_table0_col(table0.columnT("X").get(), table0_x, context, runtime);
+    attach_table0_col(table0.column("X").get(), table0_x, context, runtime);
   auto col_y =
-    attach_table0_col(table0.columnT("Y").get(), table0_y, context, runtime);
+    attach_table0_col(table0.column("Y").get(), table0_y, context, runtime);
   auto col_z =
-    attach_table0_col(table0.columnT("Z").get(), table0_z, context, runtime);
+    attach_table0_col(table0.column("Z").get(), table0_z, context, runtime);
 
-  IndexColumnTask icx(table0.columnT("X"), static_cast<int>(Table0Axes::X));
-  IndexColumnTask icy(table0.columnT("Y"), static_cast<int>(Table0Axes::Y));
+  IndexColumnTask icx(table0.column("X"), static_cast<int>(Table0Axes::X));
+  IndexColumnTask icy(table0.column("Y"), static_cast<int>(Table0Axes::Y));
   std::vector<Future> icfs {
     icx.dispatch(context, runtime),
     icy.dispatch(context, runtime)};
@@ -167,20 +179,21 @@ reindex_column_task_test_suite(
     icfs.end(),
     [&context, &runtime, &ics](Future& f) {
       auto col =
-        f.get_result<ColumnGenArgs>().operator()<Table0Axes>(context, runtime);
+        f.get_result<ColumnGenArgs>().operator()(context, runtime);
       ics.push_back(std::move(col));
     });
 
-  ReindexColumnTask rcz(table0.columnT("Z"), 0, ics, false);
+  ReindexColumnTask rcz(table0.column("Z"), 0, ics, false);
   Future fz = rcz.dispatch(context, runtime);
   auto cz =
-    fz.get_result<ColumnGenArgs>().operator()<Table0Axes>(context, runtime);
+    fz.get_result<ColumnGenArgs>().operator()(context, runtime);
   recorder.assert_true(
     "Reindexed column index space rank is 2",
     TE(cz->rank()) == 2);
   recorder.expect_true(
     "Reindexed column index space dimensions are X and Y",
-    TE(cz->axesT()) == std::vector<Table0Axes>{ Table0Axes::X, Table0Axes::Y });
+    TE(cz->axes()) ==
+    map_to_int(std::vector<Table0Axes>{ Table0Axes::X, Table0Axes::Y }));
   {
     RegionRequirement
       req(cz->logical_region(), READ_ONLY, EXCLUSIVE, cz->logical_region());

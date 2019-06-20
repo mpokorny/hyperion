@@ -8,23 +8,21 @@ using namespace legms;
 
 template <MSTables T, int N>
 inline std::enable_if_t<(N == 0)>
-add_axis_names(
-  std::unordered_map<typename MSTable<T>::Axes, std::string>& map) {
+add_axis_names(std::vector<std::string>& v) {
 
   typedef typename MSTable<T>::Axes Axes;
   constexpr Axes ax = static_cast<Axes>(N);
-  map[ax] = MSTableAxis<T, ax>::name;
+  v[N] = MSTableAxis<T, ax>::name;
 }
 
 template <MSTables T, int N>
 inline std::enable_if_t<(N > 0)>
-add_axis_names(
-  std::unordered_map<typename MSTable<T>::Axes, std::string>& map) {
+add_axis_names(std::vector<std::string>& v) {
 
   typedef typename MSTable<T>::Axes Axes;
   constexpr Axes ax = static_cast<Axes>(N);
-  map[ax] = MSTableAxis<T, ax>::name;
-  add_axis_names<T, N-1>(map);
+  v[N] = MSTableAxis<T, ax>::name;
+  add_axis_names<T, N-1>(v);
 }
 
 const std::unordered_map<
@@ -70,10 +68,10 @@ MSTable<MS_MAIN>::element_axes = {
 };
 
 #define AXIS_NAMES(T)                                                   \
-  const std::unordered_map<MSTable<MS_##T>::Axes, std::string>&         \
+  const std::vector<std::string>&                                       \
   MSTable<MS_##T>::axis_names() {                                       \
     static std::once_flag initialized;                                  \
-    static std::unordered_map<MSTable<MS_##T>::Axes, std::string> result; \
+    static std::vector<std::string> result(T##_last + 1);               \
     std::call_once(initialized, add_axis_names<MS_##T, T##_last>, result); \
     return result;                                                      \
   }
@@ -370,11 +368,35 @@ MSTable<MS_WEATHER>::element_axes = {
 
 LEGMS_FOREACH_MSTABLE(AXIS_NAMES);
 
-#define MSAXES(T) \
-  const std::unordered_map<typename MSTable<MS_##T>::Axes, std::string> \
+template <typename T>
+hid_t
+h5_axes_dt()  {
+  hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
+  for (unsigned char a = 0;
+       a <= static_cast<unsigned char>(Axes<T>::num_axes - 1);
+       ++a) {
+    herr_t err = H5Tenum_insert(result, Axes<T>::names[a].c_str(), &a);
+    assert(err >= 0);
+  }
+  return result;
+}
+
+#ifdef USE_HDF5
+# define MSAXES(T)                                                      \
+  const std::vector<std::string>                                        \
+  Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names(); \
+  const hid_t                                                           \
+  Axes<typename MSTable<MS_##T>::Axes>::h5_datatype =                   \
+    h5_axes_dt<typename MSTable<MS_##T>::Axes>();
+#else
+# define MSAXES(T)                                                      \
+  const std::vector<std::string>                                        \
   Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names();
+#endif
 
 LEGMS_FOREACH_MSTABLE(MSAXES);
+
+#undef MSAXES
 
 // Local Variables:
 // mode: c++

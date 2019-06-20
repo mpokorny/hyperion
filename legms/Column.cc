@@ -60,30 +60,130 @@ Column::init(LogicalRegion region) {
 }
 
 std::unique_ptr<ColumnPartition>
-Column::partition_on_axes(
-  const std::vector<std::tuple<int, Legion::coord_t>>& axes) const {
-  std::vector<AxisPartition<int>> parts;
-  parts.reserve(axes.size());
+Column::partition_on_axes(const std::vector<AxisPartition>& parts) const {
+
+  assert(
+    std::all_of(
+      parts.begin(),
+      parts.end(),
+      [this](auto& p) { return p.axes_uid == axes_uid(); }));
+
+  // All variations of partition_on_axes() in the Column class should
+  // ultimately call this method, which takes care of the change in semantics
+  // of the "dim" field of the AxisPartition structure, as needed by
+  // create_partition_on_axes(). For all such methods in Column, the "dim"
+  // field simply names an axis, whereas for create_partition_on_axes(), "dim"
+  // is a mapping from a named axis to a Column axis (i.e, an axis in the
+  // Table index space to an axis in the Column index space).
+  std::vector<int> ds;
+  ds.reserve(parts.size());
   std::transform(
-    axes.begin(),
-    axes.end(),
+    parts.begin(),
+    parts.end(),
+    std::back_inserter(ds),
+    [](auto& part){ return part.dim; });
+  auto dm = dimensions_map(ds, axes());
+  std::vector<AxisPartition> iparts;
+  iparts.reserve(dm.size());
+  for (size_t i = 0; i < dm.size(); ++i) {
+    auto& part = parts[i];
+    iparts.push_back(
+      AxisPartition{part.axes_uid, dm[i], part.stride, part.offset,
+                    part.lo, part.hi});
+  }
+  return
+    std::make_unique<ColumnPartition>(
+      m_context,
+      m_runtime,
+      axes_uid(),
+      create_partition_on_axes(m_context, m_runtime, index_space(), iparts),
+      ds);
+}
+
+std::unique_ptr<ColumnPartition>
+Column::partition_on_iaxes(const std::vector<int>& ds) const {
+
+  // TODO: verify values in 'ds' are valid axes
+  std::vector<AxisPartition> parts;
+  parts.reserve(ds.size());
+  std::transform(
+    ds.begin(),
+    ds.end(),
     std::back_inserter(parts),
-    [](auto& d_s) {
-      auto& [d, s] = d_s;
-      return AxisPartition<int> {d, s, 0, 0, s - 1}; });
+    [au=axes_uid()](auto& d) { return AxisPartition{au, d, 1, 0, 0, 0}; });
   return partition_on_axes(parts);
 }
 
 std::unique_ptr<ColumnPartition>
-Column::partition_on_axes(const std::vector<int>& axes) const {
-  std::vector<AxisPartition<int>> parts;
-  parts.reserve(axes.size());
+Column::partition_on_iaxes(
+  const std::vector<std::tuple<int, Legion::coord_t>>& dss) const {
+
+  // TODO: verify axis values in 'dss' are valid axes
+  std::vector<AxisPartition> parts;
+  parts.reserve(dss.size());
   std::transform(
-    axes.begin(),
-    axes.end(),
+    dss.begin(),
+    dss.end(),
     std::back_inserter(parts),
-    [](auto& d) { return AxisPartition<int> {d, 1, 0, 0, 0}; });
+    [au=axes_uid()](auto& d_s) {
+      auto& [d, s] = d_s;
+      return AxisPartition{au, d, s, 0, 0, s - 1};
+    });
   return partition_on_axes(parts);
+}
+
+std::unique_ptr<ColumnPartition>
+Column::projected_column_partition(const ColumnPartition* cp) const {
+
+  assert(cp->axes_uid() == axes_uid());
+
+  if (index_space() == Legion::IndexSpace::NO_SPACE)
+    return
+      std::make_unique<ColumnPartition>(
+        m_context,
+        m_runtime,
+        axes_uid(),
+        Legion::IndexPartition::NO_PART,
+        m_axes);
+
+  std::vector<int> dmap = dimensions_map(axes(), cp->axes());
+
+#define CP(I, P)                                              \
+  case (I * LEGION_MAX_DIM + P):                              \
+    return                                                    \
+      std::make_unique<ColumnPartition>(                      \
+        m_context,                                            \
+        m_runtime,                                            \
+        axes_uid(),                                           \
+        legms::projected_index_partition<I, P>(               \
+          m_context,                                          \
+          m_runtime,                                          \
+          Legion::IndexPartitionT<I>(cp->index_partition()),  \
+          Legion::IndexSpaceT<P>(index_space()),              \
+          dmap),                                              \
+        m_axes);                                              \
+    break;
+
+  switch (cp->axes().size() * LEGION_MAX_DIM + rank()) {
+    LEGMS_FOREACH_NN(CP);
+  default:
+    assert(false);
+    // keep compiler happy
+    return
+      std::make_unique<ColumnPartition>(
+        m_context,
+        m_runtime,
+        axes_uid(),
+        Legion::IndexPartition::NO_PART,
+        m_axes);
+    break;
+  }
+}
+
+std::unique_ptr<Column>
+ColumnGenArgs::operator()(Legion::Context ctx, Legion::Runtime* runtime) const {
+
+  return Column::generator(*this)(ctx, runtime);
 }
 
 size_t

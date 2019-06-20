@@ -16,6 +16,7 @@
 #include "WithKeywordsBuilder.h"
 #include "ColumnBuilder.h"
 #include "Column.h"
+#include "Table.h"
 #include "IndexTree.h"
 #include "MSTable.h"
 
@@ -25,14 +26,11 @@
 
 namespace legms {
 
-template <typename D>
-class TableT;
-
 template <MSTables D>
 class TableBuilderT
   : public WithKeywordsBuilder {
 
-  friend class TableT<typename MSTable<D>::Axes>;
+  friend class Table;
 
 public:
 
@@ -105,9 +103,9 @@ public:
     return result;
   }
 
-  std::vector<typename ColumnT<Axes>::Generator>
+  std::vector<Column::Generator>
   column_generators() const {
-    std::vector<typename ColumnT<Axes>::Generator> result;
+    std::vector<Column::Generator> result;
     std::transform(
       m_columns.begin(),
       m_columns.end(),
@@ -304,20 +302,21 @@ struct TableBuilder {
 };
 
 template <MSTables T>
-std::unique_ptr<TableT<typename MSTable<T>::Axes>>
+std::unique_ptr<Table>
 from_ms(
   Legion::Context ctx,
   Legion::Runtime* runtime,
   const std::experimental::filesystem::path& path,
   const std::unordered_set<std::string>& column_selections) {
 
+  typedef typename MSTable<T>::Axes Axes;
   auto builder = TableBuilder::from_ms<T>(path, column_selections);
   return
-    std::make_unique<TableT<typename MSTable<T>::Axes>>(
+    std::make_unique<Table>(
       ctx,
       runtime,
       builder.name(),
-      std::vector<int>{static_cast<int>(MSTable<T>::ROW_AXIS)},
+      std::vector<Axes>{MSTable<T>::ROW_AXIS},
       builder.column_generators(),
       builder.keywords());
 }

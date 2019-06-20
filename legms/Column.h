@@ -20,8 +20,7 @@
 
 namespace legms {
 
-template <typename T>
-class ColumnT;
+class Column;
 
 struct ColumnGenArgs {
   std::string name;
@@ -32,8 +31,7 @@ struct ColumnGenArgs {
   Legion::LogicalRegion keywords;
   std::vector<TypeTag> keyword_datatypes;
 
-  template <typename D>
-  std::unique_ptr<ColumnT<D>>
+  std::unique_ptr<Column>
   operator()(Legion::Context ctx, Legion::Runtime* runtime) const;
 
   size_t
@@ -50,6 +48,92 @@ class Column
   : public WithKeywords {
 public:
 
+  typedef std::function<
+  std::unique_ptr<Column>(Legion::Context, Legion::Runtime*)> Generator;
+
+  Column(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const std::string& name,
+    const std::string& axes_uid,
+    const std::vector<int>& axes,
+    TypeTag datatype,
+    const IndexTreeL& index_tree,
+    const kw_desc_t& kws = kw_desc_t())
+    : WithKeywords(ctx, runtime, kws)
+    , m_name(name)
+    , m_axes_uid(axes_uid)
+    , m_axes(axes)
+    , m_datatype(datatype)
+    , m_rank(index_tree.rank().value())
+    , m_index_tree(index_tree) {
+
+    assert(m_rank == m_axes.size());
+    init();
+  }
+
+  Column(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const std::string& name,
+    const std::string& axes_uid,
+    const std::vector<int>& axes,
+    TypeTag datatype,
+    Legion::LogicalRegion values,
+    Legion::LogicalRegion keywords,
+    const std::vector<TypeTag>& kw_datatypes)
+    : WithKeywords(ctx, runtime, keywords, kw_datatypes)
+    , m_name(name)
+    , m_axes_uid(axes_uid)
+    , m_axes(axes)
+    , m_datatype(datatype)
+    , m_rank(
+      static_cast<decltype(m_rank)>(values.get_index_space().get_dim())) {
+
+    assert(m_rank == m_axes.size());
+    init(values);
+  }
+
+  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  Column(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const std::string& name,
+    const std::vector<D>& axes,
+    TypeTag datatype,
+    const IndexTreeL& index_tree,
+    const kw_desc_t& kws = kw_desc_t())
+    : Column(
+      ctx,
+      runtime,
+      name,
+      Axes<D>::uid,
+      map_to_int(axes),
+      datatype,
+      index_tree,
+      kws) {}
+
+  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  Column(
+    Legion::Context ctx,
+    Legion::Runtime* runtime,
+    const std::string& name,
+    const std::vector<D>& axes,
+    TypeTag datatype,
+    Legion::LogicalRegion values,
+    Legion::LogicalRegion keywords,
+    const std::vector<TypeTag>& kw_datatypes)
+    : Column(
+      ctx,
+      runtime,
+      name,
+      Axes<D>::uid,
+      map_to_int(axes),
+      datatype,
+      values,
+      keywords,
+      kw_datatypes) {}
+
   virtual ~Column() {
     // TODO: ???
     // if (m_logical_region != Legion::LogicalRegion::NO_REGION)
@@ -61,11 +145,15 @@ public:
     return m_name;
   }
 
-  virtual const char*
-  axes_uid() const = 0;
+  const std::string&
+  axes_uid() const {
+    return m_axes_uid;
+  }
 
-  virtual std::vector<int>
-  axes() const = 0;
+  const std::vector<int>&
+  axes() const {
+    return m_axes;
+  }
 
   unsigned
   rank() const {
@@ -95,58 +183,145 @@ public:
     return m_logical_region;
   }
 
-  virtual std::unique_ptr<ColumnPartition>
-  partition_on_axes(const std::vector<AxisPartition<int>>& axes) const = 0;
+  std::unique_ptr<ColumnPartition>
+  partition_on_axes(const std::vector<AxisPartition>& parts) const;
 
   std::unique_ptr<ColumnPartition>
-  partition_on_axes(
-    const std::vector<std::tuple<int, Legion::coord_t>>& axes) const;
+  partition_on_iaxes(const std::vector<int>& ds) const;
+
+  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  std::unique_ptr<ColumnPartition>
+  partition_on_axes(const std::vector<D>& ds) const {
+
+    assert(Axes<D>::uid == m_axes_uid);
+    return partition_on_iaxes(map_to_int(ds));
+  }
 
   std::unique_ptr<ColumnPartition>
-  partition_on_axes(const std::vector<int>& axes) const;
+  partition_on_iaxes(const std::vector<std::tuple<int, Legion::coord_t>>& dss)
+    const;
 
-  virtual std::unique_ptr<ColumnPartition>
-  projected_column_partition(const ColumnPartition* cp) const = 0;
+  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  std::unique_ptr<ColumnPartition>
+  partition_on_axes(const std::vector<std::tuple<D, Legion::coord_t>>& ds)
+    const {
 
-  virtual ColumnGenArgs
-  generator_args() const = 0;
+    assert(Axes<D>::uid == m_axes_uid);
+    std::vector<std::tuple<int, Legion::coord_t>> di;
+    di.reserve(ds.size());
+    std::transform(
+      ds.begin(),
+      ds.end(),
+      std::back_inserter(di),
+      [](auto& d) {
+        return
+          std::make_tuple(static_cast<int>(std::get<0>(d)), std::get<1>(d));
+      });
+    return partition_on_iaxes(di);
+  }
 
-  static constexpr Legion::FieldID value_fid = 0;
+  std::unique_ptr<ColumnPartition>
+  projected_column_partition(const ColumnPartition* cp) const;
 
-protected:
+  ColumnGenArgs
+  generator_args() const {
+    return
+      ColumnGenArgs {
+      name(),
+        axes_uid(),
+        datatype(),
+        axes(),
+        logical_region(),
+        keywords_region(),
+        keywords_datatypes()};
+  }
 
-  Column(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
+  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  static Generator
+  generator(
     const std::string& name,
+    const std::vector<D>& axes,
     TypeTag datatype,
     const IndexTreeL& index_tree,
-    const kw_desc_t& kws = kw_desc_t())
-    : WithKeywords(ctx, runtime, kws)
-    , m_name(name)
-    , m_datatype(datatype)
-    , m_rank(index_tree.rank().value())
-    , m_index_tree(index_tree) {
+    const std::unordered_map<std::string, TypeTag>& kws =
+    std::unordered_map<std::string, TypeTag>()) {
 
-    init();
+    return
+      [=](Legion::Context ctx, Legion::Runtime* runtime) {
+        return
+          std::make_unique<Column>(
+            ctx,
+            runtime,
+            name,
+            axes,
+            datatype,
+            index_tree,
+            kws);
+      };
   }
 
-  Column(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
+  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  static Generator
+  generator(
     const std::string& name,
+    const std::vector<D>& axes,
     TypeTag datatype,
-    Legion::LogicalRegion values,
-    Legion::LogicalRegion keywords,
-    const std::vector<TypeTag>& kw_datatypes)
-    : WithKeywords(ctx, runtime, keywords, kw_datatypes)
-    , m_name(name)
-    , m_datatype(datatype)
-    , m_rank(
-      static_cast<decltype(m_rank)>(values.get_index_space().get_dim())) {
+    const IndexTreeL& row_index_pattern,
+    unsigned num_rows,
+    const std::unordered_map<std::string, TypeTag>& kws =
+    std::unordered_map<std::string, TypeTag>()) {
 
-    init(values);
+    return
+      generator(
+        name,
+        axes,
+        datatype,
+        IndexTreeL(row_index_pattern, num_rows),
+        kws);
   }
+
+  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  static Generator
+  generator(
+    const std::string& name,
+    const std::vector<D>& axes,
+    TypeTag datatype,
+    const IndexTreeL& row_index_pattern,
+    const IndexTreeL& row_pattern,
+    unsigned num_rows,
+    const std::unordered_map<std::string, TypeTag>& kws =
+    std::unordered_map<std::string, TypeTag>()) {
+
+    return
+      generator(
+        name,
+        axes,
+        datatype,
+        IndexTreeL(
+          row_pattern,
+          num_rows * row_pattern.size() / row_index_pattern.size()),
+        kws);
+  }
+
+  static Generator
+  generator(const ColumnGenArgs& genargs) {
+    return
+      [=](Legion::Context ctx, Legion::Runtime* runtime) {
+        return
+          std::make_unique<Column>(
+            ctx,
+            runtime,
+            genargs.name,
+            genargs.axes_uid,
+            genargs.axes,
+            genargs.datatype,
+            genargs.values,
+            genargs.keywords,
+            genargs.keyword_datatypes);
+      };
+  }
+
+  static constexpr Legion::FieldID value_fid = 0;
 
 private:
 
@@ -158,6 +333,10 @@ private:
 
   std::string m_name;
 
+  std::string m_axes_uid;
+
+  std::vector<int> m_axes;
+
   TypeTag m_datatype;
 
   unsigned m_rank;
@@ -166,588 +345,6 @@ private:
 
   Legion::LogicalRegion m_logical_region;
 };
-
-template <typename D> class ColumnT;
-
-template <typename D>
-class ColumnT
-  : public Column {
-public:
-
-  typedef std::function<
-  std::unique_ptr<ColumnT<D>>(Legion::Context, Legion::Runtime*)> Generator;
-
-  ColumnT(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::string& name,
-    TypeTag datatype,
-    const std::vector<D>& axes,
-    const IndexTreeL& index_tree_,
-    const kw_desc_t& kws = kw_desc_t())
-    : Column(
-      ctx,
-      runtime,
-      name,
-      datatype,
-      index_tree_,
-      kws)
-    , m_axes(axes) {}
-
-  ColumnT(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::string& name,
-    TypeTag datatype,
-    const std::vector<D>& axes,
-    Legion::LogicalRegion values,
-    Legion::LogicalRegion keywords,
-    const std::vector<TypeTag>& kw_datatypes)
-    : Column(
-      ctx,
-      runtime,
-      name,
-      datatype,
-      values,
-      keywords,
-      kw_datatypes)
-    , m_axes(axes) {}
-
-  virtual ~ColumnT() {}
-
-  const char*
-  axes_uid() const override {
-    return AxesUID<D>::id;
-  }
-
-  std::vector<int>
-  axes() const override {
-    std::vector<int> result;
-    result.reserve(m_axes.size());
-    std::transform(
-      m_axes.begin(),
-      m_axes.end(),
-      std::back_inserter(result),
-      [](auto& d) {return static_cast<int>(d);});
-    return result;
-  }
-
-  const std::vector<D>&
-  axesT() const {
-    return m_axes;
-  }
-
-  ColumnGenArgs
-  generator_args() const {
-    return
-      ColumnGenArgs {
-      name(),
-        AxesUID<D>::id,
-        datatype(),
-        axes(),
-        logical_region(),
-        keywords_region(),
-        keywords_datatypes()};
-  }
-
-  std::unique_ptr<ColumnPartition>
-  partition_on_axes(const std::vector<AxisPartition<int>>& parts)
-    const override {
-
-    std::vector<AxisPartition<D>> dparts;
-    dparts.reserve(parts.size());
-    std::transform(
-      parts.begin(),
-      parts.end(),
-      std::back_inserter(dparts),
-      [](auto& part) {
-        return
-          AxisPartition<D>{
-          static_cast<D>(part.dim),
-            part.stride,
-            part.offset,
-            part.lo,
-            part.hi};
-      });
-    return partition_on_axes(dparts);
-  }
-
-  std::unique_ptr<ColumnPartition>
-  partition_on_axes(const std::vector<D>& ds) const {
-    std::vector<AxisPartition<D>> parts;
-    parts.reserve(ds.size());
-    std::transform(
-      ds.begin(),
-      ds.end(),
-      std::back_inserter(parts),
-      [](auto& d) { return AxisPartition<D>{d, 1, 0, 0, 0}; });
-    return partition_on_axes(parts);
-  }
-
-  std::unique_ptr<ColumnPartition>
-  partition_on_axes(const std::vector<std::tuple<D, Legion::coord_t>>& dss)
-    const {
-
-    std::vector<AxisPartition<D>> parts;
-    parts.reserve(dss.size());
-    std::transform(
-      dss.begin(),
-      dss.end(),
-      std::back_inserter(parts),
-      [](auto& d_s) {
-        auto& [d, s] = d_s;
-        return AxisPartition<D>{d, s, 0, 0, s - 1};
-      });
-    return partition_on_axes(parts);
-  }
-
-  std::unique_ptr<ColumnPartition>
-  partition_on_axes(const std::vector<AxisPartition<D>>& parts) const {
-
-    // All variations of partition_on_axes() in the Column and ColumnT classes
-    // should ultimately call this method, which takes care of the change in
-    // semantics of the "dim" field of the AxisPartition structure, as needed by
-    // create_partition_on_axes(). For all such methods in Column and ColumnT,
-    // the "dim" field simply names an axis, whereas for
-    // create_partition_on_axes(), "dim" is a mapping from a named axis to a
-    // Column axis (i.e, an axis in the Table index space to an axis in the
-    // Column index space).
-    std::vector<D> ds;
-    ds.reserve(parts.size());
-    std::transform(
-      parts.begin(),
-      parts.end(),
-      std::back_inserter(ds),
-      [](auto& part){ return part.dim; });
-    auto dm = dimensions_map(ds, axesT());
-    std::vector<AxisPartition<int>> iparts;
-    iparts.reserve(dm.size());
-    for (size_t i = 0; i < dm.size(); ++i) {
-      auto& part = parts[i];
-      iparts.push_back(
-        AxisPartition<int>{dm[i], part.stride, part.offset, part.lo, part.hi});
-    }
-    return
-      std::make_unique<ColumnPartitionT<D>>(
-        m_context,
-        m_runtime,
-        create_partition_on_axes(m_context, m_runtime, index_space(), iparts),
-        ds);
-  }
-
-  std::unique_ptr<ColumnPartition>
-  projected_column_partition(const ColumnPartition* cp) const override {
-
-    const ColumnPartitionT<D>* cpt =
-      dynamic_cast<const ColumnPartitionT<D>*>(cp);
-
-    if (index_space() == Legion::IndexSpace::NO_SPACE)
-      return
-        std::make_unique<ColumnPartitionT<D>>(
-          m_context,
-          m_runtime,
-          Legion::IndexPartition::NO_PART,
-          m_axes);
-
-    std::vector<int> dmap = dimensions_map(axesT(), cpt->axesT());
-
-    switch (cpt->axes().size()) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      switch (rank()) {
-#if LEGION_MAX_DIM >= 1
-      case 1:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<1, 1>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<1>(cpt->index_partition()),
-              Legion::IndexSpaceT<1>(index_space()),
-              {dmap[0]}),
-            m_axes);
-        break;
-#endif
-#if LEGION_MAX_DIM >= 2
-      case 2:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<1, 2>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<1>(cpt->index_partition()),
-              Legion::IndexSpaceT<2>(index_space()),
-              {dmap[0], dmap[1]}),
-            m_axes);
-        break;
-#endif
-#if LEGION_MAX_DIM >= 3
-      case 3:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<1, 3>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<1>(cpt->index_partition()),
-              Legion::IndexSpaceT<3>(index_space()),
-              {dmap[0], dmap[1], dmap[2]}),
-            m_axes);
-        break;
-#endif
-#if LEGION_MAX_DIM >= 4
-      case 4:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<1, 4>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<1>(cpt->index_partition()),
-              Legion::IndexSpaceT<4>(index_space()),
-              {dmap[0], dmap[1], dmap[2], dmap[3]}),
-            m_axes);
-        break;
-#endif
-      default:
-        assert(false);
-        break;
-      }
-      break;
-#endif
-#if LEGION_MAX_DIM >= 2
-    case 2:
-      switch (rank()) {
-#if LEGION_MAX_DIM >= 1
-      case 1:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<2, 1>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<2>(cpt->index_partition()),
-              Legion::IndexSpaceT<1>(index_space()),
-              {dmap[0]}),
-            m_axes);
-        break;
-#endif
-#if LEGION_MAX_DIM >= 2
-      case 2:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<2, 2>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<2>(cpt->index_partition()),
-              Legion::IndexSpaceT<2>(index_space()),
-              {dmap[0], dmap[1]}),
-            m_axes);
-        break;
-#endif
-#if LEGION_MAX_DIM >= 3
-      case 3:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<2, 3>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<2>(cpt->index_partition()),
-              Legion::IndexSpaceT<3>(index_space()),
-              {dmap[0], dmap[1], dmap[2]}),
-            m_axes);
-        break;
-#endif
-#if LEGION_MAX_DIM >= 4
-      case 4:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<2, 4>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<2>(cpt->index_partition()),
-              Legion::IndexSpaceT<4>(index_space()),
-              {dmap[0], dmap[1], dmap[2], dmap[3]}),
-            m_axes);
-        break;
-#endif
-      default:
-        assert(false);
-        break;
-      }
-      break;
-#endif
-#if LEGION_MAX_DIM >= 3
-    case 3:
-      switch (rank()) {
-#if LEGION_MAX_DIM >= 1
-      case 1:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<3, 1>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<3>(cpt->index_partition()),
-              Legion::IndexSpaceT<1>(index_space()),
-              {dmap[0]}),
-            m_axes);
-        break;
-#endif
-#if LEGION_MAX_DIM >= 2
-      case 2:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<3, 2>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<3>(cpt->index_partition()),
-              Legion::IndexSpaceT<2>(index_space()),
-              {dmap[0], dmap[1]}),
-            m_axes);
-        break;
-#endif
-#if LEGION_MAX_DIM >= 3
-      case 3:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<3, 3>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<3>(cpt->index_partition()),
-              Legion::IndexSpaceT<3>(index_space()),
-              {dmap[0], dmap[1], dmap[2]}),
-            m_axes);
-        break;
-#endif
-#if LEGION_MAX_DIM >= 4
-      case 4:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<3, 4>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<3>(cpt->index_partition()),
-              Legion::IndexSpaceT<4>(index_space()),
-              {dmap[0], dmap[1], dmap[2], dmap[3]}),
-            m_axes);
-        break;
-#endif
-      default:
-        assert(false);
-        break;
-      }
-      break;
-#endif
-#if LEGION_MAX_DIM >= 4
-    case 4:
-      switch (rank()) {
-#if LEGION_MAX_DIM >= 1
-      case 1:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<4, 1>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<4>(cpt->index_partition()),
-              Legion::IndexSpaceT<1>(index_space()),
-              {dmap[0]}),
-            m_axes);
-        break;
-#endif
-#if LEGION_MAX_DIM >= 2
-      case 2:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<4, 2>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<4>(cpt->index_partition()),
-              Legion::IndexSpaceT<2>(index_space()),
-              {dmap[0], dmap[1]}),
-            m_axes);
-        break;
-#endif
-#if LEGION_MAX_DIM >= 3
-      case 3:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<4, 3>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<4>(cpt->index_partition()),
-              Legion::IndexSpaceT<3>(index_space()),
-              {dmap[0], dmap[1], dmap[2]}),
-            m_axes);
-        break;
-#endif
-#if LEGION_MAX_DIM >= 4
-      case 4:
-        return
-          std::make_unique<ColumnPartitionT<D>>(
-            m_context,
-            m_runtime,
-            legms::projected_index_partition<4, 4>(
-              m_context,
-              m_runtime,
-              Legion::IndexPartitionT<4>(cpt->index_partition()),
-              Legion::IndexSpaceT<4>(index_space()),
-              {dmap[0], dmap[1], dmap[2], dmap[3]}),
-            m_axes);
-        break;
-#endif
-      default:
-        assert(false);
-        break;
-      }
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-
-    return
-      std::make_unique<ColumnPartitionT<D>>(
-        m_context,
-        m_runtime,
-        Legion::IndexPartition::NO_PART,
-        m_axes);
-  }
-
-  static Generator
-  generator(
-    const std::string& name,
-    TypeTag datatype,
-    const std::vector<D>& axes,
-    const IndexTreeL& index_tree,
-    const std::unordered_map<std::string, TypeTag>& kws =
-    std::unordered_map<std::string, TypeTag>()) {
-
-    return
-      [=](Legion::Context ctx, Legion::Runtime* runtime) {
-        return
-          std::make_unique<ColumnT<D>>(
-            ctx,
-            runtime,
-            name,
-            datatype,
-            axes,
-            index_tree,
-            kws);
-      };
-  }
-
-  static Generator
-  generator(
-    const std::string& name,
-    TypeTag datatype,
-    const std::vector<D>& axes,
-    const IndexTreeL& row_index_pattern,
-    unsigned num_rows,
-    const std::unordered_map<std::string, TypeTag>& kws =
-    std::unordered_map<std::string, TypeTag>()) {
-
-    return
-      generator(
-        name,
-        datatype,
-        axes,
-        IndexTreeL(row_index_pattern, num_rows),
-        kws);
-  }
-
-  static Generator
-  generator(
-    const std::string& name,
-    TypeTag datatype,
-    const std::vector<D>& axes,
-    const IndexTreeL& row_index_pattern,
-    const IndexTreeL& row_pattern,
-    unsigned num_rows,
-    const std::unordered_map<std::string, TypeTag>& kws =
-    std::unordered_map<std::string, TypeTag>()) {
-
-    return
-      generator(
-        name,
-        datatype,
-        axes,
-        IndexTreeL(
-          row_pattern,
-          num_rows * row_pattern.size() / row_index_pattern.size()),
-        kws);
-  }
-
-  static Generator
-  generator(const ColumnGenArgs& genargs) {
-
-    // TODO: convert this assertion to an exception
-    assert(std::string(AxesUID<D>::id) == genargs.axes_uid);
-
-    std::vector<D> axes;
-    std::transform(
-      genargs.axes.begin(),
-      genargs.axes.end(),
-      std::back_inserter(axes),
-      [](auto& i) { return static_cast<D>(i); });
-    return
-      [=](Legion::Context ctx, Legion::Runtime* runtime) {
-      return
-        std::make_unique<ColumnT<D>>(
-          ctx,
-          runtime,
-          genargs.name,
-          genargs.datatype,
-          axes,
-          genargs.values,
-          genargs.keywords,
-          genargs.keyword_datatypes);
-    };
-  }
-
-private:
-
-  std::vector<D> m_axes;
-};
-
-template <typename D>
-std::unique_ptr<ColumnT<D>>
-ColumnGenArgs::operator()(
-  Legion::Context ctx,
-  Legion::Runtime* runtime) const {
-
-  // TODO: convert this assertion to an exception
-  assert(std::string(AxesUID<D>::id) == axes_uid);
-
-  return ColumnT<D>::generator(*this)(ctx, runtime);
-}
 
 template <>
 struct CObjectWrapper::SharedWrapper<Column> {

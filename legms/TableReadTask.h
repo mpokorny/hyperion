@@ -62,7 +62,7 @@ public:
       });
 
     auto c = table->column(table->min_rank_column_name().value());
-    m_blockp = c->partition_on_axes({std::make_tuple(0, block_length)});
+    m_blockp = c->partition_on_iaxes({std::make_tuple(0, block_length)});
 
     // FIXME: the following is insufficient in the case of multiple nodes
     casacore::Table tb(

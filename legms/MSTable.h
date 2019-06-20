@@ -3,7 +3,6 @@
 
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "legms.h"
@@ -47,7 +46,8 @@ struct MSTable {
   // static const Axes LAST_AXIS;
   // static const std::unordered_map<std::string, std::vector<Axes>>
   // element_axes;
-  // static const std::unordered_map<Axes, std::string>& axis_names();
+  // static const std::vector<std::string>& axis_names();
+  // static const hid_t h5_axes_datatype;
 };
 
 // defining axis names with the following helper structure should help prevent
@@ -61,12 +61,6 @@ struct MSTableAxis {
   template <>                                   \
   struct MSTableAxis<MS_##T, T##_##A> {         \
     static const constexpr char* name = #A;     \
-  }
-
-#define MS_TABLE_AXES_UID(T)                          \
-  template <>                                         \
-  struct AxesUID<MSTable<MS_##T>::Axes> {        \
-    static const constexpr char *id = "legms::" #T;   \
   }
 
 // N.B.: dimension indexes in comments of the Axes members of the MSTable
@@ -84,6 +78,8 @@ struct MSTable<MS_MAIN> {
 
   typedef ::legms_ms_main_axes_t Axes;
 
+  static const unsigned num_axes = MAIN_last + 1;
+
   static const Axes ROW_AXIS = MAIN_ROW;
 
   static const Axes LAST_AXIS = MAIN_last;
@@ -91,8 +87,7 @@ struct MSTable<MS_MAIN> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(MAIN, ROW);
@@ -118,13 +113,13 @@ MS_AXIS_NAME(MAIN, ARRAY_ID);
 MS_AXIS_NAME(MAIN, OBSERVATION_ID);
 MS_AXIS_NAME(MAIN, STATE_ID);
 
-MS_TABLE_AXES_UID(MAIN);
-
 template <>
 struct MSTable<MS_ANTENNA> {
   static const constexpr char* name = "ANTENNA";
 
   typedef ::legms_ms_antenna_axes_t Axes;
+
+  static const unsigned num_axes = ANTENNA_last + 1;
 
   static const Axes ROW_AXIS = ANTENNA_ROW;
 
@@ -133,8 +128,7 @@ struct MSTable<MS_ANTENNA> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(ANTENNA, ROW);
@@ -142,13 +136,13 @@ MS_AXIS_NAME(ANTENNA, POSITION);
 MS_AXIS_NAME(ANTENNA, OFFSET);
 MS_AXIS_NAME(ANTENNA, MEAN_ORBIT);
 
-MS_TABLE_AXES_UID(ANTENNA);
-
 template <>
 struct MSTable<MS_DATA_DESCRIPTION> {
   static const constexpr char* name = "DATA_DESCRIPTION";
 
   typedef ::legms_ms_data_description_axes_t Axes;
+
+  static const unsigned num_axes = DATA_DESCRIPTION_last + 1;
 
   static const Axes ROW_AXIS = DATA_DESCRIPTION_ROW;
 
@@ -157,19 +151,18 @@ struct MSTable<MS_DATA_DESCRIPTION> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(DATA_DESCRIPTION, ROW);
-
-MS_TABLE_AXES_UID(DATA_DESCRIPTION);
 
 template <>
 struct MSTable<MS_DOPPLER> {
   static const constexpr char *name = "DOPPLER";
 
   typedef ::legms_ms_doppler_axes_t Axes;
+
+  static const unsigned num_axes = DOPPLER_last + 1;
 
   static const Axes ROW_AXIS = DOPPLER_ROW;
 
@@ -178,8 +171,7 @@ struct MSTable<MS_DOPPLER> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(DOPPLER, ROW);
@@ -187,13 +179,13 @@ MS_AXIS_NAME(DOPPLER, DOPPLER_ID);
 MS_AXIS_NAME(DOPPLER, SOURCE_ID);
 MS_AXIS_NAME(DOPPLER, TRANSITION_ID);
 
-MS_TABLE_AXES_UID(DOPPLER);
-
 template <>
 struct MSTable<MS_FEED> {
   static const constexpr char *name = "FEED";
 
   typedef ::legms_ms_feed_axes_t Axes;
+
+  static const unsigned num_axes = FEED_last + 1;
 
   static const Axes ROW_AXIS = FEED_ROW;
 
@@ -202,8 +194,7 @@ struct MSTable<MS_FEED> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(FEED, ROW);
@@ -217,13 +208,13 @@ MS_AXIS_NAME(FEED, SPECTRAL_WINDOW_ID);
 MS_AXIS_NAME(FEED, TIME);
 MS_AXIS_NAME(FEED, INTERVAL);
 
-MS_TABLE_AXES_UID(FEED);
-
 template <>
 struct MSTable<MS_FIELD> {
   static const constexpr char* name = "FIELD";
 
   typedef ::legms_ms_field_axes_t Axes;
+
+  static const unsigned num_axes = FIELD_last + 1;
 
   static const Axes ROW_AXIS = FIELD_ROW;
 
@@ -232,8 +223,7 @@ struct MSTable<MS_FIELD> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(FIELD, ROW);
@@ -242,13 +232,13 @@ MS_AXIS_NAME(FIELD, DIRECTION);
 MS_AXIS_NAME(FIELD, SOURCE_ID);
 MS_AXIS_NAME(FIELD, EPHEMERIS_ID);
 
-MS_TABLE_AXES_UID(FIELD);
-
 template <>
 struct MSTable<MS_FLAG_CMD> {
   static const constexpr char *name = "FLAG_CMD";
 
   typedef ::legms_ms_flag_cmd_axes_t Axes;
+
+  static const unsigned num_axes = FLAG_CMD_last + 1;
 
   static const Axes ROW_AXIS = FLAG_CMD_ROW;
 
@@ -257,21 +247,20 @@ struct MSTable<MS_FLAG_CMD> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(FLAG_CMD, ROW);
 MS_AXIS_NAME(FLAG_CMD, TIME);
 MS_AXIS_NAME(FLAG_CMD, INTERVAL);
 
-MS_TABLE_AXES_UID(FLAG_CMD);
-
 template <>
 struct MSTable<MS_FREQ_OFFSET> {
   static const constexpr char* name = "FREQ_OFFSET";
 
   typedef ::legms_ms_freq_offset_axes_t Axes;
+
+  static const unsigned num_axes = FREQ_OFFSET_last + 1;
 
   static const Axes ROW_AXIS = FREQ_OFFSET_ROW;
 
@@ -280,8 +269,7 @@ struct MSTable<MS_FREQ_OFFSET> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(FREQ_OFFSET, ROW);
@@ -292,13 +280,13 @@ MS_AXIS_NAME(FREQ_OFFSET, SPECTRAL_WINDOW_ID);
 MS_AXIS_NAME(FREQ_OFFSET, TIME);
 MS_AXIS_NAME(FREQ_OFFSET, INTERVAL);
 
-MS_TABLE_AXES_UID(FREQ_OFFSET);
-
 template <>
 struct MSTable<MS_HISTORY> {
   static const constexpr char* name = "HISTORY";
 
   typedef ::legms_ms_history_axes_t Axes;
+
+  static const unsigned num_axes = HISTORY_last + 1;
 
   static const Axes ROW_AXIS = HISTORY_ROW;
 
@@ -307,8 +295,7 @@ struct MSTable<MS_HISTORY> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(HISTORY, ROW);
@@ -317,13 +304,13 @@ MS_AXIS_NAME(HISTORY, APP_PARAM);
 MS_AXIS_NAME(HISTORY, TIME);
 MS_AXIS_NAME(HISTORY, OBSERVATION_ID);
 
-MS_TABLE_AXES_UID(HISTORY);
-
 template <>
 struct MSTable<MS_OBSERVATION> {
   static const constexpr char* name = "OBSERVATION";
 
   typedef ::legms_ms_observation_axes_t Axes;
+
+  static const unsigned num_axes = OBSERVATION_last + 1;
 
   static const Axes ROW_AXIS = OBSERVATION_ROW;
 
@@ -332,8 +319,7 @@ struct MSTable<MS_OBSERVATION> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(OBSERVATION, ROW);
@@ -341,13 +327,13 @@ MS_AXIS_NAME(OBSERVATION, TIME_RANGE);
 MS_AXIS_NAME(OBSERVATION, LOG);
 MS_AXIS_NAME(OBSERVATION, SCHEDULE);
 
-MS_TABLE_AXES_UID(OBSERVATION);
-
 template <>
 struct MSTable<MS_POINTING> {
   static const constexpr char* name = "POINTING";
 
   typedef ::legms_ms_pointing_axes_t Axes;
+
+  static const unsigned num_axes = POINTING_last + 1;
 
   static const Axes ROW_AXIS = POINTING_ROW;
 
@@ -356,8 +342,7 @@ struct MSTable<MS_POINTING> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(POINTING, ROW);
@@ -367,13 +352,13 @@ MS_AXIS_NAME(POINTING, ANTENNA_ID);
 MS_AXIS_NAME(POINTING, TIME);
 MS_AXIS_NAME(POINTING, INTERVAL);
 
-MS_TABLE_AXES_UID(POINTING);
-
 template <>
 struct MSTable<MS_POLARIZATION> {
   static const constexpr char* name = "POLARIZATION";
 
   typedef ::legms_ms_polarization_axes_t Axes;
+
+  static const unsigned num_axes = POLARIZATION_last + 1;
 
   static const Axes ROW_AXIS = POLARIZATION_ROW;
 
@@ -382,21 +367,20 @@ struct MSTable<MS_POLARIZATION> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(POLARIZATION, ROW);
 MS_AXIS_NAME(POLARIZATION, CORRELATION);
 MS_AXIS_NAME(POLARIZATION, PRODUCT);
 
-MS_TABLE_AXES_UID(POLARIZATION);
-
 template <>
 struct MSTable<MS_PROCESSOR> {
   static const constexpr char* name = "PROCESSOR";
 
   typedef ::legms_ms_processor_axes_t Axes;
+
+  static const unsigned num_axes = PROCESSOR_last + 1;
 
   static const Axes ROW_AXIS = PROCESSOR_ROW;
 
@@ -405,19 +389,18 @@ struct MSTable<MS_PROCESSOR> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(PROCESSOR, ROW);
-
-MS_TABLE_AXES_UID(PROCESSOR);
 
 template <>
 struct MSTable<MS_SOURCE> {
   static const constexpr char* name = "SOURCE";
 
   typedef ::legms_ms_source_axes_t Axes;
+
+  static const unsigned num_axes = SOURCE_last + 1;
 
   static const Axes ROW_AXIS = SOURCE_ROW;
 
@@ -426,8 +409,7 @@ struct MSTable<MS_SOURCE> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(SOURCE, ROW);
@@ -441,13 +423,13 @@ MS_AXIS_NAME(SOURCE, INTERVAL);
 MS_AXIS_NAME(SOURCE, SPECTRAL_WINDOW_ID);
 MS_AXIS_NAME(SOURCE, PULSAR_ID);
 
-MS_TABLE_AXES_UID(SOURCE);
-
 template <>
 struct MSTable<MS_SPECTRAL_WINDOW> {
   static const constexpr char* name = "SPECTRAL_WINDOW";
 
   typedef ::legms_ms_spectral_window_axes_t Axes;
+
+  static const unsigned num_axes = SPECTRAL_WINDOW_last + 1;
 
   static const Axes ROW_AXIS = SPECTRAL_WINDOW_ROW;
 
@@ -456,21 +438,20 @@ struct MSTable<MS_SPECTRAL_WINDOW> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(SPECTRAL_WINDOW, ROW);
 MS_AXIS_NAME(SPECTRAL_WINDOW, CHANNEL);
 MS_AXIS_NAME(SPECTRAL_WINDOW, ASSOC_SPW);
 
-MS_TABLE_AXES_UID(SPECTRAL_WINDOW);
-
 template <>
 struct MSTable<MS_STATE> {
   static const constexpr char* name = "STATE";
 
   typedef ::legms_ms_state_axes_t Axes;
+
+  static const unsigned num_axes = STATE_last + 1;
 
   static const Axes ROW_AXIS = STATE_ROW;
 
@@ -479,19 +460,18 @@ struct MSTable<MS_STATE> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(STATE, ROW);
-
-MS_TABLE_AXES_UID(STATE);
 
 template <>
 struct MSTable<MS_SYSCAL> {
   static const constexpr char* name = "SYSCAL";
 
   typedef ::legms_ms_syscal_axes_t Axes;
+
+  static const unsigned num_axes = SYSCAL_last + 1;
 
   static const Axes ROW_AXIS = SYSCAL_ROW;
 
@@ -500,8 +480,7 @@ struct MSTable<MS_SYSCAL> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(SYSCAL, ROW);
@@ -513,13 +492,13 @@ MS_AXIS_NAME(SYSCAL, SPECTRAL_WINDOW_ID);
 MS_AXIS_NAME(SYSCAL, TIME);
 MS_AXIS_NAME(SYSCAL, INTERVAL);
 
-MS_TABLE_AXES_UID(SYSCAL);
-
 template <>
 struct MSTable<MS_WEATHER> {
   static const constexpr char* name = "WEATHER";
 
   typedef ::legms_ms_weather_axes_t Axes;
+
+  static const unsigned num_axes = WEATHER_last + 1;
 
   static const Axes ROW_AXIS = WEATHER_ROW;
 
@@ -528,8 +507,7 @@ struct MSTable<MS_WEATHER> {
   static const std::unordered_map<std::string, std::vector<Axes>>
   element_axes;
 
-  static const std::unordered_map<Axes, std::string>&
-  axis_names();
+  static const std::vector<std::string>& axis_names();
 };
 
 MS_AXIS_NAME(WEATHER, ROW);
@@ -537,47 +515,30 @@ MS_AXIS_NAME(WEATHER, ANTENNA_ID);
 MS_AXIS_NAME(WEATHER, TIME);
 MS_AXIS_NAME(WEATHER, INTERVAL);
 
-MS_TABLE_AXES_UID(WEATHER);
-
 #undef MS_AXIS_NAME
 
-#undef MS_TABLE_AXES_UID
-
+#ifdef USE_HDF5
 #define MSAXES(T)                                                       \
   template <>                                                           \
   struct Axes<typename MSTable<MS_##T>::Axes> {                         \
-    static const std::unordered_map<typename MSTable<MS_##T>::Axes, std::string> \
-    names;                                                              \
+    static constexpr const char *uid = "legms::" #T;                    \
+    static const std::vector<std::string> names;                        \
+    static const unsigned num_axes = MSTable<MS_##T>::num_axes;         \
+    static const hid_t h5_datatype;                                     \
   };
+#else
+#define MSAXES(T)                                                     \
+  template <>                                                         \
+  struct Axes<typename MSTable<MS_##T>::Axes> {                       \
+    static constexpr const char *uid = "legms::" #T;                  \
+    static const std::vector<std::string> names;                      \
+    static const unsigned num_axes = MSTable<MS_##T>::num_axes;       \
+  };
+#endif
 
 LEGMS_FOREACH_MSTABLE(MSAXES);
 
 #undef MSAXES
-
-#if USE_HDF5
-
-template <MSTables T>
-hid_t
-h5_axes_datatype() {
-  hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
-  typedef typename MSTable<T>::Axes Axes;
-  for (auto a = static_cast<unsigned char>(MSTable<T>::ROW_AXIS);
-       a <= static_cast<unsigned char>(MSTable<T>::LAST_AXIS);
-       ++a) {
-    herr_t err =
-      H5Tenum_insert(
-        result,
-        MSTable<T>::axis_names().at(static_cast<Axes>(a)).c_str(),
-        &a);
-    assert(err >= 0);
-  }
-  return result;
-}
-
-void
-match_h5_axes_datatype(hid_t& id, const char*& uid);
-
-#endif // USE_HDF5
 
 } // end namespace legms
 

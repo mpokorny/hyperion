@@ -23,10 +23,19 @@ enum struct Table0Axes {
 };
 
 template <>
-struct legms::AxesUID<Table0Axes> {
-  static constexpr const char* id = "Table0Axes";
+struct legms::Axes<Table0Axes> {
+  static const constexpr char* uid = "Table0Axes";
+  static const std::vector<std::string> names;
+  static const unsigned num_axes = 3;
+#ifdef USE_HDF5
+  static const hid_t h5_datatype;
+#endif
 };
 
+const std::vector<std::string>
+legms::Axes<Table0Axes>::names{"ROW", "X", "Y"};
+
+#ifdef USE_HDF5
 hid_t
 h5_dt() {
   hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
@@ -40,8 +49,9 @@ h5_dt() {
   return result;
 }
 
-template <>
-hid_t TableT<Table0Axes>::m_h5_axes_datatype = h5_dt();
+const hid_t
+legms::Axes<Table0Axes>::h5_datatype = h5_dt();
+#endif
 
 std::ostream&
 operator<<(std::ostream& stream, const Table0Axes& ax) {
@@ -75,24 +85,24 @@ unsigned table0_y[TABLE0_NUM_ROWS] {
                      OY + 0, OY + 1, OY + 2,
                      OY + 0, OY + 1, OY + 2};
 
-ColumnT<Table0Axes>::Generator
+Column::Generator
 table0_col(const std::string& name) {
   return
     [=](Context context, Runtime* runtime) {
       return
-        std::make_unique<ColumnT<Table0Axes>>(
+        std::make_unique<Column>(
           context,
           runtime,
           name,
-          ValueType<unsigned>::DataType,
           std::vector<Table0Axes>{Table0Axes::ROW},
+          ValueType<unsigned>::DataType,
           IndexTreeL(TABLE0_NUM_ROWS));
     };
 }
 
 PhysicalRegion
 attach_table0_col(
-  const ColumnT<Table0Axes>* col,
+  const Column* col,
   unsigned *base,
   Context context,
   Runtime* runtime) {
@@ -117,41 +127,46 @@ attach_table0_col(
 
 void
 index_column_task_test_suite(
-  const Task* task,
+  const Task*,
   const std::vector<PhysicalRegion>& regions,
   Context context,
   Runtime* runtime) {
 
   register_tasks(runtime);
+#ifdef USE_HDF5
+  H5DatatypeManager::register_axes_datatype(
+    Axes<Table0Axes>::uid,
+    Axes<Table0Axes>::h5_datatype);
+#endif
 
   testing::TestRecorder<WRITE_DISCARD> recorder(
     testing::TestLog<WRITE_DISCARD>(regions[0], regions[1], context, runtime));
 
-  TableT<Table0Axes>
+  Table
     table0(
       context,
       runtime,
       "table0",
-      {static_cast<int>(Table0Axes::ROW)},
+      std::vector<Table0Axes>{Table0Axes::ROW},
       {table0_col("X"),
        table0_col("Y")});
   auto col_x =
-    attach_table0_col(table0.columnT("X").get(), table0_x, context, runtime);
+    attach_table0_col(table0.column("X").get(), table0_x, context, runtime);
   auto col_y =
-    attach_table0_col(table0.columnT("Y").get(), table0_y, context, runtime);
-  IndexColumnTask icx(table0.columnT("X"), static_cast<int>(Table0Axes::X));
-  IndexColumnTask icy(table0.columnT("Y"), static_cast<int>(Table0Axes::Y));
+    attach_table0_col(table0.column("Y").get(), table0_y, context, runtime);
+  IndexColumnTask icx(table0.column("X"), static_cast<int>(Table0Axes::X));
+  IndexColumnTask icy(table0.column("Y"), static_cast<int>(Table0Axes::Y));
   Future fx = icx.dispatch(context, runtime);
   Future fy = icy.dispatch(context, runtime);
 
   auto cx =
-    fx.get_result<ColumnGenArgs>().operator()<Table0Axes>(context, runtime);
+    fx.get_result<ColumnGenArgs>().operator()(context, runtime);
   recorder.assert_true(
     "IndexColumnTask X result has one axis",
-    TE(cx->axesT().size()) == 1u);
+    TE(cx->axes().size()) == 1u);
   recorder.expect_true(
     "IndexColumnTask X result axis is 'Table0Axes::X'",
-    TE(cx->axesT()[0]) == Table0Axes::X);
+    TE(cx->axes()[0]) == static_cast<int>(Table0Axes::X));
   recorder.assert_true(
     "IndexColumnTask X result has one-dimensional IndexSpace",
     TE(cx->index_space().get_dim()) == 1);
@@ -202,13 +217,13 @@ index_column_task_test_suite(
       }));
 
   auto cy =
-    fy.get_result<ColumnGenArgs>().operator()<Table0Axes>(context, runtime);
+    fy.get_result<ColumnGenArgs>().operator()(context, runtime);
   recorder.assert_true(
     "IndexColumnTask Y result has one axis",
-    TE(cy->axesT().size()) == 1u);
+    TE(cy->axes().size()) == 1u);
   recorder.expect_true(
     "IndexColumnTask Y result axis is 'Table0Axes::Y'",
-    TE(cy->axesT()[0]) == Table0Axes::Y);
+    TE(cy->axes()[0]) == static_cast<int>(Table0Axes::Y));
   recorder.assert_true(
     "IndexColumnTask Y result has one-dimensional IndexSpace",
     TE(cy->index_space().get_dim()) == 1);

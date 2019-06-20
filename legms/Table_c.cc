@@ -65,7 +65,7 @@ legms_table_max_rank_column_name(legms_table_t table) {
 
 const char*
 legms_table_axes_uid(legms_table_t table) {
-  return unwrap(table)->axes_uid();
+  return unwrap(table)->axes_uid().c_str();
 }
 
 const int*

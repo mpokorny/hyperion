@@ -16,7 +16,7 @@ legms_column_name(legms_column_t column) {
 
 const char*
 legms_column_axes_uid(legms_column_t column) {
-  return unwrap(column)->axes_uid();
+  return unwrap(column)->axes_uid().c_str();
 }
 
 void
@@ -53,7 +53,7 @@ legms_column_partition_on_axes(
 
   std::vector<int> ax(num_axes);
   std::memcpy(ax.data(), axes, num_axes * sizeof(int));
-  return wrap(unwrap(column)->partition_on_axes(ax));
+  return wrap(unwrap(column)->partition_on_iaxes(ax));
 }
 
 legms_column_partition_t

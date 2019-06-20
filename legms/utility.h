@@ -37,6 +37,19 @@ typedef IndexTree<Legion::coord_t> IndexTreeL;
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
+template <typename T>
+std::vector<int>
+map_to_int(const std::vector<T>& ts) {
+  std::vector<int> result;
+  result.reserve(ts.size());
+  std::transform(
+    ts.begin(),
+    ts.end(),
+    std::back_inserter(result),
+    [](auto& t) { return static_cast<int>(t); });
+  return result;
+}
+
 template <typename T, typename F>
 std::optional<std::invoke_result_t<F, T>>
 map(const std::optional<T>& ot, F f) {
@@ -54,22 +67,19 @@ flatMap(const std::optional<T>& ot, F f) {
 
 template <typename D>
 struct Axes {
-  static const std::unordered_map<D, std::string> names;
+  static const char* uid;
+  static const std::vector<std::string> names;
+  static const unsigned num_axes;
+#ifdef USE_HDF5
+  static const hid_t h5_datatype;
+#endif
 };
 
-template <typename D>
-std::optional<D>
-column_is_axis(const std::string& colname, const std::vector<D>& axes) {
-  auto& axis_names = Axes<D>::names;
-  auto colax =
-    std::find_if(
-      axes.begin(),
-      axes.end(),
-      [&axis_names, &colname](auto& ax) {
-        return colname == axis_names.at(ax);
-      });
-  return (colax != axes.end()) ? *colax : std::optional<D>();
-}
+std::optional<int>
+column_is_axis(
+  const std::vector<std::string>& axis_names,
+  const std::string& colname,
+  const std::vector<int>& axes);
 
 struct string {
 
@@ -138,12 +148,6 @@ dimensions_map(const std::vector<D>& from, const std::vector<D>& to) {
 }
 
 typedef ::legms_type_tag_t TypeTag;
-
-// uid of axes
-template <typename T>
-struct AxesUID {
-  // static const char* id;
-};
 
 template <typename T>
 class vector_serdez {
@@ -677,9 +681,20 @@ public:
     hid_t fcpl_t = H5P_DEFAULT,
     hid_t fapl_t = H5P_DEFAULT);
 
+  static void
+  register_axes_datatype(const std::string& uid, hid_t hid);
+
+  static hid_t
+  axes_datatype(const std::string& uid);
+
+  static std::optional<std::string>
+  match_axes_datatype(hid_t hid);
+
 private:
 
   static hid_t datatypes_[DATATYPE_H5T + 1];
+
+  static std::unordered_map<std::string, hid_t> axes_datatypes;
 };
 #endif
 
@@ -1114,12 +1129,14 @@ projected_index_partition(
   Legion::Runtime* runtime,
   Legion::IndexPartitionT<IPDIM> ip,
   Legion::IndexSpaceT<PRJDIM> prj_is,
-  const std::array<int, PRJDIM>& dmap) {
+  const std::vector<int>& dmap) {
+
+  assert(dmap.size() >= PRJDIM);
 
   assert(
     std::all_of(
       dmap.begin(),
-      dmap.end(),
+      dmap.begin() + PRJDIM,
       [](auto d) { return -1 <= d && d < IPDIM; }));
 
   std::unique_ptr<ProjectedIndexPartitionTask::args> args(
@@ -1177,9 +1194,9 @@ projected_index_partition(
   Legion::IndexSpace prj_is,
   const std::vector<int>& dmap);
 
-template <typename D>
 struct AxisPartition {
-  D dim;
+  std::string axes_uid;
+  int dim;
   Legion::coord_t stride;
   Legion::coord_t offset;
   Legion::coord_t lo;
@@ -1188,7 +1205,8 @@ struct AxisPartition {
   bool
   operator==(const AxisPartition& other) {
     return
-      dim == other.dim
+      axes_uid == other.axes_uid
+      && dim == other.dim
       && stride == other.stride
       && offset == other.offset
       && lo == other.lo
@@ -1202,6 +1220,7 @@ struct AxisPartition {
 
   bool
   operator<(const AxisPartition& other) {
+    if (axes_uid != other.axes_uid) return false;
     if (dim < other.dim) return true;
     if (dim == other.dim) {
       if (stride < other.stride) return true;
@@ -1223,7 +1242,7 @@ create_partition_on_axes(
   Legion::Context ctx,
   Legion::Runtime* runtime,
   Legion::IndexSpace is,
-  const std::vector<AxisPartition<int>>& parts);
+  const std::vector<AxisPartition>& parts);
 
 void
 preregister_all();

@@ -81,15 +81,15 @@ public:
   virtual void
   add_row(const std::any&) = 0;
 
-  std::unique_ptr<ColumnT<typename MSTable<D>::Axes>>
+  std::unique_ptr<Column>
   column(Legion::Context ctx, Legion::Runtime* runtime) const {
     return
-      std::make_unique<ColumnT<typename MSTable<D>::Axes>>(
+      std::make_unique<Column>(
         ctx,
         runtime,
         name(),
-        datatype(),
         axes(),
+        datatype(),
         index_tree(),
         keywords());
   }

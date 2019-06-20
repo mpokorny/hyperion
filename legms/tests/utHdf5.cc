@@ -22,17 +22,26 @@ enum {
 };
 
 enum struct Table0Axes {
-  index = -1,
   ROW = 0,
   X,
   Y,
   ZP
 };
 
+
 template <>
-struct legms::AxesUID<Table0Axes> {
-  static constexpr const char* id = "Table0Axes";
+struct legms::Axes<Table0Axes> {
+  static const constexpr char* uid = "Table0Axes";
+  static const std::vector<std::string> names;
+  static const unsigned num_axes = 4;
+#ifdef USE_HDF5
+  static const hid_t h5_datatype;
+#endif
 };
+
+const std::vector<std::string>
+legms::Axes<Table0Axes>::names{"ROW", "X", "Y", "ZP"};
+
 hid_t
 h5_dt() {
   hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
@@ -48,15 +57,12 @@ h5_dt() {
   return result;
 }
 
-template <>
-hid_t TableT<Table0Axes>::m_h5_axes_datatype = h5_dt();
+const hid_t
+legms::Axes<Table0Axes>::h5_datatype = h5_dt();
 
 std::ostream&
 operator<<(std::ostream& stream, const Table0Axes& ax) {
   switch (ax) {
-  case Table0Axes::index:
-    stream << "Table0Axes::index";
-    break;
   case Table0Axes::ROW:
     stream << "Table0Axes::ROW";
     break;
@@ -115,30 +121,30 @@ copy_region(const PhysicalRegion& region, Context context, Runtime* runtime) {
   return result;
 }
 
-ColumnT<Table0Axes>::Generator
+Column::Generator
 table0_col(const std::string& name) {
   if (name == "X") {
     return
       [name](Context context, Runtime* runtime) {
         return
-          std::make_unique<ColumnT<Table0Axes>>(
+          std::make_unique<Column>(
             context,
             runtime,
             name,
-            ValueType<unsigned>::DataType,
             std::vector<Table0Axes>{Table0Axes::ROW},
+            ValueType<unsigned>::DataType,
             IndexTreeL(TABLE0_NUM_ROWS));
       };
   } else if (name == "Y"){
     return
       [name](Context context, Runtime* runtime) {
         return
-          std::make_unique<ColumnT<Table0Axes>>(
+          std::make_unique<Column>(
             context,
             runtime,
             name,
-            ValueType<unsigned>::DataType,
             std::vector<Table0Axes>{Table0Axes::ROW},
+            ValueType<unsigned>::DataType,
             IndexTreeL(TABLE0_NUM_ROWS),
             WithKeywords::kw_desc_t{{"perfect", ValueType<short>::DataType}});
       };
@@ -146,12 +152,12 @@ table0_col(const std::string& name) {
     return
       [name](Context context, Runtime* runtime) {
         return
-          std::make_unique<ColumnT<Table0Axes>>(
+          std::make_unique<Column>(
             context,
             runtime,
             name,
-            ValueType<unsigned>::DataType,
             std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP},
+            ValueType<unsigned>::DataType,
             IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
       };
   }
@@ -159,7 +165,7 @@ table0_col(const std::string& name) {
 
 PhysicalRegion
 attach_table0_col(
-  const ColumnT<Table0Axes>* col,
+  const Column* col,
   unsigned *base,
   Context context,
   Runtime* runtime) {
@@ -361,12 +367,12 @@ table_tests(
     table0_z[2 * i + 1] = table0_y[i];
   }
 
-  TableT<Table0Axes>
+  Table
     table0(
       context,
       runtime,
       "table0",
-      {static_cast<int>(Table0Axes::ROW)},
+      std::vector<Table0Axes>{Table0Axes::ROW},
       {table0_col("X"),
        table0_col("Y"),
        table0_col("Z")},
@@ -378,11 +384,11 @@ table_tests(
   std::strcpy(ms_nm.val, "test");
 
   auto col_x =
-    attach_table0_col(table0.columnT("X").get(), table0_x, context, runtime);
+    attach_table0_col(table0.column("X").get(), table0_x, context, runtime);
   auto col_y =
-    attach_table0_col(table0.columnT("Y").get(), table0_y, context, runtime);
+    attach_table0_col(table0.column("Y").get(), table0_y, context, runtime);
   auto col_z =
-    attach_table0_col(table0.columnT("Z").get(), table0_z, context, runtime);
+    attach_table0_col(table0.column("Z").get(), table0_z, context, runtime);
 
   {
     // initialize table0 keyword values
@@ -403,7 +409,7 @@ table_tests(
   }
   {
     // initialize column Y keyword value
-    auto cy = table0.columnT("Y");
+    auto cy = table0.column("Y");
     RegionRequirement kw_req(
       cy->keywords_region(),
       WRITE_ONLY,
@@ -443,7 +449,7 @@ table_tests(
   recorder.assert_true(
     "Table generator arguments read back from HDF5",
     TE(table_ga.has_value()));
-  auto tb0 = table_ga.value().template operator()<Table0Axes>(context, runtime);
+  auto tb0 = table_ga.value().operator()(context, runtime);
   recorder.assert_true(
     "Table recreated from generator arguments",
     TE(bool(tb0)));
@@ -463,32 +469,34 @@ table_tests(
   }
 
   {
-    auto cx = tb0->columnT("X");
+    auto cx = tb0->column("X");
     recorder.assert_true("Column X logically recreated", TE(bool(cx)));
     recorder.expect_true(
       "Column X has expected axes",
-      TE(cx->axesT()) == std::vector<Table0Axes>{Table0Axes::ROW});
+      TE(cx->axes()) ==
+      map_to_int(std::vector<Table0Axes>{Table0Axes::ROW}));
     recorder.expect_true(
       "Column X has expected indexes",
       TE(cx->index_tree()) == IndexTreeL(TABLE0_NUM_ROWS));
   }
   {
-    auto cy = tb0->columnT("Y");
+    auto cy = tb0->column("Y");
     recorder.assert_true("Column Y logically recreated", TE(bool(cy)));
     recorder.expect_true(
       "Column Y has expected axes",
-      TE(cy->axesT()) == std::vector<Table0Axes>{Table0Axes::ROW});
+      TE(cy->axes()) ==
+      map_to_int(std::vector<Table0Axes>{Table0Axes::ROW}));
     recorder.expect_true(
       "Column Y has expected indexes",
       TE(cy->index_tree()) == IndexTreeL(TABLE0_NUM_ROWS));
   }
   {
-    auto cz = tb0->columnT("Z");
+    auto cz = tb0->column("Z");
     recorder.assert_true("Column Z logically recreated", TE(bool(cz)));
     recorder.expect_true(
       "Column Z has expected axes",
-      TE(cz->axesT())
-      == std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP});
+      TE(cz->axes())
+      == map_to_int(std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP}));
     recorder.expect_true(
       "Column Z has expected indexes",
       TE(cz->index_tree()) == IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
@@ -586,6 +594,9 @@ hdf5_test_suite(
   Runtime *runtime) {
 
   register_tasks(runtime);
+  H5DatatypeManager::register_axes_datatype(
+    Axes<Table0Axes>::uid,
+    Axes<Table0Axes>::h5_datatype);
 
   testing::TestLog<WRITE_DISCARD> log(regions[0], regions[1], ctx, runtime);
   testing::TestRecorder<WRITE_DISCARD> recorder(log);
