@@ -796,15 +796,13 @@ legms::preregister_all() {
   OpsManager::preregister_ops();
 #ifdef USE_HDF5
   H5DatatypeManager::preregister_datatypes();
-
-#define REG_H5(T) \
-  H5DatatypeManager::register_axes_datatype(            \
-    Axes<typename MSTable<MS_##T>::Axes>::uid,          \
-    Axes<typename MSTable<MS_##T>::Axes>::h5_datatype);
-  LEGMS_FOREACH_MSTABLE(REG_H5);
-#undef REG_H5
-
 #endif
+
+#define REG_AXES(T) \
+  AxesRegistrar::register_axes<typename MSTable<MS_##T>::Axes>();
+
+  LEGMS_FOREACH_MSTABLE(REG_AXES);
+#undef REG_AXES
 }
 
 void
@@ -817,12 +815,12 @@ legms::register_tasks(Runtime* runtime) {
   Table::register_tasks(runtime);
 }
 
+std::unordered_map<std::string, legms::AxesRegistrar::A>
+legms::AxesRegistrar::axes_;
+
 #ifdef USE_HDF5
 hid_t
 legms::H5DatatypeManager::datatypes_[DATATYPE_H5T + 1];
-
-std::unordered_map<std::string, hid_t>
-legms::H5DatatypeManager::axes_datatypes;
 
 void
 legms::H5DatatypeManager::preregister_datatypes() {
@@ -931,33 +929,6 @@ legms::H5DatatypeManager::create(
     assert(rc >= 0);
   }
   return result;
-}
-
-void
-legms::H5DatatypeManager::register_axes_datatype(
-  const std::string& uid,
-  hid_t hid) {
-  axes_datatypes[uid] = hid;
-}
-
-hid_t
-legms::H5DatatypeManager::axes_datatype(const std::string& uid) {
-  return axes_datatypes[uid];
-}
-
-std::optional<std::string>
-legms::H5DatatypeManager::match_axes_datatype(hid_t hid) {
-  auto adp =
-    std::find_if(
-      axes_datatypes.begin(),
-      axes_datatypes.end(),
-      [&hid](auto& ad) {
-        return H5Tequal(hid, std::get<1>(ad)) > 0;
-      });
-  return
-    (adp != axes_datatypes.end())
-    ? std::get<0>(*adp)
-    : std::optional<std::string>();
 }
 #endif // USE_HDF5
 

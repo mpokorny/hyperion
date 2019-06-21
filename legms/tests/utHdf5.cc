@@ -594,9 +594,7 @@ hdf5_test_suite(
   Runtime *runtime) {
 
   register_tasks(runtime);
-  H5DatatypeManager::register_axes_datatype(
-    Axes<Table0Axes>::uid,
-    Axes<Table0Axes>::h5_datatype);
+  AxesRegistrar::register_axes<Table0Axes>();
 
   testing::TestLog<WRITE_DISCARD> log(regions[0], regions[1], ctx, runtime);
   testing::TestRecorder<WRITE_DISCARD> recorder(log);

@@ -53,7 +53,7 @@ legms_column_partition_on_axes(
 
   std::vector<int> ax(num_axes);
   std::memcpy(ax.data(), axes, num_axes * sizeof(int));
-  return wrap(unwrap(column)->partition_on_iaxes(ax));
+  return wrap(unwrap(column)->partition_on_axes(ax));
 }
 
 legms_column_partition_t

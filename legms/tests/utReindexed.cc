@@ -151,11 +151,7 @@ reindexed_test_suite(
   Runtime* runtime) {
 
   register_tasks(runtime);
-#ifdef USE_HDF5
-  H5DatatypeManager::register_axes_datatype(
-    Axes<Table0Axes>::uid,
-    Axes<Table0Axes>::h5_datatype);
-#endif
+  AxesRegistrar::register_axes<Table0Axes>();
 
   testing::TestRecorder<WRITE_DISCARD> recorder(
     testing::TestLog<WRITE_DISCARD>(regions[0], regions[1], context, runtime));

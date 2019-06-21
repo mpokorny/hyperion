@@ -925,11 +925,11 @@ legms::hdf5::init_table(
   hid_t axes_dt;
   {
     hid_t dt = H5Topen(loc_id, table_axes_dt_name, type_access_pl);
-    auto uid = H5DatatypeManager::match_axes_datatype(dt);
+    auto uid = AxesRegistrar::match_axes_datatype(dt);
     if (!uid)
       goto return_nothing;
     axes_uid = uid.value();
-    axes_dt = H5DatatypeManager::axes_datatype(axes_uid);
+    axes_dt = AxesRegistrar::axes(axes_uid).value().h5_datatype;
   }
   {
     htri_t index_axes_exists = H5Aexists(loc_id, table_index_axes_attr_name);

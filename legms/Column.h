@@ -46,6 +46,7 @@ struct ColumnGenArgs {
 
 class Column
   : public WithKeywords {
+
 public:
 
   typedef std::function<
@@ -186,38 +187,40 @@ public:
   std::unique_ptr<ColumnPartition>
   partition_on_axes(const std::vector<AxisPartition>& parts) const;
 
-  std::unique_ptr<ColumnPartition>
-  partition_on_iaxes(const std::vector<int>& ds) const;
-
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
   std::unique_ptr<ColumnPartition>
   partition_on_axes(const std::vector<D>& ds) const {
-
     assert(Axes<D>::uid == m_axes_uid);
     return partition_on_iaxes(map_to_int(ds));
   }
 
   std::unique_ptr<ColumnPartition>
-  partition_on_iaxes(const std::vector<std::tuple<int, Legion::coord_t>>& dss)
-    const;
+  partition_on_axes(const std::vector<int>& ds) const {
+    assert(AxesRegistrar::in_range(axes_uid(), ds));
+    return partition_on_iaxes(ds);
+  }
 
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
   std::unique_ptr<ColumnPartition>
   partition_on_axes(const std::vector<std::tuple<D, Legion::coord_t>>& ds)
     const {
-
     assert(Axes<D>::uid == m_axes_uid);
-    std::vector<std::tuple<int, Legion::coord_t>> di;
-    di.reserve(ds.size());
-    std::transform(
-      ds.begin(),
-      ds.end(),
-      std::back_inserter(di),
-      [](auto& d) {
-        return
-          std::make_tuple(static_cast<int>(std::get<0>(d)), std::get<1>(d));
-      });
-    return partition_on_iaxes(di);
+    std::vector<std::tuple<int, Legion::coord_t>> is =
+      map(
+        ds,
+        [](const auto& d) {
+          return
+            std::make_tuple(static_cast<int>(std::get<0>(d)), std::get<1>(d));
+        });
+    return partition_on_iaxes(is);
+  }
+
+  std::unique_ptr<ColumnPartition>
+  partition_on_axes(const std::vector<std::tuple<int, Legion::coord_t>>& ds)
+    const {
+    std::vector<int> is = map(ds, [](const auto& d) { return std::get<0>(d); });
+    assert(AxesRegistrar::in_range(axes_uid(), is));
+    return partition_on_iaxes(ds);
   }
 
   std::unique_ptr<ColumnPartition>
@@ -322,6 +325,15 @@ public:
   }
 
   static constexpr Legion::FieldID value_fid = 0;
+
+protected:
+
+  std::unique_ptr<ColumnPartition>
+  partition_on_iaxes(const std::vector<int>& ds) const;
+
+  std::unique_ptr<ColumnPartition>
+  partition_on_iaxes(const std::vector<std::tuple<int, Legion::coord_t>>& ds)
+    const;
 
 private:
 

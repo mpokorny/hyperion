@@ -1153,17 +1153,15 @@ ReindexColumnTask::ReindexColumnTask(
     col->axes().begin(),
     row_axis_offset + 1,
     back_inserter(col_part_axes));
-  m_partition = col->partition_on_iaxes(col_part_axes);
+  m_partition = col->partition_on_axes(col_part_axes);
 
-  vector<int> index_axes;
-  transform(
-    ixcols.begin(),
-    ixcols.end(),
-    back_inserter(index_axes),
-    [](auto& ixc) {
-      assert(ixc->axes().size() == 1);
-      return ixc->axes()[0];
-    });
+  vector<int> index_axes =
+    map(
+      ixcols,
+      [](const auto& ixc) {
+        assert(ixc->axes().size() == 1);
+        return ixc->axes()[0];
+      });
   TaskArgs args {allow_rows, index_axes, m_partition->index_partition(),
                  col->generator_args()};
   m_args_buffer = make_unique<char[]>(args.serialized_size());
@@ -1239,12 +1237,8 @@ reindex_column(
   // new_rects_req.add_field(ReindexColumnTask::row_rects_fid);
   // PhysicalRegion new_rects_pr = runtime->map_region(ctx, new_rects_req);
 
-  vector<LogicalRegion> ix_lrs;
-  transform(
-    regions.begin() + 1,
-    regions.end(),
-    back_inserter(ix_lrs),
-    [](auto& rg) { return rg.get_logical_region(); });
+  vector<LogicalRegion> ix_lrs =
+    legms::map(regions, [](const auto& rg) { return rg.get_logical_region(); });
 
   // task to compute new index space rectangle for each row in column
 #ifdef HIERARCHICAL_COMPUTE_RECTANGLES

@@ -305,17 +305,24 @@ public:
         keywords_datatypes()};
   }
 
-  Legion::Future/* TableGenArgs */
-  ireindexed(
-    const std::vector<std::string>& axis_names,
-    const std::vector<int>& axes,
-    bool allow_rows = true) const;
-
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
   Legion::Future/* TableGenArgs */
   reindexed(const std::vector<D>& axes, bool allow_rows = true) const {
     assert(Axes<D>::uid == m_axes_uid);
     return ireindexed(Axes<D>::names, map_to_int(axes), allow_rows);
+  }
+
+  Legion::Future/* TableGenArgs */
+  reindexed(const std::vector<int>& axes, bool allow_rows = true) const {
+    auto axs = AxesRegistrar::axes(axes_uid()).value();
+    assert(
+      std::all_of(
+        axes.begin(),
+        axes.end(),
+        [m=axs.names.size()](auto& a) {
+          return 0 <= a && static_cast<unsigned>(a) < m;
+        }));
+    return ireindexed(axs.names, axes, allow_rows);
   }
 
 #if USE_HDF5
@@ -338,6 +345,12 @@ public:
   register_tasks(Legion::Runtime* runtime);
 
 protected:
+
+  Legion::Future/* TableGenArgs */
+  ireindexed(
+    const std::vector<std::string>& axis_names,
+    const std::vector<int>& axes,
+    bool allow_rows = true) const;
 
   void
   set_min_max_rank() {

@@ -37,17 +37,23 @@ typedef IndexTree<Legion::coord_t> IndexTreeL;
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-template <typename T>
-std::vector<int>
-map_to_int(const std::vector<T>& ts) {
-  std::vector<int> result;
+template <typename T, typename F>
+std::vector<std::invoke_result_t<F, T>>
+map(const std::vector<T>& ts, F f) {
+  std::vector<std::invoke_result_t<F, T>> result;
   result.reserve(ts.size());
   std::transform(
     ts.begin(),
     ts.end(),
     std::back_inserter(result),
-    [](auto& t) { return static_cast<int>(t); });
+    [&f](const auto& t) { return f(t); });
   return result;
+}
+
+template <typename T>
+std::vector<int>
+map_to_int(const std::vector<T>& ts) {
+  return map(ts, [](const auto& t) { return static_cast<int>(t); });
 }
 
 template <typename T, typename F>
@@ -681,22 +687,92 @@ public:
     hid_t fcpl_t = H5P_DEFAULT,
     hid_t fapl_t = H5P_DEFAULT);
 
-  static void
-  register_axes_datatype(const std::string& uid, hid_t hid);
-
-  static hid_t
-  axes_datatype(const std::string& uid);
-
-  static std::optional<std::string>
-  match_axes_datatype(hid_t hid);
-
 private:
 
   static hid_t datatypes_[DATATYPE_H5T + 1];
-
-  static std::unordered_map<std::string, hid_t> axes_datatypes;
 };
 #endif
+
+class AxesRegistrar {
+public:
+
+  struct A {
+    std::string uid;
+    std::vector<std::string> names;
+#ifdef USE_HDF5
+    hid_t h5_datatype;
+#endif
+  };
+
+#ifdef USE_HDF5
+  static void
+  register_axes(
+    const std::string& uid,
+    const std::vector<std::string>& names,
+    hid_t hid) {
+
+    axes_.emplace(uid, A{uid, names, hid});
+  }
+
+  template <typename D>
+  static void
+  register_axes() {
+    register_axes(Axes<D>::uid, Axes<D>::names, Axes<D>::h5_datatype);
+  }
+#else // !USE_HDF5
+  static void
+  register_axes(
+    const std::string& uid,
+    const std::vector<std::string>& names) {
+
+    axes_.emplace(uid, A{uid, names});
+  }
+
+  template <typename D>
+  static void
+  register_axes() {
+    register_axes(Axes<D>::uid, Axes<D>::names);
+  }
+#endif
+
+  static std::optional<A>
+  axes(const std::string& uid) {
+    return (axes_.count(uid) > 0) ? axes_[uid] : std::optional<A>();
+  }
+
+#ifdef USE_HDF5
+  static std::optional<std::string>
+  match_axes_datatype(hid_t hid) {
+    auto ad =
+      std::find_if(
+        axes_.begin(),
+        axes_.end(),
+        [&hid](auto& ua) {
+          return H5Tequal(std::get<1>(ua).h5_datatype, hid) > 0;
+        });
+    return
+      (ad != axes_.end()) ? std::get<0>(*ad) : std::optional<std::string>();
+  }
+#endif // USE_HDF5
+
+  static bool
+  in_range(const std::string& uid, const std::vector<int> xs) {
+    auto oaxs = AxesRegistrar::axes(uid);
+    if (!oaxs)
+      return false;
+    return
+      std::all_of(
+        xs.begin(),
+        xs.end(),
+        [m=oaxs.value().names.size()](auto& x) {
+          return 0 <= x && static_cast<unsigned>(x) < m;
+        });
+  }
+
+private:
+
+  static std::unordered_map<std::string, A> axes_;
+};
 
 Legion::FieldID
 add_field(
