@@ -68,6 +68,11 @@ legms_table_axes_uid(legms_table_t table) {
   return unwrap(table)->axes_uid().c_str();
 }
 
+unsigned
+legms_table_num_index_axes(legms_table_t table) {
+  return unwrap(table)->index_axes().size();
+}
+
 const int*
 legms_table_index_axes(legms_table_t table) {
   return unwrap(table)->index_axes().data();

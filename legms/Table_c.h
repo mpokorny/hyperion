@@ -39,6 +39,9 @@ legms_table_max_rank_column_name(legms_table_t table);
 const char*
 legms_table_axes_uid(legms_table_t table);
 
+unsigned
+legms_table_num_index_axes(legms_table_t table);
+
 const int*
 legms_table_index_axes(legms_table_t table);
 
