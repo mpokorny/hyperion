@@ -341,6 +341,12 @@ public:
     const std::unordered_set<std::string>& column_selections);
 #endif // USE_CASACORE
 
+  Legion::Context
+  context() const { return m_context; }
+
+  Legion::Runtime*
+  runtime() const { return m_runtime; }
+
   static void
   register_tasks(Legion::Runtime* runtime);
 

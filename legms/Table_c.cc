@@ -78,6 +78,24 @@ legms_table_destroy(legms_table_t table) {
   destroy(table);
 }
 
+legms_table_t
+legms_table_reindexed(
+  legms_table_t table,
+  const int* axes,
+  unsigned num_axes,
+  int allow_rows) {
+
+  std::vector<int> as(num_axes);
+  for (size_t i = 0; i < num_axes; ++i)
+    as[i] = axes[i];
+  return
+    wrap(
+      unwrap(table)
+      ->reindexed(as, allow_rows)
+      .get_result<TableGenArgs>()
+      .operator()(unwrap(table)->context(), unwrap(table)->runtime()));
+}
+
 #ifdef USE_CASACORE
 legms_table_t
 legms_table_from_ms(

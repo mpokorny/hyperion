@@ -42,6 +42,13 @@ legms_table_axes_uid(legms_table_t table);
 const int*
 legms_table_index_axes(legms_table_t table);
 
+legms_table_t
+legms_table_reindexed(
+  legms_table_t table,
+  const int* axes,
+  unsigned num_axes,
+  int allow_rows);
+
 void
 legms_table_destroy(legms_table_t table);
 
