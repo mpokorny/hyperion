@@ -463,7 +463,8 @@ table_tests(
   }
 
   // read back metadata
-  auto table_ga = init_table(context, runtime, fname, "/table0");
+  auto table_ga =
+    init_table(context, runtime, fname, "/table0", {"X", "Y", "Z"});
   recorder.assert_true(
     "Table generator arguments read back from HDF5",
     TE(table_ga.has_value()));
@@ -554,36 +555,42 @@ table_tests(
   // attach to file, and read back values
   {
     auto tb_cols =
-      attach_table_columns(
-        context,
-        runtime,
-        fname,
-        "/",
-        tb0.get(),
-        {"X", "Y", "Z"});
+      attach_table_columns(context, runtime, fname, "/", tb0.get());
+    recorder.expect_true(
+      "All table columns attached",
+      testing::TestEval(
+        [&tb0, &tb_cols]() {
+          std::unordered_set<std::string> names;
+          std::transform(
+            tb_cols.begin(),
+            tb_cols.end(),
+            std::inserter(names, names.end()),
+            [&tb0](auto& nm_pr2) { return std::get<0>(nm_pr2); });
+          return names == tb0->column_names();
+        }));
     recorder.assert_true(
-      "Table columns attached",
+      "Table column values attached",
       TE(
         std::all_of(
           tb_cols.begin(),
           tb_cols.end(),
-          [](auto& pr2) {
-            return std::get<0>(pr2).has_value();
+          [](auto& nm_pr2) {
+            return std::get<0>(std::get<1>(nm_pr2)).has_value();
           })));
     recorder.assert_true(
       "Column keywords attached only when present",
-      TE(!std::get<1>(tb_cols[0]).has_value()
-         && std::get<1>(tb_cols[1]).has_value()
-         && !std::get<1>(tb_cols[2]).has_value()));
-    auto prx = std::get<0>(tb_cols[0]).value();
+      TE(!std::get<1>(tb_cols["X"]).has_value()
+         && std::get<1>(tb_cols["Y"]).has_value()
+         && !std::get<1>(tb_cols["Z"]).has_value()));
+    auto prx = std::get<0>(tb_cols["X"]).value();
     recorder.expect_true(
       "Column 'X' values as expected",
       TE(verify_col<1>(table0_x, prx, {TABLE0_NUM_ROWS}, context, runtime)));
-    auto pry = std::get<0>(tb_cols[1]).value();
+    auto pry = std::get<0>(tb_cols["Y"]).value();
     recorder.expect_true(
       "Column 'Y' values as expected",
       TE(verify_col<1>(table0_y, pry, {TABLE0_NUM_ROWS}, context, runtime)));
-    auto prz = std::get<0>(tb_cols[2]).value();
+    auto prz = std::get<0>(tb_cols["Z"]).value();
     recorder.expect_true(
       "Column 'Z' values as expected",
       TE(verify_col<2>(table0_z, prz, {TABLE0_NUM_ROWS, 2}, context, runtime)));
@@ -595,9 +602,11 @@ table_tests(
           std::for_each(
             tb_cols.begin(),
             tb_cols.end(),
-            [&runtime, &context](auto& pr2) {
-              runtime
-                ->detach_external_resource(context, std::get<0>(pr2).value());
+            [&runtime, &context](auto& nm_pr2) {
+              auto [vpr, kpr] = std::get<1>(nm_pr2);
+              runtime->detach_external_resource(context, vpr.value());
+              if (kpr)
+                runtime->detach_external_resource(context, kpr.value());
             });
           return true;
         }));

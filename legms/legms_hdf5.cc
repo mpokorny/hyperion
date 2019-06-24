@@ -855,6 +855,7 @@ return_nothing:
 }
 
 struct acc_col_genargs_ctx {
+  const std::unordered_set<std::string>* column_names;
   std::vector<legms::ColumnGenArgs>* acc;
   std::string axes_uid;
   hid_t axes_dt;
@@ -878,7 +879,8 @@ acc_col_genargs(
   if (rc > 0) {
     H5O_info_t infobuf;
     H5Oget_info_by_name(table_id, name, &infobuf, H5P_DEFAULT);
-    if (infobuf.type == H5O_TYPE_GROUP) {
+    if (infobuf.type == H5O_TYPE_GROUP
+        && args->column_names->count(name) > 0) {
       hid_t col_group_id = H5Gopen(table_id, name, H5P_DEFAULT);
       assert(col_group_id >= 0);
       auto cga =
@@ -906,12 +908,16 @@ legms::hdf5::init_table(
   Context context,
   Runtime* runtime,
   hid_t loc_id,
+  const std::unordered_set<std::string>& column_names,
   hid_t type_access_pl,
   hid_t attr_access_pl,
   hid_t link_access_pl,
   hid_t xfer_pl) {
 
   std::optional<TableGenArgs> result;
+
+  if (column_names.size() == 0)
+    return result;
 
   std::vector<int> index_axes;
   hid_t index_axes_id = -1;
@@ -953,7 +959,8 @@ legms::hdf5::init_table(
   }
   {
     struct acc_col_genargs_ctx ctx{
-      &col_genargs, axes_uid, axes_dt, attr_access_pl, link_access_pl, xfer_pl,
+      &column_names, &col_genargs, axes_uid, axes_dt,
+      attr_access_pl, link_access_pl, xfer_pl,
       runtime, context};
     hsize_t position = 0;
     herr_t err =
@@ -997,6 +1004,7 @@ legms::hdf5::init_table(
   Runtime* runtime,
   const std::experimental::filesystem::path& file_path,
   const std::string& table_path,
+  const std::unordered_set<std::string>& column_names,
   unsigned flags,
   hid_t file_access_pl,
   hid_t table_access_pl,
@@ -1018,6 +1026,7 @@ legms::hdf5::init_table(
               context,
               runtime,
               table_loc,
+              column_names,
               type_access_pl,
               attr_access_pl,
               link_access_pl,
@@ -1157,7 +1166,8 @@ legms::hdf5::attach_keywords(
   return result;
 }
 
-std::vector<
+std::unordered_map<
+  std::string,
   std::tuple<
     std::optional<PhysicalRegion>,
     std::optional<PhysicalRegion>>>
@@ -1167,10 +1177,10 @@ legms::hdf5::attach_table_columns(
   const std::experimental::filesystem::path& file_path,
   const std::string& root_path,
   const Table* table,
-  const std::vector<std::string>& columns,
   bool read_only) {
 
-  std::vector<
+  std::unordered_map<
+    std::string,
     std::tuple<
       std::optional<PhysicalRegion>,
       std::optional<PhysicalRegion>>> result;
@@ -1179,37 +1189,35 @@ legms::hdf5::attach_table_columns(
     table_root.push_back('/');
   table_root += table->name() + "/";
   std::transform(
-    columns.begin(),
-    columns.end(),
-    back_inserter(result),
+    table->column_names().begin(),
+    table->column_names().end(),
+    std::inserter(result, result.end()),
     [&file_path,&table_root, &table, &runtime, &context, &read_only](auto& nm) {
       auto c = table->column(nm);
       std::tuple<std::optional<PhysicalRegion>, std::optional<PhysicalRegion>>
         regions;
-      if (c) {
-        auto col = c->logical_region();
-        if (col != LogicalRegion::NO_REGION) {
-          AttachLauncher col_attach(EXTERNAL_HDF5_FILE, col, col);
-          std::string col_path = table_root + c->name() + "/" + LEGMS_COLUMN_DS;
-          std::map<FieldID, const char*>
-            fields{{Column::value_fid, col_path.c_str()}};
-          col_attach.attach_hdf5(
-            file_path.c_str(),
-            fields,
-            read_only ? LEGION_FILE_READ_ONLY : LEGION_FILE_READ_WRITE);
-          std::get<0>(regions) =
-            runtime->attach_external_resource(context, col_attach);
-          std::get<1>(regions) =
-            attach_keywords(
-              context,
-              runtime,
-              file_path,
-              col_path,
-              c.get(),
-              read_only);
-        }
+      auto col = c->logical_region();
+      if (col != LogicalRegion::NO_REGION) {
+        AttachLauncher col_attach(EXTERNAL_HDF5_FILE, col, col);
+        std::string col_path = table_root + c->name() + "/" + LEGMS_COLUMN_DS;
+        std::map<FieldID, const char*>
+          fields{{Column::value_fid, col_path.c_str()}};
+        col_attach.attach_hdf5(
+          file_path.c_str(),
+          fields,
+          read_only ? LEGION_FILE_READ_ONLY : LEGION_FILE_READ_WRITE);
+        std::get<0>(regions) =
+          runtime->attach_external_resource(context, col_attach);
+        std::get<1>(regions) =
+          attach_keywords(
+            context,
+            runtime,
+            file_path,
+            col_path,
+            c.get(),
+            read_only);
       }
-      return regions;
+      return std::make_pair(nm, regions);
     });
   return result;
 }
