@@ -1144,6 +1144,45 @@ legms::hdf5::get_column_names(
   return result;
 }
 
+std::unordered_map<std::string, std::string>
+legms::hdf5::get_table_keyword_paths(const Table& table) {
+  std::unordered_map<std::string, std::string> result;
+  std::transform(
+    table.keywords().begin(),
+    table.keywords().end(),
+    std::inserter(result, result.end()),
+    [tn=table.name() + "/"](auto& kwd) {
+      return std::make_pair(std::get<0>(kwd), tn + std::get<0>(kwd));
+    });
+  return result;
+}
+
+std::string
+legms::hdf5::get_table_column_value_path(
+  const Table& table,
+  const std::string& colname) {
+
+  return table.name() + "/" + colname + "/" + LEGMS_COLUMN_DS;
+}
+
+std::unordered_map<std::string, std::string>
+legms::hdf5::get_table_column_keyword_paths(
+  const Table& table,
+  const std::string& colname) {
+
+  auto col = table.column(colname);
+  auto prefix = table.name() + "/" + col->name() + "/";
+  std::unordered_map<std::string, std::string> result;
+  std::transform(
+    col->keywords().begin(),
+    col->keywords().end(),
+    std::inserter(result, result.end()),
+    [&prefix](auto& kwd) {
+      return std::make_pair(std::get<0>(kwd), prefix + std::get<0>(kwd));
+    });
+  return result;
+}
+
 std::optional<PhysicalRegion>
 legms::hdf5::attach_keywords(
   Context context,

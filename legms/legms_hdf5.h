@@ -344,6 +344,15 @@ get_column_names(
   const std::experimental::filesystem::path& file_path,
   const std::string& table_path);
 
+std::unordered_map<std::string, std::string>
+get_table_keyword_paths(const Table& table);
+
+std::string
+get_table_column_value_path(const Table& table, const std::string& colname);
+
+std::unordered_map<std::string, std::string>
+get_table_column_keyword_paths(const Table& table, const std::string& colname);
+
 std::optional<Legion::PhysicalRegion>
 attach_keywords(
   Legion::Context context,
