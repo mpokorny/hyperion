@@ -16,7 +16,7 @@
 
 namespace legms {
 
-typedef ::legms_ms_tables_t MSTables;
+typedef ::ms_tables_t MSTables;
 
 #define LEGMS_FOREACH_MSTABLE(FUNC) \
   FUNC(MAIN)              \
@@ -76,7 +76,7 @@ template <>
 struct MSTable<MS_MAIN> {
   static const constexpr char *name = "MAIN";
 
-  typedef ::legms_ms_main_axes_t Axes;
+  typedef ::ms_main_axes_t Axes;
 
   static const unsigned num_axes = MAIN_last + 1;
 
@@ -117,7 +117,7 @@ template <>
 struct MSTable<MS_ANTENNA> {
   static const constexpr char* name = "ANTENNA";
 
-  typedef ::legms_ms_antenna_axes_t Axes;
+  typedef ::ms_antenna_axes_t Axes;
 
   static const unsigned num_axes = ANTENNA_last + 1;
 
@@ -140,7 +140,7 @@ template <>
 struct MSTable<MS_DATA_DESCRIPTION> {
   static const constexpr char* name = "DATA_DESCRIPTION";
 
-  typedef ::legms_ms_data_description_axes_t Axes;
+  typedef ::ms_data_description_axes_t Axes;
 
   static const unsigned num_axes = DATA_DESCRIPTION_last + 1;
 
@@ -160,7 +160,7 @@ template <>
 struct MSTable<MS_DOPPLER> {
   static const constexpr char *name = "DOPPLER";
 
-  typedef ::legms_ms_doppler_axes_t Axes;
+  typedef ::ms_doppler_axes_t Axes;
 
   static const unsigned num_axes = DOPPLER_last + 1;
 
@@ -183,7 +183,7 @@ template <>
 struct MSTable<MS_FEED> {
   static const constexpr char *name = "FEED";
 
-  typedef ::legms_ms_feed_axes_t Axes;
+  typedef ::ms_feed_axes_t Axes;
 
   static const unsigned num_axes = FEED_last + 1;
 
@@ -212,7 +212,7 @@ template <>
 struct MSTable<MS_FIELD> {
   static const constexpr char* name = "FIELD";
 
-  typedef ::legms_ms_field_axes_t Axes;
+  typedef ::ms_field_axes_t Axes;
 
   static const unsigned num_axes = FIELD_last + 1;
 
@@ -236,7 +236,7 @@ template <>
 struct MSTable<MS_FLAG_CMD> {
   static const constexpr char *name = "FLAG_CMD";
 
-  typedef ::legms_ms_flag_cmd_axes_t Axes;
+  typedef ::ms_flag_cmd_axes_t Axes;
 
   static const unsigned num_axes = FLAG_CMD_last + 1;
 
@@ -258,7 +258,7 @@ template <>
 struct MSTable<MS_FREQ_OFFSET> {
   static const constexpr char* name = "FREQ_OFFSET";
 
-  typedef ::legms_ms_freq_offset_axes_t Axes;
+  typedef ::ms_freq_offset_axes_t Axes;
 
   static const unsigned num_axes = FREQ_OFFSET_last + 1;
 
@@ -284,7 +284,7 @@ template <>
 struct MSTable<MS_HISTORY> {
   static const constexpr char* name = "HISTORY";
 
-  typedef ::legms_ms_history_axes_t Axes;
+  typedef ::ms_history_axes_t Axes;
 
   static const unsigned num_axes = HISTORY_last + 1;
 
@@ -308,7 +308,7 @@ template <>
 struct MSTable<MS_OBSERVATION> {
   static const constexpr char* name = "OBSERVATION";
 
-  typedef ::legms_ms_observation_axes_t Axes;
+  typedef ::ms_observation_axes_t Axes;
 
   static const unsigned num_axes = OBSERVATION_last + 1;
 
@@ -331,7 +331,7 @@ template <>
 struct MSTable<MS_POINTING> {
   static const constexpr char* name = "POINTING";
 
-  typedef ::legms_ms_pointing_axes_t Axes;
+  typedef ::ms_pointing_axes_t Axes;
 
   static const unsigned num_axes = POINTING_last + 1;
 
@@ -356,7 +356,7 @@ template <>
 struct MSTable<MS_POLARIZATION> {
   static const constexpr char* name = "POLARIZATION";
 
-  typedef ::legms_ms_polarization_axes_t Axes;
+  typedef ::ms_polarization_axes_t Axes;
 
   static const unsigned num_axes = POLARIZATION_last + 1;
 
@@ -378,7 +378,7 @@ template <>
 struct MSTable<MS_PROCESSOR> {
   static const constexpr char* name = "PROCESSOR";
 
-  typedef ::legms_ms_processor_axes_t Axes;
+  typedef ::ms_processor_axes_t Axes;
 
   static const unsigned num_axes = PROCESSOR_last + 1;
 
@@ -398,7 +398,7 @@ template <>
 struct MSTable<MS_SOURCE> {
   static const constexpr char* name = "SOURCE";
 
-  typedef ::legms_ms_source_axes_t Axes;
+  typedef ::ms_source_axes_t Axes;
 
   static const unsigned num_axes = SOURCE_last + 1;
 
@@ -427,7 +427,7 @@ template <>
 struct MSTable<MS_SPECTRAL_WINDOW> {
   static const constexpr char* name = "SPECTRAL_WINDOW";
 
-  typedef ::legms_ms_spectral_window_axes_t Axes;
+  typedef ::ms_spectral_window_axes_t Axes;
 
   static const unsigned num_axes = SPECTRAL_WINDOW_last + 1;
 
@@ -449,7 +449,7 @@ template <>
 struct MSTable<MS_STATE> {
   static const constexpr char* name = "STATE";
 
-  typedef ::legms_ms_state_axes_t Axes;
+  typedef ::ms_state_axes_t Axes;
 
   static const unsigned num_axes = STATE_last + 1;
 
@@ -469,7 +469,7 @@ template <>
 struct MSTable<MS_SYSCAL> {
   static const constexpr char* name = "SYSCAL";
 
-  typedef ::legms_ms_syscal_axes_t Axes;
+  typedef ::ms_syscal_axes_t Axes;
 
   static const unsigned num_axes = SYSCAL_last + 1;
 
@@ -496,7 +496,7 @@ template <>
 struct MSTable<MS_WEATHER> {
   static const constexpr char* name = "WEATHER";
 
-  typedef ::legms_ms_weather_axes_t Axes;
+  typedef ::ms_weather_axes_t Axes;
 
   static const unsigned num_axes = WEATHER_last + 1;
 

@@ -77,11 +77,11 @@ protected:
 
 template <>
 struct CObjectWrapper::UniqueWrapper<ColumnPartition> {
-  typedef legms_column_partition_t type_t;
+  typedef column_partition_t type_t;
 };
 
 template <>
-struct CObjectWrapper::UniqueWrapped<legms_column_partition_t> {
+struct CObjectWrapper::UniqueWrapped<column_partition_t> {
   typedef ColumnPartition type_t;
   typedef std::unique_ptr<type_t> impl_t;
 };

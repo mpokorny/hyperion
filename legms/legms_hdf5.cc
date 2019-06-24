@@ -527,7 +527,9 @@ legms::hdf5::write_table(
   }
 
   // write axes datatype to table
-  hid_t table_axes_dt = table->h5_axes_datatype();
+  auto axes = AxesRegistrar::axes(table->axes_uid());
+  assert(axes);
+  hid_t table_axes_dt = axes.value().h5_datatype;
   {
     herr_t err =
       H5Tcommit(
@@ -621,13 +623,9 @@ legms::hdf5::write_table(
   } catch (...) {
     herr_t err = H5Gclose(table_id);
     assert(err >= 0);
-    err = H5Tclose(table_axes_dt);
-    assert(err >= 0);
     throw;
   }
   herr_t err = H5Gclose(table_id);
-  assert(err >= 0);
-  err = H5Tclose(table_axes_dt);
   assert(err >= 0);
 }
 
@@ -688,9 +686,9 @@ read_dt_value(hid_t dt_id) {
 
 std::tuple<LogicalRegion, std::vector<legms::TypeTag>>
 legms::hdf5::init_keywords(
-  hid_t loc_id,
-  Runtime* runtime,
   Context context,
+  Runtime* runtime,
+  hid_t loc_id,
   hid_t attr_access_pl,
   hid_t link_access_pl) {
 
@@ -749,10 +747,10 @@ legms::hdf5::init_keywords(
 
 std::optional<legms::ColumnGenArgs>
 legms::hdf5::init_column(
+  Context context,
+  Runtime* runtime,
   hid_t loc_id,
   hid_t axes_dt,
-  Runtime* runtime,
-  Context context,
   hid_t attr_access_pl,
   hid_t link_access_pl,
   hid_t xfer_pl) {
@@ -786,7 +784,7 @@ legms::hdf5::init_column(
         if (ndims != 1)
           goto return_nothing;
         std::vector<unsigned char> ax(H5Sget_simple_extent_npoints(axes_id_ds));
-        herr_t err = H5Aread(axes_id, axes_dt, axes.data());
+        herr_t err = H5Aread(axes_id, axes_dt, ax.data());
         assert(err >= 0);
         axes.reserve(ax.size());
         std::copy(ax.begin(), ax.end(), std::back_inserter(axes));
@@ -835,7 +833,7 @@ legms::hdf5::init_column(
     }
   }
   tie(keywords, keyword_datatypes) =
-    init_keywords(loc_id, runtime, context, attr_access_pl, link_access_pl);
+    init_keywords(context, runtime, loc_id, attr_access_pl, link_access_pl);
 
   result =
     ColumnGenArgs{"", "", datatype, axes, values, keywords, keyword_datatypes};
@@ -885,10 +883,10 @@ acc_col_genargs(
       assert(col_group_id >= 0);
       auto cga =
         init_column(
+          args->context,
+          args->runtime,
           col_group_id,
           args->axes_dt,
-          args->runtime,
-          args->context,
           args->attr_access_pl,
           args->link_access_pl,
           args->xfer_pl);
@@ -905,9 +903,9 @@ acc_col_genargs(
 
 std::optional<legms::TableGenArgs>
 legms::hdf5::init_table(
-  hid_t loc_id,
-  Runtime* runtime,
   Context context,
+  Runtime* runtime,
+  hid_t loc_id,
   hid_t type_access_pl,
   hid_t attr_access_pl,
   hid_t link_access_pl,
@@ -930,6 +928,8 @@ legms::hdf5::init_table(
       goto return_nothing;
     axes_uid = uid.value();
     axes_dt = AxesRegistrar::axes(axes_uid).value().h5_datatype;
+    herr_t err = H5Tclose(dt);
+    assert(err >= 0);
   }
   {
     htri_t index_axes_exists = H5Aexists(loc_id, table_index_axes_attr_name);
@@ -968,7 +968,7 @@ legms::hdf5::init_table(
   }
 
   tie(keywords, keyword_datatypes) =
-    init_keywords(loc_id, runtime, context, attr_access_pl, link_access_pl);
+    init_keywords(context, runtime, loc_id, attr_access_pl, link_access_pl);
 
   result =
     TableGenArgs{
@@ -993,10 +993,10 @@ return_nothing:
 
 std::optional<legms::TableGenArgs>
 legms::hdf5::init_table(
+  Context context,
+  Runtime* runtime,
   const std::experimental::filesystem::path& file_path,
   const std::string& table_path,
-  Runtime* runtime,
-  Context context,
   unsigned flags,
   hid_t file_access_pl,
   hid_t table_access_pl,
@@ -1015,9 +1015,9 @@ legms::hdf5::init_table(
         try {
           result =
             init_table(
-              table_loc,
-              runtime,
               context,
+              runtime,
+              table_loc,
               type_access_pl,
               attr_access_pl,
               link_access_pl,
@@ -1042,13 +1042,99 @@ legms::hdf5::init_table(
   return result;
 }
 
+herr_t
+acc_table_paths(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
+
+  std::unordered_set<std::string>* tblpaths =
+    (std::unordered_set<std::string>*)(ctx);
+  H5O_info_t infobuf;
+  herr_t err = H5Oget_info_by_name(loc_id, name, &infobuf, H5P_DEFAULT);
+  assert(err >= 0);
+  if (infobuf.type == H5O_TYPE_GROUP)
+    tblpaths->insert(std::string("/") + name);
+  return 0;
+}
+
+void
+legms::hdf5::get_table_paths(
+  const std::experimental::filesystem::path& file_path,
+  std::unordered_set<std::string>& tblpaths) {
+
+  tblpaths.clear();
+  hid_t fid = H5Fopen(file_path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+  if (fid >= 0) {
+    herr_t err =
+      H5Literate(
+        fid,
+        H5_INDEX_NAME,
+        H5_ITER_NATIVE,
+        NULL,
+        acc_table_paths,
+        &tblpaths);
+    assert(err >= 0);
+    err = H5Fclose(fid);
+    assert(err >= 0);
+  }
+}
+
+herr_t
+acc_column_names(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
+  std::unordered_set<std::string>* colnames =
+    (std::unordered_set<std::string>*)(ctx);
+  H5O_info_t infobuf;
+  herr_t err = H5Oget_info_by_name(loc_id, name, &infobuf, H5P_DEFAULT);
+  assert(err >= 0);
+  if (infobuf.type == H5O_TYPE_GROUP) {
+    hid_t gid = H5Gopen(loc_id, name, H5P_DEFAULT);
+    assert(gid >= 0);
+    htri_t has_col_ds = H5Oexists_by_name(gid, LEGMS_COLUMN_DS, H5P_DEFAULT);
+    assert(has_col_ds >= 0);
+    if (has_col_ds > 0) {
+      herr_t err =
+        H5Oget_info_by_name(gid, LEGMS_COLUMN_DS, &infobuf, H5P_DEFAULT);
+      assert(err >= 0);
+      if (infobuf.type == H5O_TYPE_DATASET)
+        colnames->insert(name);
+    }
+  }
+  return 0;
+}
+
+void
+legms::hdf5::get_column_names(
+  const std::experimental::filesystem::path& file_path,
+  const std::string& table_path,
+  std::unordered_set<std::string>& colnames) {
+
+  colnames.clear();
+  hid_t fid = H5Fopen(file_path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+  if (fid >= 0) {
+    hid_t tid = H5Gopen(fid, table_path.c_str(), H5P_DEFAULT);
+    if (tid >= 0) {
+      herr_t err =
+        H5Literate(
+          tid,
+          H5_INDEX_NAME,
+          H5_ITER_NATIVE,
+          NULL,
+          acc_column_names,
+          &colnames);
+      assert(err >= 0);
+      err = H5Gclose(tid);
+      assert(err >= 0);
+    }
+    herr_t err = H5Fclose(fid);
+    assert(err >= 0);
+    }
+}
+
 std::optional<PhysicalRegion>
 legms::hdf5::attach_keywords(
+  Context context,
+  Runtime* runtime,
   const std::experimental::filesystem::path& file_path,
   const std::string& with_keywords_path,
   const WithKeywords* with_keywords,
-  Runtime* runtime,
-  Context context,
   bool read_only) {
 
   std::optional<PhysicalRegion> result;
@@ -1076,12 +1162,12 @@ std::vector<
     std::optional<PhysicalRegion>,
     std::optional<PhysicalRegion>>>
 legms::hdf5::attach_table_columns(
+  Context context,
+  Runtime* runtime,
   const std::experimental::filesystem::path& file_path,
   const std::string& root_path,
   const Table* table,
   const std::vector<std::string>& columns,
-  Runtime* runtime,
-  Context context,
   bool read_only) {
 
   std::vector<
@@ -1115,11 +1201,11 @@ legms::hdf5::attach_table_columns(
             runtime->attach_external_resource(context, col_attach);
           std::get<1>(regions) =
             attach_keywords(
+              context,
+              runtime,
               file_path,
               col_path,
               c.get(),
-              runtime,
-              context,
               read_only);
         }
       }
@@ -1130,11 +1216,11 @@ legms::hdf5::attach_table_columns(
 
 std::optional<PhysicalRegion>
 legms::hdf5::attach_table_keywords(
+  Context context,
+  Runtime* runtime,
   const std::experimental::filesystem::path& file_path,
   const std::string& root_path,
   const Table* table,
-  Runtime* runtime,
-  Context context,
   bool read_only) {
 
   std::string table_root = root_path;
@@ -1142,7 +1228,7 @@ legms::hdf5::attach_table_keywords(
     table_root.push_back('/');
   table_root += table->name();
   return
-    attach_keywords(file_path, table_root, table, runtime, context, read_only);
+    attach_keywords(context, runtime, file_path, table_root, table, read_only);
 }
 
 // Local Variables:

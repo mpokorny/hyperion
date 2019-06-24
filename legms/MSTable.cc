@@ -28,7 +28,7 @@ add_axis_names(std::vector<std::string>& v) {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_MAIN>::Axes>>
-MSTable<MS_MAIN>::element_axes = {
+legms::MSTable<MS_MAIN>::element_axes = {
   {"TIME", {}},
   {"TIME_EXTRA_PREC", {}},
   {"ANTENNA1", {}},
@@ -69,7 +69,7 @@ MSTable<MS_MAIN>::element_axes = {
 
 #define AXIS_NAMES(T)                                                   \
   const std::vector<std::string>&                                       \
-  MSTable<MS_##T>::axis_names() {                                       \
+  legms::MSTable<MS_##T>::axis_names() {                                \
     static std::once_flag initialized;                                  \
     static std::vector<std::string> result(T##_last + 1);               \
     std::call_once(initialized, add_axis_names<MS_##T, T##_last>, result); \
@@ -79,7 +79,7 @@ MSTable<MS_MAIN>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_ANTENNA>::Axes>>
-MSTable<MS_ANTENNA>::element_axes = {
+legms::MSTable<MS_ANTENNA>::element_axes = {
   {"NAME", {}},
   {"STATION", {}},
   {"TYPE", {}},
@@ -96,7 +96,7 @@ MSTable<MS_ANTENNA>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_DATA_DESCRIPTION>::Axes>>
-MSTable<MS_DATA_DESCRIPTION>::element_axes = {
+legms::MSTable<MS_DATA_DESCRIPTION>::element_axes = {
   {"SPECTRAL_WINDOW_ID", {}},
   {"POLARIZATION_ID", {}},
   {"LAG_ID", {}},
@@ -106,7 +106,7 @@ MSTable<MS_DATA_DESCRIPTION>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_DOPPLER>::Axes>>
-MSTable<MS_DOPPLER>::element_axes = {
+legms::MSTable<MS_DOPPLER>::element_axes = {
   {"DOPPLER_ID", {}},
   {"SOURCE_ID", {}},
   {"TRANSITION_ID", {}},
@@ -116,7 +116,7 @@ MSTable<MS_DOPPLER>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_FEED>::Axes>>
-MSTable<MS_FEED>::element_axes = {
+legms::MSTable<MS_FEED>::element_axes = {
   {"ANTENNA_ID", {}},
   {"FEED_ID", {}},
   {"SPECTRAL_WINDOW_ID", {}},
@@ -136,7 +136,7 @@ MSTable<MS_FEED>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_FIELD>::Axes>>
-MSTable<MS_FIELD>::element_axes = {
+legms::MSTable<MS_FIELD>::element_axes = {
   {"NAME", {}},
   {"CODE", {}},
   {"TIME", {}},
@@ -152,7 +152,7 @@ MSTable<MS_FIELD>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_FLAG_CMD>::Axes>>
-MSTable<MS_FLAG_CMD>::element_axes = {
+legms::MSTable<MS_FLAG_CMD>::element_axes = {
   {"TIME", {}},
   {"INTERVAL", {}},
   {"TYPE", {}},
@@ -166,7 +166,7 @@ MSTable<MS_FLAG_CMD>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_FREQ_OFFSET>::Axes>>
-MSTable<MS_FREQ_OFFSET>::element_axes = {
+legms::MSTable<MS_FREQ_OFFSET>::element_axes = {
   {"ANTENNA1", {}},
   {"ANTENNA2", {}},
   {"FEED_ID", {}},
@@ -179,7 +179,7 @@ MSTable<MS_FREQ_OFFSET>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_HISTORY>::Axes>>
-MSTable<MS_HISTORY>::element_axes = {
+legms::MSTable<MS_HISTORY>::element_axes = {
   {"TIME", {}},
   {"OBSERVATION_ID", {}},
   {"MESSAGE", {}},
@@ -194,7 +194,7 @@ MSTable<MS_HISTORY>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_OBSERVATION>::Axes>>
-MSTable<MS_OBSERVATION>::element_axes = {
+legms::MSTable<MS_OBSERVATION>::element_axes = {
   {"TELESCOPE_NAME", {}},
   {"TIME_RANGE", {OBSERVATION_TIME_RANGE}},
   {"OBSERVER", {}},
@@ -209,7 +209,7 @@ MSTable<MS_OBSERVATION>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_POINTING>::Axes>>
-MSTable<MS_POINTING>::element_axes = {
+legms::MSTable<MS_POINTING>::element_axes = {
   {"ANTENNA_ID", {}},
   {"TIME", {}},
   {"INTERVAL", {}},
@@ -230,7 +230,7 @@ MSTable<MS_POINTING>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_POLARIZATION>::Axes>>
-MSTable<MS_POLARIZATION>::element_axes = {
+legms::MSTable<MS_POLARIZATION>::element_axes = {
   {"NUM_CORR", {}},
   {"CORR_TYPE", {POLARIZATION_CORRELATION}},
   {"CORR_PRODUCT", {POLARIZATION_CORRELATION, POLARIZATION_PRODUCT}},
@@ -240,7 +240,7 @@ MSTable<MS_POLARIZATION>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_PROCESSOR>::Axes>>
-MSTable<MS_PROCESSOR>::element_axes = {
+legms::MSTable<MS_PROCESSOR>::element_axes = {
   {"TYPE", {}},
   {"SUB_TYPE", {}},
   {"TYPE_ID", {}},
@@ -252,7 +252,7 @@ MSTable<MS_PROCESSOR>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_SOURCE>::Axes>>
-MSTable<MS_SOURCE>::element_axes = {
+legms::MSTable<MS_SOURCE>::element_axes = {
   {"SOURCE_ID", {}},
   {"TIME", {}},
   {"INTERVAL", {}},
@@ -274,7 +274,7 @@ MSTable<MS_SOURCE>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_SPECTRAL_WINDOW>::Axes>>
-MSTable<MS_SPECTRAL_WINDOW>::element_axes = {
+legms::MSTable<MS_SPECTRAL_WINDOW>::element_axes = {
   {"NUM_CHAN", {}},
   {"NAME", {}},
   {"REF_FREQUENCY", {}},
@@ -300,7 +300,7 @@ MSTable<MS_SPECTRAL_WINDOW>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_STATE>::Axes>>
-MSTable<MS_STATE>::element_axes = {
+legms::MSTable<MS_STATE>::element_axes = {
   {"SIG", {}},
   {"REF", {}},
   {"CAL", {}},
@@ -313,7 +313,7 @@ MSTable<MS_STATE>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_SYSCAL>::Axes>>
-MSTable<MS_SYSCAL>::element_axes = {
+legms::MSTable<MS_SYSCAL>::element_axes = {
   {"ANTENNA_ID", {}},
   {"FEED_ID", {}},
   {"SPECTRAL_WINDOW_ID", {}},
@@ -344,7 +344,7 @@ MSTable<MS_SYSCAL>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_WEATHER>::Axes>>
-MSTable<MS_WEATHER>::element_axes = {
+legms::MSTable<MS_WEATHER>::element_axes = {
   {"ANTENNA_ID", {}},
   {"TIME", {}},
   {"INTERVAL", {}},
@@ -384,14 +384,14 @@ h5_axes_dt()  {
 #ifdef USE_HDF5
 # define MSAXES(T)                                                      \
   const std::vector<std::string>                                        \
-  Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names(); \
+  legms::Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names(); \
   const hid_t                                                           \
-  Axes<typename MSTable<MS_##T>::Axes>::h5_datatype =                   \
+  legms::Axes<typename MSTable<MS_##T>::Axes>::h5_datatype =                   \
     h5_axes_dt<typename MSTable<MS_##T>::Axes>();
 #else
 # define MSAXES(T)                                                      \
   const std::vector<std::string>                                        \
-  Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names();
+  legms::Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names();
 #endif
 
 LEGMS_FOREACH_MSTABLE(MSAXES);

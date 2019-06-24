@@ -300,28 +300,28 @@ write_table(
 
 std::tuple<Legion::LogicalRegion, std::vector<TypeTag>>
 init_keywords(
-  hid_t loc_id,
-  Legion::Runtime* runtime,
   Legion::Context context,
+  Legion::Runtime* runtime,
+  hid_t loc_id,
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT);
 
 std::optional<legms::ColumnGenArgs>
 init_column(
+  Legion::Context context,
+  Legion::Runtime* runtime,
   hid_t loc_id,
   hid_t axes_dt,
-  Legion::Runtime* runtime,
-  Legion::Context context,
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
 std::optional<legms::TableGenArgs>
 init_table(
+  Legion::Context context,
+  Legion::Runtime* runtime,
   const std::experimental::filesystem::path& file_path,
   const std::string& table_path,
-  Legion::Runtime* runtime,
-  Legion::Context context,
   unsigned flags = H5F_ACC_RDONLY,
   hid_t file_access_pl = H5P_DEFAULT,
   hid_t table_access_pl = H5P_DEFAULT,
@@ -332,21 +332,32 @@ init_table(
 
 std::optional<legms::TableGenArgs>
 init_table(
-  hid_t loc_id,
-  Legion::Runtime* runtime,
   Legion::Context context,
+  Legion::Runtime* runtime,
+  hid_t loc_id,
   hid_t type_access_pl = H5P_DEFAULT,
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
+void
+get_table_paths(
+  const std::experimental::filesystem::path& file_path,
+  std::unordered_set<std::string>& tblpaths);
+
+void
+get_column_names(
+  const std::experimental::filesystem::path& file_path,
+  const std::string& table_path,
+  std::unordered_set<std::string>& colnames);
+
 std::optional<Legion::PhysicalRegion>
 attach_keywords(
+  Legion::Context context,
+  Legion::Runtime* runtime,
   const std::experimental::filesystem::path& file_path,
   const std::string& with_keywords_path,
   const WithKeywords* with_keywords,
-  Legion::Runtime* runtime,
-  Legion::Context context,
   bool read_only = true);
 
 // returns value/keywords region pairs by column
@@ -355,21 +366,21 @@ std::vector<
     std::optional<Legion::PhysicalRegion>,
     std::optional<Legion::PhysicalRegion>>>
 attach_table_columns(
+  Legion::Context context,
+  Legion::Runtime* runtime,
   const std::experimental::filesystem::path& file_path,
   const std::string& root_path,
   const Table* table,
   const std::vector<std::string>& columns,
-  Legion::Runtime* runtime,
-  Legion::Context context,
   bool read_only = true);
 
 std::optional<Legion::PhysicalRegion>
 attach_table_keywords(
+  Legion::Context context,
+  Legion::Runtime* runtime,
   const std::experimental::filesystem::path& file_path,
   const std::string& root_path,
   const Table* table,
-  Legion::Runtime* runtime,
-  Legion::Context context,
   bool read_only = true);
 
 struct binary_index_tree_serdez {

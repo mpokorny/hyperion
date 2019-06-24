@@ -9,9 +9,9 @@ extern "C" {
 #endif
 
 void
-legms_table_block_read_task(
+table_block_read_task(
   const char* path,
-  legms_table_t table,
+  table_t table,
   // NULL-terminated array of string pointers
   const char** column_names,
   size_t block_length);

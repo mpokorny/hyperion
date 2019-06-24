@@ -3,12 +3,12 @@
 #include "legion/legion_c_util.h"
 
 void
-legms_preregister_all() {
+preregister_all() {
   legms::preregister_all();
 }
 
 void
-legms_register_tasks(legion_runtime_t runtime) {
+register_tasks(legion_runtime_t runtime) {
   legms::register_tasks(Legion::CObjectWrapper::unwrap(runtime));
 }
 

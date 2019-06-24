@@ -12,22 +12,22 @@ using namespace legms;
 using namespace legms::CObjectWrapper;
 
 const char*
-legms_table_name(legms_table_t table) {
+table_name(table_t table) {
   return unwrap(table)->name().c_str();
 }
 
 int
-legms_table_is_empty(legms_table_t table) {
+table_is_empty(table_t table) {
   return unwrap(table)->is_empty();
 }
 
 unsigned
-legms_table_num_columns(legms_table_t table) {
+table_num_columns(table_t table) {
   return unwrap(table)->column_names().size();
 }
 
 void
-legms_table_column_names(legms_table_t table, char** names) {
+table_column_names(table_t table, char** names) {
   auto cols = unwrap(table)->column_names();
   std::accumulate(
     cols.begin(),
@@ -42,50 +42,50 @@ legms_table_column_names(legms_table_t table, char** names) {
 }
 
 int
-legms_table_has_column(legms_table_t table, const char* name) {
+table_has_column(table_t table, const char* name) {
   return unwrap(table)->has_column(name);
 }
 
-legms_column_t
-legms_table_column(legms_table_t table, const char* name) {
+column_t
+table_column(table_t table, const char* name) {
   return wrap(unwrap(table)->column(name));
 }
 
 const char *
-legms_table_min_rank_column_name(legms_table_t table) {
+table_min_rank_column_name(table_t table) {
   auto cn = unwrap(table)->min_rank_column_name();
   return cn ? cn.value().c_str() : NULL;
 }
 
 const char *
-legms_table_max_rank_column_name(legms_table_t table) {
+table_max_rank_column_name(table_t table) {
   auto cn = unwrap(table)->max_rank_column_name();
   return cn ? cn.value().c_str() : NULL;
 }
 
 const char*
-legms_table_axes_uid(legms_table_t table) {
+table_axes_uid(table_t table) {
   return unwrap(table)->axes_uid().c_str();
 }
 
 unsigned
-legms_table_num_index_axes(legms_table_t table) {
+table_num_index_axes(table_t table) {
   return unwrap(table)->index_axes().size();
 }
 
 const int*
-legms_table_index_axes(legms_table_t table) {
+table_index_axes(table_t table) {
   return unwrap(table)->index_axes().data();
 }
 
 void
-legms_table_destroy(legms_table_t table) {
+table_destroy(table_t table) {
   destroy(table);
 }
 
-legms_table_t
-legms_table_reindexed(
-  legms_table_t table,
+table_t
+table_reindexed(
+  table_t table,
   const int* axes,
   unsigned num_axes,
   int allow_rows) {
@@ -102,8 +102,8 @@ legms_table_reindexed(
 }
 
 #ifdef USE_CASACORE
-legms_table_t
-legms_table_from_ms(
+table_t
+table_from_ms(
   legion_context_t context,
   legion_runtime_t runtime,
   const char* path,

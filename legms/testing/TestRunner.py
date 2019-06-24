@@ -18,13 +18,16 @@ def named_result(ln):
 
 def run_test(compare_with, compare_by, test, *args):
     with tempfile.TemporaryFile('w+t') as out:
-        subprocess.run(args=[test] + list(args), stdout=out.fileno())
+        subprocess.run(
+            args=[test] + list(args), stdout=out.fileno(), stderr=out.fileno())
         out.seek(0)
         log = [l for ln in out
                for l in [ln.strip()]
                if len(l) > 0
                and l.find('WARNING: field destructors ignored') == -1]
-        if compare_with is None:
+        if 'Aborted' in log:
+            sys.exit(1)
+        elif compare_with is None:
             fails = map(lambda lg: lg[0:lg.find('\t')] == 'FAIL', log)
             sys.exit(1 if any(fails) else 0)
         elif compare_by == 'line':

@@ -819,6 +819,62 @@ std::unordered_map<std::string, legms::AxesRegistrar::A>
 legms::AxesRegistrar::axes_;
 
 #ifdef USE_HDF5
+void
+legms::AxesRegistrar::register_axes(
+  const std::string uid,
+  const std::vector<std::string> names,
+  hid_t hid) {
+  A a{uid, names, hid};
+  axes_[uid] = a;
+}
+#else // !USE_HDF5
+void
+legms::AxesRegistrar::register_axes(
+  const std::string uid,
+  const std::vector<std::string> names) {
+  A a{uid, names};
+  axes_[uid] = a;
+}
+#endif
+
+std::optional<legms::AxesRegistrar::A>
+legms::AxesRegistrar::axes(const std::string& uid) {
+  return (axes_.count(uid) > 0) ? axes_[uid] : std::optional<A>();
+}
+
+#ifdef USE_HDF5
+std::optional<std::string>
+legms::AxesRegistrar::match_axes_datatype(hid_t hid) {
+  auto ad =
+    std::find_if(
+      axes_.begin(),
+      axes_.end(),
+      [&hid](auto& ua) {
+        return H5Tequal(std::get<1>(ua).h5_datatype, hid) > 0;
+      });
+  return
+    (ad != axes_.end()) ? std::get<0>(*ad) : std::optional<std::string>();
+}
+#endif // USE_HDF5
+
+bool
+legms::AxesRegistrar::in_range(
+  const std::string& uid,
+  const std::vector<int> xs) {
+
+  auto oaxs = AxesRegistrar::axes(uid);
+  if (!oaxs)
+    return false;
+  return
+    std::all_of(
+      xs.begin(),
+      xs.end(),
+      [m=oaxs.value().names.size()](auto& x) {
+        return 0 <= x && static_cast<unsigned>(x) < m;
+      });
+}
+
+#ifdef USE_HDF5
 hid_t
 legms::H5DatatypeManager::datatypes_[DATATYPE_H5T + 1];
 
@@ -851,7 +907,7 @@ legms::H5DatatypeManager::preregister_datatypes() {
     datatypes_[STRING_H5T] = dt;
   }
   {
-    hid_t dt = H5Tenum_create(H5T_NATIVE_UCHAR);
+    hid_t dt = H5Tenum_create(H5T_NATIVE_INT);
 
 #define DTINSERT(T) do {                          \
       unsigned char val = LEGMS_TYPE_##T;         \

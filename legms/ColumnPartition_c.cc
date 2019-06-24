@@ -8,24 +8,24 @@ using namespace legms;
 using namespace legms::CObjectWrapper;
 
 legion_index_partition_t
-legms_column_partition_index_partition(
-  legms_column_partition_t column_partition) {
+column_partition_index_partition(
+  column_partition_t column_partition) {
   return
     Legion::CObjectWrapper::wrap(unwrap(column_partition)->index_partition());
 }
 
 const int *
-legms_column_partition_axes(legms_column_partition_t column_partition) {
+column_partition_axes(column_partition_t column_partition) {
   return unwrap(column_partition)->axes().data();
 }
 
 size_t
-legms_column_partition_num_axes(legms_column_partition_t column_partition) {
+column_partition_num_axes(column_partition_t column_partition) {
   return unwrap(column_partition)->axes().size();
 }
 
 void
-legms_column_partition_destroy(legms_column_partition_t column_partition) {
+column_partition_destroy(column_partition_t column_partition) {
   destroy(column_partition);
 }
 

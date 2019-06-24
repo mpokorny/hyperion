@@ -62,8 +62,7 @@ public:
     const std::string& name,
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
-    const kw_desc_t& kws = kw_desc_t()
-)
+    const kw_desc_t& kws = kw_desc_t())
     : WithKeywords(ctx, runtime, kws)
     , m_name(name)
     , m_axes_uid(axes_uid)
@@ -325,13 +324,6 @@ public:
     return ireindexed(axs.names, axes, allow_rows);
   }
 
-#if USE_HDF5
-  hid_t
-  h5_axes_datatype() const {
-    return m_h5_axes_datatype;
-  }
-#endif // USE_HDF5
-
 #ifdef USE_CASACORE
   static std::unique_ptr<Table>
   from_ms(
@@ -384,10 +376,6 @@ private:
   std::string m_name;
 
   std::string m_axes_uid;
-
-#if USE_HDF5
-  hid_t m_h5_axes_datatype;
-#endif // USE_HDF5
 
   std::vector<int> m_index_axes;
 
@@ -516,11 +504,11 @@ private:
 
 template <>
 struct CObjectWrapper::UniqueWrapper<Table> {
-  typedef legms_table_t type_t;
+  typedef table_t type_t;
 };
 
 template <>
-struct CObjectWrapper::UniqueWrapped<legms_table_t> {
+struct CObjectWrapper::UniqueWrapped<table_t> {
   typedef Table type_t;
   typedef std::unique_ptr<type_t> impl_t;
 };

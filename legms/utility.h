@@ -153,7 +153,7 @@ dimensions_map(const std::vector<D>& from, const std::vector<D>& to) {
   return result;
 }
 
-typedef ::legms_type_tag_t TypeTag;
+typedef ::type_tag_t TypeTag;
 
 template <typename T>
 class vector_serdez {
@@ -707,12 +707,9 @@ public:
 #ifdef USE_HDF5
   static void
   register_axes(
-    const std::string& uid,
-    const std::vector<std::string>& names,
-    hid_t hid) {
-
-    axes_.emplace(uid, A{uid, names, hid});
-  }
+    const std::string uid,
+    const std::vector<std::string> names,
+    hid_t hid);
 
   template <typename D>
   static void
@@ -722,11 +719,8 @@ public:
 #else // !USE_HDF5
   static void
   register_axes(
-    const std::string& uid,
-    const std::vector<std::string>& names) {
-
-    axes_.emplace(uid, A{uid, names});
-  }
+    const std::string uid,
+    const std::vector<std::string> names);
 
   template <typename D>
   static void
@@ -736,38 +730,15 @@ public:
 #endif
 
   static std::optional<A>
-  axes(const std::string& uid) {
-    return (axes_.count(uid) > 0) ? axes_[uid] : std::optional<A>();
-  }
+  axes(const std::string& uid);
 
 #ifdef USE_HDF5
   static std::optional<std::string>
-  match_axes_datatype(hid_t hid) {
-    auto ad =
-      std::find_if(
-        axes_.begin(),
-        axes_.end(),
-        [&hid](auto& ua) {
-          return H5Tequal(std::get<1>(ua).h5_datatype, hid) > 0;
-        });
-    return
-      (ad != axes_.end()) ? std::get<0>(*ad) : std::optional<std::string>();
-  }
+  match_axes_datatype(hid_t hid);
 #endif // USE_HDF5
 
   static bool
-  in_range(const std::string& uid, const std::vector<int> xs) {
-    auto oaxs = AxesRegistrar::axes(uid);
-    if (!oaxs)
-      return false;
-    return
-      std::all_of(
-        xs.begin(),
-        xs.end(),
-        [m=oaxs.value().names.size()](auto& x) {
-          return 0 <= x && static_cast<unsigned>(x) < m;
-        });
-  }
+  in_range(const std::string& uid, const std::vector<int> xs);
 
 private:
 

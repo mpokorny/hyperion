@@ -396,7 +396,7 @@ main(int argc, char** argv) {
   TopLevelTask::register_task();
   TableNameCollectorTask::register_task();
   Runtime::set_top_level_task_id(TopLevelTask::TASK_ID);
-  preregister_all();
+  legms::preregister_all();
   return Runtime::start(argc, argv);
 }
 

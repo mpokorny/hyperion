@@ -444,8 +444,26 @@ table_tests(
   runtime->detach_external_resource(context, col_y);
   runtime->detach_external_resource(context, col_z);
 
+  {
+    std::unordered_set<std::string> tblpaths;
+    get_table_paths(fname, tblpaths);
+    recorder.expect_true(
+      "File contains single, written table",
+      TE(tblpaths.count("/table0") == 1 && tblpaths.size() == 1));
+  }
+  {
+    std::unordered_set<std::string> colnames;
+    get_column_names(fname, "/table0", colnames);
+    recorder.expect_true(
+      "table0 contains expected column names",
+      TE(colnames.count("X") == 1
+         && colnames.count("Y") == 1
+         && colnames.count("Z") == 1
+         && colnames.size() == 3));
+  }
+
   // read back metadata
-  auto table_ga = init_table(fname, "/table0", runtime, context);
+  auto table_ga = init_table(context, runtime, fname, "/table0");
   recorder.assert_true(
     "Table generator arguments read back from HDF5",
     TE(table_ga.has_value()));
@@ -537,12 +555,12 @@ table_tests(
   {
     auto tb_cols =
       attach_table_columns(
+        context,
+        runtime,
         fname,
         "/",
         tb0.get(),
-        {"X", "Y", "Z"},
-        runtime,
-        context);
+        {"X", "Y", "Z"});
     recorder.assert_true(
       "Table columns attached",
       TE(

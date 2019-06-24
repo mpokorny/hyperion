@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-typedef enum legms_type_tag_t {
+typedef enum type_tag_t {
   LEGMS_TYPE_BOOL,
   LEGMS_TYPE_CHAR,
   LEGMS_TYPE_UCHAR,
@@ -20,13 +20,13 @@ typedef enum legms_type_tag_t {
   LEGMS_TYPE_COMPLEX,
   LEGMS_TYPE_DCOMPLEX,
   LEGMS_TYPE_STRING
-} legms_type_tag_t;
+} type_tag_t;
 
 void
-legms_preregister_all();
+preregister_all();
 
 void
-legms_register_tasks(legion_runtime_t runtime);
+register_tasks(legion_runtime_t runtime);
 
 #ifdef __cplusplus
 }

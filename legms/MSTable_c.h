@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-typedef enum legms_ms_tables_t {
+typedef enum ms_tables_t {
   MS_MAIN = 0,
   MS_ANTENNA = 1,
   MS_DATA_DESCRIPTION = 2,
@@ -26,7 +26,7 @@ typedef enum legms_ms_tables_t {
   MS_STATE = 15,
   MS_SYSCAL = 16,
   MS_WEATHER = 17
-} legms_mstables_t;
+} mstables_t;
 
 // N.B.: dimension indexes in comments of the Axes members of the MSTable
 // specializations in this file correspond to the order of column axes as
@@ -37,7 +37,7 @@ typedef enum legms_ms_tables_t {
 // index order and element layout that extends "upward" to row (or higher level)
 // indexing)
 
-typedef enum legms_ms_main_axes_t {
+typedef enum ms_main_axes_t {
   MAIN_ROW = 0,
   // UVW(0)
   MAIN_UVW,
@@ -73,9 +73,9 @@ typedef enum legms_ms_main_axes_t {
   MAIN_STATE_ID,
 
   MAIN_last = MAIN_STATE_ID
-} legms_ms_main_axes_t;
+} ms_main_axes_t;
 
-typedef enum legms_ms_antenna_axes_t {
+typedef enum ms_antenna_axes_t {
   ANTENNA_ROW = 0,
   // POSITION(0)
   ANTENNA_POSITION,
@@ -85,15 +85,15 @@ typedef enum legms_ms_antenna_axes_t {
   ANTENNA_MEAN_ORBIT,
 
   ANTENNA_last = ANTENNA_MEAN_ORBIT
-} legms_ms_antenna_axes_t;
+} ms_antenna_axes_t;
 
-typedef enum legms_ms_data_description_axes_t {
+typedef enum ms_data_description_axes_t {
   DATA_DESCRIPTION_ROW = 0,
 
   DATA_DESCRIPTION_last = DATA_DESCRIPTION_ROW
-} legms_ms_data_description_axes_t;
+} ms_data_description_axes_t;
 
-typedef enum legms_ms_doppler_axes_t  {
+typedef enum ms_doppler_axes_t  {
   DOPPLER_ROW = 0,
 
   // key column axes
@@ -104,9 +104,9 @@ typedef enum legms_ms_doppler_axes_t  {
   DOPPLER_TRANSITION_ID,
 
   DOPPLER_last = DOPPLER_TRANSITION_ID
-} legms_ms_doppler_axes_t;
+} ms_doppler_axes_t;
 
-typedef enum legms_ms_feed_axes_t {
+typedef enum ms_feed_axes_t {
   FEED_ROW = 0,
   // BEAM_OFFSET(1), POLARIZATION_TYPE(0), POL_RESPONSE(0), RECEPTOR_ANGLE(0)
   FEED_RECEPTOR,
@@ -125,9 +125,9 @@ typedef enum legms_ms_feed_axes_t {
   FEED_INTERVAL,
 
   FEED_last = FEED_INTERVAL
-} legms_ms_feed_axes_t;
+} ms_feed_axes_t;
 
-typedef enum legms_ms_field_axes_t {
+typedef enum ms_field_axes_t {
   FIELD_ROW = 0,
   // DELAY_DIR(1), PHASE_DIR(1), REFERENCE_DIR(1)
   FIELD_POLYNOMIAL,
@@ -139,9 +139,9 @@ typedef enum legms_ms_field_axes_t {
   FIELD_EPHEMERIS_ID,
 
   FIELD_last = FIELD_EPHEMERIS_ID
-} legms_ms_field_axes_t;
+} ms_field_axes_t;
 
-typedef enum legms_ms_flag_cmd_axes_t {
+typedef enum ms_flag_cmd_axes_t {
   FLAG_CMD_ROW = 0,
 
   // key column axes
@@ -149,9 +149,9 @@ typedef enum legms_ms_flag_cmd_axes_t {
   FLAG_CMD_INTERVAL,
 
   FLAG_CMD_last = FLAG_CMD_INTERVAL
-} legms_ms_flag_cmd_axes_t;
+} ms_flag_cmd_axes_t;
 
-typedef enum legms_ms_freq_offset_axes_t {
+typedef enum ms_freq_offset_axes_t {
   FREQ_OFFSET_ROW = 0,
 
   // key column axes
@@ -163,9 +163,9 @@ typedef enum legms_ms_freq_offset_axes_t {
   FREQ_OFFSET_INTERVAL,
 
   FREQ_OFFSET_last = FREQ_OFFSET_INTERVAL
-} legms_ms_freq_offset_axes_t;
+} ms_freq_offset_axes_t;
 
-typedef enum legms_ms_history_axes_t {
+typedef enum ms_history_axes_t {
   HISTORY_ROW = 0,
   // CLI_COMMAND(0)
   HISTORY_CLI_COMMAND,
@@ -177,9 +177,9 @@ typedef enum legms_ms_history_axes_t {
   HISTORY_OBSERVATION_ID,
 
   HISTORY_last = HISTORY_OBSERVATION_ID
-} legms_ms_history_axes_t;
+} ms_history_axes_t;
 
-typedef enum legms_ms_observation_axes_t {
+typedef enum ms_observation_axes_t {
   OBSERVATION_ROW = 0,
   // TIME_RANGE(0)
   OBSERVATION_TIME_RANGE,
@@ -189,9 +189,9 @@ typedef enum legms_ms_observation_axes_t {
   OBSERVATION_SCHEDULE,
 
   OBSERVATION_last = OBSERVATION_SCHEDULE
-} legms_ms_observation_axes_t;
+} ms_observation_axes_t;
 
-typedef enum legms_ms_pointing_axes_t {
+typedef enum ms_pointing_axes_t {
   POINTING_ROW = 0,
   // DIRECTION(1), TARGET(1), POINTING_OFFSET(1), SOURCE_OFFSET(1)
   POINTING_POLYNOMIAL,
@@ -204,9 +204,9 @@ typedef enum legms_ms_pointing_axes_t {
   POINTING_INTERVAL,
 
   POINTING_last = POINTING_INTERVAL
-} legms_ms_pointing_axes_t;
+} ms_pointing_axes_t;
 
-typedef enum legms_ms_polarization_axes_t {
+typedef enum ms_polarization_axes_t {
   POLARIZATION_ROW = 0,
   // CORR_TYPE(0), CORR_PRODUCT(1)
   POLARIZATION_CORRELATION,
@@ -214,15 +214,15 @@ typedef enum legms_ms_polarization_axes_t {
   POLARIZATION_PRODUCT,
 
   POLARIZATION_last = POLARIZATION_PRODUCT
-} legms_ms_polarization_axes_t;
+} ms_polarization_axes_t;
 
-typedef enum legms_ms_processor_axes_t {
+typedef enum ms_processor_axes_t {
   PROCESSOR_ROW = 0,
 
   PROCESSOR_last = PROCESSOR_ROW
-} legms_ms_processor_axes_t;
+} ms_processor_axes_t;
 
-typedef enum legms_ms_source_axes_t {
+typedef enum ms_source_axes_t {
   SOURCE_ROW = 0,
   // DIRECTION(0)
   SOURCE_DIRECTION,
@@ -243,9 +243,9 @@ typedef enum legms_ms_source_axes_t {
   SOURCE_PULSAR_ID,
 
   SOURCE_last = SOURCE_PULSAR_ID
-} legms_ms_source_axes_t;
+} ms_source_axes_t;
 
-typedef enum legms_ms_spectral_window_axes_t {
+typedef enum ms_spectral_window_axes_t {
   SPECTRAL_WINDOW_ROW = 0,
   // CHAN_FREQ(0), CHAN_WIDTH(0), EFFECTIVE_BW(0), RESOLUTION(0)
   SPECTRAL_WINDOW_CHANNEL,
@@ -253,15 +253,15 @@ typedef enum legms_ms_spectral_window_axes_t {
   SPECTRAL_WINDOW_ASSOC_SPW,
 
   SPECTRAL_WINDOW_last = SPECTRAL_WINDOW_ASSOC_SPW
-} legms_ms_spectral_window_axes_t;
+} ms_spectral_window_axes_t;
 
-typedef enum legms_ms_state_axes_t {
+typedef enum ms_state_axes_t {
   STATE_ROW = 0,
 
   STATE_last = STATE_ROW
-} legms_ms_state_axes_t;
+} ms_state_axes_t;
 
-typedef enum legms_ms_syscal_axes_t {
+typedef enum ms_syscal_axes_t {
   SYSCAL_ROW = 0,
   // TCAL(0), TRX(0), TSKY(0), TSYS(0), TANT(0), TANT_TSYS(0), TCAL_SPECTRUM(0),
   // TRX_SPECTRUM(0), TSKY_SPECTRUM(0), TSYS_SPECTRUM(0), TANT_SPECTRUM(0),
@@ -279,9 +279,9 @@ typedef enum legms_ms_syscal_axes_t {
   SYSCAL_INTERVAL,
 
   SYSCAL_last = SYSCAL_INTERVAL
-} legms_ms_syscal_axes_t;
+} ms_syscal_axes_t;
 
-typedef enum legms_ms_weather_axes_t {
+typedef enum ms_weather_axes_t {
   WEATHER_ROW = 0,
 
   // key column axes
@@ -290,231 +290,231 @@ typedef enum legms_ms_weather_axes_t {
   WEATHER_INTERVAL,
 
   WEATHER_last = WEATHER_INTERVAL
-} legms_ms_weather_axes_t;
+} ms_weather_axes_t;
 
 #define TABLE_FUNCTION_DECLS(t)                 \
-  typedef struct legms_ms_##t##_column_axes_t { \
+  typedef struct ms_##t##_column_axes_t {       \
     const char* column;                         \
-    const legms_ms_##t##_axes_t* axes;          \
+    const ms_##t##_axes_t* axes;                \
     unsigned num_axes;                          \
-  } legms_ms_##t##_column_axes_t;               \
+  } ms_##t##_column_axes_t;                     \
                                                 \
   const char*                                   \
-  legms_##t##_table_name();                     \
+  t##_table_name();                             \
                                                 \
-  const legms_ms_##t##_column_axes_t*           \
-  legms_##t##_table_element_axes();             \
+  const ms_##t##_column_axes_t*                 \
+  t##_table_element_axes();                     \
                                                 \
   unsigned                                      \
-  legms_##t##_table_num_columns();              \
+  t##_table_num_columns();                      \
                                                 \
   const char* const*                            \
-  legms_##t##_table_axis_names();               \
+  t##_table_axis_names();                       \
                                                 \
   unsigned                                      \
-  legms_##t##_table_num_axes();
+  t##_table_num_axes();
 
 FOREACH_MS_TABLE_t(TABLE_FUNCTION_DECLS);
 
 #if 0
 // In case the Terra compiler doesn't expand the above macro...
-typedef struct legms_ms_main_column_axes_t {
+typedef struct ms_main_column_axes_t {
   const char* column;
-  const legms_ms_main_axes_t* axes;
+  const ms_main_axes_t* axes;
   unsigned num_axes;
-} legms_ms_main_column_axes_t;
-const char* legms_main_table_name();
-const legms_ms_main_column_axes_t* legms_main_table_element_axes();
-unsigned legms_main_table_num_columns();
-const char* const* legms_main_table_axis_names();
-unsigned legms_main_table_num_axes();
+} ms_main_column_axes_t;
+const char* main_table_name();
+const ms_main_column_axes_t* main_table_element_axes();
+unsigned main_table_num_columns();
+const char* const* main_table_axis_names();
+unsigned main_table_num_axes();
 
-typedef struct legms_ms_antenna_column_axes_t {
+typedef struct ms_antenna_column_axes_t {
   const char* column;
-  const legms_ms_antenna_axes_t* axes;
+  const ms_antenna_axes_t* axes;
   unsigned num_axes;
-} legms_ms_antenna_column_axes_t;
-const char* legms_antenna_table_name();
-const legms_ms_antenna_column_axes_t* legms_antenna_table_element_axes();
-unsigned legms_antenna_table_num_columns();
-const char* const* legms_antenna_table_axis_names();
-unsigned legms_antenna_table_num_axes();
+} ms_antenna_column_axes_t;
+const char* antenna_table_name();
+const ms_antenna_column_axes_t* antenna_table_element_axes();
+unsigned antenna_table_num_columns();
+const char* const* antenna_table_axis_names();
+unsigned antenna_table_num_axes();
 
-typedef struct legms_ms_data_description_column_axes_t {
+typedef struct ms_data_description_column_axes_t {
   const char* column;
-  const legms_ms_data_description_axes_t* axes;
+  const ms_data_description_axes_t* axes;
   unsigned num_axes;
-} legms_ms_data_description_column_axes_t;
-const char* legms_data_description_table_name();
-const legms_ms_data_description_column_axes_t* legms_data_description_table_element_axes();
-unsigned legms_data_description_table_num_columns();
-const char* const* legms_data_description_table_axis_names();
-unsigned legms_data_description_table_num_axes();
+} ms_data_description_column_axes_t;
+const char* data_description_table_name();
+const ms_data_description_column_axes_t* data_description_table_element_axes();
+unsigned data_description_table_num_columns();
+const char* const* data_description_table_axis_names();
+unsigned data_description_table_num_axes();
 
-typedef struct legms_ms_doppler_column_axes_t {
+typedef struct ms_doppler_column_axes_t {
   const char* column;
-  const legms_ms_doppler_axes_t* axes;
+  const ms_doppler_axes_t* axes;
   unsigned num_axes;
-} legms_ms_doppler_column_axes_t;
-const char* legms_doppler_table_name();
-const legms_ms_doppler_column_axes_t* legms_doppler_table_element_axes();
-unsigned legms_doppler_table_num_columns();
-const char* const* legms_doppler_table_axis_names();
-unsigned legms_doppler_table_num_axes();
+} ms_doppler_column_axes_t;
+const char* doppler_table_name();
+const ms_doppler_column_axes_t* doppler_table_element_axes();
+unsigned doppler_table_num_columns();
+const char* const* doppler_table_axis_names();
+unsigned doppler_table_num_axes();
 
-typedef struct legms_ms_feed_column_axes_t {
+typedef struct ms_feed_column_axes_t {
   const char* column;
-  const legms_ms_feed_axes_t* axes;
+  const ms_feed_axes_t* axes;
   unsigned num_axes;
-} legms_ms_feed_column_axes_t;
-const char* legms_feed_table_name();
-const legms_ms_feed_column_axes_t* legms_feed_table_element_axes();
-unsigned legms_feed_table_num_columns();
-const char* const* legms_feed_table_axis_names();
-unsigned legms_feed_table_num_axes();
+} ms_feed_column_axes_t;
+const char* feed_table_name();
+const ms_feed_column_axes_t* feed_table_element_axes();
+unsigned feed_table_num_columns();
+const char* const* feed_table_axis_names();
+unsigned feed_table_num_axes();
 
-typedef struct legms_ms_field_column_axes_t {
+typedef struct ms_field_column_axes_t {
   const char* column;
-  const legms_ms_field_axes_t* axes;
+  const ms_field_axes_t* axes;
   unsigned num_axes;
-} legms_ms_field_column_axes_t;
-const char* legms_field_table_name();
-const legms_ms_field_column_axes_t* legms_field_table_element_axes();
-unsigned legms_field_table_num_columns();
-const char* const* legms_field_table_axis_names();
-unsigned legms_field_table_num_axes();
+} ms_field_column_axes_t;
+const char* field_table_name();
+const ms_field_column_axes_t* field_table_element_axes();
+unsigned field_table_num_columns();
+const char* const* field_table_axis_names();
+unsigned field_table_num_axes();
 
-typedef struct legms_ms_flag_cmd_column_axes_t {
+typedef struct ms_flag_cmd_column_axes_t {
   const char* column;
-  const legms_ms_flag_cmd_axes_t* axes;
+  const ms_flag_cmd_axes_t* axes;
   unsigned num_axes;
-} legms_ms_flag_cmd_column_axes_t;
-const char* legms_flag_cmd_table_name();
-const legms_ms_flag_cmd_column_axes_t* legms_flag_cmd_table_element_axes();
-unsigned legms_flag_cmd_table_num_columns();
-const char* const* legms_flag_cmd_table_axis_names();
-unsigned legms_flag_cmd_table_num_axes();
+} ms_flag_cmd_column_axes_t;
+const char* flag_cmd_table_name();
+const ms_flag_cmd_column_axes_t* flag_cmd_table_element_axes();
+unsigned flag_cmd_table_num_columns();
+const char* const* flag_cmd_table_axis_names();
+unsigned flag_cmd_table_num_axes();
 
-typedef struct legms_ms_freq_offset_column_axes_t {
+typedef struct ms_freq_offset_column_axes_t {
   const char* column;
-  const legms_ms_freq_offset_axes_t* axes;
+  const ms_freq_offset_axes_t* axes;
   unsigned num_axes;
-} legms_ms_freq_offset_column_axes_t;
-const char* legms_freq_offset_table_name();
-const legms_ms_freq_offset_column_axes_t* legms_freq_offset_table_element_axes();
-unsigned legms_freq_offset_table_num_columns();
-const char* const* legms_freq_offset_table_axis_names();
-unsigned legms_freq_offset_table_num_axes();
+} ms_freq_offset_column_axes_t;
+const char* freq_offset_table_name();
+const ms_freq_offset_column_axes_t* freq_offset_table_element_axes();
+unsigned freq_offset_table_num_columns();
+const char* const* freq_offset_table_axis_names();
+unsigned freq_offset_table_num_axes();
 
-typedef struct legms_ms_history_column_axes_t {
+typedef struct ms_history_column_axes_t {
   const char* column;
-  const legms_ms_history_axes_t* axes;
+  const ms_history_axes_t* axes;
   unsigned num_axes;
-} legms_ms_history_column_axes_t;
-const char* legms_history_table_name();
-const legms_ms_history_column_axes_t* legms_history_table_element_axes();
-unsigned legms_history_table_num_columns();
-const char* const* legms_history_table_axis_names();
-unsigned legms_history_table_num_axes();
+} ms_history_column_axes_t;
+const char* history_table_name();
+const ms_history_column_axes_t* history_table_element_axes();
+unsigned history_table_num_columns();
+const char* const* history_table_axis_names();
+unsigned history_table_num_axes();
 
-typedef struct legms_ms_observation_column_axes_t {
+typedef struct ms_observation_column_axes_t {
   const char* column;
-  const legms_ms_observation_axes_t* axes;
+  const ms_observation_axes_t* axes;
   unsigned num_axes;
-} legms_ms_observation_column_axes_t;
-const char* legms_observation_table_name();
-const legms_ms_observation_column_axes_t* legms_observation_table_element_axes();
-unsigned legms_observation_table_num_columns();
-const char* const* legms_observation_table_axis_names();
-unsigned legms_observation_table_num_axes();
+} ms_observation_column_axes_t;
+const char* observation_table_name();
+const ms_observation_column_axes_t* observation_table_element_axes();
+unsigned observation_table_num_columns();
+const char* const* observation_table_axis_names();
+unsigned observation_table_num_axes();
 
-typedef struct legms_ms_pointing_column_axes_t {
+typedef struct ms_pointing_column_axes_t {
   const char* column;
-  const legms_ms_pointing_axes_t* axes;
+  const ms_pointing_axes_t* axes;
   unsigned num_axes;
-} legms_ms_pointing_column_axes_t;
-const char* legms_pointing_table_name();
-const legms_ms_pointing_column_axes_t* legms_pointing_table_element_axes();
-unsigned legms_pointing_table_num_columns();
-const char* const* legms_pointing_table_axis_names();
-unsigned legms_pointing_table_num_axes();
+} ms_pointing_column_axes_t;
+const char* pointing_table_name();
+const ms_pointing_column_axes_t* pointing_table_element_axes();
+unsigned pointing_table_num_columns();
+const char* const* pointing_table_axis_names();
+unsigned pointing_table_num_axes();
 
-typedef struct legms_ms_polarization_column_axes_t {
+typedef struct ms_polarization_column_axes_t {
   const char* column;
-  const legms_ms_polarization_axes_t* axes;
+  const ms_polarization_axes_t* axes;
   unsigned num_axes;
-} legms_ms_polarization_column_axes_t;
-const char* legms_polarization_table_name();
-const legms_ms_polarization_column_axes_t* legms_polarization_table_element_axes();
-unsigned legms_polarization_table_num_columns();
-const char* const* legms_polarization_table_axis_names();
-unsigned legms_polarization_table_num_axes();
+} ms_polarization_column_axes_t;
+const char* polarization_table_name();
+const ms_polarization_column_axes_t* polarization_table_element_axes();
+unsigned polarization_table_num_columns();
+const char* const* polarization_table_axis_names();
+unsigned polarization_table_num_axes();
 
-typedef struct legms_ms_processor_column_axes_t {
+typedef struct ms_processor_column_axes_t {
   const char* column;
-  const legms_ms_processor_axes_t* axes;
+  const ms_processor_axes_t* axes;
   unsigned num_axes;
-} legms_ms_processor_column_axes_t;
-const char* legms_processor_table_name();
-const legms_ms_processor_column_axes_t* legms_processor_table_element_axes();
-unsigned legms_processor_table_num_columns();
-const char* const* legms_processor_table_axis_names();
-unsigned legms_processor_table_num_axes();
+} ms_processor_column_axes_t;
+const char* processor_table_name();
+const ms_processor_column_axes_t* processor_table_element_axes();
+unsigned processor_table_num_columns();
+const char* const* processor_table_axis_names();
+unsigned processor_table_num_axes();
 
-typedef struct legms_ms_source_column_axes_t {
+typedef struct ms_source_column_axes_t {
   const char* column;
-  const legms_ms_source_axes_t* axes;
+  const ms_source_axes_t* axes;
   unsigned num_axes;
-} legms_ms_source_column_axes_t;
-const char* legms_source_table_name();
-const legms_ms_source_column_axes_t* legms_source_table_element_axes();
-unsigned legms_source_table_num_columns();
-const char* const* legms_source_table_axis_names();
-unsigned legms_source_table_num_axes();
+} ms_source_column_axes_t;
+const char* source_table_name();
+const ms_source_column_axes_t* source_table_element_axes();
+unsigned source_table_num_columns();
+const char* const* source_table_axis_names();
+unsigned source_table_num_axes();
 
-typedef struct legms_ms_spectral_window_column_axes_t {
+typedef struct ms_spectral_window_column_axes_t {
   const char* column;
-  const legms_ms_spectral_window_axes_t* axes;
+  const ms_spectral_window_axes_t* axes;
   unsigned num_axes;
-} legms_ms_spectral_window_column_axes_t;
-const char* legms_spectral_window_table_name();
-const legms_ms_spectral_window_column_axes_t* legms_spectral_window_table_element_axes();
-unsigned legms_spectral_window_table_num_columns();
-const char* const* legms_spectral_window_table_axis_names();
-unsigned legms_spectral_window_table_num_axes();
+} ms_spectral_window_column_axes_t;
+const char* spectral_window_table_name();
+const ms_spectral_window_column_axes_t* spectral_window_table_element_axes();
+unsigned spectral_window_table_num_columns();
+const char* const* spectral_window_table_axis_names();
+unsigned spectral_window_table_num_axes();
 
-typedef struct legms_ms_state_column_axes_t {
+typedef struct ms_state_column_axes_t {
   const char* column;
-  const legms_ms_state_axes_t* axes;
+  const ms_state_axes_t* axes;
   unsigned num_axes;
-} legms_ms_state_column_axes_t;
-const char* legms_state_table_name();
-const legms_ms_state_column_axes_t* legms_state_table_element_axes();
-unsigned legms_state_table_num_columns();
-const char* const* legms_state_table_axis_names();
-unsigned legms_state_table_num_axes();
+} ms_state_column_axes_t;
+const char* state_table_name();
+const ms_state_column_axes_t* state_table_element_axes();
+unsigned state_table_num_columns();
+const char* const* state_table_axis_names();
+unsigned state_table_num_axes();
 
-typedef struct legms_ms_syscal_column_axes_t {
+typedef struct ms_syscal_column_axes_t {
   const char* column;
-  const legms_ms_syscal_axes_t* axes;
+  const ms_syscal_axes_t* axes;
   unsigned num_axes;
-} legms_ms_syscal_column_axes_t;
-const char* legms_syscal_table_name();
-const legms_ms_syscal_column_axes_t* legms_syscal_table_element_axes();
-unsigned legms_syscal_table_num_columns();
-const char* const* legms_syscal_table_axis_names();
-unsigned legms_syscal_table_num_axes();
+} ms_syscal_column_axes_t;
+const char* syscal_table_name();
+const ms_syscal_column_axes_t* syscal_table_element_axes();
+unsigned syscal_table_num_columns();
+const char* const* syscal_table_axis_names();
+unsigned syscal_table_num_axes();
 
-typedef struct legms_ms_weather_column_axes_t {
+typedef struct ms_weather_column_axes_t {
   const char* column;
-  const legms_ms_weather_axes_t* axes;
+  const ms_weather_axes_t* axes;
   unsigned num_axes;
-} legms_ms_weather_column_axes_t;
-const char* legms_weather_table_name();
-const legms_ms_weather_column_axes_t* legms_weather_table_element_axes();
-unsigned legms_weather_table_num_columns();
-const char* const* legms_weather_table_axis_names();
-unsigned legms_weather_table_num_axes();
+} ms_weather_column_axes_t;
+const char* weather_table_name();
+const ms_weather_column_axes_t* weather_table_element_axes();
+unsigned weather_table_num_columns();
+const char* const* weather_table_axis_names();
+unsigned weather_table_num_axes();
 #endif
 
 

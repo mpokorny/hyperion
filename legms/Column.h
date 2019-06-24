@@ -360,11 +360,11 @@ private:
 
 template <>
 struct CObjectWrapper::SharedWrapper<Column> {
-  typedef legms_column_t type_t;
+  typedef column_t type_t;
 };
 
 template <>
-struct CObjectWrapper::SharedWrapped<legms_column_t> {
+struct CObjectWrapper::SharedWrapped<column_t> {
   typedef Column type_t;
   typedef std::shared_ptr<type_t> impl_t;
 };
