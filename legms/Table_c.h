@@ -66,11 +66,22 @@ table_from_ms(
 #endif
 
 #ifdef USE_HDF5
+// returns NULL-terminated array of strings -- caller must free everything
+char **
+tables_in_h5(const char* path);
+
+// returns NULL-terminated array of strings -- caller must free everything
+char **
+columns_in_h5(const char* path, const char* table_path);
+
 table_t
-init_from_h5(
+table_from_h5(
   legion_context_t context,
   legion_runtime_t runtime,
-  const char* path);
+  const char* path,
+  const char* table_path,
+  // NULL-terminated array of string pointers
+  const char** column_selections);
 #endif
 
 #ifdef __cplusplus

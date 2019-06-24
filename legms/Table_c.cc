@@ -1,6 +1,9 @@
 #include "c_util.h"
 #include "Table_c.h"
 #include "Table.h"
+#ifdef USE_HDF5
+# include "legms_hdf5.h"
+#endif
 
 #include "legion/legion_c_util.h"
 
@@ -124,6 +127,60 @@ table_from_ms(
         cs));
 }
 #endif // USE_CASACORE
+
+#ifdef USE_HDF5
+static char**
+struset2strv(const std::unordered_set<std::string>& us) {
+  char** result = (char**)std::calloc(us.size() + 1, sizeof(char*));
+  if (result)
+    std::accumulate(
+      us.begin(),
+      us.end(),
+      0,
+      [result](const size_t& i, const std::string& p) {
+        result[i] = (char*)std::malloc(p.size() + 1 * sizeof(char));
+        std::strcpy(result[i], p.c_str());
+        return i + 1;
+      });
+  return result;
+}
+
+char **
+tables_in_h5(const char* path) {
+  auto tblpaths = hdf5::get_table_paths(path);
+  return struset2strv(tblpaths);
+}
+
+char **
+columns_in_h5(const char* path, const char* table_path) {
+  auto colnames = hdf5::get_column_names(path, table_path);
+  return struset2strv(colnames);
+}
+
+table_t
+table_from_h5(
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const char* path,
+  const char* table_path,
+  // NULL-terminated array of string pointers
+  const char** column_selections) {
+
+  std::unordered_set<std::string> colnames;
+  while (*column_selections != NULL) {
+    colnames.insert(*column_selections);
+    ++column_selections;
+  }
+  Legion::Context ctx = Legion::CObjectWrapper::unwrap(context)->context();
+  Legion::Runtime* rt = Legion::CObjectWrapper::unwrap(runtime);
+  auto tbgen = hdf5::init_table(ctx, rt, path, table_path, colnames);
+  return
+    wrap(
+      tbgen
+      ? tbgen.value().operator()(ctx, rt)
+      : std::make_unique<Table>(ctx, rt, table_path, "", std::vector<int>()));
+}
+#endif
 
 // Local Variables:
 // mode: c++
