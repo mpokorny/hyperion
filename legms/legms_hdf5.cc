@@ -1064,12 +1064,11 @@ acc_table_paths(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
   return 0;
 }
 
-void
+std::unordered_set<std::string>
 legms::hdf5::get_table_paths(
-  const std::experimental::filesystem::path& file_path,
-  std::unordered_set<std::string>& tblpaths) {
+  const std::experimental::filesystem::path& file_path) {
 
-  tblpaths.clear();
+  std::unordered_set<std::string> result;
   hid_t fid = H5Fopen(file_path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
   if (fid >= 0) {
     herr_t err =
@@ -1079,11 +1078,12 @@ legms::hdf5::get_table_paths(
         H5_ITER_NATIVE,
         NULL,
         acc_table_paths,
-        &tblpaths);
+        &result);
     assert(err >= 0);
     err = H5Fclose(fid);
     assert(err >= 0);
   }
+  return result;
 }
 
 herr_t
@@ -1109,13 +1109,12 @@ acc_column_names(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
   return 0;
 }
 
-void
+std::unordered_set<std::string>
 legms::hdf5::get_column_names(
   const std::experimental::filesystem::path& file_path,
-  const std::string& table_path,
-  std::unordered_set<std::string>& colnames) {
+  const std::string& table_path) {
 
-  colnames.clear();
+  std::unordered_set<std::string> result;
   hid_t fid = H5Fopen(file_path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
   if (fid >= 0) {
     hid_t tid = H5Gopen(fid, table_path.c_str(), H5P_DEFAULT);
@@ -1127,14 +1126,15 @@ legms::hdf5::get_column_names(
           H5_ITER_NATIVE,
           NULL,
           acc_column_names,
-          &colnames);
+          &result);
       assert(err >= 0);
       err = H5Gclose(tid);
       assert(err >= 0);
     }
     herr_t err = H5Fclose(fid);
     assert(err >= 0);
-    }
+  }
+  return result;
 }
 
 std::optional<PhysicalRegion>

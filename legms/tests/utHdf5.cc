@@ -282,11 +282,11 @@ tree_tests(testing::TestRecorder<WRITE_DISCARD>& recorder) {
       fid,
       dataset_name,
       recorder,
-      IndexTreeL(large_tree_min / 2 + 1),
+      IndexTreeL(LEGMS_LARGE_TREE_MIN / 2 + 1),
       "small-tree");
 
     IndexTreeL tree1(4);
-    while (tree1.serialized_size() < large_tree_min)
+    while (tree1.serialized_size() < LEGMS_LARGE_TREE_MIN)
       tree1 = IndexTreeL({{0, tree1}});
     test_index_tree_attribute(fid, dataset_name, recorder, tree1, "large-tree");
 
@@ -445,15 +445,14 @@ table_tests(
   runtime->detach_external_resource(context, col_z);
 
   {
-    std::unordered_set<std::string> tblpaths;
-    get_table_paths(fname, tblpaths);
+    std::unordered_set<std::string> tblpaths = get_table_paths(fname);
     recorder.expect_true(
       "File contains single, written table",
       TE(tblpaths.count("/table0") == 1 && tblpaths.size() == 1));
   }
   {
-    std::unordered_set<std::string> colnames;
-    get_column_names(fname, "/table0", colnames);
+    std::unordered_set<std::string> colnames =
+      get_column_names(fname, "/table0");
     recorder.expect_true(
       "table0 contains expected column names",
       TE(colnames.count("X") == 1

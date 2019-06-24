@@ -342,16 +342,13 @@ init_table(
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
-void
-get_table_paths(
-  const std::experimental::filesystem::path& file_path,
-  std::unordered_set<std::string>& tblpaths);
+std::unordered_set<std::string>
+get_table_paths(const std::experimental::filesystem::path& file_path);
 
-void
+std::unordered_set<std::string>
 get_column_names(
   const std::experimental::filesystem::path& file_path,
-  const std::string& table_path,
-  std::unordered_set<std::string>& colnames);
+  const std::string& table_path);
 
 std::optional<Legion::PhysicalRegion>
 attach_keywords(
