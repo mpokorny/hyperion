@@ -13,6 +13,13 @@ using namespace legms::hdf5;
 using namespace legms;
 using namespace Legion;
 
+const char* table_index_axes_attr_name =
+  LEGMS_NAMESPACE_PREFIX "index_axes";
+const char* table_axes_dt_name =
+  LEGMS_NAMESPACE_PREFIX "table_axes";
+const char* column_axes_attr_name =
+  LEGMS_NAMESPACE_PREFIX "axes";
+
 std::optional<std::string>
 legms::hdf5::read_index_tree_attr_metadata(
   hid_t loc_id,

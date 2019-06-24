@@ -33,13 +33,7 @@ namespace hdf5 {
 #define LEGMS_ATTRIBUTE_DS_PREFIX LEGMS_ATTRIBUTE_DS LEGMS_NAME_SEP
 #define LEGMS_COLUMN_DS LEGMS_NAMESPACE_PREFIX "col"
 
-const size_t large_tree_min = (64 * (1 << 10));
-const char* table_index_axes_attr_name =
-  LEGMS_NAMESPACE_PREFIX "index_axes";
-const char* table_axes_dt_name =
-  LEGMS_NAMESPACE_PREFIX "table_axes";
-const char* column_axes_attr_name =
-  LEGMS_NAMESPACE_PREFIX "axes";
+#define LEGMS_LARGE_TREE_MIN (64 * (1 << 10))
 
 // TODO: it might be nice to support use of types of IndexSpace descriptions
 // other than IndexTree...this might require some sort of type registration
@@ -90,7 +84,7 @@ write_index_tree_to_attr(
   SERDEZ::serialize(spec, buf.data());
   hsize_t value_dims = size;
   hid_t value_space_id = H5Screate_simple(1, &value_dims, NULL);
-  if (size < large_tree_min) {
+  if (size < LEGMS_LARGE_TREE_MIN) {
     // small serialized size: save byte string as an attribute
     hid_t attr_id =
       H5Acreate_by_name(
