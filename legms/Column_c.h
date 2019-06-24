@@ -14,6 +14,9 @@ typedef struct column_t { void* impl; } column_t;
 const char*
 column_name(column_t column);
 
+unsigned
+column_num_keywords(column_t column);
+
 const char*
 column_axes_uid(column_t column);
 

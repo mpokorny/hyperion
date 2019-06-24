@@ -17,6 +17,9 @@ int
 table_is_empty(table_t table);
 
 unsigned
+table_num_keywords(table_t table);
+
+unsigned
 table_num_columns(table_t table);
 
 // use table_num_columns() to find required minimum length of vector
@@ -82,6 +85,25 @@ table_from_h5(
   const char* table_path,
   // NULL-terminated array of string pointers
   const char** column_selections);
+
+// use table_num_keywords() to find required minimum length of vectors
+// "keywords" and "paths"; returned strings must be freed by caller
+void
+table_keyword_paths(table_t table, char** keywords, char** paths);
+
+// returned string "*path" must be freed by caller
+void
+table_column_value_path(table_t table, const char* colname, char** path);
+
+// use column_num_keywords() to find required minimum length of vector
+// "keywords" and "paths"; returned strings must be freed by caller
+void
+table_column_keyword_paths(
+  table_t table,
+  const char* colname,
+  char** keywords,
+  char** paths);
+
 #endif
 
 #ifdef __cplusplus

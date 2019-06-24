@@ -25,6 +25,11 @@ table_is_empty(table_t table) {
 }
 
 unsigned
+table_num_keywords(table_t table) {
+  return unwrap(table)->keywords().size();
+}
+
+unsigned
 table_num_columns(table_t table) {
   return unwrap(table)->column_names().size();
 }
@@ -180,6 +185,56 @@ table_from_h5(
       ? tbgen.value().operator()(ctx, rt)
       : std::make_unique<Table>(ctx, rt, table_path, "", std::vector<int>()));
 }
+
+void
+table_keyword_paths(table_t table, char** keywords, char** paths) {
+  auto kwps = hdf5::get_table_keyword_paths(*unwrap(table));
+  std::accumulate(
+    kwps.begin(),
+    kwps.end(),
+    0u,
+    [keywords, paths](unsigned i, auto& kwp) {
+      auto& [kw, pth] = kwp;
+      char *k = (char*)std::malloc((kw.size() + 1) * sizeof(char));
+      std::strcpy(k, kw.c_str());
+      char *p = (char*)std::malloc((pth.size() + 1) * sizeof(char));
+      std::strcpy(p, pth.c_str());
+      keywords[i] = k;
+      paths[i] = p;
+      return i + 1;
+    });
+}
+
+void
+table_column_value_path(table_t table, const char* colname, char** path) {
+  auto pth = hdf5::get_table_column_value_path(*unwrap(table), colname);
+  *path = (char*)std::malloc((pth.size() + 1) * sizeof(char));
+  std::strcpy(*path, pth.c_str());
+}
+
+void
+table_column_keyword_paths(
+  table_t table,
+  const char* colname,
+  char** keywords,
+  char** paths) {
+  auto pths = hdf5::get_table_column_keyword_paths(*unwrap(table), colname);
+  std::accumulate(
+    pths.begin(),
+    pths.end(),
+    0u,
+    [keywords, paths](unsigned i, auto& kwp) {
+      auto& [kw, pth] = kwp;
+      char *k = (char*)std::malloc((kw.size() + 1) * sizeof(char));
+      std::strcpy(k, kw.c_str());
+      char *p = (char*)std::malloc((pth.size() + 1) * sizeof(char));
+      std::strcpy(p, pth.c_str());
+      keywords[i] = k;
+      paths[i] = p;
+      return i + 1;
+    });
+}
+
 #endif
 
 // Local Variables:

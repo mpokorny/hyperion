@@ -14,6 +14,11 @@ column_name(column_t column) {
   return unwrap(column)->name().c_str();
 }
 
+unsigned
+column_num_keywords(column_t column) {
+  return unwrap(column)->keywords().size();
+}
+
 const char*
 column_axes_uid(column_t column) {
   return unwrap(column)->axes_uid().c_str();
