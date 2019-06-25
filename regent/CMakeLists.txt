@@ -13,7 +13,6 @@ set(REGENT_DIR ${Legion_INSTALL_DIR}/share/Regent)
 set(TERRA_DIR ${Terra_INSTALL_DIR})
 set(LEGMS_SOURCE_DIR ${CMAKE_SOURCE_DIR}/legms)
 set(LEGMS_BINARY_DIR ${CMAKE_BINARY_DIR}/legms)
-set(MAX_DIM ${legms_MAX_DIM})
 
 configure_file(regent.py.in regent.py)
 add_custom_target(regent ALL)
