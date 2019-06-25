@@ -83,7 +83,7 @@ table_from_h5(
   legion_runtime_t runtime,
   const char* path,
   const char* table_path,
-  // NULL-terminated array of string pointers
+  unsigned num_column_selections,
   const char** column_selections);
 
 // use table_num_keywords() to find required minimum length of vectors

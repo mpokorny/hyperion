@@ -168,14 +168,12 @@ table_from_h5(
   legion_runtime_t runtime,
   const char* path,
   const char* table_path,
-  // NULL-terminated array of string pointers
+  unsigned num_column_selections,
   const char** column_selections) {
 
   std::unordered_set<std::string> colnames;
-  while (*column_selections != NULL) {
-    colnames.insert(*column_selections);
-    ++column_selections;
-  }
+  for (unsigned i = 0; i < num_column_selections; ++i)
+    colnames.insert(*(column_selections + i));
   Legion::Context ctx = Legion::CObjectWrapper::unwrap(context)->context();
   Legion::Runtime* rt = Legion::CObjectWrapper::unwrap(runtime);
   auto tbgen = hdf5::init_table(ctx, rt, path, table_path, colnames);

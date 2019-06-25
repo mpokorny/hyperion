@@ -7,17 +7,11 @@
 using namespace legms;
 using namespace legms::CObjectWrapper;
 
-static const char**
-find_null_ptr_value(const char** column_names) {
-  while (*column_names != NULL)
-    ++column_names;
-  return column_names;
-}
-
 void
 table_block_read_task(
   const char* path,
   table_t table,
+  unsigned num_column_names,
   const char** column_names,
   size_t block_length) {
 
@@ -25,7 +19,7 @@ table_block_read_task(
     path,
     unwrap(table),
     column_names,
-    find_null_ptr_value(column_names),
+    column_names + num_column_names,
     block_length);
   read_task.dispatch();
 }

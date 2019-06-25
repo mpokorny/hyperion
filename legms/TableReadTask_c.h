@@ -12,7 +12,7 @@ void
 table_block_read_task(
   const char* path,
   table_t table,
-  // NULL-terminated array of string pointers
+  unsigned num_column_names,
   const char** column_names,
   size_t block_length);
 
