@@ -678,15 +678,12 @@ acc_kw_names(
 
 static legms::TypeTag
 read_dt_value(hid_t dt_id) {
-  hid_t did =
-    legms::H5DatatypeManager::datatypes()[
-      legms::H5DatatypeManager::DATATYPE_H5T];
   legms::TypeTag dt;
   // enumeration datatypes are converted by libhdf5 based on symbol names, which
   // ensures interoperability for legms HDF5 files written with one enumeration
   // definition and read with a different enumeration definition (for example,
   // in two legms codes built with and without USE_CASACORE)
-  herr_t err = H5Aread(dt_id, did, &dt);
+  herr_t err = H5Aread(dt_id, H5T_NATIVE_INT, &dt);
   assert(err >= 0);
   return dt;
 }
