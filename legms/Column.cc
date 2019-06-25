@@ -33,21 +33,25 @@ Column::init(LogicalRegion region) {
   m_logical_region = region;
 
   Domain dom = m_runtime->get_index_space_domain(region.get_index_space());
-  assert(dom.dense()); // FIXME: remove
 
-#define TREE(N)                                     \
-  case (N): {                                       \
-    Rect<N> rect(dom);                              \
-    m_index_tree = IndexTreeL();                    \
-    for (size_t i = N; i > 0; --i) {                \
-      m_index_tree =                                \
-        IndexTreeL({                                \
-            std::make_tuple(                        \
-              rect.lo[i - 1],                       \
-              rect.hi[i - 1] - rect.lo[i - 1] + 1,  \
-              m_index_tree)});                      \
-    }                                               \
-    break;                                          \
+#define TREE(N)                                               \
+  case (N): {                                                 \
+    m_index_tree = IndexTreeL();                              \
+    RectInDomainIterator<N> rid(dom);                         \
+    while (rid()) {                                           \
+      IndexTreeL t;                                           \
+      for (size_t i = N; i > 0; --i) {                        \
+        t =                                                   \
+          IndexTreeL({                                        \
+              std::make_tuple(                                \
+                rid->lo[i - 1],                               \
+                rid->hi[i - 1] - rid->lo[i - 1] + 1,          \
+                t)});                                         \
+      }                                                       \
+      m_index_tree = m_index_tree.merged_with(t);             \
+      rid++;                                                  \
+    }                                                         \
+    break;                                                    \
   }
 
   switch (dom.get_dim()) {
