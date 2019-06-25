@@ -1148,7 +1148,7 @@ legms::hdf5::get_table_keyword_paths(const Table& table) {
     table.keywords().begin(),
     table.keywords().end(),
     std::inserter(result, result.end()),
-    [tn=table.name() + "/"](auto& kwd) {
+    [tn=std::string("/") + table.name() + "/"](auto& kwd) {
       return std::make_pair(std::get<0>(kwd), tn + std::get<0>(kwd));
     });
   return result;
@@ -1159,7 +1159,8 @@ legms::hdf5::get_table_column_value_path(
   const Table& table,
   const std::string& colname) {
 
-  return table.name() + "/" + colname + "/" + LEGMS_COLUMN_DS;
+  return
+    std::string("/") + table.name() + "/" + colname + "/" + LEGMS_COLUMN_DS;
 }
 
 std::unordered_map<std::string, std::string>
@@ -1168,7 +1169,7 @@ legms::hdf5::get_table_column_keyword_paths(
   const std::string& colname) {
 
   auto col = table.column(colname);
-  auto prefix = table.name() + "/" + col->name() + "/";
+  auto prefix = std::string("/") + table.name() + "/" + col->name() + "/";
   std::unordered_map<std::string, std::string> result;
   std::transform(
     col->keywords().begin(),
