@@ -795,6 +795,26 @@ legms::hdf5::init_column(
         std::copy(ax.begin(), ax.end(), std::back_inserter(axes));
       }
       {
+        std::string datatype_name(LEGMS_ATTRIBUTE_DT);
+        htri_t datatype_exists =
+          H5Aexists_by_name(
+            loc_id,
+            LEGMS_COLUMN_DS,
+            datatype_name.c_str(),
+            link_access_pl);
+        if (datatype_exists == 0)
+          goto return_nothing;
+        datatype_id =
+          H5Aopen_by_name(
+            loc_id,
+            LEGMS_COLUMN_DS,
+            datatype_name.c_str(),
+            attr_access_pl,
+            link_access_pl);
+        assert(datatype_id >= 0);
+        datatype = read_dt_value(datatype_id);
+      }
+      {
         std::optional<std::string> sid =
           read_index_tree_attr_metadata(loc_id, "index_tree");
         if (!sid
@@ -815,26 +835,6 @@ legms::hdf5::init_column(
         // TODO: remove?
         // runtime->destroy_field_space(context, fs);
         // runtime->destroy_index_space(context, is);
-      }
-      {
-        std::string datatype_name(LEGMS_ATTRIBUTE_DT);
-        htri_t datatype_exists =
-          H5Aexists_by_name(
-            loc_id,
-            LEGMS_COLUMN_DS,
-            datatype_name.c_str(),
-            link_access_pl);
-        if (datatype_exists == 0)
-          goto return_nothing;
-        datatype_id =
-          H5Aopen_by_name(
-            loc_id,
-            LEGMS_COLUMN_DS,
-            datatype_name.c_str(),
-            attr_access_pl,
-            link_access_pl);
-        assert(datatype_id >= 0);
-        datatype = read_dt_value(datatype_id);
       }
     }
   }
