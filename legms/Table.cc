@@ -1237,8 +1237,13 @@ reindex_column(
   // new_rects_req.add_field(ReindexColumnTask::row_rects_fid);
   // PhysicalRegion new_rects_pr = runtime->map_region(ctx, new_rects_req);
 
-  vector<LogicalRegion> ix_lrs =
-    legms::map(regions, [](const auto& rg) { return rg.get_logical_region(); });
+  vector<LogicalRegion> ix_lrs;
+  ix_lrs.reserve(regions.size() - 1);
+  std::transform(
+    regions.begin() + 1,
+    regions.end(),
+    std::back_inserter(ix_lrs),
+    [](const auto& rg) { return rg.get_logical_region(); });
 
   // task to compute new index space rectangle for each row in column
 #ifdef HIERARCHICAL_COMPUTE_RECTANGLES
