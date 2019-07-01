@@ -61,7 +61,6 @@ Column::init(LogicalRegion region) {
     break;
   }
 #undef TREE
-  init();
 }
 
 std::unique_ptr<ColumnPartition>
