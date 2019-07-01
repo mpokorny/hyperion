@@ -35,8 +35,9 @@ public:
         datatypes.push_back(dt);
       }
       m_keywords_region = m_runtime->create_logical_region(m_context, is, fs);
-      m_runtime->destroy_field_space(m_context, fs);
-      m_runtime->destroy_index_space(m_context, is);
+      // TODO: keep?
+      // m_runtime->destroy_field_space(m_context, fs);
+      // m_runtime->destroy_index_space(m_context, is);
     }
     else {
       m_keywords_region = Legion::LogicalRegion::NO_REGION;
@@ -57,8 +58,9 @@ public:
   }
 
   virtual ~WithKeywords() {
-    if (m_keywords_region != Legion::LogicalRegion::NO_REGION)
-      m_runtime->destroy_logical_region(m_context, m_keywords_region);
+    // TODO: keep?
+    // if (m_keywords_region != Legion::LogicalRegion::NO_REGION)
+    //   m_runtime->destroy_logical_region(m_context, m_keywords_region);
   }
 
   const kw_desc_t&

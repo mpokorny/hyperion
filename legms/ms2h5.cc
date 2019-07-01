@@ -89,8 +89,9 @@ public:
     FieldAllocator fa = runtime->create_field_allocator(context, fs);
     fa.allocate_field(sizeof(DataType<LEGMS_TYPE_STRING>::ValueType), NAME_FID);
     LogicalRegion result = runtime->create_logical_region(context, is, fs);
-    runtime->destroy_field_space(context, fs);
-    runtime->destroy_index_space(context, is);
+    // TODO: remove?
+    // runtime->destroy_field_space(context, fs);
+    // runtime->destroy_index_space(context, is);
     return result;
   }
 

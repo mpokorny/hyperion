@@ -744,8 +744,9 @@ legms::hdf5::init_keywords(
     dts.push_back(dt);
   }
   LogicalRegion region = runtime->create_logical_region(context, is, fs);
-  runtime->destroy_field_space(context, fs);
-  runtime->destroy_index_space(context, is);
+  // TODO: remove?
+  //runtime->destroy_field_space(context, fs);
+  //runtime->destroy_index_space(context, is);
   return make_tuple(region, move(dts));
 }
 
@@ -811,8 +812,9 @@ legms::hdf5::init_column(
         FieldAllocator fa = runtime->create_field_allocator(context, fs);
         add_field(datatype, fa, Column::value_fid);
         values = runtime->create_logical_region(context, is, fs);
-        runtime->destroy_field_space(context, fs);
-        runtime->destroy_index_space(context, is);
+        // TODO: remove?
+        // runtime->destroy_field_space(context, fs);
+        // runtime->destroy_index_space(context, is);
       }
       {
         std::string datatype_name(LEGMS_ATTRIBUTE_DT);
