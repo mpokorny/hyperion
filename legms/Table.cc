@@ -184,6 +184,36 @@ ReindexedTableTask::base_impl(
   return result;
 }
 
+template <typename T, int DIM>
+using ROAccessor =
+  FieldAccessor<
+  READ_ONLY,
+  T,
+  DIM,
+  coord_t,
+  AffineAccessor<T, DIM, coord_t>,
+  false>;
+
+template <typename T, int DIM>
+using WDAccessor =
+  FieldAccessor<
+  WRITE_DISCARD,
+  T,
+  DIM,
+  coord_t,
+  AffineAccessor<T, DIM, coord_t>,
+  false>;
+
+template <typename T, int DIM>
+using WOAccessor =
+  FieldAccessor<
+  WRITE_ONLY,
+  T,
+  DIM,
+  coord_t,
+  AffineAccessor<T, DIM, coord_t>,
+  false>;
+
 template <typename T>
 class IndexAccumulateTask {
 public:
@@ -355,20 +385,9 @@ index_column(
     result_req.add_field(IndexColumnTask::value_fid);
     result_req.add_field(IndexColumnTask::indices_fid);
     PhysicalRegion result_pr = runtime->map_region(ctx, result_req);
-    const FieldAccessor<
-      WRITE_DISCARD,
-      T,
-      1,
-      coord_t,
-      AffineAccessor<T, 1, coord_t>,
-      false> values(result_pr, Column::value_fid);
-    const FieldAccessor<
-      WRITE_DISCARD,
-      vector<DomainPoint>,
-      1,
-      coord_t,
-      AffineAccessor<vector<DomainPoint>, 1, coord_t>,
-      false> rns(result_pr, IndexColumnTask::rows_fid);
+    const WOAccessor<T, 1> values(result_pr, IndexColumnTask::value_fid);
+    const WOAccessor<vector<DomainPoint>, 1>
+      rns(result_pr, IndexColumnTask::indices_fid);
     for (size_t i = 0; i < acc.size(); ++i) {
       ::new (rns.ptr(i)) vector<DomainPoint>;
       tie(values[i], rns[i]) = acc[i];
