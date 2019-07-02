@@ -1611,7 +1611,7 @@ Table::ireindexed(
 std::unordered_map<int, Legion::Future>
 Table::iindex_by_value(
   const std::vector<std::string>& axis_names,
-  const std::vector<int>& axes) const {
+  const std::unordered_set<int>& axes) const {
 
   // create index columns; the Future in "index_cols" below contains a
   // ColumnGenArgs of a LogicalRegion with two fields: at Column::value_fid, the

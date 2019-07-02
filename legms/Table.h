@@ -326,23 +326,21 @@ public:
 
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
   std::unordered_map<D, Legion::Future>
-  index_by_value(const std::vector<D>& axes) const {
+  index_by_value(const std::unordered_set<D>& axes) const {
     assert(Axes<D>::uid == m_axes_uid);
     auto ia = iindex_by_value(Axes<D>::names, map_to_int(axes));
-    std::unordered_map<D, Legion::Future> result;
-    std::transform(
-      ia.begin(),
-      ia.end(),
-      std::inserter(result, result.end()),
-      [](auto& a_f) {
-        auto& [a, f] = a_f;
-        return std::make_pair(static_cast<D>(a), f);
-      });
+    std::unordered_map<D, Legion::Future> result =
+      legms::map(
+        ia,
+        [](auto& a_f) {
+          auto& [a, f] = a_f;
+          return std::make_pair(static_cast<D>(a), f);
+        });
     return result;
   }
 
   std::unordered_map<int, Legion::Future>
-  index_by_value(const std::vector<int>& axes) const {
+  index_by_value(const std::unordered_set<int>& axes) const {
     auto axs = AxesRegistrar::axes(axes_uid()).value();
     assert(
       std::all_of(
@@ -383,7 +381,7 @@ protected:
   std::unordered_map<int, Legion::Future>
   iindex_by_value(
     const std::vector<std::string>& axis_names,
-    const std::vector<int>& axes) const;
+    const std::unordered_set<int>& axes) const;
 
   void
   set_min_max_rank() {
