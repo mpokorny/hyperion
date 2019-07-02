@@ -269,16 +269,24 @@ public:
     Context,
     Runtime*) {
 
-    const FieldAccessor<
-      READ_ONLY,
-      T,
-      1,
-      coord_t,
-      AffineAccessor<T, 1, coord_t>,
-      false> values(regions[0], Column::value_fid);
+#define ACC(D)                                                      \
+    case (D): {                                                     \
+      const ROAccessor<T, D> acc(regions[0], Column::value_fid);    \
+      Point<D, coord_t> pt(task->index_point);                      \
+      return acc_field_redop_rhs<T>{                                \
+        {make_tuple(acc[pt],                                        \
+                    std::vector<DomainPoint>{task->index_point})}}; \
+      break;                                                        \
+    }
 
-    vector<DomainPoint> pt { task->index_point };
-    return acc_field_redop_rhs<T>{{make_tuple(values[pt[0][0]], pt)}};
+    switch (task->index_point.get_dim()) {
+      LEGMS_FOREACH_N(ACC);
+    default:
+      assert(false);
+      return acc_field_redop_rhs<T>();
+      break;
+    }
+#undef ACC
   }
 
 private:
