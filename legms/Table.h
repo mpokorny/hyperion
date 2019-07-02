@@ -391,7 +391,8 @@ public:
 
   static Legion::TaskID TASK_ID;
   static constexpr const char* TASK_NAME = "index_column_task";
-  static constexpr Legion::FieldID rows_fid = Column::value_fid + 10;
+  static constexpr Legion::FieldID value_fid = Column::value_fid;
+  static constexpr Legion::FieldID indices_fid = Column::value_fid + 10;
 
   IndexColumnTask(
     const std::shared_ptr<Column>& column,

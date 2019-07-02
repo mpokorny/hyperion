@@ -282,9 +282,7 @@ public:
 
 TaskID IndexColumnTask::TASK_ID;
 
-IndexColumnTask::IndexColumnTask(
-  const shared_ptr<Column>& column,
-  int axis) {
+IndexColumnTask::IndexColumnTask(const shared_ptr<Column>& column, int axis) {
 
   ColumnGenArgs args = column->generator_args();
   args.axes.clear();
@@ -342,10 +340,10 @@ index_column(
     auto result_fs = runtime->create_field_space(ctx);
     {
       auto fa = runtime->create_field_allocator(ctx, result_fs);
-      add_field(dt, fa, Column::value_fid);
+      add_field(dt, fa, IndexColumnTask::value_fid);
       fa.allocate_field(
         sizeof(vector<DomainPoint>),
-        IndexColumnTask::rows_fid,
+        IndexColumnTask::indices_fid,
         OpsManager::V_DOMAIN_POINT_SID);
     }
     IndexSpaceT<1> result_is =
@@ -353,9 +351,9 @@ index_column(
     result_lr = runtime->create_logical_region(ctx, result_is, result_fs);
 
     // transfer values and row numbers from acc_lr to result_lr
-    RegionRequirement result_req(result_lr, WRITE_DISCARD, EXCLUSIVE, result_lr);
-    result_req.add_field(Column::value_fid);
-    result_req.add_field(IndexColumnTask::rows_fid);
+    RegionRequirement result_req(result_lr, WRITE_ONLY, EXCLUSIVE, result_lr);
+    result_req.add_field(IndexColumnTask::value_fid);
+    result_req.add_field(IndexColumnTask::indices_fid);
     PhysicalRegion result_pr = runtime->map_region(ctx, result_req);
     const FieldAccessor<
       WRITE_DISCARD,
@@ -473,7 +471,7 @@ public:
             (has_parent
              ? parent_regions[i].get_logical_region()
              : ix_columns[i]));
-      req.add_field(IndexColumnTask::rows_fid);
+      req.add_field(IndexColumnTask::indices_fid);
       m_launcher.add_region_requirement(req);
     }
 
@@ -507,7 +505,7 @@ public:
       1,
       coord_t,
       AffineAccessor<vector<DomainPoint>, 1, coord_t>,
-      false> rows(regions[args.ix0.size()], IndexColumnTask::rows_fid);
+      false> rows(regions[args.ix0.size()], IndexColumnTask::indices_fid);
 
     auto pt = task->index_point[0];
     args.ix0.push_back(pt);
@@ -751,7 +749,7 @@ public:
       m_ix_columns.end(),
       [&launcher](auto& lr) {
         RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
-        req.add_field(IndexColumnTask::rows_fid);
+        req.add_field(IndexColumnTask::indices_fid);
         launcher.add_region_requirement(req);
       });
 
@@ -791,11 +789,11 @@ public:
 
     vector<DomainPoint> common_rows;
     {
-      rows_acc_t rows(regions[0], IndexColumnTask::rows_fid);
+      rows_acc_t rows(regions[0], IndexColumnTask::indices_fid);
       common_rows = rows[task->index_point[0]];
     }
     for (size_t i = 1; i < ixdim; ++i) {
-      rows_acc_t rows(regions[i], IndexColumnTask::rows_fid);
+      rows_acc_t rows(regions[i], IndexColumnTask::indices_fid);
       common_rows = intersection(common_rows, rows[task->index_point[i]]);
     }
 
@@ -1185,7 +1183,7 @@ ReindexColumnTask::ReindexColumnTask(
       auto lr = ixc->logical_region();
       assert(lr != LogicalRegion::NO_REGION);
       RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
-      req.add_field(IndexColumnTask::rows_fid);
+      req.add_field(IndexColumnTask::indices_fid);
       m_launcher.add_region_requirement(req);
     });
 }
@@ -1522,7 +1520,7 @@ Table::ireindexed(
   // index associated columns; the Future in "index_cols" below contains a
   // ColumnGenArgs of a LogicalRegion with two fields: at Column::value_fid, the
   // column values (sorted in ascending order); and at
-  // IndexColumnTask::rows_fid, a sorted vector of DomainPoints in the original
+  // IndexColumnTask::indices_fid, a sorted vector of DomainPoints in the original
   // column.
   std::unordered_map<int, Legion::Future> index_cols;
   std::for_each(
