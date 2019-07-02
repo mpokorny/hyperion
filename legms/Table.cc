@@ -1608,6 +1608,30 @@ Table::ireindexed(
   return task.dispatch(context(), runtime());
 }
 
+std::unordered_map<int, Legion::Future>
+Table::iindex_by_value(
+  const std::vector<std::string>& axis_names,
+  const std::vector<int>& axes) const {
+
+  // create index columns; the Future in "index_cols" below contains a
+  // ColumnGenArgs of a LogicalRegion with two fields: at Column::value_fid, the
+  // column values (sorted in ascending order); and at
+  // IndexColumnTask::indices_fid, a sorted vector of DomainPoints in the
+  // original column.
+  std::unordered_map<int, Legion::Future> result;
+  std::for_each(
+    axes.begin(),
+    axes.end(),
+    [this, &axis_names, &result](auto a) {
+      if (has_column(axis_names[a])) {
+        auto col = column(axis_names[a]);
+        IndexColumnTask task(col, a);
+        result[a] = task.dispatch(context(), runtime());
+      }
+    });
+  return result;
+}
+
 void
 Table::register_tasks(Runtime* runtime) {
   IndexColumnTask::register_task(runtime);

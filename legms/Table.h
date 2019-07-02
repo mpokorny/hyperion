@@ -324,6 +324,36 @@ public:
     return ireindexed(axs.names, axes, allow_rows);
   }
 
+  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  std::unordered_map<D, Legion::Future>
+  index_by_value(const std::vector<D>& axes) const {
+    assert(Axes<D>::uid == m_axes_uid);
+    auto ia = iindex_by_value(Axes<D>::names, map_to_int(axes));
+    std::unordered_map<D, Legion::Future> result;
+    std::transform(
+      ia.begin(),
+      ia.end(),
+      std::inserter(result, result.end()),
+      [](auto& a_f) {
+        auto& [a, f] = a_f;
+        return std::make_pair(static_cast<D>(a), f);
+      });
+    return result;
+  }
+
+  std::unordered_map<int, Legion::Future>
+  index_by_value(const std::vector<int>& axes) const {
+    auto axs = AxesRegistrar::axes(axes_uid()).value();
+    assert(
+      std::all_of(
+        axes.begin(),
+        axes.end(),
+        [m=axs.names.size()](auto& a) {
+          return 0 <= a && static_cast<unsigned>(a) < m;
+        }));
+    return iindex_by_value(axs.names, axes);
+  }
+
 #ifdef USE_CASACORE
   static std::unique_ptr<Table>
   from_ms(
@@ -349,6 +379,11 @@ protected:
     const std::vector<std::string>& axis_names,
     const std::vector<int>& axes,
     bool allow_rows = true) const;
+
+  std::unordered_map<int, Legion::Future>
+  iindex_by_value(
+    const std::vector<std::string>& axis_names,
+    const std::vector<int>& axes) const;
 
   void
   set_min_max_rank() {
