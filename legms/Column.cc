@@ -79,13 +79,7 @@ Column::partition_on_axes(const std::vector<AxisPartition>& parts) const {
   // field simply names an axis, whereas for create_partition_on_axes(), "dim"
   // is a mapping from a named axis to a Column axis (i.e, an axis in the
   // Table index space to an axis in the Column index space).
-  std::vector<int> ds;
-  ds.reserve(parts.size());
-  std::transform(
-    parts.begin(),
-    parts.end(),
-    std::back_inserter(ds),
-    [](auto& part){ return part.dim; });
+  std::vector<int> ds = legms::map(parts, [](const auto& p) { return p.dim; });
   auto dm = dimensions_map(ds, axes());
   std::vector<AxisPartition> iparts;
   iparts.reserve(dm.size());
@@ -108,13 +102,12 @@ std::unique_ptr<ColumnPartition>
 Column::partition_on_iaxes(const std::vector<int>& ds) const {
 
   // TODO: verify values in 'ds' are valid axes
-  std::vector<AxisPartition> parts;
-  parts.reserve(ds.size());
-  std::transform(
-    ds.begin(),
-    ds.end(),
-    std::back_inserter(parts),
-    [au=axes_uid()](auto& d) { return AxisPartition{au, d, 1, 0, 0, 0}; });
+  std::vector<AxisPartition> parts =
+    legms::map(
+      ds,
+      [au=axes_uid()](const auto& d) {
+        return AxisPartition{au, d, 1, 0, 0, 0};
+      });
   return partition_on_axes(parts);
 }
 
@@ -123,16 +116,13 @@ Column::partition_on_iaxes(
   const std::vector<std::tuple<int, Legion::coord_t>>& dss) const {
 
   // TODO: verify axis values in 'dss' are valid axes
-  std::vector<AxisPartition> parts;
-  parts.reserve(dss.size());
-  std::transform(
-    dss.begin(),
-    dss.end(),
-    std::back_inserter(parts),
-    [au=axes_uid()](auto& d_s) {
-      auto& [d, s] = d_s;
-      return AxisPartition{au, d, s, 0, 0, s - 1};
-    });
+  std::vector<AxisPartition> parts =
+    legms::map(
+      dss,
+      [au=axes_uid()](const auto& d_s) {
+        auto& [d, s] = d_s;
+        return AxisPartition{au, d, s, 0, 0, s - 1};
+      });
   return partition_on_axes(parts);
 }
 

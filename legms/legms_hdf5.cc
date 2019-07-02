@@ -712,25 +712,23 @@ legms::hdf5::init_keywords(
     return
       std::make_tuple(LogicalRegion::NO_REGION, std::vector<legms::TypeTag>());
 
-  WithKeywords::kw_desc_t kws;
-  std::transform(
-    kw_names.begin(),
-    kw_names.end(),
-    back_inserter(kws),
-    [&](auto& nm) {
-      hid_t dt_id =
-        H5Aopen_by_name(
-          loc_id,
-          nm.c_str(),
-          LEGMS_ATTRIBUTE_DT,
-          attr_access_pl,
-          link_access_pl);
-      assert(dt_id >= 0);
-      legms::TypeTag dt = read_dt_value(dt_id);
-      err = H5Aclose(dt_id);
-      assert(err >= 0);
-      return std::make_tuple(nm, dt);
-    });
+  WithKeywords::kw_desc_t kws =
+    legms::map(
+      kw_names,
+      [&](const auto& nm) {
+        hid_t dt_id =
+          H5Aopen_by_name(
+            loc_id,
+            nm.c_str(),
+            LEGMS_ATTRIBUTE_DT,
+            attr_access_pl,
+            link_access_pl);
+        assert(dt_id >= 0);
+        legms::TypeTag dt = read_dt_value(dt_id);
+        err = H5Aclose(dt_id);
+        assert(err >= 0);
+        return std::make_tuple(nm, dt);
+      });
 
   IndexSpaceT<1> is =
     runtime->create_index_space(context, Rect<1>(0, 0));

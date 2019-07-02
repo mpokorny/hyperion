@@ -37,22 +37,21 @@ typedef IndexTree<Legion::coord_t> IndexTreeL;
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-template <typename T, typename F>
-std::vector<std::invoke_result_t<F, T>>
-map(const std::vector<T>& ts, F f) {
-  std::vector<std::invoke_result_t<F, T>> result;
-  result.reserve(ts.size());
+template <template <typename> typename C, typename T, typename F>
+C<std::invoke_result_t<F, T>>
+map(const C<T>& ts, F f) {
+  C<std::invoke_result_t<F, T>> result;
   std::transform(
     ts.begin(),
     ts.end(),
-    std::back_inserter(result),
+    std::inserter(result, result.end()),
     [&f](const auto& t) { return f(t); });
   return result;
 }
 
-template <typename T>
-std::vector<int>
-map_to_int(const std::vector<T>& ts) {
+template <template <typename> typename C, typename T>
+C<int>
+map_to_int(const C<T>& ts) {
   return map(ts, [](const auto& t) { return static_cast<int>(t); });
 }
 
