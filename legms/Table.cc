@@ -105,7 +105,7 @@ TableGenArgs::legion_deserialize(const void *buffer) {
 }
 
 std::unique_ptr<Table>
-TableGenArgs::operator()(Legion::Context ctx, Legion::Runtime* runtime) const {
+TableGenArgs::operator()(Context ctx, Runtime* runtime) const {
 
   return
     std::make_unique<Table>(
@@ -1489,7 +1489,7 @@ ReindexColumnTask::register_task(Runtime* runtime) {
   runtime->register_task_variant<ColumnGenArgs,base_impl>(registrar);
 }
 
-Legion::Future/*TableGenArgs*/
+Future/*TableGenArgs*/
 Table::ireindexed(
   const std::vector<std::string>& axis_names,
   const std::vector<int>& axes,
@@ -1511,7 +1511,7 @@ Table::ireindexed(
   // TODO: add support for index columns that already exist in the table
   if ((index_axes().size() > 1) || (index_axes().back() != 0)) {
     TableGenArgs empty{name(), axes_uid()};
-    return Legion::Future::from_value(runtime(), empty);
+    return Future::from_value(runtime(), empty);
   }
 
   // for every column in table, determine which axes need indexing
@@ -1549,7 +1549,7 @@ Table::ireindexed(
   // column values (sorted in ascending order); and at
   // IndexColumnTask::indices_fid, a sorted vector of DomainPoints in the original
   // column.
-  std::unordered_map<int, Legion::Future> index_cols;
+  std::unordered_map<int, Future> index_cols;
   std::for_each(
     col_reindex_axes.begin(),
     col_reindex_axes.end(),
@@ -1568,7 +1568,7 @@ Table::ireindexed(
     });
 
   // do reindexing of columns
-  std::vector<Legion::Future> reindexed;
+  std::vector<Future> reindexed;
   std::transform(
     col_reindex_axes.begin(),
     col_reindex_axes.end(),
@@ -1608,7 +1608,7 @@ Table::ireindexed(
   return task.dispatch(context(), runtime());
 }
 
-std::unordered_map<int, Legion::Future>
+std::unordered_map<int, Future>
 Table::iindex_by_value(
   const std::vector<std::string>& axis_names,
   const std::unordered_set<int>& axes) const {
@@ -1618,7 +1618,7 @@ Table::iindex_by_value(
   // column values (sorted in ascending order); and at
   // IndexColumnTask::indices_fid, a sorted vector of DomainPoints in the
   // original column.
-  std::unordered_map<int, Legion::Future> result;
+  std::unordered_map<int, Future> result;
   std::for_each(
     axes.begin(),
     axes.end(),
@@ -2092,8 +2092,8 @@ Table::register_tasks(Runtime* runtime) {
 
 std::unique_ptr<Table>
 Table::from_ms(
-  Legion::Context ctx,
-  Legion::Runtime* runtime,
+  Context ctx,
+  Runtime* runtime,
   const std::experimental::filesystem::path& path,
   const std::unordered_set<std::string>& column_selections) {
 
