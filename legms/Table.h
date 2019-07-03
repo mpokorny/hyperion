@@ -352,6 +352,35 @@ public:
     return iindex_by_value(axs.names, axes);
   }
 
+  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  std::unordered_map<std::string, Legion::Future /*IndexPartition*/>
+  partition_by_value(
+    Legion::Context context,
+    Legion::Runtime* runtime,
+    const std::vector<D>& axes) const {
+
+    assert(Axes<D>::uid == m_axes_uid);
+    return
+      ipartition_by_value(context, runtime, Axes<D>::names, map_to_int(axes));
+  }
+
+  std::unordered_map<std::string, Legion::Future /*IndexPartition*/>
+  partition_by_value(
+    Legion::Context context,
+    Legion::Runtime* runtime,
+    const std::vector<int>& axes) const {
+
+    auto axs = AxesRegistrar::axes(axes_uid()).value();
+    assert(
+      std::all_of(
+        axes.begin(),
+        axes.end(),
+        [m=axs.names.size()](auto& a) {
+          return 0 <= a && static_cast<unsigned>(a) < m;
+        }));
+    return ipartition_by_value(context, runtime, axs.names, axes);
+  }
+
 #ifdef USE_CASACORE
   static std::unique_ptr<Table>
   from_ms(
@@ -382,6 +411,13 @@ protected:
   iindex_by_value(
     const std::vector<std::string>& axis_names,
     const std::unordered_set<int>& axes) const;
+
+  std::unordered_map<std::string, Legion::Future /*IndexPartition*/>
+  ipartition_by_value(
+    Legion::Context context,
+    Legion::Runtime* runtime,
+    const std::vector<std::string>& axis_names,
+    const std::vector<int>& axes) const;
 
   void
   set_min_max_rank() {

@@ -1632,12 +1632,458 @@ Table::iindex_by_value(
   return result;
 }
 
+class ComputeColorsTask {
+public:
+
+  static TaskID TASK_ID;
+  static constexpr const char* TASK_NAME = "ComputeColorsTask";
+  static constexpr const FieldID color_fid = 0;
+  static constexpr const FieldID color_flag_fid = 1;
+  static constexpr const coord_t COLOR_NOT_SET = 0;
+  static constexpr const coord_t COLOR_IS_SET = 1;
+
+  ComputeColorsTask(
+    const vector<LogicalRegion>& ix_columns,
+    LogicalRegion colors)
+    : m_ix_columns(ix_columns)
+    , m_colors_lr(colors) {
+  };
+
+  void
+  dispatch(Context ctx, Runtime* runtime) {
+
+    IndexTaskLauncher launcher;
+
+    //LogicalRegion colors_lr = m_colors.get_logical_region();
+    // AcquireLauncher acquire(colors_lr, colors_lr, m_colors);
+    // acquire.add_field(color_fid);
+    // PhaseBarrier acquired = runtime->create_phase_barrier(ctx, 1);
+    // acquire.add_arrival_barrier(acquired);
+    // runtime->issue_acquire(ctx, acquire);
+
+    //PhaseBarrier released;
+    Domain bounds;
+
+#define BOUNDS(DIM)                                             \
+    case DIM: {                                                 \
+      Rect<DIM> rect;                                           \
+      for (size_t i = 0; i < DIM; ++i) {                        \
+        IndexSpaceT<1> cis(m_ix_columns[i].get_index_space());  \
+        Rect<1> dom = runtime->get_index_space_domain(cis).bounds;  \
+        rect.lo[i] = dom.lo[0];                                 \
+        rect.hi[i] = dom.hi[0];                                 \
+      }                                                         \
+      bounds = rect;                                            \
+      break;                                                    \
+    }
+
+    switch (m_ix_columns.size()) {
+      LEGMS_FOREACH_N(BOUNDS);
+    default:
+      assert(false);
+      break;
+    }
+#undef BOUNDS
+
+    /*released = runtime->create_phase_barrier(ctx, rect.volume());*/
+    launcher =
+      IndexTaskLauncher(TASK_ID, bounds, TaskArgument(NULL, 0), ArgumentMap());
+    /*launcher.add_wait_barrier(acquired);                       */
+    /*launcher.add_arrival_barrier(released);                    */
+
+    for_each(
+      m_ix_columns.begin(),
+      m_ix_columns.end(),
+      [&launcher](auto& lr) {
+        RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+        req.add_field(IndexColumnTask::indices_fid);
+        launcher.add_region_requirement(req);
+      });
+
+    {
+      RegionRequirement
+        req(m_colors_lr, WRITE_ONLY, SIMULTANEOUS, m_colors_lr);
+      req.add_field(color_fid);
+      req.add_field(color_flag_fid);
+      launcher.add_region_requirement(req);
+    }
+
+    runtime->execute_index_space(ctx, launcher);
+
+    // PhaseBarrier complete = runtime->advance_phase_barrier(ctx, released);
+    // ReleaseLauncher release(colors_lr, colors_lr, m_colors);
+    // release.add_field(color_fid);
+    // release.add_wait_barrier(complete);
+    // runtime->issue_release(ctx, release);
+  }
+
+  static void
+  base_impl(
+    const Task* task,
+    const vector<PhysicalRegion>& regions,
+    Context,
+    Runtime *) {
+
+    typedef const ROAccessor<vector<DomainPoint>, 1> rows_acc_t;
+
+    auto ixdim = regions.size() - 1;
+
+    vector<DomainPoint> common_rows;
+    {
+      rows_acc_t rows(regions[0], IndexColumnTask::indices_fid);
+      common_rows = rows[task->index_point[0]];
+    }
+    for (size_t i = 1; i < ixdim; ++i) {
+      rows_acc_t rows(regions[i], IndexColumnTask::indices_fid);
+      common_rows = intersection(common_rows, rows[task->index_point[i]]);
+    }
+
+#define WRITE_COLORS(ROWDIM, COLORDIM)                  \
+    case (ROWDIM * LEGION_MAX_DIM + COLORDIM): {        \
+      const WOAccessor<Point<COLORDIM>,ROWDIM>          \
+        colors(regions.back(), color_fid);              \
+      const WOAccessor<coord_t,ROWDIM>                  \
+        flags(regions.back(), color_flag_fid);          \
+      Point<COLORDIM,coord_t> color(task->index_point); \
+      for (size_t i = 0; i < common_rows.size(); ++i) { \
+        colors[common_rows[i]] = color;                 \
+        flags[common_rows[i]] = COLOR_IS_SET;           \
+      }                                                 \
+      break;                                            \
+    }
+    if (common_rows.size() > 0) {
+      auto rowdim = common_rows[0].get_dim();
+      switch (rowdim * LEGION_MAX_DIM + ixdim) {
+        LEGMS_FOREACH_NN(WRITE_COLORS);
+      default:
+        assert(false);
+        break;
+      }
+    }
+#undef WRITE_COLORS
+  }
+
+  static void
+  register_task(Runtime* runtime) {
+    TASK_ID =
+      runtime->generate_library_task_ids("legms::ComputeColorsTask", 1);
+    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_idempotent();
+    // registrar.set_replicable();
+    registrar.set_leaf();
+    runtime->register_task_variant<base_impl>(registrar);
+  }
+
+private:
+
+  vector<LogicalRegion> m_ix_columns;
+
+  LogicalRegion m_colors_lr;
+
+  static vector<DomainPoint>
+  intersection(
+    const vector<DomainPoint>& first,
+    const vector<DomainPoint>& second) {
+
+    vector<DomainPoint> result;
+    set_intersection(
+      first.begin(),
+      first.end(),
+      second.begin(),
+      second.end(),
+      back_inserter(result));
+    return result;
+  }
+};
+
+TaskID ComputeColorsTask::TASK_ID;
+
+class ComputePartitionTask {
+public:
+
+  static TaskID TASK_ID;
+  static constexpr const char* TASK_NAME = "ComputePartitionTask";
+
+  ComputePartitionTask(
+    const std::shared_ptr<Column>& col,
+    LogicalRegion colors,
+    IndexSpace colors_is,
+    unsigned rowdim)
+    : m_args({col->index_space(), colors_is, rowdim}){
+
+    m_launcher = TaskLauncher(TASK_ID, TaskArgument(&m_args, sizeof(m_args)));
+    RegionRequirement req(colors, READ_ONLY, EXCLUSIVE, colors);
+    req.add_field(ComputeColorsTask::color_fid);
+    m_launcher.add_region_requirement(req);
+  }
+
+  Future
+  dispatch(Context context, Runtime* runtime) {
+    return runtime->execute_task(context, m_launcher);
+  }
+
+  template <int COLOR_DIM>
+  static IndexPartition
+  impl(
+    const Task* task,
+    const vector<PhysicalRegion>& regions,
+    Context context,
+    Runtime *runtime) {
+
+    const TaskArgs* args = static_cast<TaskArgs*>(task->args);
+
+    FieldSpace fs = runtime->create_field_space(context);
+    // DIM: column index dimension
+    // CDIM: partition color space dimension
+    // RDIM: table row index dimension
+    // RDIM <= DIM
+    {
+      FieldAllocator fa = runtime->create_field_allocator(context, fs);
+      fa.allocate_field(sizeof(Point<COLOR_DIM>), 0);
+    }
+    LogicalRegion lr =
+      runtime->create_logical_region(context, args->col_ispace, fs);
+    RegionRequirement req(lr, WRITE_ONLY, EXCLUSIVE, lr);
+    req.add_field(0);
+    PhysicalRegion pr = runtime->map_region(context, req);
+
+#define COLOR_PARTS(ROW_DIM, COL_DIM)                                   \
+    case (ROW_DIM * LEGION_MAX_DIM + COL_DIM):  {                       \
+      const WOAccessor<Point<COLOR_DIM>, COL_DIM> parts(pr, 0);         \
+      const ROAccessor<Point<COLOR_DIM>, ROW_DIM>                       \
+        colors(regions[0], ComputeColorsTask::color_fid);               \
+      for (PointInDomainIterator<COL_DIM>                               \
+             pid(runtime->get_index_space_domain(context, args->col_ispace)); \
+           pid();                                                       \
+           pid++) {                                                     \
+        Point<ROW_DIM> pt;                                              \
+        for (size_t i = 0; i < ROW_DIM; ++i)                            \
+          pt[i] = pid[i];                                               \
+        parts[*pid] = colors[pt];                                       \
+      }                                                                 \
+      break;                                                            \
+    }
+
+    switch (args->rowdim * LEGION_MAX_DIM + args->col_ispace.get_dim()) {
+      LEGMS_FOREACH_MN(COLOR_PARTS);
+    default:
+      assert(false);
+      break;
+    }
+#undef COLOR_PARTS
+
+    runtime->unmap_region(context, pr);
+    return
+      runtime->create_partition_by_field(context, lr, lr, 0, args->colors_is);
+  }
+
+  static IndexPartition
+  base_impl(
+    const Task* task,
+    const vector<PhysicalRegion>& regions,
+    Context context,
+    Runtime *runtime) {
+
+    const TaskArgs* args = static_cast<TaskArgs*>(task->args);
+#define IMPL(CDIM)                                                      \
+    case (CDIM): return impl<CDIM>(task, regions, context, runtime); break;
+
+    switch(args->colors_is.get_dim()) {
+      LEGMS_FOREACH_N(IMPL);
+    default:
+      assert(false);
+      return IndexPartition::NO_PART;
+    }
+#undef IMPL
+  }
+
+  static void
+  register_task(Runtime* runtime) {
+    TASK_ID =
+      runtime->generate_library_task_ids("legms::ComputePartitionTask", 1);
+    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_idempotent();
+    // registrar.set_replicable();
+    // registrar.set_leaf();
+    runtime->register_task_variant<IndexPartition, base_impl>(registrar);
+  }
+
+private:
+
+  struct TaskArgs {
+    IndexSpace col_ispace;
+    IndexSpace colors_is;
+    unsigned rowdim;
+  };
+
+  TaskArgs m_args;
+
+  TaskLauncher m_launcher;
+};
+
+TaskID ComputePartitionTask::TASK_ID;
+
+std::unordered_map<std::string, Future>
+Table::ipartition_by_value(
+  Context context,
+  Runtime* runtime,
+  const std::vector<std::string>& axis_names,
+  const std::vector<int>& axes) const {
+
+  assert(
+    std::all_of(
+      axes.begin(),
+      axes.end(),
+      [this, &axis_names](const auto& a) {
+        return has_column(axis_names[a]);
+      }));
+
+  // For now we only allow partitioning on columns that have the same axes as
+  // the table; this restriction allows for a simplification in implementation
+  // since every "row" of every column can then have only one color (i.e, every
+  // column has a disjoint partition). I'm fairly certain that the
+  // implementation could be extended so that aliased partitions are supported,
+  // but I'm leaving that undone since the utility of that case isn't clear to
+  // me at the moment.
+  assert(
+    std::all_of(
+      axes.begin(),
+      axes.end(),
+      [this, &axis_names, ia=index_axes()](const auto& a) {
+        return column(axis_names[a])->axes() == ia;
+      }));
+
+  std::unordered_set<int> axesset(axes.begin(), axes.end());
+  auto f_ixcols = iindex_by_value(axis_names, axesset);
+  std::vector<LogicalRegion> ixcols(f_ixcols.size());
+  std::for_each(
+    f_ixcols.begin(),
+    f_ixcols.end(),
+    [&axes, &ixcols](const auto& a_f) {
+      auto& [a, f] = a_f;
+      auto d = std::find(axes.begin(), axes.end(), a);
+      assert(d != axes.end());
+      auto cga = f.template get_result<ColumnGenArgs>();
+      ixcols[std::distance(axes.begin(), d)] = cga.values;
+    });
+
+  IndexSpace rows = column(axis_names[axes[0]])->index_space();
+  FieldSpace colors_fs = runtime->create_field_space(context);
+  LogicalRegion colors;
+
+#define COLORS(DIM)                                                     \
+  case (DIM): {                                                         \
+    FieldAllocator fa = runtime->create_field_allocator(context, colors_fs); \
+    fa.allocate_field(sizeof(Point<DIM>), ComputeColorsTask::color_fid); \
+    fa.allocate_field(sizeof(coord_t), ComputeColorsTask::color_flag_fid);       \
+    colors = runtime->create_logical_region(context, rows, colors_fs);  \
+    Point<DIM> none = Point<DIM>::ZEROES();                             \
+    runtime->fill_field(                                                \
+      context,                                                          \
+      colors,                                                           \
+      colors,                                                           \
+      ComputeColorsTask::color_fid,                                     \
+      none);                                                            \
+    runtime->fill_field(                                                \
+      context,                                                          \
+      colors,                                                           \
+      colors,                                                           \
+      ComputeColorsTask::color_flag_fid,                                \
+      ComputeColorsTask::COLOR_NOT_SET);                                \
+    break;                                                              \
+  }
+
+  switch (ixcols.size()) {
+    LEGMS_FOREACH_N(COLORS);
+  default:
+    assert(false);
+    break;
+  }
+#undef COLORS
+
+  ComputeColorsTask task(ixcols, colors);
+  task.dispatch(context, runtime);
+
+  // we require the color space of the partition, but, in order to have an
+  // accurate color space, we should not assume that there is at least one row
+  // for all colors in the product of the index column colors; to do that we
+  // rely on the ComputeColorsTask::color_flag_fid field
+
+  // first we create the bounding index space (product space of all index column
+  // colors)
+  IndexSpace color_bounds_is;
+#define COLOR_BOUNDS_IS(DIM)                                          \
+  case (DIM): {                                                       \
+    Rect<DIM> bounds;                                                 \
+    for (size_t i = 0; i < DIM; ++i){                                 \
+      Rect<1> r =                                                     \
+        runtime->get_index_space_domain(ixcols[i].get_index_space()); \
+      bounds.lo[i] = r.lo[0];                                         \
+      bounds.hi[i] = r.hi[0];                                         \
+    }                                                                 \
+    color_bounds_is = runtime->create_index_space(context, bounds);   \
+    break;                                                            \
+  }
+
+  switch (ixcols.size()) {
+    LEGMS_FOREACH_N(COLOR_BOUNDS_IS);
+  default:
+    assert(false);
+    break;
+  }
+#undef COLOR_BOUNDS_IS
+
+  // now partition "colors" by the value of color_flag_fid
+  IndexSpace flags_cs = runtime->create_index_space(context, Rect<1>(0, 1));
+  IndexPartition color_flag_ip =
+    runtime->create_partition_by_field(
+      context,
+      colors,
+      colors,
+      ComputeColorsTask::color_flag_fid,
+      flags_cs);
+  LogicalPartition color_flag_lp =
+    runtime->get_logical_partition(context, colors, color_flag_ip);
+  // next use create_partition_by_image to get a partition of color_bounds_is
+  // which includes only the colors that are assigned to at least one row
+  IndexPartition color_bounds_ip =
+    runtime->create_partition_by_image(
+      context,
+      color_bounds_is,
+      color_flag_lp,
+      colors,
+      ComputeColorsTask::color_fid,
+      flags_cs);
+  IndexSpace colors_is =
+    runtime->get_index_subspace(
+      color_bounds_ip,
+      ComputeColorsTask::COLOR_IS_SET);
+  // TODO: clean up flags_cs, color_flag_ip, color_flag_lp, and color_bounds_ip?
+
+  std::unordered_map<std::string, Future> result;
+  std::transform(
+    m_columns.begin(),
+    m_columns.end(),
+    std::inserter(result, result.end()),
+    [&colors, &colors_is, rowdim=index_axes().size(), &context, runtime]
+    (const auto& nm_col) {
+      auto& [nm, col] = nm_col;
+      ComputePartitionTask pt(col, colors, colors_is, rowdim);
+      return std::make_pair(nm, pt.dispatch(context, runtime));
+    });
+  return result;
+}
+
 void
 Table::register_tasks(Runtime* runtime) {
   IndexColumnTask::register_task(runtime);
   ReindexedTableTask::register_task(runtime);
   IndexAccumulateTasks::register_tasks(runtime);
   ComputeRectanglesTask::register_task(runtime);
+  ComputeColorsTask::register_task(runtime);
+  ComputePartitionTask::register_task(runtime);
   ReindexColumnTask::register_task(runtime);
   ReindexColumnCopyTask::register_task(runtime);
 }

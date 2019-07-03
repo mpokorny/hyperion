@@ -34,6 +34,14 @@ add_test(
   NAME ReindexedUnitTest
   COMMAND ../testing/TestRunner.py ./utReindexed)
 
+add_executable(utTable utTable.cc)
+set_target_properties(utTable PROPERTIES
+  CXX_STANDARD 17
+  COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+add_test(
+  NAME TableUnitTest
+  COMMAND ../testing/TestRunner.py ./utTable)
+
 if (USE_HDF5)
   add_executable(utHdf5 utHdf5.cc)
   set_target_properties(utHdf5 PROPERTIES
