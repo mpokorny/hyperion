@@ -4,6 +4,7 @@
 #include <cassert>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <tuple>
 #include <unordered_map>
 
@@ -114,10 +115,10 @@ public:
     , m_axes(axes)
     , m_datatype(datatype)
     , m_rank(
-      static_cast<decltype(m_rank)>(values.get_index_space().get_dim())) {
+      static_cast<decltype(m_rank)>(values.get_index_space().get_dim()))
+    , m_logical_region(values) {
 
     assert(m_rank == m_axes.size());
-    init(values);
   }
 
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
@@ -188,6 +189,9 @@ public:
 
   const IndexTreeL&
   index_tree() const {
+    std::call_once(
+      m_index_tree_flag,
+      [this](){ m_index_tree = init_index_tree(m_runtime, m_logical_region); });
     return m_index_tree;
   }
 
@@ -365,8 +369,8 @@ private:
   void
   init();
 
-  void
-  init(Legion::LogicalRegion region);
+  static IndexTreeL
+  init_index_tree(Legion::Runtime* runtime, Legion::LogicalRegion region);
 
   std::string m_name;
 
@@ -378,11 +382,11 @@ private:
 
   unsigned m_rank;
 
-  IndexTreeL m_index_tree;
+  mutable std::once_flag m_index_tree_flag;
+
+  mutable IndexTreeL m_index_tree;
 
   Legion::LogicalRegion m_logical_region;
-};
-
 };
 
 } // end namespace legms

@@ -42,18 +42,18 @@ Column::init() {
   } else {
     m_logical_region = LogicalRegion::NO_REGION;
   }
+  std::call_once(m_index_tree_flag, [](){});
 }
 
-void
-Column::init(LogicalRegion region) {
+IndexTreeL
+Column::init_index_tree(Runtime* runtime, LogicalRegion region) {
 
-  m_logical_region = region;
+  IndexTreeL result;
 
-  Domain dom = m_runtime->get_index_space_domain(region.get_index_space());
+  Domain dom = runtime->get_index_space_domain(region.get_index_space());
 
 #define TREE(N)                                               \
   case (N): {                                                 \
-    m_index_tree = IndexTreeL();                              \
     RectInDomainIterator<N> rid(dom);                         \
     while (rid()) {                                           \
       IndexTreeL t;                                           \
@@ -65,7 +65,7 @@ Column::init(LogicalRegion region) {
                 rid->hi[i - 1] - rid->lo[i - 1] + 1,          \
                 t)});                                         \
       }                                                       \
-      m_index_tree = m_index_tree.merged_with(t);             \
+      result = result.merged_with(t);                         \
       rid++;                                                  \
     }                                                         \
     break;                                                    \
@@ -78,6 +78,7 @@ Column::init(LogicalRegion region) {
     break;
   }
 #undef TREE
+  return result;
 }
 
 std::unique_ptr<ColumnPartition>
