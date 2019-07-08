@@ -74,7 +74,7 @@ public:
   }
 
   std::vector<TypeTag>
-  keywords_datatypes() const {
+  keyword_datatypes() const {
     std::vector<TypeTag> result;
     std::transform(
       m_keywords.begin(),

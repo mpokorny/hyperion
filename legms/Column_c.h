@@ -9,42 +9,31 @@
 extern "C" {
 #endif
 
-typedef struct column_t { void* impl; } column_t;
-
-const char*
-column_name(column_t column);
-
-unsigned
-column_num_keywords(column_t column);
-
-const char*
-column_axes_uid(column_t column);
-
-// use column_rank() to find required minimum length of vector "axes"
-void
-column_axes(column_t column, int* axes);
-
-unsigned
-column_rank(column_t column);
-
-type_tag_t
-column_datatype(column_t column);
-
-legion_index_space_t
-column_index_space(column_t column);
-
-legion_logical_region_t
-column_logical_region(column_t column);
+typedef struct column_t {
+  char name[LEGMS_MAX_STRING_SIZE];
+  char axes_uid[LEGMS_MAX_STRING_SIZE];
+  type_tag_t datatype;
+  unsigned num_axes;
+  int axes[LEGION_MAX_DIM];
+  legion_logical_region_t values;
+  unsigned num_keywords;
+  type_tag_t keyword_datatypes[LEGMS_MAX_NUM_KEYWORDS];
+  legion_logical_region_t keywords;
+} column_t;
 
 column_partition_t
 column_partition_on_axes(
-  column_t column,
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const column_t* column,
   unsigned num_axes,
   const int* axes);
 
 column_partition_t
 column_projected_column_partition(
-  column_t column,
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const column_t* column,
   column_partition_t column_partition);
 
 legion_field_id_t

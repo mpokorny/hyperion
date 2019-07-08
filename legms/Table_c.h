@@ -8,55 +8,32 @@
 extern "C" {
 #endif
 
-typedef struct table_t { void* impl; } table_t;
-
-const char*
-table_name(table_t table);
-
-int
-table_is_empty(table_t table);
-
-unsigned
-table_num_keywords(table_t table);
-
-unsigned
-table_num_columns(table_t table);
-
-// use table_num_columns() to find required minimum length of vector
-// "names"; returned strings must be freed by caller
-void
-table_column_names(table_t table, char** names);
+typedef struct table_t {
+  char name[LEGMS_MAX_STRING_SIZE];
+  char axes_uid[LEGMS_MAX_STRING_SIZE];
+  unsigned num_index_axes;
+  int index_axes[LEGION_MAX_DIM];
+  unsigned num_columns;
+  column_t columns[LEGMS_MAX_NUM_TABLE_COLUMNS];
+  unsigned num_keywords;
+  type_tag_t keyword_datatypes[LEGMS_MAX_NUM_KEYWORDS];
+  legion_logical_region_t keywords;
+} table_t;
 
 int
-table_has_column(table_t table, const char* name);
+table_has_column(const table_t* table, const char* name);
 
-column_t
-table_column(table_t table, const char* name);
-
-const char*
-table_min_rank_column_name(table_t table);
-
-const char*
-table_max_rank_column_name(table_t table);
-
-const char*
-table_axes_uid(table_t table);
-
-unsigned
-table_num_index_axes(table_t table);
-
-const int*
-table_index_axes(table_t table);
+const column_t*
+table_column(const table_t* table, const char* name);
 
 table_t
 table_reindexed(
-  table_t table,
-  const int* axes,
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const table_t* table,
   unsigned num_axes,
+  const int* axes,
   int allow_rows);
-
-void
-table_destroy(table_t table);
 
 #ifdef USE_CASACORE
 table_t
@@ -89,17 +66,29 @@ table_from_h5(
 // use table_num_keywords() to find required minimum length of vectors
 // "keywords" and "paths"; returned strings must be freed by caller
 void
-table_keyword_paths(table_t table, char** keywords, char** paths);
+table_keyword_paths(
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const table_t* table,
+  char** keywords,
+  char** paths);
 
 // returned string "*path" must be freed by caller
 void
-table_column_value_path(table_t table, const char* colname, char** path);
+table_column_value_path(
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const table_t* table,
+  const char* colname,
+  char** path);
 
 // use column_num_keywords() to find required minimum length of vector
 // "keywords" and "paths"; returned strings must be freed by caller
 void
 table_column_keyword_paths(
-  table_t table,
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const table_t* table,
   const char* colname,
   char** keywords,
   char** paths);

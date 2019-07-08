@@ -23,6 +23,28 @@ namespace legms {
 class Column;
 
 struct ColumnGenArgs {
+
+  ColumnGenArgs() {}
+
+  ColumnGenArgs(
+    const std::string& name,
+    const std::string& axes_uid,
+    TypeTag datatype,
+    const std::vector<int>& axes,
+    Legion::LogicalRegion values,
+    Legion::LogicalRegion keywords,
+    const std::vector<TypeTag>& keyword_datatypes)
+    : name(name)
+    , axes_uid(axes_uid)
+    , datatype(datatype)
+    , axes(axes)
+    , values(values)
+    , keywords(keywords)
+    , keyword_datatypes(keyword_datatypes) {
+  }
+
+  ColumnGenArgs(const column_t& col);
+
   std::string name;
   std::string axes_uid;
   TypeTag datatype;
@@ -42,6 +64,9 @@ struct ColumnGenArgs {
 
   size_t
   legion_deserialize(const void *buffer);
+
+  column_t
+  to_column_t() const;
 };
 
 class Column
@@ -229,14 +254,14 @@ public:
   ColumnGenArgs
   generator_args() const {
     return
-      ColumnGenArgs {
-      name(),
+      ColumnGenArgs(
+        name(),
         axes_uid(),
         datatype(),
         axes(),
         logical_region(),
         keywords_region(),
-        keywords_datatypes()};
+        keyword_datatypes());
   }
 
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
@@ -358,15 +383,6 @@ private:
   Legion::LogicalRegion m_logical_region;
 };
 
-template <>
-struct CObjectWrapper::SharedWrapper<Column> {
-  typedef column_t type_t;
-};
-
-template <>
-struct CObjectWrapper::SharedWrapped<column_t> {
-  typedef Column type_t;
-  typedef std::shared_ptr<type_t> impl_t;
 };
 
 } // end namespace legms
