@@ -2,12 +2,29 @@
 
 #include "legms.h"
 #include "tree_index_space.h"
+#include "legion/legion_c_util.h"
 #include "Column.h"
 #include "Table.h"
 
 using namespace legms;
 
 using namespace Legion;
+
+ColumnGenArgs::ColumnGenArgs(const column_t& col)
+  : name(col.name)
+  , axes_uid(col.axes_uid)
+  , datatype(col.datatype)
+  , values(Legion::CObjectWrapper::unwrap(col.values))
+  , keywords(Legion::CObjectWrapper::unwrap(col.keywords)) {
+
+  axes.resize(col.num_axes);
+  for (unsigned i = 0; i < col.num_axes; ++i)
+    axes[i] = col.axes[i];
+
+  keyword_datatypes.resize(col.num_keywords);
+  for (unsigned i = 0; i < col.num_keywords; ++i)
+    keyword_datatypes[i] = col.keyword_datatypes[i];
+}
 
 void
 Column::init() {
@@ -25,18 +42,18 @@ Column::init() {
   } else {
     m_logical_region = LogicalRegion::NO_REGION;
   }
+  std::call_once(m_index_tree_flag, [](){});
 }
 
-void
-Column::init(LogicalRegion region) {
+IndexTreeL
+Column::init_index_tree(Runtime* runtime, LogicalRegion region) {
 
-  m_logical_region = region;
+  IndexTreeL result;
 
-  Domain dom = m_runtime->get_index_space_domain(region.get_index_space());
+  Domain dom = runtime->get_index_space_domain(region.get_index_space());
 
 #define TREE(N)                                               \
   case (N): {                                                 \
-    m_index_tree = IndexTreeL();                              \
     RectInDomainIterator<N> rid(dom);                         \
     while (rid()) {                                           \
       IndexTreeL t;                                           \
@@ -48,7 +65,7 @@ Column::init(LogicalRegion region) {
                 rid->hi[i - 1] - rid->lo[i - 1] + 1,          \
                 t)});                                         \
       }                                                       \
-      m_index_tree = m_index_tree.merged_with(t);             \
+      result = result.merged_with(t);                         \
       rid++;                                                  \
     }                                                         \
     break;                                                    \
@@ -61,6 +78,7 @@ Column::init(LogicalRegion region) {
     break;
   }
 #undef TREE
+  return result;
 }
 
 std::unique_ptr<ColumnPartition>
@@ -245,6 +263,26 @@ ColumnGenArgs::legion_deserialize(const void *buffer) {
   buff += vector_serdez<TypeTag>::deserialize(keyword_datatypes, buff);
 
   return buff - static_cast<const char*>(buffer);
+}
+
+column_t
+ColumnGenArgs::to_column_t() const {
+  column_t result;
+  std::strncpy(result.name, name.c_str(), sizeof(result.name));
+  result.name[sizeof(result.name) - 1] = '\0';
+  std::strncpy(result.axes_uid, axes_uid.c_str(), sizeof(result.axes_uid));
+  result.axes_uid[sizeof(result.axes_uid) - 1] = '\0';
+  result.datatype = datatype;
+  result.num_axes = axes.size();
+  std::memcpy(result.axes, axes.data(), axes.size() * sizeof(int));
+  result.values = Legion::CObjectWrapper::wrap(values);
+  result.num_keywords = keyword_datatypes.size();
+  std::memcpy(
+    result.keyword_datatypes,
+    keyword_datatypes.data(),
+    keyword_datatypes.size() * sizeof(type_tag_t));
+  result.keywords = Legion::CObjectWrapper::wrap(keywords);
+  return result;
 }
 
 // Local Variables:

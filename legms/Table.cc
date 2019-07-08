@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "legms.h"
+#include "legion/legion_c_util.h"
 #include "Column.h"
 #include "Table.h"
 #include "TableBuilder.h"
@@ -19,6 +20,24 @@ using namespace Legion;
 
 #undef HIERARCHICAL_COMPUTE_RECTANGLES
 #undef WORKAROUND
+
+TableGenArgs::TableGenArgs(const table_t& table)
+  : name(table.name)
+  , axes_uid(table.axes_uid)
+  , keywords(Legion::CObjectWrapper::unwrap(table.keywords)) {
+
+  index_axes.resize(table.num_index_axes);
+  for (unsigned i = 0; i < table.num_index_axes; ++i)
+    index_axes[i] = table.index_axes[i];
+
+  col_genargs.resize(table.num_columns);
+  for (unsigned i = 0; i < table.num_columns; ++i)
+    col_genargs[i] = table.columns[i];
+
+  keyword_datatypes.resize(table.num_keywords);
+  for (unsigned i = 0; i < table.num_keywords; ++i)
+    keyword_datatypes[i] = table.keyword_datatypes[i];
+}
 
 size_t
 TableGenArgs::legion_buffer_size(void) const {
@@ -117,6 +136,36 @@ TableGenArgs::operator()(Context ctx, Runtime* runtime) const {
       col_genargs,
       keywords,
       keyword_datatypes);
+}
+
+table_t
+TableGenArgs::to_table_t() const {
+  table_t result;
+  std::strncpy(result.name, name.c_str(), sizeof(result.name));
+  result.name[sizeof(result.name) - 1] = '\0';
+  std::strncpy(result.axes_uid, axes_uid.c_str(), sizeof(result.axes_uid));
+  result.axes_uid[sizeof(result.axes_uid) - 1] = '\0';
+  result.num_index_axes = index_axes.size();
+  std::memcpy(
+    result.index_axes,
+    index_axes.data(),
+    index_axes.size() * sizeof(int));
+  result.num_columns = col_genargs.size();
+  std::accumulate(
+    col_genargs.begin(),
+    col_genargs.end(),
+    0u,
+    [&result](unsigned i, auto& cg) {
+      result.columns[i] = cg.to_column_t();
+      return i + 1;
+    });
+  result.num_keywords = keyword_datatypes.size();
+  std::memcpy(
+    result.keyword_datatypes,
+    keyword_datatypes.data(),
+    keyword_datatypes.size() * sizeof(type_tag_t));
+  result.keywords = Legion::CObjectWrapper::wrap(keywords);
+  return result;
 }
 
 TaskID ReindexedTableTask::TASK_ID;
@@ -1364,7 +1413,7 @@ reindex_column(
     }
 #undef PRINTIT
   }
-  return ColumnGenArgs {};
+  return ColumnGenArgs();
 #endif
   // to do this, we need a logical partition of new_rects_lr, which will
   // comprise a single index subspace
@@ -1510,7 +1559,9 @@ Table::ireindexed(
   //
   // TODO: add support for index columns that already exist in the table
   if ((index_axes().size() > 1) || (index_axes().back() != 0)) {
-    TableGenArgs empty{name(), axes_uid()};
+    TableGenArgs empty;
+    empty.name = name();
+    empty.axes_uid = axes_uid();
     return Future::from_value(runtime(), empty);
   }
 

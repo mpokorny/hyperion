@@ -12,88 +12,47 @@
 #include <memory>
 
 using namespace legms;
-using namespace legms::CObjectWrapper;
 
-const char*
-table_name(table_t table) {
-  return unwrap(table)->name().c_str();
+static std::unique_ptr<Table>
+to_table(
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const table_t* table) {
+
+  return
+    TableGenArgs(*table)(
+      Legion::CObjectWrapper::unwrap(context)->context(),
+      Legion::CObjectWrapper::unwrap(runtime));
 }
 
 int
-table_is_empty(table_t table) {
-  return unwrap(table)->is_empty();
+table_has_column(const table_t* table, const char* name) {
+  int nomatch = 1;
+  for (unsigned i = 0; (nomatch != 0) && (i < table->num_columns); ++i)
+    nomatch =
+      std::strncmp(
+        table->columns[i].name,
+        name,
+        sizeof(table->columns[i].name));
+  return nomatch ? 0 : 1;
 }
 
-unsigned
-table_num_keywords(table_t table) {
-  return unwrap(table)->keywords().size();
-}
-
-unsigned
-table_num_columns(table_t table) {
-  return unwrap(table)->column_names().size();
-}
-
-void
-table_column_names(table_t table, char** names) {
-  auto cols = unwrap(table)->column_names();
-  std::accumulate(
-    cols.begin(),
-    cols.end(),
-    0u,
-    [names](unsigned i, const auto& nm) {
-      names[i] =
-        static_cast<char*>(std::malloc((nm.size() + 1) * sizeof(char)));
-      std::strcpy(names[i], nm.c_str());
-      return i + 1;
-    });
-}
-
-int
-table_has_column(table_t table, const char* name) {
-  return unwrap(table)->has_column(name);
-}
-
-column_t
-table_column(table_t table, const char* name) {
-  return wrap(unwrap(table)->column(name));
-}
-
-const char *
-table_min_rank_column_name(table_t table) {
-  auto cn = unwrap(table)->min_rank_column_name();
-  return cn ? cn.value().c_str() : NULL;
-}
-
-const char *
-table_max_rank_column_name(table_t table) {
-  auto cn = unwrap(table)->max_rank_column_name();
-  return cn ? cn.value().c_str() : NULL;
-}
-
-const char*
-table_axes_uid(table_t table) {
-  return unwrap(table)->axes_uid().c_str();
-}
-
-unsigned
-table_num_index_axes(table_t table) {
-  return unwrap(table)->index_axes().size();
-}
-
-const int*
-table_index_axes(table_t table) {
-  return unwrap(table)->index_axes().data();
-}
-
-void
-table_destroy(table_t table) {
-  destroy(table);
+const column_t*
+table_column(const table_t* table, const char* name) {
+  for (unsigned i = 0; i < table->num_columns; ++i)
+    if (std::strncmp(
+          table->columns[i].name,
+          name,
+          sizeof(table->columns[i].name) == 0))
+      return &table->columns[i];
+  return NULL;
 }
 
 table_t
 table_reindexed(
-  table_t table,
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const table_t* table,
   unsigned num_axes,
   const int* axes,
   int allow_rows) {
@@ -102,16 +61,15 @@ table_reindexed(
   for (size_t i = 0; i < num_axes; ++i)
     as[i] = axes[i];
   return
-    wrap(
-      unwrap(table)
-      ->reindexed(as, allow_rows)
-      .get_result<TableGenArgs>()
-      .operator()(unwrap(table)->context(), unwrap(table)->runtime()));
+    to_table(context, runtime, table)
+    ->reindexed(as, allow_rows).get_result<TableGenArgs>().to_table_t();
 }
 
 void
 table_partition_by_value(
-  table_t table,
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const table_t* table,
   unsigned num_axes,
   const int* axes,
   /* length of col_names and col_partitions arrays must equal value of
@@ -123,14 +81,14 @@ table_partition_by_value(
   for (size_t i = 0; i < num_axes; ++i)
     as[i] = axes[i];
 
-  auto t = unwrap(table);
+  auto t = to_table(context, runtime, table);
   auto fps = t->partition_by_value(t->context(), t->runtime(), as);
   // NB: the following blocks
   std::accumulate(
     fps.begin(),
     fps.end(),
     0u,
-    [t, col_names, col_partitions](unsigned i, auto& n_f) {
+    [&t, col_names, col_partitions](unsigned i, auto& n_f) {
       auto& [n, f] = n_f;
       col_names[i] = static_cast<char*>(std::malloc(n.size() + 1));
       std::strcpy(col_names[i], n.c_str());
@@ -160,12 +118,12 @@ table_from_ms(
   }
 
   return
-    wrap(
-      Table::from_ms(
-        Legion::CObjectWrapper::unwrap(context)->context(),
-        Legion::CObjectWrapper::unwrap(runtime),
-        path,
-        cs));
+    Table::from_ms(
+      Legion::CObjectWrapper::unwrap(context)->context(),
+      Legion::CObjectWrapper::unwrap(runtime),
+      path,
+      cs)
+    ->generator_args().to_table_t();
 }
 #endif // USE_CASACORE
 
@@ -213,16 +171,18 @@ table_from_h5(
   Legion::Context ctx = Legion::CObjectWrapper::unwrap(context)->context();
   Legion::Runtime* rt = Legion::CObjectWrapper::unwrap(runtime);
   auto tbgen = hdf5::init_table(ctx, rt, path, table_path, colnames);
-  return
-    wrap(
-      tbgen
-      ? tbgen.value().operator()(ctx, rt)
-      : std::make_unique<Table>(ctx, rt, table_path, "", std::vector<int>()));
+  return tbgen.value_or(TableGenArgs()).to_table_t();
 }
 
 void
-table_keyword_paths(table_t table, char** keywords, char** paths) {
-  auto kwps = hdf5::get_table_keyword_paths(*unwrap(table));
+table_keyword_paths(
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const table_t* table,
+  char** keywords,
+  char** paths) {
+
+  auto kwps = hdf5::get_table_keyword_paths(*to_table(context, runtime, table));
   std::accumulate(
     kwps.begin(),
     kwps.end(),
@@ -240,19 +200,33 @@ table_keyword_paths(table_t table, char** keywords, char** paths) {
 }
 
 void
-table_column_value_path(table_t table, const char* colname, char** path) {
-  auto pth = hdf5::get_table_column_value_path(*unwrap(table), colname);
+table_column_value_path(
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const table_t* table,
+  const char* colname,
+  char** path) {
+
+  auto pth =
+    hdf5::get_table_column_value_path(
+      *to_table(context, runtime, table),
+      colname);
   *path = (char*)std::malloc((pth.size() + 1) * sizeof(char));
   std::strcpy(*path, pth.c_str());
 }
 
 void
 table_column_keyword_paths(
-  table_t table,
+  legion_context_t context,
+  legion_runtime_t runtime,
+  const table_t* table,
   const char* colname,
   char** keywords,
   char** paths) {
-  auto pths = hdf5::get_table_column_keyword_paths(*unwrap(table), colname);
+  auto pths =
+    hdf5::get_table_column_keyword_paths(
+      *to_table(context, runtime, table),
+      colname);
   std::accumulate(
     pths.begin(),
     pths.end(),

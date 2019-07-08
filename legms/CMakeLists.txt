@@ -148,6 +148,10 @@ list(APPEND
   legms_COMPILE_DEFINITIONS "REALM_MAX_DIM=${MAX_DIM}")
 list(APPEND
   legms_COMPILE_DEFINITIONS "LEGMS_MAX_STRING_SIZE=${MAX_STRING_SIZE}")
+list(APPEND
+  legms_COMPILE_DEFINITIONS "LEGMS_MAX_NUM_KEYWORDS=${MAX_NUM_KEYWORDS}")
+list(APPEND
+  legms_COMPILE_DEFINITIONS "LEGMS_MAX_NUM_TABLE_COLUMNS=${MAX_NUM_TABLE_COLUMNS}")
 # TODO: find a better way of passing the legms_COMPILE_DEFINITIONS to all
 # targets, both in this directory and all sub-directories...evil runtime errors
 # occur when the wrong or inconsistent LEGMS_MAX_DIM values are used

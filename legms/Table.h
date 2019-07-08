@@ -32,6 +32,25 @@ namespace legms {
 class Table;
 
 struct TableGenArgs {
+
+  TableGenArgs() {}
+
+  TableGenArgs(
+    const std::string& name,
+    const std::string& axes_uid,
+    const std::vector<int>& index_axes,
+    const std::vector<ColumnGenArgs>& col_genargs,
+    Legion::LogicalRegion keywords,
+    const std::vector<TypeTag> keyword_datatypes)
+    : name(name)
+    , axes_uid(axes_uid)
+    , index_axes(index_axes)
+    , col_genargs(col_genargs)
+    , keywords(keywords)
+    , keyword_datatypes(keyword_datatypes) {}
+
+  TableGenArgs(const table_t& table);
+
   std::string name;
   std::string axes_uid;
   std::vector<int> index_axes;
@@ -50,6 +69,9 @@ struct TableGenArgs {
 
   size_t
   legion_deserialize(const void *buffer);
+
+  table_t
+  to_table_t() const;
 };
 
 class Table
@@ -295,13 +317,13 @@ public:
       m_columns.end(),
       std::back_inserter(col_genargs),
       [](auto& nm_cp) { return std::get<1>(nm_cp)->generator_args(); });
-    return TableGenArgs {
+    return TableGenArgs(
       name(),
-        axes_uid(),
-        index_axes(),
-        col_genargs, // TODO: std::move?
-        keywords_region(),
-        keywords_datatypes()};
+      axes_uid(),
+      index_axes(),
+      col_genargs, // TODO: std::move?
+      keywords_region(),
+      keyword_datatypes());
   }
 
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
