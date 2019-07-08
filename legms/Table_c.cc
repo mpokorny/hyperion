@@ -94,8 +94,8 @@ table_destroy(table_t table) {
 table_t
 table_reindexed(
   table_t table,
-  const int* axes,
   unsigned num_axes,
+  const int* axes,
   int allow_rows) {
 
   std::vector<int> as(num_axes);
@@ -107,6 +107,42 @@ table_reindexed(
       ->reindexed(as, allow_rows)
       .get_result<TableGenArgs>()
       .operator()(unwrap(table)->context(), unwrap(table)->runtime()));
+}
+
+void
+table_partition_by_value(
+  table_t table,
+  unsigned num_axes,
+  const int* axes,
+  /* length of col_names and col_partitions arrays must equal value of
+   * table_num_columns() */
+  char** col_names,
+  legion_logical_partition_t* col_partitions) {
+
+  std::vector<int> as(num_axes);
+  for (size_t i = 0; i < num_axes; ++i)
+    as[i] = axes[i];
+
+  auto t = unwrap(table);
+  auto fps = t->partition_by_value(t->context(), t->runtime(), as);
+  // NB: the following blocks
+  std::accumulate(
+    fps.begin(),
+    fps.end(),
+    0u,
+    [t, col_names, col_partitions](unsigned i, auto& n_f) {
+      auto& [n, f] = n_f;
+      col_names[i] = static_cast<char*>(std::malloc(n.size() + 1));
+      std::strcpy(col_names[i], n.c_str());
+      auto p = f.template get_result<Legion::IndexPartition>();
+      auto lp =
+        t->runtime()->get_logical_partition(
+          t->context(),
+          t->column(n)->logical_region(),
+          p);
+      col_partitions[i] = Legion::CObjectWrapper::wrap(lp);
+      return i + 1;
+    });
 }
 
 #ifdef USE_CASACORE

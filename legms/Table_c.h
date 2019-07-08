@@ -51,9 +51,19 @@ table_index_axes(table_t table);
 table_t
 table_reindexed(
   table_t table,
-  const int* axes,
   unsigned num_axes,
+  const int* axes,
   int allow_rows);
+
+void
+table_partition_by_value(
+  table_t table,
+  unsigned num_axes,
+  const int* axes,
+  /* length of col_names and col_partitions arrays must equal value of
+   * table_num_columns() */
+  char** col_names,
+  legion_logical_partition_t* col_partitions);
 
 void
 table_destroy(table_t table);
