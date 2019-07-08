@@ -1940,6 +1940,23 @@ Table::ipartition_by_value(
         return has_column(axis_names[a]);
       }));
 
+  // TODO: Support partitioning on columns that are in the index_axes set of the
+  // table -- the current implementation doesn't support this case. A possible
+  // approach: remove those columns in the index_axes and proceed with the
+  // currently implemented algorithm; create a partition on the columns in the
+  // index_axes set; use Legion::Runtime::create_cross_product_partitions() to
+  // create the requested partition; then perhaps use
+  // Legion::Runtime::create_pending_partition() to return unified partitions
+  // rather than the deconstructed versions provided by
+  // create_cross_product_partitions().
+  assert(
+    std::none_of(
+      axes.begin(),
+      axes.end(),
+      [ia=index_axes()](const auto& a) {
+        return std::find(ia.begin(), ia.end(), a) != ia.end();
+      }));
+
   // For now we only allow partitioning on columns that have the same axes as
   // the table; this restriction allows for a simplification in implementation
   // since every "row" of every column can then have only one color (i.e, every
