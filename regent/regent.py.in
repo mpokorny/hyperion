@@ -39,6 +39,21 @@ if 'MAX_DIM' in os.environ:
 else:
     max_dim = "@MAX_DIM@"
 
+if 'MAX_STRING_SIZE' in os.environ:
+    max_string_size = os.environ['MAX_STRING_SIZE']
+else:
+    max_string_size = "@MAX_STRING_SIZE@"
+
+if 'MAX_NUM_KEYWORDS' in os.environ:
+    max_num_keywords = os.environ['MAX_NUM_KEYWORDS']
+else:
+    max_num_keywords = "@MAX_NUM_KEYWORDS@"
+
+if 'MAX_NUM_TABLE_COLUMNS' in os.environ:
+    max_num_table_columns = os.environ['MAX_NUM_TABLE_COLUMNS']
+else:
+    max_num_table_columns = "@MAX_NUM_TABLE_COLUMNS@"
+
 # Find Regent.
 if 'REGENT_DIR' in os.environ:
     regent_dir = os.path.realpath(os.environ['REGENT_DIR'])
@@ -138,6 +153,9 @@ def regent(args, env = {}, **kwargs):
     if use_hdf5:
         cmd_env['USE_HDF5'] = '1'
     cmd_env['MAX_DIM'] = max_dim
+    cmd_env['MAX_STRING_SIZE'] = max_string_size
+    cmd_env['MAX_NUM_KEYWORDS'] = max_num_keywords
+    cmd_env['MAX_NUM_TABLE_COLUMNS'] = max_num_table_columns
     cmd_env.update(env)
     return subprocess.Popen(cmd, env = cmd_env, **kwargs)
 
