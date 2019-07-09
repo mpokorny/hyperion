@@ -348,17 +348,16 @@ table_test_suite(
       [&parts, &context, runtime]() {
         auto cs =
           runtime->get_index_partition_color_space(
-            context,
-            parts.begin()->second);
+            IndexPartitionT<2>(parts.begin()->second));
         std::set<Point<2>> part_dom(part_cs.begin(), part_cs.end());
-        return
-          cs.get_volume() == part_dom.size()
-          && std::all_of(
+        bool dom_in_cs =
+          std::all_of(
             part_dom.begin(),
             part_dom.end(),
             [&cs](auto& p) {
               return cs.contains(p);
             });
+        return cs.get_volume() == part_dom.size() && dom_in_cs;
       }));
 
   recorder.expect_true(
