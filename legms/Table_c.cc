@@ -39,12 +39,13 @@ table_has_column(const table_t* table, const char* name) {
 
 const column_t*
 table_column(const table_t* table, const char* name) {
-  for (unsigned i = 0; i < table->num_columns; ++i)
+  for (unsigned i = 0; i < table->num_columns; ++i) {
     if (std::strncmp(
           table->columns[i].name,
           name,
-          sizeof(table->columns[i].name) == 0))
+          sizeof(table->columns[i].name)) == 0)
       return &table->columns[i];
+  }
   return NULL;
 }
 
@@ -72,8 +73,6 @@ table_partition_by_value(
   const table_t* table,
   unsigned num_axes,
   const int* axes,
-  /* length of col_names and col_partitions arrays must equal value of
-   * table_num_columns() */
   char** col_names,
   legion_logical_partition_t* col_partitions) {
 
