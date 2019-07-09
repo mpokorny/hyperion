@@ -2125,14 +2125,12 @@ Table::ipartition_by_value(
       ComputeColorsTask::color_fid,
       flags_cs);
   // recreate the desired color space at the top level
+  IndexSpace cset_is =
+    runtime->get_index_subspace(
+      color_bounds_ip,
+      ComputeColorsTask::COLOR_IS_SET);
   IndexSpace colors_is =
-    runtime->create_index_space(
-      context,
-      runtime->get_index_space_domain(
-        context,
-        runtime->get_index_subspace(
-          color_bounds_ip,
-          ComputeColorsTask::COLOR_IS_SET)));
+    runtime->intersect_index_spaces(context, {color_bounds_is, cset_is});
   // TODO: clean up flags_cs, color_flag_ip, color_flag_lp, and color_bounds_ip?
 
   std::unordered_map<std::string, Future> result;
