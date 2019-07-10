@@ -42,6 +42,8 @@ list(APPEND Legion_ARGS Legion_MAX_FIELDS)
 set(Legion_ENABLE_TLS OFF CACHE BOOL "Enable support for TLS storage of Legion context")
 list(APPEND Legion_ARGS Legion_ENABLE_TLS)
 
+set(Legion_CMAKE_BUILD_TYPE "Release" CACHE STRING "CMAKE_BUILD_TYPE definition for Legion")
+
 # to define CXX_FLAGS for Legion build, add something like this to
 # ExternalProject_add command:
 #
@@ -51,7 +53,7 @@ ExternalProject_Add(legion_build
   GIT_REPOSITORY ${legms_LEGION_GIT_REPO}
   GIT_TAG ${legms_LEGION_TAG}
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}
-  CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+  CMAKE_ARGS -DCMAKE_BUILD_TYPE=${Legion_CMAKE_BUILD_TYPE}
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
   CMAKE_ARGS -DBUILD_SHARED_LIBS=ON
   CMAKE_ARGS -DLegion_BUILD_BINDINGS=ON
