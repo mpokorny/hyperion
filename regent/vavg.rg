@@ -3,193 +3,167 @@ import "regent"
 local c = regentlib.c
 local stdlib = terralib.includec("stdlib.h")
 local cstring = terralib.includec("string.h")
-local legms = terralib.includec("legms_c.h")
 terralib.linklibrary("liblegms.so")
+local legms = terralib.includecstring([[
+#include "legms_c.h"
+#include "utility_c.h"
+#include "MSTable_c.h"
+#include "Table_c.h"
+#include "Column_c.h"
+]])
 
--- single precision complex value datatype
-struct complexf {
-  real: float,
-  imag: float
+local h5_path = "t0.h5"
+local main_tbl_path = "/MAIN"
+
+fspace acc {
+  sum_re: float,
+  sum_im: float,
+  num: uint
 }
 
-function MakeArray(T)
-  local struct Array {
-    size: uint
-    capacity: uint
-    data: &T
-  }
-
-  terra Array:init(capacity: uint)
-    self.size = 0
-    self.capacity = capacity
-    self.data = [&T](stdlib.calloc(self.capacity, sizeof(T)))
+task accumulate(
+    data: region(ispace(int3d), complex32),
+    vacc: region(ispace(int1d), acc))
+where
+  reads(data, vacc),
+  writes(vacc)
+do
+  var t = vacc.ispace.bounds.lo
+  var v = &vacc[t]
+  for d in data do
+    v.sum_re = v.sum_re + d.real
+    v.sum_im = v.sum_im + d.imag
+    v.num = v.num + 1
   end
-
-  terra Array:get(i: uint)
-    return self.data[i]
-  end
-
-  terra Array:set(i: uint, t: T)
-    self.data[i] = t
-  end
-
-  terra Array:push(t: T)
-    if self.size == self.capacity then
-      self.capacity = 2 * self.capacity
-      self.data = [&T](stdlib.realloc(self.data, self.capacity * sizeof(T)))
-    end
-    self:set(self.size, t)
-    self.size = self.size + 1
-  end
-
-  terra Array:__add(other: Array)
-    if self.capacity < self.size + other.size then
-      self.capacity = self.capacity + other.size
-      self.data = [&T](stdlib.realloc(self.data, self.capacity * sizeof(T)))
-    end
-    cstring.memcpy(self.data + self.size, other.data, other.size * sizeof(T))
-    self.size = self.size + other.size
-  end
-
-  terra Array:destroy()
-    stdlib.free(self.data)
-  end
-
-  return Array
 end
 
-RowNumberArray = MakeArray(legms.column_row_number_t)
-
-struct RowsAtT {
-  time: float,
-  rows: RowNumberArray
-}
-
-terra RowsAtT:init(time: float)
-  self.time = time
-  self.rows:init(8)
+task normalize(
+    vacc: region(ispace(int1d), acc))
+where
+  reads(vacc),
+  writes(vacc)
+do
+  var t = vacc.ispace.bounds.lo
+  var v = &vacc[t]
+  v.sum_re = v.sum_re / vacc[t].num
+  v.sum_im = v.sum_im / vacc[t].num
 end
 
-terra RowsAtT:add(other: RowsAtT)
-  
-end
-
-RowTimeArray = MakeArray(RowsAtT)
-
-struct Times {
-  rows_at_t: RowTimeArray
-}
-
-terra Times:init()
-  self.rows_at_t:init(8)
-end
-
-terra Times:find(time: float)
-  for i = 0, self.rows_at_t.size do
-    if self.rows_at_t:get(i).time == time then
-      return i
-    end
-  end
-  return -1
-end
-
-terra Times:add_row(time: float, row: legms.column_row_number_t)
-  var i = self:find(time)
-  if i >= 0 then
-    self.rows_at_t:get(i).rows:push(row)
+task vavg(
+    main_table: legms.table_t,
+    data: region(ispace(int3d), complex32),
+    time: region(ispace(int1d), double))
+where
+  reads(data, time)
+do
+  var paxes = array(legms.MAIN_TIME)
+  var cn: rawstring[2]
+  var lp: c.legion_logical_partition_t[2]
+  legms.table_partition_by_value(
+    __context(), __runtime(), &main_table, 1, paxes, cn, lp)
+  var ts = __import_ispace(
+    int1d,
+    c.legion_index_partition_get_color_space(
+      __runtime(),
+      lp[0].index_partition))
+  var data_idx: int
+  if (c.strcmp(cn[0], "DATA") == 0) then
+    data_idx = 0
   else
-    var r: RowsAtT
-    r:init(time)
-    r.rows:push(row)
-    self.rows_at_t:push(r)
+    data_idx = 1
   end
-end
+  var time_idx = 1 - data_idx
+  var data_lp = __import_partition(disjoint, data, ts, lp[data_idx])
+  var time_lp = __import_partition(disjoint, time, ts, lp[time_idx])
 
-terra Times:destroy()
-  for i = 0, self.rows_at_t.size do
-    self.rows_at_t:get(i).rows:destroy()
+  var vacc = region(ts, acc)
+  var vacc_lp = partition(equal, vacc, ts)
+
+  __demand(__spmd)
+  for t in ts do
+    accumulate(data_lp[t], vacc_lp[t])
   end
-end
 
-terra Times:row_partition()
-  var result = [&&legms.column_row_number_t](
-    stdlib.calloc(self.rows_at_t.size + 1, sizeof([&legms.column_row_number_t])))
-  for i = 0, self.rows_at_t.size do
-    var rt = self.rows_at_t:get(i)
-    var rs = [&legms.column_row_number_t](
-      stdlib.calloc(rt.rows.size + 1, sizeof(legms.column_row_number_t)))
-    rs[0] = rt.rows.size
-    for j = 0, rt.rows.size do
-      rs[j + 1] = rt.rows:get(j)
-    end
-    result[i] = rs
-  end
-  return result
-end
-
-task accumulate(is: ispace(int3d),
-                vis: region(is, complexf),
-                acc: region(is, complexf))
-where reads(vis), reduces +(acc) do
-  for i in vis.ispace do
-    acc[i].real += vis[i].real
-    acc[i].imag += vis[i].imag
-  end
-end
-
-fspace time_fs {
-  time: double,
-  rownr: legms.column_row_number_t
-}
-
-fspace data_fs {
-  vis: complexf,
-  rownr: legms.column_row_number_t
-}
-
-local rsz = sizeof(rawstring)
-
-task main()
-  var val_fid = legms.column_value_fid()
-  var rn_fid = legms.column_row_number_fid()
-
-  -- main table
-  var colnames = [&rawstring](stdlib.calloc(3, rsz)) -- FIXME: want sizeof(rawstring)
-  colnames[0], colnames[1] = "DATA", "TIME"
-  var ms_main =
-    legms.table_from_ms(__context(), __runtime(), "FIXME", colnames)
-  -- initialize main table blockwise
-  legms.table_block_read_task("FIXME", ms_main, colnames, 10000)
-
-  var time_col = legms.table_column(ms_main, "TIME")
-  var time_is = __import_ispace(int1d, legms.column_index_space(time_col))
-  var time_lr =
-    __import_region(time_is, time_fs, legms.column_logical_region(time_col),
-                    array(val_fid, rn_fid))
-  var times: Times
-  times:init()
-  for i in time_is do
-    times:add_row(time_lr[i].time, time_lr[i].rownr)
-  end
-  -- leaking times.row_partition() result
-  var time_p = legms.table_row_partition(ms_main, times:row_partition(), 0, 1)
-  var time_cs = ispace(int1d, times.rows_at_t.size)
-  times:destroy()
-
-  var data_col = legms.table_column(ms_main, "DATA")
-  var data_is = __import_ispace(int3d, legms.column_index_space(data_col))
-  var data_lr =
-    __import_region(data_is, data_fs, legms.column_logical_region(data_col),
-                    array(val_fid, rn_fid))
-
-  var data_time_p = legms.column_projected_column_partition(data_col, time_p)
-  var data_lp = __import_partition(disjoint, data_lr, time_cs, __raw(data_time_p))
-  var acc = region(data_time_p[data_time_p.colors[0]].ispace, complexf)
-  fill(acc, complexf {0, 0})
   __demand(__parallel)
-  for t in data_time_p do
-    accumulate(data_lp[t].DATA, acc)
+  for t in ts do
+    normalize(vacc_lp[t])
+  end
+  -- __demand(__vectorize)
+  -- for v in vacc do
+  --   v.sum_re = v.sum_re / v.num
+  --   v.sum_im = v.sum_im / v.num
+  -- end
+
+  __forbid(__parallel)
+  for t in ts do
+    var v = vacc[t]
+    c.printf("%u: %13.3f %g %g\n",
+             t, time[time_lp[t].ispace.bounds.lo], v.sum_re, v.sum_im)
   end
 end
 
-regentlib.start(main)
+task attach_and_avg(
+    main_table: legms.table_t,
+    data: region(ispace(int3d), complex32),
+    time: region(ispace(int1d), double))
+where
+  reads(data, time),
+  writes(data, time)
+do
+  var data_h5_path: rawstring
+  legms.table_column_value_path(
+    __context(), __runtime(), &main_table, "DATA", &data_h5_path)
+  attach(hdf5, data, h5_path, regentlib.file_read_only, array(data_h5_path))
+  acquire(data)
+
+  var time_h5_path: rawstring
+  legms.table_column_value_path(
+    __context(), __runtime(), &main_table, "TIME", &time_h5_path)
+  attach(hdf5, time, h5_path, regentlib.file_read_only, array(time_h5_path))
+  acquire(time)
+
+  vavg(main_table, data, time)
+
+  release(time)
+  detach(hdf5, time)
+  release(data)
+  detach(hdf5, data)
+end
+
+__forbid(__inner)
+task main()
+  legms.register_tasks(__runtime())
+
+  var main_table =
+    legms.table_from_h5(
+      __context(), __runtime(), h5_path, main_tbl_path, 2, array("DATA", "TIME"))
+
+  var data_column = legms.table_column(&main_table, "DATA")
+  var data_is = __import_ispace(int3d, legms.column_index_space(data_column))
+  var data =
+    __import_region(data_is, complex32, legms.column_values_region(data_column),
+                    array(legms.column_value_fid()))
+
+  var time_column = legms.table_column(&main_table, "TIME")
+  var time_is = __import_ispace(int1d, legms.column_index_space(time_column))
+  var time =
+    __import_region(time_is, double, legms.column_values_region(time_column),
+                    array(legms.column_value_fid()))
+
+  attach_and_avg(main_table, data, time)
+
+end
+
+if os.getenv("SAVEOBJ") == "1" then
+  local lib_dir = os.getenv("LIBDIR") or "../legion_build/lib64"
+  local link_flags = terralib.newlist(
+    {"-L"..lib_dir,
+     "-L../legms",
+     "-llegms",
+     "-Wl,-rpath="..lib_dir,
+     "-Wl,-rpath=../legms"})
+  regentlib.saveobj(main, "vavg", "executable", legms.preregister_all, link_flags)
+else
+  legms.preregister_all()
+  regentlib.start(main)
+end
