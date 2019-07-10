@@ -6,6 +6,7 @@ using namespace legms;
 using namespace Legion;
 
 TaskID TableReadTask::TASK_ID = 0;
+const char* TableReadTask::TASK_NAME = "TableReadTask";
 
 void
 TableReadTask::register_task(Runtime* runtime) {

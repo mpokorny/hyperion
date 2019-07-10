@@ -481,7 +481,7 @@ class IndexColumnTask {
 public:
 
   static Legion::TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "index_column_task";
+  static const char* TASK_NAME;
   static constexpr Legion::FieldID value_fid = Column::value_fid;
   static constexpr Legion::FieldID indices_fid = Column::value_fid + 10;
 
@@ -513,7 +513,7 @@ class ReindexColumnTask {
 public:
 
   static Legion::TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "reindex_column_task";
+  static const char* TASK_NAME;
 
   ReindexColumnTask(
     const std::shared_ptr<Column>& col,
@@ -565,7 +565,7 @@ class ReindexedTableTask {
 public:
 
   static Legion::TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "reindexed_table_task";
+  static const char* TASK_NAME;
 
   ReindexedTableTask(
     const std::string& name,

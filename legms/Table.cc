@@ -169,6 +169,7 @@ TableGenArgs::to_table_t() const {
 }
 
 TaskID ReindexedTableTask::TASK_ID;
+const char* ReindexedTableTask::TASK_NAME = "ReindexedTableTask";
 
 ReindexedTableTask::ReindexedTableTask(
   const std::string& name,
@@ -299,7 +300,7 @@ public:
   register_task(Runtime* runtime, int tid0) {
     TASK_ID = tid0 + DT::id;
     std::string tname =
-      std::string("index_accumulate_task<") + DT::s + std::string(">");
+      std::string("IndexAccumulateTask<") + DT::s + std::string(">");
     strncpy(TASK_NAME, tname.c_str(), sizeof(TASK_NAME));
     TASK_NAME[sizeof(TASK_NAME) - 1] = '\0';
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
@@ -368,6 +369,7 @@ public:
 };
 
 TaskID IndexColumnTask::TASK_ID;
+const char* IndexColumnTask::TASK_NAME = "IndexColumnTask";
 
 IndexColumnTask::IndexColumnTask(const shared_ptr<Column>& column, int axis) {
 
@@ -494,7 +496,7 @@ class ComputeRectanglesTask {
 public:
 
   static TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "compute_rectangles_task";
+  static const char* TASK_NAME;
 
   ComputeRectanglesTask(
     bool allow_rows,
@@ -757,7 +759,7 @@ class ComputeRectanglesTask {
 public:
 
   static TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "compute_rectangles_task";
+  static const char* TASK_NAME;
 
   ComputeRectanglesTask(
     bool allow_rows,
@@ -1002,12 +1004,13 @@ private:
 #endif
 
 TaskID ComputeRectanglesTask::TASK_ID;
+const char* ComputeRectanglesTask::TASK_NAME = "ComputeRectanglesTask";
 
 class ReindexColumnCopyTask {
 public:
 
   static TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "reindex_column_copy_task";
+  static const char* TASK_NAME;
 
   ReindexColumnCopyTask(
     LogicalRegion column,
@@ -1174,8 +1177,10 @@ private:
 };
 
 TaskID ReindexColumnCopyTask::TASK_ID;
+const char* ReindexColumnCopyTask::TASK_NAME = "ReindexColumnCopyTask";
 
 TaskID ReindexColumnTask::TASK_ID;
+const char* ReindexColumnTask::TASK_NAME = "ReindexColumnTask";
 
 size_t
 ReindexColumnTask::TaskArgs::serialized_size() const {
@@ -1687,7 +1692,7 @@ class ComputeColorsTask {
 public:
 
   static TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "ComputeColorsTask";
+  static const char* TASK_NAME;
   static constexpr const FieldID color_fid = 0;
   static constexpr const FieldID color_flag_fid = 1;
   static constexpr const coord_t COLOR_NOT_SET = 0;
@@ -1849,12 +1854,13 @@ private:
 };
 
 TaskID ComputeColorsTask::TASK_ID;
+const char* ComputeColorsTask::TASK_NAME = "ComputeColorsTask";
 
 class ComputePartitionTask {
 public:
 
   static TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "ComputePartitionTask";
+  static const char* TASK_NAME;
 
   ComputePartitionTask(
     const std::shared_ptr<Column>& col,
@@ -1975,6 +1981,7 @@ private:
 };
 
 TaskID ComputePartitionTask::TASK_ID;
+const char* ComputePartitionTask::TASK_NAME = "ComputePartitionTask";
 
 std::unordered_map<std::string, Future>
 Table::ipartition_by_value(

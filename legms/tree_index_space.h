@@ -52,7 +52,7 @@ class TreeIndexSpaceTask
   : public Legion::IndexTaskLauncher {
 public:
 
-  constexpr static const char * const TASK_NAME = "tree_space";
+  constexpr static const char * const TASK_NAME = "TreeIndexSpaceTask";
   static Legion::TaskID TASK_ID;
 
   TreeIndexSpaceTask(
@@ -184,7 +184,7 @@ class TreeIndexSpaceTask<1>
   : public Legion::IndexTaskLauncher {
 public:
 
-  constexpr static const char * const TASK_NAME = "tree_space";
+  constexpr static const char * const TASK_NAME = "TreeIndexSpaceTask";
   static Legion::TaskID TASK_ID;
 
   TreeIndexSpaceTask(

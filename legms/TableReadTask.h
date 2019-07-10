@@ -33,7 +33,7 @@ class TableReadTask {
 public:
 
   static Legion::TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "table_read_task";
+  static const char* TASK_NAME;
 
   /*
    * TableReadTask constructor
