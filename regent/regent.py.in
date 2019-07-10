@@ -69,10 +69,12 @@ else:
     legion_dir = "@LEGION_DIR@"
 if 'LEGMS_DIR' in os.environ:
     legms_dir = os.path.realpath(os.environ['LEGMS_DIR'])
-    legms_include_dir = os.path.join(legms_dir, 'include')
+    legms_include_dirs = [os.path.join(legms_dir, 'include')]
     legms_binary_dir = os.path.join(legms_dir, 'lib')
 else:
-    legms_include_dir = os.path.realpath('@LEGMS_SOURCE_DIR@')
+    legms_include_dirs = \
+        [os.path.realpath('@LEGMS_SOURCE_DIR@'),
+         os.path.realpath('@LEGMS_BINARY_DIR@')]
     legms_binary_dir = os.path.realpath('@LEGMS_BINARY_DIR@')
 
 # Find CUDA.
@@ -90,8 +92,8 @@ include_path = (
     (os.environ['INCLUDE_PATH'].split(';')
      if 'INCLUDE_PATH' in os.environ else []) +
     [os.path.join(legion_dir, 'include'),
-     os.path.join(legion_dir, 'include', 'regent'),
-     legms_include_dir])
+     os.path.join(legion_dir, 'include', 'regent')] +
+    legms_include_dirs)
 if cuda_include_dir is not None:
     include_path.append(cuda_include_dir)
 

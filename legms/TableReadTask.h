@@ -9,7 +9,7 @@
 
 #include "legms.h"
 
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
 
 #include "Table.h"
 #include "utility.h"
@@ -289,7 +289,7 @@ private:
 
 } // end namespace legms
 
-#endif // USE_CASACORE
+#endif // LEGMS_USE_CASACORE
 #endif // LEGMS_TABLE_READ_TASK_H_
 
 // Local Variables:

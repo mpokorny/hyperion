@@ -682,7 +682,7 @@ read_dt_value(hid_t dt_id) {
   // enumeration datatypes are converted by libhdf5 based on symbol names, which
   // ensures interoperability for legms HDF5 files written with one enumeration
   // definition and read with a different enumeration definition (for example,
-  // in two legms codes built with and without USE_CASACORE)
+  // in two legms codes built with and without LEGMS_USE_CASACORE)
   herr_t err = H5Aread(dt_id, H5T_NATIVE_INT, &dt);
   assert(err >= 0);
   return dt;

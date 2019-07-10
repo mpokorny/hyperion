@@ -34,7 +34,7 @@ struct legms::Axes<Table0Axes> {
   static const constexpr char* uid = "Table0Axes";
   static const std::vector<std::string> names;
   static const unsigned num_axes = 4;
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   static const hid_t h5_datatype;
 #endif
 };

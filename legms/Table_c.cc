@@ -1,7 +1,7 @@
 #include "c_util.h"
 #include "Table_c.h"
 #include "Table.h"
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
 # include "legms_hdf5.h"
 #endif
 
@@ -102,7 +102,7 @@ table_partition_by_value(
     });
 }
 
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
 table_t
 table_from_ms(
   legion_context_t context,
@@ -124,9 +124,9 @@ table_from_ms(
       cs)
     ->generator_args().to_table_t();
 }
-#endif // USE_CASACORE
+#endif // LEGMS_USE_CASACORE
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
 static char**
 struset2strv(const std::unordered_set<std::string>& us) {
   char** result = (char**)std::calloc(us.size() + 1, sizeof(char*));

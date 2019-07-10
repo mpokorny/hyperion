@@ -10,7 +10,7 @@
 #include "Table.h"
 #include "TableBuilder.h"
 
-#if USE_HDF5
+#ifdef LEGMS_USE_HDF5
 # include <hdf5.h>
 #endif
 
@@ -2159,7 +2159,7 @@ Table::register_tasks(Runtime* runtime) {
   ReindexColumnCopyTask::register_task(runtime);
 }
 
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
 
 std::unique_ptr<Table>
 Table::from_ms(
@@ -2190,7 +2190,7 @@ Table::from_ms(
 #undef FROM_MS_TABLE
 }
 
-#endif // USE_CASACORE
+#endif // LEGMS_USE_CASACORE
 
 // Local Variables:
 // mode: c++

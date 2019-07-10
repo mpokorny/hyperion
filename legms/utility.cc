@@ -794,7 +794,7 @@ legms::create_partition_on_axes(
 void
 legms::preregister_all() {
   OpsManager::preregister_ops();
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   H5DatatypeManager::preregister_datatypes();
 #endif
 
@@ -807,7 +807,7 @@ legms::preregister_all() {
 
 void
 legms::register_tasks(Runtime* runtime) {
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   TableReadTask::register_task(runtime);
 #endif
   TreeIndexSpace::register_tasks(runtime);
@@ -818,7 +818,7 @@ legms::register_tasks(Runtime* runtime) {
 std::unordered_map<std::string, legms::AxesRegistrar::A>
 legms::AxesRegistrar::axes_;
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
 void
 legms::AxesRegistrar::register_axes(
   const std::string uid,
@@ -827,7 +827,7 @@ legms::AxesRegistrar::register_axes(
   A a{uid, names, hid};
   axes_[uid] = a;
 }
-#else // !USE_HDF5
+#else // !LEGMS_USE_HDF5
 void
 legms::AxesRegistrar::register_axes(
   const std::string uid,
@@ -842,7 +842,7 @@ legms::AxesRegistrar::axes(const std::string& uid) {
   return (axes_.count(uid) > 0) ? axes_[uid] : std::optional<A>();
 }
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
 std::optional<std::string>
 legms::AxesRegistrar::match_axes_datatype(hid_t hid) {
   auto ad =
@@ -855,7 +855,7 @@ legms::AxesRegistrar::match_axes_datatype(hid_t hid) {
   return
     (ad != axes_.end()) ? std::get<0>(*ad) : std::optional<std::string>();
 }
-#endif // USE_HDF5
+#endif // LEGMS_USE_HDF5
 
 bool
 legms::AxesRegistrar::in_range(
@@ -874,7 +874,7 @@ legms::AxesRegistrar::in_range(
       });
 }
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
 hid_t
 legms::H5DatatypeManager::datatypes_[DATATYPE_H5T + 1];
 
@@ -986,7 +986,7 @@ legms::H5DatatypeManager::create(
   }
   return result;
 }
-#endif // USE_HDF5
+#endif // LEGMS_USE_HDF5
 
 // Local Variables:
 // mode: c++

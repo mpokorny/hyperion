@@ -47,7 +47,7 @@ table_partition_by_value(
   char** col_names,
   legion_logical_partition_t* col_partitions);
 
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
 table_t
 table_from_ms(
   legion_context_t context,
@@ -57,7 +57,7 @@ table_from_ms(
   const char** column_selections);
 #endif
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
 // returns NULL-terminated array of strings -- caller must free everything
 char **
 tables_in_h5(const char* path);

@@ -18,12 +18,12 @@
 
 #include "utility_c.h"
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
 # include <hdf5.h>
 # include <experimental/filesystem>
 #endif
 
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
 # include <casacore/casa/aipstype.h>
 # include <casacore/casa/Arrays/IPosition.h>
 # include <casacore/casa/BasicSL/String.h>
@@ -75,7 +75,7 @@ struct Axes {
   static const char* uid;
   static const std::vector<std::string> names;
   static const unsigned num_axes;
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   static const hid_t h5_datatype;
 #endif
 };
@@ -638,7 +638,7 @@ public:
   };
 };
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
 class H5DatatypeManager {
 public:
 
@@ -698,12 +698,12 @@ public:
   struct A {
     std::string uid;
     std::vector<std::string> names;
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
     hid_t h5_datatype;
 #endif
   };
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   static void
   register_axes(
     const std::string uid,
@@ -715,7 +715,7 @@ public:
   register_axes() {
     register_axes(Axes<D>::uid, Axes<D>::names, Axes<D>::h5_datatype);
   }
-#else // !USE_HDF5
+#else // !LEGMS_USE_HDF5
   static void
   register_axes(
     const std::string uid,
@@ -731,10 +731,10 @@ public:
   static std::optional<A>
   axes(const std::string& uid);
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   static std::optional<std::string>
   match_axes_datatype(hid_t hid);
-#endif // USE_HDF5
+#endif // LEGMS_USE_HDF5
 
   static bool
   in_range(const std::string& uid, const std::vector<int> xs);
@@ -758,7 +758,7 @@ struct DataType<LEGMS_TYPE_BOOL> {
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_BOOL_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_BOOL_REDOP;
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   typedef casacore::Bool CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpBool;
@@ -769,7 +769,7 @@ struct DataType<LEGMS_TYPE_BOOL> {
     v = c;
   }
 #endif
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::BOOL_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -785,7 +785,7 @@ struct DataType<LEGMS_TYPE_CHAR> {
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_CHAR_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_CHAR_REDOP;
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   typedef casacore::Char CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpChar;
@@ -796,7 +796,7 @@ struct DataType<LEGMS_TYPE_CHAR> {
     v = c;
   }
 #endif
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::CHAR_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -812,7 +812,7 @@ struct DataType<LEGMS_TYPE_UCHAR> {
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_UCHAR_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_UCHAR_REDOP;
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   typedef casacore::uChar CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpUChar;
@@ -823,7 +823,7 @@ struct DataType<LEGMS_TYPE_UCHAR> {
     v = c;
   }
 #endif
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::UCHAR_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -839,7 +839,7 @@ struct DataType<LEGMS_TYPE_SHORT> {
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_SHORT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_SHORT_REDOP;
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   typedef casacore::Short CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpShort;
@@ -850,7 +850,7 @@ struct DataType<LEGMS_TYPE_SHORT> {
     v = c;
   }
 #endif
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::SHORT_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -866,7 +866,7 @@ struct DataType<LEGMS_TYPE_USHORT> {
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_USHORT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_USHORT_REDOP;
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   typedef casacore::uShort CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpUShort;
@@ -877,7 +877,7 @@ struct DataType<LEGMS_TYPE_USHORT> {
     v = c;
   }
 #endif
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::USHORT_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -893,7 +893,7 @@ struct DataType<LEGMS_TYPE_INT> {
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_INT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_INT_REDOP;
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   typedef casacore::Int CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpInt;
@@ -904,7 +904,7 @@ struct DataType<LEGMS_TYPE_INT> {
     v = c;
   }
 #endif
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::INT_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -920,7 +920,7 @@ struct DataType<LEGMS_TYPE_UINT> {
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_UINT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_UINT_REDOP;
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   typedef casacore::uInt CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpUInt;
@@ -931,7 +931,7 @@ struct DataType<LEGMS_TYPE_UINT> {
     v = c;
   }
 #endif
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::UINT_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -947,7 +947,7 @@ struct DataType<LEGMS_TYPE_FLOAT> {
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_FLOAT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_FLOAT_REDOP;
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   typedef casacore::Float CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpFloat;
@@ -958,7 +958,7 @@ struct DataType<LEGMS_TYPE_FLOAT> {
     v = c;
   }
 #endif
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::FLOAT_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -974,7 +974,7 @@ struct DataType<LEGMS_TYPE_DOUBLE> {
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_DOUBLE_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_DOUBLE_REDOP;
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   typedef casacore::Double CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpDouble;
@@ -985,7 +985,7 @@ struct DataType<LEGMS_TYPE_DOUBLE> {
     v = c;
   }
 #endif
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::DOUBLE_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -1001,7 +1001,7 @@ struct DataType<LEGMS_TYPE_COMPLEX> {
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_COMPLEX_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_COMPLEX_REDOP;
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   typedef casacore::Complex CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpComplex;
@@ -1012,7 +1012,7 @@ struct DataType<LEGMS_TYPE_COMPLEX> {
     v = c;
   }
 #endif
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::COMPLEX_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -1028,7 +1028,7 @@ struct DataType<LEGMS_TYPE_DCOMPLEX> {
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_DCOMPLEX_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_DCOMPLEX_REDOP;
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   typedef casacore::DComplex CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpDComplex;
@@ -1039,7 +1039,7 @@ struct DataType<LEGMS_TYPE_DCOMPLEX> {
     v = c;
   }
 #endif
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::DCOMPLEX_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -1055,7 +1055,7 @@ struct DataType<LEGMS_TYPE_STRING> {
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_STRING_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_STRING_REDOP;
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   typedef casacore::String CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpString;
@@ -1067,7 +1067,7 @@ struct DataType<LEGMS_TYPE_STRING> {
     v.val[sizeof(v.val) - 1] = '\0';
   }
 #endif
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::STRING_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -1075,7 +1075,7 @@ struct DataType<LEGMS_TYPE_STRING> {
   }
 };
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
 template <TypeTag DT>
 hid_t
 H5DatatypeManager::datatype() {

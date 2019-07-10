@@ -21,9 +21,9 @@
 #include "ColumnPartition.h"
 #include "MSTable.h"
 
-#if USE_HDF5
+#ifdef LEGMS_USE_HDF5
 # include <hdf5.h>
-#endif // USE_HDF5
+#endif // LEGMS_USE_HDF5
 
 #include "c_util.h"
 
@@ -403,14 +403,14 @@ public:
     return ipartition_by_value(context, runtime, axs.names, axes);
   }
 
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
   static std::unique_ptr<Table>
   from_ms(
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::experimental::filesystem::path& path,
     const std::unordered_set<std::string>& column_selections);
-#endif // USE_CASACORE
+#endif // LEGMS_USE_CASACORE
 
   Legion::Context
   context() const { return m_context; }

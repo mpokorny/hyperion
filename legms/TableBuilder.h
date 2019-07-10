@@ -1,7 +1,7 @@
 #ifndef LEGMS_TABLE_BUILDER_H_
 #define LEGMS_TABLE_BUILDER_H_
 
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
 
 #include <algorithm>
 #include <cassert>
@@ -282,7 +282,7 @@ public:
   }
 };
 
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
 struct TableBuilder {
 
   template <MSTables T>
@@ -320,11 +320,11 @@ from_ms(
       builder.column_generators(),
       builder.keywords());
 }
-#endif // USE_CASACORE
+#endif // LEGMS_USE_CASACORE
 
 } // end namespace legms
 
-#endif // USE_CASACORE
+#endif // LEGMS_USE_CASACORE
 
 #endif // LEGMS_TABLE_BUILDER_H_
 

@@ -1,7 +1,7 @@
 #ifndef LEGMS_COLUMN_BUILDER_H_
 #define LEGMS_COLUMN_BUILDER_H_
 
-#ifdef USE_CASACORE
+#ifdef LEGMS_USE_CASACORE
 
 #include <any>
 #include <cassert>
@@ -204,7 +204,7 @@ private:
 
 } // end namespace legms
 
-#endif // USE_CASACORE
+#endif // LEGMS_USE_CASACORE
 
 #endif // LEGMS_COLUMN_BUILDER_H_
 

@@ -10,9 +10,9 @@
 
 #include "MSTable_c.h"
 
-#if USE_HDF5
+#ifdef LEGMS_USE_HDF5
 # include <hdf5.h>
-#endif // USE_HDF5
+#endif // LEGMS_USE_HDF5
 
 namespace legms {
 
@@ -517,7 +517,7 @@ MS_AXIS_NAME(WEATHER, INTERVAL);
 
 #undef MS_AXIS_NAME
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
 #define MSAXES(T)                                                       \
   template <>                                                           \
   struct Axes<typename MSTable<MS_##T>::Axes> {                         \

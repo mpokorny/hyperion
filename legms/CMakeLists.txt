@@ -126,12 +126,16 @@ if(USE_CASACORE)
     TableReadTask.h
     TableReadTask_c.cc
     TableReadTask_c.h)
+  set(LEGMS_USE_CASACORE ON)
 endif()
 if(USE_HDF5)
   list(APPEND LEGMS_SRC
     legms_hdf5.h
     legms_hdf5.cc)
+  set(LEGMS_USE_HDF5 ON)
 endif()
+
+configure_file(legms_config.h.in legms_config.h)
 
 set(LEGMS_INCLUDE LEGMS_SRC)
 list(FILTER LEGMS_INCLUDE INCLUDE REGEX ".*\.h")
@@ -146,21 +150,6 @@ list(APPEND
   legms_COMPILE_DEFINITIONS "LEGION_MAX_DIM=${MAX_DIM}")
 list(APPEND
   legms_COMPILE_DEFINITIONS "REALM_MAX_DIM=${MAX_DIM}")
-list(APPEND
-  legms_COMPILE_DEFINITIONS "LEGMS_MAX_STRING_SIZE=${MAX_STRING_SIZE}")
-list(APPEND
-  legms_COMPILE_DEFINITIONS "LEGMS_MAX_NUM_KEYWORDS=${MAX_NUM_KEYWORDS}")
-list(APPEND
-  legms_COMPILE_DEFINITIONS "LEGMS_MAX_NUM_TABLE_COLUMNS=${MAX_NUM_TABLE_COLUMNS}")
-# TODO: find a better way of passing the legms_COMPILE_DEFINITIONS to all
-# targets, both in this directory and all sub-directories...evil runtime errors
-# occur when the wrong or inconsistent LEGMS_MAX_DIM values are used
-if (USE_CASACORE)
-  list(APPEND legms_COMPILE_DEFINITIONS "USE_CASACORE")
-endif()
-if (USE_HDF5)
-  list(APPEND legms_COMPILE_DEFINITIONS "USE_HDF5")
-endif()
 
 set_target_properties(legms PROPERTIES
   CXX_STANDARD 17
@@ -168,7 +157,8 @@ set_target_properties(legms PROPERTIES
 add_dependencies(legms legion_build)
 target_include_directories(legms
   PUBLIC ${Legion_INSTALL_DIR}/include
-  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+  PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_link_directories(legms PUBLIC ${Legion_INSTALL_DIR}/lib64)
 if (USE_CASACORE)
   target_include_directories(legms PUBLIC ${casacore_INCLUDE_DIR})

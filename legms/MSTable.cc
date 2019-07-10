@@ -381,7 +381,7 @@ h5_axes_dt()  {
   return result;
 }
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
 # define MSAXES(T)                                                      \
   const std::vector<std::string>                                        \
   legms::Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names(); \

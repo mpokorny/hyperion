@@ -28,7 +28,7 @@ struct legms::Axes<Table0Axes> {
   static const constexpr char* uid = "Table0Axes";
   static const std::vector<std::string> names;
   static const unsigned num_axes = 3;
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
   static const hid_t h5_datatype;
 #endif
 };
@@ -36,7 +36,7 @@ struct legms::Axes<Table0Axes> {
 const std::vector<std::string>
 legms::Axes<Table0Axes>::names{"ROW", "X", "Y"};
 
-#ifdef USE_HDF5
+#ifdef LEGMS_USE_HDF5
 hid_t
 h5_dt() {
   hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
