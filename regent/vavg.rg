@@ -130,6 +130,16 @@ do
   detach(hdf5, data)
 end
 
+local function import_column(column, isdim, etype)
+  return rexpr
+      __import_region(
+        __import_ispace(isdim, legms.column_index_space(column)),
+        etype,
+        legms.column_values_region(column),
+        array(legms.column_value_fid()))
+  end
+end
+
 __forbid(__inner)
 task main()
   legms.register_tasks(__runtime())
@@ -139,16 +149,10 @@ task main()
       __context(), __runtime(), h5_path, main_tbl_path, 2, array("DATA", "TIME"))
 
   var data_column = legms.table_column(&main_table, "DATA")
-  var data_is = __import_ispace(int3d, legms.column_index_space(data_column))
-  var data =
-    __import_region(data_is, complex32, legms.column_values_region(data_column),
-                    array(legms.column_value_fid()))
+  var data = [import_column(data_column, int3d, complex32)]
 
   var time_column = legms.table_column(&main_table, "TIME")
-  var time_is = __import_ispace(int1d, legms.column_index_space(time_column))
-  var time =
-    __import_region(time_is, double, legms.column_values_region(time_column),
-                    array(legms.column_value_fid()))
+  var time = [import_column(time_column, int1d, double)]
 
   attach_and_avg(main_table, data, time)
 
