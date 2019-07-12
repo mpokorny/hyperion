@@ -15,12 +15,17 @@ local legms = terralib.includecstring([[
 local h5_path = "t0.h5"
 local main_tbl_path = "/MAIN"
 
+-- accumulator for complex values
+--
 fspace cplx_acc {
-  sum_re: float,
-  sum_im: float,
+  sum: complex32,
   num: uint
 }
 
+-- accumulate "visibilities" into "vis_acc"
+--
+-- all visibilities are accumulated into a single value...size of vis_acc should
+-- be one
 task accumulate(
     visibilities: region(ispace(int3d), complex32),
     vis_acc: region(ispace(int1d), cplx_acc))
@@ -28,15 +33,19 @@ where
   reads(visibilities, vis_acc),
   writes(vis_acc)
 do
+  regentlib.assert(
+    vis_acc.ispace.volume == 1,
+    "accumulator sub-space size != 1")
   var t = vis_acc.bounds.lo
   var a = &vis_acc[t]
-  for v in visibilities do
-    a.sum_re = a.sum_re + v.real
-    a.sum_im = a.sum_im + v.imag
+  for v in visibilities.ispace do
+    a.sum = a.sum + visibilities[v]
     a.num = a.num + 1
   end
 end
 
+-- normalize values in accumulator
+--
 task normalize(
     vis_acc: region(ispace(int1d), cplx_acc))
 where
@@ -45,10 +54,25 @@ where
 do
   var t = vis_acc.bounds.lo
   var a = &vis_acc[t]
-  a.sum_re = a.sum_re / a.num
-  a.sum_im = a.sum_im / a.num
+  a.sum = a.sum / a.num
 end
 
+-- task show(
+--     i: int1d,
+--     vis_acc: region(ispace(int1d), cplx_acc),
+--     times: region(ispace(int1d), double))
+-- where
+--   reads(vis_acc, times)
+-- do
+--   var t = vis_acc.bounds.lo
+--   var a = &vis_acc[t]
+--   c.printf("%u: %13.3f %g %g\n", i, times[t], a.sum.real, a.sum.imag)
+-- end
+
+-- average visibilities by time
+--
+-- all input regions have been created/attached/acquired
+--
 task avg_by_time(
     main_table: legms.table_t,
     visibilities: region(ispace(int3d), complex32),
@@ -56,6 +80,7 @@ task avg_by_time(
 where
   reads(visibilities, times)
 do
+  -- partition table by TIME values
   var paxes = array(legms.MAIN_TIME)
   var cn: rawstring[2]
   var lp: c.legion_logical_partition_t[2]
@@ -78,33 +103,41 @@ do
   var times_partition =
     __import_partition(disjoint, times, ts, lp[time_idx])
 
+  -- create the accumulator region
   var vis_acc = region(ts, cplx_acc)
-  fill(vis_acc, cplx_acc{0.0, 0.0, 0})
+  fill(vis_acc, cplx_acc{0.0, 0})
   var vis_acc_partition = partition(equal, vis_acc, ts)
 
+  -- accumulate visibilities
   __demand(__spmd)
   for t in ts do
     accumulate(visibilities_partition[t], vis_acc_partition[t])
   end
 
+  -- normalize accumulated values
   __demand(__parallel)
   for t in ts do
     normalize(vis_acc_partition[t])
   end
   -- __demand(__vectorize)
   -- for v in vis_acc do
-  --   v.sum_re = v.sum_re / v.num
-  --   v.sum_im = v.sum_im / v.num
+  --   v.sum = v.sum / v.num
   -- end
 
+  -- show results
   __forbid(__parallel)
   for t in ts do
+    -- show(t, vis_acc_partition[t], times_partition[t])
     var v = vis_acc[t]
     var ti = times_partition[t].ispace.bounds.lo
-    c.printf("%u: %13.3f %g %g\n", t, times[ti], v.sum_re, v.sum_im)
+    c.printf("%u: %13.3f %g %g\n", t, times[ti], v.sum.real, v.sum.imag)
   end
 end
 
+-- attach table columns from hdf5 file, and call avg_by_time
+--
+-- column regions have been imported to Regent
+--
 task attach_and_avg(
     main_table: legms.table_t,
     visibilities: region(ispace(int3d), complex32),
@@ -143,6 +176,10 @@ local function import_column(column, isdim, etype)
   end
 end
 
+-- main task
+--
+-- doesn't compile without "--forbid(__inner)", but I'm not sure why
+--
 __forbid(__inner)
 task main()
   legms.register_tasks(__runtime())
