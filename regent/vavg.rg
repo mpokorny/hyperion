@@ -15,46 +15,46 @@ local legms = terralib.includecstring([[
 local h5_path = "t0.h5"
 local main_tbl_path = "/MAIN"
 
-fspace acc {
+fspace cplx_acc {
   sum_re: float,
   sum_im: float,
   num: uint
 }
 
 task accumulate(
-    data: region(ispace(int3d), complex32),
-    vacc: region(ispace(int1d), acc))
+    visibilities: region(ispace(int3d), complex32),
+    vis_acc: region(ispace(int1d), cplx_acc))
 where
-  reads(data, vacc),
-  writes(vacc)
+  reads(visibilities, vis_acc),
+  writes(vis_acc)
 do
-  var t = vacc.ispace.bounds.lo
-  var v = &vacc[t]
-  for d in data do
-    v.sum_re = v.sum_re + d.real
-    v.sum_im = v.sum_im + d.imag
-    v.num = v.num + 1
+  var t = vis_acc.bounds.lo
+  var a = &vis_acc[t]
+  for v in visibilities do
+    a.sum_re = a.sum_re + v.real
+    a.sum_im = a.sum_im + v.imag
+    a.num = a.num + 1
   end
 end
 
 task normalize(
-    vacc: region(ispace(int1d), acc))
+    vis_acc: region(ispace(int1d), cplx_acc))
 where
-  reads(vacc),
-  writes(vacc)
+  reads(vis_acc),
+  writes(vis_acc)
 do
-  var t = vacc.ispace.bounds.lo
-  var v = &vacc[t]
-  v.sum_re = v.sum_re / vacc[t].num
-  v.sum_im = v.sum_im / vacc[t].num
+  var t = vis_acc.bounds.lo
+  var a = &vis_acc[t]
+  a.sum_re = a.sum_re / a.num
+  a.sum_im = a.sum_im / a.num
 end
 
-task vavg(
+task avg_by_time(
     main_table: legms.table_t,
-    data: region(ispace(int3d), complex32),
-    time: region(ispace(int1d), double))
+    visibilities: region(ispace(int3d), complex32),
+    times: region(ispace(int1d), double))
 where
-  reads(data, time)
+  reads(visibilities, times)
 do
   var paxes = array(legms.MAIN_TIME)
   var cn: rawstring[2]
@@ -73,61 +73,64 @@ do
     data_idx = 1
   end
   var time_idx = 1 - data_idx
-  var data_lp = __import_partition(disjoint, data, ts, lp[data_idx])
-  var time_lp = __import_partition(disjoint, time, ts, lp[time_idx])
+  var visibilities_partition =
+    __import_partition(disjoint, visibilities, ts, lp[data_idx])
+  var times_partition =
+    __import_partition(disjoint, times, ts, lp[time_idx])
 
-  var vacc = region(ts, acc)
-  var vacc_lp = partition(equal, vacc, ts)
+  var vis_acc = region(ts, cplx_acc)
+  fill(vis_acc, cplx_acc{0.0, 0.0, 0})
+  var vis_acc_partition = partition(equal, vis_acc, ts)
 
   __demand(__spmd)
   for t in ts do
-    accumulate(data_lp[t], vacc_lp[t])
+    accumulate(visibilities_partition[t], vis_acc_partition[t])
   end
 
   __demand(__parallel)
   for t in ts do
-    normalize(vacc_lp[t])
+    normalize(vis_acc_partition[t])
   end
   -- __demand(__vectorize)
-  -- for v in vacc do
+  -- for v in vis_acc do
   --   v.sum_re = v.sum_re / v.num
   --   v.sum_im = v.sum_im / v.num
   -- end
 
   __forbid(__parallel)
   for t in ts do
-    var v = vacc[t]
-    c.printf("%u: %13.3f %g %g\n",
-             t, time[time_lp[t].ispace.bounds.lo], v.sum_re, v.sum_im)
+    var v = vis_acc[t]
+    var ti = times_partition[t].ispace.bounds.lo
+    c.printf("%u: %13.3f %g %g\n", t, times[ti], v.sum_re, v.sum_im)
   end
 end
 
 task attach_and_avg(
     main_table: legms.table_t,
-    data: region(ispace(int3d), complex32),
-    time: region(ispace(int1d), double))
+    visibilities: region(ispace(int3d), complex32),
+    times: region(ispace(int1d), double))
 where
-  reads(data, time),
-  writes(data, time)
+  reads(visibilities, times),
+  writes(visibilities, times)
 do
   var data_h5_path: rawstring
   legms.table_column_value_path(
     __context(), __runtime(), &main_table, "DATA", &data_h5_path)
-  attach(hdf5, data, h5_path, regentlib.file_read_only, array(data_h5_path))
-  acquire(data)
+  attach(hdf5, visibilities, h5_path, regentlib.file_read_only, array(data_h5_path))
+  acquire(visibilities)
 
   var time_h5_path: rawstring
   legms.table_column_value_path(
     __context(), __runtime(), &main_table, "TIME", &time_h5_path)
-  attach(hdf5, time, h5_path, regentlib.file_read_only, array(time_h5_path))
-  acquire(time)
+  attach(hdf5, times, h5_path, regentlib.file_read_only, array(time_h5_path))
+  acquire(times)
 
-  vavg(main_table, data, time)
+  avg_by_time(main_table, visibilities, times)
 
-  release(time)
-  detach(hdf5, time)
-  release(data)
-  detach(hdf5, data)
+  release(times)
+  detach(hdf5, times)
+  release(visibilities)
+  detach(hdf5, visibilities)
 end
 
 local function import_column(column, isdim, etype)
@@ -146,15 +149,16 @@ task main()
 
   var main_table =
     legms.table_from_h5(
-      __context(), __runtime(), h5_path, main_tbl_path, 2, array("DATA", "TIME"))
+      __context(), __runtime(),
+      h5_path, main_tbl_path, 2, array("DATA", "TIME"))
 
   var data_column = legms.table_column(&main_table, "DATA")
-  var data = [import_column(data_column, int3d, complex32)]
+  var visibilities = [import_column(data_column, int3d, complex32)]
 
   var time_column = legms.table_column(&main_table, "TIME")
-  var time = [import_column(time_column, int1d, double)]
+  var times = [import_column(time_column, int1d, double)]
 
-  attach_and_avg(main_table, data, time)
+  attach_and_avg(main_table, visibilities, times)
 
 end
 
