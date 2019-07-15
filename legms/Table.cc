@@ -1293,6 +1293,12 @@ reindex_column(
   {
     auto fa = runtime->create_field_allocator(ctx, new_rects_fs);
     fa.allocate_field(sizeof(Rect<NEWDIM>), ReindexColumnTask::row_rects_fid);
+
+    LayoutConstraintRegistrar lc(new_rects_fs);
+    lc.add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
+    // TODO: free lc_id sometime...maybe generate field spaces and constraints
+    // once at startup
+    LayoutConstraintID lc_id = runtime->register_layout(lc);
   }
   auto new_rects_lr =
     runtime->create_logical_region(ctx, rows_is, new_rects_fs);
@@ -2050,9 +2056,7 @@ Table::ipartition_by_value(
 
 #define COLORS(DIM)                                                     \
   case (DIM): {                                                         \
-    FieldAllocator fa = runtime->create_field_allocator(context, colors_fs); \
     fa.allocate_field(sizeof(Point<DIM>), ComputeColorsTask::color_fid); \
-    fa.allocate_field(sizeof(coord_t), ComputeColorsTask::color_flag_fid);       \
     colors = runtime->create_logical_region(context, rows, colors_fs);  \
     Point<DIM> none = Point<DIM>::ZEROES();                             \
     runtime->fill_field(                                                \
@@ -2061,22 +2065,32 @@ Table::ipartition_by_value(
       colors,                                                           \
       ComputeColorsTask::color_fid,                                     \
       none);                                                            \
-    runtime->fill_field(                                                \
-      context,                                                          \
-      colors,                                                           \
-      colors,                                                           \
-      ComputeColorsTask::color_flag_fid,                                \
-      ComputeColorsTask::COLOR_NOT_SET);                                \
     break;                                                              \
   }
 
-  switch (ixcols.size()) {
-    LEGMS_FOREACH_N(COLORS);
-  default:
-    assert(false);
-    break;
-  }
+  {
+    FieldAllocator fa = runtime->create_field_allocator(context, colors_fs);
+    fa.allocate_field(sizeof(coord_t), ComputeColorsTask::color_flag_fid);
+    switch (ixcols.size()) {
+      LEGMS_FOREACH_N(COLORS);
+    default:
+      assert(false);
+      break;
+    }
 #undef COLORS
+    runtime->fill_field(
+      context,
+      colors,
+      colors,
+      ComputeColorsTask::color_flag_fid,
+      ComputeColorsTask::COLOR_NOT_SET);
+
+    LayoutConstraintRegistrar lc(colors_fs);
+    lc.add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
+    // TODO: free lc_id sometime...maybe generate field spaces and constraints
+    // once at startup
+    LayoutConstraintID lc_id = runtime->register_layout(lc);
+  }
 
   ComputeColorsTask task(ixcols, colors);
   task.dispatch(context, runtime);
