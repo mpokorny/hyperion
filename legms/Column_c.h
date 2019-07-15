@@ -21,6 +21,12 @@ typedef struct column_t {
   legion_logical_region_t keywords;
 } column_t;
 
+legion_logical_region_t
+column_values_region(const column_t* column);
+
+legion_index_space_t
+column_index_space(const column_t* column);
+
 column_partition_t
 column_partition_on_axes(
   legion_context_t context,

@@ -22,6 +22,18 @@ to_column(
       Legion::CObjectWrapper::unwrap(runtime));
 }
 
+legion_logical_region_t
+column_values_region(const column_t* column) {
+  return Legion::CObjectWrapper::wrap(
+    Legion::CObjectWrapper::unwrap(column->values));
+}
+
+legion_index_space_t
+column_index_space(const column_t* column) {
+  return Legion::CObjectWrapper::wrap(
+    Legion::CObjectWrapper::unwrap(column->values).get_index_space());
+}
+
 column_partition_t
 column_partition_on_axes(
   legion_context_t context,
