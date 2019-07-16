@@ -21,6 +21,8 @@ using namespace Legion;
 #undef HIERARCHICAL_COMPUTE_RECTANGLES
 #undef WORKAROUND
 
+#undef SAVE_LAYOUT_CONSTRAINT_IDS
+
 TableGenArgs::TableGenArgs(const table_t& table)
   : name(table.name)
   , axes_uid(table.axes_uid)
@@ -1296,9 +1298,9 @@ reindex_column(
 
     LayoutConstraintRegistrar lc(new_rects_fs);
     lc.add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
-    // TODO: free lc_id sometime...maybe generate field spaces and constraints
-    // once at startup
-    LayoutConstraintID lc_id = runtime->register_layout(lc);
+    // TODO: free LayoutConstraintID returned from following call...maybe
+    // generate field spaces and constraints once at startup
+    runtime->register_layout(lc);
   }
   auto new_rects_lr =
     runtime->create_logical_region(ctx, rows_is, new_rects_fs);
@@ -1835,7 +1837,31 @@ public:
     // registrar.set_replicable();
     registrar.set_leaf();
     runtime->register_task_variant<base_impl>(registrar);
+
+#ifdef SAVE_LAYOUT_CONSTRAINT_IDS
+#define FS(DIM)                                                       \
+    do {                                                              \
+      field_spaces[DIM] = runtime->create_field_space(context);       \
+      FieldAllocator fa =                                             \
+        runtime->create_field_allocator(context, field_spaces[DIM]);  \
+      fa.allocate_field(sizeof(Point<DIM>), color_fid);               \
+      fa.allocate_field(sizeof(coord_t), color_flag_fid);             \
+      LayoutConstraintRegistrar lc(field_spaces[DIM]);                \
+      lc.add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));  \
+      layout_constraint_ids[DIM] = runtime->register_layout(lc);      \
+      break;                                                          \
+    } while (0);
+    LEGMS_FOREACH_N(FS);
+#undef FS
+#endif // SAVE_LAYOUT_CONSTRAINT_IDS
   }
+#ifdef SAVE_LAYOUT_CONSTRAINT_IDS
+  static const FieldSpace&
+  field_space(unsigned dim) {
+    assert(0 < dim && dim <= LEGION_MAX_DIM);
+    return field_spaces[dim];
+  }
+#endif // SAVE_LAYOUT_CONSTRAINT_IDS
 
 private:
 
@@ -1857,10 +1883,24 @@ private:
       back_inserter(result));
     return result;
   }
+
+#ifdef SAVE_LAYOUT_CONSTRAINT_IDS
+  static std::array<FieldSpace, LEGION_MAX_DIM> field_spaces;
+
+  static std::array<LayoutConstraintID, LEGION_MAX_DIM> layout_constraint_ids;
+#endif // SAVE_LAYOUT_CONSTRAINT_IDS
 };
 
 TaskID ComputeColorsTask::TASK_ID;
 const char* ComputeColorsTask::TASK_NAME = "ComputeColorsTask";
+
+#ifdef SAVE_LAYOUT_CONSTRAINT_IDS
+std::array<FieldSpace, LEGION_MAX_DIM>
+ComputeColorsTask::field_spaces;
+
+std::array<LayoutConstraintID, LEGION_MAX_DIM>
+ComputeColorsTask::layout_constraint_ids;
+#endif // SAVE_LAYOUT_CONSTRAINT_IDS
 
 class ComputePartitionTask {
 public:
@@ -2087,9 +2127,9 @@ Table::ipartition_by_value(
 
     LayoutConstraintRegistrar lc(colors_fs);
     lc.add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
-    // TODO: free lc_id sometime...maybe generate field spaces and constraints
-    // once at startup
-    LayoutConstraintID lc_id = runtime->register_layout(lc);
+    // TODO: free LayoutConstraintID returned from following call...maybe
+    // generate field spaces and constraints once at startup
+    runtime->register_layout(lc);
   }
 
   ComputeColorsTask task(ixcols, colors);
