@@ -1165,7 +1165,7 @@ public:
     Legion::Runtime *runtime);
 
   static void
-  register_task(Legion::Runtime* runtime);
+  preregister_task();
 };
 
 template <int IPDIM, int PRJDIM>

@@ -71,7 +71,7 @@ public:
   }
 
   static void
-  register_task(Legion::Runtime* runtime);
+  preregister_task();
 
   void
   dispatch();

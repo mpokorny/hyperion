@@ -24,19 +24,8 @@ public:
     FID_PART_COLOR,
   };
 
-  template <int DIM>
-  static Legion::TaskID
-  task_id(Legion::Runtime* runtime) {
-    static_assert(DIM <= LEGION_MAX_DIM);
-    return
-      runtime->generate_library_task_ids(
-        "legms::TreeIndexSpaceTask",
-        LEGION_MAX_DIM)
-      + DIM - 1;
-  }
-
   static void
-  register_tasks(Legion::Runtime* runtime);
+  preregister_tasks();
 };
 
 template <int DIM, typename CB>
@@ -167,15 +156,17 @@ public:
   }
 
   static void
-  register_task(Legion::Runtime* runtime, Legion::TaskID tid) {
-    TASK_ID = tid;
+  preregister_task() {
+    TASK_ID = Legion::Runtime::generate_static_task_id();
     std::string task_name = std::string(TASK_NAME) + std::to_string(DIM);
     Legion::TaskVariantRegistrar registrar(TASK_ID, task_name.c_str(), false);
     registrar.add_constraint(
       Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     registrar.set_idempotent();
     //registrar.set_replicable();
-    runtime->register_task_variant<base_impl>(registrar);
+    Legion::Runtime::preregister_task_variant<base_impl>(
+      registrar,
+      task_name.c_str());
   }
 };
 
@@ -291,15 +282,17 @@ public:
   }
 
   static void
-  register_task(Legion::Runtime* runtime, Legion::TaskID tid) {
-    TASK_ID = tid;
+  preregister_task() {
+    TASK_ID = Legion::Runtime::generate_static_task_id();
     std::string task_name = std::string(TASK_NAME) + "1";
     Legion::TaskVariantRegistrar registrar(TASK_ID, task_name.c_str(), false);
     registrar.add_constraint(
       Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     registrar.set_idempotent();
     //registrar.set_replicable();
-    runtime->register_task_variant<base_impl>(registrar);
+    Legion::Runtime::preregister_task_variant<base_impl>(
+      registrar,
+      task_name.c_str());
   }
 };
 

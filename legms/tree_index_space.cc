@@ -5,14 +5,9 @@ using namespace legms;
 Legion::TaskID TreeIndexSpaceTask<1>::TASK_ID;
 
 void
-TreeIndexSpace::register_tasks(Legion::Runtime* runtime) {
-#define REG_TASK(D)                             \
-  TreeIndexSpaceTask<D>::register_task(         \
-    runtime,                                    \
-    TreeIndexSpace::task_id<D>(runtime));
-
+TreeIndexSpace::preregister_tasks() {
+#define REG_TASK(D) TreeIndexSpaceTask<D>::preregister_task();
   LEGMS_FOREACH_N(REG_TASK);
-
 #undef REG_TASK
 }
 

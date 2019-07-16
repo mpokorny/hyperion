@@ -201,14 +201,16 @@ ReindexedTableTask::ReindexedTableTask(
 }
 
 void
-ReindexedTableTask::register_task(Runtime* runtime) {
-  TASK_ID = runtime->generate_dynamic_task_id();
+ReindexedTableTask::preregister_task() {
+  TASK_ID = Runtime::generate_static_task_id();
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
   // registrar.set_inner();
   // registrar.set_idempotent();
   // registrar.set_replicable();
-  runtime->register_task_variant<TableGenArgs,base_impl>(registrar);
+  Runtime::preregister_task_variant<TableGenArgs,base_impl>(
+    registrar,
+    TASK_NAME);
 }
 
 Future
@@ -299,8 +301,8 @@ public:
   }
 
   static void
-  register_task(Runtime* runtime, int tid0) {
-    TASK_ID = tid0 + DT::id;
+  preregister_task() {
+    TASK_ID = Runtime::generate_static_task_id();
     std::string tname =
       std::string("IndexAccumulateTask<") + DT::s + std::string(">");
     strncpy(TASK_NAME, tname.c_str(), sizeof(TASK_NAME));
@@ -310,8 +312,9 @@ public:
     // registrar.set_leaf();
     // registrar.set_idempotent();
     // registrar.set_replicable();
-    runtime->register_task_variant<acc_field_redop_rhs<T>, base_impl>(
-      registrar);
+    Runtime::preregister_task_variant<acc_field_redop_rhs<T>, base_impl>(
+      registrar,
+      TASK_NAME);
   }
 
   static acc_field_redop_rhs<T>
@@ -352,24 +355,6 @@ TaskID IndexAccumulateTask<T>::TASK_ID;
 template <typename T>
 char IndexAccumulateTask<T>::TASK_NAME[40];
 
-class IndexAccumulateTasks {
-public:
-
-  static void
-  register_tasks(Runtime *runtime) {
-    auto tid0 =
-      runtime->generate_library_task_ids(
-        "legms::IndexAccumulateTasks",
-        NUM_LEGMS_DATATYPES);
-
-#define REG_TASK(DT)                                                    \
-    IndexAccumulateTask<DataType<DT>::ValueType>::register_task(runtime, tid0);
-
-    LEGMS_FOREACH_DATATYPE(REG_TASK);
-#undef REG_TASK
-  }
-};
-
 TaskID IndexColumnTask::TASK_ID;
 const char* IndexColumnTask::TASK_NAME = "IndexColumnTask";
 
@@ -395,13 +380,15 @@ IndexColumnTask::IndexColumnTask(const shared_ptr<Column>& column, int axis) {
 }
 
 void
-IndexColumnTask::register_task(Runtime* runtime) {
-  TASK_ID = runtime->generate_dynamic_task_id();
+IndexColumnTask::preregister_task() {
+  TASK_ID = Runtime::generate_static_task_id();
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
   // registrar.set_idempotent();
   // registrar.set_replicable();
-  runtime->register_task_variant<ColumnGenArgs,base_impl>(registrar);
+  Runtime::preregister_task_variant<ColumnGenArgs,base_impl>(
+    registrar,
+    TASK_NAME);
 }
 
 Future
@@ -670,13 +657,13 @@ public:
   }
 
   static void
-  register_task(Runtime* runtime) {
-    TASK_ID = runtime->generate_dynamic_task_id();
+  preregister_task() {
+    TASK_ID = Runtime::generate_static_task_id();
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     // registrar.set_idempotent();
     // registrar.set_replicable();
-    runtime->register_task_variant<base_impl>(registrar);
+    Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
   }
 
 private:
@@ -933,14 +920,14 @@ public:
   }
 
   static void
-  register_task(Runtime* runtime) {
-    TASK_ID = runtime->generate_dynamic_task_id();
+  preregister_task() {
+    TASK_ID = Runtime::generate_static_task_id();
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     // registrar.set_idempotent();
     // registrar.set_replicable();
     // registrar.set_leaf();
-    runtime->register_task_variant<base_impl>(registrar);
+    Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
   }
 
 private:
@@ -1152,14 +1139,14 @@ public:
   }
 
   static void
-  register_task(Runtime* runtime) {
-    TASK_ID = runtime->generate_dynamic_task_id();
+  preregister_task() {
+    TASK_ID = Runtime::generate_static_task_id();
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_leaf();
     // registrar.set_idempotent();
     // registrar.set_replicable();
-    runtime->register_task_variant<base_impl>(registrar);
+    Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
   }
 
 private:
@@ -1538,14 +1525,16 @@ ReindexColumnTask::base_impl(
 }
 
 void
-ReindexColumnTask::register_task(Runtime* runtime) {
-  TASK_ID = runtime->generate_dynamic_task_id();
+ReindexColumnTask::preregister_task() {
+  TASK_ID = Runtime::generate_static_task_id();
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
   // registrar.set_inner();
   // registrar.set_idempotent();
   // registrar.set_replicable();
-  runtime->register_task_variant<ColumnGenArgs,base_impl>(registrar);
+  Runtime::preregister_task_variant<ColumnGenArgs,base_impl>(
+    registrar,
+    TASK_NAME);
 }
 
 Future/*TableGenArgs*/
@@ -1825,14 +1814,14 @@ public:
   }
 
   static void
-  register_task(Runtime* runtime) {
-    TASK_ID = runtime->generate_dynamic_task_id();
+  preregister_task() {
+    TASK_ID = Runtime::generate_static_task_id();
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
     // registrar.set_replicable();
     registrar.set_leaf();
-    runtime->register_task_variant<base_impl>(registrar);
+    Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
 
 #ifdef SAVE_LAYOUT_CONSTRAINT_IDS
 #define FS(DIM)                                                       \
@@ -1998,14 +1987,16 @@ public:
   }
 
   static void
-  register_task(Runtime* runtime) {
-    TASK_ID = runtime->generate_dynamic_task_id();
+  preregister_task() {
+    TASK_ID = Runtime::generate_static_task_id();
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
     // registrar.set_replicable();
     // registrar.set_leaf();
-    runtime->register_task_variant<IndexPartition, base_impl>(registrar);
+    Runtime::preregister_task_variant<IndexPartition, base_impl>(
+      registrar,
+      TASK_NAME);
   }
 
 private:
@@ -2205,14 +2196,21 @@ Table::ipartition_by_value(
 
 void
 Table::register_tasks(Runtime* runtime) {
-  IndexColumnTask::register_task(runtime);
-  ReindexedTableTask::register_task(runtime);
-  IndexAccumulateTasks::register_tasks(runtime);
-  ComputeRectanglesTask::register_task(runtime);
-  ComputeColorsTask::register_task(runtime);
-  ComputePartitionTask::register_task(runtime);
-  ReindexColumnTask::register_task(runtime);
-  ReindexColumnCopyTask::register_task(runtime);
+}
+
+void
+Table::preregister_tasks() {
+  ComputeColorsTask::preregister_task();
+  ComputePartitionTask::preregister_task();
+  ComputeRectanglesTask::preregister_task();
+#define PREREG_IDX_ACCUMULATE(DT)                                   \
+  IndexAccumulateTask<DataType<DT>::ValueType>::preregister_task();
+  LEGMS_FOREACH_DATATYPE(PREREG_IDX_ACCUMULATE);
+#undef PREREG_IDX_ACCUMULATE
+  IndexColumnTask::preregister_task();
+  ReindexColumnTask::preregister_task();
+  ReindexColumnCopyTask::preregister_task();
+  ReindexedTableTask::preregister_task();
 }
 
 #ifdef LEGMS_USE_CASACORE

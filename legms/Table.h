@@ -421,6 +421,9 @@ public:
   static void
   register_tasks(Legion::Runtime* runtime);
 
+  static void
+  preregister_tasks();
+
 protected:
 
   Legion::Future/* TableGenArgs */
@@ -490,7 +493,7 @@ public:
     int axis);
 
   static void
-  register_task(Legion::Runtime* runtime);
+  preregister_task();
 
   Legion::Future
   dispatch(Legion::Context ctx, Legion::Runtime* runtime);
@@ -522,7 +525,7 @@ public:
     bool allow_rows);
 
   static void
-  register_task(Legion::Runtime* runtime);
+  preregister_task();
 
   Legion::Future
   dispatch(Legion::Context ctx, Legion::Runtime* runtime);
@@ -575,7 +578,7 @@ public:
     const std::vector<Legion::Future>& reindexed);
 
   static void
-  register_task(Legion::Runtime* runtime);
+  preregister_task();
 
   Legion::Future
   dispatch(Legion::Context ctx, Legion::Runtime* runtime);

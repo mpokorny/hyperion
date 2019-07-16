@@ -379,15 +379,14 @@ ProjectedIndexPartitionTask::base_impl(
 }
 
 void
-ProjectedIndexPartitionTask::register_task(Runtime* runtime) {
-  TASK_ID =
-    runtime->generate_library_task_ids("legms::ProjectedIndexPartitionTask", 1);
+ProjectedIndexPartitionTask::preregister_task() {
+  TASK_ID = Runtime::generate_static_task_id();
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
   registrar.set_leaf();
   //registrar.set_idempotent();
   //registrar.set_replicable();
-  runtime->register_task_variant<base_impl>(registrar);
+  Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
 }
 
 TaskID ProjectedIndexPartitionTask::TASK_ID;
@@ -803,15 +802,17 @@ legms::preregister_all() {
 
   LEGMS_FOREACH_MSTABLE(REG_AXES);
 #undef REG_AXES
+
+  TreeIndexSpace::preregister_tasks();
+  Table::preregister_tasks();
+  ProjectedIndexPartitionTask::preregister_task();
+#ifdef LEGMS_USE_CASACORE
+  TableReadTask::preregister_task();
+#endif
 }
 
 void
 legms::register_tasks(Runtime* runtime) {
-#ifdef LEGMS_USE_CASACORE
-  TableReadTask::register_task(runtime);
-#endif
-  TreeIndexSpace::register_tasks(runtime);
-  ProjectedIndexPartitionTask::register_task(runtime);
   Table::register_tasks(runtime);
 }
 
