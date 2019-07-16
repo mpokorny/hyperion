@@ -958,7 +958,8 @@ private:
       const char* buff = static_cast<const char*>(buffer);
       memcpy(&val.allow_rows, buff + result, sizeof(allow_rows));
       result += sizeof(allow_rows);
-      memcpy(&val.row_partition, buff + result, sizeof(row_partition));
+      val.row_partition =
+        *reinterpret_cast<const IndexPartition*>(buff + result);
       result += sizeof(row_partition);
       return result;
     }

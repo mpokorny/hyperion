@@ -176,7 +176,8 @@ public:
     if (n > 0) {
       T* tbuf =
         reinterpret_cast<T *>(static_cast<size_t *>(buffer) + 1);
-      std::memcpy(tbuf, val.data(), result - sizeof(size_t));
+      for (size_t i = 0; i < n; ++i)
+        *tbuf++ = val[i];
     }
     return result;
   }
@@ -187,10 +188,10 @@ public:
     val.clear();
     if (n > 0) {
       val.resize(n);
-      std::memcpy(
-        val.data(),
-        reinterpret_cast<const T*>(static_cast<const size_t *>(buffer) + 1),
-        n * sizeof(T));
+      const T* tbuf =
+        reinterpret_cast<const T*>(static_cast<const size_t *>(buffer) + 1);
+      for (size_t i = 0; i < n; ++i)
+        val[i] = *tbuf++;
     }
     return serialized_size(val);
   }
