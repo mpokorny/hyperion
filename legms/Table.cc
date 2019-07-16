@@ -202,7 +202,7 @@ ReindexedTableTask::ReindexedTableTask(
 
 void
 ReindexedTableTask::register_task(Runtime* runtime) {
-  TASK_ID = runtime->generate_library_task_ids("legms::ReindexedTableTask", 1);
+  TASK_ID = runtime->generate_dynamic_task_id();
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
   // registrar.set_inner();
@@ -671,8 +671,7 @@ public:
 
   static void
   register_task(Runtime* runtime) {
-    TASK_ID =
-      runtime->generate_library_task_ids("legms::ComputeRectanglesTask", 1);
+    TASK_ID = runtime->generate_dynamic_task_id();
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     // registrar.set_idempotent();
@@ -935,8 +934,7 @@ public:
 
   static void
   register_task(Runtime* runtime) {
-    TASK_ID =
-      runtime->generate_library_task_ids("legms::ComputeRectanglesTask", 1);
+    TASK_ID = runtime->generate_dynamic_task_id();
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     // registrar.set_idempotent();
@@ -1155,8 +1153,7 @@ public:
 
   static void
   register_task(Runtime* runtime) {
-    TASK_ID =
-      runtime->generate_library_task_ids("legms::ReindexColumnCopyTask", 1);
+    TASK_ID = runtime->generate_dynamic_task_id();
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_leaf();
@@ -1542,7 +1539,7 @@ ReindexColumnTask::base_impl(
 
 void
 ReindexColumnTask::register_task(Runtime* runtime) {
-  TASK_ID = runtime->generate_library_task_ids("legms::ReindexColumnTask", 1);
+  TASK_ID = runtime->generate_dynamic_task_id();
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
   // registrar.set_inner();
@@ -1829,8 +1826,7 @@ public:
 
   static void
   register_task(Runtime* runtime) {
-    TASK_ID =
-      runtime->generate_library_task_ids("legms::ComputeColorsTask", 1);
+    TASK_ID = runtime->generate_dynamic_task_id();
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
@@ -2003,8 +1999,7 @@ public:
 
   static void
   register_task(Runtime* runtime) {
-    TASK_ID =
-      runtime->generate_library_task_ids("legms::ComputePartitionTask", 1);
+    TASK_ID = runtime->generate_dynamic_task_id();
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
