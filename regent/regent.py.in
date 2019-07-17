@@ -19,41 +19,6 @@ import os, platform, subprocess, sys
 
 os_name = platform.system()
 
-def option_is_set(v):
-    cv = v.casefold()
-    return cv == 'true' or cv == '1' or cv == 'on'
-
-# Propagate legms build options
-if 'USE_CASACORE' in os.environ:
-    use_casacore = option_is_set(os.environ['USE_CASACORE'])
-else:
-    use_casacore = option_is_set('@USE_CASACORE@')
-
-if 'USE_HDF5' in os.environ:
-    use_hdf5 = option_is_set(os.environ['USE_HDF5'])
-else:
-    use_hdf5 = option_is_set('@USE_HDF5@')
-
-if 'MAX_DIM' in os.environ:
-    max_dim = os.environ['MAX_DIM']
-else:
-    max_dim = "@MAX_DIM@"
-
-if 'MAX_STRING_SIZE' in os.environ:
-    max_string_size = os.environ['MAX_STRING_SIZE']
-else:
-    max_string_size = "@MAX_STRING_SIZE@"
-
-if 'MAX_NUM_KEYWORDS' in os.environ:
-    max_num_keywords = os.environ['MAX_NUM_KEYWORDS']
-else:
-    max_num_keywords = "@MAX_NUM_KEYWORDS@"
-
-if 'MAX_NUM_TABLE_COLUMNS' in os.environ:
-    max_num_table_columns = os.environ['MAX_NUM_TABLE_COLUMNS']
-else:
-    max_num_table_columns = "@MAX_NUM_TABLE_COLUMNS@"
-
 # Find Regent.
 if 'REGENT_DIR' in os.environ:
     regent_dir = os.path.realpath(os.environ['REGENT_DIR'])
@@ -147,17 +112,13 @@ def regent(args, env = {}, **kwargs):
     if 'LAUNCHER' in os.environ:
         cmd = cmd + (os.environ['LAUNCHER'].split()
                      if 'LAUNCHER' in os.environ else [])
+    if "-flegion-dim" in args:
+        i = args.index("-flegion-dim")
+        del args[i:i+1]
+    args.extend(["-flegion-dim", "@MAX_DIM@"])
     cmd = cmd + [terra_exe] + args
     cmd_env = dict(os.environ.items())
     cmd_env.update(terra_env)
-    if use_casacore:
-        cmd_env['USE_CASACORE'] = '1'
-    if use_hdf5:
-        cmd_env['USE_HDF5'] = '1'
-    cmd_env['MAX_DIM'] = max_dim
-    cmd_env['MAX_STRING_SIZE'] = max_string_size
-    cmd_env['MAX_NUM_KEYWORDS'] = max_num_keywords
-    cmd_env['MAX_NUM_TABLE_COLUMNS'] = max_num_table_columns
     cmd_env.update(env)
     return subprocess.Popen(cmd, env = cmd_env, **kwargs)
 
