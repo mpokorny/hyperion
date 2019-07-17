@@ -2082,13 +2082,16 @@ public:
 
     runtime->unmap_region(context, pr);
 #endif // INDEX_SPACE_COLORING_TASK
-    return
+    auto result =
       runtime->create_partition_by_field(
         context,
         lr,
         lr,
         PART_FID,
         args->colors_is);
+    runtime->destroy_logical_region(context, lr);
+    runtime->destroy_field_space(context, fs);
+    return result;
   }
 
   static IndexPartition
@@ -2305,7 +2308,11 @@ Table::ipartition_by_value(
       ComputeColorsTask::COLOR_IS_SET);
   IndexSpace colors_is =
     runtime->intersect_index_spaces(context, {color_bounds_is, cset_is});
-  // TODO: clean up flags_cs, color_flag_ip, color_flag_lp, and color_bounds_ip?
+  runtime->destroy_index_space(context, cset_is);
+  runtime->destroy_index_partition(context, color_bounds_ip);
+  runtime->destroy_logical_partition(context, color_flag_lp);
+  runtime->destroy_index_partition(context, color_flag_ip);
+  runtime->destroy_index_space(context, flags_cs);
 
   std::unordered_map<std::string, Future> result;
   std::transform(
