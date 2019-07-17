@@ -23,6 +23,8 @@ using namespace Legion;
 
 #undef SAVE_LAYOUT_CONSTRAINT_IDS
 
+#undef INDEX_SPACE_COLORING_TASK
+
 TableGenArgs::TableGenArgs(const table_t& table)
   : name(table.name)
   , axes_uid(table.axes_uid)
@@ -1886,6 +1888,124 @@ std::array<LayoutConstraintID, LEGION_MAX_DIM>
 ComputeColorsTask::layout_constraint_ids;
 #endif // SAVE_LAYOUT_CONSTRAINT_IDS
 
+// TODO: replace this macro value with a class member variable
+#define PART_FID 0
+
+#ifdef INDEX_SPACE_COLORING_TASK
+class InitColorsTask {
+public:
+
+  static TaskID TASK_ID;
+  static const char* TASK_NAME;
+
+  InitColorsTask(
+    unsigned color_dim,
+    unsigned row_dim,
+    IndexSpace col_ispace,
+    RegionRequirement colors_req,
+    LogicalRegion parts_lr)
+    : m_task_args{color_dim, row_dim} {
+
+    m_launcher =
+      IndexTaskLauncher(
+        TASK_ID,
+        col_ispace,
+        TaskArgument(&m_task_args, sizeof(m_task_args)),
+        ArgumentMap());
+    m_launcher.add_region_requirement(colors_req);
+    m_launcher.add_region_requirement(
+      RegionRequirement(
+        parts_lr,
+        WRITE_ONLY,
+        EXCLUSIVE,
+        parts_lr));
+    m_launcher.add_field(1, PART_FID);
+  }
+
+  void
+  dispatch(Context context, Runtime* runtime) {
+    runtime->execute_index_space(context, m_launcher);
+  }
+
+  struct TaskArgs {
+    unsigned color_dim;
+    unsigned row_dim;
+  };
+
+  template <int COLOR_DIM>
+  static void
+  impl(
+    const Task* task,
+    const vector<PhysicalRegion>& regions) {
+
+    const TaskArgs* args = static_cast<const TaskArgs*>(task->args);
+
+    switch (args->row_dim * LEGION_MAX_DIM + task->index_point.get_dim()) {
+#define COLOR_PARTS(ROW_DIM, COL_DIM)                       \
+      case (ROW_DIM * LEGION_MAX_DIM + COL_DIM):  {         \
+        static_assert(ROW_DIM <= COL_DIM);                  \
+        const ROAccessor<Point<COLOR_DIM>, ROW_DIM>         \
+          colors(regions[0], ComputeColorsTask::color_fid); \
+        const WOAccessor<Point<COLOR_DIM>, COL_DIM>         \
+          parts(regions[1], PART_FID);                      \
+        Point<ROW_DIM> pt;                                  \
+        for (size_t i = 0; i < ROW_DIM; ++i)                \
+          pt[i] = task->index_point[i];                     \
+        parts[task->index_point] = colors[pt];              \
+        break;                                              \
+      }
+      LEGMS_FOREACH_MN(COLOR_PARTS);
+#undef COLOR_PARTS
+    default:
+      assert(false);
+      break;
+    }
+  }
+
+  static void
+  base_impl(
+    const Task* task,
+    const vector<PhysicalRegion>& regions,
+    Context context,
+    Runtime *runtime) {
+
+    const TaskArgs* args = static_cast<const TaskArgs*>(task->args);
+
+    switch (args->color_dim) {
+#define IMPL(COLOR_DIM)                         \
+      case (COLOR_DIM):                         \
+        impl<COLOR_DIM>(task, regions);         \
+        break;
+      LEGMS_FOREACH_N(IMPL);
+#undef IMPL
+    default:
+      assert(false);
+      break;
+    }
+  }
+
+  static void
+  preregister_task() {
+    TASK_ID = Runtime::generate_static_task_id();
+    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_idempotent();
+    registrar.set_leaf();
+    // registrar.set_replicable();
+    Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
+  }
+
+private:
+
+  TaskArgs m_task_args;
+
+  IndexTaskLauncher m_launcher;
+};
+
+TaskID InitColorsTask::TASK_ID;
+const char* InitColorsTask::TASK_NAME = "InitColorsTask";
+#endif // INDEX_SPACE_COLORING_TASK
+
 class ComputePartitionTask {
 public:
 
@@ -1921,48 +2041,54 @@ public:
     const TaskArgs* args = static_cast<TaskArgs*>(task->args);
 
     FieldSpace fs = runtime->create_field_space(context);
-    // DIM: column index dimension
-    // CDIM: partition color space dimension
-    // RDIM: table row index dimension
-    // RDIM <= DIM
     {
       FieldAllocator fa = runtime->create_field_allocator(context, fs);
-      fa.allocate_field(sizeof(Point<COLOR_DIM>), 0);
+      fa.allocate_field(sizeof(Point<COLOR_DIM>), PART_FID);
     }
     LogicalRegion lr =
       runtime->create_logical_region(context, args->col_ispace, fs);
+#ifdef INDEX_SPACE_COLORING_TASK
+    InitColorsTask
+      ctask(COLOR_DIM, args->rowdim, args->col_ispace, task->regions[0], lr);
+    ctask.dispatch(context, runtime);
+#else // !INDEX_SPACE_COLORING_TASK
     RegionRequirement req(lr, WRITE_ONLY, EXCLUSIVE, lr);
-    req.add_field(0);
+    req.add_field(PART_FID);
     PhysicalRegion pr = runtime->map_region(context, req);
 
-#define COLOR_PARTS(ROW_DIM, COL_DIM)                                   \
-    case (ROW_DIM * LEGION_MAX_DIM + COL_DIM):  {                       \
-      const WOAccessor<Point<COLOR_DIM>, COL_DIM> parts(pr, 0);         \
-      const ROAccessor<Point<COLOR_DIM>, ROW_DIM>                       \
-        colors(regions[0], ComputeColorsTask::color_fid);               \
-      for (PointInDomainIterator<COL_DIM>                               \
-             pid(runtime->get_index_space_domain(context, args->col_ispace)); \
-           pid();                                                       \
-           pid++) {                                                     \
-        Point<ROW_DIM> pt;                                              \
-        for (size_t i = 0; i < ROW_DIM; ++i)                            \
-          pt[i] = pid[i];                                               \
-        parts[*pid] = colors[pt];                                       \
-      }                                                                 \
-      break;                                                            \
-    }
-
     switch (args->rowdim * LEGION_MAX_DIM + args->col_ispace.get_dim()) {
+#define COLOR_PARTS(ROW_DIM, COL_DIM)                                   \
+      case (ROW_DIM * LEGION_MAX_DIM + COL_DIM):  {                     \
+        const WOAccessor<Point<COLOR_DIM>, COL_DIM> parts(pr, 0);       \
+        const ROAccessor<Point<COLOR_DIM>, ROW_DIM>                     \
+          colors(regions[0], ComputeColorsTask::color_fid);             \
+        for (PointInDomainIterator<COL_DIM>                             \
+               pid(runtime->get_index_space_domain(context, args->col_ispace)); \
+             pid();                                                     \
+             pid++) {                                                   \
+          Point<ROW_DIM> pt;                                            \
+          for (size_t i = 0; i < ROW_DIM; ++i)                          \
+            pt[i] = pid[i];                                             \
+          parts[*pid] = colors[pt];                                     \
+        }                                                               \
+        break;                                                          \
+      }
       LEGMS_FOREACH_MN(COLOR_PARTS);
+#undef COLOR_PARTS
     default:
       assert(false);
       break;
     }
-#undef COLOR_PARTS
 
     runtime->unmap_region(context, pr);
+#endif // INDEX_SPACE_COLORING_TASK
     return
-      runtime->create_partition_by_field(context, lr, lr, 0, args->colors_is);
+      runtime->create_partition_by_field(
+        context,
+        lr,
+        lr,
+        PART_FID,
+        args->colors_is);
   }
 
   static IndexPartition
@@ -1991,6 +2117,9 @@ public:
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
+#ifdef INDEX_SPACE_COLORING_TASK
+    registrar.set_inner();
+#endif // INDEX_SPACE_COLORING_TASK
     // registrar.set_replicable();
     Runtime::preregister_task_variant<IndexPartition, base_impl>(
       registrar,
@@ -2206,6 +2335,9 @@ Table::preregister_tasks() {
   LEGMS_FOREACH_DATATYPE(PREREG_IDX_ACCUMULATE);
 #undef PREREG_IDX_ACCUMULATE
   IndexColumnTask::preregister_task();
+#ifdef INDEX_SPACE_COLORING_TASK
+  InitColorsTask::preregister_task();
+#endif // INDEX_SPACE_COLORING_TASK
   ReindexColumnTask::preregister_task();
   ReindexColumnCopyTask::preregister_task();
   ReindexedTableTask::preregister_task();
