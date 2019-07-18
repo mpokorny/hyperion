@@ -176,7 +176,7 @@ bool
 cmp_values(
   Context context,
   Runtime* runtime,
-  LogicalRegion col_lr,
+  PhysicalRegion col_pr,
   LogicalPartition col_lp,
   DomainT<2> colors,
   F cmp) {
@@ -185,15 +185,11 @@ cmp_values(
   for (PointInDomainIterator<2> c(colors); result && c(); c++) {
     LogicalRegion lr =
       runtime->get_logical_subregion_by_color(context, col_lp, *c);
-    RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, col_lr);
-    req.add_field(Column::value_fid);
-    PhysicalRegion pr = runtime->map_region(context, req);
     DomainT<1> rows =
       runtime->get_index_space_domain(context, lr.get_index_space());
-    const ROAccessor<unsigned, 1> v(pr, Column::value_fid);
+    const ROAccessor<unsigned, 1> v(col_pr, Column::value_fid);
     for (PointInDomainIterator<1> r(rows); result && r(); r++)
       result = cmp(*c, v[*r]);
-    runtime->unmap_region(context, pr);
   }
   return result;
 }
@@ -202,6 +198,7 @@ bool
 check_partition(
   Context context,
   Runtime* runtime,
+  const std::unordered_map<std::string, PhysicalRegion>& prs,
   const Column* column,
   IndexPartition ip) {
 
@@ -216,7 +213,7 @@ check_partition(
       cmp_values(
         context,
         runtime,
-        column->logical_region(),
+        prs.at("X"),
         col_lp,
         colors,
         [](Point<2> c, unsigned v) { return v == OX + c[0]; });
@@ -225,7 +222,7 @@ check_partition(
       cmp_values(
         context,
         runtime,
-        column->logical_region(),
+        prs.at("Y"),
         col_lp,
         colors,
         [](Point<2> c, unsigned v) { return v == OY + c[1]; });
@@ -234,7 +231,7 @@ check_partition(
       cmp_values(
         context,
         runtime,
-        column->logical_region(),
+        prs.at("Z"),
         col_lp,
         colors,
         [](Point<2> c, unsigned v) {
@@ -366,12 +363,14 @@ table_test_suite(
       std::all_of(
         parts.begin(),
         parts.end(),
-        [&table0, &context, runtime](auto& p) {
+        [&cols, &table0, &context, runtime](auto& p) {
           return
             check_partition(
               context,
               runtime,
-              table0.column(p.first).get(), p.second);
+              cols,
+              table0.column(p.first).get(),
+              p.second);
         })));
 }
 
