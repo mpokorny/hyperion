@@ -240,7 +240,7 @@ ReindexedTableTask::base_impl(
   return result;
 }
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool CHECK_BOUNDS=false>
 using ROAccessor =
   FieldAccessor<
   READ_ONLY,
@@ -248,9 +248,9 @@ using ROAccessor =
   DIM,
   coord_t,
   AffineAccessor<T, DIM, coord_t>,
-  false>;
+  CHECK_BOUNDS>;
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool CHECK_BOUNDS=false>
 using WDAccessor =
   FieldAccessor<
   WRITE_DISCARD,
@@ -258,9 +258,9 @@ using WDAccessor =
   DIM,
   coord_t,
   AffineAccessor<T, DIM, coord_t>,
-  false>;
+  CHECK_BOUNDS>;
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool CHECK_BOUNDS=false>
 using WOAccessor =
   FieldAccessor<
   WRITE_ONLY,
@@ -268,7 +268,7 @@ using WOAccessor =
   DIM,
   coord_t,
   AffineAccessor<T, DIM, coord_t>,
-  false>;
+  CHECK_BOUNDS>;
 
 template <typename T>
 class IndexAccumulateTask {
@@ -1944,9 +1944,9 @@ public:
 #define COLOR_PARTS(ROW_DIM, COL_DIM)                       \
       case (ROW_DIM * LEGION_MAX_DIM + COL_DIM):  {         \
         static_assert(ROW_DIM <= COL_DIM);                  \
-        const ROAccessor<Point<COLOR_DIM>, ROW_DIM>         \
+        const ROAccessor<Point<COLOR_DIM>, ROW_DIM, true>   \
           colors(regions[0], ComputeColorsTask::color_fid); \
-        const WOAccessor<Point<COLOR_DIM>, COL_DIM>         \
+        const WOAccessor<Point<COLOR_DIM>, COL_DIM, true>   \
           parts(regions[1], PART_FID);                      \
         Point<ROW_DIM> pt;                                  \
         for (size_t i = 0; i < ROW_DIM; ++i)                \
