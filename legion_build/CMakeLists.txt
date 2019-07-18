@@ -24,6 +24,9 @@ list(APPEND Legion_ARGS Legion_USE_CUDA)
 set(Legion_USE_GASNet OFF CACHE BOOL "Enable the distributed GASNet backend")
 list(APPEND Legion_ARGS Legion_USE_GASNet)
 
+set(Legion_GASNet_CONDUIT "ibv" CACHE BOOL "GASNet conduit")
+list(APPEND Legion_ARGS Legion_GASNet_CONDUIT)
+
 set(Legion_USE_LLVM OFF CACHE BOOL "Use LLVM JIT operations")
 list(APPEND Legion_ARGS Legion_USE_LLVM)
 
@@ -66,6 +69,7 @@ ExternalProject_Add(legion_build
   CMAKE_ARGS -DLegion_USE_Python=${Legion_USE_Python}
   CMAKE_ARGS -DLegion_USE_CUDA=${Legion_USE_CUDA}
   CMAKE_ARGS -DLegion_USE_GASNet=${Legion_USE_GASNet}
+  CMAKE_ARGS -DGASNet_CONDUIT=${Legion_GASNet_CONDUIT}
   CMAKE_ARGS -DLegion_USE_LLVM=${Legion_USE_LLVM}
   CMAKE_ARGS -DLegion_USE_HDF5=${Legion_USE_HDF5}
   CMAKE_ARGS -DLegion_USE_LIBDL=${Legion_USE_LIBDL}
