@@ -21,8 +21,7 @@ enum {
 
 void
 get_args(
-  const int& argc,
-  char** const& argv,
+  const InputArgs& args,
   fs::path& ms_path,
   std::vector<std::string>& tables,
   fs::path& h5_path) {
@@ -30,17 +29,17 @@ get_args(
   ms_path.clear();
   tables.clear();
   h5_path.clear();
-  for (int i = 1; i < argc; ++i) {
-    if (*argv[i] != '-') {
+  for (int i = 1; i < args.argc; ++i) {
+    if (*args.argv[i] != '-') {
       if (ms_path.empty()) {
-        std::string d = argv[i];
+        std::string d = args.argv[i];
         while (d.size() > 0 && d.back() == '/')
           d.pop_back() ;
         ms_path = d;
-      } else if (i == argc - 1) {
-        h5_path = argv[i];
+      } else if (i == args.argc - 1) {
+        h5_path = args.argv[i];
       } else {
-        tables.push_back(argv[i]);
+        tables.push_back(args.argv[i]);
       }
     } else {
       ++i; // skip option argument
@@ -177,6 +176,93 @@ public:
   static const int TASK_ID = TOP_LEVEL_TASK_ID;
 
   static void
+  usage(Context context, Runtime* runtime) {
+    runtime->print_once(
+      context,
+      stderr,
+      "usage: ms2h5 [OPTION...] MS [TABLE...] OUTPUT");
+  }
+
+  static bool
+  args_ok(const fs::path& ms,
+          const std::vector<std::string>& table_args,
+          const fs::path& h5,
+          Context context,
+          Runtime* runtime) {
+
+    if (ms.empty()) {
+      runtime->print_once(
+        context,
+        stderr,
+        "MS directory path is missing from arguments");
+      usage(context, runtime);
+      return false;
+    }
+
+    if (h5.empty()) {
+      runtime->print_once(
+        context,
+        stderr,
+        "Output HDF5 path is missing from arguments");
+      usage(context, runtime);
+      return false;
+    }
+
+    auto ms_status = fs::status(ms);
+    if (!fs::is_directory(ms)) {
+      std::ostringstream oss;
+      oss << "MS directory " << ms
+          << " does not exist"
+          << std::endl;
+      runtime->print_once(context, stderr, oss.str().c_str());
+      return false;
+    }
+
+    if (fs::exists(h5)) {
+      std::ostringstream oss;
+      oss << "HDF5 file path " << h5
+          << " exists and will not be overwritten"
+          << std::endl;
+      runtime->print_once(context, stderr, oss.str().c_str());
+      return false;
+    }
+
+    std::vector<std::string> missing_tables;
+    std::for_each(
+      table_args.begin(),
+      table_args.end(),
+      [&missing_tables, &ms](std::string t) {
+        std::string T;
+        std::transform(
+          t.begin(),
+          t.end(),
+          std::back_inserter(T),
+          [](unsigned char c) { return std::toupper(c); });
+        if (T != "MAIN" && T != "." && T[0] != '~') {
+          auto stat = fs::status(ms / T);
+          if (!fs::is_directory(stat))
+            missing_tables.push_back(t);
+        }
+      });
+
+    if (missing_tables.size() > 0) {
+      std::ostringstream oss;
+      oss << "Tables missing from MS directory";
+      const char* sep = ": ";
+      std::for_each(
+        missing_tables.begin(),
+        missing_tables.end(),
+        [&oss, &sep](auto& t) {
+          oss << sep << t;
+          sep = ", ";
+        });
+      runtime->print_once(context, stderr, oss.str().c_str());
+      return false;
+    }
+    return true;
+  }
+
+  static void
   base_impl(
     const Task*,
     const std::vector<PhysicalRegion>&,
@@ -189,7 +275,10 @@ public:
     fs::path ms;
     std::vector<std::string> table_args;
     fs::path h5;
-    get_args(args.argc, args.argv, ms, table_args, h5);
+    get_args(args, ms, table_args, h5);
+
+    if (!args_ok(ms, table_args, h5, context, runtime))
+      return;
 
     LogicalRegion table_names_lr =
       TableNameCollectorTask::table_names_region(context, runtime);
@@ -321,78 +410,8 @@ public:
   }
 };
 
-void
-usage() {
-  std::cerr << "usage: ms2h5 [OPTION...] MS [TABLE...] OUTPUT" << std::endl;
-}
-
 int
 main(int argc, char** argv) {
-
-  fs::path ms_path;
-  std::vector<std::string> tables;
-  fs::path h5_path;
-  get_args(argc, argv, ms_path, tables, h5_path);
-
-  if (ms_path.empty()) {
-    std::cerr << "MS directory path is missing from arguments" << std::endl;
-    usage();
-    return EXIT_FAILURE;
-  }
-
-  if (h5_path.empty()) {
-    std::cerr << "Output HDF5 path is missing from arguments" << std::endl;
-    usage();
-    return EXIT_FAILURE;
-  }
-
-  auto ms_status = fs::status(ms_path);
-  if (!fs::is_directory(ms_status)) {
-    std::cerr << "MS directory " << ms_path
-              << " does not exist"
-              << std::endl;
-    return EXIT_FAILURE;
-  }
-
-  if (fs::exists(h5_path)) {
-    std::cerr << "HDF5 file path " << h5_path
-              << " exists and will not be overwritten"
-              << std::endl;
-    return EXIT_FAILURE;  
-  }
-
-  std::vector<std::string> missing_tables;
-  std::for_each(
-    tables.begin(),
-    tables.end(),
-    [&missing_tables, &ms_path](std::string t) {
-      std::string T;
-      std::transform(
-        t.begin(),
-        t.end(),
-        std::back_inserter(T),
-        [](unsigned char c) { return std::toupper(c); });
-      if (T != "MAIN" && T != "." && T[0] != '~') {
-        auto stat = fs::status(ms_path / T);
-        if (!fs::is_directory(stat))
-          missing_tables.push_back(t);
-      }
-    });
-
-  if (missing_tables.size() > 0) {
-    std::ostringstream oss;
-    oss << "Tables missing from MS directory";
-    const char* sep = ": ";
-    std::for_each(
-      missing_tables.begin(),
-      missing_tables.end(),
-      [&oss, &sep](auto& t) {
-        oss << sep << t;
-        sep = ", ";
-      });
-    std::cerr << oss.str() << std::endl;
-    return EXIT_FAILURE;
-  }
 
   TopLevelTask::register_task();
   TableNameCollectorTask::register_task();
