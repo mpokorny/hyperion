@@ -1291,6 +1291,11 @@ create_partition_on_axes(
   Legion::IndexSpace is,
   const std::vector<AxisPartition>& parts);
 
+Legion::LayoutConstraintRegistrar&
+add_row_major_order_constraint(
+  Legion::LayoutConstraintRegistrar& lc,
+  unsigned rank);
+
 void
 preregister_all();
 

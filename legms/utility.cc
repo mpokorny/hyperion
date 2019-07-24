@@ -790,6 +790,21 @@ legms::create_partition_on_axes(
   return IndexPartition::NO_PART; // keep compiler happy
 }
 
+LayoutConstraintRegistrar&
+legms::add_row_major_order_constraint(
+  LayoutConstraintRegistrar& lc,
+  unsigned rank) {
+
+  std::vector<DimensionKind> dims(rank);
+  std::generate(
+    dims.rbegin(),
+    dims.rend(),
+    [n = 0]() mutable {
+      return static_cast<legion_dimension_kind_t>(n++);
+    });
+  return lc.add_constraint(OrderingConstraint(dims, true));
+}
+
 void
 legms::preregister_all() {
   OpsManager::preregister_ops();
