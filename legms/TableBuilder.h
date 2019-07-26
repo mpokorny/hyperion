@@ -134,8 +134,11 @@ protected:
     auto sa = std::any_cast<SizeArgs>(args);
     std::optional<casacore::IPosition> shape;
     if (sa.tcol) {
-      if (sa.tcol->hasContent(*sa.row))
-        shape = sa.tcol->shape(*sa.row);
+      if (sa.tcol->hasContent(*sa.row)){
+        auto rsh = sa.tcol->shape(*sa.row);
+        if (std::count(rsh.begin(), rsh.end(), 0) == 0)
+          shape = rsh;
+      }
     } else {
       shape = sa.shape;
     }
@@ -239,18 +242,17 @@ public:
       actual_column_selections.end(),
       [&result, &tdesc, &element_axes, &array_names](auto& nm) {
         auto axes = element_axes.at(nm);
-#define ADD_FROM_TCOL(DT)                                               \
-        case DataType<DT>::CasacoreTypeTag:                             \
-          result.template add_from_table_column<DT>(nm, axes, array_names); \
-          break;
-
         switch (tdesc[nm].dataType()) {
+#define ADD_FROM_TCOL(DT)                                               \
+          case DataType<DT>::CasacoreTypeTag:                           \
+            result.template add_from_table_column<DT>(nm, axes, array_names); \
+            break;
           LEGMS_FOREACH_DATATYPE(ADD_FROM_TCOL);
+#undef ADD_FROM_TCOL
         default:
           assert(false);
           break;
         }
-#undef ADD_FROM_TCOL
       });
 
     // scan rows to get shapes for all selected array columns

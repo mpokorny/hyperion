@@ -236,7 +236,7 @@ read_full_ms(
   std::vector<std::string> expected_columns{
     "UVW",
     "FLAG",
-    "FLAG_CATEGORY",
+    //"FLAG_CATEGORY",
     "WEIGHT",
     "SIGMA",
     "ANTENNA1",
@@ -256,7 +256,7 @@ read_full_ms(
     "TIME",
     "TIME_CENTROID",
     "DATA",
-    "WEIGHT_SPECTRUM"
+    //"WEIGHT_SPECTRUM"
   };
   recorder.assert_true(
     "table has expected columns",

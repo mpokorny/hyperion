@@ -83,15 +83,18 @@ public:
 
   std::unique_ptr<Column>
   column(Legion::Context ctx, Legion::Runtime* runtime) const {
-    return
-      std::make_unique<Column>(
-        ctx,
-        runtime,
-        name(),
-        axes(),
-        datatype(),
-        index_tree(),
-        keywords());
+    std::unique_ptr<Column> result;
+    if (index_tree().rank().value() == axes().size())
+      result =
+        std::make_unique<Column>(
+          ctx,
+          runtime,
+          name(),
+          axes(),
+          datatype(),
+          index_tree(),
+          keywords());
+    return result;
   }
 
 protected:

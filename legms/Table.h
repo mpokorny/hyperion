@@ -149,18 +149,18 @@ public:
     const kw_desc_t& kws = kw_desc_t())
     : Table(ctx, runtime, name, axes_uid, index_axes, kws) {
 
-    std::transform(
+    std::for_each(
       generator_first,
       generator_last,
-      std::inserter(m_columns, m_columns.end()),
-      [&ctx, runtime](auto gen) {
+      [&ctx, this, runtime](auto gen) {
         std::shared_ptr<Column> col(gen(ctx, runtime));
-        return std::make_pair(col->name(), col);
+        if (col) {
+          m_columns[col->name()] = col;
+        }
       });
 
-    assert(m_columns.size() > 0);
-
-    set_min_max_rank();
+    if (m_columns.size() > 0)
+      set_min_max_rank();
   }
 
   template <

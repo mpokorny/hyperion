@@ -22,7 +22,7 @@ public:
   IndexTree() {}
 
   IndexTree(COORD_T n)
-    : m_children({{0, n, IndexTree()}}) {
+    : m_children(compact({{0, n, IndexTree()}})) {
   }
 
   IndexTree(const std::vector<std::tuple<COORD_T, IndexTree> >& ch) {
@@ -487,7 +487,14 @@ protected:
   compact(const std::vector<std::tuple<COORD_T, COORD_T, IndexTree>>& seq) {
     std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> result;
     if (seq.size() > 0) {
-      std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> sorted = seq;
+      std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> sorted;
+      std::copy_if(
+        seq.begin(),
+        seq.end(),
+        std::back_inserter(sorted),
+        [](auto& ch) {
+          return std::get<1>(ch) > 0;
+        });
       std::sort(
         sorted.begin(),
         sorted.end(),
