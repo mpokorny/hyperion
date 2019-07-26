@@ -6,10 +6,6 @@
 #include "legms.h"
 #include "utility.h"
 
-#ifndef TEST_SUITE_DRIVER_TASK_ID
-# define TEST_SUITE_DRIVER_TASK_ID 100
-#endif
-
 #ifndef TEST_SUITE_DRIVER_LOG_LENGTH
 # define TEST_SUITE_DRIVER_LOG_LENGTH 100
 #endif
@@ -20,7 +16,7 @@ namespace testing {
 class TestSuiteDriver {
 public:
 
-  static constexpr Legion::TaskID TASK_ID = TEST_SUITE_DRIVER_TASK_ID;
+  static Legion::TaskID TASK_ID;
   static constexpr const char* TASK_NAME = "test_suite_driver_task";
 
   typedef void (*task_ptr_t)(
@@ -97,6 +93,7 @@ protected:
     m_args.test_suite_task = test_suite_task;
     m_args.log_length = log_length;
 
+    TASK_ID = Legion::Runtime::generate_static_task_id();
     Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
     registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
     Legion::Runtime::preregister_task_variant<TaskArgs, impl>(

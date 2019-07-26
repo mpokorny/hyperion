@@ -6,6 +6,8 @@ using namespace legms;
 using namespace legms::testing;
 using namespace Legion;
 
+Legion::TaskID TestSuiteDriver::TASK_ID;
+
 int
 TestSuiteDriver::start(int argc, char* argv[]) {
   return Runtime::start(argc, argv);
