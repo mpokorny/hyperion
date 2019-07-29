@@ -1310,6 +1310,7 @@ register_tasks(Legion::Runtime* runtime);
   __func__(1,1)
 #define LEGMS_FOREACH_MN(__func__)              \
   __func__(1,1)
+#define LEGMS_FOREACH_LESS_MAX_N(__func__)
 
 #elif LEGION_MAX_DIM == 2
 
@@ -1325,6 +1326,8 @@ register_tasks(Legion::Runtime* runtime);
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(2,2)
+#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+  __func__(1)
 
 #elif LEGION_MAX_DIM == 3
 
@@ -1349,6 +1352,9 @@ register_tasks(Legion::Runtime* runtime);
   __func__(2,2)                                 \
   __func__(2,3)                                 \
   __func__(3,3)
+#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+  __func__(1)                                   \
+  __func__(2)
 
 #elif LEGION_MAX_DIM == 4
 
@@ -1385,6 +1391,10 @@ register_tasks(Legion::Runtime* runtime);
   __func__(3,3)                                 \
   __func__(3,4)                                 \
   __func__(4,4)
+#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+  __func__(1)                                   \
+  __func__(2)                                   \
+  __func__(3)
 
 #elif LEGION_MAX_DIM == 5
 
@@ -1436,6 +1446,11 @@ register_tasks(Legion::Runtime* runtime);
   __func__(4,4)                                 \
   __func__(4,5)                                 \
   __func__(5,5)
+#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+  __func__(1)                                   \
+  __func__(2)                                   \
+  __func__(3)                                   \
+  __func__(4)
 
 #elif LEGION_MAX_DIM == 6
 
@@ -1505,6 +1520,12 @@ register_tasks(Legion::Runtime* runtime);
   __func__(5,5)                                 \
   __func__(5,6)                                 \
   __func__(6,6)
+#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+  __func__(1)                                   \
+  __func__(2)                                   \
+  __func__(3)                                   \
+  __func__(4)                                   \
+  __func__(5)
 
 #elif LEGION_MAX_DIM == 7
 
@@ -1595,6 +1616,13 @@ register_tasks(Legion::Runtime* runtime);
   __func__(6,6)                                 \
   __func__(6,7)                                 \
   __func__(7,7)
+#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+  __func__(1)                                   \
+  __func__(2)                                   \
+  __func__(3)                                   \
+  __func__(4)                                   \
+  __func__(5)                                   \
+  __func__(6)
 
 #elif LEGION_MAX_DIM == 8
 
@@ -1709,6 +1737,14 @@ register_tasks(Legion::Runtime* runtime);
   __func__(7,7)                                 \
   __func__(7,8)                                 \
   __func__(8,8)
+#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+  __func__(1)                                   \
+  __func__(2)                                   \
+  __func__(3)                                   \
+  __func__(4)                                   \
+  __func__(5)                                   \
+  __func__(6)                                   \
+  __func__(7)
 
 #elif LEGION_MAX_DIM == 9
 
@@ -1850,6 +1886,15 @@ register_tasks(Legion::Runtime* runtime);
   __func__(8,8)                                 \
   __func__(8,9)                                 \
   __func__(9,9)
+#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+  __func__(1)                                   \
+  __func__(2)                                   \
+  __func__(3)                                   \
+  __func__(4)                                   \
+  __func__(5)                                   \
+  __func__(6)                                   \
+  __func__(7)                                   \
+  __func__(8)
 
 #else
 #error "Unsupported LEGION_MAX_DIM"

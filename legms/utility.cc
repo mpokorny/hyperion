@@ -818,7 +818,7 @@ legms::preregister_all() {
   LEGMS_FOREACH_MSTABLE(REG_AXES);
 #undef REG_AXES
 
-  TreeIndexSpace::preregister_tasks();
+  TreeIndexSpaceTask::preregister_task();
   Table::preregister_tasks();
   ProjectedIndexPartitionTask::preregister_task();
 #ifdef LEGMS_USE_CASACORE
