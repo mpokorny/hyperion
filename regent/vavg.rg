@@ -109,20 +109,20 @@ do
   var vis_acc_partition = partition(equal, vis_acc, ts)
 
   -- accumulate visibilities
-  __demand(__spmd)
+  __demand(__parallel)
   for t in ts do
     accumulate(visibilities_partition[t], vis_acc_partition[t])
   end
 
   -- normalize accumulated values
-  __demand(__parallel)
-  for t in ts do
-    normalize(vis_acc_partition[t])
-  end
-  -- __demand(__vectorize)
-  -- for v in vis_acc do
-  --   v.sum = v.sum / v.num
+  -- __demand(__openmp)
+  -- for t in ts do
+  --   normalize(vis_acc_partition[t])
   -- end
+  __demand(__vectorize)
+  for v in vis_acc do
+    v.sum = v.sum / v.num
+  end
 
   -- show results
   __forbid(__parallel)
@@ -200,13 +200,13 @@ task main()
 end
 
 if os.getenv("SAVEOBJ") == "1" then
-  local lib_dir = os.getenv("LIBDIR") or "../legion_build/lib64"
+  local lib_dir = os.getenv("LIBDIR") or os.getenv("PWD").."/../legion_build/lib64"
   local link_flags = terralib.newlist(
     {"-L"..lib_dir,
      "-L../legms",
      "-llegms",
      "-Wl,-rpath="..lib_dir,
-     "-Wl,-rpath=../legms"})
+     "-Wl,-rpath="..os.getenv("PWD").."/../legms"})
   regentlib.saveobj(main, "vavg", "executable", legms.preregister_all, link_flags)
 else
   legms.preregister_all()
