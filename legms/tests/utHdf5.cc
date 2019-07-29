@@ -287,7 +287,7 @@ tree_tests(testing::TestRecorder<WRITE_DISCARD>& recorder) {
 
     IndexTreeL tree1(4);
     while (tree1.serialized_size() < LEGMS_LARGE_TREE_MIN)
-      tree1 = IndexTreeL({{0, tree1}});
+      tree1 = IndexTreeL({{0, 1, tree1}});
     test_index_tree_attribute(fid, dataset_name, recorder, tree1, "large-tree");
 
     H5Fclose(fid);
