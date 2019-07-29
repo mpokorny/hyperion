@@ -215,7 +215,6 @@ read_full_ms(
   static const std::string t0_path("data/t0.ms");
   std::unique_ptr<const Table> table =
     Table::from_ms(context, runtime, t0_path, {"*"});
-  std::cout << "read MAIN table" << std::endl;
   recorder.assert_true(
     "t0.ms MAIN table successfully read",
     bool(table));
@@ -271,7 +270,6 @@ read_full_ms(
       expected_columns.end(),
       2000);
     table_read_task.dispatch();
-    std::cout << "spawned TableReadTask" << std::endl;
   }
 
   // compare column LogicalRegions to values read using casacore functions
@@ -297,7 +295,6 @@ read_full_ms(
   args.table[sizeof(args.table) - 1] = '\0';
   // can't use IndexTaskLauncher here since column LogicalRegions are not
   // sub-regions of a common LogicalPartition
-  std::cout << "split log" << std::endl;
   TaskLauncher verify_task(
     VERIFY_COLUMN_TASK,
     TaskArgument(&args, sizeof(args)));
