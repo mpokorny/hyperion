@@ -98,11 +98,6 @@ verify_array_column(
   testing::TestRecorder<READ_WRITE> recorder(log);
 
   DomainT<DIM> col_dom(regions[0].get_bounds<DIM,coord_t>());
-  LogicalRegion ary_lr =
-    runtime->create_logical_region(
-      context,
-      regions[0].get_logical_region().get_index_space(),
-      regions[0].get_logical_region().get_field_space());
 
 #define CMP(TAG)                                                        \
   case (TAG): {                                                         \
@@ -179,8 +174,6 @@ verify_array_column(
     LEGMS_FOREACH_DATATYPE(CMP);
   }
 #undef CMP
-
-  runtime->destroy_logical_region(context, ary_lr);
 }
 
 void
