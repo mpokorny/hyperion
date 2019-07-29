@@ -1280,7 +1280,8 @@ reindex_column(
     fa.allocate_field(sizeof(Rect<NEWDIM>), ReindexColumnTask::row_rects_fid);
 
     LayoutConstraintRegistrar lc(new_rects_fs);
-    lc.add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
+    add_row_major_order_constraint(lc, rows_is.get_dim())
+      .add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
     // TODO: free LayoutConstraintID returned from following call...maybe
     // generate field spaces and constraints once at startup
     runtime->register_layout(lc);
@@ -1908,8 +1909,7 @@ public:
   void
   dispatch(Context context, Runtime* runtime) {
 
-    // TODO: this task could use a mapper to handle large columns!
-    auto cs = runtime->create_index_space(context, Rect<1>(0, 0));
+    auto cs = runtime->create_index_space(context, Rect<1>(0, 1));
     IndexTaskLauncher
       launcher(
         TASK_ID,
@@ -2061,6 +2061,10 @@ public:
       FieldAllocator fa = runtime->create_field_allocator(context, fs);
       fa.allocate_field(sizeof(Point<COLOR_DIM>), PART_FID);
     }
+    LayoutConstraintRegistrar lc(fs);
+    add_row_major_order_constraint(lc, args->col_ispace.get_dim());
+    // TODO: free LayoutConstraintID returned from following call
+    runtime->register_layout(lc);
     LogicalRegion lr =
       runtime->create_logical_region(context, args->col_ispace, fs);
     InitColorsTask ctask(
@@ -2195,42 +2199,41 @@ Table::ipartition_by_value(
   FieldSpace colors_fs = runtime->create_field_space(context);
   LogicalRegion colors;
 
-#define COLORS(DIM)                                                     \
-  case (DIM): {                                                         \
-    fa.allocate_field(sizeof(Point<DIM>), ComputeColorsTask::color_fid); \
-    colors = runtime->create_logical_region(context, rows, colors_fs);  \
-    Point<DIM> none = Point<DIM>::ZEROES();                             \
-    runtime->fill_field(                                                \
-      context,                                                          \
-      colors,                                                           \
-      colors,                                                           \
-      ComputeColorsTask::color_fid,                                     \
-      none);                                                            \
-    break;                                                              \
-  }
-
   {
+    LayoutConstraintRegistrar lc(colors_fs);
+    add_row_major_order_constraint(lc, ixcols.size())
+      .add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
     FieldAllocator fa = runtime->create_field_allocator(context, colors_fs);
     fa.allocate_field(sizeof(coord_t), ComputeColorsTask::color_flag_fid);
+    // TODO: free LayoutConstraintID returned from the following call to
+    // register_layout()
     switch (ixcols.size()) {
+#define COLORS(DIM)                                                     \
+      case (DIM): {                                                     \
+        fa.allocate_field(sizeof(Point<DIM>), ComputeColorsTask::color_fid); \
+        runtime->register_layout(lc);                                   \
+        colors = runtime->create_logical_region(context, rows, colors_fs); \
+        Point<DIM> none = Point<DIM>::ZEROES();                         \
+        runtime->fill_field(                                            \
+          context,                                                      \
+          colors,                                                       \
+          colors,                                                       \
+          ComputeColorsTask::color_fid,                                 \
+          none);                                                        \
+        break;                                                          \
+      }
       LEGMS_FOREACH_N(COLORS);
+#undef COLORS
     default:
       assert(false);
       break;
     }
-#undef COLORS
     runtime->fill_field(
       context,
       colors,
       colors,
       ComputeColorsTask::color_flag_fid,
       ComputeColorsTask::COLOR_NOT_SET);
-
-    LayoutConstraintRegistrar lc(colors_fs);
-    lc.add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
-    // TODO: free LayoutConstraintID returned from following call...maybe
-    // generate field spaces and constraints once at startup
-    runtime->register_layout(lc);
   }
 
   ComputeColorsTask task(ixcols, colors);
@@ -2244,26 +2247,25 @@ Table::ipartition_by_value(
   // first we create the bounding index space (product space of all index column
   // colors)
   IndexSpace color_bounds_is;
-#define COLOR_BOUNDS_IS(DIM)                                          \
-  case (DIM): {                                                       \
-    Rect<DIM> bounds;                                                 \
-    for (size_t i = 0; i < DIM; ++i){                                 \
-      Rect<1> r =                                                     \
-        runtime->get_index_space_domain(ixcols[i].get_index_space()); \
-      bounds.lo[i] = r.lo[0];                                         \
-      bounds.hi[i] = r.hi[0];                                         \
-    }                                                                 \
-    color_bounds_is = runtime->create_index_space(context, bounds);   \
-    break;                                                            \
-  }
-
   switch (ixcols.size()) {
+#define COLOR_BOUNDS_IS(DIM)                                            \
+    case (DIM): {                                                       \
+      Rect<DIM> bounds;                                                 \
+      for (size_t i = 0; i < DIM; ++i){                                 \
+        Rect<1> r =                                                     \
+          runtime->get_index_space_domain(ixcols[i].get_index_space()); \
+        bounds.lo[i] = r.lo[0];                                         \
+        bounds.hi[i] = r.hi[0];                                         \
+      }                                                                 \
+      color_bounds_is = runtime->create_index_space(context, bounds);   \
+      break;                                                            \
+    }
     LEGMS_FOREACH_N(COLOR_BOUNDS_IS);
+#undef COLOR_BOUNDS_IS
   default:
     assert(false);
     break;
   }
-#undef COLOR_BOUNDS_IS
 
   // now partition "colors" by the value of color_flag_fid
   IndexSpace flags_cs = runtime->create_index_space(context, Rect<1>(0, 1));
@@ -2313,6 +2315,7 @@ Table::ipartition_by_value(
   return result;
 }
 
+
 void
 Table::register_tasks(Runtime* runtime) {
 }
@@ -2355,11 +2358,7 @@ Table::from_ms(
 
   // try to read as main table
   return
-    legms:: template from_ms<MS_MAIN>(
-      ctx,
-      runtime,
-      path,
-      column_selections);
+    legms:: template from_ms<MS_MAIN>(ctx, runtime, path, column_selections);
 
 #undef FROM_MS_TABLE
 }
