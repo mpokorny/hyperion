@@ -410,8 +410,7 @@ index_column(
   Future acc_future = acc_index_task.dispatch(ctx, runtime);
   // TODO: create and initialize the resulting LogicalRegion in another task, so
   // we don't have to wait on this future explicitly
-  auto acc =
-    acc_future.get_result<typename acc_field_redop<T>::LHS>();
+  auto acc = acc_future.get_result<acc_field_redop_rhs<T>>().v;
 
   LogicalRegionT<1> result_lr;
   if (acc.size() > 0) {
