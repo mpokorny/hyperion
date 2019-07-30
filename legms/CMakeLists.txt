@@ -189,11 +189,16 @@ if (USE_HDF5 AND USE_CASACORE)
     PUBLIC ${HDF5_INCLUDE_DIRS})
 endif (USE_HDF5 AND USE_CASACORE)
 
-install(TARGETS legms ms2h5
+install(TARGETS legms
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib)
 install(FILES LEGMS_INCLUDE
   DESTINATION include)
+
+if (USE_HDF5 AND USE_CASACORE)
+  install(TARGETS ms2h5
+    RUNTIME DESTINATION bin)
+endif (USE_HDF5 AND USE_CASACORE)
 
 add_subdirectory(testing)
 add_subdirectory(tests)
