@@ -1,6 +1,7 @@
 #ifndef LEGMS_UTILITY_H_
 #define LEGMS_UTILITY_H_
 
+#pragma GCC visibility push(default)
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -12,12 +13,14 @@
 #include <numeric>
 #include <optional>
 #include <unordered_map>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "IndexTree.h"
 
 #include "utility_c.h"
 
+#pragma GCC visibility push(default)
 #ifdef LEGMS_USE_HDF5
 # include <hdf5.h>
 # include <experimental/filesystem>
@@ -29,6 +32,7 @@
 # include <casacore/casa/BasicSL/String.h>
 # include <casacore/casa/Utilities/DataType.h>
 #endif
+#pragma GCC visibility pop
 
 namespace legms {
 
@@ -80,13 +84,13 @@ struct Axes {
 #endif
 };
 
-std::optional<int>
+LEGMS_LOCAL std::optional<int>
 column_is_axis(
   const std::vector<std::string>& axis_names,
   const std::string& colname,
   const std::vector<int>& axes);
 
-struct string {
+struct LEGMS_API string {
 
   string() {
     val[0] = '\0';
@@ -431,7 +435,7 @@ public:
   }
 };
 
-class index_tree_serdez {
+class LEGMS_API index_tree_serdez {
 public:
   typedef IndexTreeL FIELD_TYPE;
 
@@ -458,7 +462,7 @@ public:
   }
 };
 
-class bool_or_redop {
+class LEGMS_LOCAL bool_or_redop {
 public:
   typedef bool LHS;
   typedef bool RHS;
@@ -594,7 +598,7 @@ struct DataType {
   //typedef X ValueType;
 };
 
-struct OpsManager {
+struct LEGMS_API OpsManager {
 public:
 
   static void
@@ -640,7 +644,7 @@ public:
 };
 
 #ifdef LEGMS_USE_HDF5
-class H5DatatypeManager {
+class LEGMS_API H5DatatypeManager {
 public:
 
   // TODO: add support for non-native types in HDF5 files
@@ -693,7 +697,7 @@ private:
 };
 #endif
 
-class AxesRegistrar {
+class LEGMS_API AxesRegistrar {
 public:
 
   struct A {
@@ -745,7 +749,7 @@ private:
   static std::unordered_map<std::string, A> axes_;
 };
 
-Legion::FieldID
+LEGMS_API Legion::FieldID
 add_field(
   TypeTag datatype,
   Legion::FieldAllocator fa,
@@ -1133,7 +1137,7 @@ struct ValueType<std::string> {
 };
 #undef VT
 
-class ProjectedIndexPartitionTask
+class LEGMS_API ProjectedIndexPartitionTask
   : Legion::IndexTaskLauncher {
 public:
 
@@ -1233,7 +1237,7 @@ projected_index_partition(
   return result;
 }
 
-Legion::IndexPartition
+LEGMS_API Legion::IndexPartition
 projected_index_partition(
   Legion::Context ctx,
   Legion::Runtime* runtime,
@@ -1241,7 +1245,7 @@ projected_index_partition(
   Legion::IndexSpace prj_is,
   const std::vector<int>& dmap);
 
-struct AxisPartition {
+struct LEGMS_API AxisPartition {
   std::string axes_uid;
   int dim;
   Legion::coord_t stride;
@@ -1284,22 +1288,22 @@ struct AxisPartition {
   }
 };
 
-Legion::IndexPartition
+LEGMS_API Legion::IndexPartition
 create_partition_on_axes(
   Legion::Context ctx,
   Legion::Runtime* runtime,
   Legion::IndexSpace is,
   const std::vector<AxisPartition>& parts);
 
-Legion::LayoutConstraintRegistrar&
+LEGMS_API Legion::LayoutConstraintRegistrar&
 add_row_major_order_constraint(
   Legion::LayoutConstraintRegistrar& lc,
   unsigned rank);
 
-void
+LEGMS_API void
 preregister_all();
 
-void
+LEGMS_API void
 register_tasks(Legion::Runtime* runtime);
 
 #if LEGION_MAX_DIM == 1

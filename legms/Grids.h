@@ -1,7 +1,9 @@
 #ifndef LEGMS_GRIDS_H_
 #define LEGMS_GRIDS_H_
 
+#pragma GCC visibility push(default)
 #include <tuple>
+#pragma GCC visibility pop
 
 #include "legms.h"
 

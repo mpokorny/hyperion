@@ -1,8 +1,10 @@
 #ifndef LEGMS_COLUMN_PARTITION_H_
 #define LEGMS_COLUMN_PARTITION_H_
 
+#pragma GCC visibility push(default)
 #include <algorithm>
 #include <vector>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "utility.h"
@@ -12,7 +14,7 @@
 
 namespace legms {
 
-class ColumnPartition {
+class LEGMS_API ColumnPartition {
 public:
 
   ColumnPartition(

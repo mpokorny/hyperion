@@ -1,12 +1,14 @@
 #ifndef LEGMS_COLUMN_H_
 #define LEGMS_COLUMN_H_
 
+#pragma GCC visibility push(default)
 #include <cassert>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <tuple>
 #include <unordered_map>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "utility.h"
@@ -23,7 +25,7 @@ namespace legms {
 
 class Column;
 
-struct ColumnGenArgs {
+struct LEGMS_API ColumnGenArgs {
 
   ColumnGenArgs() {}
 
@@ -70,7 +72,7 @@ struct ColumnGenArgs {
   to_column_t() const;
 };
 
-class Column
+class LEGMS_API Column
   : public WithKeywords {
 
 public:

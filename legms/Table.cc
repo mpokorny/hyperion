@@ -1,8 +1,10 @@
+#pragma GCC visibility push(default)
 #include <algorithm>
 #include <array>
 #include <numeric>
 #include <tuple>
 #include <vector>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "legion/legion_c_util.h"
@@ -11,7 +13,9 @@
 #include "TableBuilder.h"
 
 #ifdef LEGMS_USE_HDF5
+#pragma GCC visibility push(default)
 # include <hdf5.h>
+#pragma GCC visibility pop
 #endif
 
 using namespace legms;
@@ -269,7 +273,7 @@ using WOAccessor =
   CHECK_BOUNDS>;
 
 template <typename T>
-class IndexAccumulateTask {
+class LEGMS_LOCAL IndexAccumulateTask {
 public:
 
   typedef DataType<ValueType<T>::DataType> DT;
@@ -397,7 +401,7 @@ IndexColumnTask::dispatch(Context ctx, Runtime* runtime) {
 }
 
 template <typename T>
-LogicalRegion
+static LogicalRegion
 index_column(
   const Task*,
   Context ctx,
@@ -480,7 +484,7 @@ IndexColumnTask::base_impl(
 
 #ifdef HIERARCHICAL_COMPUTE_RECTANGLES
 
-class ComputeRectanglesTask {
+class LEGMS_LOCAL ComputeRectanglesTask {
 public:
 
   static TaskID TASK_ID;
@@ -742,7 +746,7 @@ private:
 
 #else // !HIERARCHICAL_COMPUTE_RECTANGLES
 
-class ComputeRectanglesTask {
+class LEGMS_LOCAL ComputeRectanglesTask {
 public:
 
   static TaskID TASK_ID;
@@ -992,7 +996,7 @@ private:
 TaskID ComputeRectanglesTask::TASK_ID;
 const char* ComputeRectanglesTask::TASK_NAME = "ComputeRectanglesTask";
 
-class ReindexColumnCopyTask {
+class LEGMS_LOCAL ReindexColumnCopyTask {
 public:
 
   static TaskID TASK_ID;
@@ -1681,7 +1685,7 @@ Table::iindex_by_value(
   return result;
 }
 
-class ComputeColorsTask {
+class LEGMS_LOCAL ComputeColorsTask {
 public:
 
   static TaskID TASK_ID;
@@ -1889,7 +1893,7 @@ ComputeColorsTask::layout_constraint_ids;
 // TODO: replace this macro value with a class member variable
 #define PART_FID 0
 
-class InitColorsTask {
+class LEGMS_LOCAL InitColorsTask {
 public:
 
   static TaskID TASK_ID;
@@ -2021,7 +2025,7 @@ private:
 TaskID InitColorsTask::TASK_ID;
 const char* InitColorsTask::TASK_NAME = "InitColorsTask";
 
-class ComputePartitionTask {
+class LEGMS_LOCAL ComputePartitionTask {
 public:
 
   static TaskID TASK_ID;

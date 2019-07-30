@@ -4,7 +4,9 @@
 #include "legms_c.h"
 
 #ifdef __cplusplus
+#pragma GCC visibility push(default)
 #include <memory>
+#pragma GCC visibility pop
 
 namespace legms {
 namespace CObjectWrapper {

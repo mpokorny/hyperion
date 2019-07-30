@@ -1,17 +1,19 @@
 #ifndef LEGMS_WITH_KEYWORDS_H_
 #define LEGMS_WITH_KEYWORDS_H_
 
+#pragma GCC visibility push(default)
 #include <algorithm>
 #include <string>
 #include <tuple>
 #include <vector>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "utility.h"
 
 namespace legms {
 
-class WithKeywords {
+class LEGMS_API WithKeywords {
 public:
 
   typedef std::vector<std::tuple<std::string, TypeTag>> kw_desc_t;

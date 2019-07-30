@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-void
+LEGMS_API void
 block_and_halo_partitions_1d(
   legion_context_t ctx,
   legion_runtime_t runtime,
@@ -17,7 +17,7 @@ block_and_halo_partitions_1d(
   legion_index_partition_t* block_ip,
   legion_index_partition_t* halo_ip);
 
-void
+LEGMS_API void
 block_and_halo_partitions_2d(
   legion_context_t ctx,
   legion_runtime_t runtime,
@@ -27,7 +27,7 @@ block_and_halo_partitions_2d(
   legion_index_partition_t* block_ip,
   legion_index_partition_t* halo_ip);
 
-void
+LEGMS_API void
 block_and_halo_partitions_3d(
   legion_context_t ctx,
   legion_runtime_t runtime,

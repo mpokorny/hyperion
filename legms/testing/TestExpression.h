@@ -1,10 +1,12 @@
 #ifndef LEGMS_TESTING_TEST_EXPRESSION_H_
 #define LEGMS_TESTING_TEST_EXPRESSION_H_
 
+#pragma GCC visibility push(default)
 #include <optional>
 #include <ostream>
 #include <sstream>
 #include <typeinfo>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "TestRecorder.h"

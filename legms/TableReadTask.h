@@ -1,11 +1,13 @@
 #ifndef LEGMS_TABLE_READ_TASK_H_
 #define LEGMS_TABLE_READ_TASK_H_
+#pragma GCC visibility push(default)
 #include <array>
 #include <cstring>
 #include <memory>
 #include <new>
 #include <type_traits>
 #include <unordered_map>
+#pragma GCC visibility pop
 
 #include "legms.h"
 
@@ -15,13 +17,15 @@
 #include "utility.h"
 #include "Column.h"
 
+#pragma GCC visibility push(default)
 #include <casacore/casa/aipstype.h>
 #include <casacore/casa/Arrays.h>
 #include <casacore/tables/Tables.h>
+#pragma GCC visibility pop
 
 namespace legms {
 
-struct TableReadTaskArgs {
+struct LEGMS_API TableReadTaskArgs {
   char table_path[80];
   char table_name[80];
   char column_name[20];
@@ -29,7 +33,7 @@ struct TableReadTaskArgs {
   TypeTag column_datatype;
 };
 
-class TableReadTask {
+class LEGMS_API TableReadTask {
 public:
 
   static Legion::TaskID TASK_ID;

@@ -1,4 +1,6 @@
+#pragma GCC visibility push(default)
 #include<algorithm>
+#pragma GCC visibility pop
 
 #include "utility.h"
 #include "Column.h"

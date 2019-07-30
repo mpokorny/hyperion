@@ -2,14 +2,18 @@
 #include "Table_c.h"
 #include "Table.h"
 #ifdef LEGMS_USE_HDF5
+#pragma GCC visibility push(default)
 # include "legms_hdf5.h"
+#pragma GCC visibility pop
 #endif
 
+#pragma GCC visibility push(default)
 #include "legion/legion_c_util.h"
 
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#pragma GCC visibility pop
 
 using namespace legms;
 

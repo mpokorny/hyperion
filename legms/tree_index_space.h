@@ -1,10 +1,12 @@
 #ifndef LEGMS_TREE_INDEX_SPACE_H_
 #define LEGMS_TREE_INDEX_SPACE_H_
 
+#pragma GCC visibility push(default)
 #include <algorithm>
 #include <limits>
 #include <ostream>
 #include <vector>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "utility.h"
@@ -14,7 +16,7 @@ namespace legms {
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;
 
-class TreeIndexSpaceTask {
+class LEGMS_API TreeIndexSpaceTask {
 public:
 
   static Legion::TaskID TASK_ID;
@@ -42,7 +44,7 @@ private:
   std::vector<IndexTreeL> m_trees;
 };
 
-Legion::IndexSpace
+LEGMS_API Legion::IndexSpace
 tree_index_space(
   const IndexTreeL& tree,
   Legion::Context ctx,

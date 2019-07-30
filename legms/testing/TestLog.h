@@ -1,10 +1,12 @@
 #ifndef LEGMS_TESTING_TEST_LOG_H_
 #define LEGMS_TESTING_TEST_LOG_H_
 
+#pragma GCC visibility push(default)
 #include <array>
 #include <memory>
 #include <optional>
 #include <tuple>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "utility.h"
@@ -24,7 +26,7 @@ enum TestState : TEST_STATE_TYPE {
 template <legion_privilege_mode_t MODE>
 class TestLog;
 
-struct TestLogReference {
+struct LEGMS_API TestLogReference {
 public:
 
   TestLogReference(

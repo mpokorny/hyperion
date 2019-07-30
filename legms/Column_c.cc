@@ -1,4 +1,6 @@
+#pragma GCC visibility push(default)
 #include <vector>
+#pragma GCC visibility pop
 
 #include "c_util.h"
 #include "Column_c.h"

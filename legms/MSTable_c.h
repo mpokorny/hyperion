@@ -299,19 +299,19 @@ typedef enum ms_weather_axes_t {
     unsigned num_axes;                          \
   } ms_##t##_column_axes_t;                     \
                                                 \
-  const char*                                   \
+  LEGMS_API const char*                         \
   t##_table_name();                             \
                                                 \
-  const ms_##t##_column_axes_t*                 \
+  LEGMS_API const ms_##t##_column_axes_t*       \
   t##_table_element_axes();                     \
                                                 \
-  unsigned                                      \
+  LEGMS_API unsigned                            \
   t##_table_num_columns();                      \
                                                 \
-  const char* const*                            \
+  LEGMS_API const char* const*                  \
   t##_table_axis_names();                       \
                                                 \
-  unsigned                                      \
+  LEGMS_API unsigned                            \
   t##_table_num_axes();
 
 FOREACH_MS_TABLE_t(TABLE_FUNCTION_DECLS);

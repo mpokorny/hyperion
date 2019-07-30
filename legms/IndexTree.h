@@ -1,6 +1,7 @@
 #ifndef LEGMS_INDEX_TREE_H_
 #define LEGMS_INDEX_TREE_H_
 
+#pragma GCC visibility push(default)
 #include <algorithm>
 #include <limits>
 #include <numeric>
@@ -11,6 +12,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#pragma GCC visibility pop
 
 namespace legms {
 

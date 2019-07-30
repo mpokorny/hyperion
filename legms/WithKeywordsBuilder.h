@@ -1,16 +1,18 @@
 #ifndef LEGMS_WITH_KEYWORDS_BUILDER_H_
 #define LEGMS_WITH_KEYWORDS_BUILDER_H_
 
+#pragma GCC visibility push(default)
 #include <string>
 #include <tuple>
 #include <vector>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "utility.h"
 
 namespace legms {
 
-class WithKeywordsBuilder {
+class LEGMS_API WithKeywordsBuilder {
 public:
 
   WithKeywordsBuilder() {}

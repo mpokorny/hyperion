@@ -1,6 +1,7 @@
 #ifndef LEGMS_TABLE_H_
 #define LEGMS_TABLE_H_
 
+#pragma GCC visibility push(default)
 #include <algorithm>
 #include <cassert>
 #include <experimental/filesystem>
@@ -9,6 +10,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#pragma GCC visibility pop
 
 #include "legms.h"
 
@@ -22,7 +24,9 @@
 #include "MSTable.h"
 
 #ifdef LEGMS_USE_HDF5
+#pragma GCC visibility push(default)
 # include <hdf5.h>
+#pragma GCC visibility pop
 #endif // LEGMS_USE_HDF5
 
 #include "c_util.h"
@@ -31,7 +35,7 @@ namespace legms {
 
 class Table;
 
-struct TableGenArgs {
+struct LEGMS_API TableGenArgs {
 
   TableGenArgs() {}
 
@@ -74,7 +78,7 @@ struct TableGenArgs {
   to_table_t() const;
 };
 
-class Table
+class LEGMS_API Table
   : public WithKeywords {
 public:
 
@@ -480,7 +484,7 @@ private:
   std::optional<std::string> m_max_rank_colname;
 };
 
-class IndexColumnTask {
+class LEGMS_API IndexColumnTask {
 public:
 
   static Legion::TaskID TASK_ID;
@@ -512,7 +516,7 @@ private:
   std::unique_ptr<char[]> m_args;
 };
 
-class ReindexColumnTask {
+class LEGMS_API ReindexColumnTask {
 public:
 
   static Legion::TaskID TASK_ID;
@@ -564,7 +568,7 @@ private:
   Legion::TaskLauncher m_launcher;
 };
 
-class ReindexedTableTask {
+class LEGMS_API ReindexedTableTask {
 public:
 
   static Legion::TaskID TASK_ID;

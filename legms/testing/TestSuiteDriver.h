@@ -1,7 +1,9 @@
 #ifndef LEGMS_TESTING_TEST_SUITE_DRIVER_H_
 #define LEGMS_TESTING_TEST_SUITE_DRIVER_H_
 
+#pragma GCC visibility push(default)
 #include <array>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "utility.h"
@@ -13,7 +15,7 @@
 namespace legms {
 namespace testing {
 
-class TestSuiteDriver {
+class LEGMS_API TestSuiteDriver {
 public:
 
   static Legion::TaskID TASK_ID;

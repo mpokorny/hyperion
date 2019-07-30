@@ -2,7 +2,10 @@
 #include "Grids.h"
 
 #include "legms_c.h"
+
+#pragma GCC visibility push(default)
 #include "legion/legion_c_util.h"
+#pragma GCC visibility pop
 
 void
 block_and_halo_partitions_1d(

@@ -1,13 +1,15 @@
 #include "MSTable.h"
 #include "c_util.h"
 
+#pragma GCC visibility push(default)
 #include <mutex>
 #include <type_traits>
+#pragma GCC visibility pop
 
 using namespace legms;
 
 template <MSTables T, int N>
-inline std::enable_if_t<(N == 0)>
+inline static std::enable_if_t<(N == 0)>
 add_axis_names(std::vector<std::string>& v) {
 
   typedef typename MSTable<T>::Axes Axes;
@@ -16,7 +18,7 @@ add_axis_names(std::vector<std::string>& v) {
 }
 
 template <MSTables T, int N>
-inline std::enable_if_t<(N > 0)>
+inline static std::enable_if_t<(N > 0)>
 add_axis_names(std::vector<std::string>& v) {
 
   typedef typename MSTable<T>::Axes Axes;
@@ -369,7 +371,7 @@ legms::MSTable<MS_WEATHER>::element_axes = {
 LEGMS_FOREACH_MSTABLE(AXIS_NAMES);
 
 template <typename T>
-hid_t
+static hid_t
 h5_axes_dt()  {
   hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
   for (unsigned char a = 0;

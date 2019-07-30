@@ -3,6 +3,7 @@
 
 #ifdef LEGMS_USE_CASACORE
 
+#pragma GCC visibility push(default)
 #include <any>
 #include <cassert>
 #include <functional>
@@ -10,6 +11,7 @@
 #include <numeric>
 #include <optional>
 #include <vector>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "utility.h"

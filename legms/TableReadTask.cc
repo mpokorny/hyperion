@@ -1,4 +1,7 @@
+#pragma GCC visibility push(default)
 #include <algorithm>
+#pragma GCC visibility pop
+
 #include "TableReadTask.h"
 
 using namespace legms;

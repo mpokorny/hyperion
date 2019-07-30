@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-void
+LEGMS_API void
 table_block_read_task(
   legion_context_t context,
   legion_runtime_t runtime,

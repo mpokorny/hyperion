@@ -1,10 +1,12 @@
 #include "legms_hdf5.h"
 
+#pragma GCC visibility push(default)
 #include <algorithm>
 #include <cstring>
 #include <numeric>
 #include <optional>
 #include <sstream>
+#pragma GCC visibility pop
 
 #include "tree_index_space.h"
 #include "MSTable.h"
@@ -1055,7 +1057,7 @@ legms::hdf5::init_table(
   return result;
 }
 
-herr_t
+static herr_t
 acc_table_paths(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
 
   std::unordered_set<std::string>* tblpaths =
@@ -1090,7 +1092,7 @@ legms::hdf5::get_table_paths(
   return result;
 }
 
-herr_t
+static herr_t
 acc_column_names(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
   std::unordered_set<std::string>* colnames =
     (std::unordered_set<std::string>*)(ctx);

@@ -2,7 +2,9 @@
 #include "TableReadTask.h"
 #include "c_util.h"
 
+#pragma GCC visibility push(default)
 #include "legion/legion_c_util.h"
+#pragma GCC visibility pop
 
 using namespace legms;
 

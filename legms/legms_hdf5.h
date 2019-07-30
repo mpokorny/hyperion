@@ -1,6 +1,7 @@
 #ifndef LEGMS_HDF_HDF5_H_
 #define LEGMS_HDF_HDF5_H_
 
+#pragma GCC visibility push(default)
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -11,13 +12,16 @@
 #include <vector>
 
 #include <experimental/filesystem>
+#pragma GCC visibility pop
 
 #include "utility.h"
 #include "IndexTree.h"
 #include "Column.h"
 #include "Table.h"
 
+#pragma GCC visibility push(default)
 #include <hdf5.h>
+#pragma GCC visibility pop
 
 namespace legms {
 namespace hdf5 {
@@ -168,7 +172,7 @@ write_index_tree_to_attr(
   }
 }
 
-std::optional<std::string>
+LEGMS_API std::optional<std::string>
 read_index_tree_attr_metadata(
   hid_t loc_id,
   const std::string& attr_name,
@@ -244,7 +248,7 @@ read_index_tree_from_attr(
   return result;
 }
 
-void
+LEGMS_API void
 write_keywords(
   hid_t loc_id,
   const WithKeywords* with_keywords,
@@ -255,7 +259,7 @@ write_keywords(
   hid_t dataset_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
-void
+LEGMS_API void
 write_column(
   const std::experimental::filesystem::path& path,
   hid_t table_id,
@@ -273,7 +277,7 @@ write_column(
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
-void
+LEGMS_API void
 write_table(
   const std::experimental::filesystem::path& path,
   hid_t loc_id,
@@ -292,7 +296,7 @@ write_table(
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
-std::tuple<Legion::LogicalRegion, std::vector<TypeTag>>
+LEGMS_API std::tuple<Legion::LogicalRegion, std::vector<TypeTag>>
 init_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
@@ -300,7 +304,7 @@ init_keywords(
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT);
 
-std::optional<legms::ColumnGenArgs>
+LEGMS_API std::optional<legms::ColumnGenArgs>
 init_column(
   Legion::Context context,
   Legion::Runtime* runtime,
@@ -310,7 +314,7 @@ init_column(
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
-std::optional<legms::TableGenArgs>
+LEGMS_API std::optional<legms::TableGenArgs>
 init_table(
   Legion::Context context,
   Legion::Runtime* runtime,
@@ -325,7 +329,7 @@ init_table(
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
-std::optional<legms::TableGenArgs>
+LEGMS_API std::optional<legms::TableGenArgs>
 init_table(
   Legion::Context context,
   Legion::Runtime* runtime,
@@ -336,24 +340,24 @@ init_table(
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
-std::unordered_set<std::string>
+LEGMS_API std::unordered_set<std::string>
 get_table_paths(const std::experimental::filesystem::path& file_path);
 
-std::unordered_set<std::string>
+LEGMS_API std::unordered_set<std::string>
 get_column_names(
   const std::experimental::filesystem::path& file_path,
   const std::string& table_path);
 
-std::unordered_map<std::string, std::string>
+LEGMS_API std::unordered_map<std::string, std::string>
 get_table_keyword_paths(const Table& table);
 
-std::string
+LEGMS_API std::string
 get_table_column_value_path(const Table& table, const std::string& colname);
 
-std::unordered_map<std::string, std::string>
+LEGMS_API std::unordered_map<std::string, std::string>
 get_table_column_keyword_paths(const Table& table, const std::string& colname);
 
-std::optional<Legion::PhysicalRegion>
+LEGMS_API std::optional<Legion::PhysicalRegion>
 attach_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
@@ -363,7 +367,7 @@ attach_keywords(
   bool read_only = true);
 
 // returns value/keywords region pairs by column
-std::unordered_map<
+LEGMS_API std::unordered_map<
   std::string,
   std::tuple<
     std::optional<Legion::PhysicalRegion>,
@@ -376,7 +380,7 @@ attach_table_columns(
   const Table* table,
   bool read_only = true);
 
-std::optional<Legion::PhysicalRegion>
+LEGMS_API std::optional<Legion::PhysicalRegion>
 attach_table_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
@@ -385,7 +389,7 @@ attach_table_keywords(
   const Table* table,
   bool read_only = true);
 
-struct binary_index_tree_serdez {
+struct LEGMS_API binary_index_tree_serdez {
 
   static const constexpr char* id = "legms::hdf5::binary_index_tree_serdez";
 
@@ -406,7 +410,7 @@ struct binary_index_tree_serdez {
   }
 };
 
-struct string_index_tree_serdez {
+struct LEGMS_API string_index_tree_serdez {
 
   static const constexpr char* id = "legms::hdf5::string_index_tree_serdez";
 

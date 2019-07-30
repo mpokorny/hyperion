@@ -2,11 +2,13 @@
 #include "MSTable.h"
 #include "c_util.h"
 
+#pragma GCC visibility push(default)
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstring>
 #include <mutex>
+#pragma GCC visibility pop
 
 using namespace legms;
 

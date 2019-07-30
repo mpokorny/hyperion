@@ -3,6 +3,7 @@
 
 #ifdef LEGMS_USE_CASACORE
 
+#pragma GCC visibility push(default)
 #include <algorithm>
 #include <cassert>
 #include <experimental/filesystem>
@@ -11,6 +12,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "WithKeywordsBuilder.h"
@@ -20,9 +22,11 @@
 #include "IndexTree.h"
 #include "MSTable.h"
 
-# include <casacore/casa/aipstype.h>
-# include <casacore/casa/BasicSL/String.h>
-# include <casacore/tables/Tables.h>
+#pragma GCC visibility push(default)
+#include <casacore/casa/aipstype.h>
+#include <casacore/casa/BasicSL/String.h>
+#include <casacore/tables/Tables.h>
+#pragma GCC visibility pop
 
 namespace legms {
 
@@ -285,7 +289,7 @@ public:
 };
 
 #ifdef LEGMS_USE_CASACORE
-struct TableBuilder {
+struct LEGMS_API TableBuilder {
 
   template <MSTables T>
   static TableBuilderT<T>

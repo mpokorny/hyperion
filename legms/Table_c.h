@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-typedef struct table_t {
+typedef struct LEGMS_API table_t {
   char name[LEGMS_MAX_STRING_SIZE];
   char axes_uid[LEGMS_MAX_STRING_SIZE];
   unsigned num_index_axes;
@@ -20,13 +20,13 @@ typedef struct table_t {
   legion_logical_region_t keywords;
 } table_t;
 
-int
+LEGMS_API int
 table_has_column(const table_t* table, const char* name);
 
-const column_t*
+LEGMS_API const column_t*
 table_column(const table_t* table, const char* name);
 
-table_t
+LEGMS_API table_t
 table_reindexed(
   legion_context_t context,
   legion_runtime_t runtime,
@@ -35,7 +35,7 @@ table_reindexed(
   const int* axes,
   int allow_rows);
 
-void
+LEGMS_API void
 table_partition_by_value(
   legion_context_t context,
   legion_runtime_t runtime,
@@ -48,7 +48,7 @@ table_partition_by_value(
   legion_logical_partition_t* col_partitions);
 
 #ifdef LEGMS_USE_CASACORE
-table_t
+LEGMS_API table_t
 table_from_ms(
   legion_context_t context,
   legion_runtime_t runtime,
@@ -59,14 +59,14 @@ table_from_ms(
 
 #ifdef LEGMS_USE_HDF5
 // returns NULL-terminated array of strings -- caller must free everything
-char **
+LEGMS_API char **
 tables_in_h5(const char* path);
 
 // returns NULL-terminated array of strings -- caller must free everything
-char **
+LEGMS_API char **
 columns_in_h5(const char* path, const char* table_path);
 
-table_t
+LEGMS_API table_t
 table_from_h5(
   legion_context_t context,
   legion_runtime_t runtime,
@@ -77,7 +77,7 @@ table_from_h5(
 
 // use table_num_keywords() to find required minimum length of vectors
 // "keywords" and "paths"; returned strings must be freed by caller
-void
+LEGMS_API void
 table_keyword_paths(
   legion_context_t context,
   legion_runtime_t runtime,
@@ -86,7 +86,7 @@ table_keyword_paths(
   char** paths);
 
 // returned string "*path" must be freed by caller
-void
+LEGMS_API void
 table_column_value_path(
   legion_context_t context,
   legion_runtime_t runtime,
@@ -96,7 +96,7 @@ table_column_value_path(
 
 // use column_num_keywords() to find required minimum length of vector
 // "keywords" and "paths"; returned strings must be freed by caller
-void
+LEGMS_API void
 table_column_keyword_paths(
   legion_context_t context,
   legion_runtime_t runtime,

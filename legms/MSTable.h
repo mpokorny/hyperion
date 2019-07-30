@@ -1,9 +1,11 @@
 #ifndef LEGMS_MS_TABLE_H_
 #define LEGMS_MS_TABLE_H_
 
+#pragma GCC visibility push(default)
 #include <memory>
 #include <string>
 #include <vector>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "utility.h"
@@ -11,7 +13,9 @@
 #include "MSTable_c.h"
 
 #ifdef LEGMS_USE_HDF5
+#pragma GCC visibility push(default)
 # include <hdf5.h>
+#pragma GCC visibility pop
 #endif // LEGMS_USE_HDF5
 
 namespace legms {

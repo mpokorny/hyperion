@@ -22,10 +22,10 @@ typedef enum type_tag_t {
   LEGMS_TYPE_STRING
 } type_tag_t;
 
-void
+LEGMS_API void
 preregister_all();
 
-void
+LEGMS_API void
 register_tasks(legion_runtime_t runtime);
 
 #ifdef __cplusplus

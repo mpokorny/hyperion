@@ -1,7 +1,9 @@
 #ifndef LEGMS_TESTING_TEST_RECORDER_H_
 #define LEGMS_TESTING_TEST_RECORDER_H_
 
+#pragma GCC visibility push(default)
 #include <exception>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "TestLog.h"

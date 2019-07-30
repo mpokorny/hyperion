@@ -1,4 +1,6 @@
+#pragma GCC visibility push(default)
 #include <cassert>
+#pragma GCC visibility pop
 
 #include "legms.h"
 #include "tree_index_space.h"
