@@ -1259,7 +1259,7 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* runtime) {
 }
 
 template <int OLDDIM, int NEWDIM>
-ColumnGenArgs
+static ColumnGenArgs
 reindex_column(
   const ReindexColumnTask::TaskArgs& args,
   const vector<PhysicalRegion>& regions,
