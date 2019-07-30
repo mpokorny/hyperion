@@ -206,7 +206,7 @@ ProjectedIndexPartitionTask::dispatch(Context ctx, Runtime* runtime) {
 }
 
 template <int IPDIM, int PRJDIM>
-void
+static void
 pipt_impl(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
