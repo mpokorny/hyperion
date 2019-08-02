@@ -175,6 +175,8 @@ target_link_libraries(legms PUBLIC legion)
 target_link_libraries(legms PUBLIC realm)
 set_target_properties(legms PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(legms PROPERTIES SOVERSION ${SOVERSION})
+install(TARGETS legms RUNTIME DESTINATION lib)
+install(FILES LEGMS_INCLUDE DESTINATION include)
 
 if (USE_HDF5 AND USE_CASACORE)
   add_executable(ms2h5 ms2h5.cc)
@@ -187,17 +189,7 @@ if (USE_HDF5 AND USE_CASACORE)
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     PUBLIC ${casacore_INCLUDE_DIR}
     PUBLIC ${HDF5_INCLUDE_DIRS})
-endif (USE_HDF5 AND USE_CASACORE)
-
-install(TARGETS legms
-  RUNTIME DESTINATION bin
-  LIBRARY DESTINATION lib)
-install(FILES LEGMS_INCLUDE
-  DESTINATION include)
-
-if (USE_HDF5 AND USE_CASACORE)
-  install(TARGETS ms2h5
-    RUNTIME DESTINATION bin)
+  install(TARGETS ms2h5 RUNTIME DESTINATION bin)
 endif (USE_HDF5 AND USE_CASACORE)
 
 add_subdirectory(testing)
