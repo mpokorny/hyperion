@@ -1223,6 +1223,7 @@ legms::hdf5::attach_table_columns(
   const std::experimental::filesystem::path& file_path,
   const std::string& root_path,
   const Table* table,
+  bool mapped,
   bool read_only) {
 
   std::unordered_map<
@@ -1245,6 +1246,7 @@ legms::hdf5::attach_table_columns(
       auto col = c->logical_region();
       if (col != LogicalRegion::NO_REGION) {
         AttachLauncher col_attach(EXTERNAL_HDF5_FILE, col, col);
+        col_attach.mapped = mapped;
         std::string col_path = table_root + c->name() + "/" + LEGMS_COLUMN_DS;
         std::map<FieldID, const char*>
           fields{{Column::value_fid, col_path.c_str()}};

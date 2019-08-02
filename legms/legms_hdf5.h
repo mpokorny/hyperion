@@ -378,6 +378,7 @@ attach_table_columns(
   const std::experimental::filesystem::path& file_path,
   const std::string& root_path,
   const Table* table,
+  bool mapped = true,
   bool read_only = true);
 
 LEGMS_API std::optional<Legion::PhysicalRegion>
