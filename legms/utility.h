@@ -572,25 +572,28 @@ public:
     combine(rhs1.v, rhs2);
   }
 
+#ifdef WITH_ACC_FIELD_REDOP_SERDEZ
   static void
-  init_fn(
-    const Legion::ReductionOp*,
-    void *& state,
-    size_t& sz __attribute__((unused))) {
-    assert(sz >= sizeof(RHS));
-    ::new(state) RHS;
+  init_fn(const Legion::ReductionOp*, void *& state, size_t& sz) {
+    RHS rhs;
+    state = realloc(state, rhs.legion_buffer_size());
+    sz = rhs.legion_serialize(state);
   }
 
   static void
   fold_fn(
     const Legion::ReductionOp* reduction_op,
     void *& state,
-    size_t& sz __attribute__((unused)),
+    size_t& sz,
     const void* result) {
-    RHS rhs;
+    RHS rhs, lhs;
     rhs.legion_deserialize(result);
-    reduction_op->fold(state, &rhs, 1, true);
+    lhs.legion_deserialize(state);
+    reduction_op->fold(&lhs, &rhs, 1, true);
+    state = realloc(state, lhs.legion_buffer_size());
+    sz = lhs.legion_serialize(state);
   }
+#endif // WITH_ACC_FIELD_REDOP_SERDEZ
 };
 
 template <typename T>

@@ -83,6 +83,7 @@ legms::OpsManager::preregister_ops() {
 
   Runtime::register_reduction_op<bool_or_redop>(BOOL_OR_REDOP);
 
+#ifdef WITH_ACC_FIELD_REDOP_SERDEZ
   Runtime::register_reduction_op(
     ACC_FIELD_STRING_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
@@ -155,6 +156,44 @@ legms::OpsManager::preregister_ops() {
     acc_field_redop<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>>(),
     acc_field_redop<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>::init_fn,
     acc_field_redop<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>::fold_fn);
+#else
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<LEGMS_TYPE_STRING>::ValueType>>(
+    ACC_FIELD_STRING_REDOP);
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<LEGMS_TYPE_BOOL>::ValueType>>(
+    ACC_FIELD_BOOL_REDOP);
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<LEGMS_TYPE_CHAR>::ValueType>>(
+    ACC_FIELD_CHAR_REDOP);
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<LEGMS_TYPE_UCHAR>::ValueType>>(
+    ACC_FIELD_UCHAR_REDOP);
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<LEGMS_TYPE_SHORT>::ValueType>>(
+    ACC_FIELD_SHORT_REDOP);
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<LEGMS_TYPE_USHORT>::ValueType>>(
+    ACC_FIELD_USHORT_REDOP);
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<LEGMS_TYPE_INT>::ValueType>>(
+    ACC_FIELD_INT_REDOP);
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<LEGMS_TYPE_UINT>::ValueType>>(
+    ACC_FIELD_UINT_REDOP);
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<LEGMS_TYPE_FLOAT>::ValueType>>(
+    ACC_FIELD_FLOAT_REDOP);
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<LEGMS_TYPE_DOUBLE>::ValueType>>(
+    ACC_FIELD_DOUBLE_REDOP);
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<LEGMS_TYPE_COMPLEX>::ValueType>>(
+    ACC_FIELD_COMPLEX_REDOP);
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>>(
+    ACC_FIELD_DCOMPLEX_REDOP);
+#endif // WITH_ACC_FIELD_REDOP_SERDEZ
 }
 
 FieldID
