@@ -34,6 +34,10 @@
 #endif
 #pragma GCC visibility pop
 
+#define GCC_VERSION (__GNUC__ * 10000 \
+                     + __GNUC_MINOR * 100 \
+                     + __GNUC_PATCHLEVEL__)
+
 namespace legms {
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;
