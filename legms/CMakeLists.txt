@@ -195,5 +195,18 @@ if (USE_HDF5 AND USE_CASACORE)
   install(TARGETS ms2h5 RUNTIME DESTINATION bin)
 endif (USE_HDF5 AND USE_CASACORE)
 
+if (USE_HDF5)
+  add_executable(gridder gridder.cc)
+  set_target_properties(gridder PROPERTIES
+    CXX_STANDARD 17
+    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+  target_link_libraries(gridder legms)
+  target_include_directories(gridder
+    PUBLIC ${Legion_INSTALL_DIR}/include
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    PUBLIC ${HDF5_INCLUDE_DIRS})
+  install(TARGETS gridder RUNTIME DESTINATION bin)
+endif (USE_HDF5)
+
 add_subdirectory(testing)
 add_subdirectory(tests)

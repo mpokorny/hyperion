@@ -104,6 +104,23 @@ column_is_axis(
   const std::string& colname,
   const std::vector<int>& axes);
 
+template <size_t N>
+char *
+fstrcpy(char(& dest)[N], const std::string& src) {
+  auto n = std::min(N - 1, src.size());
+  std::strncpy(&dest[0], src.c_str(), n);
+  dest[n] = '\0';
+  return &dest[0];
+}
+template <size_t N>
+char *
+fstrcpy(char(& dest)[N], const char* src) {
+  auto n = std::min(N - 1, std::strlen(src));
+  std::strncpy(&dest[0], src, n);
+  dest[n] = '\0';
+  return &dest[0];
+}
+
 struct LEGMS_API string {
 
   string() {
@@ -111,19 +128,16 @@ struct LEGMS_API string {
   }
 
   string(const std::string& s) {
-    std::strncpy(val, s.c_str(), sizeof(val));
-    val[sizeof(val) - 1] = '\0';
+    fstrcpy(val, s);
   }
 
   string(const char* s) {
-    std::strncpy(val, s, sizeof(val));
-    val[sizeof(val) - 1] = '\0';  
+    fstrcpy(val, s);
   }
 
   string&
   operator=(const std::string& s) {
-    std::strncpy(val, s.c_str(), sizeof(val));
-    val[sizeof(val) - 1] = '\0';
+    fstrcpy(val, s);
     return *this;
   }
 
@@ -1165,8 +1179,7 @@ struct DataType<LEGMS_TYPE_STRING> {
     casacore::DataType::TpArrayString;
   static void
   from_casacore(ValueType& v, const CasacoreType& c) {
-    std::strncpy(v.val, c.c_str(), sizeof(v.val));
-    v.val[sizeof(v.val) - 1] = '\0';
+    fstrcpy(v.val, c);
   }
 #endif
 #ifdef LEGMS_USE_HDF5

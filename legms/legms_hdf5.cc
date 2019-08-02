@@ -230,8 +230,7 @@ write_kw<LEGMS_TYPE_STRING> (
     const KW<LEGMS_TYPE_STRING> kw(region.value(), fid);
     const legms::string& kwval = kw[0];
     legms::string buf;
-    strncpy(buf.val, kwval.val, sizeof(buf));
-    buf.val[sizeof(buf.val) - 1] = '\0';
+    fstrcpy(buf.val, kwval.val);
     herr_t err = H5Dwrite(attr_id, dt, H5S_ALL, H5S_ALL, xfer_pl, buf.val);
     assert(err >= 0);
   }
@@ -1238,6 +1237,22 @@ legms::hdf5::attach_table_keywords(
       read_only);
 }
 
+void
+legms::hdf5::release_table_column_values(
+  Context ctx,
+  Runtime* rt,
+  const Table& table) {
+
+  table.foreach_column(
+    ctx,
+    rt,
+    [](Context c, Runtime* r, const Column& col) {
+      ReleaseLauncher release(col.values_lr, col.values_lr);
+      release.add_field(Column::VALUE_FID);
+      r->issue_release(c, release);
+    });
+}
+
 Legion::TaskID AttachTableLauncher::TASK_ID;
 
 const char* AttachTableLauncher::TASK_NAME = "AttachTableLauncher";
@@ -1248,9 +1263,9 @@ AttachTableLauncher::AttachTableLauncher(
   const Table& table,
   const std::unordered_set<std::string> mapped,
   const std::unordered_set<std::string> read_write,
-  Legion::Predicate pred,
-  Legion::MapperID id,
-  Legion::MappingTagID tag)
+  Predicate pred,
+  MapperID id,
+  MappingTagID tag)
   : m_file_path(file_path)
   , m_root_path(root_path)
   , m_table(table)
@@ -1297,9 +1312,22 @@ AttachTableLauncher::dispatch(Legion::Context ctx, Legion::Runtime* rt) {
       m_mapper,
       m_mapping_tag);
   RegionRequirement
-    req(m_table.columns_lr, 0, READ_ONLY, EXCLUSIVE, m_table.columns_lr);
+    req(m_table.columns_lr, READ_ONLY, EXCLUSIVE, m_table.columns_lr);
   req.add_field(Table::COLUMNS_FID);
   launcher.add_region_requirement(req);
+  m_table.foreach_column(
+    ctx,
+    rt,
+    [this, &launcher](Context ctx, Runtime* rt, const Column& col) {
+      RegionRequirement
+        mreq(col.metadata_lr, READ_ONLY, EXCLUSIVE, col.metadata_lr);
+      mreq.add_field(Column::METADATA_NAME_FID);
+      launcher.add_region_requirement(mreq);
+      RegionRequirement
+        vreq(col.values_lr, WRITE_DISCARD, EXCLUSIVE, col.values_lr);
+      vreq.add_field(Column::VALUE_FID);
+      launcher.add_region_requirement(vreq);
+    });
   rt->execute_index_space(ctx, launcher);
 }
 
@@ -1314,9 +1342,9 @@ AttachTableLauncher::base_impl(
   const ColumnFlags *flags = static_cast<const ColumnFlags*>(task->local_args);
   const Table::ColumnsAccessor<READ_ONLY, true> // TODO: no bounds check
     col(regions[0], Table::COLUMNS_FID);
-  auto column = col[task->index_point];
+  const Column& column = col[task->index_point];
   auto values =
-    legms::hdf5::attach_column_values(
+    attach_column_values(
       ctx,
       rt,
       fs::path(args->file_path.val),

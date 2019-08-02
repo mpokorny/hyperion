@@ -417,7 +417,13 @@ attach_table_keywords(
   const Table& table,
   bool read_only = true);
 
-class AttachTableLauncher {
+LEGMS_API void
+release_table_column_values(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const Table& table);
+
+class LEGMS_API AttachTableLauncher {
 public:
 
   static Legion::TaskID TASK_ID;

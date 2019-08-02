@@ -282,7 +282,7 @@ public:
 
   template <typename FN>
   std::vector<std::invoke_result_t<FN,Legion::Context,Legion::Runtime*,Column>>
-  map_columns(Legion::Context ctx, Legion::Runtime* rt) const {
+  map_columns(Legion::Context ctx, Legion::Runtime* rt, FN f) const {
     Legion::RegionRequirement req(columns_lr, READ_ONLY, EXCLUSIVE, columns_lr);
     req.add_field(COLUMNS_FID);
     auto pr = rt->map_region(ctx, req);
@@ -290,10 +290,23 @@ public:
       result;
     for (auto& colname : column_names(ctx, rt, pr)) {
       auto col = column(ctx, rt, pr, colname);
-      result.push_back(FN(ctx, rt, col));
+      result.push_back(f(ctx, rt, col));
     }
     rt->unmap_region(ctx, pr);
     return result;
+  }
+
+  template <typename FN>
+  void
+  foreach_column(Legion::Context ctx, Legion::Runtime* rt, FN f) const {
+    Legion::RegionRequirement req(columns_lr, READ_ONLY, EXCLUSIVE, columns_lr);
+    req.add_field(COLUMNS_FID);
+    auto pr = rt->map_region(ctx, req);
+    for (auto& colname : column_names(ctx, rt, pr)) {
+      auto col = column(ctx, rt, pr, colname);
+      f(ctx, rt, col);
+    }
+    rt->unmap_region(ctx, pr);
   }
 
 #ifndef NO_REINDEX

@@ -13,8 +13,6 @@
 #include "Table.h"
 #include "TableReadTask.h"
 
-namespace fs = std::experimental::filesystem;
-
 using namespace legms;
 using namespace Legion;
 
