@@ -515,42 +515,47 @@ public:
 
   static void
   combine(LHS& lhs, const RHS& rhs) {
-    std::for_each(
-      rhs.v.begin(),
-      rhs.v.end(),
-      [&lhs](auto& t_rns) {
-        auto& [t, rns] = t_rns;
-        if (rns.size() > 0) {
-          auto lb =
-            std::lower_bound(
-              lhs.begin(),
-              lhs.end(),
-              t,
-              [](auto& l, auto& t) { return std::get<0>(l) < t; });
-          if (lb != lhs.end() && std::get<0>(*lb) == t) {
-            auto& lrns = std::get<1>(*lb);
-            auto l = lrns.begin();
-            auto r = rns.begin();
-            while (r!= rns.end()) {
-              if (l != lrns.end()) {
+    if (lhs.size() == 0) {
+      lhs = rhs.v;
+    } else {
+      std::for_each(
+        rhs.v.begin(),
+        rhs.v.end(),
+        [&lhs](auto& t_rns) {
+          auto& [t, rns] = t_rns;
+          if (rns.size() > 0) {
+            auto lb =
+              std::lower_bound(
+                lhs.begin(),
+                lhs.end(),
+                t,
+                [](auto& a, auto& b) { return std::get<0>(a) < b; });
+            if (lb != lhs.end() && std::get<0>(*lb) == t) {
+              auto& lrns = std::get<1>(*lb);
+              auto l = lrns.begin();
+              auto r = rns.begin();
+              while (r != rns.end() && l != lrns.end()) {
                 if (*r < *l) {
+                  // the following lrns.insert() call may invalidate the "l"
+                  // iterator; to compensate, save the iterator's offset, do the
+                  // insertion, and then recreate the iterator
+                  auto lo = std::distance(l, lrns.begin());
                   lrns.insert(l, *r);
+                  l = lrns.begin() + lo + 1;
                   ++r;
                 } else if (*r == *l) {
                   ++r;
                 } else {
                   ++l;
                 }
-              } else {
-                lrns.push_back(*r);
-                ++r;
               }
+              std::copy(r, rns.end(), std::back_inserter(lrns));
+            } else {
+              lhs.insert(lb, t_rns);
             }
-          } else {
-            lhs.insert(lb, t_rns);
           }
-        }
-      });
+        });
+    }
   }
 
   template <bool EXCL>
