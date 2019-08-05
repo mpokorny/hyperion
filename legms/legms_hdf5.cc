@@ -10,6 +10,8 @@
 
 #include "tree_index_space.h"
 #include "MSTable.h"
+#include "Table.h"
+#include "Column.h"
 
 using namespace legms::hdf5;
 using namespace legms;
@@ -1252,123 +1254,6 @@ legms::hdf5::release_table_column_values(
       r->issue_release(c, release);
     });
 }
-
-Legion::TaskID AttachTableLauncher::TASK_ID;
-
-const char* AttachTableLauncher::TASK_NAME = "AttachTableLauncher";
-
-AttachTableLauncher::AttachTableLauncher(
-  const fs::path& file_path,
-  const std::string& root_path,
-  const Table& table,
-  const std::unordered_set<std::string> mapped,
-  const std::unordered_set<std::string> read_write,
-  Predicate pred,
-  MapperID id,
-  MappingTagID tag)
-  : m_file_path(file_path)
-  , m_root_path(root_path)
-  , m_table(table)
-  , m_mapped(mapped)
-  , m_read_write(read_write)
-  , m_pred(pred)
-  , m_mapper(id)
-  , m_mapping_tag(tag) {
-}
-
-void
-AttachTableLauncher::dispatch(Legion::Context ctx, Legion::Runtime* rt) {
-  auto cnames = m_table.column_names(ctx, rt);
-  std::vector<ColumnFlags> cflags(cnames.size());
-  for (size_t c = 0; c < cnames.size(); ++c) {
-    cflags[c].mapped = m_mapped.count(cnames[c]) > 0;
-    cflags[c].read_only = m_read_write.count(cnames[c]) == 0;
-  }
-
-  std::string table_root;
-  table_root = m_root_path;
-  if (table_root.back() != '/')
-    table_root.push_back('/');
-  table_root += m_table.name(ctx, rt) + "/";
-
-  TaskArgs args;
-  args.table_root = table_root;
-  args.file_path = m_file_path;
-
-  ArgumentMap amap;
-  for (PointInDomainIterator<1>
-         pid(rt->get_index_space_domain(m_table.columns_lr.get_index_space()));
-       pid();
-       pid++)
-    amap.set_point(*pid, TaskArgument(&cflags[pid[0]], sizeof(ColumnFlags)));
-
-  IndexTaskLauncher
-    launcher(
-      TASK_ID,
-      m_table.columns_lr.get_index_space(),
-      TaskArgument(&args, sizeof(args)),
-      amap,
-      m_pred,
-      m_mapper,
-      m_mapping_tag);
-  RegionRequirement
-    req(m_table.columns_lr, READ_ONLY, EXCLUSIVE, m_table.columns_lr);
-  req.add_field(Table::COLUMNS_FID);
-  launcher.add_region_requirement(req);
-  m_table.foreach_column(
-    ctx,
-    rt,
-    [this, &launcher](Context ctx, Runtime* rt, const Column& col) {
-      RegionRequirement
-        mreq(col.metadata_lr, READ_ONLY, EXCLUSIVE, col.metadata_lr);
-      mreq.add_field(Column::METADATA_NAME_FID);
-      launcher.add_region_requirement(mreq);
-      RegionRequirement
-        vreq(col.values_lr, WRITE_DISCARD, EXCLUSIVE, col.values_lr);
-      vreq.add_field(Column::VALUE_FID);
-      launcher.add_region_requirement(vreq);
-    });
-  rt->execute_index_space(ctx, launcher);
-}
-
-void
-AttachTableLauncher::base_impl(
-  const Legion::Task* task,
-  const std::vector<Legion::PhysicalRegion>& regions,
-  Legion::Context ctx,
-  Legion::Runtime *rt) {
-
-  const TaskArgs *args = static_cast<const TaskArgs*>(task->args);
-  const ColumnFlags *flags = static_cast<const ColumnFlags*>(task->local_args);
-  const Table::ColumnsAccessor<READ_ONLY, true> // TODO: no bounds check
-    col(regions[0], Table::COLUMNS_FID);
-  const Column& column = col[task->index_point];
-  auto values =
-    attach_column_values(
-      ctx,
-      rt,
-      fs::path(args->file_path.val),
-      std::string(args->table_root.val),
-      column,
-      flags->mapped,
-      flags->read_only);
-  AcquireLauncher acquire(column.values_lr, column.values_lr, values);
-  acquire.add_field(Column::VALUE_FID);
-  rt->issue_acquire(ctx, acquire);
-  // TODO: check that the following detach will be deferred until after the
-  // region is released
-  rt->detach_external_resource(ctx, values);
-}
-
-void
-AttachTableLauncher::preregister_task() {
-  TASK_ID = Runtime::generate_static_task_id();
-  TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
-  registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-  //registrar.set_idempotent();
-  Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
-}
-
 
 // Local Variables:
 // mode: c++

@@ -19,14 +19,18 @@
 
 #include "utility.h"
 #include "IndexTree.h"
-#include "Column.h"
-#include "Table.h"
+#include "Keywords.h"
 
 #pragma GCC visibility push(default)
 #include <hdf5.h>
 #pragma GCC visibility pop
 
 namespace legms {
+
+class Table;
+class Column;
+class Keywords;
+
 namespace hdf5 {
 
 #define LEGMS_NAMESPACE "legms"
@@ -422,58 +426,6 @@ release_table_column_values(
   Legion::Context ctx,
   Legion::Runtime* rt,
   const Table& table);
-
-class LEGMS_API AttachTableLauncher {
-public:
-
-  static Legion::TaskID TASK_ID;
-  static const char* TASK_NAME;
-
-  AttachTableLauncher(
-    const fs::path& file_path,
-    const std::string& root_path,
-    const Table& table,
-    const std::unordered_set<std::string> mapped = {},
-    const std::unordered_set<std::string> read_write = {},
-    Legion::Predicate pred = Legion::Predicate::TRUE_PRED,
-    Legion::MapperID id = 0,
-    Legion::MappingTagID tag = 0);
-
-  void
-  dispatch(Legion::Context ctx, Legion::Runtime* rt);
-
-  static void
-  base_impl(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime *rt);
-
-  static void
-  preregister_task();
-
-private:
-
-  fs::path m_file_path;
-  std::string m_root_path;
-  Table m_table;
-  std::unordered_set<std::string> m_mapped;
-  std::unordered_set<std::string> m_read_write;
-  Legion::Predicate m_pred;
-  Legion::MapperID m_mapper;
-  Legion::MappingTagID m_mapping_tag;
-
-  struct TaskArgs {
-    legms::string file_path;
-    legms::string table_root;
-  };
-
-  struct ColumnFlags {
-    bool mapped;
-    bool read_only;
-  };
-
-};
 
 struct LEGMS_API binary_index_tree_serdez {
 

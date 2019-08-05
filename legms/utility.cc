@@ -385,7 +385,6 @@ legms::preregister_all() {
   OpsManager::preregister_ops();
 #ifdef LEGMS_USE_HDF5
   H5DatatypeManager::preregister_datatypes();
-  hdf5::AttachTableLauncher::preregister_task();
 #endif
 
 #define REG_AXES(T) \

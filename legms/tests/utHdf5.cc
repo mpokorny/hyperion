@@ -17,6 +17,9 @@ using namespace legms;
 using namespace legms::hdf5;
 using namespace Legion;
 
+#include "Table.h"
+#include "Column.h"
+
 enum {
   HDF5_TEST_SUITE,
 };

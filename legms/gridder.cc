@@ -9,10 +9,8 @@
 #include <cstdio>
 #if GCC_VERSION >= 90000
 # include <filesystem>
-namespace fs = std::fs;
 #else
 # include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
 #endif
 #include <memory>
 #include <optional>
@@ -24,6 +22,7 @@ namespace fs = std::experimental::filesystem;
 #include "legms.h"
 #include "legms_hdf5.h"
 #include "Table.h"
+#include "Column.h"
 
 using namespace legms;
 using namespace Legion;
@@ -118,7 +117,7 @@ Table
 init_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const fs::path& ms,
+  const LEGMS_FS::path& ms,
   const std::string& root,
   MSTables mst) {
 
@@ -141,20 +140,20 @@ init_table(
 
 static const FieldID antenna_class_fid = 0;
 
-template <typename CLASSIFIER>
+template <typename T>
 class ClassifyAntennasTask {
-public:
-
-  static FieldID TASK_ID;
-  static const char* TASK_NAME;
+protected:
 
   ClassifyAntennasTask(const Table& table)
-    : m_table(table) {}
+    : m_table(table) {
+  }
+
+public:
 
   // caller must only free returned LogicalRegion and associated FieldSpace, but
   // not the associated IndexSpace
   Legion::LogicalRegion
-  dispatch(Legion::Context ctx, Legion::Runtime* rt) {
+  dispatch(Legion::Context ctx, Legion::Runtime* rt) const {
 
     IndexSpace row_is =
       m_table.min_rank_column(ctx, rt).values_lr.get_index_space();
@@ -167,7 +166,11 @@ public:
     std::vector<RegionRequirement> requirements;
     {
       RegionRequirement
-        cols_req(m_table.columns_lr, READ_ONLY, EXCLUSIVE, m_table.columns_lr);
+        cols_req(
+          m_table.columns_lr,
+          READ_ONLY,
+          EXCLUSIVE,
+          m_table.columns_lr);
       cols_req.add_field(Table::COLUMNS_FID);
       auto cols = rt->map_region(ctx, cols_req);
       for (auto& cn : TableColumns<MS_ANTENNA>::column_names) {
@@ -186,18 +189,19 @@ public:
     }
     IndexTaskLauncher
       launcher(
-        TASK_ID,
+        T::TASK_ID,
         result.get_index_space(),
         TaskArgument(NULL, 0),
         ArgumentMap());
     for (auto& req : requirements)
       launcher.add_region_requirement(req);
+    rt->execute_index_space(ctx, launcher);
     return result;
   }
 
   static void
   impl(
-    const DomainT<1>& domain,
+    const Point<1>& pt,
     const std::vector<Legion::PhysicalRegion>& regions) {
 
     ROAccessor<legms::string, 1>
@@ -213,14 +217,13 @@ public:
         regions[TableColumns<MS_ANTENNA>::DISH_DIAMETER],
         Column::VALUE_FID);
     WOAccessor<unsigned, 1> antenna_classes(regions.back(), 0);
-    for (PointInDomainIterator<1> pid(domain); pid(); pid++)
-      antenna_classes[*pid] =
-        CLASSIFIER::classify(
-          names[*pid].val,
-          stations[*pid].val,
-          types[*pid].val,
-          mounts[*pid].val,
-          diameters[*pid]);
+    antenna_classes[pt] =
+        T::classify(
+          names[pt].val,
+          stations[pt].val,
+          types[pt].val,
+          mounts[pt].val,
+          diameters[pt]);
   }
 
   static void
@@ -228,22 +231,36 @@ public:
     const Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context,
-    Legion::Runtime* runtime) {
+    Legion::Runtime*) {
 
-    impl(
-      runtime->get_index_space_domain(
-        task->regions.back().region.get_index_space()),
-      regions);
+    impl(task->index_point, regions);
   }
 
-private:
+protected:
 
   Table m_table;
-
 };
 
-struct UnclassifiedAntennas {
-  static const unsigned num_classes = 1;
+class UnitaryClassifyAntennasTask
+  : public ClassifyAntennasTask<UnitaryClassifyAntennasTask> {
+public:
+
+  static FieldID TASK_ID;
+  static const constexpr char* TASK_NAME = "UnitaryClassifyAntennasTask";
+
+  UnitaryClassifyAntennasTask(const Table& table)
+    : ClassifyAntennasTask(table) {
+  }
+
+  static void
+  preregister() {
+    TASK_ID = Runtime::generate_static_task_id();
+    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_leaf();
+    registrar.set_idempotent();
+    Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
+  }
 
   static unsigned
   classify(
@@ -256,30 +273,7 @@ struct UnclassifiedAntennas {
   }
 };
 
-template <>
-FieldID ClassifyAntennasTask<UnclassifiedAntennas>::TASK_ID = 0;
-
-template <>
-const char* ClassifyAntennasTask<UnclassifiedAntennas>::TASK_NAME =
-  "ClassifyAntennasTask<UnclassifiedAntennas>";
-
-template <typename CLASSIFIER>
-void
-preregister_antenna_classifier_task() {
-  ClassifyAntennasTask<CLASSIFIER>::TASK_ID =
-    Runtime::generate_static_task_id();
-  TaskVariantRegistrar registrar(
-    ClassifyAntennasTask<CLASSIFIER>::TASK_ID,
-    ClassifyAntennasTask<CLASSIFIER>::TASK_NAME,
-    false);
-  registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-  registrar.set_leaf();
-  registrar.set_idempotent();
-  Runtime::preregister_task_variant<
-    ClassifyAntennasTask<CLASSIFIER>::base_impl>(
-      registrar,
-      ClassifyAntennasTask<CLASSIFIER>::TASK_NAME);
-}
+FieldID UnitaryClassifyAntennasTask::TASK_ID = 0;
 
 class TopLevelTask {
 public:
@@ -288,7 +282,7 @@ public:
   static constexpr const char* TASK_NAME = "TopLevelTask";
 
   static void
-  get_args(const Legion::InputArgs& args, fs::path& ms) {
+  get_args(const Legion::InputArgs& args, LEGMS_FS::path& ms) {
     ms.clear();
     for (int i = 1; i < args.argc; ++i) {
       if (std::string(args.argv[i]) == "--ms")
@@ -297,9 +291,9 @@ public:
   }
 
   static std::optional<std::string>
-  args_error(const fs::path& h5) {
-    auto h5_abs = fs::canonical(h5);
-    if (fs::exists(h5_abs) && fs::is_regular_file(h5_abs)) {
+  args_error(const LEGMS_FS::path& h5) {
+    auto h5_abs = LEGMS_FS::canonical(h5);
+    if (LEGMS_FS::exists(h5_abs) && LEGMS_FS::is_regular_file(h5_abs)) {
       return std::nullopt;
     } else {
       std::ostringstream oss;
@@ -316,9 +310,8 @@ public:
     Legion::Runtime* rt) {
 
     const Legion::InputArgs& args = Legion::Runtime::get_input_args();
-    fs::path h5;
+    LEGMS_FS::path h5;
     get_args(args, h5);
-
     {
       auto errstr = args_error(h5);
       if (errstr) {
@@ -326,51 +319,31 @@ public:
         return;
       }
     }
+    const std::string ms_root = "/";
 
     legms::register_tasks(ctx, rt);
 
     MSTables mstables[] = {MS_ANTENNA};
     std::unordered_map<MSTables,Table> tables;
-    for (auto& mst : mstables) {
-      tables[mst] = init_table(ctx, rt, h5, "/", mst);
-      // FIXME: remove
-      // for (auto&cn : tables[mst].column_names(ctx, rt)) {
-      //   std::cout << cn << ": "
-      //             << tables[mst].column(ctx, rt, cn).name(ctx, rt)
-      //             << std::endl;
-      // }
-      hdf5::AttachTableLauncher attach(h5, "/", tables[mst]);
-      attach.dispatch(ctx, rt);
-    }
+    for (auto& mst : mstables)
+      tables[mst] = init_table(ctx, rt, h5, ms_root, mst);
 
     LogicalRegion antenna_classes;
     {
-      ClassifyAntennasTask<UnclassifiedAntennas> task(tables[MS_ANTENNA]);
-      antenna_classes = task.dispatch(ctx, rt);
-    }
-    {
-      RegionRequirement
-        req(antenna_classes, READ_ONLY, EXCLUSIVE, antenna_classes);
-      req.add_field(antenna_class_fid);
-      auto pr = rt->map_region(ctx, req);
-      const ROAccessor<unsigned, 1> classes(pr, antenna_class_fid);
-      for (PointInDomainIterator<1>
-             pid(rt->get_index_space_domain(antenna_classes.get_index_space()));
-           pid();
-           pid++)
-        std::cout << *pid << ": " << classes[*pid] << std::endl;
-      rt->unmap_region(ctx, pr);
+      Table& antenna_table = tables[MS_ANTENNA];
+      antenna_table.with_columns_attached(
+        ctx,
+        rt,
+        h5,
+        ms_root,
+        [&antenna_classes, &antenna_table](Context ctx, Runtime* rt) {
+          UnitaryClassifyAntennasTask task(antenna_table);
+          antenna_classes = task.dispatch(ctx, rt);
+        });
     }
 
     rt->destroy_field_space(ctx, antenna_classes.get_field_space());
     rt->destroy_logical_region(ctx, antenna_classes);
-
-    for (auto& tt : tables) {
-      Table t;
-      std::tie(std::ignore, t) = tt;
-      hdf5::release_table_column_values(ctx, rt, t);
-      t.destroy(ctx, rt);
-    }
   }
 
   static void
@@ -387,7 +360,7 @@ int
 main(int argc, char* argv[]) {
   TopLevelTask::preregister();
   legms::preregister_all();
-  preregister_antenna_classifier_task<UnclassifiedAntennas>();
+  UnitaryClassifyAntennasTask::preregister();
   return Runtime::start(argc, argv);
 }
 
