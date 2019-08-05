@@ -1239,7 +1239,8 @@ legms::hdf5::attach_table_columns(
     table->column_names().begin(),
     table->column_names().end(),
     std::inserter(result, result.end()),
-    [&file_path,&table_root, &table, &runtime, &context, &read_only](auto& nm) {
+    [&file_path, &table_root, table, &context, runtime, mapped, read_only](
+      auto& nm) {
       auto c = table->column(nm);
       std::tuple<std::optional<PhysicalRegion>, std::optional<PhysicalRegion>>
         regions;
