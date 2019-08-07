@@ -594,8 +594,9 @@ public:
     rhs.legion_deserialize(result);
     lhs.legion_deserialize(state);
     reduction_op->fold(&lhs, &rhs, 1, true);
-    state = realloc(state, lhs.legion_buffer_size());
-    sz = lhs.legion_serialize(state);
+    sz = lhs.legion_buffer_size();
+    state = realloc(state, sz);
+    lhs.legion_serialize(state);
   }
 #endif // WITH_ACC_FIELD_REDOP_SERDEZ
 };
