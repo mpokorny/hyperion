@@ -2318,9 +2318,8 @@ Table::ipartition_by_value(
   return result;
 }
 
-
 void
-Table::register_tasks(Runtime* runtime) {
+Table::register_tasks(Context context, Runtime* runtime) {
 }
 
 void

@@ -868,8 +868,8 @@ legms::preregister_all() {
 }
 
 void
-legms::register_tasks(Runtime* runtime) {
-  Table::register_tasks(runtime);
+legms::register_tasks(Context context, Runtime* runtime) {
+  Table::register_tasks(context, runtime);
 }
 
 std::unordered_map<std::string, legms::AxesRegistrar::A>

@@ -1317,7 +1317,7 @@ LEGMS_API void
 preregister_all();
 
 LEGMS_API void
-register_tasks(Legion::Runtime* runtime);
+register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 #if LEGION_MAX_DIM == 1
 

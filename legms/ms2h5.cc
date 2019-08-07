@@ -269,7 +269,7 @@ public:
     Context context,
     Runtime* runtime) {
 
-    legms::register_tasks(runtime);
+    legms::register_tasks(context, runtime);
 
     const InputArgs& args = Runtime::get_input_args();
     fs::path ms;

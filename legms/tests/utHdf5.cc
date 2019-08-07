@@ -619,8 +619,7 @@ hdf5_test_suite(
   Context ctx,
   Runtime *runtime) {
 
-  register_tasks(runtime);
-  AxesRegistrar::register_axes<Table0Axes>();
+  register_tasks(ctx, runtime);
 
   testing::TestLog<WRITE_DISCARD> log(regions[0], regions[1], ctx, runtime);
   testing::TestRecorder<WRITE_DISCARD> recorder(log);
@@ -631,6 +630,8 @@ hdf5_test_suite(
 
 int
 main(int argc, char* argv[]) {
+
+  AxesRegistrar::register_axes<Table0Axes>();
 
   testing::TestSuiteDriver driver =
     testing::TestSuiteDriver::make<hdf5_test_suite>(

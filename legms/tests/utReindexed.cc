@@ -150,8 +150,7 @@ reindexed_test_suite(
   Context context,
   Runtime* runtime) {
 
-  register_tasks(runtime);
-  AxesRegistrar::register_axes<Table0Axes>();
+  register_tasks(context, runtime);
 
   testing::TestRecorder<WRITE_DISCARD> recorder(
     testing::TestLog<WRITE_DISCARD>(regions[0], regions[1], context, runtime));
@@ -334,6 +333,8 @@ reindexed_test_suite(
 
 int
 main(int argc, char* argv[]) {
+
+  AxesRegistrar::register_axes<Table0Axes>();
 
   testing::TestSuiteDriver driver =
     testing::TestSuiteDriver::make<reindexed_test_suite>(

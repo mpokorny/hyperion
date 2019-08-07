@@ -423,7 +423,7 @@ public:
   runtime() const { return m_runtime; }
 
   static void
-  register_tasks(Legion::Runtime* runtime);
+  register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
   static void
   preregister_tasks();

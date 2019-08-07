@@ -337,7 +337,7 @@ ms_test_suite(
   Context context,
   Runtime* runtime) {
 
-  register_tasks(runtime);
+  register_tasks(context, runtime);
 
   testing::TestLog<READ_WRITE> log(regions[0], regions[1], context, runtime);
 

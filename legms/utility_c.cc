@@ -11,8 +11,10 @@ preregister_all() {
 }
 
 void
-register_tasks(legion_runtime_t runtime) {
-  legms::register_tasks(Legion::CObjectWrapper::unwrap(runtime));
+register_tasks(legion_context_t context, legion_runtime_t runtime) {
+  legms::register_tasks(
+    Legion::CObjectWrapper::unwrap(context)->context(),
+    Legion::CObjectWrapper::unwrap(runtime));
 }
 
 // Local Variables:

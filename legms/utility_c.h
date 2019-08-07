@@ -26,7 +26,7 @@ LEGMS_API void
 preregister_all();
 
 LEGMS_API void
-register_tasks(legion_runtime_t runtime);
+register_tasks(legion_context_t context, legion_runtime_t runtime);
 
 #ifdef __cplusplus
 }
