@@ -871,10 +871,7 @@ public:
       const FieldAccessor<                                              \
         WRITE_DISCARD, \
         Rect<RECTDIM>, \
-        ROWDIM, \
-        coord_t, \
-        AffineAccessor<Rect<RECTDIM>, ROWDIM, coord_t>, \
-        false> rects(regions.back(), ReindexColumnTask::row_rects_fid); \
+        ROWDIM> rects(regions.back(), ReindexColumnTask::row_rects_fid); \
                                                                         \
       for (size_t i = 0; i < common_rows.size(); ++i) {                 \
         Domain row_d =                                                  \
@@ -1688,61 +1685,78 @@ Table::iindex_by_value(
 class LEGMS_LOCAL ComputeColorsTask {
 public:
 
-  static TaskID TASK_ID;
-  static const char* TASK_NAME;
   static constexpr const FieldID color_fid = 0;
   static constexpr const FieldID color_flag_fid = 1;
   static constexpr const coord_t COLOR_NOT_SET = 0;
   static constexpr const coord_t COLOR_IS_SET = 1;
 
   ComputeColorsTask(
-    const vector<LogicalRegion>& ix_columns,
-    LogicalRegion colors)
-    : m_ix_columns(ix_columns)
-    , m_colors_lr(colors) {
+    IndexSpace rows,
+    const vector<LogicalRegion>& ix_columns)
+    : m_rows(rows)
+    , m_ix_columns(ix_columns) {
   };
 
-  void
-  dispatch(Context ctx, Runtime* runtime) {
+  TaskID
+  task_id() const {
+    return task_ids[m_ix_columns.size() - 1];
+  }
 
-    IndexTaskLauncher launcher;
+  LayoutConstraintID
+  layout() const {
+    return layouts[m_ix_columns.size() - 1];
+  }
 
-    //LogicalRegion colors_lr = m_colors.get_logical_region();
-    // AcquireLauncher acquire(colors_lr, colors_lr, m_colors);
-    // acquire.add_field(color_fid);
-    // PhaseBarrier acquired = runtime->create_phase_barrier(ctx, 1);
-    // acquire.add_arrival_barrier(acquired);
-    // runtime->issue_acquire(ctx, acquire);
+  PhysicalRegion
+  dispatch(Context ctx, Runtime* runtime, PhaseBarrier& pb) {
+    FieldSpace fs = field_space(ctx, runtime, m_ix_columns.size());
+    LogicalRegion colors_lr = runtime->create_logical_region(ctx, m_rows, fs);
 
-    //PhaseBarrier released;
+    InlineLauncher init(
+      RegionRequirement(colors_lr, READ_WRITE, SIMULTANEOUS, colors_lr),
+      0, // MapperID
+      0, // MappingTagID
+      layout());
+    init.add_field(color_fid);
+    init.add_field(color_flag_fid);
+    PhysicalRegion result = runtime->map_region(ctx, init);
+    result.wait_until_valid(true);
+    FillLauncher fill(
+      colors_lr,
+      colors_lr,
+      TaskArgument(&COLOR_NOT_SET, sizeof(COLOR_NOT_SET)));
+    fill.add_field(color_flag_fid);
+    PhaseBarrier pb0 = runtime->create_phase_barrier(ctx, 1);
+    fill.add_arrival_barrier(pb0);
+    runtime->fill_fields(ctx, fill);
+
     Domain bounds;
-
-#define BOUNDS(DIM)                                             \
-    case DIM: {                                                 \
-      Rect<DIM> rect;                                           \
-      for (size_t i = 0; i < DIM; ++i) {                        \
-        IndexSpaceT<1> cis(m_ix_columns[i].get_index_space());  \
-        Rect<1> dom = runtime->get_index_space_domain(cis).bounds;  \
-        rect.lo[i] = dom.lo[0];                                 \
-        rect.hi[i] = dom.hi[0];                                 \
-      }                                                         \
-      bounds = rect;                                            \
-      break;                                                    \
-    }
-
     switch (m_ix_columns.size()) {
+#define BOUNDS(DIM)                                                   \
+      case DIM: {                                                     \
+        Rect<DIM> rect;                                               \
+        for (size_t i = 0; i < DIM; ++i) {                            \
+          IndexSpaceT<1> cis(m_ix_columns[i].get_index_space());      \
+          Rect<1> dom = runtime->get_index_space_domain(cis).bounds;  \
+          rect.lo[i] = dom.lo[0];                                     \
+          rect.hi[i] = dom.hi[0];                                     \
+        }                                                             \
+        bounds = rect;                                                \
+        break;                                                        \
+      }
       LEGMS_FOREACH_N(BOUNDS);
+#undef BOUNDS
     default:
       assert(false);
       break;
     }
-#undef BOUNDS
 
-    /*released = runtime->create_phase_barrier(ctx, rect.volume());*/
-    launcher =
-      IndexTaskLauncher(TASK_ID, bounds, TaskArgument(NULL, 0), ArgumentMap());
-    /*launcher.add_wait_barrier(acquired);                       */
-    /*launcher.add_arrival_barrier(released);                    */
+    IndexTaskLauncher
+      launcher(task_id(), bounds, TaskArgument(NULL, 0), ArgumentMap());
+    launcher.add_wait_barrier(pb0);
+    pb = runtime->advance_phase_barrier(ctx, pb0);
+    runtime->destroy_phase_barrier(ctx, pb0);
+    launcher.add_arrival_barrier(pb);
 
     for_each(
       m_ix_columns.begin(),
@@ -1754,28 +1768,22 @@ public:
       });
 
     {
-      RegionRequirement
-        req(m_colors_lr, WRITE_ONLY, SIMULTANEOUS, m_colors_lr);
+      RegionRequirement req(colors_lr, WRITE_ONLY, SIMULTANEOUS, colors_lr);
       req.add_field(color_fid);
       req.add_field(color_flag_fid);
       launcher.add_region_requirement(req);
     }
 
     runtime->execute_index_space(ctx, launcher);
-
-    // PhaseBarrier complete = runtime->advance_phase_barrier(ctx, released);
-    // ReleaseLauncher release(colors_lr, colors_lr, m_colors);
-    // release.add_field(color_fid);
-    // release.add_wait_barrier(complete);
-    // runtime->issue_release(ctx, release);
+    return result;
   }
 
   static void
   base_impl(
     const Task* task,
     const vector<PhysicalRegion>& regions,
-    Context,
-    Runtime *) {
+    Context context,
+    Runtime *runtime) {
 
     typedef const ROAccessor<vector<DomainPoint>, 1> rows_acc_t;
 
@@ -1793,14 +1801,23 @@ public:
 
 #define WRITE_COLORS(ROWDIM, COLORDIM)                  \
     case (ROWDIM * LEGION_MAX_DIM + COLORDIM): {        \
-      const WOAccessor<Point<COLORDIM>,ROWDIM>          \
+      const FieldAccessor<                              \
+        WRITE_ONLY,  \
+        Point<COLORDIM>, \
+        ROWDIM>                             \
         colors(regions.back(), color_fid);              \
-      const WOAccessor<coord_t,ROWDIM>                  \
+      const FieldAccessor<                              \
+        WRITE_ONLY,              \
+        coord_t,\
+        ROWDIM>                          \
         flags(regions.back(), color_flag_fid);          \
       Point<COLORDIM,coord_t> color(task->index_point); \
       for (size_t i = 0; i < common_rows.size(); ++i) { \
         colors[common_rows[i]] = color;                 \
         flags[common_rows[i]] = COLOR_IS_SET;           \
+        std::cout << "(" << task->current_proc               \
+                  << ") at " << common_rows[i]               \
+                  << " color " << color << std::endl;        \
       }                                                 \
       break;                                            \
     }
@@ -1816,46 +1833,63 @@ public:
 #undef WRITE_COLORS
   }
 
+  // TODO: add_row_major_order_constraint(lc, DIM)???
   static void
-  preregister_task() {
-    TASK_ID = Runtime::generate_static_task_id();
-    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.set_idempotent();
-    // registrar.set_replicable();
-    registrar.set_leaf();
-    Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
-
-#ifdef SAVE_LAYOUT_CONSTRAINT_IDS
-#define FS(DIM)                                                       \
-    do {                                                              \
-      field_spaces[DIM] = runtime->create_field_space(context);       \
-      FieldAllocator fa =                                             \
-        runtime->create_field_allocator(context, field_spaces[DIM]);  \
-      fa.allocate_field(sizeof(Point<DIM>), color_fid);               \
-      fa.allocate_field(sizeof(coord_t), color_flag_fid);             \
-      LayoutConstraintRegistrar lc(field_spaces[DIM]);                \
-      lc.add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));  \
-      layout_constraint_ids[DIM] = runtime->register_layout(lc);      \
-      break;                                                          \
+  preregister_tasks() {
+#define REG_TASK(DIM)                                                   \
+    do {                                                                \
+      LayoutConstraintRegistrar lc;                                     \
+      lc.add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));    \
+      layouts[DIM - 1] = Runtime::preregister_layout(lc);               \
+      task_ids[DIM - 1] = Runtime::generate_static_task_id();           \
+      std::ostringstream oss;                                           \
+      oss << "ComputeColorsTask_" << DIM;                               \
+      TaskVariantRegistrar registrar(                                   \
+        task_ids[DIM - 1],                                              \
+        oss.str().c_str(),                                              \
+        false);                                                         \
+      registrar.set_idempotent();                                       \
+      registrar.set_leaf();                                             \
+      registrar                                                         \
+        .add_constraint(ProcessorConstraint(Processor::LOC_PROC))       \
+        .add_layout_constraint_set(DIM, layouts[DIM - 1]);              \
+      Runtime::preregister_task_variant<base_impl>(                     \
+        registrar,                                                      \
+        oss.str().c_str());                                             \
+      break;                                                            \
     } while (0);
-    LEGMS_FOREACH_N(FS);
-#undef FS
-#endif // SAVE_LAYOUT_CONSTRAINT_IDS
+    LEGMS_FOREACH_N(REG_TASK);
+#undef REG_TASK
   }
-#ifdef SAVE_LAYOUT_CONSTRAINT_IDS
-  static const FieldSpace&
-  field_space(unsigned dim) {
-    assert(0 < dim && dim <= LEGION_MAX_DIM);
-    return field_spaces[dim];
+
+  static FieldSpace
+  field_space(Context context, Runtime* runtime, unsigned dim) {
+    FieldSpace fs = runtime->create_field_space(context);
+    FieldAllocator fa = runtime->create_field_allocator(context, fs);
+    switch (dim) {
+#define POINT_FIELD(DIM)                                  \
+      case DIM:                                           \
+        fa.allocate_field(sizeof(Point<DIM>), color_fid); \
+        break;
+      LEGMS_FOREACH_N(POINT_FIELD);
+#undef POINT_FIELD
+    default:
+      assert(false);
+      break;
+    }
+    fa.allocate_field(sizeof(coord_t), color_flag_fid);
+    return fs;
   }
-#endif // SAVE_LAYOUT_CONSTRAINT_IDS
 
 private:
 
+  IndexSpace m_rows;
+
   vector<LogicalRegion> m_ix_columns;
 
-  LogicalRegion m_colors_lr;
+  static std::array<TaskID, LEGION_MAX_DIM> task_ids;
+
+  static std::array<LayoutConstraintID, LEGION_MAX_DIM> layouts;
 
   static vector<DomainPoint>
   intersection(
@@ -1871,24 +1905,13 @@ private:
       back_inserter(result));
     return result;
   }
-
-#ifdef SAVE_LAYOUT_CONSTRAINT_IDS
-  static std::array<FieldSpace, LEGION_MAX_DIM> field_spaces;
-
-  static std::array<LayoutConstraintID, LEGION_MAX_DIM> layout_constraint_ids;
-#endif // SAVE_LAYOUT_CONSTRAINT_IDS
 };
 
-TaskID ComputeColorsTask::TASK_ID;
-const char* ComputeColorsTask::TASK_NAME = "ComputeColorsTask";
-
-#ifdef SAVE_LAYOUT_CONSTRAINT_IDS
-std::array<FieldSpace, LEGION_MAX_DIM>
-ComputeColorsTask::field_spaces;
+std::array<TaskID, LEGION_MAX_DIM>
+ComputeColorsTask::task_ids;
 
 std::array<LayoutConstraintID, LEGION_MAX_DIM>
-ComputeColorsTask::layout_constraint_ids;
-#endif // SAVE_LAYOUT_CONSTRAINT_IDS
+ComputeColorsTask::layouts;
 
 // TODO: replace this macro value with a class member variable
 #define PART_FID 0
@@ -2033,13 +2056,13 @@ public:
 
   ComputePartitionTask(
     const std::shared_ptr<Column>& col,
-    LogicalRegion colors,
+    LogicalRegion colors_lr,
     IndexSpace colors_is,
     unsigned rowdim)
     : m_args({col->index_space(), colors_is, rowdim}){
 
     m_launcher = TaskLauncher(TASK_ID, TaskArgument(&m_args, sizeof(m_args)));
-    RegionRequirement req(colors, READ_ONLY, EXCLUSIVE, colors);
+    RegionRequirement req(colors_lr, READ_ONLY, EXCLUSIVE, colors_lr);
     req.add_field(ComputeColorsTask::color_fid);
     m_launcher.add_region_requirement(req);
   }
@@ -2064,10 +2087,10 @@ public:
       FieldAllocator fa = runtime->create_field_allocator(context, fs);
       fa.allocate_field(sizeof(Point<COLOR_DIM>), PART_FID);
     }
-    LayoutConstraintRegistrar lc(fs);
-    add_row_major_order_constraint(lc, args->col_ispace.get_dim());
+    // LayoutConstraintRegistrar lc(fs);
+    // add_row_major_order_constraint(lc, args->col_ispace.get_dim());
     // TODO: free LayoutConstraintID returned from following call
-    runtime->register_layout(lc);
+    // runtime->register_layout(lc);
     LogicalRegion lr =
       runtime->create_logical_region(context, args->col_ispace, fs);
     InitColorsTask ctask(
@@ -2198,49 +2221,10 @@ Table::ipartition_by_value(
       ixcols[std::distance(axes.begin(), d)] = cga.values;
     });
 
-  IndexSpace rows = column(axis_names[axes[0]])->index_space();
-  FieldSpace colors_fs = runtime->create_field_space(context);
-  LogicalRegion colors;
-
-  {
-    LayoutConstraintRegistrar lc(colors_fs);
-    add_row_major_order_constraint(lc, ixcols.size())
-      .add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
-    FieldAllocator fa = runtime->create_field_allocator(context, colors_fs);
-    fa.allocate_field(sizeof(coord_t), ComputeColorsTask::color_flag_fid);
-    // TODO: free LayoutConstraintID returned from the following call to
-    // register_layout()
-    switch (ixcols.size()) {
-#define COLORS(DIM)                                                     \
-      case (DIM): {                                                     \
-        fa.allocate_field(sizeof(Point<DIM>), ComputeColorsTask::color_fid); \
-        runtime->register_layout(lc);                                   \
-        colors = runtime->create_logical_region(context, rows, colors_fs); \
-        Point<DIM> none = Point<DIM>::ZEROES();                         \
-        runtime->fill_field(                                            \
-          context,                                                      \
-          colors,                                                       \
-          colors,                                                       \
-          ComputeColorsTask::color_fid,                                 \
-          none);                                                        \
-        break;                                                          \
-      }
-      LEGMS_FOREACH_N(COLORS);
-#undef COLORS
-    default:
-      assert(false);
-      break;
-    }
-    runtime->fill_field(
-      context,
-      colors,
-      colors,
-      ComputeColorsTask::color_flag_fid,
-      ComputeColorsTask::COLOR_NOT_SET);
-  }
-
-  ComputeColorsTask task(ixcols, colors);
-  task.dispatch(context, runtime);
+  ComputeColorsTask task(column(axis_names[axes[0]])->index_space(), ixcols);
+  PhaseBarrier pb;
+  PhysicalRegion colors_pr = task.dispatch(context, runtime, pb);
+  LogicalRegion colors_lr = colors_pr.get_logical_region();
 
   // we require the color space of the partition, but, in order to have an
   // accurate color space, we should not assume that there is at least one row
@@ -2272,15 +2256,17 @@ Table::ipartition_by_value(
 
   // now partition "colors" by the value of color_flag_fid
   IndexSpace flags_cs = runtime->create_index_space(context, Rect<1>(0, 1));
+  pb.wait();
+  runtime->destroy_phase_barrier(context, pb);
   IndexPartition color_flag_ip =
     runtime->create_partition_by_field(
       context,
-      colors,
-      colors,
+      colors_lr,
+      colors_lr,
       ComputeColorsTask::color_flag_fid,
       flags_cs);
   LogicalPartition color_flag_lp =
-    runtime->get_logical_partition(context, colors, color_flag_ip);
+    runtime->get_logical_partition(context, colors_lr, color_flag_ip);
   // next use create_partition_by_image to get a partition of color_bounds_is
   // which includes only the colors that are assigned to at least one row
   IndexPartition color_bounds_ip =
@@ -2288,7 +2274,7 @@ Table::ipartition_by_value(
       context,
       color_bounds_is,
       color_flag_lp,
-      colors,
+      colors_lr,
       ComputeColorsTask::color_fid,
       flags_cs);
   // recreate the desired color space at the top level
@@ -2309,12 +2295,14 @@ Table::ipartition_by_value(
     m_columns.begin(),
     m_columns.end(),
     std::inserter(result, result.end()),
-    [&colors, &colors_is, rowdim=index_axes().size(), &context, runtime]
+    [&colors_lr, &colors_is, rowdim=index_axes().size(), &context, runtime]
     (const auto& nm_col) {
       auto& [nm, col] = nm_col;
-      ComputePartitionTask pt(col, colors, colors_is, rowdim);
+      ComputePartitionTask pt(col, colors_lr, colors_is, rowdim);
       return std::make_pair(nm, pt.dispatch(context, runtime));
     });
+  // runtime->unmap_region(context, colors_pr); FIXME
+  // runtime->destroy_logical_region(context, colors_lr); FIXME
   return result;
 }
 
@@ -2324,7 +2312,7 @@ Table::register_tasks(Context context, Runtime* runtime) {
 
 void
 Table::preregister_tasks() {
-  ComputeColorsTask::preregister_task();
+  ComputeColorsTask::preregister_tasks();
   ComputePartitionTask::preregister_task();
   ComputeRectanglesTask::preregister_task();
 #define PREREG_IDX_ACCUMULATE(DT)                                   \
