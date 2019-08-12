@@ -129,11 +129,11 @@ TableGenArgs::legion_deserialize(const void *buffer) {
   return buff - static_cast<const char*>(buffer);
 }
 
-std::unique_ptr<Table>
+unique_ptr<Table>
 TableGenArgs::operator()(Context ctx, Runtime* runtime) const {
 
   return
-    std::make_unique<Table>(
+    make_unique<Table>(
       ctx,
       runtime,
       name,
@@ -147,17 +147,17 @@ TableGenArgs::operator()(Context ctx, Runtime* runtime) const {
 table_t
 TableGenArgs::to_table_t() const {
   table_t result;
-  std::strncpy(result.name, name.c_str(), sizeof(result.name));
+  strncpy(result.name, name.c_str(), sizeof(result.name));
   result.name[sizeof(result.name) - 1] = '\0';
-  std::strncpy(result.axes_uid, axes_uid.c_str(), sizeof(result.axes_uid));
+  strncpy(result.axes_uid, axes_uid.c_str(), sizeof(result.axes_uid));
   result.axes_uid[sizeof(result.axes_uid) - 1] = '\0';
   result.num_index_axes = index_axes.size();
-  std::memcpy(
+  memcpy(
     result.index_axes,
     index_axes.data(),
     index_axes.size() * sizeof(int));
   result.num_columns = col_genargs.size();
-  std::accumulate(
+  accumulate(
     col_genargs.begin(),
     col_genargs.end(),
     0u,
@@ -166,7 +166,7 @@ TableGenArgs::to_table_t() const {
       return i + 1;
     });
   result.num_keywords = keyword_datatypes.size();
-  std::memcpy(
+  memcpy(
     result.keyword_datatypes,
     keyword_datatypes.data(),
     keyword_datatypes.size() * sizeof(type_tag_t));
@@ -334,7 +334,7 @@ public:
       Point<D, coord_t> pt(task->index_point);                      \
       return acc_field_redop_rhs<T>{                                \
         {make_tuple(acc[pt],                                        \
-                    std::vector<DomainPoint>{task->index_point})}}; \
+                    vector<DomainPoint>{task->index_point})}};      \
       break;                                                        \
     }
 
@@ -1309,10 +1309,10 @@ reindex_column(
 
   vector<LogicalRegion> ix_lrs;
   ix_lrs.reserve(regions.size() - 1);
-  std::transform(
+  transform(
     regions.begin() + 1,
     regions.end(),
-    std::back_inserter(ix_lrs),
+    back_inserter(ix_lrs),
     [](const auto& rg) { return rg.get_logical_region(); });
 
   // task to compute new index space rectangle for each row in column
@@ -1538,8 +1538,8 @@ ReindexColumnTask::preregister_task() {
 
 Future/*TableGenArgs*/
 Table::ireindexed(
-  const std::vector<std::string>& axis_names,
-  const std::vector<int>& axes,
+  const vector<std::string>& axis_names,
+  const vector<int>& axes,
   bool allow_rows) const {
 
   // 'allow_rows' is intended to support the case where the reindexing may not
@@ -1564,13 +1564,13 @@ Table::ireindexed(
   }
 
   // for every column in table, determine which axes need indexing
-  std::unordered_map<std::string, std::vector<int>> col_reindex_axes;
-  std::transform(
+  unordered_map<std::string, vector<int>> col_reindex_axes;
+  transform(
     column_names().begin(),
     column_names().end(),
-    std::inserter(col_reindex_axes, col_reindex_axes.end()),
+    inserter(col_reindex_axes, col_reindex_axes.end()),
     [this, &axis_names, &axes](auto& nm) {
-      std::vector<int> ax;
+      vector<int> ax;
       auto col_axes = column(nm)->axes();
       // skip the column if it does not have a "row" axis
       if (col_axes.back() == 0) {
@@ -1581,7 +1581,7 @@ Table::ireindexed(
         } else {
           // select those axes in "axes" that are not already an axis of the
           // column
-          std::for_each(
+          for_each(
             axes.begin(),
             axes.end(),
             [&col_axes, &ax](auto& d) {
@@ -1590,7 +1590,7 @@ Table::ireindexed(
             });
         }
       }
-      return std::pair(nm, std::move(ax));
+      return make_pair(nm, move(ax));
     });
 
   // index associated columns; the Future in "index_cols" below contains a
@@ -1598,13 +1598,13 @@ Table::ireindexed(
   // column values (sorted in ascending order); and at
   // IndexColumnTask::rows_fid, a sorted vector of DomainPoints in the original
   // column.
-  std::unordered_map<int, Future> index_cols;
-  std::for_each(
+  unordered_map<int, Future> index_cols;
+  for_each(
     col_reindex_axes.begin(),
     col_reindex_axes.end(),
     [this, &axis_names, &index_cols](auto& nm_ds) {
-      const std::vector<int>& ds = std::get<1>(nm_ds);
-      std::for_each(
+      const vector<int>& ds = get<1>(nm_ds);
+      for_each(
         ds.begin(),
         ds.end(),
         [this, &axis_names, &index_cols](auto& d) {
@@ -1617,11 +1617,11 @@ Table::ireindexed(
     });
 
   // do reindexing of columns
-  std::vector<Future> reindexed;
-  std::transform(
+  vector<Future> reindexed;
+  transform(
     col_reindex_axes.begin(),
     col_reindex_axes.end(),
-    std::back_inserter(reindexed),
+    back_inserter(reindexed),
     [this, &index_cols, &allow_rows](auto& nm_ds) {
       auto& [nm, ds] = nm_ds;
       // if this column is an index column, we've already launched a task to
@@ -1631,7 +1631,7 @@ Table::ireindexed(
 
       // create reindexing task launcher
       // TODO: start intermediary task dependent on Futures of index columns
-      std::vector<std::shared_ptr<Column>> ixcols;
+      vector<shared_ptr<Column>> ixcols;
       for (auto d : ds) {
         ixcols.push_back(
           index_cols.at(d)
@@ -1641,15 +1641,13 @@ Table::ireindexed(
       auto col = column(nm);
       auto col_axes = col->axes();
       auto row_axis_offset =
-        std::distance(
-          col_axes.begin(),
-          find(col_axes.begin(), col_axes.end(), 0));
+        distance(col_axes.begin(), find(col_axes.begin(), col_axes.end(), 0));
       ReindexColumnTask task(col, row_axis_offset, ixcols, allow_rows);
       return task.dispatch(context(), runtime());
     });
 
   // launch task that creates the reindexed table
-  std::vector<int> iaxes = axes;
+  vector<int> iaxes = axes;
   if (allow_rows)
     iaxes.push_back(0);
   ReindexedTableTask
@@ -1657,18 +1655,18 @@ Table::ireindexed(
   return task.dispatch(context(), runtime());
 }
 
-std::unordered_map<int, Future>
+unordered_map<int, Future>
 Table::iindex_by_value(
-  const std::vector<std::string>& axis_names,
-  const std::unordered_set<int>& axes) const {
+  const vector<std::string>& axis_names,
+  const unordered_set<int>& axes) const {
 
   // create index columns; the Future in "index_cols" below contains a
   // ColumnGenArgs of a LogicalRegion with two fields: at
   // IndexColumnTask::value_fid, the column values (sorted in ascending order);
   // and at IndexColumnTask::rows_fid, a sorted vector of DomainPoints in the
   // original column.
-  std::unordered_map<int, Future> result;
-  std::for_each(
+  unordered_map<int, Future> result;
+  for_each(
     axes.begin(),
     axes.end(),
     [this, &axis_names, &result](auto a) {
@@ -2047,7 +2045,7 @@ public:
   static const char* TASK_NAME;
 
   ComputePartitionTask(
-    const std::shared_ptr<Column>& col,
+    const shared_ptr<Column>& col,
     LogicalRegion colors_lr,
     IndexSpace colors_is,
     unsigned rowdim)
@@ -2152,15 +2150,15 @@ private:
 TaskID ComputePartitionTask::TASK_ID;
 const char* ComputePartitionTask::TASK_NAME = "ComputePartitionTask";
 
-std::unordered_map<std::string, Future>
+unordered_map<std::string, Future>
 Table::ipartition_by_value(
   Context context,
   Runtime* runtime,
-  const std::vector<std::string>& axis_names,
-  const std::vector<int>& axes) const {
+  const vector<std::string>& axis_names,
+  const vector<int>& axes) const {
 
   assert(
-    std::all_of(
+    all_of(
       axes.begin(),
       axes.end(),
       [this, &axis_names](const auto& a) {
@@ -2177,11 +2175,11 @@ Table::ipartition_by_value(
   // rather than the deconstructed versions provided by
   // create_cross_product_partitions().
   assert(
-    std::none_of(
+    none_of(
       axes.begin(),
       axes.end(),
       [ia=index_axes()](const auto& a) {
-        return std::find(ia.begin(), ia.end(), a) != ia.end();
+        return find(ia.begin(), ia.end(), a) != ia.end();
       }));
 
   // For now we only allow partitioning on columns that have the same axes as
@@ -2192,25 +2190,25 @@ Table::ipartition_by_value(
   // but I'm leaving that undone since the utility of that case isn't clear to
   // me at the moment.
   assert(
-    std::all_of(
+    all_of(
       axes.begin(),
       axes.end(),
       [this, &axis_names, ia=index_axes()](const auto& a) {
         return column(axis_names[a])->axes() == ia;
       }));
 
-  std::unordered_set<int> axesset(axes.begin(), axes.end());
+  unordered_set<int> axesset(axes.begin(), axes.end());
   auto f_ixcols = iindex_by_value(axis_names, axesset);
-  std::vector<LogicalRegion> ixcols(f_ixcols.size());
-  std::for_each(
+  vector<LogicalRegion> ixcols(f_ixcols.size());
+  for_each(
     f_ixcols.begin(),
     f_ixcols.end(),
     [&axes, &ixcols](const auto& a_f) {
       auto& [a, f] = a_f;
-      auto d = std::find(axes.begin(), axes.end(), a);
+      auto d = find(axes.begin(), axes.end(), a);
       assert(d != axes.end());
       auto cga = f.template get_result<ColumnGenArgs>();
-      ixcols[std::distance(axes.begin(), d)] = cga.values;
+      ixcols[distance(axes.begin(), d)] = cga.values;
     });
 
   ComputeColorsTask task(column(axis_names[axes[0]])->index_space(), ixcols);
@@ -2282,16 +2280,16 @@ Table::ipartition_by_value(
   runtime->destroy_index_partition(context, color_flag_ip);
   runtime->destroy_index_space(context, flags_cs);
 
-  std::unordered_map<std::string, Future> result;
-  std::transform(
+  unordered_map<std::string, Future> result;
+  transform(
     m_columns.begin(),
     m_columns.end(),
-    std::inserter(result, result.end()),
+    inserter(result, result.end()),
     [&colors_lr, &colors_is, rowdim=index_axes().size(), &context, runtime]
     (const auto& nm_col) {
       auto& [nm, col] = nm_col;
       ComputePartitionTask pt(col, colors_lr, colors_is, rowdim);
-      return std::make_pair(nm, pt.dispatch(context, runtime));
+      return make_pair(nm, pt.dispatch(context, runtime));
     });
   // runtime->unmap_region(context, colors_pr); FIXME
   // runtime->destroy_logical_region(context, colors_lr); FIXME
@@ -2320,12 +2318,12 @@ Table::preregister_tasks() {
 
 #ifdef LEGMS_USE_CASACORE
 
-std::unique_ptr<Table>
+unique_ptr<Table>
 Table::from_ms(
   Context ctx,
   Runtime* runtime,
   const std::experimental::filesystem::path& path,
-  const std::unordered_set<std::string>& column_selections) {
+  const unordered_set<std::string>& column_selections) {
 
   std::string table_name = path.filename();
 
