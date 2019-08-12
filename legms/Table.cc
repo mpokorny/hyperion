@@ -1934,21 +1934,22 @@ public:
   void
   dispatch(Context context, Runtime* runtime) {
 
-    auto cs = runtime->create_index_space(context, Rect<1>(0, 1));
+    cout << "create InitColorsTask" << endl;
     IndexTaskLauncher
       launcher(
         TASK_ID,
-        cs,
+        m_parts_lr.get_index_space(),
         TaskArgument(&m_task_args, sizeof(m_task_args)),
         ArgumentMap());
     launcher.add_region_requirement(
       RegionRequirement(m_colors_lr, READ_ONLY, EXCLUSIVE, m_colors_lr));
     launcher.add_field(0, ComputeColorsTask::color_fid);
+    // FIXME: cleanup
     auto parts_ip =
       runtime->create_equal_partition(
         context,
         m_parts_lr.get_index_space(),
-        cs);
+        m_parts_lr.get_index_space());
     auto parts_lp =
       runtime->get_logical_partition(context, m_parts_lr, parts_ip);
     launcher.add_region_requirement(
@@ -1980,18 +1981,10 @@ public:
           colors(regions[0], ComputeColorsTask::color_fid);           \
         const WOAccessor<Point<COLOR_DIM>, COL_DIM, true>             \
           parts(regions[1], PART_FID);                                \
-        for (PointInDomainIterator<COL_DIM>                           \
-               pid(                                                   \
-                 runtime->get_index_space_domain(                     \
-                   context,                                           \
-                   task->regions[1].region.get_index_space()));       \
-             pid();                                                   \
-             pid++) {                                                 \
-          Point<ROW_DIM> pt;                                          \
-          for (size_t i = 0; i < ROW_DIM; ++i)                        \
-            pt[i] = pid[i];                                           \
-          parts[*pid] = colors[pt];                                   \
-        }                                                             \
+        Point<ROW_DIM> pt;                                            \
+        for (size_t i = 0; i < ROW_DIM; ++i)                          \
+          pt[i] = task->index_point[i];                               \
+        parts[task->index_point] = colors[pt];                        \
         break;                                                        \
     }
       LEGMS_FOREACH_MN(COLOR_PARTS);
