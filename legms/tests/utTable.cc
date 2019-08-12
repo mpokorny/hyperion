@@ -156,7 +156,14 @@ attach_table0_col(
     true,
     {Column::value_fid},
     local_sysmem);
-  return runtime->attach_external_resource(context, task);
+  PhysicalRegion result = runtime->attach_external_resource(context, task);
+  AcquireLauncher acq(
+    result.get_logical_region(),
+    result.get_logical_region(),
+    result);
+  acq.add_field(Column::value_fid);
+  runtime->issue_acquire(context, acq);
+  return result;
 }
 
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
@@ -371,6 +378,13 @@ table_test_suite(
               table0.column(p.first).get(),
               p.second);
         })));
+
+  for (auto pr : {col_x, col_y, col_z}) {
+    ReleaseLauncher rel(pr.get_logical_region(), pr.get_logical_region(), pr);
+    rel.add_field(Column::value_fid);
+    runtime->issue_release(context, rel);
+    runtime->unmap_region(context, pr);
+  }
 }
 
 int
