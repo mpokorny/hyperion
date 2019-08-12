@@ -192,12 +192,12 @@ index_column_task_test_suite(
       [&context, runtime, &cx]() {
         RegionRequirement
           req(cx->logical_region(), READ_ONLY, EXCLUSIVE, cx->logical_region());
-        req.add_field(IndexColumnTask::indices_fid);
+        req.add_field(IndexColumnTask::rows_fid);
         PhysicalRegion pr = runtime->map_region(context, req);
         const FieldAccessor<
           READ_ONLY, std::vector<DomainPoint>, 1, coord_t,
           AffineAccessor<std::vector<DomainPoint>, 1, coord_t>, true>
-          x(pr, IndexColumnTask::indices_fid);
+          x(pr, IndexColumnTask::rows_fid);
         bool result =
           (x[0] ==
            std::vector<DomainPoint>{Point<1>(0), Point<1>(1), Point<1>(2)})
@@ -248,12 +248,12 @@ index_column_task_test_suite(
       [&context, runtime, &cy]() {
         RegionRequirement
           req(cy->logical_region(), READ_ONLY, EXCLUSIVE, cy->logical_region());
-        req.add_field(IndexColumnTask::indices_fid);
+        req.add_field(IndexColumnTask::rows_fid);
         PhysicalRegion pr = runtime->map_region(context, req);
         const FieldAccessor<
           READ_ONLY, std::vector<DomainPoint>, 1, coord_t,
           AffineAccessor<std::vector<DomainPoint>, 1, coord_t>, true>
-          y(pr, IndexColumnTask::indices_fid);
+          y(pr, IndexColumnTask::rows_fid);
         bool result =
           (y[0] ==
            std::vector<DomainPoint>{

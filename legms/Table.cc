@@ -424,7 +424,7 @@ index_column(
       add_field(dt, fa, IndexColumnTask::value_fid);
       fa.allocate_field(
         sizeof(vector<DomainPoint>),
-        IndexColumnTask::indices_fid,
+        IndexColumnTask::rows_fid,
         OpsManager::V_DOMAIN_POINT_SID);
     }
     IndexSpaceT<1> result_is =
@@ -434,16 +434,15 @@ index_column(
     // transfer values and row numbers from acc_lr to result_lr
     RegionRequirement result_req(result_lr, WRITE_ONLY, EXCLUSIVE, result_lr);
     result_req.add_field(IndexColumnTask::value_fid);
-    result_req.add_field(IndexColumnTask::indices_fid);
+    result_req.add_field(IndexColumnTask::rows_fid);
     PhysicalRegion result_pr = runtime->map_region(ctx, result_req);
     const WOAccessor<T, 1> values(result_pr, IndexColumnTask::value_fid);
     const WOAccessor<vector<DomainPoint>, 1>
-      rns(result_pr, IndexColumnTask::indices_fid);
+      rns(result_pr, IndexColumnTask::rows_fid);
     for (size_t i = 0; i < acc.size(); ++i) {
       ::new (rns.ptr(i)) vector<DomainPoint>;
       tie(values[i], rns[i]) = acc[i];
     }
-
     runtime->unmap_region(ctx, result_pr);
     // TODO: keep?
     //runtime->destroy_field_space(ctx, result_fs);
@@ -541,7 +540,7 @@ public:
             (has_parent
              ? parent_regions[i].get_logical_region()
              : ix_columns[i]));
-      req.add_field(IndexColumnTask::indices_fid);
+      req.add_field(IndexColumnTask::rows_fid);
       m_launcher.add_region_requirement(req);
     }
 
@@ -575,7 +574,7 @@ public:
       1,
       coord_t,
       AffineAccessor<vector<DomainPoint>, 1, coord_t>,
-      false> rows(regions[args.ix0.size()], IndexColumnTask::indices_fid);
+      false> rows(regions[args.ix0.size()], IndexColumnTask::rows_fid);
 
     auto pt = task->index_point[0];
     args.ix0.push_back(pt);
@@ -818,7 +817,7 @@ public:
       m_ix_columns.end(),
       [&launcher](auto& lr) {
         RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
-        req.add_field(IndexColumnTask::indices_fid);
+        req.add_field(IndexColumnTask::rows_fid);
         launcher.add_region_requirement(req);
       });
 
@@ -858,11 +857,11 @@ public:
 
     vector<DomainPoint> common_rows;
     {
-      rows_acc_t rows(regions[0], IndexColumnTask::indices_fid);
+      rows_acc_t rows(regions[0], IndexColumnTask::rows_fid);
       common_rows = rows[task->index_point[0]];
     }
     for (size_t i = 1; i < ixdim; ++i) {
-      rows_acc_t rows(regions[i], IndexColumnTask::indices_fid);
+      rows_acc_t rows(regions[i], IndexColumnTask::rows_fid);
       common_rows = intersection(common_rows, rows[task->index_point[i]]);
     }
 
@@ -1249,7 +1248,7 @@ ReindexColumnTask::ReindexColumnTask(
       auto lr = ixc->logical_region();
       assert(lr != LogicalRegion::NO_REGION);
       RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
-      req.add_field(IndexColumnTask::indices_fid);
+      req.add_field(IndexColumnTask::rows_fid);
       m_launcher.add_region_requirement(req);
     });
 }
@@ -1597,7 +1596,7 @@ Table::ireindexed(
   // index associated columns; the Future in "index_cols" below contains a
   // ColumnGenArgs of a LogicalRegion with two fields: at Column::value_fid, the
   // column values (sorted in ascending order); and at
-  // IndexColumnTask::indices_fid, a sorted vector of DomainPoints in the original
+  // IndexColumnTask::rows_fid, a sorted vector of DomainPoints in the original
   // column.
   std::unordered_map<int, Future> index_cols;
   std::for_each(
@@ -1664,9 +1663,9 @@ Table::iindex_by_value(
   const std::unordered_set<int>& axes) const {
 
   // create index columns; the Future in "index_cols" below contains a
-  // ColumnGenArgs of a LogicalRegion with two fields: at Column::value_fid, the
-  // column values (sorted in ascending order); and at
-  // IndexColumnTask::indices_fid, a sorted vector of DomainPoints in the
+  // ColumnGenArgs of a LogicalRegion with two fields: at
+  // IndexColumnTask::value_fid, the column values (sorted in ascending order);
+  // and at IndexColumnTask::rows_fid, a sorted vector of DomainPoints in the
   // original column.
   std::unordered_map<int, Future> result;
   std::for_each(
