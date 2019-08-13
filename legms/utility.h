@@ -192,8 +192,8 @@ public:
 
   static size_t
   deserialize(FIELD_TYPE& val, const void *buffer) {
+    ::new(&val) FIELD_TYPE;
     size_t n = *static_cast<const size_t *>(buffer);
-    val.clear();
     if (n > 0) {
       val.resize(n);
       const T* tbuf =
@@ -240,8 +240,8 @@ public:
 
   static size_t
   deserialize(FIELD_TYPE& val, const void *buffer) {
+    ::new(&val) FIELD_TYPE;
     size_t n = *static_cast<const size_t *>(buffer);
-    val.clear();
     if (n > 0) {
       val.resize(n);
       const bool* bbuf =
@@ -303,9 +303,9 @@ public:
 
   static size_t
   deserialize(FIELD_TYPE& val, const void *buffer) {
+    ::new(&val) FIELD_TYPE;
     size_t n = *static_cast<const size_t *>(buffer);
     buffer = static_cast<const void *>(static_cast<const size_t*>(buffer) + 1);
-    val.clear();
     val.reserve(n);
     for (size_t i = 0; i < n; ++i) {
       const T* tbuf = reinterpret_cast<const T *>(buffer);
@@ -337,22 +337,22 @@ public:
 
   static const size_t MAX_SERIALIZED_SIZE = 1000;
 
-  static const size_t MAX_CHARLEN = MAX_SERIALIZED_SIZE - sizeof(size_t);
+  static const size_t MAX_CHARLEN = MAX_SERIALIZED_SIZE - 1;
 
   static size_t
   serialized_size(const S& val) {
     assert(val.size() < MAX_CHARLEN);
-    return sizeof(size_t) + val.size() + 1;
+    return val.size() + 1;
   }
 
   static size_t
   serialize(const S& val, void *buffer) {
     assert(val.size() < MAX_CHARLEN);
     char* buff = static_cast<char*>(buffer);
-    *reinterpret_cast<size_t*>(buff) = val.size();
-    buff += sizeof(size_t);
-    std::strcpy(buff, val.c_str());
-    buff += val.size();
+    if (val.size() > 0) {
+      std::strcpy(buff, val.c_str());
+      buff += val.size();
+    }
     *buff = '\0';
     buff += 1;
     return buff - static_cast<char*>(buffer);
@@ -361,11 +361,9 @@ public:
   static size_t
   deserialize(S& val, const void *buffer) {
     const char* buff = static_cast<const char*>(buffer);
-    const size_t& len = *reinterpret_cast<const size_t*>(buff);
-    val.resize(len);
-    buff += sizeof(size_t);
-    std::strncpy(val.data(), buff, len);
-    buff += len + 1;
+    ::new(&val) S;
+    val.assign(buff);
+    buff += val.size() + 1;
     return buff - static_cast<const char*>(buffer);
   }
 
@@ -418,9 +416,9 @@ public:
 
   static size_t
   deserialize(FIELD_TYPE& val, const void *buffer) {
+    ::new(&val) FIELD_TYPE;
     size_t n = *static_cast<const size_t *>(buffer);
     buffer = static_cast<const void *>(static_cast<const size_t*>(buffer) + 1);
-    val.clear();
     val.reserve(n);
     const char* buff = static_cast<const char*>(buffer);
     for (size_t i = 0; i < n; ++i) {
