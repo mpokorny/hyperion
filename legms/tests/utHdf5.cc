@@ -213,7 +213,7 @@ void
 test_index_tree_attribute(
   hid_t fid,
   const std::string& dataset_name,
-  testing::TestRecorder<WRITE_DISCARD>& recorder,
+  testing::TestRecorder<READ_WRITE>& recorder,
   const IndexTreeL& tree,
   const std::string& tree_name) {
 
@@ -253,7 +253,7 @@ test_index_tree_attribute(
 }
 
 void
-tree_tests(testing::TestRecorder<WRITE_DISCARD>& recorder) {
+tree_tests(testing::TestRecorder<READ_WRITE>& recorder) {
   std::string fname = "h5.XXXXXX";
   int fd = mkstemp(fname.data());
   assert(fd != -1);
@@ -358,7 +358,7 @@ verify_col(
 
 void
 table_tests(
-  testing::TestRecorder<WRITE_DISCARD>& recorder,
+  testing::TestRecorder<READ_WRITE>& recorder,
   Context context,
   Runtime* runtime) {
 
@@ -614,15 +614,21 @@ table_tests(
 
 void
 hdf5_test_suite(
-  const Task*,
+  const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime *runtime) {
 
   register_tasks(ctx, runtime);
 
-  testing::TestLog<WRITE_DISCARD> log(regions[0], regions[1], ctx, runtime);
-  testing::TestRecorder<WRITE_DISCARD> recorder(log);
+  testing::TestLog<READ_WRITE> log(
+    task->regions[0].region,
+    regions[0],
+    task->regions[1].region,
+    regions[1],
+    ctx,
+    runtime);
+  testing::TestRecorder<READ_WRITE> recorder(log);
 
   tree_tests(recorder);
   table_tests(recorder, ctx, runtime);

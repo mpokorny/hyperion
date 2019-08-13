@@ -41,11 +41,18 @@ void
 verify_scalar_column(
   const casacore::Table& tb,
   const VerifyColumnTaskArgs *targs,
+  const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context context,
   Runtime* runtime) {
 
-  testing::TestLog<READ_WRITE> log(regions[1], regions[2], context, runtime);
+  testing::TestLog<READ_WRITE> log(
+    task->regions[1].region,
+    regions[1],
+    task->regions[2].region,
+    regions[2],
+    context,
+    runtime);
   testing::TestRecorder<READ_WRITE> recorder(log);
 
   DomainT<1> col_dom(regions[0].get_bounds<1,coord_t>());
@@ -90,11 +97,18 @@ void
 verify_array_column(
   const casacore::Table& tb,
   const VerifyColumnTaskArgs *targs,
+  const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context context,
   Runtime* runtime) {
 
-  testing::TestLog<READ_WRITE> log(regions[1], regions[2], context, runtime);
+  testing::TestLog<READ_WRITE> log(
+    task->regions[1].region,
+    regions[1],
+    task->regions[2].region,
+    regions[2],
+    context,
+    runtime);
   testing::TestRecorder<READ_WRITE> recorder(log);
 
   DomainT<DIM> col_dom(regions[0].get_bounds<DIM,coord_t>());
@@ -179,7 +193,7 @@ verify_array_column(
 void
 verify_column_task(
   const Task* task,
-  const std::vector<PhysicalRegion>& region,
+  const std::vector<PhysicalRegion>& regions,
   Context context,
   Runtime* runtime) {
 
@@ -192,10 +206,12 @@ verify_column_task(
 
   auto cdesc = tb.tableDesc()[casacore::String(args->column)];
   if (cdesc.isScalar()) {
-    verify_scalar_column(tb, args, region, context, runtime);
+    verify_scalar_column(tb, args, task, regions, context, runtime);
   } else {
-#define VERIFY_ARRAY(N) \
-    case (N): verify_array_column<N>(tb, args, region, context, runtime); break;
+#define VERIFY_ARRAY(N)                                                 \
+    case (N):                                                           \
+      verify_array_column<N>(tb, args, task, regions, context, runtime); \
+      break;
 
     switch (cdesc.ndim() + 1) {
       LEGMS_FOREACH_N(VERIFY_ARRAY);
@@ -332,14 +348,20 @@ read_full_ms(
 
 void
 ms_test_suite(
-  const Task*,
+  const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context context,
   Runtime* runtime) {
 
   register_tasks(context, runtime);
 
-  testing::TestLog<READ_WRITE> log(regions[0], regions[1], context, runtime);
+  testing::TestLog<READ_WRITE> log(
+    task->regions[0].region,
+    regions[0],
+    task->regions[1].region,
+    regions[1],
+    context,
+    runtime);
 
   read_full_ms(log, context, runtime);
 }

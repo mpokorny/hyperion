@@ -23,11 +23,10 @@ TestSuiteDriver::impl(
 
   // initialize the test log
   TestLogReference logref(args.log_length, context, runtime);
-  TestLog<WRITE_DISCARD>(logref, context, runtime).initialize();
 
   // run the test suite
   TaskLauncher test(args.test_suite_task, TaskArgument());
-  auto reqs = logref.requirements<WRITE_DISCARD>();
+  auto reqs = logref.requirements<READ_WRITE>();
   test.add_region_requirement(reqs[0]);
   test.add_region_requirement(reqs[1]);
   runtime->execute_task(context, test);

@@ -52,7 +52,14 @@ test_recorder_test_suite(
   Context ctx,
   Runtime *runtime) {
 
-  testing::TestLog<READ_WRITE> log(regions[0], regions[1], ctx, runtime);
+  testing::TestLog<READ_WRITE>
+    log(
+      task->regions[0].region,
+      regions[0],
+      task->regions[1].region,
+      regions[1],
+      ctx,
+      runtime);
   testing::TestRecorder<READ_WRITE> recorder(log);
 
   testing::TestResult<READ_ONLY> dummy_success{

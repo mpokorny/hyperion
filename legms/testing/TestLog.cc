@@ -19,7 +19,7 @@ TestLogReference::TestLogReference(
     FieldSpace fs = runtime->create_field_space(context);
 
     FieldAllocator fa = runtime->create_field_allocator(context, fs);
-    fa.allocate_field(sizeof(Point<1,TEST_STATE_TYPE>), STATE_FID);
+    fa.allocate_field(sizeof(Point<1>), STATE_FID);
     fa.allocate_field(sizeof(bool), ABORT_FID);
     fa.allocate_field(
       sizeof(std::string),
@@ -36,8 +36,46 @@ TestLogReference::TestLogReference(
     m_log_handle = runtime->create_logical_region(context, is, fs);
     m_log_parent = m_log_handle;
 
-    runtime->destroy_field_space(context, fs);
-    runtime->destroy_index_space(context, is);
+    runtime->fill_field<Point<1>>(
+      context,
+      m_log_handle,
+      m_log_handle,
+      STATE_FID,
+      Point<1>(TestState::UNKNOWN));
+    runtime->fill_field<bool>(
+      context,
+      m_log_handle,
+      m_log_handle,
+      ABORT_FID,
+      false);
+    RegionRequirement req(m_log_handle, WRITE_DISCARD, EXCLUSIVE, m_log_handle);
+    req.add_field(NAME_FID);
+    req.add_field(FAIL_INFO_FID);
+    PhysicalRegion pr = runtime->map_region(context, req);
+    const FieldAccessor<
+      WRITE_ONLY,
+      std::string,
+      1,
+      coord_t,
+      AffineAccessor<std::string, 1, coord_t>,
+      false> names(pr, NAME_FID);
+    const FieldAccessor<
+      WRITE_ONLY,
+      std::string,
+      1,
+      coord_t,
+      AffineAccessor<std::string, 1, coord_t>,
+      false> fails(pr, FAIL_INFO_FID);
+    for (PointInDomainIterator<1> pid(runtime->get_index_space_domain(is));
+         pid();
+         pid++) {
+      ::new(names.ptr(*pid)) std::string;
+      ::new(fails.ptr(*pid)) std::string;
+    }
+    runtime->unmap_region(context, pr);
+
+    // runtime->destroy_field_space(context, fs);
+    // runtime->destroy_index_space(context, is);
   }
 
   {
@@ -51,8 +89,15 @@ TestLogReference::TestLogReference(
 
     m_abort_state_handle = runtime->create_logical_region(context, is, fs);
 
-    runtime->destroy_field_space(context, fs);
-    runtime->destroy_index_space(context, is);
+    runtime->fill_field<bool>(
+      context,
+      m_abort_state_handle,
+      m_abort_state_handle,
+      0,
+      false);
+
+    // runtime->destroy_field_space(context, fs);
+    // runtime->destroy_index_space(context, is);
   }
 }
 
@@ -258,10 +303,10 @@ TestLogReference::create_partition_by_log_state(
   Context context,
   Runtime* runtime) const {
 
-  IndexSpaceT<1,TEST_STATE_TYPE> states(
+  IndexSpaceT<1> states(
     runtime->create_index_space(
       context,
-      Rect<1,TEST_STATE_TYPE>(TestState::SUCCESS, TestState::UNKNOWN)));
+      Rect<1>(TestState::SUCCESS, TestState::UNKNOWN)));
   IndexPartitionT<1> ip(
     runtime->create_partition_by_field(
       context,
@@ -269,10 +314,11 @@ TestLogReference::create_partition_by_log_state(
       m_log_parent,
       STATE_FID,
       states));
+
   LogicalPartitionT<1> result =
     runtime->get_logical_partition(m_log_handle, ip);
 
-  runtime->destroy_index_space(context, states);
+  //runtime->destroy_index_space(context, states);
   return result;
 }
 

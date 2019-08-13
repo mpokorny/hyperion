@@ -14,9 +14,7 @@
 namespace legms {
 namespace testing {
 
-#define TEST_STATE_TYPE int
-
-enum TestState : TEST_STATE_TYPE {
+enum TestState {
   SUCCESS,
   FAILURE,
   SKIPPED,
@@ -135,14 +133,14 @@ public:
   using state_accessor =
     Legion::FieldAccessor<
     MODE,
-    Legion::Point<1, TEST_STATE_TYPE>,
+    Legion::Point<1>,
     1,
     Legion::coord_t,
     Legion::AffineAccessor<
-      Legion::Point<1, TEST_STATE_TYPE>,
+      Legion::Point<1>,
       1,
       Legion::coord_t>,
-    false>;
+    true>;
 
   template <legion_privilege_mode_t MODE>
   using abort_accessor =
@@ -152,7 +150,7 @@ public:
     1,
     Legion::coord_t,
     Legion::AffineAccessor<bool, 1, Legion::coord_t>,
-    false>;
+    true>;
 
   template <legion_privilege_mode_t MODE>
   using name_accessor =
@@ -162,7 +160,7 @@ public:
     1,
     Legion::coord_t,
     Legion::AffineAccessor<std::string, 1, Legion::coord_t>,
-    false>;;
+    true>;;
 
   template <legion_privilege_mode_t MODE>
   using fail_info_accessor =
@@ -172,7 +170,7 @@ public:
     1,
     Legion::coord_t,
     Legion::AffineAccessor<std::string, 1, Legion::coord_t>,
-    false>;
+    true>;
 
   template <legion_privilege_mode_t MODE>
   struct abort_state_accessor {};
@@ -183,7 +181,7 @@ public:
     1,
     Legion::coord_t,
     Legion::AffineAccessor<bool, 1, Legion::coord_t>,
-    false> abort_state_reduce_accessor;
+    true> abort_state_reduce_accessor;
 
   typedef Legion::FieldAccessor<
     READ_ONLY,
@@ -191,7 +189,7 @@ public:
     1,
     Legion::coord_t,
     Legion::AffineAccessor<bool, 1, Legion::coord_t>,
-    false> abort_state_read_accessor;
+    true> abort_state_read_accessor;
 
 private:
 
@@ -302,7 +300,7 @@ public:
 
   bool
   operator==(const TestLogIterator& rhs) {
-    return m_region == rhs.m_region && *m_pir == *rhs.m_pir;
+    return m_region == rhs.m_region && *m_pid == *rhs.m_pid;
   }
 
   bool
@@ -312,7 +310,7 @@ public:
 
   TestLogIterator&
   operator++() {
-    m_pir++;
+    m_pid++;
     return *this;
   }
 
@@ -325,7 +323,7 @@ public:
 
   bool
   at_end() const {
-    return !m_pir();
+    return !m_pid();
   }
 
   friend void
@@ -338,12 +336,12 @@ private:
   void
   swap(TestLogIterator& other) {
     std::swap(m_region, other.m_region);
-    std::swap(m_pir, other.m_pir);
+    std::swap(m_pid, other.m_pid);
   }
 
   Legion::PhysicalRegion* m_region;
 
-  Legion::PointInRectIterator<1> m_pir;
+  Legion::PointInDomainIterator<1> m_pid;
 
   TestLogReference::state_accessor<MODE> m_state;
   TestLogReference::abort_accessor<MODE> m_abort;
@@ -357,7 +355,7 @@ struct TestResult;
 
 template <>
 struct TestResult<READ_ONLY> {
-  const TEST_STATE_TYPE& state;
+  const coord_t& state;
   const bool& abort;
   const std::string& name;
   const std::string& fail_info;
@@ -365,7 +363,7 @@ struct TestResult<READ_ONLY> {
 
 template <>
 struct TestResult<READ_WRITE> {
-  TEST_STATE_TYPE state;
+  coord_t state;
   bool abort;
   std::string name;
   std::string fail_info;
@@ -373,7 +371,7 @@ struct TestResult<READ_WRITE> {
 
 template <>
 struct TestResult<WRITE_DISCARD> {
-  TEST_STATE_TYPE state;
+  coord_t state;
   bool abort;
   std::string name;
   std::string fail_info;
@@ -403,29 +401,29 @@ public:
   ~TestLogIterator() {}
 
   TestLogIterator(
-    const Legion::PhysicalRegion* log_region,
+    const Legion::LogicalRegion& log_lr,
+    const Legion::PhysicalRegion* log_pr,
     const Legion::PhysicalRegion* abort_state_region,
     Legion::Runtime* runtime)
-    : m_log_region(log_region)
-    , m_pir(
-      Legion::PointInRectIterator<1>(
-        runtime->get_index_space_domain(
-          log_region->get_logical_region().get_index_space())))
+    : m_log_pr(log_pr)
+    , m_pid(
+      Legion::PointInDomainIterator<1>(
+        runtime->get_index_space_domain(log_lr.get_index_space())))
     , m_state(
       TestLogReference::state_accessor<READ_ONLY>(
-        *log_region,
+        *log_pr,
         TestLogReference::STATE_FID))
     , m_abort(
       TestLogReference::abort_accessor<READ_ONLY>(
-        *log_region,
+        *log_pr,
         TestLogReference::ABORT_FID))
     , m_name(
       TestLogReference::name_accessor<READ_ONLY>(
-        *log_region,
+        *log_pr,
         TestLogReference::NAME_FID))
     , m_fail_info(
       TestLogReference::fail_info_accessor<READ_ONLY>(
-        *log_region,
+        *log_pr,
         TestLogReference::FAIL_INFO_FID))
     , m_abort_state(
       TestLogReference::abort_state_accessor<READ_ONLY>::t(
@@ -434,8 +432,8 @@ public:
   }
 
   TestLogIterator(const TestLogIterator& other)
-    : m_log_region(other.m_log_region)
-    , m_pir(other.m_pir)
+    : m_log_pr(other.m_log_pr)
+    , m_pid(other.m_pid)
     , m_state(other.m_state)
     , m_abort(other.m_abort)
     , m_name(other.m_name)
@@ -444,8 +442,8 @@ public:
   }
 
   TestLogIterator(TestLogIterator&& other)
-    : m_log_region(other.m_log_region)
-    , m_pir(std::move(other).m_pir)
+    : m_log_pr(other.m_log_pr)
+    , m_pid(std::move(other).m_pid)
     , m_state(std::move(other).m_state)
     , m_abort(std::move(other).m_abort)
     , m_name(std::move(other).m_name)
@@ -462,8 +460,8 @@ public:
 
   TestLogIterator&
   operator=(TestLogIterator&& other) {
-    m_log_region = other.m_log_region;
-    m_pir = other.m_pir;
+    m_log_pr = other.m_log_pr;
+    m_pid = other.m_pid;
     m_state = other.m_state;
     m_abort = other.m_abort;
     m_name = other.m_name;
@@ -474,7 +472,7 @@ public:
 
   bool
   operator==(const TestLogIterator& rhs) {
-    return m_log_region == rhs.m_log_region && *m_pir == *rhs.m_pir;
+    return m_log_pr == rhs.m_log_pr && *m_pid == *rhs.m_pid;
   }
 
   bool
@@ -484,7 +482,7 @@ public:
 
   TestLogIterator&
   operator++() {
-    m_pir++;
+    m_pid++;
     return *this;
   }
 
@@ -497,16 +495,16 @@ public:
 
   bool
   at_end() const {
-    return !m_pir();
+    return !m_pid();
   }
 
   TestResult<READ_ONLY>
   operator*() const {
     return TestResult<READ_ONLY>{
-      m_state[*m_pir],
-        m_abort[*m_pir],
-        m_name[*m_pir],
-        m_fail_info[*m_pir] };
+      m_state[*m_pid],
+        m_abort[*m_pid],
+        m_name[*m_pid],
+        m_fail_info[*m_pid] };
   }
 
   friend void
@@ -518,8 +516,8 @@ private:
 
   void
   swap(TestLogIterator& other) {
-    std::swap(m_log_region, other.m_log_region);
-    std::swap(m_pir, other.m_pir);
+    std::swap(m_log_pr, other.m_log_pr);
+    std::swap(m_pid, other.m_pid);
     std::swap(m_state, other.m_state);
     std::swap(m_abort, other.m_abort);
     std::swap(m_name, other.m_name);
@@ -527,9 +525,9 @@ private:
     std::swap(m_abort_state, other.m_abort_state);
   }
 
-  const Legion::PhysicalRegion* m_log_region;
+  const Legion::PhysicalRegion* m_log_pr;
 
-  Legion::PointInRectIterator<1> m_pir;
+  Legion::PointInDomainIterator<1> m_pid;
 
   TestLogReference::state_accessor<READ_ONLY> m_state;
   TestLogReference::abort_accessor<READ_ONLY> m_abort;
@@ -546,29 +544,29 @@ public:
   ~TestLogIterator() {}
 
   TestLogIterator(
-    const Legion::PhysicalRegion* log_region,
+    const Legion::LogicalRegion& log_lr,
+    const Legion::PhysicalRegion* log_pr,
     const Legion::PhysicalRegion* abort_state_region,
     Legion::Runtime* runtime)
-    : m_log_region(log_region)
-    , m_pir(
-      Legion::PointInRectIterator<1>(
-        runtime->get_index_space_domain(
-          log_region->get_logical_region().get_index_space())))
+    : m_log_pr(log_pr)
+    , m_pid(
+      Legion::PointInDomainIterator<1>(
+        runtime->get_index_space_domain(log_lr.get_index_space())))
     , m_state(
       TestLogReference::state_accessor<READ_WRITE>(
-        *log_region,
+        *log_pr,
         TestLogReference::STATE_FID))
     , m_abort(
       TestLogReference::abort_accessor<READ_WRITE>(
-        *log_region,
+        *log_pr,
         TestLogReference::ABORT_FID))
     , m_name(
       TestLogReference::name_accessor<READ_WRITE>(
-        *log_region,
+        *log_pr,
         TestLogReference::NAME_FID))
     , m_fail_info(
       TestLogReference::fail_info_accessor<READ_WRITE>(
-        *log_region,
+        *log_pr,
         TestLogReference::FAIL_INFO_FID))
     , m_abort_state(
       TestLogReference::abort_state_accessor<READ_WRITE>::t(
@@ -578,8 +576,8 @@ public:
   }
 
   TestLogIterator(const TestLogIterator& other)
-    : m_log_region(other.m_log_region)
-    , m_pir(other.m_pir)
+    : m_log_pr(other.m_log_pr)
+    , m_pid(other.m_pid)
     , m_state(other.m_state)
     , m_abort(other.m_abort)
     , m_name(other.m_name)
@@ -588,8 +586,8 @@ public:
   }
 
   TestLogIterator(TestLogIterator&& other)
-    : m_log_region(other.m_log_region)
-    , m_pir(std::move(other).m_pir)
+    : m_log_pr(other.m_log_pr)
+    , m_pid(std::move(other).m_pid)
     , m_state(std::move(other).m_state)
     , m_abort(std::move(other).m_abort)
     , m_name(std::move(other).m_name)
@@ -606,8 +604,8 @@ public:
 
   TestLogIterator&
   operator=(TestLogIterator&& other) {
-    m_log_region = other.m_log_region;
-    m_pir = other.m_pir;
+    m_log_pr = other.m_log_pr;
+    m_pid = other.m_pid;
     m_state = other.m_state;
     m_abort = other.m_abort;
     m_name = other.m_name;
@@ -618,7 +616,7 @@ public:
 
   bool
   operator==(const TestLogIterator& rhs) {
-    return m_log_region == rhs.m_log_region && *m_pir == *rhs.m_pir;
+    return m_log_pr == rhs.m_log_pr && *m_pid == *rhs.m_pid;
   }
 
   bool
@@ -628,7 +626,7 @@ public:
 
   TestLogIterator&
   operator++() {
-    m_pir++;
+    m_pid++;
     return *this;
   }
 
@@ -641,34 +639,25 @@ public:
 
   bool
   at_end() const {
-    return !m_pir();
-  }
-
-  void
-  initialize() const {
-    m_state[*m_pir] = TestState::UNKNOWN;
-    m_abort[*m_pir] = false;
-    ::new (m_name.ptr(*m_pir)) std::string;
-    ::new (m_fail_info.ptr(*m_pir)) std::string;
-    *m_abort_state.ptr(0) = false;
+    return !m_pid();
   }
 
   TestResult<READ_WRITE>
   operator*() const {
     return TestResult<READ_WRITE>{
-      m_state[*m_pir],
-        m_abort[*m_pir],
-        m_name[*m_pir],
-        m_fail_info[*m_pir]};
+      m_state[*m_pid],
+        m_abort[*m_pid],
+        m_name[*m_pid],
+        m_fail_info[*m_pid]};
   }
 
   template <legion_privilege_mode_t MODE>
   void
   operator<<=(const TestResult<MODE>& tr) const {
-    m_state[*m_pir] = tr.state;
-    m_abort[*m_pir] = tr.abort;
-    m_name[*m_pir] = tr.name;
-    m_fail_info[*m_pir] = tr.fail_info;
+    m_state[*m_pid] = tr.state;
+    m_abort[*m_pid] = tr.abort;
+    m_name[*m_pid] = tr.name;
+    m_fail_info[*m_pid] = tr.fail_info;
     m_abort_state[0] <<= tr.abort;
   }
 
@@ -681,8 +670,8 @@ private:
 
   void
   swap(TestLogIterator& other) {
-    std::swap(m_log_region, other.m_log_region);
-    std::swap(m_pir, other.m_pir);
+    std::swap(m_log_pr, other.m_log_pr);
+    std::swap(m_pid, other.m_pid);
     std::swap(m_state, other.m_state);
     std::swap(m_abort, other.m_abort);
     std::swap(m_name, other.m_name);
@@ -690,9 +679,9 @@ private:
     std::swap(m_abort_state, other.m_abort_state);
   }
 
-  const Legion::PhysicalRegion* m_log_region;
+  const Legion::PhysicalRegion* m_log_pr;
 
-  Legion::PointInRectIterator<1> m_pir;
+  Legion::PointInDomainIterator<1> m_pid;
 
   TestLogReference::state_accessor<READ_WRITE> m_state;
   TestLogReference::abort_accessor<READ_WRITE> m_abort;
@@ -709,29 +698,29 @@ public:
   ~TestLogIterator() {}
 
   TestLogIterator(
-    const Legion::PhysicalRegion* log_region,
+    const Legion::LogicalRegion& log_lr,
+    const Legion::PhysicalRegion* log_pr,
     const Legion::PhysicalRegion* abort_state_region,
     Legion::Runtime* runtime)
-    : m_log_region(log_region)
-    , m_pir(
-      Legion::PointInRectIterator<1>(
-        runtime->get_index_space_domain(
-          log_region->get_logical_region().get_index_space())))
+    : m_log_pr(log_pr)
+    , m_pid(
+      Legion::PointInDomainIterator<1>(
+        runtime->get_index_space_domain(log_lr.get_index_space())))
     , m_state(
       TestLogReference::state_accessor<WRITE_DISCARD>(
-        *log_region,
+        *log_pr,
         TestLogReference::STATE_FID))
     , m_abort(
       TestLogReference::abort_accessor<WRITE_DISCARD>(
-        *log_region,
+        *log_pr,
         TestLogReference::ABORT_FID))
     , m_name(
       TestLogReference::name_accessor<WRITE_DISCARD>(
-        *log_region,
+        *log_pr,
         TestLogReference::NAME_FID))
     , m_fail_info(
       TestLogReference::fail_info_accessor<WRITE_DISCARD>(
-        *log_region,
+        *log_pr,
         TestLogReference::FAIL_INFO_FID))
     , m_abort_state(
       TestLogReference::abort_state_accessor<WRITE_DISCARD>::t(
@@ -741,8 +730,8 @@ public:
   }
 
   TestLogIterator(const TestLogIterator& other)
-    : m_log_region(other.m_log_region)
-    , m_pir(other.m_pir)
+    : m_log_pr(other.m_log_pr)
+    , m_pid(other.m_pid)
     , m_state(other.m_state)
     , m_abort(other.m_abort)
     , m_name(other.m_name)
@@ -751,8 +740,8 @@ public:
   }
 
   TestLogIterator(TestLogIterator&& other)
-    : m_log_region(other.m_log_region)
-    , m_pir(std::move(other).m_pir)
+    : m_log_pr(other.m_log_pr)
+    , m_pid(std::move(other).m_pid)
     , m_state(std::move(other).m_state)
     , m_abort(std::move(other).m_abort)
     , m_name(std::move(other).m_name)
@@ -769,8 +758,8 @@ public:
 
   TestLogIterator&
   operator=(TestLogIterator&& other) {
-    m_log_region = other.m_log_region;
-    m_pir = other.m_pir;
+    m_log_pr = other.m_log_pr;
+    m_pid = other.m_pid;
     m_state = other.m_state;
     m_abort = other.m_abort;
     m_name = other.m_name;
@@ -781,7 +770,7 @@ public:
 
   bool
   operator==(const TestLogIterator& rhs) {
-    return m_log_region == rhs.m_log_region && *m_pir == *rhs.m_pir;
+    return m_log_pr == rhs.m_log_pr && *m_pid == *rhs.m_pid;
   }
 
   bool
@@ -791,7 +780,7 @@ public:
 
   TestLogIterator&
   operator++() {
-    m_pir++;
+    m_pid++;
     return *this;
   }
 
@@ -804,34 +793,25 @@ public:
 
   bool
   at_end() const {
-    return !m_pir();
-  }
-
-  void
-  initialize() const {
-    m_state[*m_pir] = TestState::UNKNOWN;
-    m_abort[*m_pir] = false;
-    ::new (m_name.ptr(*m_pir)) std::string;
-    ::new (m_fail_info.ptr(*m_pir)) std::string;
-    *m_abort_state.ptr(0) = false;
+    return !m_pid();
   }
 
   TestResult<WRITE_DISCARD>
   operator*() const {
     return TestResult<WRITE_DISCARD>{
-      m_state[*m_pir],
-        m_abort[*m_pir],
-        m_name[*m_pir],
-        m_fail_info[*m_pir]};
+      m_state[*m_pid],
+        m_abort[*m_pid],
+        m_name[*m_pid],
+        m_fail_info[*m_pid]};
   }
 
   template <legion_privilege_mode_t MODE>
   void
   operator<<=(const TestResult<MODE>& tr) const {
-    m_state[*m_pir] = tr.state;
-    m_abort[*m_pir] = tr.abort;
-    m_name[*m_pir] = tr.name;
-    m_fail_info[*m_pir] = tr.fail_info;
+    m_state[*m_pid] = tr.state;
+    m_abort[*m_pid] = tr.abort;
+    m_name[*m_pid] = tr.name;
+    m_fail_info[*m_pid] = tr.fail_info;
     m_abort_state[0] <<= tr.abort;
   }
 
@@ -844,8 +824,8 @@ private:
 
   void
   swap(TestLogIterator& other) {
-    std::swap(m_log_region, other.m_log_region);
-    std::swap(m_pir, other.m_pir);
+    std::swap(m_log_pr, other.m_log_pr);
+    std::swap(m_pid, other.m_pid);
     std::swap(m_state, other.m_state);
     std::swap(m_abort, other.m_abort);
     std::swap(m_name, other.m_name);
@@ -853,9 +833,9 @@ private:
     std::swap(m_abort_state, other.m_abort_state);
   }
 
-  const Legion::PhysicalRegion* m_log_region;
+  const Legion::PhysicalRegion* m_log_pr;
 
-  Legion::PointInRectIterator<1> m_pir;
+  Legion::PointInDomainIterator<1> m_pid;
 
   TestLogReference::state_accessor<WRITE_DISCARD> m_state;
   TestLogReference::abort_accessor<WRITE_DISCARD> m_abort;
@@ -870,16 +850,21 @@ class TestLog<READ_ONLY> {
 
 public:
 
+  // abort_state_lr isn't really needed currently, but is present for future use
   TestLog(
-    const Legion::PhysicalRegion& log_region,
-    const Legion::PhysicalRegion& abort_state_region,
+    const Legion::LogicalRegion& log_lr,
+    const Legion::PhysicalRegion& log_pr,
+    const Legion::LogicalRegion& abort_state_lr,
+    const Legion::PhysicalRegion& abort_state_pr,
     Legion::Context context,
     Legion::Runtime* runtime)
-    : m_log_region(&log_region)
-    , m_abort_state_region(&abort_state_region)
+    : m_log_lr(Legion::LogicalRegionT<1>(log_lr))
+    , m_log_pr(&log_pr)
+    , m_abort_state_lr(Legion::LogicalRegionT<1>(abort_state_lr))
+    , m_abort_state_pr(&abort_state_pr)
     , m_context(context)
     , m_runtime(runtime)
-    , m_abort_state(abort_state_region, 0) {
+    , m_abort_state(abort_state_pr, 0) {
   }
 
   TestLog(
@@ -892,38 +877,45 @@ public:
     assert(runtime != nullptr);
 
     auto reqs = logref.requirements<READ_ONLY>();
-    m_own_log_region =
+    m_own_log_pr =
       runtime->map_region(
         context,
         reqs[TestLogReference::log_requirement_index]);
-    m_log_region = &m_own_log_region.value();
-    m_own_abort_state_region =
+    m_log_pr = &m_own_log_pr.value();
+    m_log_lr = reqs[TestLogReference::log_requirement_index].region;
+    m_own_abort_state_pr =
       runtime->map_region(
         context,
         reqs[TestLogReference::abort_state_requirement_index]);
-    m_abort_state_region = &m_own_abort_state_region.value();
+    m_abort_state_pr = &m_own_abort_state_pr.value();
+    m_abort_state_lr =
+      reqs[TestLogReference::abort_state_requirement_index].region;
     m_abort_state =
       TestLogReference::abort_state_accessor<READ_ONLY>::t(
-        *m_abort_state_region,
+        *m_abort_state_pr,
         0);
   }
 
   TestLog(const TestLog& other)
-    : m_log_region(other.m_log_region)
-    , m_abort_state_region(other.m_abort_state_region)
+    : m_log_lr(other.m_log_lr)
+    , m_log_pr(other.m_log_pr)
+    , m_abort_state_lr(other.m_abort_state_lr)
+    , m_abort_state_pr(other.m_abort_state_pr)
     , m_context(other.m_context)
     , m_runtime(other.m_runtime)
     , m_abort_state(other.m_abort_state) {
   }
 
   TestLog(TestLog&& other)
-    : m_log_region(other.m_log_region)
-    , m_abort_state_region(other.m_abort_state_region)
+    : m_log_lr(other.m_log_lr)
+    , m_log_pr(other.m_log_pr)
+    , m_abort_state_lr(other.m_abort_state_lr)
+    , m_abort_state_pr(other.m_abort_state_pr)
     , m_context(other.m_context)
     , m_runtime(other.m_runtime)
     , m_abort_state(other.m_abort_state)
-    , m_own_log_region(std::move(other).m_own_log_region)
-    , m_own_abort_state_region(std::move(other).m_own_abort_state_region) {
+    , m_own_log_pr(std::move(other).m_own_log_pr)
+    , m_own_abort_state_pr(std::move(other).m_own_abort_state_pr) {
   }
 
   TestLog&
@@ -935,31 +927,35 @@ public:
 
   TestLog&
   operator=(TestLog&& other) {
-    m_log_region = other.m_log_region;
-    m_abort_state_region = other.m_abort_state_region;
+    m_log_lr = other.m_log_lr;
+    m_log_pr = other.m_log_pr;
+    m_abort_state_lr = other.m_abort_state_lr;
+    m_abort_state_pr = other.m_abort_state_pr;
     m_context = other.m_context;
     m_runtime = other.m_runtime;
     m_abort_state = other.m_abort_state;
-    m_own_log_region = std::move(other).m_own_log_region;
-    m_own_abort_state_region = std::move(other).m_own_abort_state_region;
+    m_own_log_pr = std::move(other).m_own_log_pr;
+    m_own_abort_state_pr = std::move(other).m_own_abort_state_pr;
     return *this;
   }
 
   virtual ~TestLog() {
-    if (m_own_log_region)
-      m_runtime->unmap_region(m_context, m_own_log_region.value());
-    if (m_own_abort_state_region)
-      m_runtime->unmap_region(m_context, m_own_abort_state_region.value());
+    if (m_own_log_pr)
+      m_runtime->unmap_region(m_context, m_own_log_pr.value());
+    if (m_own_abort_state_pr)
+      m_runtime->unmap_region(m_context, m_own_abort_state_pr.value());
   }
 
 public:
 
   TestLogIterator<READ_ONLY>
   iterator() const {
-    return TestLogIterator<READ_ONLY>(
-      m_log_region,
-      m_abort_state_region,
-      m_runtime);
+    return
+      TestLogIterator<READ_ONLY>(
+        m_log_lr,
+        m_log_pr,
+        m_abort_state_pr,
+        m_runtime);
   }
 
   bool
@@ -979,12 +975,11 @@ public:
 
   TestLogReference
   log_reference() const {
-    Legion::LogicalRegionT<1> log_region(m_log_region->get_logical_region());
     return
       TestLogReference(
-        log_region,
-        log_region,
-        Legion::LogicalRegionT<1>(m_abort_state_region->get_logical_region()));
+        m_log_lr,
+        Legion::LogicalRegionT<1>(m_log_pr->get_logical_region()),
+        Legion::LogicalRegionT<1>(m_abort_state_pr->get_logical_region()));
   }
 
   std::vector<TestLogReference>
@@ -999,13 +994,11 @@ public:
       std::back_inserter(result),
       [this, &logref, &lp](auto& st) {
         Legion::LogicalRegionT<1> log(
-          m_runtime->get_logical_subregion_by_color(
-            lp,
-            Legion::Point<1,TEST_STATE_TYPE>(st)));
+          m_runtime->get_logical_subregion_by_color(lp, st));
         return
           TestLogReference(
             log,
-            logref.log_region(),
+            Legion::LogicalRegionT<1>(m_log_pr->get_logical_region()),
             logref.abort_state_region());
       });
     return result;
@@ -1016,18 +1009,24 @@ private:
   void
   swap(TestLog& other) {
     using std::swap;
-    swap(m_log_region, other.m_log_region);
-    swap(m_abort_state_region, other.m_abort_state_region);
+    swap(m_log_lr, other.m_log_lr);
+    swap(m_log_pr, other.m_log_pr);
+    swap(m_abort_state_lr, other.m_abort_state_lr);
+    swap(m_abort_state_pr, other.m_abort_state_pr);
     swap(m_context, other.m_context);
     swap(m_runtime, other.m_runtime);
     swap(m_abort_state, other.m_abort_state);
-    swap(m_own_log_region, other.m_own_log_region);
-    swap(m_own_abort_state_region, other.m_own_abort_state_region);
+    swap(m_own_log_pr, other.m_own_log_pr);
+    swap(m_own_abort_state_pr, other.m_own_abort_state_pr);
   }
 
-  const Legion::PhysicalRegion* m_log_region;
+  Legion::LogicalRegionT<1> m_log_lr;
 
-  const Legion::PhysicalRegion * m_abort_state_region;
+  const Legion::PhysicalRegion* m_log_pr;
+
+  Legion::LogicalRegionT<1> m_abort_state_lr;
+
+  const Legion::PhysicalRegion* m_abort_state_pr;
 
   Legion::Context m_context;
 
@@ -1035,9 +1034,9 @@ private:
 
   TestLogReference::abort_state_accessor<READ_ONLY>::t m_abort_state;
 
-  std::optional<Legion::PhysicalRegion> m_own_log_region;
+  std::optional<Legion::PhysicalRegion> m_own_log_pr;
 
-  std::optional<Legion::PhysicalRegion> m_own_abort_state_region;
+  std::optional<Legion::PhysicalRegion> m_own_abort_state_pr;
 };
 
 template <>
@@ -1046,15 +1045,19 @@ class TestLog<READ_WRITE> {
 public:
 
   TestLog(
-    const Legion::PhysicalRegion& log_region,
-    const Legion::PhysicalRegion& abort_state_region,
+    const Legion::LogicalRegion& log_lr,
+    const Legion::PhysicalRegion& log_pr,
+    const Legion::LogicalRegion& abort_state_lr,
+    const Legion::PhysicalRegion& abort_state_pr,
     Legion::Context context,
     Legion::Runtime* runtime)
-    : m_log_region(&log_region)
-    , m_abort_state_region(&abort_state_region)
+    : m_log_lr(Legion::LogicalRegionT<1>(log_lr))
+    , m_log_pr(&log_pr)
+    , m_abort_state_lr(Legion::LogicalRegionT<1>(abort_state_lr))
+    , m_abort_state_pr(&abort_state_pr)
     , m_context(context)
     , m_runtime(runtime)
-    , m_abort_state(abort_state_region, 0, OpsManager::BOOL_OR_REDOP) {
+    , m_abort_state(abort_state_pr, 0, OpsManager::BOOL_OR_REDOP) {
   }
 
   TestLog(
@@ -1067,39 +1070,46 @@ public:
     assert(runtime != nullptr);
 
     auto reqs = logref.requirements<READ_WRITE>();
-    m_own_log_region =
+    m_own_log_pr =
       runtime->map_region(
         context,
         reqs[TestLogReference::log_requirement_index]);
-    m_log_region = &m_own_log_region.value();
-    m_own_abort_state_region =
+    m_log_pr = &m_own_log_pr.value();
+    m_log_lr = reqs[TestLogReference::log_requirement_index].region;
+    m_own_abort_state_pr =
       runtime->map_region(
         context,
         reqs[TestLogReference::abort_state_requirement_index]);
-    m_abort_state_region = &m_own_abort_state_region.value();
+    m_abort_state_pr = &m_own_abort_state_pr.value();
+    m_abort_state_lr =
+      reqs[TestLogReference::abort_state_requirement_index].region;
     m_abort_state =
       TestLogReference::abort_state_accessor<READ_WRITE>::t(
-        *m_abort_state_region,
+        *m_abort_state_pr,
         0,
         OpsManager::BOOL_OR_REDOP);
   }
 
   TestLog(const TestLog& other)
-    : m_log_region(other.m_log_region)
-    , m_abort_state_region(other.m_abort_state_region)
+    : m_log_lr(other.m_log_lr)
+    , m_log_pr(other.m_log_pr)
+    , m_abort_state_lr(other.m_abort_state_lr)
+    , m_abort_state_pr(other.m_abort_state_pr)
     , m_context(other.m_context)
     , m_runtime(other.m_runtime)
     , m_abort_state(other.m_abort_state) {
   }
 
   TestLog(TestLog&& other)
-    : m_log_region(other.m_log_region)
-    , m_abort_state_region(other.m_abort_state_region)
+    : m_log_lr(other.m_log_lr)
+    , m_log_pr(other.m_log_pr)
+    , m_abort_state_lr(other.m_abort_state_lr)
+    , m_abort_state_pr(other.m_abort_state_pr)
     , m_context(other.m_context)
     , m_runtime(other.m_runtime)
     , m_abort_state(other.m_abort_state)
-    , m_own_log_region(std::move(other).m_own_log_region)
-    , m_own_abort_state_region(std::move(other).m_own_abort_state_region) {
+    , m_own_log_pr(std::move(other).m_own_log_pr)
+    , m_own_abort_state_pr(std::move(other).m_own_abort_state_pr) {
   }
 
   TestLog&
@@ -1111,36 +1121,35 @@ public:
 
   TestLog&
   operator=(TestLog&& other) {
-    m_log_region = other.m_log_region;
-    m_abort_state_region = other.m_abort_state_region;
+    m_log_lr = other.m_log_lr;
+    m_log_pr = other.m_log_pr;
+    m_abort_state_lr = other.m_abort_state_lr;
+    m_abort_state_pr = other.m_abort_state_pr;
     m_context = other.m_context;
     m_runtime = other.m_runtime;
     m_abort_state = other.m_abort_state;
-    m_own_log_region = std::move(other).m_own_log_region;
-    m_own_abort_state_region = std::move(other).m_own_abort_state_region;
+    m_own_log_pr = std::move(other).m_own_log_pr;
+    m_own_abort_state_pr = std::move(other).m_own_abort_state_pr;
     return *this;
   }
 
   virtual ~TestLog() {
-    if (m_own_log_region)
-      m_runtime->unmap_region(m_context, m_own_log_region.value());
-    if (m_own_abort_state_region)
-      m_runtime->unmap_region(m_context, m_own_abort_state_region.value());
+    if (m_own_log_pr)
+      m_runtime->unmap_region(m_context, m_own_log_pr.value());
+    if (m_own_abort_state_pr)
+      m_runtime->unmap_region(m_context, m_own_abort_state_pr.value());
   }
 
 public:
 
-  void
-  initialize() {
-    for_each([](auto& it) { it.initialize(); });
-  }
-
   TestLogIterator<READ_WRITE>
   iterator() const {
-    return TestLogIterator<READ_WRITE>(
-      m_log_region,
-      m_abort_state_region,
-      m_runtime);
+    return
+      TestLogIterator<READ_WRITE>(
+        m_log_lr,
+        m_log_pr,
+        m_abort_state_pr,
+        m_runtime);
   }
 
   bool
@@ -1160,12 +1169,11 @@ public:
 
   TestLogReference
   log_reference() const {
-    Legion::LogicalRegionT<1> log_region(m_log_region->get_logical_region());
     return
       TestLogReference(
-        log_region,
-        log_region,
-        Legion::LogicalRegionT<1>(m_abort_state_region->get_logical_region()));
+        m_log_lr,
+        Legion::LogicalRegionT<1>(m_log_pr->get_logical_region()),
+        Legion::LogicalRegionT<1>(m_abort_state_pr->get_logical_region()));
   }
 
   std::vector<TestLogReference>
@@ -1180,13 +1188,11 @@ public:
       std::back_inserter(result),
       [this, &logref, &lp](auto& st) {
         Legion::LogicalRegionT<1> log(
-          m_runtime->get_logical_subregion_by_color(
-            lp,
-            Legion::Point<1,TEST_STATE_TYPE>(st)));
+          m_runtime->get_logical_subregion_by_color(lp, st));
         return
           TestLogReference(
             log,
-            logref.log_region(),
+            Legion::LogicalRegionT<1>(m_log_pr->get_logical_region()),
             logref.abort_state_region());
       });
     return result;
@@ -1197,18 +1203,24 @@ private:
   void
   swap(TestLog& other) {
     using std::swap;
-    swap(m_log_region, other.m_log_region);
-    swap(m_abort_state_region, other.m_abort_state_region);
+    swap(m_log_lr, other.m_log_lr);
+    swap(m_log_pr, other.m_log_pr);
+    swap(m_abort_state_lr, other.m_abort_state_lr);
+    swap(m_abort_state_pr, other.m_abort_state_pr);
     swap(m_context, other.m_context);
     swap(m_runtime, other.m_runtime);
     swap(m_abort_state, other.m_abort_state);
-    swap(m_own_log_region, other.m_own_log_region);
-    swap(m_own_abort_state_region, other.m_own_abort_state_region);
+    swap(m_own_log_pr, other.m_own_log_pr);
+    swap(m_own_abort_state_pr, other.m_own_abort_state_pr);
   }
 
-  const Legion::PhysicalRegion* m_log_region;
+  Legion::LogicalRegionT<1> m_log_lr;
 
-  const Legion::PhysicalRegion * m_abort_state_region;
+  const Legion::PhysicalRegion* m_log_pr;
+
+  Legion::LogicalRegionT<1> m_abort_state_lr;
+
+  const Legion::PhysicalRegion* m_abort_state_pr;
 
   Legion::Context m_context;
 
@@ -1216,9 +1228,9 @@ private:
 
   TestLogReference::abort_state_accessor<READ_WRITE>::t m_abort_state;
 
-  std::optional<Legion::PhysicalRegion> m_own_log_region;
+  std::optional<Legion::PhysicalRegion> m_own_log_pr;
 
-  std::optional<Legion::PhysicalRegion> m_own_abort_state_region;
+  std::optional<Legion::PhysicalRegion> m_own_abort_state_pr;
 };
 
 template <>
@@ -1227,15 +1239,19 @@ class TestLog<WRITE_DISCARD> {
 public:
 
   TestLog(
-    const Legion::PhysicalRegion& log_region,
-    const Legion::PhysicalRegion& abort_state_region,
+    const Legion::LogicalRegion& log_lr,
+    const Legion::PhysicalRegion& log_pr,
+    const Legion::LogicalRegion& abort_state_lr,
+    const Legion::PhysicalRegion& abort_state_pr,
     Legion::Context context,
     Legion::Runtime* runtime)
-    : m_log_region(&log_region)
-    , m_abort_state_region(&abort_state_region)
+    : m_log_lr(Legion::LogicalRegionT<1>(log_lr))
+    , m_log_pr(&log_pr)
+    , m_abort_state_lr(Legion::LogicalRegionT<1>(abort_state_lr))
+    , m_abort_state_pr(&abort_state_pr)
     , m_context(context)
     , m_runtime(runtime)
-    , m_abort_state(abort_state_region, 0, OpsManager::BOOL_OR_REDOP) {
+    , m_abort_state(abort_state_pr, 0, OpsManager::BOOL_OR_REDOP) {
   }
 
   TestLog(
@@ -1248,39 +1264,46 @@ public:
     assert(runtime != nullptr);
 
     auto reqs = logref.requirements<WRITE_DISCARD>();
-    m_own_log_region =
+    m_own_log_pr =
       runtime->map_region(
         context,
         reqs[TestLogReference::log_requirement_index]);
-    m_log_region = &m_own_log_region.value();
-    m_own_abort_state_region =
+    m_log_pr = &m_own_log_pr.value();
+    m_log_lr = reqs[TestLogReference::log_requirement_index].region;
+    m_own_abort_state_pr =
       runtime->map_region(
         context,
         reqs[TestLogReference::abort_state_requirement_index]);
-    m_abort_state_region = &m_own_abort_state_region.value();
+    m_abort_state_pr = &m_own_abort_state_pr.value();
+    m_abort_state_lr =
+      reqs[TestLogReference::abort_state_requirement_index].region;
     m_abort_state =
       TestLogReference::abort_state_accessor<WRITE_DISCARD>::t(
-        *m_abort_state_region,
+        *m_abort_state_pr,
         0,
         OpsManager::BOOL_OR_REDOP);
   }
 
   TestLog(const TestLog& other)
-    : m_log_region(other.m_log_region)
-    , m_abort_state_region(other.m_abort_state_region)
+    : m_log_lr(other.m_log_lr)
+    , m_log_pr(other.m_log_pr)
+    , m_abort_state_lr(other.m_abort_state_lr)
+    , m_abort_state_pr(other.m_abort_state_pr)
     , m_context(other.m_context)
     , m_runtime(other.m_runtime)
     , m_abort_state(other.m_abort_state) {
   }
 
   TestLog(TestLog&& other)
-    : m_log_region(other.m_log_region)
-    , m_abort_state_region(other.m_abort_state_region)
+    : m_log_lr(other.m_log_lr)
+    , m_log_pr(other.m_log_pr)
+    , m_abort_state_lr(other.m_abort_state_lr)
+    , m_abort_state_pr(other.m_abort_state_pr)
     , m_context(other.m_context)
     , m_runtime(other.m_runtime)
     , m_abort_state(other.m_abort_state)
-    , m_own_log_region(std::move(other).m_own_log_region)
-    , m_own_abort_state_region(std::move(other).m_own_abort_state_region) {
+    , m_own_log_pr(std::move(other).m_own_log_pr)
+    , m_own_abort_state_pr(std::move(other).m_own_abort_state_pr) {
   }
 
   TestLog&
@@ -1292,36 +1315,35 @@ public:
 
   TestLog&
   operator=(TestLog&& other) {
-    m_log_region = other.m_log_region;
-    m_abort_state_region = other.m_abort_state_region;
+    m_log_lr = other.m_log_lr;
+    m_log_pr = other.m_log_pr;
+    m_abort_state_lr = other.m_abort_state_lr;
+    m_abort_state_pr = other.m_abort_state_pr;
     m_context = other.m_context;
     m_runtime = other.m_runtime;
     m_abort_state = other.m_abort_state;
-    m_own_log_region = std::move(other).m_own_log_region;
-    m_own_abort_state_region = std::move(other).m_own_abort_state_region;
+    m_own_log_pr = std::move(other).m_own_log_pr;
+    m_own_abort_state_pr = std::move(other).m_own_abort_state_pr;
     return *this;
   }
 
   virtual ~TestLog() {
-    if (m_own_log_region)
-      m_runtime->unmap_region(m_context, m_own_log_region.value());
-    if (m_own_abort_state_region)
-      m_runtime->unmap_region(m_context, m_own_abort_state_region.value());
+    if (m_own_log_pr)
+      m_runtime->unmap_region(m_context, m_own_log_pr.value());
+    if (m_own_abort_state_pr)
+      m_runtime->unmap_region(m_context, m_own_abort_state_pr.value());
   }
 
 public:
 
-  void
-  initialize() {
-    for_each([](auto& it) { it.initialize(); });
-  }
-
   TestLogIterator<WRITE_DISCARD>
   iterator() const {
-    return TestLogIterator<WRITE_DISCARD>(
-      m_log_region,
-      m_abort_state_region,
-      m_runtime);
+    return
+      TestLogIterator<WRITE_DISCARD>(
+        m_log_lr,
+        m_log_pr,
+        m_abort_state_pr,
+        m_runtime);
   }
 
   bool
@@ -1341,12 +1363,11 @@ public:
 
   TestLogReference
   log_reference() const {
-    Legion::LogicalRegionT<1> log_region(m_log_region->get_logical_region());
     return
       TestLogReference(
-        log_region,
-        log_region,
-        Legion::LogicalRegionT<1>(m_abort_state_region->get_logical_region()));
+        m_log_lr,
+        Legion::LogicalRegionT<1>(m_log_pr->get_logical_region()),
+        Legion::LogicalRegionT<1>(m_abort_state_pr->get_logical_region()));
   }
 
   std::vector<TestLogReference>
@@ -1361,13 +1382,11 @@ public:
       std::back_inserter(result),
       [this, &logref, &lp](auto& st) {
         Legion::LogicalRegionT<1> log(
-          m_runtime->get_logical_subregion_by_color(
-            lp,
-            Legion::Point<1,TEST_STATE_TYPE>(st)));
+          m_runtime->get_logical_subregion_by_color(lp, st));
         return
           TestLogReference(
             log,
-            logref.log_region(),
+            Legion::LogicalRegionT<1>(m_log_pr->get_logical_region()),
             logref.abort_state_region());
       });
     return result;
@@ -1378,18 +1397,24 @@ private:
   void
   swap(TestLog& other) {
     using std::swap;
-    swap(m_log_region, other.m_log_region);
-    swap(m_abort_state_region, other.m_abort_state_region);
+    swap(m_log_lr, other.m_log_lr);
+    swap(m_log_pr, other.m_log_pr);
+    swap(m_abort_state_lr, other.m_abort_state_lr);
+    swap(m_abort_state_pr, other.m_abort_state_pr);
     swap(m_context, other.m_context);
     swap(m_runtime, other.m_runtime);
     swap(m_abort_state, other.m_abort_state);
-    swap(m_own_log_region, other.m_own_log_region);
-    swap(m_own_abort_state_region, other.m_own_abort_state_region);
+    swap(m_own_log_pr, other.m_own_log_pr);
+    swap(m_own_abort_state_pr, other.m_own_abort_state_pr);
   }
 
-  const Legion::PhysicalRegion* m_log_region;
+  Legion::LogicalRegionT<1> m_log_lr;
 
-  const Legion::PhysicalRegion* m_abort_state_region;
+  const Legion::PhysicalRegion* m_log_pr;
+
+  Legion::LogicalRegionT<1> m_abort_state_lr;
+
+  const Legion::PhysicalRegion* m_abort_state_pr;
 
   Legion::Context m_context;
 
@@ -1397,9 +1422,9 @@ private:
 
   TestLogReference::abort_state_accessor<WRITE_DISCARD>::t m_abort_state;
 
-  std::optional<Legion::PhysicalRegion> m_own_log_region;
+  std::optional<Legion::PhysicalRegion> m_own_log_pr;
 
-  std::optional<Legion::PhysicalRegion> m_own_abort_state_region;
+  std::optional<Legion::PhysicalRegion> m_own_abort_state_pr;
 };
 
 } // end namespace testing

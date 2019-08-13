@@ -20,8 +20,16 @@ test_log_subtask(
   Context ctx,
   Runtime *runtime) {
 
+  assert(regions.size() == 2);
   std::string name = "subtask" + std::to_string(task->index_point[0]);
-  testing::TestLog<READ_WRITE> log(regions[0], regions[1], ctx, runtime);
+  testing::TestLog<READ_WRITE>
+    log(
+      task->regions[0].region,
+      regions[0],
+      task->regions[1].region,
+      regions[1],
+      ctx,
+      runtime);
   auto log_output = log.iterator();
   log_output <<= testing::TestResult<READ_ONLY>{
     testing::TestState::SUCCESS,
@@ -37,7 +45,14 @@ test_log_test_suite(
   Context ctx,
   Runtime *runtime) {
 
-  testing::TestLog<READ_WRITE> log(regions[0], regions[1], ctx, runtime);
+  testing::TestLog<READ_WRITE>
+    log(
+      task->regions[0].region,
+      regions[0],
+      task->regions[1].region,
+      regions[1],
+      ctx,
+      runtime);
   size_t length = 0;
   bool all_unknown = true;
   log.for_each(

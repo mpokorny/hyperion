@@ -137,15 +137,21 @@ attach_table0_col(
 
 void
 reindex_column_task_test_suite(
-  const Task*,
+  const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context context,
   Runtime* runtime) {
 
   register_tasks(context, runtime);
 
-  testing::TestRecorder<WRITE_DISCARD> recorder(
-    testing::TestLog<WRITE_DISCARD>(regions[0], regions[1], context, runtime));
+  testing::TestRecorder<READ_WRITE> recorder(
+    testing::TestLog<READ_WRITE>(
+      task->regions[0].region,
+      regions[0],
+      task->regions[1].region,
+      regions[1],
+      context,
+      runtime));
 
   Table
     table0(
