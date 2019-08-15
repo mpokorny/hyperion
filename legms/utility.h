@@ -616,13 +616,51 @@ template <typename T>
 typename acc_field_redop<T>::RHS const acc_field_redop<T>::identity =
   acc_field_redop_rhs<T>{{}};
 
+struct LEGMS_API coord_bor_redop {
+
+  typedef coord_t LHS;
+  typedef coord_t RHS;
+
+  static const constexpr coord_t identity = 0;
+
+  template <bool EXCLUSIVE>
+  static void
+  apply(LHS& lhs, RHS rhs);
+
+  template <bool EXCLUSIVE>
+  static void
+  fold(RHS& rhs1, RHS rhs2);
+};
+
+template <>
+inline void
+coord_bor_redop::apply<true>(LHS& lhs, RHS rhs) {
+  lhs |= rhs;
+}
+template <>
+inline void
+coord_bor_redop::apply<false>(LHS& lhs, RHS rhs) {
+  __atomic_or_fetch(&lhs, rhs, __ATOMIC_ACQUIRE);
+}
+
+template <>
+inline void
+coord_bor_redop::fold<true>(RHS& rhs1, RHS rhs2) {
+  rhs1 |= rhs2;
+}
+template <>
+inline void
+coord_bor_redop::fold<false>(RHS& rhs1, RHS rhs2) {
+  __atomic_or_fetch(&rhs1, rhs2, __ATOMIC_ACQUIRE);
+}
+
 template <TypeTag T>
 struct DataType {
 
   //typedef X ValueType;
 };
 
-struct LEGMS_API OpsManager {
+class LEGMS_API OpsManager {
 public:
 
   static void
@@ -652,6 +690,8 @@ public:
   enum {
     BOOL_OR_REDOP = 1,
 
+    COORD_BOR_REDOP,
+
     ACC_FIELD_STRING_REDOP,
     ACC_FIELD_BOOL_REDOP,
     ACC_FIELD_CHAR_REDOP,
@@ -664,7 +704,36 @@ public:
     ACC_FIELD_DOUBLE_REDOP,
     ACC_FIELD_COMPLEX_REDOP,
     ACC_FIELD_DCOMPLEX_REDOP,
+
+    // this must be at the end
+    POINT_ADD_REDOP_BASE
   };
+
+  static inline int
+  POINT_ADD_REDOP(int dim) {
+    return POINT_ADD_REDOP_BASE + dim - 1;
+  }
+};
+
+template <int DIM>
+class point_add_redop {
+public:
+  typedef Legion::Point<DIM> LHS;
+  typedef Legion::Point<DIM> RHS;
+
+  static const RHS identity;
+
+  template <bool EXCL>
+  static void
+  apply(LHS& lhs, RHS rhs) {
+    lhs += rhs;
+  }
+
+  template <bool EXCL>
+  static void
+  fold(RHS& rhs1, RHS rhs2) {
+    rhs1 += rhs2;
+  }
 };
 
 #ifdef LEGMS_USE_HDF5
@@ -1925,6 +1994,48 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
 #else
 #error "Unsupported LEGION_MAX_DIM"
 #endif
+
+#define DEFINE_POINT_ADD_REDOP(DIM)                             \
+  template <>                                                   \
+  class point_add_redop<DIM> {                                  \
+  public:                                                       \
+  typedef Legion::Point<DIM> LHS;                               \
+  typedef Legion::Point<DIM> RHS;                               \
+                                                                \
+  static const RHS identity;                                    \
+                                                                \
+  template <bool EXCL>                                          \
+  static void                                                   \
+  apply(LHS& lhs, RHS rhs);                                     \
+                                                                \
+  template <bool EXCL>                                          \
+  static void                                                   \
+  fold(RHS& rhs1, RHS rhs2);                                    \
+  };                                                            \
+  template <>                                                   \
+  inline void                                                   \
+  point_add_redop<DIM>::apply<true>(LHS& lhs, RHS rhs) {        \
+    lhs += rhs;                                                 \
+  }                                                             \
+  template <>                                                   \
+  inline void                                                   \
+  point_add_redop<DIM>::apply<false>(LHS& lhs, RHS rhs) {       \
+    for (int i = 0; i < DIM; ++i)                               \
+      __atomic_fetch_add(&lhs[i], rhs[i], __ATOMIC_ACQUIRE);    \
+  }                                                             \
+  template <>                                                   \
+  inline void                                                   \
+  point_add_redop<DIM>::fold<true>(RHS& rhs1, RHS rhs2) {       \
+    rhs1 += rhs2;                                               \
+  }                                                             \
+  template <>                                                   \
+  inline void                                                   \
+  point_add_redop<DIM>::fold<false>(RHS& rhs1, RHS rhs2) {      \
+    for (int i = 0; i < DIM; ++i)                               \
+      __atomic_fetch_add(&rhs1[i], rhs2[i], __ATOMIC_ACQUIRE);  \
+  }
+LEGMS_FOREACH_N(DEFINE_POINT_ADD_REDOP);
+#undef DEFINE_POINT_ADD_REDOP
 
 } // end namespace legms
 

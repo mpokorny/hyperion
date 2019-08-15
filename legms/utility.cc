@@ -38,6 +38,12 @@ operator<<(std::ostream& stream, const legms::string& str) {
   return stream;
 }
 
+#define POINT_ADD_REDOP_IDENTITY(DIM)                       \
+  const point_add_redop<DIM>::RHS                           \
+  point_add_redop<DIM>::identity = Point<DIM>((coord_t)0);
+LEGMS_FOREACH_N(POINT_ADD_REDOP_IDENTITY);
+#undef POINT_ADD_REDOP_IDENTITY
+
 void
 legms::OpsManager::preregister_ops() {
   Runtime::register_custom_serdez_op<index_tree_serdez>(
@@ -86,6 +92,7 @@ legms::OpsManager::preregister_ops() {
       ACC_FIELD_DCOMPLEX_SID);
 
   Runtime::register_reduction_op<bool_or_redop>(BOOL_OR_REDOP);
+  Runtime::register_reduction_op<coord_bor_redop>(COORD_BOR_REDOP);
 
 #ifdef WITH_ACC_FIELD_REDOP_SERDEZ
   Runtime::register_reduction_op(
@@ -198,6 +205,11 @@ legms::OpsManager::preregister_ops() {
     acc_field_redop<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>>(
     ACC_FIELD_DCOMPLEX_REDOP);
 #endif // WITH_ACC_FIELD_REDOP_SERDEZ
+
+#define REGISTER_POINT_ADD_REDOP(DIM)                   \
+  Runtime::register_reduction_op<point_add_redop<DIM>>(POINT_ADD_REDOP(DIM));
+  LEGMS_FOREACH_N(REGISTER_POINT_ADD_REDOP);
+#undef REGISTER_POINT_ADD_REDOP
 }
 
 FieldID

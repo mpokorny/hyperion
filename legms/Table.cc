@@ -285,9 +285,9 @@ const char* ReindexedTableTask::TASK_NAME = "ReindexedTableTask";
 ReindexedTableTask::ReindexedTableTask(
   const std::string& name,
   const std::string& axes_uid,
-  const vector<int>& index_axes,
+  const std::vector<int>& index_axes,
   LogicalRegion keywords_region,
-  const vector<Future>& reindexed) {
+  const std::vector<Future>& reindexed) {
 
   // reuse TableGenArgsSerializer to pass task arguments
   TableGenArgs args;
@@ -303,7 +303,7 @@ ReindexedTableTask::ReindexedTableTask(
     TaskLauncher(
       ReindexedTableTask::TASK_ID,
       TaskArgument(m_args.get(), buffsz));
-  for_each(
+  std::for_each(
     reindexed.begin(),
     reindexed.end(),
     [this](auto& f) { m_launcher.add_future(f); });
@@ -330,17 +330,17 @@ ReindexedTableTask::dispatch(Context ctx, Runtime* runtime) {
 Table
 ReindexedTableTask::base_impl(
   const Task* task,
-  const vector<PhysicalRegion>&,
+  const std::vector<PhysicalRegion>&,
   Context,
   Runtime *) {
 
   TableGenArgs result;
   result.legion_deserialize(task->args);
 
-  transform(
+  std::transform(
     task->futures.begin(),
     task->futures.end(),
-    inserter(result.col_genargs, result.col_genargs.end()),
+    std::inserter(result.col_genargs, result.col_genargs.end()),
     [](auto& f) {
       return f.template get_result<ColumnGenArgs>();
     });
@@ -430,28 +430,28 @@ public:
   static acc_field_redop_rhs<T>
   base_impl(
     const Task* task,
-    const vector<PhysicalRegion>& regions,
+    const std::vector<PhysicalRegion>& regions,
     Context,
     Runtime*) {
 
-#define ACC(D)                                                      \
-    case (D): {                                                     \
-      const ROAccessor<T, D> acc(regions[0], Column::VALUE_FID);    \
-      Point<D, coord_t> pt(task->index_point);                      \
-      return acc_field_redop_rhs<T>{                                \
-        {make_tuple(acc[pt],                                        \
-                    vector<DomainPoint>{task->index_point})}};      \
-      break;                                                        \
-    }
-
+    acc_field_redop_rhs<T> result;
     switch (task->index_point.get_dim()) {
+#define ACC(D)                                                          \
+      case (D): {                                                       \
+        const ROAccessor<T, D, true> acc(regions[0], Column::VALUE_FID); \
+        Point<D, coord_t> pt(task->index_point);                        \
+        result = acc_field_redop_rhs<T>{                                \
+          {std::make_tuple(acc[pt],                                     \
+                      std::vector<DomainPoint>{task->index_point})}};   \
+        break;                                                          \
+      }
       LEGMS_FOREACH_N(ACC);
+#undef ACC
     default:
       assert(false);
-      return acc_field_redop_rhs<T>();
       break;
     }
-#undef ACC
+    return result;
   }
 
 private:
@@ -504,7 +504,7 @@ IndexColumnTask::dispatch(Context ctx, Runtime* runtime) {
 template <typename T>
 static LogicalRegion
 index_column(
-  const Task*,
+  const Task* task,
   Context ctx,
   Runtime *runtime,
   legms::TypeTag dt,
@@ -524,7 +524,7 @@ index_column(
       auto fa = runtime->create_field_allocator(ctx, result_fs);
       add_field(dt, fa, IndexColumnTask::VALUE_FID);
       fa.allocate_field(
-        sizeof(vector<DomainPoint>),
+        sizeof(std::vector<DomainPoint>),
         IndexColumnTask::ROWS_FID,
         OpsManager::V_DOMAIN_POINT_SID);
     }
@@ -537,14 +537,19 @@ index_column(
     result_req.add_field(IndexColumnTask::VALUE_FID);
     result_req.add_field(IndexColumnTask::ROWS_FID);
     PhysicalRegion result_pr = runtime->map_region(ctx, result_req);
-    const WOAccessor<T, 1> values(result_pr, IndexColumnTask::VALUE_FID);
-    const WOAccessor<vector<DomainPoint>, 1>
+    const WOAccessor<T, 1, true> values(result_pr, IndexColumnTask::VALUE_FID);
+    const WOAccessor<std::vector<DomainPoint>, 1, true>
       rns(result_pr, IndexColumnTask::ROWS_FID);
     for (size_t i = 0; i < acc.size(); ++i) {
-      ::new (rns.ptr(i)) vector<DomainPoint>;
+      ::new (rns.ptr(i)) std::vector<DomainPoint>;
       tie(values[i], rns[i]) = acc[i];
     }
+    std::cout << "wrote in " << task << " " << col_req.region << std::endl;
     runtime->unmap_region(ctx, result_pr);
+    std::cout << "unmapped in " << task << " " << col_req.region << std::endl;
+    // TODO: keep?
+    //runtime->destroy_field_space(ctx, result_fs);
+    //runtime->destroy_index_space(ctx, result_is);
   }
   return result_lr;
 }
@@ -552,7 +557,7 @@ index_column(
 LogicalRegion
 IndexColumnTask::base_impl(
   const Task* task,
-  const vector<PhysicalRegion>& regions,
+  const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime *runtime) {
 
@@ -592,11 +597,11 @@ public:
   ComputeRectanglesTask(
     bool allow_rows,
     IndexPartition row_partition,
-    const vector<LogicalRegion>& ix_columns,
+    const std::vector<LogicalRegion>& ix_columns,
     LogicalRegion new_rects,
-    const vector<PhysicalRegion>& parent_regions,
-    const vector<coord_t>& ix0,
-    const vector<DomainPoint>& rows) {
+    const std::vector<PhysicalRegion>& parent_regions,
+    const std::vector<coord_t>& ix0,
+    const std::vector<DomainPoint>& rows) {
 
     TaskArgs args{allow_rows, row_partition, ix0, rows};
     auto idx = args.ix0.size();
@@ -613,11 +618,11 @@ public:
     cout << "ix_columns " << ix_columns.size()
          << "; idx " << idx
          << " (";
-    for_each(
+    std::for_each(
       ix0.begin(),
       ix0.end(),
       [](auto& d) { cout << d << " "; });
-    cout << ")" << endl;
+    std::cout << ")" << std::endl;
 
     for (size_t i = 0; i < ix_columns.size(); ++i) {
       RegionRequirement req;
@@ -661,7 +666,7 @@ public:
   static void
   base_impl(
     const Task* task,
-    const vector<PhysicalRegion>& regions,
+    const std::vector<PhysicalRegion>& regions,
     Context ctx,
     Runtime *runtime) {
 
@@ -670,10 +675,10 @@ public:
 
     const FieldAccessor<
       READ_ONLY,
-      vector<DomainPoint>,
+      std::vector<DomainPoint>,
       1,
       coord_t,
-      AffineAccessor<vector<DomainPoint>, 1, coord_t>,
+      AffineAccessor<std::vector<DomainPoint>, 1, coord_t>,
       false> rows(regions[args.ix0.size()], IndexColumnTask::rows_fid);
 
     auto pt = task->index_point[0];
@@ -685,7 +690,7 @@ public:
     if (args.rows.size() > 0) {
       if (args.ix0.size() < regions.size() - 1) {
         // start task at next index level
-        vector<LogicalRegion> col_lrs;
+        std::vector<LogicalRegion> col_lrs;
         for (size_t i = 0; i < regions.size() - 1; ++i)
           col_lrs.push_back(regions[i].get_logical_region());
         ComputeRectanglesTask task(
@@ -773,8 +778,8 @@ private:
   struct TaskArgs {
     bool allow_rows;
     IndexPartition row_partition;
-    vector<coord_t> ix0;
-    vector<DomainPoint> rows;
+    std::vector<coord_t> ix0;
+    std::vector<DomainPoint> rows;
 
     size_t
     serialized_size() const {
@@ -827,18 +832,18 @@ private:
 
   IndexTaskLauncher m_launcher;
 
-  static vector<DomainPoint>
+  static std::vector<DomainPoint>
   intersection(
-    const vector<DomainPoint>& first,
-    const vector<DomainPoint>& second) {
+    const std::vector<DomainPoint>& first,
+    const std::vector<DomainPoint>& second) {
 
-    vector<DomainPoint> result;
-    set_intersection(
+    std::vector<DomainPoint> result;
+    std::set_intersection(
       first.begin(),
       first.end(),
       second.begin(),
       second.end(),
-      back_inserter(result));
+      std::back_inserter(result));
     return result;
   }
 };
@@ -854,7 +859,7 @@ public:
   ComputeRectanglesTask(
     bool allow_rows,
     IndexPartition row_partition,
-    const vector<LogicalRegion>& ix_columns,
+    const std::vector<LogicalRegion>& ix_columns,
     LogicalRegion new_rects)
     : m_allow_rows(allow_rows)
     , m_row_partition(row_partition)
@@ -902,17 +907,17 @@ public:
     }
 #undef INIT_LAUNCHER
 
-    /*released = runtime->create_phase_barrier(ctx, rect.volume());*/ 
-    launcher = 
-      IndexTaskLauncher(                                          
-        TASK_ID, 
-        bounds,                                                   
-        TaskArgument(args_buffer.get(), args.serialized_size()), 
-        ArgumentMap()); 
+    /*released = runtime->create_phase_barrier(ctx, rect.volume());*/
+    launcher =
+      IndexTaskLauncher(
+        TASK_ID,
+        bounds,
+        TaskArgument(args_buffer.get(), args.serialized_size()),
+        ArgumentMap());
     /*launcher.add_wait_barrier(acquired);                       */
     /*launcher.add_arrival_barrier(released);                    */
 
-    for_each(
+    std::for_each(
       m_ix_columns.begin(),
       m_ix_columns.end(),
       [&launcher](auto& lr) {
@@ -938,7 +943,7 @@ public:
   static void
   base_impl(
     const Task* task,
-    const vector<PhysicalRegion>& regions,
+    const std::vector<PhysicalRegion>& regions,
     Context ctx,
     Runtime *runtime) {
 
@@ -947,15 +952,15 @@ public:
 
     typedef const FieldAccessor<
       READ_ONLY,
-      vector<DomainPoint>,
+      std::vector<DomainPoint>,
       1,
       coord_t,
-      AffineAccessor<vector<DomainPoint>, 1, coord_t>,
+      AffineAccessor<std::vector<DomainPoint>, 1, coord_t>,
       false> rows_acc_t;
 
     auto ixdim = regions.size() - 1;
 
-    vector<DomainPoint> common_rows;
+    std::vector<DomainPoint> common_rows;
     {
       rows_acc_t rows(regions[0], IndexColumnTask::rows_fid);
       common_rows = rows[task->index_point[0]];
@@ -1067,22 +1072,22 @@ private:
 
   IndexPartition m_row_partition;
 
-  vector<LogicalRegion> m_ix_columns;
+  std::vector<LogicalRegion> m_ix_columns;
 
   LogicalRegion m_new_rects_lr;
 
-  static vector<DomainPoint>
+  static std::vector<DomainPoint>
   intersection(
-    const vector<DomainPoint>& first,
-    const vector<DomainPoint>& second) {
+    const std::vector<DomainPoint>& first,
+    const std::vector<DomainPoint>& second) {
 
-    vector<DomainPoint> result;
-    set_intersection(
+    std::vector<DomainPoint> result;
+    std::set_intersection(
       first.begin(),
       first.end(),
       second.begin(),
       second.end(),
-      back_inserter(result));
+      std::back_inserter(result));
     return result;
   }
 };
@@ -1219,7 +1224,7 @@ public:
   static void
   base_impl(
     const Task* task,
-    const vector<PhysicalRegion>& regions,
+    const std::vector<PhysicalRegion>& regions,
     Context,
     Runtime*) {
 
@@ -1306,19 +1311,19 @@ ReindexColumnTask::TaskArgs::deserialize(
 ReindexColumnTask::ReindexColumnTask(
   const shared_ptr<Column>& col,
   ssize_t row_axis_offset,
-  const vector<shared_ptr<Column>>& ixcols,
+  const std::vector<shared_ptr<Column>>& ixcols,
   bool allow_rows) {
 
   // get column partition down to row axis
   assert(row_axis_offset >= 0);
-  vector<int> col_part_axes;
-  copy_n(
+  std::vector<int> col_part_axes;
+  std::copy_n(
     col->axes().begin(),
     row_axis_offset + 1,
-    back_inserter(col_part_axes));
+    std::back_inserter(col_part_axes));
   m_partition = col->partition_on_axes(col_part_axes);
 
-  vector<int> index_axes =
+  std::vector<int> index_axes =
     map(
       ixcols,
       [](const auto& ixc) {
@@ -1341,14 +1346,14 @@ ReindexColumnTask::ReindexColumnTask(
       col->logical_region());
   col_req.add_field(Column::VALUE_FID);
   m_launcher.add_region_requirement(col_req);
-  for_each(
+  std::for_each(
     ixcols.begin(),
     ixcols.end(),
     [this](auto& ixc) {
       auto lr = ixc->logical_region();
       assert(lr != LogicalRegion::NO_REGION);
       RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
-      req.add_field(IndexColumnTask::rows_fid);
+      req.add_field(IndexColumnTask::ROWS_FID);
       m_launcher.add_region_requirement(req);
     });
 }
@@ -1362,7 +1367,7 @@ template <int OLDDIM, int NEWDIM>
 static ColumnGenArgs
 reindex_column(
   const ReindexColumnTask::TaskArgs& args,
-  const vector<PhysicalRegion>& regions,
+  const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime *runtime) {
 
@@ -1407,12 +1412,12 @@ reindex_column(
   // new_rects_req.add_field(ReindexColumnTask::row_rects_fid);
   // PhysicalRegion new_rects_pr = runtime->map_region(ctx, new_rects_req);
 
-  vector<LogicalRegion> ix_lrs;
+  std::vector<LogicalRegion> ix_lrs;
   ix_lrs.reserve(regions.size() - 1);
-  transform(
+  std::transform(
     regions.begin() + 1,
     regions.end(),
-    back_inserter(ix_lrs),
+    std::back_inserter(ix_lrs),
     [](const auto& rg) { return rg.get_logical_region(); });
 
   // task to compute new index space rectangle for each row in column
@@ -1439,7 +1444,7 @@ reindex_column(
   // create the new index space via create_partition_by_image_range based on
   // rows_rect_lr; for this, we need the bounding index space first
   Rect<NEWDIM> new_bounds;
-  vector<int> new_axes(NEWDIM);
+  std::vector<int> new_axes(NEWDIM);
   {
     // start with axes above original row axis
     auto d = args.row_partition.get_dim() - 1;
@@ -1495,7 +1500,8 @@ reindex_column(
         coord_t,\
         AffineAccessor<Rect<NEWDIM>, N, coord_t>, \
         true> rr(pr, ReindexColumnTask::row_rects_fid);\
-      for (PointInDomainIterator<N> pid(runtime->get_index_space_domain(ctx, rows_is)); \
+      for (PointInDomainIterator<N> \
+             pid(runtime->get_index_space_domain(ctx, rows_is));        \
            pid();                                                       \
            pid++)                                                       \
         cout << *pid << ": " << rr[*pid] << endl;                       \
@@ -1589,7 +1595,7 @@ reindex_column(
 ColumnGenArgs
 ReindexColumnTask::base_impl(
   const Task* task,
-  const vector<PhysicalRegion>& regions,
+  const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime *runtime) {
 
@@ -1638,8 +1644,8 @@ ReindexColumnTask::preregister_task() {
 
 Future/*Table*/
 Table::ireindexed(
-  const vector<std::string>& axis_names,
-  const vector<int>& axes,
+  const std::vector<std::string>& axis_names,
+  const std::vector<int>& axes,
   bool allow_rows) const {
 
   // 'allow_rows' is intended to support the case where the reindexing may not
@@ -1664,13 +1670,13 @@ Table::ireindexed(
   }
 
   // for every column in table, determine which axes need indexing
-  unordered_map<std::string, vector<int>> col_reindex_axes;
-  transform(
+  std::unordered_map<std::string, std::vector<int>> col_reindex_axes;
+  std::transform(
     column_names().begin(),
     column_names().end(),
-    inserter(col_reindex_axes, col_reindex_axes.end()),
+    std::inserter(col_reindex_axes, col_reindex_axes.end()),
     [this, &axis_names, &axes](auto& nm) {
-      vector<int> ax;
+      std::vector<int> ax;
       auto col_axes = column(nm)->axes();
       // skip the column if it does not have a "row" axis
       if (col_axes.back() == 0) {
@@ -1681,7 +1687,7 @@ Table::ireindexed(
         } else {
           // select those axes in "axes" that are not already an axis of the
           // column
-          for_each(
+          std::for_each(
             axes.begin(),
             axes.end(),
             [&col_axes, &ax](auto& d) {
@@ -1698,13 +1704,13 @@ Table::ireindexed(
   // column values (sorted in ascending order); and at
   // IndexColumnTask::rows_fid, a sorted vector of DomainPoints in the original
   // column.
-  unordered_map<int, Future> index_cols;
-  for_each(
+  std::unordered_map<int, Future> index_cols;
+  std::for_each(
     col_reindex_axes.begin(),
     col_reindex_axes.end(),
     [this, &axis_names, &index_cols](auto& nm_ds) {
-      const vector<int>& ds = get<1>(nm_ds);
-      for_each(
+      const std::vector<int>& ds = get<1>(nm_ds);
+      std::for_each(
         ds.begin(),
         ds.end(),
         [this, &axis_names, &index_cols](auto& d) {
@@ -1717,11 +1723,11 @@ Table::ireindexed(
     });
 
   // do reindexing of columns
-  vector<Future> reindexed;
-  transform(
+  std::vector<Future> reindexed;
+  std::transform(
     col_reindex_axes.begin(),
     col_reindex_axes.end(),
-    back_inserter(reindexed),
+    std::back_inserter(reindexed),
     [this, &index_cols, &allow_rows](auto& nm_ds) {
       auto& [nm, ds] = nm_ds;
       // if this column is an index column, we've already launched a task to
@@ -1731,7 +1737,7 @@ Table::ireindexed(
 
       // create reindexing task launcher
       // TODO: start intermediary task dependent on Futures of index columns
-      vector<shared_ptr<Column>> ixcols;
+      std::vector<shared_ptr<Column>> ixcols;
       for (auto d : ds) {
         ixcols.push_back(
           index_cols.at(d)
@@ -1747,7 +1753,7 @@ Table::ireindexed(
     });
 
   // launch task that creates the reindexed table
-  vector<int> iaxes = axes;
+  std::vector<int> iaxes = axes;
   if (allow_rows)
     iaxes.push_back(0);
   ReindexedTableTask
@@ -1781,114 +1787,137 @@ Table::iindex_by_value(
   return result;
 }
 
-class LEGMS_LOCAL ComputeColorsTask {
+class LEGMS_LOCAL ComputeRowColorsTask {
 public:
 
-  static constexpr const FieldID color_fid = 0;
-  static constexpr const FieldID color_flag_fid = 1;
-  static constexpr const coord_t COLOR_NOT_SET = 0;
-  static constexpr const coord_t COLOR_IS_SET = 1;
-
-  ComputeColorsTask(
-    IndexSpace rows,
-    const vector<LogicalRegion>& ix_columns)
-    : m_rows(rows)
-    , m_ix_columns(ix_columns) {
+  static TaskID TASK_ID;
+  static const char* TASK_NAME;
+  ComputeRowColorsTask(
+    const std::vector<LogicalRegion>& ix_columns,
+    LogicalRegion row_colors,
+    LogicalRegion colors)
+    : m_ix_columns(ix_columns)
+    , m_row_colors(row_colors)
+    , m_colors(colors) {
   };
 
-  TaskID
-  task_id() const {
-    return task_ids[m_ix_columns.size() - 1];
-  }
+  void
+  dispatch(Context ctx, Runtime* runtime) {
 
-  LayoutConstraintID
-  layout() const {
-    return layouts[m_ix_columns.size() - 1];
-  }
-
-  PhysicalRegion
-  dispatch(Context ctx, Runtime* runtime, PhaseBarrier& pb) {
-    FieldSpace fs = field_space(ctx, runtime, m_ix_columns.size());
-    LogicalRegion colors_lr = runtime->create_logical_region(ctx, m_rows, fs);
-
-    InlineLauncher init(
-      RegionRequirement(colors_lr, READ_WRITE, SIMULTANEOUS, colors_lr),
-      0, // MapperID
-      0, // MappingTagID
-      layout());
-    init.add_field(color_fid);
-    init.add_field(color_flag_fid);
-    PhysicalRegion result = runtime->map_region(ctx, init);
-    result.wait_until_valid(true);
-    FillLauncher fill(
-      colors_lr,
-      colors_lr,
-      TaskArgument(&COLOR_NOT_SET, sizeof(COLOR_NOT_SET)));
-    fill.add_field(color_flag_fid);
-    PhaseBarrier pb0 = runtime->create_phase_barrier(ctx, 1);
-    fill.add_arrival_barrier(pb0);
-    runtime->fill_fields(ctx, fill);
-
-    Domain bounds;
-    switch (m_ix_columns.size()) {
-#define BOUNDS(DIM)                                                   \
-      case DIM: {                                                     \
-        Rect<DIM> rect;                                               \
-        for (size_t i = 0; i < DIM; ++i) {                            \
-          IndexSpaceT<1> cis(m_ix_columns[i].get_index_space());      \
-          Rect<1> dom = runtime->get_index_space_domain(cis).bounds;  \
-          rect.lo[i] = dom.lo[0];                                     \
-          rect.hi[i] = dom.hi[0];                                     \
-        }                                                             \
-        bounds = rect;                                                \
-        break;                                                        \
+    auto ixdim = m_ix_columns.size();
+    switch (ixdim) {
+#define FILL_COLOR(DIM)                                                 \
+      case DIM: {                                                       \
+        runtime->fill_field(                                            \
+          ctx, m_row_colors, m_row_colors, 0, point_add_redop<DIM>::identity); \
+        break;                                                          \
       }
-      LEGMS_FOREACH_N(BOUNDS);
-#undef BOUNDS
+      LEGMS_FOREACH_N(FILL_COLOR);
+#undef FILL_COLOR
     default:
       assert(false);
       break;
     }
+    runtime->fill_field(ctx, m_colors, m_colors, 0, (coord_t)0);
 
     IndexTaskLauncher
-      launcher(task_id(), bounds, TaskArgument(NULL, 0), ArgumentMap());
-    launcher.add_wait_barrier(pb0);
-    pb = runtime->advance_phase_barrier(ctx, pb0);
-    runtime->destroy_phase_barrier(ctx, pb0);
-    launcher.add_arrival_barrier(pb);
+      launcher(
+        TASK_ID,
+        m_colors.get_index_space(),
+        TaskArgument(NULL, 0),
+        ArgumentMap());
 
-    for_each(
+    unsigned i = 0;
+    std::for_each(
       m_ix_columns.begin(),
       m_ix_columns.end(),
-      [&launcher](auto& lr) {
+      [&launcher, &i, &ctx, runtime](LogicalRegion lr) {
         RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
         req.add_field(IndexColumnTask::ROWS_FID);
-        launcher.add_region_requirement(req);
-      });
+        // {
+        //   auto pr = runtime->map_region(ctx, req);
+        //   typedef const ROAccessor<std::vector<DomainPoint>, 1> rows_acc_t;
+        //   rows_acc_t rows(pr, IndexColumnTask::ROWS_FID);
+        //   for (PointInDomainIterator<1> pid(
+        //          runtime->get_index_space_domain(ctx, lr.get_index_space()));
+        //        pid();
+        //        pid++) {
+        //     cout << i << "," << *pid << ":";
+        //     for (auto& p : rows[*pid])
+        //       cout << p << ",";
+        //     cout << endl;
+        //   }
+        //   runtime->unmap_region(ctx, pr);
+        //   ++i;
+        // }
+        //launcher.add_region_requirement(req);
 
+        LogicalRegion clr =
+          runtime->create_logical_region(
+            ctx,
+            lr.get_index_space(),
+            lr.get_field_space());
+        RegionRequirement creq(clr, WRITE_ONLY, EXCLUSIVE, clr);
+        creq.add_field(IndexColumnTask::ROWS_FID);
+        CopyLauncher cpy;
+        cpy.add_copy_requirements(req, creq);
+        runtime->issue_copy_operation(ctx, cpy);
+
+        RegionRequirement rreq(clr, READ_ONLY, EXCLUSIVE, clr);
+        rreq.add_field(IndexColumnTask::ROWS_FID);
+        {
+          auto pr = runtime->map_region(ctx, rreq);
+          typedef const ROAccessor<std::vector<DomainPoint>, 1, true>
+            rows_acc_t;
+          rows_acc_t rows(pr, IndexColumnTask::ROWS_FID);
+          for (PointInDomainIterator<1> pid(
+                 runtime->get_index_space_domain(ctx, clr.get_index_space()));
+               pid();
+               pid++) {
+            std::cout << i << "," << *pid << ":";
+            for (auto& p : rows[*pid])
+              std::cout << p << ",";
+            std::cout << std::endl;
+          }
+          runtime->unmap_region(ctx, pr);
+          ++i;
+        }
+        launcher.add_region_requirement(rreq);
+      });
     {
-      RegionRequirement req(colors_lr, WRITE_ONLY, SIMULTANEOUS, colors_lr);
-      req.add_field(color_fid);
-      req.add_field(color_flag_fid);
+      RegionRequirement
+        req(
+          m_row_colors,
+          OpsManager::POINT_ADD_REDOP(ixdim),
+          ATOMIC,
+          m_row_colors);
+      req.add_field(0);
+      launcher.add_region_requirement(req);
+    }
+    {
+      RegionRequirement
+        req(m_colors, OpsManager::COORD_BOR_REDOP, ATOMIC, m_colors);
+      req.add_field(0);
       launcher.add_region_requirement(req);
     }
 
     runtime->execute_index_space(ctx, launcher);
-    return result;
   }
 
   static void
   base_impl(
     const Task* task,
-    const vector<PhysicalRegion>& regions,
+    const std::vector<PhysicalRegion>& regions,
     Context context,
     Runtime *runtime) {
 
-    typedef const ROAccessor<vector<DomainPoint>, 1> rows_acc_t;
+    std::cout << "ComputeRowColorsTask " << task->current_proc << std::endl;
 
-    auto ixdim = regions.size() - 1;
+    typedef const ROAccessor<std::vector<DomainPoint>, 1, true> rows_acc_t;
 
-    vector<DomainPoint> common_rows;
+    auto ixdim = regions.size() - 2;
+
+    std::vector<DomainPoint> common_rows;
     {
       rows_acc_t rows(regions[0], IndexColumnTask::ROWS_FID);
       common_rows = rows[task->index_point[0]];
@@ -1920,93 +1949,71 @@ public:
     if (common_rows.size() > 0) {
       auto rowdim = common_rows[0].get_dim();
       switch (rowdim * LEGION_MAX_DIM + ixdim) {
+#define WRITE_COLORS(ROWDIM, COLORDIM)                                  \
+        case (ROWDIM * LEGION_MAX_DIM + COLORDIM): {                    \
+          const ReductionAccessor<point_add_redop<COLORDIM>, true, ROWDIM, coord_t, AffineAccessor<Point<COLORDIM>,ROWDIM,coord_t>> \
+            colors(regions[COLORDIM], 0, OpsManager::POINT_ADD_REDOP(ixdim)); \
+          const ReductionAccessor<coord_bor_redop, true, COLORDIM, coord_t, AffineAccessor<coord_t,COLORDIM,coord_t>> \
+            flags(regions[COLORDIM + 1], 0, OpsManager::COORD_BOR_REDOP); \
+          Point<COLORDIM,coord_t> color(task->index_point);             \
+          flags[color] <<= 1;                                           \
+          for (size_t i = 0; i < common_rows.size(); ++i) {             \
+            Point<ROWDIM> r(common_rows[i]);                            \
+            colors[r] <<= color;                                        \
+            std::cout << "(" << task->current_proc                      \
+                      << ") at " << r                                   \
+                      << " color " << color << std::endl;               \
+          }                                                             \
+          break;                                                        \
+        }
         LEGMS_FOREACH_NN(WRITE_COLORS);
+#undef WRITE_COLORS
       default:
         assert(false);
         break;
       }
     }
-#undef WRITE_COLORS
   }
 
-  // TODO: add_row_major_order_constraint(lc, DIM)???
   static void
-  preregister_tasks() {
-#define REG_TASK(DIM)                                                   \
-    do {                                                                \
-      LayoutConstraintRegistrar lc;                                     \
-      lc.add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));    \
-      layouts[DIM - 1] = Runtime::preregister_layout(lc);               \
-      task_ids[DIM - 1] = Runtime::generate_static_task_id();           \
-      std::ostringstream oss;                                           \
-      TaskVariantRegistrar registrar(                                   \
-        task_ids[DIM - 1],                                              \
-        oss.str().c_str(),                                              \
-        false);                                                         \
-      registrar.set_idempotent();                                       \
-      registrar.set_leaf();                                             \
-      registrar                                                         \
-        .add_constraint(ProcessorConstraint(Processor::LOC_PROC))       \
-        .add_layout_constraint_set(DIM, layouts[DIM - 1]);              \
-      Runtime::preregister_task_variant<base_impl>(                     \
-        registrar,                                                      \
-        oss.str().c_str());                                             \
-      break;                                                            \
-    } while (0);
-    LEGMS_FOREACH_N(REG_TASK);
-#undef REG_TASK
-  }
-
-  static FieldSpace
-  field_space(Context context, Runtime* runtime, unsigned dim) {
-    FieldSpace fs = runtime->create_field_space(context);
-    FieldAllocator fa = runtime->create_field_allocator(context, fs);
-    switch (dim) {
-#define POINT_FIELD(DIM)                                  \
-      case DIM:                                           \
-        fa.allocate_field(sizeof(Point<DIM>), color_fid); \
-        break;
-      LEGMS_FOREACH_N(POINT_FIELD);
-#undef POINT_FIELD
-    default:
-      assert(false);
-      break;
-    }
-    fa.allocate_field(sizeof(coord_t), color_flag_fid);
-    return fs;
+  preregister_task() {
+    TASK_ID = Runtime::generate_static_task_id();
+    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
+    registrar.set_idempotent();
+    registrar.set_leaf();
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
   }
 
 private:
 
-  IndexSpace m_rows;
+  std::vector<LogicalRegion> m_ix_columns;
 
-  vector<LogicalRegion> m_ix_columns;
+  LogicalRegion m_row_colors;
 
-  static std::array<TaskID, LEGION_MAX_DIM> task_ids;
+  LogicalRegion m_colors;
 
-  static std::array<LayoutConstraintID, LEGION_MAX_DIM> layouts;
-
-  static vector<DomainPoint>
+  static std::vector<DomainPoint>
   intersection(
-    const vector<DomainPoint>& first,
-    const vector<DomainPoint>& second) {
+    const std::vector<DomainPoint>& first,
+    const std::vector<DomainPoint>& second) {
 
-    vector<DomainPoint> result;
-    set_intersection(
+    std::vector<DomainPoint> result;
+    std::set_intersection(
       first.begin(),
       first.end(),
       second.begin(),
       second.end(),
-      back_inserter(result));
+      std::back_inserter(result));
     return result;
   }
 };
 
-std::array<TaskID, LEGION_MAX_DIM>
-ComputeColorsTask::task_ids;
+TaskID
+ComputeRowColorsTask::TASK_ID;
 
-std::array<LayoutConstraintID, LEGION_MAX_DIM>
-ComputeColorsTask::layouts;
+const char*
+ComputeRowColorsTask::TASK_NAME = "ComputeRowColorsTask";
 
 // TODO: replace this macro value with a class member variable
 #define PART_FID 0
@@ -2038,7 +2045,7 @@ public:
         ArgumentMap());
     launcher.add_region_requirement(
       RegionRequirement(m_colors_lr, READ_ONLY, EXCLUSIVE, m_colors_lr));
-    launcher.add_field(0, ComputeColorsTask::color_fid);
+    launcher.add_field(0, 0);
     // FIXME: cleanup
     auto parts_ip =
       runtime->create_equal_partition(
@@ -2064,16 +2071,17 @@ public:
     Context context,
     Runtime* runtime,
     const Task* task,
-    const vector<PhysicalRegion>& regions) {
+    const std::vector<PhysicalRegion>& regions) {
 
     const TaskArgs* args = static_cast<const TaskArgs*>(task->args);
 
-    switch (args->row_dim * LEGION_MAX_DIM + task->regions[1].region.get_dim()) {
+    switch (args->row_dim * LEGION_MAX_DIM
+            + task->regions[1].region.get_dim()) {
 #define COLOR_PARTS(ROW_DIM, COL_DIM)                                 \
       case (ROW_DIM * LEGION_MAX_DIM + COL_DIM):  {                   \
         static_assert(ROW_DIM <= COL_DIM);                            \
         const ROAccessor<Point<COLOR_DIM>, ROW_DIM, true>             \
-          colors(regions[0], ComputeColorsTask::color_fid);           \
+          colors(regions[0], 0);                                      \
         const WOAccessor<Point<COLOR_DIM>, COL_DIM, true>             \
           parts(regions[1], PART_FID);                                \
         Point<ROW_DIM> pt;                                            \
@@ -2093,7 +2101,7 @@ public:
   static void
   base_impl(
     const Task* task,
-    const vector<PhysicalRegion>& regions,
+    const std::vector<PhysicalRegion>& regions,
     Context context,
     Runtime *runtime) {
 
@@ -2135,13 +2143,13 @@ private:
 TaskID InitColorsTask::TASK_ID;
 const char* InitColorsTask::TASK_NAME = "InitColorsTask";
 
-class LEGMS_LOCAL ComputePartitionTask {
+class LEGMS_LOCAL PartitionRowsTask {
 public:
 
   static TaskID TASK_ID;
   static const char* TASK_NAME;
 
-  ComputePartitionTask(
+  PartitionRowsTask(
     const IndexSpace& column_is,
     const std::string& axes_uid,
     const std::vector<int>& axes,
@@ -2159,7 +2167,7 @@ public:
     m_args.rowdim = rowdim;
     m_launcher = TaskLauncher(TASK_ID, TaskArgument(&m_args, sizeof(m_args)));
     RegionRequirement req(colors_lr, READ_ONLY, EXCLUSIVE, colors_lr);
-    req.add_field(ComputeColorsTask::color_fid);
+    req.add_field(0);
     m_launcher.add_region_requirement(req);
   }
 
@@ -2172,7 +2180,7 @@ public:
   static IndexPartition
   impl(
     const Task* task,
-    const vector<PhysicalRegion>& regions,
+    const std::vector<PhysicalRegion>& regions,
     Context context,
     Runtime *runtime) {
 
@@ -2195,6 +2203,8 @@ public:
       regions[0].get_logical_region(),
       lr);
     ctask.dispatch(context, runtime);
+    std::cout << "create_partition_by_field in PartitionRowsTask "
+              << task->current_proc << std::endl;
     auto result =
       runtime->create_partition_by_field(
         context,
@@ -2202,15 +2212,17 @@ public:
         lr,
         PART_FID,
         args->colors_is);
-    runtime->destroy_logical_region(context, lr);
-    runtime->destroy_field_space(context, fs);
+    std::cout << "completed create_partition_by_field in PartitionRowsTask "
+              << task->current_proc << std::endl;
+    // runtime->destroy_logical_region(context, lr);
+    // runtime->destroy_field_space(context, fs);
     return result;
   }
 
   static ColumnPartition
   base_impl(
     const Task* task,
-    const vector<PhysicalRegion>& regions,
+    const std::vector<PhysicalRegion>& regions,
     Context ctx,
     Runtime *rt) {
 
@@ -2259,15 +2271,15 @@ private:
   TaskLauncher m_launcher;
 };
 
-TaskID ComputePartitionTask::TASK_ID;
-const char* ComputePartitionTask::TASK_NAME = "ComputePartitionTask";
+TaskID PartitionRowsTask::TASK_ID;
+const char* PartitionRowsTask::TASK_NAME = "PartitionRowsTask";
 
 std::unordered_map<std::string, Future>
 Table::ipartition_by_value(
   Context ctx,
   Runtime* rt,
-  const vector<std::string>& axis_names,
-  const vector<int>& axes) const {
+  const std::vector<std::string>& axis_names,
+  const std::vector<int>& axes) const {
 
   RegionRequirement req(columns_lr, READ_ONLY, EXCLUSIVE, columns_lr);
   req.add_field(Table::COLUMNS_FID);
@@ -2282,6 +2294,7 @@ Table::ipartition_by_value(
       }));
 
   auto tbl_axes = index_axes(ctx, rt);
+  auto ax_uid = axes_uid(ctx, rt);
 
   // TODO: Support partitioning on columns that are in the index_axes set of the
   // table -- the current implementation doesn't support this case. A possible
@@ -2325,102 +2338,90 @@ Table::ipartition_by_value(
     ixcols[distance(axes.begin(), d)] = f.template get_result<LogicalRegion>();
   }
 
-  ComputeColorsTask task(
-    column(ctx, rt, axis_names[axes[0]]).values_lr.get_index_space(),
-    ixcols);
-  PhaseBarrier pb;
-  PhysicalRegion colors_pr = task.dispatch(ctx, rt, pb);
-  LogicalRegion colors_lr = colors_pr.get_logical_region();
+  // first we create the bounding row color index space (product space of all
+  // index column colors)
+  IndexSpace colors_is;
+  FieldSpace row_color_fs = rt->create_field_space(ctx);
+  {
+    FieldAllocator fa = rt->create_field_allocator(ctx, row_color_fs);
+    switch (ixcols.size()) {
+#define ROW_COLOR_INIT(DIM)                                           \
+      case DIM: {                                                     \
+        Rect<DIM> bounds;                                             \
+        for (size_t i = 0; i < DIM; ++i){                             \
+          Rect<1> r =                                                 \
+            rt->get_index_space_domain(ixcols[i].get_index_space());  \
+          bounds.lo[i] = r.lo[0];                                     \
+          bounds.hi[i] = r.hi[0];                                     \
+        }                                                             \
+        colors_is = rt->create_index_space(ctx, bounds);              \
+        fa.allocate_field(sizeof(Point<DIM>), 0);                     \
+        break;                                                        \
+      }
+      LEGMS_FOREACH_N(ROW_COLOR_INIT);
+#undef ROW_COLOR_INIT
+    default:
+      assert(false);
+      break;
+    }
+  }
+  IndexSpace rows_is =
+    column(ctx, rt, cols, axis_names[axes[0]]).values_lr.get_index_space();
+  // row_colors_lr for color of each row
+  LogicalRegion row_colors_lr =
+    rt->create_logical_region(ctx, rows_is, row_color_fs);
+
+  FieldSpace colors_fs = rt->create_field_space(ctx);
+  {
+    FieldAllocator fa = rt->create_field_allocator(ctx, colors_fs);
+    fa.allocate_field(sizeof(coord_t), 0);
+  }
+  // colors_lr for tracking row color usage
+  LogicalRegion colors_lr =
+    rt->create_logical_region(ctx, colors_is, colors_fs);
+
+  ComputeRowColorsTask task(ixcols, row_colors_lr, colors_lr);
+  task.dispatch(ctx, rt);
 
   // we require the color space of the partition, but, in order to have an
   // accurate color space, we should not assume that there is at least one row
   // for all colors in the product of the index column colors; to do that we
-  // rely on the ComputeColorsTask::color_flag_fid field
+  // rely on the colors_lr field
 
-  // first we create the bounding index space (product space of all index column
-  // colors)
-  IndexSpace color_bounds_is;
-  switch (ixcols.size()) {
-#define COLOR_BOUNDS_IS(DIM)                                        \
-    case (DIM): {                                                   \
-      Rect<DIM> bounds;                                             \
-      for (size_t i = 0; i < DIM; ++i){                             \
-        Rect<1> r =                                                 \
-          rt->get_index_space_domain(ixcols[i].get_index_space());  \
-        bounds.lo[i] = r.lo[0];                                     \
-        bounds.hi[i] = r.hi[0];                                     \
-      }                                                             \
-      color_bounds_is = rt->create_index_space(ctx, bounds);        \
-      break;                                                        \
-    }
-    LEGMS_FOREACH_N(COLOR_BOUNDS_IS);
-#undef COLOR_BOUNDS_IS
-  default:
-    assert(false);
-    break;
-  }
-
-  // now partition "colors" by the value of color_flag_fid
   IndexSpace flags_cs = rt->create_index_space(ctx, Rect<1>(0, 1));
-  pb.wait();
-  rt->destroy_phase_barrier(ctx, pb);
+  std::cout << "call create_partition_by_field" << std::endl;
   IndexPartition color_flag_ip =
     rt->create_partition_by_field(
       ctx,
       colors_lr,
       colors_lr,
-      ComputeColorsTask::color_flag_fid,
+      0,
       flags_cs);
-  LogicalPartition color_flag_lp =
-    rt->get_logical_partition(ctx, colors_lr, color_flag_ip);
-  // next use create_partition_by_image to get a partition of color_bounds_is
-  // which includes only the colors that are assigned to at least one row
-  IndexPartition color_bounds_ip =
-    rt->create_partition_by_image(
-      ctx,
-      color_bounds_is,
-      color_flag_lp,
-      colors_lr,
-      ComputeColorsTask::color_fid,
-      flags_cs);
-  // recreate the desired color space at the top level
-  IndexSpace cset_is =
-    rt->get_index_subspace(
-      color_bounds_ip,
-      ComputeColorsTask::COLOR_IS_SET);
-  IndexSpace colors_is =
-    rt->intersect_index_spaces(ctx, {color_bounds_is, cset_is});
-  rt->destroy_index_space(ctx, cset_is);
-  rt->destroy_index_partition(ctx, color_bounds_ip);
-  rt->destroy_logical_partition(ctx, color_flag_lp);
-  rt->destroy_index_partition(ctx, color_flag_ip);
-  rt->destroy_index_space(ctx, flags_cs);
+  IndexSpace color_set_is = rt->get_index_subspace(color_flag_ip, 1);
+  // rt->destroy_index_space(ctx, cset_is);
+  // rt->destroy_index_partition(ctx, color_bounds_ip);
+  // rt->destroy_logical_partition(ctx, color_flag_lp);
+  // rt->destroy_index_partition(ctx, color_flag_ip);
+  // rt->destroy_index_space(ctx, flags_cs);
 
-  auto colnames = column_names(ctx, rt, cols);
   std::unordered_map<std::string, Future> result;
-  std::transform(
-    colnames.begin(),
-    colnames.end(),
-    std::inserter(result, result.end()),
-    [axuid=axes_uid(ctx, rt), &cols, &axes, &colors_lr, &colors_is,
-     rowdim=tbl_axes.size(), &ctx, rt]
-    (auto& cn) {
-      ComputePartitionTask
-        pt(column(ctx, rt, cols, cn).values_lr.get_index_space(),
-           axuid,
-           axes,
-           colors_lr,
-           colors_is,
-           rowdim);
-      return std::make_pair(cn, pt.dispatch(ctx, rt));
-    });
-  // rt->unmap_region(ctx, colors_pr); FIXME
-  // rt->destroy_logical_region(ctx, colors_lr); FIXME
-  for (auto& ixcol : ixcols) {
-    rt->destroy_field_space(ctx, ixcol.get_field_space());
-    rt->destroy_index_space(ctx, ixcol.get_index_space());
-    rt->destroy_logical_region(ctx, ixcol);
+  auto colnames = column_names(ctx, rt, cols);
+  auto rowdim = tbl_axes.size();
+  for (auto& nm : colnames) {
+    auto col = column(ctx, rt, cols, nm);
+    PartitionRowsTask
+      pt(
+        col.values_lr.get_index_space(),
+        ax_uid,
+        axes,
+        row_colors_lr,
+        color_set_is,
+        rowdim);
+    result.emplace(nm, pt.dispatch(ctx, rt));
   }
+
+  // FIXME: clean up ixcols
+  // rt->destroy_logical_region(ctx, colors_lr); FIXME
   rt->unmap_region(ctx, cols);
   return result;
 }
@@ -2431,8 +2432,8 @@ Table::register_tasks(Context context, Runtime* runtime) {
 
 void
 Table::preregister_tasks() {
-  ComputeColorsTask::preregister_tasks();
-  ComputePartitionTask::preregister_task();
+  ComputeRowColorsTask::preregister_task();
+  PartitionRowsTask::preregister_task();
 #define PREREG_IDX_ACCUMULATE(DT)                                   \
   IndexAccumulateTask<DataType<DT>::ValueType>::preregister_task();
   LEGMS_FOREACH_DATATYPE(PREREG_IDX_ACCUMULATE);
