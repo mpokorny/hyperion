@@ -1225,8 +1225,14 @@ projected_index_partition(
   Legion::LogicalPartitionT<IPDIM> images_lp(
     runtime->get_logical_partition(ctx, images_lr, ip));
 
-  Legion::IndexSpace ip_cs =
-    runtime->get_index_partition_color_space_name(ctx, ip);
+  // create a fresh copy of the ip color space to dissociate the result
+  // IndexPartition from ip to avoid resource management complications; this
+  // implies that whoever destroys the result IndexPartition should also
+  // probably destroy this color space
+  Legion::IndexSpace cs =
+    runtime->create_index_space(
+      ctx,
+      runtime->get_index_partition_color_space(ip));
 
   ProjectedIndexPartitionTask
     fill_images(ip_cs, images_lp, images_lr, args.get());
@@ -1239,9 +1245,9 @@ projected_index_partition(
       images_lp,
       images_lr,
       0,
-      ip_cs));
+      cs));
 
-  // TODO: keep?
+  // FIXME: keep? --- probably OK to do this
   // runtime->destroy_logical_partition(ctx, images_lp);
   // runtime->destroy_logical_region(ctx, images_lr);
   // runtime->destroy_field_space(ctx, images_fs);
@@ -1298,13 +1304,6 @@ struct LEGMS_API AxisPartition {
     return false;
   }
 };
-
-LEGMS_API Legion::IndexPartition
-create_partition_on_axes(
-  Legion::Context ctx,
-  Legion::Runtime* runtime,
-  Legion::IndexSpace is,
-  const std::vector<AxisPartition>& parts);
 
 LEGMS_API Legion::LayoutConstraintRegistrar&
 add_row_major_order_constraint(

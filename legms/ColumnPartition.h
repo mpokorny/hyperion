@@ -14,67 +14,79 @@
 
 namespace legms {
 
-class LEGMS_API ColumnPartition {
+class ColumnPartition {
 public:
+  static const constexpr FieldID AXES_UID_FID = 0;
+  Legion::LogicalRegion axes_uid;
+  static const constexpr FieldID AXES_FID = 0;
+  Legion::LogicalRegion axes;
+
+  Legion::IndexPartition index_partition;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using AxesUidAccessor =
+    FieldAccessor<
+    MODE,
+    legms::string,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<legms::string, 1, Legion::coord_t>,
+    CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using AxesAccessor =
+    FieldAccessor<
+    MODE,
+    int,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<int, 1, Legion::coord_t>,
+    CHECK_BOUNDS>;
 
   ColumnPartition(
+    Legion::LogicalRegion axes_uid,
+    Legion::LogicalRegion axes,
+    Legion::IndexPartition index_partition);
+
+  static ColumnPartition
+  create(
     Legion::Context ctx,
-    Legion::Runtime* runtime,
+    Legion::Runtime* rt,
     const std::string& axes_uid,
-    const Legion::IndexPartition& ip,
-    const std::vector<int>& axes)
-    : m_context(ctx)
-    , m_runtime(runtime)
-    , m_axes_uid(axes_uid)
-    , m_index_partition(ip)
-    , m_axes(axes) {
-  }
+    const std::vector<int>& axes,
+    const Legion::IndexPartition& ip);
+
+  static ColumnPartition
+  create(
+    Context ctx,
+    Runtime* rt,
+    const std::string& axes_uid,
+    const std::vector<int>& axes,
+    IndexSpace is,
+    const std::vector<AxisPartition>& parts);
 
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
-  ColumnPartition(
+  static ColumnPartition
+  create(
     Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const Legion::IndexPartition& ip,
-    const std::vector<D>& axes)
-    : m_context(ctx)
-    , m_runtime(runtime)
-    , m_axes_uid(Axes<D>::uid)
-    , m_index_partition(ip)
-    , m_axes(map_to_int(axes)) {
+    Legion::Runtime* rt,
+    const std::vector<D>& axes,
+    const Legion::IndexPartition& ip) {
+
+    return create(ctx, rt, Axes<D>::uid, ip, map_to_int(axes));
   }
 
-  const std::string&
-  axes_uid() const {
-    return m_axes_uid;
+  void
+  destroy(Legion::Context ctx, Legion::Runtime* rt);
 
-  }
-  Legion::IndexPartition
-  index_partition() const {
-    return m_index_partition;
-  }
+  std::string
+  axes_uid(Legion::Context ctx, Legion::Runtime* rt) const;
 
-  const std::vector<int>&
-  axes() const {
-    return m_axes;
-  }
+  static const char*
+  axes_uid(const Legion::PhysicalRegion& metadata);
 
-  virtual ~ColumnPartition() {
-    // FIXME:
-    // if (m_index_partition != Legion::IndexPartition::NO_PART)
-    //   m_runtime->destroy_index_partition(m_context, m_index_partition);
-  }
-
-protected:
-
-  Legion::Context m_context;
-
-  Legion::Runtime* m_runtime;
-
-  std::string m_axes_uid;
-
-  Legion::IndexPartition m_index_partition;
-
-  std::vector<int> m_axes;
+  std::vector<int>
+  axes(Legion::Context ctx, Legion::Runtime* rt) const;
 };
 
 template <>

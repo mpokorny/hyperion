@@ -237,7 +237,7 @@ ProjectedIndexPartitionTask::ProjectedIndexPartitionTask(
     ArgumentMap()){
 
   add_region_requirement(
-    RegionRequirement(lp, 0, WRITE_DISCARD, EXCLUSIVE, lr));
+    RegionRequirement(lp, 0, WRITE_ONLY, EXCLUSIVE, lr));
   add_field(0, IMAGE_RANGES_FID);
 }
 
@@ -259,7 +259,7 @@ pipt_impl(
   Rect<PRJDIM> bounds = targs->bounds;
 
   const FieldAccessor<
-    WRITE_DISCARD,
+    WRITE_ONLY,
     Rect<PRJDIM>,
     IPDIM,
     coord_t,
@@ -270,10 +270,7 @@ pipt_impl(
   DomainT<IPDIM> domain =
     runtime->get_index_space_domain(
       task->regions[0].region.get_index_space());
-  for (PointInDomainIterator<IPDIM> pid(domain);
-       pid();
-       pid++) {
-
+  for (PointInDomainIterator<IPDIM> pid(domain); pid(); pid++) {
     Rect<PRJDIM> r;
     for (size_t i = 0; i < PRJDIM; ++i)
       if (0 <= targs->dmap[i]) {
@@ -291,128 +288,18 @@ ProjectedIndexPartitionTask::base_impl(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
-  Runtime *runtime) {
+  Runtime *rt) {
 
   const ProjectedIndexPartitionTask::args* targs =
     static_cast<const ProjectedIndexPartitionTask::args*>(task->args);
   IndexSpace is = task->regions[0].region.get_index_space();
-  switch (is.get_dim()) {
-#if LEGION_MAX_DIM >= 1
-  case 1:
-    switch (targs->prjdim) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      ::pipt_impl<1, 1>(task, regions, ctx, runtime);
+  switch (is.get_dim() * LEGION_MAX_DIM + targs->prjdim) {
+#define PIPT(I, P)                              \
+    case (I * LEGION_MAX_DIM + P):              \
+      pipt_impl<I, P>(task, regions, ctx, rt);  \
       break;
-#endif
-#if LEGION_MAX_DIM >= 2
-    case 2:
-      ::pipt_impl<1, 2>(task, regions, ctx, runtime);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 3
-    case 3:
-      ::pipt_impl<1, 3>(task, regions, ctx, runtime);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 4
-    case 4:
-      ::pipt_impl<1, 4>(task, regions, ctx, runtime);
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-    break;
-#endif
-#if LEGION_MAX_DIM >= 2
-  case 2:
-    switch (targs->prjdim) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      ::pipt_impl<2, 1>(task, regions, ctx, runtime);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 2
-    case 2:
-      ::pipt_impl<2, 2>(task, regions, ctx, runtime);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 3
-    case 3:
-      ::pipt_impl<2, 3>(task, regions, ctx, runtime);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 4
-    case 4:
-      ::pipt_impl<2, 4>(task, regions, ctx, runtime);
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-    break;
-#endif
-#if LEGION_MAX_DIM >= 3
-  case 3:
-    switch (targs->prjdim) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      ::pipt_impl<3, 1>(task, regions, ctx, runtime);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 2
-    case 2:
-      ::pipt_impl<3, 2>(task, regions, ctx, runtime);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 3
-    case 3:
-      ::pipt_impl<3, 3>(task, regions, ctx, runtime);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 4
-    case 4:
-      ::pipt_impl<3, 4>(task, regions, ctx, runtime);
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-    break;
-#endif
-#if LEGION_MAX_DIM >= 4
-  case 4:
-    switch (targs->prjdim) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      ::pipt_impl<4, 1>(task, regions, ctx, runtime);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 2
-    case 2:
-      ::pipt_impl<4, 2>(task, regions, ctx, runtime);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 3
-    case 3:
-      ::pipt_impl<4, 3>(task, regions, ctx, runtime);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 4
-    case 4:
-      ::pipt_impl<4, 4>(task, regions, ctx, runtime);
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-    break;
-#endif
+    LEGMS_FOREACH_NN(PIPT);
+#undef PIPT
   default:
     assert(false);
     break;
@@ -435,7 +322,7 @@ TaskID ProjectedIndexPartitionTask::TASK_ID;
 IndexPartition
 legms::projected_index_partition(
   Context ctx,
-  Runtime* runtime,
+  Runtime* rt,
   IndexPartition ip,
   IndexSpace prj_is,
   const std::vector<int>& dmap) {
@@ -443,392 +330,23 @@ legms::projected_index_partition(
   if (prj_is == IndexSpace::NO_SPACE)
     return IndexPartition::NO_PART;
 
-  switch (ip.get_dim()) {
-#if LEGION_MAX_DIM >= 1
-  case 1:
-    switch (prj_is.get_dim()) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<1>(ip),
-          IndexSpaceT<1>(prj_is),
-          {dmap[0]});
+  switch (ip.get_dim() * LEGION_MAX_DIM + prj_is.get_dim()) {
+#define PIP(I, P)                               \
+    case (I * LEGION_MAX_DIM + P):              \
+      return                                    \
+        projected_index_partition(              \
+          ctx,                                  \
+          rt,                                   \
+          IndexPartitionT<I>(ip),               \
+          IndexSpaceT<P>(prj_is),               \
+          dmap);                                \
       break;
-#endif
-#if LEGION_MAX_DIM >= 2
-    case 2:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<1>(ip),
-          IndexSpaceT<2>(prj_is),
-          {dmap[0], dmap[1]});
-      break;
-#endif
-#if LEGION_MAX_DIM >= 3
-    case 3:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<1>(ip),
-          IndexSpaceT<3>(prj_is),
-          {dmap[0], dmap[1], dmap[2]});
-      break;
-#endif
-#if LEGION_MAX_DIM >= 4
-    case 4:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<1>(ip),
-          IndexSpaceT<4>(prj_is),
-          {dmap[0], dmap[1], dmap[2], dmap[3]});
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-    break;
-#endif
-#if LEGION_MAX_DIM >= 2
-  case 2:
-    switch (prj_is.get_dim()) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<2>(ip),
-          IndexSpaceT<1>(prj_is),
-          {dmap[0]});
-      break;
-#endif
-#if LEGION_MAX_DIM >= 2
-    case 2:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<2>(ip),
-          IndexSpaceT<2>(prj_is),
-          {dmap[0], dmap[1]});
-      break;
-#endif
-#if LEGION_MAX_DIM >= 3
-    case 3:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<2>(ip),
-          IndexSpaceT<3>(prj_is),
-          {dmap[0], dmap[1], dmap[2]});
-      break;
-#endif
-#if LEGION_MAX_DIM >= 4
-    case 4:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<2>(ip),
-          IndexSpaceT<4>(prj_is),
-          {dmap[0], dmap[1], dmap[2], dmap[3]});
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-    break;
-#endif
-#if LEGION_MAX_DIM >= 3
-  case 3:
-    switch (prj_is.get_dim()) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<3>(ip),
-          IndexSpaceT<1>(prj_is),
-          {dmap[0]});
-      break;
-#endif
-#if LEGION_MAX_DIM >= 2
-    case 2:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<3>(ip),
-          IndexSpaceT<2>(prj_is),
-          {dmap[0], dmap[1]});
-      break;
-#endif
-#if LEGION_MAX_DIM >= 3
-    case 3:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<3>(ip),
-          IndexSpaceT<3>(prj_is),
-          {dmap[0], dmap[1], dmap[2]});
-      break;
-#endif
-#if LEGION_MAX_DIM >= 4
-    case 4:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<3>(ip),
-          IndexSpaceT<4>(prj_is),
-          {dmap[0], dmap[1], dmap[2], dmap[3]});
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-    break;
-#endif
-#if LEGION_MAX_DIM >= 4
-  case 4:
-    switch (prj_is.get_dim()) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<4>(ip),
-          IndexSpaceT<1>(prj_is),
-          {dmap[0]});
-      break;
-#endif
-#if LEGION_MAX_DIM >= 2
-    case 2:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<4>(ip),
-          IndexSpaceT<2>(prj_is),
-          {dmap[0], dmap[1]});
-      break;
-#endif
-#if LEGION_MAX_DIM >= 3
-    case 3:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<4>(ip),
-          IndexSpaceT<3>(prj_is),
-          {dmap[0], dmap[1], dmap[2]});
-      break;
-#endif
-#if LEGION_MAX_DIM >= 4
-    case 4:
-      return
-        projected_index_partition(
-          ctx,
-          runtime,
-          IndexPartitionT<4>(ip),
-          IndexSpaceT<4>(prj_is),
-          {dmap[0], dmap[1], dmap[2], dmap[3]});
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-    break;
-#endif
+    LEGMS_FOREACH_NN(PIP);
+#undef PIP
   default:
     assert(false);
-    break;
+    return IndexSpace::NO_SPACE;
   }
-}
-
-template <int IS_DIM, int PART_DIM>
-static IndexPartitionT<IS_DIM>
-create_partition_on_axes(
-  Context ctx,
-  Runtime* runtime,
-  IndexSpaceT<IS_DIM> is,
-  const std::vector<AxisPartition>& parts) {
-
-  Rect<IS_DIM> is_rect = runtime->get_index_space_domain(is).bounds;
-
-  // partition color space
-  Rect<PART_DIM> cs_rect;
-  for (auto n = 0; n < PART_DIM; ++n) {
-    const auto& part = parts[n];
-    coord_t m =
-      ((is_rect.hi[part.dim] - is_rect.lo[part.dim] /*+ 1*/ - part.offset)
-       + part.stride /*- 1*/)
-      / part.stride;
-    cs_rect.lo[n] = 0;
-    cs_rect.hi[n] = m - 1;
-  }
-
-  // transform matrix from partition color space to index space delta
-  Transform<IS_DIM, PART_DIM> transform;
-  for (auto m = 0; m < IS_DIM; ++m)
-    for (auto n = 0; n < PART_DIM; ++n)
-      transform[m][n] = 0;
-  for (auto n = 0; n < PART_DIM; ++n) {
-    const auto& part = parts[n];
-    transform[part.dim][n] = part.stride;
-  }
-
-  // partition extent
-  Rect<IS_DIM> extent = is_rect;
-  for (auto n = 0; n < PART_DIM; ++n) {
-    const auto& part = parts[n];
-    extent.lo[part.dim] = part.offset + part.lo;
-    extent.hi[part.dim] = part.offset + part.hi;
-  }
-
-  IndexSpaceT<PART_DIM> cs = runtime->create_index_space(ctx, cs_rect);
-  IndexPartitionT<IS_DIM> result =
-    runtime->create_partition_by_restriction(ctx, is, cs, transform, extent);
-  // TODO: keep?
-  //runtime->destroy_index_space(ctx, cs);
-  return result;
-}
-
-IndexPartition
-legms::create_partition_on_axes(
-  Context ctx,
-  Runtime* runtime,
-  IndexSpace is,
-  const std::vector<AxisPartition>& parts) {
-
-  assert(has_unique_values(parts));
-  assert(
-    std::all_of(
-      parts.begin(),
-      parts.end(),
-      [nd=static_cast<int>(is.get_dim())](auto& part) {
-        // TODO: support negative strides
-        return 0 <= part.dim && part.dim < nd && part.stride > 0;
-      }));
-
-  switch (is.get_dim()) {
-#if LEGION_MAX_DIM >= 1
-  case 1:
-    switch (parts.size()) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      return
-        ::create_partition_on_axes<1,1>(ctx, runtime, IndexSpaceT<1>(is), parts);
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-    break;
-#endif
-#if LEGION_MAX_DIM >= 2
-  case 2:
-    switch (parts.size()) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      return
-        ::create_partition_on_axes<2,1>(ctx, runtime, IndexSpaceT<2>(is), parts);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 2
-    case 2:
-      return
-        ::create_partition_on_axes<2,2>(ctx, runtime, IndexSpaceT<2>(is), parts);
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-    break;
-#endif
-#if LEGION_MAX_DIM >= 3
-  case 3:
-    switch (parts.size()) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      return
-        ::create_partition_on_axes<3,1>(ctx, runtime, IndexSpaceT<3>(is), parts);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 2
-    case 2:
-      return
-        ::create_partition_on_axes<3,2>(ctx, runtime, IndexSpaceT<3>(is), parts);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 3
-    case 3:
-      return
-        ::create_partition_on_axes<3,3>(ctx, runtime, IndexSpaceT<3>(is), parts);
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-    break;
-#endif
-#if LEGION_MAX_DIM >= 4
-  case 4:
-    switch (parts.size()) {
-#if LEGION_MAX_DIM >= 1
-    case 1:
-      return
-        ::create_partition_on_axes<4,1>(ctx, runtime, IndexSpaceT<4>(is), parts);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 2
-    case 2:
-      return
-        ::create_partition_on_axes<4,2>(ctx, runtime, IndexSpaceT<4>(is), parts);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 3
-    case 3:
-      return
-        ::create_partition_on_axes<4,3>(ctx, runtime, IndexSpaceT<4>(is), parts);
-      break;
-#endif
-#if LEGION_MAX_DIM >= 4
-    case 4:
-      return
-        ::create_partition_on_axes<4,4>(ctx, runtime, IndexSpaceT<4>(is), parts);
-      break;
-#endif
-    default:
-      assert(false);
-      break;
-    }
-    break;
-#endif
-  default:
-    assert(false);
-    break;
-  }
-  return IndexPartition::NO_PART; // keep compiler happy
 }
 
 LayoutConstraintRegistrar&
