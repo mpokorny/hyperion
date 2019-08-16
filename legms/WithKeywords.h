@@ -3,6 +3,7 @@
 
 #pragma GCC visibility push(default)
 #include <algorithm>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -13,118 +14,203 @@
 
 namespace legms {
 
-class LEGMS_API WithKeywords {
-public:
+struct LEGMS_API Keywords {
 
-  typedef std::vector<std::tuple<std::string, TypeTag>> kw_desc_t;
+  Legion::LogicalRegion type_tags;
 
-  WithKeywords(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const kw_desc_t& kws)
-    : m_context(ctx)
-    , m_runtime(runtime) {
+  Legion::LogicalRegion values;
 
-    std::vector<TypeTag> datatypes;
-    if (kws.size() > 0) {
-      auto is = m_runtime->create_index_space(m_context, Legion::Rect<1>(0, 0));
-      auto fs = m_runtime->create_field_space(m_context);
-      auto fa = m_runtime->create_field_allocator(m_context, fs);
-      for (size_t i = 0; i < kws.size(); ++i) {
-        auto& [nm, dt] = kws[i];
-        add_field(dt, fa, i);
-        m_runtime->attach_name(fs, i, nm.c_str());
-        datatypes.push_back(dt);
-      }
-      m_keywords_region = m_runtime->create_logical_region(m_context, is, fs);
-      // TODO: keep?
-      // m_runtime->destroy_field_space(m_context, fs);
-      // m_runtime->destroy_index_space(m_context, is);
+  template <typename T>
+  struct pair {
+    T type_tags;
+    T values;
+
+    template <typename F>
+    pair<std::invoke_result_t<F,T>>
+    map(F f) {
+      return pair{f(type_tags), f(values)};
     }
-    else {
-      m_keywords_region = Legion::LogicalRegion::NO_REGION;
-    }
-    init(datatypes);
-  }
+  };
 
-  WithKeywords(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    Legion::LogicalRegion region,
-    const std::vector<TypeTag>& datatypes)
-    : m_context(ctx)
-    , m_runtime(runtime)
-    , m_keywords_region(region) {
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using TypeTagAccessor =
+    FieldAccessor<
+    MODE,
+    TypeTag,
+    1,
+    coord_t,
+    Legion::AffineAccessor<TypeTag, 1, coord_t>,
+    CHECK_BOUNDS>;
 
-    init(datatypes);
-  }
+  template <legion_privilege_mode_t MODE, typename FT, bool CHECK_BOUNDS=false>
+  using ValueAccessor =
+    FieldAccessor<
+    MODE,
+    FT,
+    1,
+    coord_t,
+    Legion::AffineAccessor<FT, 1, coord_t>,
+    CHECK_BOUNDS>;
 
-  virtual ~WithKeywords() {
-    // TODO: keep?
-    // if (m_keywords_region != Legion::LogicalRegion::NO_REGION)
-    //   m_runtime->destroy_logical_region(m_context, m_keywords_region);
-  }
+  Keywords(pair<Legion::LogicalRegion> regions)
+    : type_tags(regions.type_tags)
+    , values(regions.values) {}
 
-  const kw_desc_t&
-  keywords() const {
-    return m_keywords;
-  }
+  std::vector<std::string>
+  keys() const {
 
-  Legion::LogicalRegion
-  keywords_region() const {
-    return m_keywords_region;
-  }
-
-  std::vector<TypeTag>
-  keyword_datatypes() const {
-    std::vector<TypeTag> result;
-    std::transform(
-      m_keywords.begin(),
-      m_keywords.end(),
-      std::back_inserter(result),
-      [](auto& kw) { return std::get<1>(kw); });
+    auto fs = type_tags.get_field_space();
+    std::unordered_map<Legion::FieldID> fids;
+    rt->get_field_space_fields(fs, fids);
+    std::vector<std::string> result(fids.size());
+    std::for_each(
+      fids.begin(),
+      fids.end(),
+      [&fs, rt](auto fid) {
+        const char* fname;
+        rt->retrieve_name(fs, fid, fname);
+        result[fid] = fname;
+      });
     return result;
   }
 
-  size_t
-  num_keywords() const {
-    return m_keywords.size();
+  std::optional<Legion::FieldID>
+  find_keyword(Legion::Runtime* rt, const std::string& name) const {
+
+    auto fs = type_tags.get_field_space();
+    std::vector<Legion::FieldID> fids;
+    rt->get_field_space_fields(fs, fids);
+    auto f =
+      std::find_if(
+        fids.begin(),
+        fids.end(),
+        [&name, &fs, rt](auto fid) {
+          const char* fname;
+          rt->retrieve_name(fs, fid, fname);
+          return name == fname;
+        });
+    return ((f != fids.end()) ? (*f - 1) : std::nullopt);
   }
 
-  Legion::Context&
-  context() const {
-    return m_context;
+  TypeTag
+  value_type(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    Legion::FieldID fid) const {
+
+    RegionRequirement req(type_tags, READ_ONLY, EXCLUSIVE, type_tags);
+    auto pr = rt->map_region(ctx, req);
+    auto result = value_type(pr, fid);
+    rt->unmap_region(ctx, pr);
+    return result;
   }
 
-  Legion::Runtime*
-  runtime() const {
-    return m_runtime;
+  template <legion_privilege_mode_t MODE, template <typename> C>
+  pair<Legion::RegionRequirement>
+  requirements(const C<FieldID>& fids) const {
+    RegionRequirement tt(type_tags, READ_ONLY, EXCLUSIVE, type_tags);
+    RegionRequirement v(values, MODE, EXCLUSIVE, values);
+    std::for_each(
+      fids.begin(),
+      fids.end(),
+      [&tt, &v](auto fid) {
+        tt.add_field(fid);
+        v.add_field(fid);
+      });
+    return pair{tt, v};
   }
 
-private:
+  template <typename T>
+  bool
+  write(
+    Legion::FieldID fid,
+    const T& val,
+    Legion::Context ctx,
+    Legion::Runtime* rt) const {
 
-  void
-  init(const std::vector<TypeTag>& datatypes) {
-    if (m_keywords_region != Legion::LogicalRegion::NO_REGION) {
-      Legion::FieldSpace fs = m_keywords_region.get_field_space();
-      for (size_t i = 0; i < datatypes.size(); ++i) {
-        const char* name;
-        m_runtime->retrieve_name(fs, i, name);
-        m_keywords.emplace_back(name, datatypes[i]);
+    auto reqs = requirements<WRITE_ONLY>(std::vector<FieldID>{fid});
+    auto prs = reqs.map([&ctx, rt](auto& r){ return rt->map_region(ctx, r); });
+    bool result = write(prs, fid, val);
+    prs.map([&ctx, rt](auto& p) { rt->unmap_region(ctx, p); });
+    return result;
+  }
+
+  template <typename T>
+  std::optional<T>
+  read(Legion::FieldID fid, Legion::Context ctx, Legion::Runtime* rt) const {
+
+    auto reqs = requirements<READ_ONLY>(std::vector<FieldID>{fid});
+    auto prs = reqs.map([&ctx, rt](auto& r){ return rt->map_region(ctx, r); });
+    auto result = read(prs, fid);
+    prs.map([&ctx, rt](auto& p) { rt->unmap_region(ctx, p); });
+    return result;
+  }
+
+  static Keywords
+  make(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<std::tuple<std::string, TypeTag>>& kws) {
+
+    LogicalRegion tts, vals;
+    if (kws.size() > 0) {
+      auto is = rt->create_index_space(ctx, Legion::Rect<1>(0, 0));
+      auto tt_fs = rt->create_field_space(ctx);
+      auto tt_fa = rt->create_field_allocator(ctx, tt_fs);
+      auto val_fs = rt->create_field_space(ctx);
+      auto val_fa = rt->create_field_allocator(ctx, val_fs);
+      for (size_t i = 0; i < kws.size(); ++i) {
+        auto& [nm, dt] = kws[i];
+        tt_fa.allocate_field(sizeof(TypeTag), i);
+        rt->attach_name(tt_fs, i, nm.c_str());
+        add_field(dt, val_fa, i);
       }
+      tts = rt->create_logical_region(ctx, is, tt_fs);
+      vals = rt->create_logical_region(ctx, is, val_fs);
+      RegionRequirement req(tts, WRITE_ONLY, EXCLUSIVE, tts);
+      for (size_t i = 0; i < kws.size(); ++i)
+        req.add_field(i);
+      auto pr = rt->map_region(ctx, req);
+      for (size_t i = 0; i < kws.size(), ++i) {
+        const TypeTagAccessor<WRITE_ONLY> dt(pr, i);
+        dt[0] = std::get<1>(kws[i]);
+      }
+      rt->unmap_region(ctx, pr);
     }
+    return Keywords(tts, vals);
   }
-protected:
 
-  mutable Legion::Context m_context;
+  static TypeTag
+  value_type(const Legion::PhysicalRegion& tt, Legion::FieldID fid) {
 
-  mutable Legion::Runtime* m_runtime;
+    const TypeTagAccessor<READ_ONLY> dt(tt, fid);
+    return dt[0];
+  }
 
-private:
+  template <int MODE, typename T>
+  static bool
+  write(
+    const pair<Legion::PhysicalRegion>& prs,
+    Legion::FieldID fid,
+    const T& t) {
 
-  kw_desc_t m_keywords;
+    const TypeTagAccessor<READ_ONLY> dt(prs.type_tags, fid);
+    const ValueAccessor<MODE, T> val(prs.values, fid);
+    if (dt[0] == ValueType<T>::DataType) {
+      val[0] = t;
+      return true;
+    }
+    return false;
+  }
 
-  Legion::LogicalRegion m_keywords_region;
+  template <typename T>
+  static std::optional<T>
+  read(const pair<Legion::PhysicalRegion>& prs, Legion::FieldID fid) {
+
+    const TypeTagAccessor<READ_ONLY> dt(prs.type_tags, fid);
+    const ValueAccessor<READ_ONLY, T> val(prs.values, fid + 1);
+    return ((dt[0] == ValueType<T>::DataType) ? val[0] : std::nullopt);
+  }
 };
 
 } // end namespace legms
