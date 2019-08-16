@@ -108,6 +108,8 @@ list(APPEND LEGMS_SRC
   ColumnPartition_c.cc
   ColumnPartition_c.h
   c_util.h
+  Keywords.h
+  Keywords.cc
   MSTable.cc
   MSTable.h
   MSTable_c.cc
@@ -116,8 +118,7 @@ list(APPEND LEGMS_SRC
   Table.h
   Table_c.cc
   Table_c.h
-  WithKeywordsBuilder.h
-  WithKeywords.h)
+  WithKeywordsBuilder.h)
 
 if(USE_CASACORE)
   list(APPEND LEGMS_SRC
