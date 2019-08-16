@@ -370,6 +370,7 @@ legms::MSTable<MS_WEATHER>::element_axes = {
 
 LEGMS_FOREACH_MSTABLE(AXIS_NAMES);
 
+#ifdef LEGMS_USE_HDF5
 template <typename T>
 static hid_t
 h5_axes_dt()  {
@@ -383,7 +384,6 @@ h5_axes_dt()  {
   return result;
 }
 
-#ifdef LEGMS_USE_HDF5
 # define MSAXES(T)                                                      \
   const std::vector<std::string>                                        \
   legms::Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names(); \
