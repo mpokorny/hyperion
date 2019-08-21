@@ -15,7 +15,7 @@
 
 #include "Column_c.h"
 
-#include "WithKeywords.h"
+#include "Keywords.h"
 #include "IndexTree.h"
 #include "ColumnPartition.h"
 
@@ -29,14 +29,14 @@ class LEGMS_API Column {
 
 public:
 
-  static const constexpr FieldID METADATA_NAME_FID = 0;
-  static const constexpr FieldID METADATA_AXES_UID_FID = 1;
-  static const constexpr FieldID METADATA_DATATYPE_FID = 2;
-  Legion::LogicalRegion metadata;
-  static const constexpr FieldID AXES_FID = 0;
-  Legion::LogicalRegion axes;
-  static const constexpr FieldID VALUES_FID = 0;
-  Legion::LogicalRegion values;
+  static const constexpr Legion::FieldID METADATA_NAME_FID = 0;
+  static const constexpr Legion::FieldID METADATA_AXES_UID_FID = 1;
+  static const constexpr Legion::FieldID METADATA_DATATYPE_FID = 2;
+  Legion::LogicalRegion metadata_lr;
+  static const constexpr Legion::FieldID AXES_FID = 0;
+  Legion::LogicalRegion axes_lr;
+  static const constexpr Legion::FieldID VALUE_FID = 0;
+  Legion::LogicalRegion values_lr;
   Keywords keywords;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -60,7 +60,7 @@ public:
     CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  using LegionDatatypeAccessor =
+  using DatatypeAccessor =
     Legion::FieldAccessor<
     MODE,
     legms::TypeTag,
@@ -68,6 +68,8 @@ public:
     Legion::coord_t,
     Legion::AffineAccessor<legms::TypeTag, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
+
+  typedef std::function<Column(Legion::Context, Legion::Runtime*)> Generator;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxesAccessor =
@@ -78,6 +80,8 @@ public:
     Legion::coord_t,
     Legion::AffineAccessor<int, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
+
+  Column();
 
   Column(
     Legion::LogicalRegion metadata,
@@ -114,11 +118,11 @@ public:
     const std::vector<D>& axes,
     legms::TypeTag datatype,
     const IndexTreeL& index_tree,
-    const Keyworkds::kw_desc_t& kws = Keywords::kw_desc_t()) {
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
     return
-      Column::create(
+      create(
         ctx,
-        runtime,
+        rt,
         name,
         Axes<D>::uid,
         map_to_int(axes),
@@ -140,16 +144,19 @@ public:
   axes_uid(const Legion::PhysicalRegion& metadata);
 
   legms::TypeTag
-  datatype() const;
+  datatype(Legion::Context ctx, Legion::Runtime* rt) const;
 
   static legms::TypeTag
-  datatype(Legion::PhysicalRegion metadata);
+  datatype(const Legion::PhysicalRegion& metadata);
 
   std::vector<int>
   axes(Legion::Context ctx, Legion::Runtime* rt) const;
 
   unsigned
   rank() const;
+
+  bool
+  is_empty() const;
 
   IndexTreeL
   index_tree(Legion::Runtime* rt) const;
@@ -221,20 +228,11 @@ public:
     const std::vector<D>& axes,
     legms::TypeTag datatype,
     const IndexTreeL& index_tree,
-    const std::unordered_map<std::string, legms::TypeTag>& kws =
-    std::unordered_map<std::string, legms::TypeTag>()) {
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
     return
       [=](Legion::Context ctx, Legion::Runtime* rt) {
-        return
-          std::make_unique<Column>(
-            ctx,
-            rt,
-            name,
-            axes,
-            datatype,
-            index_tree,
-            kws);
+        return create(ctx, rt, name, axes, datatype, index_tree, kws);
       };
   }
 
@@ -246,8 +244,7 @@ public:
     legms::TypeTag datatype,
     const IndexTreeL& row_index_pattern,
     unsigned num_rows,
-    const std::unordered_map<std::string, legms::TypeTag>& kws =
-    std::unordered_map<std::string, legms::TypeTag>()) {
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
     return
       generator(
@@ -267,8 +264,7 @@ public:
     const IndexTreeL& row_index_pattern,
     const IndexTreeL& row_pattern,
     unsigned num_rows,
-    const std::unordered_map<std::string, legms::TypeTag>& kws =
-    std::unordered_map<std::string, legms::TypeTag>()) {
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
     return
       generator(

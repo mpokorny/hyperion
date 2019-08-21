@@ -97,29 +97,20 @@ public:
   std::unordered_set<std::string>
   column_names() const {
     std::unordered_set<std::string> result;
-    std::transform(
-      m_columns.begin(),
-      m_columns.end(),
-      std::inserter(result, result.end()),
-      [](auto& nm_col) {
-        return std::get<0>(nm_col);
-      });
+    for (auto& nm_cb : m_columns)
+      result.insert(nm_cb.first);
     return result;
   }
 
   std::vector<Column::Generator>
   column_generators() const {
     std::vector<Column::Generator> result;
-    std::transform(
-      m_columns.begin(),
-      m_columns.end(),
-      std::back_inserter(result),
-      [](auto& cb) {
-        return
-          [cb](Legion::Context ctx, Legion::Runtime *runtime) {
-            return cb.second->column(ctx, runtime);
-          };
-      });
+    for (auto& nm_cb : m_columns) {
+      result.push_back(
+        [cb=nm_cb.second](Legion::Context ctx, Legion::Runtime* rt) {
+          return cb->column(ctx, rt);
+        });
+    }
     return result;
   }
 
@@ -308,19 +299,19 @@ struct LEGMS_API TableBuilder {
 };
 
 template <MSTables T>
-std::unique_ptr<Table>
+Table
 from_ms(
   Legion::Context ctx,
-  Legion::Runtime* runtime,
+  Legion::Runtime* rt,
   const std::experimental::filesystem::path& path,
   const std::unordered_set<std::string>& column_selections) {
 
   typedef typename MSTable<T>::Axes Axes;
   auto builder = TableBuilder::from_ms<T>(path, column_selections);
   return
-    std::make_unique<Table>(
+    Table::create(
       ctx,
-      runtime,
+      rt,
       builder.name(),
       std::vector<Axes>{MSTable<T>::ROW_AXIS},
       builder.column_generators(),

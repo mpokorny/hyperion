@@ -8,15 +8,15 @@
 extern "C" {
 #endif
 
-LEGMS_API void
-table_block_read_task(
-  legion_context_t context,
-  legion_runtime_t runtime,
-  const char* path,
-  const table_t* table,
-  unsigned num_column_names,
-  const char** column_names,
-  size_t block_length);
+/* LEGMS_API void */
+/* table_block_read_task( */
+/*   legion_context_t context, */
+/*   legion_runtime_t runtime, */
+/*   const char* path, */
+/*   const table_t* table, */
+/*   unsigned num_column_names, */
+/*   const char** column_names, */
+/*   size_t block_length); */
 
 #ifdef __cplusplus
 }

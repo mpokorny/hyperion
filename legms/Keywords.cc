@@ -3,16 +3,18 @@
 using namespace legms;
 using namespace Legion;
 
+Keywords::Keywords() {}
+
 Keywords::Keywords(pair<LogicalRegion> regions)
-  : type_tags(regions.type_tags)
-  , values(regions.values) {
+  : type_tags_lr(regions.type_tags)
+  , values_lr(regions.values) {
 }
 
 std::vector<std::string>
 Keywords::keys(Runtime* rt) const {
 
-  auto fs = type_tags.get_field_space();
-  std::unordered_set<FieldID> fids;
+  auto fs = type_tags_lr.get_field_space();
+  std::vector<FieldID> fids;
   rt->get_field_space_fields(fs, fids);
   std::vector<std::string> result(fids.size());
   for (auto& fid : fids) {
@@ -26,7 +28,7 @@ Keywords::keys(Runtime* rt) const {
 std::optional<FieldID>
 Keywords::find_keyword(Runtime* rt, const std::string& name) const {
 
-  auto fs = type_tags.get_field_space();
+  auto fs = type_tags_lr.get_field_space();
   std::vector<FieldID> fids;
   rt->get_field_space_fields(fs, fids);
   auto f =
@@ -38,7 +40,7 @@ Keywords::find_keyword(Runtime* rt, const std::string& name) const {
         rt->retrieve_name(fs, fid, fname);
         return name == fname;
       });
-  return ((f != fids.end()) ? (*f - 1) : std::nullopt);
+  return ((f != fids.end()) ? std::make_optional(*f - 1) : std::nullopt);
 }
 
 std::vector<legms::TypeTag>
@@ -48,14 +50,14 @@ Keywords::value_types(
   const std::vector<FieldID>& fids) const {
 
   // allow runtime to catch erroneous FieldIDs
-  RegionRequirement req(type_tags, READ_ONLY, EXCLUSIVE, type_tags);
+  RegionRequirement req(type_tags_lr, READ_ONLY, EXCLUSIVE, type_tags_lr);
   for (auto& fid : fids)
     req.add_field(fid);
   auto pr = rt->map_region(ctx, req);
   std::vector<legms::TypeTag> result;
   result.reserve(fids.size());
   for (auto& fid : fids)
-    result.push_pack(value_type(pr, fid));
+    result.push_back(value_type(pr, fid));
   rt->unmap_region(ctx, pr);
   return result;
 }
@@ -82,31 +84,31 @@ Keywords::create(Context ctx, Runtime* rt, const kw_desc_t& kws) {
     for (size_t i = 0; i < kws.size(); ++i)
       req.add_field(i);
     auto pr = rt->map_region(ctx, req);
-    for (size_t i = 0; i < kws.size(), ++i) {
+    for (size_t i = 0; i < kws.size(); ++i) {
       const TypeTagAccessor<WRITE_ONLY> dt(pr, i);
       dt[0] = std::get<1>(kws[i]);
     }
     rt->unmap_region(ctx, pr);
   }
-  return Keywords(tts, vals);
+  return Keywords(Keywords::pair<LogicalRegion>{tts, vals});
 }
 
 void
 Keywords::destroy(Context ctx, Runtime* rt) {
-  if (type_tags != LogicalRegion::NO_REGION) {
-    assert(values != LogicalRegion::NO_REGION);
-    rt->destroy_field_space(ctx, type_tags.get_field_space());
-    rt->destroy_field_space(ctx, values.get_field_space());
+  if (type_tags_lr != LogicalRegion::NO_REGION) {
+    assert(values_lr != LogicalRegion::NO_REGION);
+    rt->destroy_field_space(ctx, type_tags_lr.get_field_space());
+    rt->destroy_field_space(ctx, values_lr.get_field_space());
     // type_tags and values share one IndexSpace
-    rt->destroy_index_space(ctx, type_tags.get_index_space());
-    rt->destroy_logical_region(ctx, type_tags);
-    rt->destroy_logical_region(ctx, values);
-    type_tags = LogicalRegion::NO_REGION;
-    values = LogicalRegion::NO_REGION;
+    rt->destroy_index_space(ctx, type_tags_lr.get_index_space());
+    rt->destroy_logical_region(ctx, type_tags_lr);
+    rt->destroy_logical_region(ctx, values_lr);
+    type_tags_lr = LogicalRegion::NO_REGION;
+    values_lr = LogicalRegion::NO_REGION;
   }
 }
 
-static legms::TypeTag
+legms::TypeTag
 Keywords::value_type(const PhysicalRegion& tt, FieldID fid) {
 
   const TypeTagAccessor<READ_ONLY> dt(tt, fid);

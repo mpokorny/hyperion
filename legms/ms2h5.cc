@@ -266,10 +266,10 @@ public:
   base_impl(
     const Task*,
     const std::vector<PhysicalRegion>&,
-    Context context,
-    Runtime* runtime) {
+    Context ctx,
+    Runtime* rt) {
 
-    legms::register_tasks(context, runtime);
+    legms::register_tasks(ctx, rt);
 
     const InputArgs& args = Runtime::get_input_args();
     fs::path ms;
@@ -277,52 +277,47 @@ public:
     fs::path h5;
     get_args(args, ms, table_args, h5);
 
-    if (!args_ok(ms, table_args, h5, context, runtime))
+    if (!args_ok(ms, table_args, h5, ctx, rt))
       return;
 
     LogicalRegion table_names_lr =
-      TableNameCollectorTask::table_names_region(context, runtime);
+      TableNameCollectorTask::table_names_region(ctx, rt);
     TableNameCollectorTask tnames_launcher(ms, table_names_lr);
-    tnames_launcher.dispatch(context, runtime);
+    tnames_launcher.dispatch(ctx, rt);
 
     auto table_names =
-      selected_tables(table_args, table_names_lr, context, runtime);
-    runtime->destroy_logical_region(context, table_names_lr);
+      selected_tables(table_args, table_names_lr, ctx, rt);
+    rt->destroy_logical_region(ctx, table_names_lr);
 
-    std::unordered_set<std::unique_ptr<const Table>> tables;
-    std::transform(
-      table_names.begin(),
-      table_names.end(),
-      std::inserter(tables, tables.end()),
-      [&ms, &context, runtime](auto& t) {
-        fs::path path;
-        if (t != "MAIN")
-          path = ms / t;
-        else
-          path = ms;
-        auto result = Table::from_ms(context, runtime, path, {"*"});
-        TableReadTask
-          table_read_task(
-            path,
-            result.get(),
-            result->column_names().begin(),
-            result->column_names().end(),
-            100000);
-        table_read_task.dispatch();
-        return result;
-      });
+    std::vector<Table> tables;
+    for (auto& tn : table_names) {
+      fs::path path;
+      if (tn != "MAIN")
+        path = ms / tn;
+      else
+        path = ms;
+      auto result = Table::from_ms(ctx, rt, path, {"*"});
+      auto colnames = result.column_names(ctx, rt);
+      TableReadTask
+        table_read_task(
+          path,
+          result,
+          colnames.begin(),
+          colnames.end(),
+          100000);
+      table_read_task.dispatch(ctx, rt);
+      tables.push_back(std::move(result));
+    }
 
     // For now, we write the entire MS into a single HDF5 file.
     //
     hid_t fid = H5DatatypeManager::create(h5.c_str(), H5F_ACC_EXCL);
     assert(fid >= 0);
 
-    std::for_each(
-      tables.begin(),
-      tables.end(),
-      [&fid, &h5](auto& table) {
-        hdf5::write_table(h5, fid, table.get());
-      });
+    for (auto& t : tables) {
+      hdf5::write_table(ctx, rt, h5, fid, t);
+      t.destroy(ctx, rt);
+    }
 
     herr_t rc = H5Fclose(fid);
     assert(rc >= 0);

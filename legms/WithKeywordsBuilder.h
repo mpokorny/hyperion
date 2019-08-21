@@ -22,14 +22,14 @@ public:
     m_keywords.emplace_back(name, datatype);
   }
 
-  const std::vector<std::tuple<std::string, TypeTag>>&
+  const Keywords::kw_desc_t&
   keywords() const {
     return m_keywords;
   }
 
 private:
 
-  std::vector<std::tuple<std::string, TypeTag>> m_keywords;
+  Keywords::kw_desc_t m_keywords;
 
 };
 

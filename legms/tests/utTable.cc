@@ -126,7 +126,7 @@ table0_col(const std::string& name) {
   return
     [=](Context context, Runtime* runtime) {
       return
-        std::make_unique<Column>(
+        Column::create(
           context,
           runtime,
           name,
@@ -138,10 +138,10 @@ table0_col(const std::string& name) {
 
 PhysicalRegion
 attach_table0_col(
-  const Column* col,
-  unsigned *base,
   Context context,
-  Runtime* runtime) {
+  Runtime* runtime,
+  const Column& col,
+  unsigned *base) {
 
   const Memory local_sysmem =
     Machine::MemoryQuery(Machine::get_machine())
@@ -149,19 +149,15 @@ attach_table0_col(
     .only_kind(Memory::SYSTEM_MEM)
     .first();
 
-  AttachLauncher
-    task(EXTERNAL_INSTANCE, col->logical_region(), col->logical_region());
+  AttachLauncher task(EXTERNAL_INSTANCE, col.values_lr, col.values_lr);
   task.attach_array_soa(
     base,
     true,
-    {Column::value_fid},
+    {Column::VALUE_FID},
     local_sysmem);
   PhysicalRegion result = runtime->attach_external_resource(context, task);
-  AcquireLauncher acq(
-    result.get_logical_region(),
-    result.get_logical_region(),
-    result);
-  acq.add_field(Column::value_fid);
+  AcquireLauncher acq(col.values_lr, col.values_lr, result);
+  acq.add_field(Column::VALUE_FID);
   runtime->issue_acquire(context, acq);
   return result;
 }
@@ -194,7 +190,7 @@ cmp_values(
       runtime->get_logical_subregion_by_color(context, col_lp, *c);
     DomainT<1> rows =
       runtime->get_index_space_domain(context, lr.get_index_space());
-    const ROAccessor<unsigned, 1> v(col_pr, Column::value_fid);
+    const ROAccessor<unsigned, 1> v(col_pr, Column::VALUE_FID);
     for (PointInDomainIterator<1> r(rows); result && r(); r++)
       result = cmp(*c, v[*r]);
   }
@@ -206,16 +202,17 @@ check_partition(
   Context context,
   Runtime* runtime,
   const std::unordered_map<std::string, PhysicalRegion>& prs,
-  const Column* column,
+  const Column& column,
   IndexPartition ip) {
 
   bool result = true;
   LogicalPartition col_lp =
-    runtime->get_logical_partition(context, column->logical_region(), ip);
+    runtime->get_logical_partition(context, column.values_lr, ip);
   DomainT<2> colors =
     runtime->get_index_partition_color_space<1,coord_t,2,coord_t>(
       IndexPartitionT<1>(ip));
-  if (column->name() == "X")
+  auto colname = column.name(context, runtime);
+  if (colname == "X")
     result =
       cmp_values(
         context,
@@ -224,7 +221,7 @@ check_partition(
         col_lp,
         colors,
         [](Point<2> c, unsigned v) { return v == OX + c[0]; });
-  else if (column->name() == "Y")
+  else if (colname == "Y")
     result =
       cmp_values(
         context,
@@ -233,7 +230,7 @@ check_partition(
         col_lp,
         colors,
         [](Point<2> c, unsigned v) { return v == OY + c[1]; });
-  else // column->name() == "Z"
+  else // colname == "Z"
     result =
       cmp_values(
         context,
@@ -252,10 +249,10 @@ void
 table_test_suite(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
-  Context context,
-  Runtime* runtime) {
+  Context ctx,
+  Runtime* rt) {
 
-  register_tasks(context, runtime);
+  register_tasks(ctx, rt);
 
   testing::TestRecorder<READ_WRITE> recorder(
     testing::TestLog<READ_WRITE>(
@@ -263,24 +260,25 @@ table_test_suite(
       regions[0],
       task->regions[1].region,
       regions[1],
-      context,
-      runtime));
+      ctx,
+      rt));
 
-  Table
-    table0(
-      context,
-      runtime,
+  Table table0 =
+    Table::create(
+      ctx,
+      rt,
       "table0",
       std::vector<Table0Axes>{Table0Axes::ROW},
-      {table0_col("X"),
-       table0_col("Y"),
-       table0_col("Z")});
+      std::vector<Column::Generator>{
+        table0_col("X"),
+          table0_col("Y"),
+          table0_col("Z")});
   auto col_x =
-    attach_table0_col(table0.column("X").get(), table0_x, context, runtime);
+    attach_table0_col(ctx, rt, table0.column(ctx, rt, "X"), table0_x);
   auto col_y =
-    attach_table0_col(table0.column("Y").get(), table0_y, context, runtime);
+    attach_table0_col(ctx, rt, table0.column(ctx, rt, "Y"), table0_y);
   auto col_z =
-    attach_table0_col(table0.column("Z").get(), table0_z, context, runtime);
+    attach_table0_col(ctx, rt, table0.column(ctx, rt, "Z"), table0_z);
 
   std::unordered_map<std::string, PhysicalRegion> cols{
     {"X", col_x},
@@ -289,8 +287,8 @@ table_test_suite(
 
   auto fparts =
     table0.partition_by_value(
-      context,
-      runtime,
+      ctx,
+      rt,
       std::vector<Table0Axes>{Table0Axes::X, Table0Axes::Y});
 
   recorder.assert_true(
@@ -299,15 +297,12 @@ table_test_suite(
        && fparts.count("Y") == 1
        && fparts.count("Z") == 1));
 
-  std::unordered_map<std::string, IndexPartition> parts;
-  std::transform(
-    fparts.begin(),
-    fparts.end(),
-    std::inserter(parts, parts.end()),
-    [](auto& c_f) {
-      auto& [c, f] = c_f;
-      return std::make_pair(c, f.template get_result<IndexPartition>());
-    });
+  std::unordered_map<std::string, ColumnPartition> parts;
+  for (auto&fp : fparts) {
+    auto& [c, f] = fp;
+    auto cp = f.template get_result<ColumnPartition>();
+    parts.emplace(c, cp);
+  }
 
   recorder.expect_true(
     "All column IndexPartitions are non-empty",
@@ -315,7 +310,9 @@ table_test_suite(
       std::all_of(
         parts.begin(),
         parts.end(),
-        [](auto& p) { return p.second != IndexPartition::NO_PART; })));
+        [](auto& p) {
+          return p.second.index_partition != IndexPartition::NO_PART;
+        })));
 
   recorder.expect_true(
     "All column IndexPartitions are one dimensional",
@@ -323,7 +320,9 @@ table_test_suite(
       std::all_of(
         parts.begin(),
         parts.end(),
-        [](auto& p) { return p.second.get_dim() == 1; })));
+        [](auto& p) {
+          return p.second.index_partition.get_dim() == 1;
+        })));
 
   recorder.expect_true(
     "All column IndexPartitions have a two-dimensional color space",
@@ -331,9 +330,11 @@ table_test_suite(
       std::all_of(
         parts.begin(),
         parts.end(),
-        [&context, runtime](auto& p) {
+        [&ctx, rt](auto& p) {
           return
-            runtime->get_index_partition_color_space(context, p.second)
+            rt->get_index_partition_color_space(
+              ctx,
+              p.second.index_partition)
             .get_dim() == 2;
         })));
 
@@ -343,21 +344,24 @@ table_test_suite(
       std::all_of(
         ++parts.begin(),
         parts.end(),
-        [cs=runtime->get_index_partition_color_space(
-            context,
-            parts.begin()->second),
-         &context, runtime](auto& p) {
+        [cs=rt->get_index_partition_color_space(
+            ctx,
+            parts.begin()->second.index_partition),
+         &ctx, rt](auto& p) {
           return
-            runtime->get_index_partition_color_space(context, p.second) == cs;
+            rt->get_index_partition_color_space(
+              ctx,
+              p.second.index_partition)
+            == cs;
         })));
 
   recorder.expect_true(
     "Column IndexPartition has expected color space",
     testing::TestEval(
-      [&parts, &context, runtime]() {
+      [&parts, &ctx, rt]() {
         auto cs =
-          runtime->get_index_partition_color_space(
-            IndexPartitionT<2>(parts.begin()->second));
+          rt->get_index_partition_color_space(
+            IndexPartitionT<2>(parts.begin()->second.index_partition));
         std::set<Point<2>> part_dom(part_cs.begin(), part_cs.end());
         bool dom_in_cs =
           std::all_of(
@@ -375,21 +379,29 @@ table_test_suite(
       std::all_of(
         parts.begin(),
         parts.end(),
-        [&cols, &table0, &context, runtime](auto& p) {
+        [&cols, &table0, &ctx, rt](auto& p) {
           return
             check_partition(
-              context,
-              runtime,
+              ctx,
+              rt,
               cols,
-              table0.column(p.first).get(),
-              p.second);
+              table0.column(ctx, rt, p.first),
+              p.second.index_partition);
         })));
 
-  for (auto pr : {col_x, col_y, col_z}) {
+  {
+    bool destroy_color_space = true;
+    for (auto& p : parts) {
+      std::get<1>(p).destroy(ctx, rt, destroy_color_space);
+      destroy_color_space = false;
+    }
+  }
+
+  for (auto& pr : {col_x, col_y, col_z}) {
     ReleaseLauncher rel(pr.get_logical_region(), pr.get_logical_region(), pr);
-    rel.add_field(Column::value_fid);
-    runtime->issue_release(context, rel);
-    runtime->unmap_region(context, pr);
+    rel.add_field(Column::VALUE_FID);
+    rt->issue_release(ctx, rel);
+    rt->unmap_region(ctx, pr);
   }
 }
 

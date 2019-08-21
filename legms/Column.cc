@@ -11,41 +11,27 @@
 using namespace legms;
 using namespace Legion;
 
-ColumnGenArgs::ColumnGenArgs(const column_t& col)
-  : name(col.name)
-  , axes_uid(col.axes_uid)
-  , datatype(col.datatype)
-  , values(Legion::CObjectWrapper::unwrap(col.values))
-  , keywords(Legion::CObjectWrapper::unwrap(col.keywords)) {
-
-  axes.resize(col.num_axes);
-  for (unsigned i = 0; i < col.num_axes; ++i)
-    axes[i] = col.axes[i];
-
-  keyword_datatypes.resize(col.num_keywords);
-  for (unsigned i = 0; i < col.num_keywords; ++i)
-    keyword_datatypes[i] = col.keyword_datatypes[i];
-}
+Column::Column() {}
 
 Column::Column(
-  LogicalRegion metadata_,
-  LogicalRegion axes_,
-  LogicalRegion values_,
+  LogicalRegion metadata,
+  LogicalRegion axes,
+  LogicalRegion values,
   const Keywords& keywords_)
-  : metadata(metadata_)
-  , axes(axes_)
-  , values(values_)
+  : metadata_lr(metadata)
+  , axes_lr(axes)
+  , values_lr(values)
   , keywords(keywords_) {
 }
 
 Column::Column(
-  LogicalRegion metadata_,
-  LogicalRegion axes_,
-  LogicalRegion values_,
+  LogicalRegion metadata,
+  LogicalRegion axes,
+  LogicalRegion values,
   Keywords&& keywords_)
-  : metadata(metadata_)
-  , axes(axes_)
-  , values(values_)
+  : metadata_lr(metadata)
+  , axes_lr(axes)
+  , values_lr(values)
   , keywords(std::move(keywords_)) {
 }
 
@@ -58,7 +44,7 @@ Column::create(
   const std::vector<int>& axes,
   legms::TypeTag datatype,
   const IndexTreeL& index_tree,
-  const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
+  const Keywords::kw_desc_t& kws) {
 
   LogicalRegion metadata;
   {
@@ -78,22 +64,22 @@ Column::create(
       const NameAccessor<WRITE_ONLY> nm(pr, METADATA_NAME_FID);
       const AxesUidAccessor<WRITE_ONLY> au(pr, METADATA_AXES_UID_FID);
       const DatatypeAccessor<WRITE_ONLY> dt(pr, METADATA_DATATYPE_FID);
-      std::strncpy(&nm[0].val, name, sizeof(nm[0].val));
-      std::strncpy(&au[0].val, axes_uid, sizeof(au[0].val));
+      nm[0] = name;
+      au[0] = axes_uid;
       dt[0] = datatype;
       rt->unmap_region(ctx, pr);
     }
   }
-  LogicalRegion axes;
+  LogicalRegion axs;
   {
     Rect<1> rect(0, axes.size() - 1);
     IndexSpace is = rt->create_index_space(ctx, rect);
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    add_field(ValueType<int>::DataType, fa, AXES_FID);
-    axes = rt->create_logical_region(ctx, is, fs);
+    fa.allocate_field(sizeof(int), AXES_FID);
+    axs = rt->create_logical_region(ctx, is, fs);
     {
-      RegionRequirement(axes, WRITE_ONLY, EXCLUSIVE, axes);
+      RegionRequirement req(axs, WRITE_ONLY, EXCLUSIVE, axs);
       req.add_field(AXES_FID);
       PhysicalRegion pr = rt->map_region(ctx, req);
       const AxesAccessor<WRITE_ONLY> ax(pr, AXES_FID);
@@ -107,25 +93,25 @@ Column::create(
     IndexSpace is = tree_index_space(index_tree, ctx, rt);
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    add_field(datatype, fa, VALUES_FID);
+    add_field(datatype, fa, VALUE_FID);
     values = rt->create_logical_region(ctx, is, fs);
   }
-  return Column(metadata, axes, values, Keywords::create(ctx, rt, kws));
+  return Column(metadata, axs, values, Keywords::create(ctx, rt, kws));
 }
 
 void
 Column::destroy(Context ctx, Runtime* rt) {
-  if (metadata != LogicalRegion::NO_REGION) {
-    assert(axes != LogicalRegion::NO_REGION);
-    assert(values != LogicalRegion::NO_REGION);
-    std::vector<LogicalRegion&> lrs{metadata, axes, values};
-    for (auto& lr : lrs)
-      rt->destroy_field_space(ctx, lr.get_field_space());
-    for (auto& lr : lrs)
-      rt->destroy_index_space(ctx, lr.get_index_space());
-    for (auto& lr : lrs) {
-      rt->destroy_logical_region(ctx, lr);
-      lr = LogicalRegion::NO_REGION;
+  if (metadata_lr != LogicalRegion::NO_REGION) {
+    assert(axes_lr != LogicalRegion::NO_REGION);
+    assert(values_lr != LogicalRegion::NO_REGION);
+    std::vector<LogicalRegion*> lrs{&metadata_lr, &axes_lr, &values_lr};
+    for (auto lr : lrs)
+      rt->destroy_field_space(ctx, lr->get_field_space());
+    for (auto lr : lrs)
+      rt->destroy_index_space(ctx, lr->get_index_space());
+    for (auto lr : lrs) {
+      rt->destroy_logical_region(ctx, *lr);
+      *lr = LogicalRegion::NO_REGION;
     }
   }
   keywords.destroy(ctx, rt);
@@ -133,7 +119,7 @@ Column::destroy(Context ctx, Runtime* rt) {
 
 std::string
 Column::name(Context ctx, Runtime* rt) const {
-  RegionRequirement req(metadata, READ_ONLY, EXCLUSIVE, metadata);
+  RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
   req.add_field(METADATA_NAME_FID);
   auto pr = rt->map_region(ctx, req);
   std::string result(name(pr));
@@ -149,7 +135,7 @@ Column::name(const PhysicalRegion& metadata) {
 
 std::string
 Column::axes_uid(Context ctx, Runtime* rt) const {
-  RegionRequirement req(metadata, READ_ONLY, EXCLUSIVE, metadata);
+  RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
   req.add_field(METADATA_AXES_UID_FID);
   auto pr = rt->map_region(ctx, req);
   std::string result(axes_uid(pr));
@@ -164,8 +150,8 @@ Column::axes_uid(const PhysicalRegion& metadata) {
 }
 
 legms::TypeTag
-Column::datatype() const {
-  RegionRequirement req(metadata, READ_ONLY, EXCLUSIVE, metadata);
+Column::datatype(Context ctx, Runtime*rt) const {
+  RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
   req.add_field(METADATA_DATATYPE_FID);
   auto pr = rt->map_region(ctx, req);
   legms::TypeTag result = datatype(pr);
@@ -181,29 +167,34 @@ Column::datatype(const PhysicalRegion& metadata) {
 
 std::vector<int>
 Column::axes(Context ctx, Runtime* rt) const {
-  RegionRequirement req(axes, READ_ONLY, EXCLUSIVE, axes);
+  RegionRequirement req(axes_lr, READ_ONLY, EXCLUSIVE, axes_lr);
   req.add_field(AXES_FID);
   auto pr = rt->map_region(ctx, req);
-  IndexSpaceT<1> is(axes.get_index_space());
+  IndexSpaceT<1> is(axes_lr.get_index_space());
   DomainT<1> dom = rt->get_index_space_domain(is);
-  std::vector<int> result(dom.hi.x + 1);
+  std::vector<int> result(Domain(dom).hi()[0] + 1);
   const AxesAccessor<READ_ONLY> ax(pr, AXES_FID);
-  for (PointInRectIterator<1> pir(dom); pir(); pir++)
-    result[pir[0]] = ax[*pir];
+  for (PointInDomainIterator<1> pid(dom); pid(); pid++)
+    result[pid[0]] = ax[*pid];
   rt->unmap_region(ctx, pr);
   return result;
 }
 
 unsigned
 Column::rank() const {
-  return axes.get_index_space().get_dim();
+  return values_lr.get_index_space().get_dim();
+}
+
+bool
+Column::is_empty() const {
+  return values_lr == LogicalRegion::NO_REGION;
 }
 
 IndexTreeL
 Column::index_tree(Runtime* rt) const {
 
   IndexTreeL result;
-  Domain dom = rt->get_index_space_domain(values.get_index_space());
+  Domain dom = rt->get_index_space_domain(values_lr.get_index_space());
   switch (dom.get_dim()) {
 #define TREE(N)                                         \
     case (N): {                                         \
@@ -254,7 +245,7 @@ Column::partition_on_axes(
   // mapping from a named axis to a Column axis (i.e, an axis in the Table index
   // space to an axis in the Column index space).
   std::vector<int> ds = legms::map(parts, [](const auto& p) { return p.dim; });
-  auto dm = dimensions_map(ds, axes());
+  auto dm = dimensions_map(ds, axes(ctx, rt));
   std::vector<AxisPartition> iparts;
   iparts.reserve(dm.size());
   for (size_t i = 0; i < dm.size(); ++i) {
@@ -264,7 +255,13 @@ Column::partition_on_axes(
                     part.lo, part.hi});
   }
   return
-    ColumnPartition::create(ctx, rt, auid, ds, values.get_index_space(), iparts);
+    ColumnPartition::create(
+      ctx,
+      rt,
+      auid,
+      ds,
+      values_lr.get_index_space(),
+      iparts);
 }
 
 ColumnPartition
@@ -277,7 +274,7 @@ Column::partition_on_iaxes(
   std::vector<AxisPartition> parts =
     legms::map(
       ds,
-      [au=axes_uid()](const auto& d) {
+      [au=axes_uid(ctx, rt)](const auto& d) {
         return AxisPartition{au, d, 1, 0, 0, 0};
       });
   return partition_on_axes(ctx, rt, parts);
@@ -293,7 +290,7 @@ Column::partition_on_iaxes(
   std::vector<AxisPartition> parts =
     legms::map(
       dss,
-      [au=axes_uid()](const auto& d_s) {
+      [au=axes_uid(ctx, rt)](const auto& d_s) {
         auto& [d, s] = d_s;
         return AxisPartition{au, d, s, 0, 0, s - 1};
       });
@@ -310,8 +307,8 @@ Column::projected_column_partition(
   assert(cp.axes_uid(ctx, rt) == auid);
 
   auto ax = axes(ctx, rt);
-  if (values.get_index_space() == IndexSpace::NO_SPACE)
-    return ColumnPartition::create(ctx, rt, auid, IndexPartition::NO_PART, ax);
+  if (values_lr.get_index_space() == IndexSpace::NO_SPACE)
+    return ColumnPartition::create(ctx, rt, auid, ax, IndexPartition::NO_PART);
 
   auto cpax = cp.axes(ctx, rt);
   std::vector<int> dmap = dimensions_map(ax, cpax);
@@ -329,7 +326,7 @@ Column::projected_column_partition(
             ctx,                                      \
             rt,                                       \
             IndexPartitionT<I>(cp.index_partition),   \
-            IndexSpaceT<P>(values.get_index_space()), \
+            IndexSpaceT<P>(values_lr.get_index_space()), \
             dmap));                                   \
       break;
     LEGMS_FOREACH_NN(CP);
@@ -337,102 +334,9 @@ Column::projected_column_partition(
   default:
     assert(false);
     // keep compiler happy
-    return ColumnPartition::create(ctx, rt, auid, IndexPartition::NO_PART, ax);
+    return ColumnPartition::create(ctx, rt, auid, ax, IndexPartition::NO_PART);
     break;
   }
-}
-
-std::unique_ptr<Column>
-ColumnGenArgs::operator()(Context ctx, Runtime* runtime) const {
-
-  return Column::generator(*this)(ctx, runtime);
-}
-
-size_t
-ColumnGenArgs::legion_buffer_size(void) const {
-  return
-    name.size() * sizeof(decltype(name)::value_type) + 1
-    + axes_uid.size() * sizeof(decltype(axes_uid)::value_type) + 1
-    + sizeof(datatype)
-    + vector_serdez<int>::serialized_size(axes)
-    + 2 * sizeof(LogicalRegion)
-    + vector_serdez<TypeTag>::serialized_size(keyword_datatypes);
-}
-
-size_t
-ColumnGenArgs::legion_serialize(void *buffer) const {
-  char* buff = static_cast<char *>(buffer);
-
-  size_t s = name.size() * sizeof(decltype(name)::value_type) + 1;
-  memcpy(buff, name.c_str(), s);
-  buff += s;
-
-  s = axes_uid.size() * sizeof(decltype(axes_uid)::value_type) + 1;
-  memcpy(buff, axes_uid.c_str(), s);
-  buff += s;
-
-  s = sizeof(datatype);
-  memcpy(buff, &datatype, s);
-  buff += s;
-
-  buff += vector_serdez<int>::serialize(axes, buff);
-
-  s = sizeof(LogicalRegion);
-  memcpy(buff, &values, s);
-  buff += s;
-
-  memcpy(buff, &keywords, s);
-  buff += s;
-
-  buff += vector_serdez<TypeTag>::serialize(keyword_datatypes, buff);
-
-  return buff - static_cast<char *>(buffer);
-}
-
-size_t
-ColumnGenArgs::legion_deserialize(const void *buffer) {
-  const char *buff = static_cast<const char*>(buffer);
-
-  name = buff;
-  buff += name.size() * sizeof(decltype(name)::value_type) + 1;
-
-  axes_uid = buff;
-  buff += axes_uid.size() * sizeof(decltype(axes_uid)::value_type) + 1;
-
-  datatype = *reinterpret_cast<const decltype(datatype) *>(buff);
-  buff += sizeof(datatype);
-
-  buff += vector_serdez<int>::deserialize(axes, buff);
-
-  values = *reinterpret_cast<const decltype(values) *>(buff);
-  buff += sizeof(values);
-
-  keywords = *reinterpret_cast<const decltype(values) *>(buff);
-  buff += sizeof(keywords);
-
-  buff += vector_serdez<TypeTag>::deserialize(keyword_datatypes, buff);
-
-  return buff - static_cast<const char*>(buffer);
-}
-
-column_t
-ColumnGenArgs::to_column_t() const {
-  column_t result;
-  std::strncpy(result.name, name.c_str(), sizeof(result.name));
-  result.name[sizeof(result.name) - 1] = '\0';
-  std::strncpy(result.axes_uid, axes_uid.c_str(), sizeof(result.axes_uid));
-  result.axes_uid[sizeof(result.axes_uid) - 1] = '\0';
-  result.datatype = datatype;
-  result.num_axes = axes.size();
-  std::memcpy(result.axes, axes.data(), axes.size() * sizeof(int));
-  result.values = CObjectWrapper::wrap(values);
-  result.num_keywords = keyword_datatypes.size();
-  std::memcpy(
-    result.keyword_datatypes,
-    keyword_datatypes.data(),
-    keyword_datatypes.size() * sizeof(type_tag_t));
-  result.keywords = CObjectWrapper::wrap(keywords);
-  return result;
 }
 
 // Local Variables:

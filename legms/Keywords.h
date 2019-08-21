@@ -16,9 +16,9 @@ namespace legms {
 
 struct LEGMS_API Keywords {
 
-  Legion::LogicalRegion type_tags;
+  Legion::LogicalRegion type_tags_lr;
 
-  Legion::LogicalRegion values;
+  Legion::LogicalRegion values_lr;
 
   template <typename T>
   struct pair {
@@ -28,13 +28,13 @@ struct LEGMS_API Keywords {
     template <typename F>
     pair<std::invoke_result_t<F,T>>
     map(F f) {
-      return pair{f(type_tags), f(values)};
+      return pair<std::invoke_result_t<F,T>>{f(type_tags), f(values)};
     }
   };
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using TypeTagAccessor =
-    FieldAccessor<
+    Legion::FieldAccessor<
     MODE,
     legms::TypeTag,
     1,
@@ -44,7 +44,7 @@ struct LEGMS_API Keywords {
 
   template <legion_privilege_mode_t MODE, typename FT, bool CHECK_BOUNDS=false>
   using ValueAccessor =
-    FieldAccessor<
+    Legion::FieldAccessor<
     MODE,
     FT,
     1,
@@ -53,6 +53,8 @@ struct LEGMS_API Keywords {
     CHECK_BOUNDS>;
 
   typedef std::vector<std::tuple<std::string, legms::TypeTag>> kw_desc_t;
+
+  Keywords();
 
   Keywords(pair<Legion::LogicalRegion> regions);
 
@@ -68,13 +70,14 @@ struct LEGMS_API Keywords {
     Legion::Runtime* rt,
     const std::vector<Legion::FieldID>& fids) const;
 
-  template <legion_privilege_mode_t MODE, template <typename> C>
+  template <legion_privilege_mode_t MODE, template <typename> typename C>
   pair<Legion::RegionRequirement>
-  requirements(const C<FieldID>& fids) const {
+  requirements(const C<Legion::FieldID>& fids) const {
 
     // allow runtime to catch erroneous FieldIDs
-    RegionRequirement tt(type_tags, READ_ONLY, EXCLUSIVE, type_tags);
-    RegionRequirement v(values, MODE, EXCLUSIVE, values);
+    Legion::RegionRequirement
+      tt(type_tags_lr, READ_ONLY, EXCLUSIVE, type_tags_lr);
+    Legion::RegionRequirement v(values_lr, MODE, EXCLUSIVE, values_lr);
     std::for_each(
       std::begin(fids),
       std::end(fids),
@@ -82,7 +85,7 @@ struct LEGMS_API Keywords {
         tt.add_field(fid);
         v.add_field(fid);
       });
-    return pair{tt, v};
+    return pair<Legion::RegionRequirement>{tt, v};
   }
 
   template <typename T>
@@ -94,13 +97,18 @@ struct LEGMS_API Keywords {
     const T& t) const {
 
     bool result = false;
-    auto reqs = requirements<WRITE_ONLY>(std::vector<FieldID>{fid});
-    if (reqs) {
-      auto prs =
-        reqs.value().map([&ctx, rt](auto& r){ return rt->map_region(ctx, r); });
-      result = write(prs, fid, t);
-      prs.map([&ctx, rt](auto& p) { rt->unmap_region(ctx, p); });
-    }
+    auto reqs = requirements<WRITE_ONLY>(std::vector<Legion::FieldID>{fid});
+    auto prs =
+      reqs.map(
+        [&ctx, rt](const Legion::RegionRequirement& r){
+          return rt->map_region(ctx, r);
+        });
+    result = write<WRITE_ONLY>(prs, fid, t);
+    prs.map(
+      [&ctx, rt](const Legion::PhysicalRegion& p) {
+        rt->unmap_region(ctx, p);
+        return 0;
+      });
     return result;
   }
 
@@ -109,13 +117,18 @@ struct LEGMS_API Keywords {
   read(Legion::Context ctx, Legion::Runtime* rt, Legion::FieldID fid) const {
 
     bool result = false;
-    auto reqs = requirements<READ_ONLY>(std::vector<FieldID>{fid});
-    if (reqs) {
-      auto prs =
-        reqs.value().map([&ctx, rt](auto& r){ return rt->map_region(ctx, r); });
-      result = read(prs, fid);
-      prs.map([&ctx, rt](auto& p) { rt->unmap_region(ctx, p); });
-    }
+    auto reqs = requirements<READ_ONLY>(std::vector<Legion::FieldID>{fid});
+    auto prs =
+      reqs.map(
+        [&ctx, rt](const Legion::RegionRequirement& r){
+          return rt->map_region(ctx, r);
+        });
+    result = read(prs, fid);
+    prs.map(
+      [&ctx, rt](const Legion::PhysicalRegion& p) {
+        rt->unmap_region(ctx, p);
+        return 0;
+      });
     return result;
   }
 
@@ -128,7 +141,7 @@ struct LEGMS_API Keywords {
   static legms::TypeTag
   value_type(const Legion::PhysicalRegion& tt, Legion::FieldID fid);
 
-  template <int MODE, typename T>
+  template <legion_privilege_mode_t MODE, typename T>
   static bool
   write(
     const pair<Legion::PhysicalRegion>& prs,

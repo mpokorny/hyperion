@@ -8,21 +8,19 @@ extern "C" {
 #endif
 
 typedef struct LEGMS_API column_partition_t {
-  void* impl;
+  legion_logical_region_t axes_uid;
+  legion_logical_region_t axes;
+  legion_index_partition_t index_partition;
 } column_partition_t;
 
-LEGMS_API legion_index_partition_t
-column_partition_index_partition(
-  column_partition_t column_partition);
+/* LEGMS_API const int * */
+/* column_partition_axes(column_partition_t column_partition); */
 
-LEGMS_API const int *
-column_partition_axes(column_partition_t column_partition);
+/* LEGMS_API size_t */
+/* column_partition_num_axes(column_partition_t column_partition); */
 
-LEGMS_API size_t
-column_partition_num_axes(column_partition_t column_partition);
-
-LEGMS_API void
-column_partition_destroy(column_partition_t column_partition);
+/* LEGMS_API void */
+/* column_partition_destroy(column_partition_t column_partition); */
 
 #ifdef __cplusplus
 }

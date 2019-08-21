@@ -125,11 +125,11 @@ Column::Generator
 table0_col(const std::string& name) {
   if (name == "X") {
     return
-      [name](Context context, Runtime* runtime) {
+      [name](Context ctx, Runtime* rt) {
         return
-          std::make_unique<Column>(
-            context,
-            runtime,
+          Column::create(
+            ctx,
+            rt,
             name,
             std::vector<Table0Axes>{Table0Axes::ROW},
             ValueType<unsigned>::DataType,
@@ -137,24 +137,24 @@ table0_col(const std::string& name) {
       };
   } else if (name == "Y"){
     return
-      [name](Context context, Runtime* runtime) {
+      [name](Context ctx, Runtime* rt) {
         return
-          std::make_unique<Column>(
-            context,
-            runtime,
+          Column::create(
+            ctx,
+            rt,
             name,
             std::vector<Table0Axes>{Table0Axes::ROW},
             ValueType<unsigned>::DataType,
             IndexTreeL(TABLE0_NUM_ROWS),
-            WithKeywords::kw_desc_t{{"perfect", ValueType<short>::DataType}});
+            Keywords::kw_desc_t{{"perfect", ValueType<short>::DataType}});
       };
   } else /* name == "Z" */ {
     return
-      [name](Context context, Runtime* runtime) {
+      [name](Context ctx, Runtime* rt) {
         return
-          std::make_unique<Column>(
-            context,
-            runtime,
+          Column::create(
+            ctx,
+            rt,
             name,
             std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP},
             ValueType<unsigned>::DataType,
@@ -165,10 +165,10 @@ table0_col(const std::string& name) {
 
 PhysicalRegion
 attach_table0_col(
-  const Column* col,
-  unsigned *base,
   Context context,
-  Runtime* runtime) {
+  Runtime* runtime,
+  const Column& col,
+  unsigned *base) {
 
   const Memory local_sysmem =
     Machine::MemoryQuery(Machine::get_machine())
@@ -176,12 +176,11 @@ attach_table0_col(
     .only_kind(Memory::SYSTEM_MEM)
     .first();
 
-  AttachLauncher
-    task(EXTERNAL_INSTANCE, col->logical_region(), col->logical_region());
+  AttachLauncher task(EXTERNAL_INSTANCE, col.values_lr, col.values_lr);
   task.attach_array_soa(
     base,
     false,
-    {Column::value_fid},
+    {Column::VALUE_FID},
     local_sysmem);
   return runtime->attach_external_resource(context, task);
 }
@@ -319,11 +318,11 @@ verify_col(
 
   LogicalRegion lr = copy_region(region, context, runtime);
   RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
-  req.add_field(Column::value_fid);
+  req.add_field(Column::VALUE_FID);
   PhysicalRegion pr = runtime->map_region(context, req);
 
   bool result = true;
-  const FA<READ_ONLY, unsigned, N> acc(pr, Column::value_fid);
+  const FA<READ_ONLY, unsigned, N> acc(pr, Column::VALUE_FID);
   PointInDomainIterator<N> pid(region.get_bounds<N, Legion::coord_t>(), false);
   std::array<size_t, N> pt;
   pt.fill(0);
@@ -359,90 +358,85 @@ verify_col(
 void
 table_tests(
   testing::TestRecorder<READ_WRITE>& recorder,
-  Context context,
-  Runtime* runtime) {
+  Context ctx,
+  Runtime* rt) {
 
   for (size_t i = 0; i < TABLE0_NUM_ROWS; ++i) {
     table0_z[2 * i] = table0_x[i];
     table0_z[2 * i + 1] = table0_y[i];
   }
 
-  Table
-    table0(
-      context,
-      runtime,
-      "table0",
-      std::vector<Table0Axes>{Table0Axes::ROW},
-      {table0_col("X"),
-       table0_col("Y"),
-       table0_col("Z")},
-      {{"MS_VERSION", ValueType<float>::DataType},
-       {"NAME", ValueType<std::string>::DataType}});
-
   const float ms_vn = -42.1f;
-  legms::string ms_nm;
-  std::strcpy(ms_nm.val, "test");
-
-  auto col_x =
-    attach_table0_col(table0.column("X").get(), table0_x, context, runtime);
-  auto col_y =
-    attach_table0_col(table0.column("Y").get(), table0_y, context, runtime);
-  auto col_z =
-    attach_table0_col(table0.column("Z").get(), table0_z, context, runtime);
-
-  {
-    // initialize table0 keyword values
-    RegionRequirement kw_req(
-      table0.keywords_region(),
-      WRITE_ONLY,
-      EXCLUSIVE,
-      table0.keywords_region());
-    std::vector<FieldID> fids(2);
-    std::iota(fids.begin(), fids.end(), 0);
-    kw_req.add_fields(fids);
-    PhysicalRegion kws = runtime->map_region(context, kw_req);
-    const FA<WRITE_ONLY, float, 1> ms_version(kws, 0);
-    const FA<WRITE_ONLY, legms::string, 1> name(kws, 1);
-    ms_version[0] = ms_vn;
-    std::strcpy(name[0].val, ms_nm.val);
-    runtime->unmap_region(context, kws);
-  }
-  {
-    // initialize column Y keyword value
-    auto cy = table0.column("Y");
-    RegionRequirement kw_req(
-      cy->keywords_region(),
-      WRITE_ONLY,
-      EXCLUSIVE,
-      cy->keywords_region());
-    kw_req.add_field(0);
-    PhysicalRegion kws = runtime->map_region(context, kw_req);
-    const FA<WRITE_ONLY, short, 1> perfect(kws, 0);
-    perfect[0] = 496;
-    runtime->unmap_region(context, kws);
-  }
-
-  // write HDF5 file
+  legms::string ms_nm("test");
   std::string fname = "h5.XXXXXX";
-  int fd = mkstemp(fname.data());
-  assert(fd != -1);
-  std::cout << "test file name: " << fname << std::endl;
-  close(fd);
-  recorder.assert_no_throw(
-    "Write to HDF5 file",
-    testing::TestEval(
-      [&table0, &fname]() {
-        hid_t fid = H5DatatypeManager::create(fname, H5F_ACC_TRUNC);
-        hid_t root_loc = H5Gopen(fid, "/", H5P_DEFAULT);
-        assert(root_loc >= 0);
-        write_table(fname, root_loc, &table0);
-        H5Fclose(fid);
-        return true;
-      }));
+  {
+    Table table0 =
+      Table::create(
+        ctx,
+        rt,
+        "table0",
+        std::vector<Table0Axes>{Table0Axes::ROW},
+        std::vector<Column::Generator>{
+          table0_col("X"),
+            table0_col("Y"),
+            table0_col("Z")},
+        {{"MS_VERSION", ValueType<float>::DataType},
+         {"NAME", ValueType<std::string>::DataType}});
 
-  runtime->detach_external_resource(context, col_x);
-  runtime->detach_external_resource(context, col_y);
-  runtime->detach_external_resource(context, col_z);
+    auto col_x =
+      attach_table0_col(ctx, rt, table0.column(ctx, rt, "X"), table0_x);
+    auto col_y =
+      attach_table0_col(ctx, rt, table0.column(ctx, rt, "Y"), table0_y);
+    auto col_z =
+      attach_table0_col(ctx, rt, table0.column(ctx, rt, "Z"), table0_z);
+
+    {
+      // initialize table0 keyword values
+      std::vector<FieldID> fids(2);
+      std::iota(fids.begin(), fids.end(), 0);
+      auto reqs = table0.keywords.requirements<WRITE_ONLY>(fids);
+      auto prs =
+        reqs.map(
+          [&ctx, rt](const RegionRequirement& r){
+            return rt->map_region(ctx, r);
+          });
+      Keywords::write<WRITE_ONLY>(prs, (FieldID)0, ms_vn);
+      Keywords::write<WRITE_ONLY>(prs, (FieldID)1, ms_nm);
+      prs.map(
+        [&ctx, rt](const PhysicalRegion& p) {
+          rt->unmap_region(ctx, p);
+          return 0;
+        });
+    }
+    {
+      // initialize column Y keyword value
+      auto cy = table0.column(ctx, rt, "Y");
+      cy.keywords.write(ctx, rt, 0, (unsigned)496);
+    }
+
+    // write HDF5 file
+    int fd = mkstemp(fname.data());
+    assert(fd != -1);
+    std::cout << "test file name: " << fname << std::endl;
+    close(fd);
+    recorder.assert_no_throw(
+      "Write to HDF5 file",
+      testing::TestEval(
+        [&table0, &fname, &ctx, rt]() {
+          hid_t fid = H5DatatypeManager::create(fname, H5F_ACC_TRUNC);
+          hid_t root_loc = H5Gopen(fid, "/", H5P_DEFAULT);
+          assert(root_loc >= 0);
+          write_table(ctx, rt, fname, root_loc, table0);
+          H5Gclose(root_loc);
+          H5Fclose(fid);
+          return true;
+        }));
+
+    rt->detach_external_resource(ctx, col_x);
+    rt->detach_external_resource(ctx, col_y);
+    rt->detach_external_resource(ctx, col_z);
+    table0.destroy(ctx, rt);
+  }
 
   {
     std::unordered_set<std::string> tblpaths = get_table_paths(fname);
@@ -460,155 +454,162 @@ table_tests(
          && colnames.count("Z") == 1
          && colnames.size() == 3));
   }
-
-  // read back metadata
-  auto table_ga =
-    init_table(context, runtime, fname, "/table0", {"X", "Y", "Z"});
-  recorder.assert_true(
-    "Table generator arguments read back from HDF5",
-    TE(table_ga.has_value()));
-  auto tb0 = table_ga.value().operator()(context, runtime);
-  recorder.assert_true(
-    "Table recreated from generator arguments",
-    TE(bool(tb0)));
   {
+    // read back metadata
+    auto tb0 = init_table(ctx, rt, fname, "/table0", {"X", "Y", "Z"});
+    recorder.assert_false(
+      "Table initialized from HDF5 is not empty",
+      TE(tb0.is_empty(ctx, rt)));
     recorder.assert_true(
       "Table has expected keywords",
       testing::TestEval(
-        [&tb0]() {
-          auto tbkw_v = tb0->keywords();
-          std::set<std::tuple<std::string, legms::TypeTag>>
-            tbkw(tbkw_v.begin(), tbkw_v.end());
+        [&tb0, &ctx, rt]() {
+          auto keys = tb0.keywords.keys(rt);
+          std::vector<FieldID> fids(keys.size());
+          std::iota(fids.begin(), fids.end(), 0);
+          std::set<std::tuple<std::string, legms::TypeTag>> tbkw;
+          auto tts = tb0.keywords.value_types(ctx, rt, fids);
+          for (size_t i = 0; i < tts.size(); ++i)
+            tbkw.insert(make_tuple(keys[i], tts[i]));
           std::set<std::tuple<std::string, legms::TypeTag>>
             kw{{"MS_VERSION", ValueType<float>::DataType},
                {"NAME", ValueType<std::string>::DataType}};
           return tbkw == kw;
         }));
-  }
 
-  {
-    auto cx = tb0->column("X");
-    recorder.assert_true("Column X logically recreated", TE(bool(cx)));
-    recorder.expect_true(
-      "Column X has expected axes",
-      TE(cx->axes()) ==
-      map_to_int(std::vector<Table0Axes>{Table0Axes::ROW}));
-    recorder.expect_true(
-      "Column X has expected indexes",
-      TE(cx->index_tree()) == IndexTreeL(TABLE0_NUM_ROWS));
-  }
-  {
-    auto cy = tb0->column("Y");
-    recorder.assert_true("Column Y logically recreated", TE(bool(cy)));
-    recorder.expect_true(
-      "Column Y has expected axes",
-      TE(cy->axes()) ==
-      map_to_int(std::vector<Table0Axes>{Table0Axes::ROW}));
-    recorder.expect_true(
-      "Column Y has expected indexes",
-      TE(cy->index_tree()) == IndexTreeL(TABLE0_NUM_ROWS));
-  }
-  {
-    auto cz = tb0->column("Z");
-    recorder.assert_true("Column Z logically recreated", TE(bool(cz)));
-    recorder.expect_true(
-      "Column Z has expected axes",
-      TE(cz->axes())
-      == map_to_int(std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP}));
-    recorder.expect_true(
-      "Column Z has expected indexes",
-      TE(cz->index_tree()) == IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
-  }
+    {
+      auto cx = tb0.column(ctx, rt, "X");
+      recorder.assert_true(
+        "Column X logically recreated",
+        TE(!cx.is_empty()));
+      recorder.expect_true(
+        "Column X has expected axes",
+        TE(cx.axes(ctx, rt)) ==
+        map_to_int(std::vector<Table0Axes>{Table0Axes::ROW}));
+      recorder.expect_true(
+        "Column X has expected indexes",
+        TE(cx.index_tree(rt)) == IndexTreeL(TABLE0_NUM_ROWS));
+    }
+    {
+      auto cy = tb0.column(ctx, rt, "Y");
+      recorder.assert_true(
+        "Column Y logically recreated",
+        TE(!cy.is_empty()));
+      recorder.expect_true(
+        "Column Y has expected axes",
+        TE(cy.axes(ctx, rt)) ==
+        map_to_int(std::vector<Table0Axes>{Table0Axes::ROW}));
+      recorder.expect_true(
+        "Column Y has expected indexes",
+        TE(cy.index_tree(rt)) == IndexTreeL(TABLE0_NUM_ROWS));
+    }
+    {
+      auto cz = tb0.column(ctx, rt, "Z");
+      recorder.assert_true(
+        "Column Z logically recreated",
+        TE(!cz.is_empty()));
+      recorder.expect_true(
+        "Column Z has expected axes",
+        TE(cz.axes(ctx, rt))
+        == map_to_int(std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP}));
+      recorder.expect_true(
+        "Column Z has expected indexes",
+        TE(cz.index_tree(rt)) == IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
+    }
 
-  // attach to file, and read back keywords
-  // {
-  //   auto tb_kws =
-  //     attach_table_keywords(
-  //       fname,
-  //       "/",
-  //       tb0.get(),
-  //       runtime,
-  //       context);
-  //   recorder.assert_true(
-  //     "Table keywords attached",
-  //     TE(tb_kws.has_value()));
-  //   std::map<std::string, size_t> fids;
-  //   for (size_t i = 0; i < tb0->keywords().size(); ++i)
-  //     fids[std::get<0>(tb0->keywords()[i])] = i;
-  //   recorder.expect_true(
-  //     "Table has expected keyword values",
-  //     testing::TestEval(
-  //       [&tb_kws, &fids, &ms_vn, &ms_nm, context, runtime]() {
-  //         LogicalRegion kws = copy_region(tb_kws.value(), context, runtime);
-  //         RegionRequirement req(kws, READ_ONLY, EXCLUSIVE, kws);
-  //         for (size_t i = 0; i < fids.size(); ++i)
-  //           req.add_field(i);
-  //         PhysicalRegion pr = runtime->map_region(context, req);
-  //         const FieldAccessor<READ_ONLY, float, 1>
-  //           vn(pr, fids.at("MS_VERSION"));
-  //         const FieldAccessor<READ_ONLY, casacore::String, 1>
-  //           nm(pr, fids.at("NAME"));
-  //         return vn[0] == ms_vn && nm[0] == ms_nm;
-  //        }));
-  // }
-  // attach to file, and read back values
-  {
-    auto tb_cols =
-      attach_table_columns(context, runtime, fname, "/", tb0.get());
-    recorder.expect_true(
-      "All table columns attached",
-      testing::TestEval(
-        [&tb0, &tb_cols]() {
-          std::unordered_set<std::string> names;
-          std::transform(
+    // attach to file, and read back keywords
+    // {
+    //   auto tb_kws =
+    //     attach_table_keywords(
+    //       fname,
+    //       "/",
+    //       tb0.get(),
+    //       rt,
+    //       ctx);
+    //   recorder.assert_true(
+    //     "Table keywords attached",
+    //     TE(tb_kws.has_value()));
+    //   std::map<std::string, size_t> fids;
+    //   for (size_t i = 0; i < tb0->keywords().size(); ++i)
+    //     fids[std::get<0>(tb0->keywords()[i])] = i;
+    //   recorder.expect_true(
+    //     "Table has expected keyword values",
+    //     testing::TestEval(
+    //       [&tb_kws, &fids, &ms_vn, &ms_nm, ctx, rt]() {
+    //         LogicalRegion kws = copy_region(tb_kws.value(), ctx, rt);
+    //         RegionRequirement req(kws, READ_ONLY, EXCLUSIVE, kws);
+    //         for (size_t i = 0; i < fids.size(); ++i)
+    //           req.add_field(i);
+    //         PhysicalRegion pr = rt->map_region(ctx, req);
+    //         const FieldAccessor<READ_ONLY, float, 1>
+    //           vn(pr, fids.at("MS_VERSION"));
+    //         const FieldAccessor<READ_ONLY, casacore::String, 1>
+    //           nm(pr, fids.at("NAME"));
+    //         return vn[0] == ms_vn && nm[0] == ms_nm;
+    //        }));
+    // }
+    // attach to file, and read back values
+    {
+      auto tb_cols =
+        attach_table_columns(ctx, rt, fname, "/", tb0);
+      recorder.expect_true(
+        "All table columns attached",
+        testing::TestEval(
+          [&tb0, &tb_cols, &ctx, rt]() {
+            std::unordered_set<std::string> names;
+            std::transform(
+              tb_cols.begin(),
+              tb_cols.end(),
+              std::inserter(names, names.end()),
+              [&tb0](auto& nm_pr2) { return std::get<0>(nm_pr2); });
+            auto tbcns = tb0.column_names(ctx, rt);
+            return (names ==
+                    std::unordered_set<std::string>(tbcns.begin(), tbcns.end()));
+          }));
+      recorder.assert_true(
+        "Table column values attached",
+        TE(
+          std::all_of(
             tb_cols.begin(),
             tb_cols.end(),
-            std::inserter(names, names.end()),
-            [&tb0](auto& nm_pr2) { return std::get<0>(nm_pr2); });
-          return names == tb0->column_names();
-        }));
-    recorder.assert_true(
-      "Table column values attached",
-      TE(
-        std::all_of(
-          tb_cols.begin(),
-          tb_cols.end(),
-          [](auto& nm_pr2) {
-            return std::get<0>(std::get<1>(nm_pr2)).has_value();
-          })));
-    recorder.assert_true(
-      "Column keywords attached only when present",
-      TE(!std::get<1>(tb_cols["X"]).has_value()
-         && std::get<1>(tb_cols["Y"]).has_value()
-         && !std::get<1>(tb_cols["Z"]).has_value()));
-    auto prx = std::get<0>(tb_cols["X"]).value();
-    recorder.expect_true(
-      "Column 'X' values as expected",
-      TE(verify_col<1>(table0_x, prx, {TABLE0_NUM_ROWS}, context, runtime)));
-    auto pry = std::get<0>(tb_cols["Y"]).value();
-    recorder.expect_true(
-      "Column 'Y' values as expected",
-      TE(verify_col<1>(table0_y, pry, {TABLE0_NUM_ROWS}, context, runtime)));
-    auto prz = std::get<0>(tb_cols["Z"]).value();
-    recorder.expect_true(
-      "Column 'Z' values as expected",
-      TE(verify_col<2>(table0_z, prz, {TABLE0_NUM_ROWS, 2}, context, runtime)));
+            [](auto& nm_pr2) {
+              return std::get<0>(std::get<1>(nm_pr2)).has_value();
+            })));
+      recorder.assert_true(
+        "Column keywords attached only when present",
+        TE(!std::get<1>(tb_cols["X"]).has_value()
+           && std::get<1>(tb_cols["Y"]).has_value()
+           && !std::get<1>(tb_cols["Z"]).has_value()));
+      auto prx = std::get<0>(tb_cols["X"]).value();
+      recorder.expect_true(
+        "Column 'X' values as expected",
+        TE(verify_col<1>(table0_x, prx, {TABLE0_NUM_ROWS}, ctx, rt)));
+      auto pry = std::get<0>(tb_cols["Y"]).value();
+      recorder.expect_true(
+        "Column 'Y' values as expected",
+        TE(verify_col<1>(table0_y, pry, {TABLE0_NUM_ROWS}, ctx, rt)));
+      auto prz = std::get<0>(tb_cols["Z"]).value();
+      recorder.expect_true(
+        "Column 'Z' values as expected",
+        TE(verify_col<2>(table0_z, prz, {TABLE0_NUM_ROWS, 2}, ctx, rt)));
 
-    recorder.expect_no_throw(
-      "Table columns detached",
-      testing::TestEval(
-        [&tb_cols, &runtime, &context]() {
-          std::for_each(
-            tb_cols.begin(),
-            tb_cols.end(),
-            [&runtime, &context](auto& nm_pr2) {
-              auto [vpr, kpr] = std::get<1>(nm_pr2);
-              runtime->detach_external_resource(context, vpr.value());
-              if (kpr)
-                runtime->detach_external_resource(context, kpr.value());
-            });
-          return true;
-        }));
+      recorder.expect_no_throw(
+        "Table columns detached",
+        testing::TestEval(
+          [&tb_cols, &ctx, rt]() {
+            std::for_each(
+              tb_cols.begin(),
+              tb_cols.end(),
+              [&rt, &ctx](auto& nm_pr2) {
+                auto [vpr, kpr] = std::get<1>(nm_pr2);
+                rt->detach_external_resource(ctx, vpr.value());
+                if (kpr)
+                  rt->detach_external_resource(ctx, kpr.value());
+              });
+            return true;
+          }));
+    }
+    tb0.destroy(ctx, rt);
   }
 }
 

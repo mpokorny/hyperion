@@ -250,8 +250,10 @@ read_index_tree_from_attr(
 
 LEGMS_API void
 write_keywords(
+  Legion::Context ctx,
+  Legion::Runtime *rt,
   hid_t loc_id,
-  const WithKeywords* with_keywords,
+  const Keywords& keywords,
   bool with_data = true,
   hid_t link_creation_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT,
@@ -261,10 +263,12 @@ write_keywords(
 
 LEGMS_API void
 write_column(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
   const std::experimental::filesystem::path& path,
   hid_t table_id,
   const std::string& table_name,
-  const Column* column,
+  const Column& column,
   hid_t table_axes_dt,
   bool with_data = true,
   hid_t link_creation_pl = H5P_DEFAULT,
@@ -279,9 +283,11 @@ write_column(
 
 LEGMS_API void
 write_table(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
   const std::experimental::filesystem::path& path,
   hid_t loc_id,
-  const Table* table,
+  const Table& table,
   const std::unordered_set<std::string>& excluded_columns = {},
   bool with_data = true,
   hid_t link_creation_pl = H5P_DEFAULT,
@@ -296,7 +302,7 @@ write_table(
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
-LEGMS_API std::tuple<Legion::LogicalRegion, std::vector<TypeTag>>
+LEGMS_API legms::Keywords::kw_desc_t
 init_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
@@ -304,17 +310,19 @@ init_keywords(
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT);
 
-LEGMS_API std::optional<legms::ColumnGenArgs>
+LEGMS_API legms::Column
 init_column(
   Legion::Context context,
   Legion::Runtime* runtime,
+  const std::string& column_name,
+  const std::string& axes_uid,
   hid_t loc_id,
   hid_t axes_dt,
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
-LEGMS_API std::optional<legms::TableGenArgs>
+LEGMS_API legms::Table
 init_table(
   Legion::Context context,
   Legion::Runtime* runtime,
@@ -329,10 +337,11 @@ init_table(
   hid_t link_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
 
-LEGMS_API std::optional<legms::TableGenArgs>
+LEGMS_API legms::Table
 init_table(
   Legion::Context context,
   Legion::Runtime* runtime,
+  const std::string& table_name,
   hid_t loc_id,
   const std::unordered_set<std::string>& column_names,
   hid_t type_access_pl = H5P_DEFAULT,
@@ -349,21 +358,32 @@ get_column_names(
   const std::string& table_path);
 
 LEGMS_API std::unordered_map<std::string, std::string>
-get_table_keyword_paths(const Table& table);
+get_table_keyword_paths(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const Table& table);
 
 LEGMS_API std::string
-get_table_column_value_path(const Table& table, const std::string& colname);
+get_table_column_value_path(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const Table& table,
+  const std::string& colname);
 
 LEGMS_API std::unordered_map<std::string, std::string>
-get_table_column_keyword_paths(const Table& table, const std::string& colname);
+get_table_column_keyword_paths(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const Table& table,
+  const std::string& colname);
 
 LEGMS_API std::optional<Legion::PhysicalRegion>
 attach_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
   const std::experimental::filesystem::path& file_path,
-  const std::string& with_keywords_path,
-  const WithKeywords* with_keywords,
+  const std::string& keywords_path,
+  const Keywords& keywords,
   bool read_only = true);
 
 // returns value/keywords region pairs by column
@@ -377,7 +397,7 @@ attach_table_columns(
   Legion::Runtime* runtime,
   const std::experimental::filesystem::path& file_path,
   const std::string& root_path,
-  const Table* table,
+  const Table& table,
   bool mapped = true,
   bool read_only = true);
 
@@ -387,7 +407,7 @@ attach_table_keywords(
   Legion::Runtime* runtime,
   const std::experimental::filesystem::path& file_path,
   const std::string& root_path,
-  const Table* table,
+  const Table& table,
   bool read_only = true);
 
 struct LEGMS_API binary_index_tree_serdez {

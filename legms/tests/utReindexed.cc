@@ -10,6 +10,8 @@
 #include "Table.h"
 #include "Column.h"
 
+#ifndef NO_REINDEX
+
 using namespace legms;
 using namespace Legion;
 
@@ -349,6 +351,14 @@ main(int argc, char* argv[]) {
 
   return driver.start(argc, argv);
 }
+
+#else
+
+int main(int argc, char* argv[]) {
+  return -1;
+}
+
+#endif // NO_REINDEX
 
 // Local Variables:
 // mode: c++

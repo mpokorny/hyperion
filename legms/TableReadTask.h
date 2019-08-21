@@ -26,11 +26,7 @@
 namespace legms {
 
 struct LEGMS_API TableReadTaskArgs {
-  char table_path[80];
-  char table_name[80];
-  char column_name[20];
-  unsigned column_rank;
-  TypeTag column_datatype;
+  char table_path[1024];
 };
 
 class LEGMS_API TableReadTask {
@@ -45,30 +41,18 @@ public:
   template <typename Iter>
   TableReadTask(
     const std::string& table_path,
-    const Table* table,
+    const Table& table,
     Iter colname_iter,
     Iter end_colname_iter,
     size_t block_length)
-    : m_context(table->context())
-    , m_runtime(table->runtime())
-    , m_table_path(table_path)
-    , m_table_name(table->name()) {
+    : m_table_path(table_path)
+    , m_table(table)
+    , m_block_length(block_length) {
 
-    if (table->is_empty())
-      return;
-
-    std::for_each(
-      colname_iter,
-      end_colname_iter,
-      [this, table](const auto& nm) {
-        if (table->has_column(nm))
-          m_columns.push_back(table->column(nm));
-      });
-
-    auto c = table->column(table->min_rank_column_name().value());
-    m_blockp = c->partition_on_axes({std::make_tuple(0, block_length)});
+    std::copy(colname_iter, end_colname_iter, std::back_inserter(m_colnames));
 
     // FIXME: the following is insufficient in the case of multiple nodes
+    // FIXME: is this necessary?
     casacore::Table tb(
       casacore::String(table_path),
       casacore::TableLock::PermanentLockingWait);
@@ -78,7 +62,7 @@ public:
   preregister_task();
 
   void
-  dispatch();
+  dispatch(Legion::Context ctx, Legion::Runtime* rt);
 
   static void
   base_impl(
@@ -94,16 +78,16 @@ public:
     const casacore::ColumnDesc& col_desc,
     TypeTag lr_datatype,
     Legion::DomainT<DIM> reg_domain,
-    const std::vector<Legion::PhysicalRegion>& regions) {
+    const Legion::PhysicalRegion& region) {
 
 #define READ_COL(DT)                                                    \
     case DT:                                                            \
       switch (col_desc.trueDataType()) {                                \
       case DataType<DT>::CasacoreTypeTag:                               \
-        read_scalar_column<DIM, DT>(table, col_desc, reg_domain, regions); \
+        read_scalar_column<DIM, DT>(table, col_desc, reg_domain, region); \
         break;                                                          \
       case DataType<DT>::CasacoreArrayTypeTag:                          \
-        read_array_column<DIM, DT>(table, col_desc, reg_domain, regions); \
+        read_array_column<DIM, DT>(table, col_desc, reg_domain, region); \
         break;                                                          \
       default:                                                          \
         assert(false);                                                  \
@@ -124,20 +108,20 @@ public:
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
     Legion::DomainT<DIM> reg_domain,
-    const std::vector<Legion::PhysicalRegion>& regions) {
+    const Legion::PhysicalRegion& region) {
 
     typedef typename DataType<DT>::ValueType T;
     typedef typename DataType<DT>::CasacoreType CT;
 
     typedef Legion::FieldAccessor<
-      WRITE_DISCARD,
+      WRITE_ONLY,
       T,
       DIM,
       Legion::coord_t,
       Legion::AffineAccessor<T, DIM, Legion::coord_t>,
       false> ValueAccessor;
 
-    const ValueAccessor values(regions[0], Column::value_fid);
+    const ValueAccessor values(region, Column::VALUE_FID);
 
     casacore::ScalarColumn<CT> col(table, col_desc.name());
     Legion::coord_t row_number;
@@ -165,20 +149,20 @@ public:
     const casacore::Table& table,
     const casacore::ColumnDesc& col_desc,
     Legion::DomainT<DIM> reg_domain,
-    const std::vector<Legion::PhysicalRegion>& regions) {
+    const Legion::PhysicalRegion& region) {
 
     typedef typename DataType<DT>::ValueType T;
     typedef typename DataType<DT>::CasacoreType CT;
 
     typedef Legion::FieldAccessor<
-      WRITE_DISCARD,
+      WRITE_ONLY,
       T,
       DIM,
       Legion::coord_t,
       Legion::AffineAccessor<T, DIM, Legion::coord_t>,
       false> ValueAccessor;
 
-    const ValueAccessor values(regions[0], Column::value_fid);
+    const ValueAccessor values(region, Column::VALUE_FID);
 
     casacore::ArrayColumn<CT> col(table, col_desc.name());
     Legion::coord_t row_number;
@@ -264,17 +248,13 @@ public:
 
 private:
 
-  Legion::Context m_context;
-
-  Legion::Runtime *m_runtime;
-
   std::string m_table_path;
 
-  std::string m_table_name;
+  Table m_table;
 
-  std::vector<std::shared_ptr<Column>> m_columns;
+  std::vector<std::string> m_colnames;
 
-  std::unique_ptr<ColumnPartition> m_blockp;
+  size_t m_block_length;
 
   template <typename T>
   static inline void

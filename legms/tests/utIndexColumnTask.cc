@@ -90,7 +90,7 @@ table0_col(const std::string& name) {
   return
     [=](Context context, Runtime* runtime) {
       return
-        std::make_unique<Column>(
+        Column::create(
           context,
           runtime,
           name,
@@ -102,10 +102,10 @@ table0_col(const std::string& name) {
 
 PhysicalRegion
 attach_table0_col(
-  const Column* col,
-  unsigned *base,
   Context context,
-  Runtime* runtime) {
+  Runtime* runtime,
+  const Column& col,
+  unsigned *base) {
 
   const Memory local_sysmem =
     Machine::MemoryQuery(Machine::get_machine())
@@ -113,12 +113,11 @@ attach_table0_col(
     .only_kind(Memory::SYSTEM_MEM)
     .first();
 
-  AttachLauncher
-    task(EXTERNAL_INSTANCE, col->logical_region(), col->logical_region());
+  AttachLauncher task(EXTERNAL_INSTANCE, col.values_lr, col.values_lr);
   task.attach_array_soa(
     base,
     true,
-    {Column::value_fid},
+    {Column::VALUE_FID},
     local_sysmem);
   return runtime->attach_external_resource(context, task);
 }
@@ -129,10 +128,10 @@ void
 index_column_task_test_suite(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
-  Context context,
-  Runtime* runtime) {
+  Context ctx,
+  Runtime* rt) {
 
-  register_tasks(context, runtime);
+  register_tasks(ctx, rt);
 
   testing::TestRecorder<WRITE_DISCARD> recorder(
     testing::TestLog<WRITE_DISCARD>(
@@ -140,142 +139,140 @@ index_column_task_test_suite(
       regions[0],
       task->regions[1].region,
       regions[1],
-      context,
-      runtime));
+      ctx,
+      rt));
 
-  Table
-    table0(
-      context,
-      runtime,
+  Table table0 =
+    Table::create(
+      ctx,
+      rt,
       "table0",
       std::vector<Table0Axes>{Table0Axes::ROW},
-      {table0_col("X"),
-       table0_col("Y")});
+      std::vector<Column::Generator>{
+        table0_col("X"),
+          table0_col("Y")});
   auto col_x =
-    attach_table0_col(table0.column("X").get(), table0_x, context, runtime);
+    attach_table0_col(ctx, rt, table0.column(ctx, rt, "X"), table0_x);
   auto col_y =
-    attach_table0_col(table0.column("Y").get(), table0_y, context, runtime);
-  IndexColumnTask icx(table0.column("X"), static_cast<int>(Table0Axes::X));
-  IndexColumnTask icy(table0.column("Y"), static_cast<int>(Table0Axes::Y));
-  Future fx = icx.dispatch(context, runtime);
-  Future fy = icy.dispatch(context, runtime);
+    attach_table0_col(ctx, rt, table0.column(ctx, rt, "Y"), table0_y);
+  IndexColumnTask icx(table0.column(ctx, rt, "X"));
+  IndexColumnTask icy(table0.column(ctx, rt, "Y"));
+  Future fx = icx.dispatch(ctx, rt);
+  Future fy = icy.dispatch(ctx, rt);
 
-  auto cx =
-    fx.get_result<ColumnGenArgs>().operator()(context, runtime);
-  recorder.assert_true(
-    "IndexColumnTask X result has one axis",
-    TE(cx->axes().size()) == 1u);
-  recorder.expect_true(
-    "IndexColumnTask X result axis is 'Table0Axes::X'",
-    TE(cx->axes()[0]) == static_cast<int>(Table0Axes::X));
-  recorder.assert_true(
-    "IndexColumnTask X result has one-dimensional IndexSpace",
-    TE(cx->index_space().get_dim()) == 1);
-  Domain xd = runtime->get_index_space_domain(cx->index_space());
-  recorder.expect_true(
-    "IndexColumnTask X result IndexSpace has expected range",
-    TE(xd.lo()[0] == 0) && (TE(xd.hi()[0]) == TABLE0_NUM_X - 1));
-  recorder.expect_true(
-    "IndexColumnTask X result has expected values",
-    testing::TestEval(
-      [&context, runtime, &cx]() {
-        RegionRequirement
-          req(cx->logical_region(), READ_ONLY, EXCLUSIVE, cx->logical_region());
-        req.add_field(Column::value_fid);
-        PhysicalRegion pr = runtime->map_region(context, req);
-        const FieldAccessor<
-          READ_ONLY, unsigned, 1, coord_t,
-          AffineAccessor<unsigned, 1, coord_t>, true>
-          x(pr, Column::value_fid);
-        bool result =
-          x[0] == OX && x[1] == OX + 1 && x[2] == OX + 2 && x[3] == OX + 3;
-        runtime->unmap_region(context, pr);
-        return result;
-      }));
-  recorder.expect_true(
-    "IndexColumnTask X result has expected index groups",
-    testing::TestEval(
-      [&context, runtime, &cx]() {
-        RegionRequirement
-          req(cx->logical_region(), READ_ONLY, EXCLUSIVE, cx->logical_region());
-        req.add_field(IndexColumnTask::rows_fid);
-        PhysicalRegion pr = runtime->map_region(context, req);
-        const FieldAccessor<
-          READ_ONLY, std::vector<DomainPoint>, 1, coord_t,
-          AffineAccessor<std::vector<DomainPoint>, 1, coord_t>, true>
-          x(pr, IndexColumnTask::rows_fid);
-        bool result =
-          (x[0] ==
-           std::vector<DomainPoint>{Point<1>(0), Point<1>(1), Point<1>(2)})
-          && (x[1] ==
-              std::vector<DomainPoint>{Point<1>(3), Point<1>(4), Point<1>(5)})
-          && (x[2] ==
-              std::vector<DomainPoint>{Point<1>(6), Point<1>(7), Point<1>(8)})
-          && (x[3] ==
-              std::vector<DomainPoint>{Point<1>(9), Point<1>(10), Point<1>(11)});
-        runtime->unmap_region(context, pr);
-        return result;
-      }));
-
-  auto cy =
-    fy.get_result<ColumnGenArgs>().operator()(context, runtime);
-  recorder.assert_true(
-    "IndexColumnTask Y result has one axis",
-    TE(cy->axes().size()) == 1u);
-  recorder.expect_true(
-    "IndexColumnTask Y result axis is 'Table0Axes::Y'",
-    TE(cy->axes()[0]) == static_cast<int>(Table0Axes::Y));
-  recorder.assert_true(
-    "IndexColumnTask Y result has one-dimensional IndexSpace",
-    TE(cy->index_space().get_dim()) == 1);
-  Domain yd = runtime->get_index_space_domain(cy->index_space());
-  recorder.expect_true(
-    "IndexColumnTask Y result IndexSpace has expected range",
-    TE(yd.lo()[0] == 0) && (TE(yd.hi()[0]) == TABLE0_NUM_Y - 1));
-  recorder.expect_true(
-    "IndexColumnTask Y result has expected values",
-    testing::TestEval(
-      [&context, runtime, &cy]() {
-        RegionRequirement
-          req(cy->logical_region(), READ_ONLY, EXCLUSIVE, cy->logical_region());
-        req.add_field(Column::value_fid);
-        PhysicalRegion pr = runtime->map_region(context, req);
-        const FieldAccessor<
-          READ_ONLY, unsigned, 1, coord_t,
-          AffineAccessor<unsigned, 1, coord_t>, true>
-          y(pr, Column::value_fid);
-        bool result = y[0] == OY && y[1] == OY + 1 && y[2] == OY + 2;
-        runtime->unmap_region(context, pr);
-        return result;
-      }));
-  recorder.expect_true(
-    "IndexColumnTask Y result has expected index groups",
-    testing::TestEval(
-      [&context, runtime, &cy]() {
-        RegionRequirement
-          req(cy->logical_region(), READ_ONLY, EXCLUSIVE, cy->logical_region());
-        req.add_field(IndexColumnTask::rows_fid);
-        PhysicalRegion pr = runtime->map_region(context, req);
-        const FieldAccessor<
-          READ_ONLY, std::vector<DomainPoint>, 1, coord_t,
-          AffineAccessor<std::vector<DomainPoint>, 1, coord_t>, true>
-          y(pr, IndexColumnTask::rows_fid);
-        bool result =
-          (y[0] ==
-           std::vector<DomainPoint>{
-            Point<1>(0), Point<1>(3), Point<1>(6), Point<1>(9)})
-          && (y[1] ==
-              std::vector<DomainPoint>{
-                Point<1>(1), Point<1>(4), Point<1>(7), Point<1>(10)})
-          && (y[2] ==
-              std::vector<DomainPoint>{
-                Point<1>(2), Point<1>(5), Point<1>(8), Point<1>(11)});
-        runtime->unmap_region(context, pr);
-        return result;
-      }));
-
-  runtime->detach_external_resource(context, col_x);
-  runtime->detach_external_resource(context, col_y);
+  {
+    auto cx = fx.get_result<LogicalRegion>();
+    recorder.assert_false(
+      "IndexColumnTask X result is not empty",
+      TE(cx != LogicalRegion::NO_REGION));
+    recorder.assert_true(
+      "IndexColumnTask X result has one-dimensional IndexSpace",
+      TE(cx.get_index_space().get_dim()) == 1);
+    Domain xd = rt->get_index_space_domain(cx.get_index_space());
+    recorder.expect_true(
+      "IndexColumnTask X result IndexSpace has expected range",
+      TE(xd.lo()[0] == 0) && (TE(xd.hi()[0]) == TABLE0_NUM_X - 1));
+    recorder.expect_true(
+      "IndexColumnTask X result has expected values",
+      testing::TestEval(
+        [&ctx, rt, &cx]() {
+          RegionRequirement req(cx, READ_ONLY, EXCLUSIVE, cx);
+          req.add_field(IndexColumnTask::VALUE_FID);
+          PhysicalRegion pr = rt->map_region(ctx, req);
+          const FieldAccessor<
+            READ_ONLY, unsigned, 1, coord_t,
+            AffineAccessor<unsigned, 1, coord_t>, true>
+            x(pr, IndexColumnTask::VALUE_FID);
+          bool result =
+            x[0] == OX && x[1] == OX + 1 && x[2] == OX + 2 && x[3] == OX + 3;
+          rt->unmap_region(ctx, pr);
+          return result;
+        }));
+    recorder.expect_true(
+      "IndexColumnTask X result has expected index groups",
+      testing::TestEval(
+        [&ctx, rt, &cx]() {
+          RegionRequirement req(cx, READ_ONLY, EXCLUSIVE, cx);
+          req.add_field(IndexColumnTask::ROWS_FID);
+          PhysicalRegion pr = rt->map_region(ctx, req);
+          const FieldAccessor<
+            READ_ONLY, std::vector<DomainPoint>, 1, coord_t,
+            AffineAccessor<std::vector<DomainPoint>, 1, coord_t>, true>
+            x(pr, IndexColumnTask::ROWS_FID);
+          bool result =
+            (x[0] ==
+             std::vector<DomainPoint>{Point<1>(0), Point<1>(1), Point<1>(2)})
+            && (x[1] ==
+                std::vector<DomainPoint>{Point<1>(3), Point<1>(4), Point<1>(5)})
+            && (x[2] ==
+                std::vector<DomainPoint>{Point<1>(6), Point<1>(7), Point<1>(8)})
+            && (x[3] ==
+                std::vector<DomainPoint>{Point<1>(9), Point<1>(10), Point<1>(11)});
+          rt->unmap_region(ctx, pr);
+          return result;
+        }));
+    rt->destroy_index_space(ctx, cx.get_index_space());
+    rt->destroy_field_space(ctx, cx.get_field_space());
+    rt->destroy_logical_region(ctx, cx);
+  }
+  {
+    auto cy = fy.get_result<LogicalRegion>();
+    recorder.assert_false(
+      "IndexColumnTask Y result is not empty",
+      TE(cy == LogicalRegion::NO_REGION));
+    recorder.assert_true(
+      "IndexColumnTask Y result has one-dimensional IndexSpace",
+      TE(cy.get_index_space().get_dim()) == 1);
+    Domain yd = rt->get_index_space_domain(cy.get_index_space());
+    recorder.expect_true(
+      "IndexColumnTask Y result IndexSpace has expected range",
+      TE(yd.lo()[0] == 0) && (TE(yd.hi()[0]) == TABLE0_NUM_Y - 1));
+    recorder.expect_true(
+      "IndexColumnTask Y result has expected values",
+      testing::TestEval(
+        [&ctx, rt, &cy]() {
+          RegionRequirement req(cy, READ_ONLY, EXCLUSIVE, cy);
+          req.add_field(IndexColumnTask::VALUE_FID);
+          PhysicalRegion pr = rt->map_region(ctx, req);
+          const FieldAccessor<
+            READ_ONLY, unsigned, 1, coord_t,
+            AffineAccessor<unsigned, 1, coord_t>, true>
+            y(pr, IndexColumnTask::VALUE_FID);
+          bool result = y[0] == OY && y[1] == OY + 1 && y[2] == OY + 2;
+          rt->unmap_region(ctx, pr);
+          return result;
+        }));
+    recorder.expect_true(
+      "IndexColumnTask Y result has expected index groups",
+      testing::TestEval(
+        [&ctx, rt, &cy]() {
+          RegionRequirement req(cy, READ_ONLY, EXCLUSIVE, cy);
+          req.add_field(IndexColumnTask::ROWS_FID);
+          PhysicalRegion pr = rt->map_region(ctx, req);
+          const FieldAccessor<
+            READ_ONLY, std::vector<DomainPoint>, 1, coord_t,
+            AffineAccessor<std::vector<DomainPoint>, 1, coord_t>, true>
+            y(pr, IndexColumnTask::ROWS_FID);
+          bool result =
+            (y[0] ==
+             std::vector<DomainPoint>{
+              Point<1>(0), Point<1>(3), Point<1>(6), Point<1>(9)})
+            && (y[1] ==
+                std::vector<DomainPoint>{
+                  Point<1>(1), Point<1>(4), Point<1>(7), Point<1>(10)})
+            && (y[2] ==
+                std::vector<DomainPoint>{
+                  Point<1>(2), Point<1>(5), Point<1>(8), Point<1>(11)});
+          rt->unmap_region(ctx, pr);
+          return result;
+        }));
+    rt->destroy_index_space(ctx, cy.get_index_space());
+    rt->destroy_field_space(ctx, cy.get_field_space());
+    rt->destroy_logical_region(ctx, cy);
+  }
+  rt->detach_external_resource(ctx, col_x);
+  rt->detach_external_resource(ctx, col_y);
+  table0.destroy(ctx, rt);
 }
 
 int

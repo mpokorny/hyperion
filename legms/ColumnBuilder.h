@@ -83,20 +83,15 @@ public:
   virtual void
   add_row(const std::any&) = 0;
 
-  std::unique_ptr<Column>
-  column(Legion::Context ctx, Legion::Runtime* runtime) const {
-    std::unique_ptr<Column> result;
-    if (index_tree().rank().value() == axes().size())
-      result =
-        std::make_unique<Column>(
-          ctx,
-          runtime,
-          name(),
-          axes(),
-          datatype(),
-          index_tree(),
-          keywords());
-    return result;
+  Column
+  column(Legion::Context ctx, Legion::Runtime* rt) const {
+    IndexTreeL itree;
+    std::vector<Axes> ax;
+    if (index_tree().rank().value() == axes().size()) {
+      itree = index_tree();
+      ax = axes();
+    }
+    return Column::create(ctx, rt, name(), ax, datatype(), itree, keywords());
   }
 
 protected:

@@ -9,27 +9,26 @@
 using namespace legms;
 using namespace legms::CObjectWrapper;
 
-legion_index_partition_t
-column_partition_index_partition(
-  column_partition_t column_partition) {
-  return
-    Legion::CObjectWrapper::wrap(unwrap(column_partition)->index_partition());
-}
+// legion_index_partition_t
+// column_partition_index_partition(
+//   column_partition_t column_partition) {
+//   return Legion::CObjectWrapper::wrap(column_partition.index_partition);
+// }
 
-const int *
-column_partition_axes(column_partition_t column_partition) {
-  return unwrap(column_partition)->axes().data();
-}
+// const int *
+// column_partition_axes(column_partition_t column_partition) {
+//   return unwrap(column_partition)->axes().data();
+// }
 
-size_t
-column_partition_num_axes(column_partition_t column_partition) {
-  return unwrap(column_partition)->axes().size();
-}
+// size_t
+// column_partition_num_axes(column_partition_t column_partition) {
+//   return unwrap(column_partition)->axes().size();
+// }
 
-void
-column_partition_destroy(column_partition_t column_partition) {
-  destroy(column_partition);
-}
+// void
+// column_partition_destroy(column_partition_t column_partition) {
+//   destroy(column_partition);
+// }
 
 // Local Variables:
 // mode: c++

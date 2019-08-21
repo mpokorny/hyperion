@@ -110,7 +110,18 @@ struct LEGMS_API string {
     val[sizeof(val) - 1] = '\0';  
   }
 
+  string&
+  operator=(const std::string& s) {
+    std::strncpy(val, s.c_str(), sizeof(val));
+    val[sizeof(val) - 1] = '\0';
+    return *this;
+  }
+
   char val[LEGMS_MAX_STRING_SIZE];
+
+  operator std::string() const {
+    return std::string(val);
+  }
 
   bool
   operator==(const string& other) {
@@ -1234,8 +1245,7 @@ projected_index_partition(
       ctx,
       runtime->get_index_partition_color_space(ip));
 
-  ProjectedIndexPartitionTask
-    fill_images(ip_cs, images_lp, images_lr, args.get());
+  ProjectedIndexPartitionTask fill_images(cs, images_lp, images_lr, args.get());
   fill_images.dispatch(ctx, runtime);
 
   Legion::IndexPartitionT<PRJDIM> result(

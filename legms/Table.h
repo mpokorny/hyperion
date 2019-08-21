@@ -17,7 +17,7 @@
 #include "Table_c.h"
 
 #include "utility.h"
-#include "WithKeywords.h"
+#include "Keywords.h"
 #include "Column.h"
 #include "IndexTree.h"
 #include "ColumnPartition.h"
@@ -31,313 +31,260 @@
 
 #include "c_util.h"
 
+#define NO_REINDEX 1
+
 namespace legms {
 
 class Table;
 
-struct LEGMS_API TableGenArgs {
-
-  TableGenArgs() {}
-
-  TableGenArgs(
-    const std::string& name,
-    const std::string& axes_uid,
-    const std::vector<int>& index_axes,
-    const std::vector<ColumnGenArgs>& col_genargs,
-    Legion::LogicalRegion keywords,
-    const std::vector<TypeTag> keyword_datatypes)
-    : name(name)
-    , axes_uid(axes_uid)
-    , index_axes(index_axes)
-    , col_genargs(col_genargs)
-    , keywords(keywords)
-    , keyword_datatypes(keyword_datatypes) {}
-
-  TableGenArgs(const table_t& table);
-
-  std::string name;
-  std::string axes_uid;
-  std::vector<int> index_axes;
-  std::vector<ColumnGenArgs> col_genargs;
-  Legion::LogicalRegion keywords;
-  std::vector<TypeTag> keyword_datatypes;
-
-  std::unique_ptr<Table>
-  operator()(Legion::Context ctx, Legion::Runtime* runtime) const;
-
-  size_t
-  legion_buffer_size(void) const;
-
-  size_t
-  legion_serialize(void *buffer) const;
-
-  size_t
-  legion_deserialize(const void *buffer);
-
-  table_t
-  to_table_t() const;
-};
-
-class LEGMS_API Table
-  : public WithKeywords {
+class LEGMS_API Table {
 public:
 
+  static const constexpr Legion::FieldID METADATA_NAME_FID = 0;
+  static const constexpr Legion::FieldID METADATA_AXES_UID_FID = 1;
+  Legion::LogicalRegion metadata_lr;
+  static const constexpr Legion::FieldID AXES_FID = 0;
+  Legion::LogicalRegion axes_lr;
+  static const constexpr Legion::FieldID COLUMNS_FID = 0;
+  Legion::LogicalRegion columns_lr;
+  Keywords keywords;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using NameAccessor =
+    Legion::FieldAccessor<
+    MODE,
+    legms::string,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<legms::string, 1, Legion::coord_t>,
+    CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using AxesUidAccessor =
+    Legion::FieldAccessor<
+    MODE,
+    legms::string,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<legms::string, 1, Legion::coord_t>,
+    CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using AxesAccessor =
+    Legion::FieldAccessor<
+    MODE,
+    int,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<int, 1, Legion::coord_t>,
+    CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using ColumnsAccessor =
+    Legion::FieldAccessor<
+    MODE,
+    Column,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<Column, 1, Legion::coord_t>,
+    CHECK_BOUNDS>;
+
+  Table();
+
   Table(
+    Legion::LogicalRegion metadata,
+    Legion::LogicalRegion axes,
+    Legion::LogicalRegion columns,
+    const Keywords& keywords);
+
+  Table(
+    Legion::LogicalRegion metadata,
+    Legion::LogicalRegion axes,
+    Legion::LogicalRegion columns,
+    Keywords&& keywords);
+
+  std::string
+  name(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  static const char*
+  name(const Legion::PhysicalRegion& metadata);
+
+  std::string
+  axes_uid(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  static const char*
+  axes_uid(const Legion::PhysicalRegion& metadata);
+
+  std::vector<int>
+  index_axes(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  template <template <typename> typename C>
+  static Table
+  create(
     Legion::Context ctx,
-    Legion::Runtime* runtime,
+    Legion::Runtime* rt,
     const std::string& name,
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
-    const kw_desc_t& kws = kw_desc_t())
-    : WithKeywords(ctx, runtime, kws)
-    , m_name(name)
-    , m_axes_uid(axes_uid)
-    , m_index_axes(index_axes) {
-  }
+    const C<Column>& columns_,
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
-  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
-  Table(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::string& name,
-    const std::vector<D>& index_axes,
-    const kw_desc_t& kws = kw_desc_t())
-    : Table(
-      ctx,
-      runtime,
-      name,
-      Axes<D>::uid,
-      map_to_int(index_axes),
-      kws) {}
-
-  Table(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::string& name,
-    const std::string& axes_uid,
-    const std::vector<int>& index_axes,
-    Legion::LogicalRegion keywords,
-    const std::vector<TypeTag>& datatypes)
-    : WithKeywords(ctx, runtime, keywords, datatypes)
-    , m_name(name)
-    , m_axes_uid(axes_uid)
-    , m_index_axes(index_axes) {
-  }
-
-  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
-  Table(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::string& name,
-    const std::vector<D>& index_axes,
-    Legion::LogicalRegion keywords,
-    const std::vector<TypeTag>& datatypes)
-    : Table(
-      ctx,
-      runtime,
-      name,
-      Axes<D>::uid,
-      map_to_int(index_axes),
-      keywords,
-      datatypes) {}
-
-  template <typename GeneratorIter>
-  Table(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::string& name,
-    const std::string& axes_uid,
-    const std::vector<int>& index_axes,
-    GeneratorIter generator_first,
-    GeneratorIter generator_last,
-    const kw_desc_t& kws = kw_desc_t())
-    : Table(ctx, runtime, name, axes_uid, index_axes, kws) {
-
-    std::for_each(
-      generator_first,
-      generator_last,
-      [&ctx, this, runtime](auto gen) {
-        std::shared_ptr<Column> col(gen(ctx, runtime));
-        if (col) {
-          m_columns[col->name()] = col;
-        }
-      });
-
-    if (m_columns.size() > 0)
-      set_min_max_rank();
+    Legion::LogicalRegion metadata = create_metadata(ctx, rt, name, axes_uid);
+    Legion::LogicalRegion axes = create_axes(ctx, rt, index_axes);
+    Keywords keywords = Keywords::create(ctx, rt, kws);
+    Legion::LogicalRegion columns;
+    {
+      Legion::Rect<1> rect(0, columns_.size() - 1);
+      Legion::IndexSpace is = rt->create_index_space(ctx, rect);
+      Legion::FieldSpace fs = rt->create_field_space(ctx);
+      Legion::FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+      fa.allocate_field(sizeof(Column), COLUMNS_FID);
+      columns = rt->create_logical_region(ctx, is, fs);
+      Legion::RegionRequirement req(columns, WRITE_ONLY, EXCLUSIVE, columns);
+      req.add_field(COLUMNS_FID);
+      Legion::PhysicalRegion pr = rt->map_region(ctx, req);
+      const ColumnsAccessor<WRITE_ONLY> cols(pr, COLUMNS_FID);
+      Legion::PointInRectIterator<1> pir(rect);
+      for (auto& col : columns_) {
+        assert(pir());
+        cols[*pir] = col;
+        pir++;
+      }
+      assert(!pir());
+      rt->unmap_region(ctx, pr);
+    }
+    return Table(metadata, axes, columns, keywords);
   }
 
   template <
     typename D,
-    typename GeneratorIter,
+    template <typename> typename C,
     std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
-  Table(
+  static Table
+  create(
     Legion::Context ctx,
-    Legion::Runtime* runtime,
+    Legion::Runtime* rt,
     const std::string& name,
     const std::vector<D>& index_axes,
-    GeneratorIter generator_first,
-    GeneratorIter generator_last,
-    const kw_desc_t& kws = kw_desc_t())
-    : Table(
-      ctx,
-      runtime,
-      name,
-      Axes<D>::uid,
-      map_to_int(index_axes),
-      generator_first,
-      generator_last,
-      kws) {}
+    const C<Column>& columns,
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
-  Table(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::string& name,
-    const std::string& axes_uid,
-    const std::vector<int>& index_axes,
-    const std::vector<Column::Generator>& column_generators,
-    const kw_desc_t& kws = kw_desc_t())
-    : Table(
-      ctx,
-      runtime,
-      name,
-      axes_uid,
-      index_axes,
-      column_generators.begin(),
-      column_generators.end(),
-      kws) {}
-
-  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
-  Table(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::string& name,
-    const std::vector<D>& index_axes,
-    const std::vector<Column::Generator>& column_generators,
-    const kw_desc_t& kws = kw_desc_t())
-    : Table(
-      ctx,
-      runtime,
-      name,
-      Axes<D>::uid,
-      map_to_int(index_axes),
-      column_generators,
-      kws) {}
-
-  Table(
-    Legion::Context ctx,
-    Legion::Runtime* runtime,
-    const std::string& name,
-    const std::string& axes_uid,
-    const std::vector<int>& index_axes,
-    const std::vector<ColumnGenArgs>& col_genargs,
-    Legion::LogicalRegion keywords,
-    const std::vector<TypeTag>& kw_datatypes)
-    : Table(
-      ctx,
-      runtime,
-      name,
-      axes_uid,
-      index_axes,
-      keywords,
-      kw_datatypes) {
-
-    std::transform(
-      col_genargs.begin(),
-      col_genargs.end(),
-      std::inserter(m_columns, m_columns.end()),
-      [&ctx, runtime](auto gen) {
-        std::shared_ptr<Column>
-          col(gen.template operator()(ctx, runtime));
-        return std::make_pair(col->name(), col);
-      });
-
-    set_min_max_rank();
-  }
-
-  virtual ~Table() {
-  }
-
-  const std::string&
-  name() const {
-    return m_name;
-  }
-
-  const std::string&
-  axes_uid() const {
-    return m_axes_uid;
-  }
-
-  const std::vector<int>&
-  index_axes() const {
-    return m_index_axes;
-  }
-
-  bool
-  is_empty() const {
     return
-      column_names().empty()
-      || column(min_rank_column_name().value())->index_tree() == IndexTreeL();
+      create(ctx, rt, name, Axes<D>::uid, map_to_int(index_axes), columns, kws);
   }
 
-  std::unordered_set<std::string>
-  column_names() const {
-    std::unordered_set<std::string> result;
-    std::transform(
-      m_columns.begin(),
-      m_columns.end(),
-      std::inserter(result, result.end()),
-      [](auto& col) {
-        return col.first;
-      });
-    return result;
+  template <template <typename> typename C>
+  static Table
+  create(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::string& name,
+    const std::string& axes_uid,
+    const std::vector<int>& index_axes,
+    const C<Column::Generator>& column_generators,
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
+
+    Legion::LogicalRegion metadata = create_metadata(ctx, rt, name, axes_uid);
+    Legion::LogicalRegion axes = create_axes(ctx, rt, index_axes);
+    Keywords keywords = Keywords::create(ctx, rt, kws);
+    Legion::LogicalRegion columns;
+    {
+      Legion::Rect<1> rect(0, column_generators.size() - 1);
+      Legion::IndexSpace is = rt->create_index_space(ctx, rect);
+      Legion::FieldSpace fs = rt->create_field_space(ctx);
+      Legion::FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+      fa.allocate_field(sizeof(Column), COLUMNS_FID);
+      columns = rt->create_logical_region(ctx, is, fs);
+      Legion::RegionRequirement req(columns, WRITE_ONLY, EXCLUSIVE, columns);
+      req.add_field(COLUMNS_FID);
+      Legion::PhysicalRegion pr = rt->map_region(ctx, req);
+      const ColumnsAccessor<WRITE_ONLY> cols(pr, COLUMNS_FID);
+      Legion::PointInRectIterator<1> pir(rect);
+      for (auto& cg : column_generators) {
+        assert(pir());
+        cols[*pir] = cg(ctx, rt);
+        pir++;
+      }
+      assert(!pir());
+      rt->unmap_region(ctx, pr);
+    }
+    return Table(metadata, axes, columns, keywords);    
   }
+
+  template <
+    typename D,
+    template <typename> typename C,
+    std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  static Table
+  create(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::string& name,
+    const std::vector<D>& index_axes,
+    const C<Column::Generator>& column_generators,
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
+
+    return
+      create(
+        ctx,
+        rt,
+        name,
+        Axes<D>::uid,
+        map_to_int(index_axes),
+        column_generators,
+        kws);
+  }
+
+  void
+  destroy(Legion::Context ctx, Legion::Runtime* rt, bool destroy_columns=true);
 
   bool
-  has_column(const std::string& name) const {
-    return column_names().count(name) > 0;
-  }
+  is_empty(Legion::Context ctx, Legion::Runtime* rt) const;
 
-  std::shared_ptr<Column>
-  column(const std::string& name) const {
-    return m_columns.at(name);
-  }
+  static bool
+  is_empty(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const Legion::PhysicalRegion& columns);
 
-  const std::optional<std::string>&
-  min_rank_column_name() const {
-    return m_min_rank_colname;
-  }
+  std::vector<std::string>
+  column_names(Legion::Context ctx, Legion::Runtime* rt) const;
 
-  const std::optional<std::string>&
-  max_rank_column_name() const {
-    return m_max_rank_colname;
-  }
+  static std::vector<std::string>
+  column_names(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const Legion::PhysicalRegion& columns);
 
-  TableGenArgs
-  generator_args() const {
-    std::vector<ColumnGenArgs> col_genargs;
-    std::transform(
-      m_columns.begin(),
-      m_columns.end(),
-      std::back_inserter(col_genargs),
-      [](auto& nm_cp) { return std::get<1>(nm_cp)->generator_args(); });
-    return TableGenArgs(
-      name(),
-      axes_uid(),
-      index_axes(),
-      col_genargs, // TODO: std::move?
-      keywords_region(),
-      keyword_datatypes());
-  }
+  Column
+  column(Legion::Context ctx, Legion::Runtime* rt, const std::string& name)
+    const;
 
+  static Column
+  column(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const Legion::PhysicalRegion& columns,
+    const std::string& name);
+
+  Column
+  min_rank_column(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  static Column
+  min_rank_column(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const Legion::PhysicalRegion& columns);
+
+#ifndef NO_REINDEX
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
-  Legion::Future/* TableGenArgs */
+  Legion::Future/* Table */
   reindexed(const std::vector<D>& axes, bool allow_rows = true) const {
     assert(Axes<D>::uid == m_axes_uid);
     return ireindexed(Axes<D>::names, map_to_int(axes), allow_rows);
   }
 
-  Legion::Future/* TableGenArgs */
+  Legion::Future/* Table */
   reindexed(const std::vector<int>& axes, bool allow_rows = true) const {
     auto axs = AxesRegistrar::axes(axes_uid()).value();
     assert(
@@ -349,12 +296,21 @@ public:
         }));
     return ireindexed(axs.names, axes, allow_rows);
   }
+#endif // !NO_REINDEX
 
+  // the returned Futures contain a LogicalRegion with two fields: at
+  // IndexColumnTask::VALUE_FID, the column values (sorted in ascending order);
+  // and at IndexColumnTask::ROWS_FID, a sorted vector of DomainPoints in the
+  // original column. The LogicalRegions, along with their IndexSpaces and
+  // FieldSpaces, should eventually be reclaimed.
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
   std::unordered_map<D, Legion::Future>
-  index_by_value(const std::unordered_set<D>& axes) const {
-    assert(Axes<D>::uid == m_axes_uid);
-    auto ia = iindex_by_value(Axes<D>::names, map_to_int(axes));
+  index_by_value(
+    Legion::Context ctx,
+    Legion::Runtime *rt,
+    const std::unordered_set<D>& axes) const {
+    assert(Axes<D>::uid == axes_uid(ctx, rt));
+    auto ia = iindex_by_value(ctx, rt, Axes<D>::names, map_to_int(axes));
     std::unordered_map<D, Legion::Future> result =
       legms::map(
         ia,
@@ -365,9 +321,17 @@ public:
     return result;
   }
 
+  // the returned Futures contain a LogicalRegion with two fields: at
+  // IndexColumnTask::VALUE_FID, the column values (sorted in ascending order);
+  // and at IndexColumnTask::ROWS_FID, a sorted vector of DomainPoints in the
+  // original column. The LogicalRegions, along with their IndexSpaces and
+  // FieldSpaces, should eventually be reclaimed.
   std::unordered_map<int, Legion::Future>
-  index_by_value(const std::unordered_set<int>& axes) const {
-    auto axs = AxesRegistrar::axes(axes_uid()).value();
+  index_by_value(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::unordered_set<int>& axes) const {
+    auto axs = AxesRegistrar::axes(axes_uid(ctx, rt)).value();
     assert(
       std::all_of(
         axes.begin(),
@@ -375,28 +339,28 @@ public:
         [m=axs.names.size()](auto& a) {
           return 0 <= a && static_cast<unsigned>(a) < m;
         }));
-    return iindex_by_value(axs.names, axes);
+    return iindex_by_value(ctx, rt, axs.names, axes);
   }
 
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
-  std::unordered_map<std::string, Legion::Future /*IndexPartition*/>
+  std::unordered_map<std::string, Legion::Future /*ColumnPartition*/>
   partition_by_value(
     Legion::Context context,
     Legion::Runtime* runtime,
     const std::vector<D>& axes) const {
 
-    assert(Axes<D>::uid == m_axes_uid);
+    assert(Axes<D>::uid == axes_uid(context, runtime));
     return
       ipartition_by_value(context, runtime, Axes<D>::names, map_to_int(axes));
   }
 
-  std::unordered_map<std::string, Legion::Future /*IndexPartition*/>
+  std::unordered_map<std::string, Legion::Future /*ColumnPartition*/>
   partition_by_value(
     Legion::Context context,
     Legion::Runtime* runtime,
     const std::vector<int>& axes) const {
 
-    auto axs = AxesRegistrar::axes(axes_uid()).value();
+    auto axs = AxesRegistrar::axes(axes_uid(context, runtime)).value();
     assert(
       std::all_of(
         axes.begin(),
@@ -408,19 +372,13 @@ public:
   }
 
 #ifdef LEGMS_USE_CASACORE
-  static std::unique_ptr<Table>
+  static Table
   from_ms(
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::experimental::filesystem::path& path,
     const std::unordered_set<std::string>& column_selections);
 #endif // LEGMS_USE_CASACORE
-
-  Legion::Context
-  context() const { return m_context; }
-
-  Legion::Runtime*
-  runtime() const { return m_runtime; }
 
   static void
   register_tasks(Legion::Context context, Legion::Runtime* runtime);
@@ -430,71 +388,57 @@ public:
 
 protected:
 
-  Legion::Future/* TableGenArgs */
+  static Legion::LogicalRegion
+  create_metadata(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::string& name,
+    const std::string& axes_uid);
+
+  static Legion::LogicalRegion
+  create_axes(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<int>& index_axes);
+
+#ifndef NO_REINDEX
+  Legion::Future/* Table */
   ireindexed(
     const std::vector<std::string>& axis_names,
     const std::vector<int>& axes,
     bool allow_rows = true) const;
+#endif // !NO_REINDEX
 
+  // the returned Futures contain a LogicalRegion with two fields: at
+  // IndexColumnTask::VALUE_FID, the column values (sorted in ascending order);
+  // and at IndexColumnTask::ROWS_FID, a sorted vector of DomainPoints in the
+  // original column. The LogicalRegions, along with their IndexSpaces and
+  // FieldSpaces, should eventually be reclaimed.
   std::unordered_map<int, Legion::Future>
   iindex_by_value(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
     const std::vector<std::string>& axis_names,
     const std::unordered_set<int>& axes) const;
 
-  std::unordered_map<std::string, Legion::Future /*IndexPartition*/>
+  std::unordered_map<std::string, Legion::Future /*ColumnPartition*/>
   ipartition_by_value(
-    Legion::Context context,
-    Legion::Runtime* runtime,
+    Legion::Context ctx,
+    Legion::Runtime* rt,
     const std::vector<std::string>& axis_names,
     const std::vector<int>& axes) const;
-
-  void
-  set_min_max_rank() {
-    if (!m_columns.empty()) {
-      auto col0 = (*m_columns.begin()).second;
-      std::tie(std::ignore, m_min_rank_colname, m_max_rank_colname) =
-        std::accumulate(
-          m_columns.begin(),
-          m_columns.end(),
-          std::make_tuple(col0->rank(), col0->name(), col0->name()),
-          [](auto &acc, auto& nc) {
-            auto& [mrank, mincol, maxcol] = acc;
-            auto& [name, col] = nc;
-            if (col->rank() < mrank)
-              return std::make_tuple(col->rank(), name, maxcol);
-            if (col->rank() > mrank)
-              return std::make_tuple(col->rank(), mincol, name);
-            return acc;
-          });
-    }
-  }
-
-private:
-
-  std::string m_name;
-
-  std::string m_axes_uid;
-
-  std::vector<int> m_index_axes;
-
-  std::unordered_map<std::string, std::shared_ptr<Column>> m_columns;
-
-  std::optional<std::string> m_min_rank_colname;
-
-  std::optional<std::string> m_max_rank_colname;
 };
 
-class LEGMS_API IndexColumnTask {
+class LEGMS_API IndexColumnTask
+  : public Legion::TaskLauncher {
 public:
 
   static Legion::TaskID TASK_ID;
   static const char* TASK_NAME;
-  static constexpr Legion::FieldID value_fid = Column::value_fid;
-  static constexpr Legion::FieldID rows_fid = Column::value_fid + 10;
+  static constexpr Legion::FieldID VALUE_FID = Column::VALUE_FID;
+  static constexpr Legion::FieldID ROWS_FID = Column::VALUE_FID + 10;
 
-  IndexColumnTask(
-    const std::shared_ptr<Column>& column,
-    int axis);
+  IndexColumnTask(const Column& column);
 
   static void
   preregister_task();
@@ -502,7 +446,7 @@ public:
   Legion::Future
   dispatch(Legion::Context ctx, Legion::Runtime* runtime);
 
-  static ColumnGenArgs
+  static Legion::LogicalRegion
   base_impl(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
@@ -512,10 +456,9 @@ public:
 private:
 
   Legion::TaskLauncher m_launcher;
-
-  std::unique_ptr<char[]> m_args;
 };
 
+#ifndef NO_REINDEX
 class LEGMS_API ReindexColumnTask {
 public:
 
@@ -534,7 +477,7 @@ public:
   Legion::Future
   dispatch(Legion::Context ctx, Legion::Runtime* runtime);
 
-  static ColumnGenArgs
+  static Column
   base_impl(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
@@ -549,7 +492,7 @@ private:
     bool allow_rows;
     std::vector<int> index_axes;
     Legion::IndexPartition row_partition;
-    ColumnGenArgs col;
+    Column col;
 
     size_t
     serialized_size() const;
@@ -587,7 +530,7 @@ public:
   Legion::Future
   dispatch(Legion::Context ctx, Legion::Runtime* runtime);
 
-  static TableGenArgs
+  static Table
   base_impl(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
@@ -600,6 +543,7 @@ private:
 
   std::unique_ptr<char[]> m_args;
 };
+#endif // !NO_REINDEX
 
 template <>
 struct CObjectWrapper::UniqueWrapper<Table> {

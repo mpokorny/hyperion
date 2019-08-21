@@ -69,7 +69,7 @@ verify_scalar_column(
     casacore::Vector<DataType<TAG>::CasacoreType> ary =             \
       scol.getColumn();                                             \
     const RO<DataType<TAG>::ValueType, 1>                           \
-      col(regions[0], Column::value_fid);                           \
+      col(regions[0], Column::VALUE_FID);                           \
     PointInDomainIterator<1> pid(col_dom);                          \
     recorder.expect_true(                                           \
       std::string("verify values, column ") + targs->column,        \
@@ -153,7 +153,7 @@ verify_array_column(
     }                                                                   \
     {                                                                   \
       const RO<DataType<TAG>::ValueType, DIM>                           \
-        col(regions[0], Column::value_fid);                             \
+        col(regions[0], Column::VALUE_FID);                             \
       PointInDomainIterator<DIM> pid(col_dom, false);                   \
       recorder.assert_true(                                             \
         std::string("verify values, column ") + targs->column,          \
@@ -223,23 +223,19 @@ verify_column_task(
 void
 read_full_ms(
   testing::TestLog<READ_WRITE>& log,
-  Context context,
-  Runtime* runtime) {
+  Context ctx,
+  Runtime* rt) {
 
   testing::TestRecorder<READ_WRITE> recorder(log);
 
   static const std::string t0_path("data/t0.ms");
-  std::unique_ptr<const Table> table =
-    Table::from_ms(context, runtime, t0_path, {"*"});
+  Table table = Table::from_ms(ctx, rt, t0_path, {"*"});
   recorder.assert_true(
     "t0.ms MAIN table successfully read",
-    bool(table));
+    !table.is_empty(ctx, rt));
   recorder.expect_true(
     "main table name is 'MAIN'",
-    TE(table->name()) == "MAIN");
-  recorder.expect_true(
-    "main table is not empty",
-    TE(!table->is_empty()));
+    TE(table.name(ctx, rt)) == "MAIN");
 
   std::vector<std::string> expected_columns{
     "UVW",
@@ -268,12 +264,13 @@ read_full_ms(
   };
   recorder.assert_true(
     "table has expected columns",
-    TE(std::set<std::string>(
-         table->column_names().begin(),
-         table->column_names().end()) ==
-       std::set<std::string>(
-         expected_columns.begin(),
-         expected_columns.end())));
+    testing::TestEval(
+      [&table, &expected_columns, &ctx, rt]() {
+        auto colnames = table.column_names(ctx, rt);
+        return
+          std::set<std::string>(colnames.begin(), colnames.end()) ==
+          std::set<std::string>(expected_columns.begin(), expected_columns.end());
+      }));
 
   //
   // read MS table columns to initialize the Column LogicalRegions
@@ -281,31 +278,26 @@ read_full_ms(
   {
     TableReadTask table_read_task(
       t0_path,
-      table.get(),
+      table,
       expected_columns.begin(),
       expected_columns.end(),
       2000);
-    table_read_task.dispatch();
+    table_read_task.dispatch(ctx, rt);
   }
 
   // compare column LogicalRegions to values read using casacore functions
   // directly
   IndexSpace col_is(
-    runtime->create_index_space(
-      context,
-      Rect<1>(0, expected_columns.size() - 1)));
+    rt->create_index_space(ctx, Rect<1>(0, expected_columns.size() - 1)));
   auto remaining_log =
     log.get_log_references_by_state({testing::TestState::UNKNOWN})[0];
   IndexPartition col_log_ip =
-    runtime->create_equal_partition(
-      context,
+    rt->create_equal_partition(
+      ctx,
       remaining_log.log_region().get_index_space(),
       col_is);
   LogicalPartitionT<1> verify_col_logs(
-    runtime->get_logical_partition(
-      context,
-      remaining_log.log_region(),
-      col_log_ip));
+    rt->get_logical_partition(ctx, remaining_log.log_region(), col_log_ip));
   VerifyColumnTaskArgs args;
   std::strncpy(args.table, t0_path.c_str(), sizeof(args.table));
   args.table[sizeof(args.table) - 1] = '\0';
@@ -315,22 +307,18 @@ read_full_ms(
     VERIFY_COLUMN_TASK,
     TaskArgument(&args, sizeof(args)));
   for (size_t i = 0; i < expected_columns.size(); ++i) {
-    auto col = table->column(expected_columns[i]);
-    if (col->logical_region() != LogicalRegion::NO_REGION) {
-      args.tag = col->datatype();
-      std::strncpy(args.column, col->name().c_str(), sizeof(args.column));
+    auto col = table.column(ctx, rt, expected_columns[i]);
+    if (!col.is_empty()) {
+      args.tag = col.datatype(ctx, rt);
+      std::strncpy(args.column, col.name(ctx, rt).c_str(), sizeof(args.column));
       args.column[sizeof(args.column) - 1] = '\0';
       verify_task.region_requirements.clear();
       verify_task.add_region_requirement(
-        RegionRequirement(
-          col->logical_region(),
-          READ_ONLY,
-          EXCLUSIVE,
-          col->logical_region()));
-      verify_task.add_field(0, Column::value_fid);
+        RegionRequirement(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr));
+      verify_task.add_field(0, Column::VALUE_FID);
       auto log_reqs =
         remaining_log.requirements<READ_WRITE>(
-          runtime->get_logical_subregion_by_color(verify_col_logs, Point<1>(i)),
+          rt->get_logical_subregion_by_color(verify_col_logs, Point<1>(i)),
           log.log_reference().log_region());
       std::for_each(
         log_reqs.begin(),
@@ -338,12 +326,12 @@ read_full_ms(
         [&verify_task](auto& req) {
           verify_task.add_region_requirement(req);
         });
-      runtime->execute_task(context, verify_task);
+      rt->execute_task(ctx, verify_task);
     }
   }
-  runtime->destroy_logical_partition(context, verify_col_logs);
-  runtime->destroy_index_partition(context, col_log_ip);
-  runtime->destroy_index_space(context, col_is);
+  rt->destroy_logical_partition(ctx, verify_col_logs);
+  rt->destroy_index_partition(ctx, col_log_ip);
+  rt->destroy_index_space(ctx, col_is);
 }
 
 void

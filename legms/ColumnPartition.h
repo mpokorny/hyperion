@@ -14,18 +14,18 @@
 
 namespace legms {
 
-class ColumnPartition {
+class LEGMS_API ColumnPartition {
 public:
-  static const constexpr FieldID AXES_UID_FID = 0;
-  Legion::LogicalRegion axes_uid;
-  static const constexpr FieldID AXES_FID = 0;
-  Legion::LogicalRegion axes;
+  static const constexpr Legion::FieldID AXES_UID_FID = 0;
+  Legion::LogicalRegion axes_uid_lr;
+  static const constexpr Legion::FieldID AXES_FID = 0;
+  Legion::LogicalRegion axes_lr;
 
   Legion::IndexPartition index_partition;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxesUidAccessor =
-    FieldAccessor<
+    Legion::FieldAccessor<
     MODE,
     legms::string,
     1,
@@ -35,7 +35,7 @@ public:
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxesAccessor =
-    FieldAccessor<
+    Legion::FieldAccessor<
     MODE,
     int,
     1,
@@ -58,11 +58,11 @@ public:
 
   static ColumnPartition
   create(
-    Context ctx,
-    Runtime* rt,
+    Legion::Context ctx,
+    Legion::Runtime* rt,
     const std::string& axes_uid,
     const std::vector<int>& axes,
-    IndexSpace is,
+    Legion::IndexSpace is,
     const std::vector<AxisPartition>& parts);
 
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
@@ -77,7 +77,10 @@ public:
   }
 
   void
-  destroy(Legion::Context ctx, Legion::Runtime* rt);
+  destroy(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    bool destroy_color_space=false);
 
   std::string
   axes_uid(Legion::Context ctx, Legion::Runtime* rt) const;

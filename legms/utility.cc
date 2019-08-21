@@ -345,7 +345,7 @@ legms::projected_index_partition(
 #undef PIP
   default:
     assert(false);
-    return IndexSpace::NO_SPACE;
+    return IndexPartition::NO_PART;
   }
 }
 
