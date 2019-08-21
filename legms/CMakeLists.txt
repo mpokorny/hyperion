@@ -105,6 +105,8 @@ list(APPEND LEGMS_SRC
   Column_c.cc
   Column_c.h
   ColumnBuilder.h
+  ColumnPartition.h
+  ColumnPartition.cc
   ColumnPartition_c.cc
   ColumnPartition_c.h
   c_util.h
