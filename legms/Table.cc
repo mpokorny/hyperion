@@ -154,7 +154,7 @@ void
 Table::destroy(Context ctx, Runtime* rt, bool destroy_columns) {
 
   if (destroy_columns && columns_lr != LogicalRegion::NO_REGION) {
-    RegionRequirement req(columns_lr, READ_ONLY, EXCLUSIVE, columns_lr);
+    RegionRequirement req(columns_lr, READ_WRITE, EXCLUSIVE, columns_lr);
     req.add_field(COLUMNS_FID);
     PhysicalRegion pr = rt->map_region(ctx, req);
     const ColumnsAccessor<READ_WRITE> cols(pr, COLUMNS_FID);

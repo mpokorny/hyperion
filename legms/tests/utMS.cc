@@ -344,6 +344,7 @@ read_full_ms(
   rt->destroy_logical_partition(ctx, verify_col_logs);
   rt->destroy_index_partition(ctx, col_log_ip);
   rt->destroy_index_space(ctx, col_is);
+  table.destroy(ctx, rt);
 }
 
 void
