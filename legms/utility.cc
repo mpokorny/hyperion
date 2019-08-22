@@ -482,10 +482,10 @@ legms::H5DatatypeManager::preregister_datatypes() {
     datatypes_[STRING_H5T] = dt;
   }
   {
-    hid_t dt = H5Tenum_create(H5T_NATIVE_INT);
+    hid_t dt = H5Tenum_create(H5T_NATIVE_UINT);
 
 #define DTINSERT(T) do {                          \
-      unsigned char val = LEGMS_TYPE_##T;         \
+      unsigned val = LEGMS_TYPE_##T;              \
       herr_t err = H5Tenum_insert(dt, #T, &val);  \
       assert(err >= 0);                           \
     } while(0);
