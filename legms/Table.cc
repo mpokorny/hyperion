@@ -1137,8 +1137,8 @@ public:
     case (SRCDIM * LEGION_MAX_DIM + DSTDIM): {          \
       const SA<DT,SRCDIM> from(src, Column::VALUE_FID); \
       const DA<DT,DSTDIM> to(dst, Column::VALUE_FID);   \
-      DomainT<SRCDIM> src_bounds(src);                  \
-      DomainT<DSTDIM> dst_bounds(dst);                  \
+      DomainT<SRCDIM,coord_t> src_bounds(src);          \
+      DomainT<DSTDIM,coord_t> dst_bounds(dst);          \
       PointInDomainIterator<SRCDIM> s(src_bounds);      \
       PointInDomainIterator<DSTDIM> d(dst_bounds);      \
       while (s()) {                                     \

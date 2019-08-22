@@ -329,7 +329,7 @@ reindexed_test_suite(
             AffineAccessor<unsigned, 2, coord_t>, true>
             z(pr, Column::value_fid);
           bool result = true;
-          DomainT<2> dom(pr);
+          DomainT<2,coord_t> dom(pr);
           for (PointInDomainIterator<2> pid(dom); pid(); pid++)
             result = result &&
               z[*pid] == table0_z[pid[0] * TABLE0_NUM_Y + pid[1]];

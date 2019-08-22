@@ -202,7 +202,7 @@ reindex_column_task_test_suite(
       req(cz->logical_region(), READ_ONLY, EXCLUSIVE, cz->logical_region());
     req.add_field(Column::value_fid);
     PhysicalRegion pr = runtime->map_region(context, req);
-    DomainT<2> d(pr);
+    DomainT<2,coord_t> d(pr);
     const FieldAccessor<
       READ_ONLY, unsigned, 2, coord_t,
       AffineAccessor<unsigned, 2, coord_t>, false> z(pr, Column::value_fid);
