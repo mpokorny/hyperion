@@ -15,7 +15,7 @@
 #pragma GCC visibility pop
 
 #include "legms.h"
-#include "WithKeywordsBuilder.h"
+#include "KeywordsBuilder.h"
 #include "ColumnBuilder.h"
 #include "Column.h"
 #include "Table.h"
@@ -32,7 +32,7 @@ namespace legms {
 
 template <MSTables D>
 class TableBuilderT
-  : public WithKeywordsBuilder {
+  : public KeywordsBuilder {
 
   friend class Table;
 
@@ -41,7 +41,7 @@ public:
   typedef typename MSTable<D>::Axes Axes;
 
   TableBuilderT(const std::string& name)
-    : WithKeywordsBuilder()
+    : KeywordsBuilder()
     , m_name(name)
     , m_num_rows(0) {
   }

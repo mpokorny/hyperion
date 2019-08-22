@@ -15,7 +15,7 @@
 
 #include "legms.h"
 #include "utility.h"
-#include "WithKeywordsBuilder.h"
+#include "KeywordsBuilder.h"
 #include "IndexTree.h"
 #include "Column.h"
 #include "MSTable.h"
@@ -24,7 +24,7 @@ namespace legms {
 
 template <MSTables D>
 class ColumnBuilder
-  : public WithKeywordsBuilder {
+  : public KeywordsBuilder {
 public:
 
   typedef typename MSTable<D>::Axes Axes;
@@ -33,7 +33,7 @@ public:
     const std::string& name,
     TypeTag datatype,
     const std::vector<Axes>& axes)
-    : WithKeywordsBuilder()
+    : KeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
     , m_axes(axes)

@@ -120,7 +120,7 @@ list(APPEND LEGMS_SRC
   Table.h
   Table_c.cc
   Table_c.h
-  WithKeywordsBuilder.h)
+  KeywordsBuilder.h)
 
 if(USE_CASACORE)
   list(APPEND LEGMS_SRC

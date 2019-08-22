@@ -1,5 +1,5 @@
-#ifndef LEGMS_WITH_KEYWORDS_BUILDER_H_
-#define LEGMS_WITH_KEYWORDS_BUILDER_H_
+#ifndef LEGMS_KEYWORDS_BUILDER_H_
+#define LEGMS_KEYWORDS_BUILDER_H_
 
 #pragma GCC visibility push(default)
 #include <string>
@@ -12,10 +12,10 @@
 
 namespace legms {
 
-class LEGMS_API WithKeywordsBuilder {
+class LEGMS_API KeywordsBuilder {
 public:
 
-  WithKeywordsBuilder() {}
+  KeywordsBuilder() {}
 
   void
   add_keyword(const std::string& name, TypeTag datatype) {
@@ -35,7 +35,7 @@ private:
 
 } // end namespace legms
 
-#endif // LEGMS_WITH_KEYWORDS_BUILDER_H_
+#endif // LEGMS_KEYWORDS_BUILDER_H_
 
 // Local Variables:
 // mode: c++
