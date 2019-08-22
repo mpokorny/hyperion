@@ -339,10 +339,9 @@ legms::hdf5::write_column(
   // create column dataset
   hid_t col_id;
   {
-    hsize_t dims[column.rank()];
-
-
-    switch (column.rank()) {
+    unsigned rank = column.rank(rt);
+    hsize_t dims[rank];
+    switch (rank) {
 #define DIMS(N)                                 \
       case N: {                                 \
         Rect<N> rect =                          \
@@ -361,7 +360,7 @@ legms::hdf5::write_column(
       break;
     }
 
-    hid_t ds = H5Screate_simple(column.rank(), dims, NULL);
+    hid_t ds = H5Screate_simple(rank, dims, NULL);
     assert(ds >= 0);
 
     hid_t dt;

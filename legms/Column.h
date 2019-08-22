@@ -153,7 +153,7 @@ public:
   axes(Legion::Context ctx, Legion::Runtime* rt) const;
 
   unsigned
-  rank() const;
+  rank(Legion::Runtime* rt) const;
 
   bool
   is_empty() const;

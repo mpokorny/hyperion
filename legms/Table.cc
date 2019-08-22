@@ -269,8 +269,11 @@ Table::min_rank_column(
     rt->get_index_space_domain(columns.get_logical_region().get_index_space());
   for (PointInDomainIterator<1> pid(dom); pid(); pid++) {
     auto c = cols[*pid];
-    if (c.rank() < min_rank)
+    auto rank = c.rank(rt);
+    if (rank < min_rank) {
       result = c;
+      min_rank = rank;
+    }
   }
   return result;
 }

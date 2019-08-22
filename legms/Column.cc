@@ -181,8 +181,10 @@ Column::axes(Context ctx, Runtime* rt) const {
 }
 
 unsigned
-Column::rank() const {
-  return values_lr.get_index_space().get_dim();
+Column::rank(Legion::Runtime* rt) const {
+  IndexSpaceT<1> is(axes_lr.get_index_space());
+  DomainT<1> dom = rt->get_index_space_domain(is);
+  return Domain(dom).hi()[0] + 1;
 }
 
 bool
