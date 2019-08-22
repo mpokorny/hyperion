@@ -54,7 +54,6 @@ public:
   template <typename T>
   void
   add_scalar_column(const std::string& name) {
-
     add_column(ScalarColumnBuilder<D>::template generator<T>(name)());
   }
 
@@ -64,7 +63,6 @@ public:
     const std::string& name,
     const std::vector<Axes>& element_axes,
     std::function<std::array<size_t, DIM>(const std::any&)> element_shape) {
-
     std::vector<Axes> axes {MSTable<D>::ROW_AXIS};
     std::copy(
       element_axes.begin(),

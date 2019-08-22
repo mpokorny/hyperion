@@ -71,7 +71,7 @@ Column::create(
     }
   }
   LogicalRegion axs;
-  {
+  if (axes.size() > 0) {
     Rect<1> rect(0, axes.size() - 1);
     IndexSpace is = rt->create_index_space(ctx, rect);
     FieldSpace fs = rt->create_field_space(ctx);
@@ -89,7 +89,7 @@ Column::create(
     }
   }
   LogicalRegion values;
-  if (index_tree.size() > 0) {
+  if (index_tree.rank().value() == axes.size()) {
     IndexSpace is = tree_index_space(index_tree, ctx, rt);
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
@@ -101,18 +101,17 @@ Column::create(
 
 void
 Column::destroy(Context ctx, Runtime* rt) {
-  if (metadata_lr != LogicalRegion::NO_REGION) {
-    assert(axes_lr != LogicalRegion::NO_REGION);
-    assert(values_lr != LogicalRegion::NO_REGION);
-    std::vector<LogicalRegion*> lrs{&metadata_lr, &axes_lr, &values_lr};
-    for (auto lr : lrs)
+  std::vector<LogicalRegion*> lrs{&metadata_lr, &axes_lr, &values_lr};
+  for (auto lr : lrs)
+    if (*lr != LogicalRegion::NO_REGION)
       rt->destroy_field_space(ctx, lr->get_field_space());
-    for (auto lr : lrs)
+  for (auto lr : lrs)
+    if (*lr != LogicalRegion::NO_REGION)
       rt->destroy_index_space(ctx, lr->get_index_space());
-    for (auto lr : lrs) {
+  for (auto lr : lrs) {
+    if (*lr != LogicalRegion::NO_REGION)
       rt->destroy_logical_region(ctx, *lr);
-      *lr = LogicalRegion::NO_REGION;
-    }
+    *lr = LogicalRegion::NO_REGION;
   }
   keywords.destroy(ctx, rt);
 }

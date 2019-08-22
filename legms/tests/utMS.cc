@@ -47,15 +47,15 @@ verify_scalar_column(
   Runtime* runtime) {
 
   testing::TestLog<READ_WRITE> log(
+    task->regions[0].region,
+    regions[0],
     task->regions[1].region,
     regions[1],
-    task->regions[2].region,
-    regions[2],
     context,
     runtime);
   testing::TestRecorder<READ_WRITE> recorder(log);
 
-  DomainT<1> col_dom(regions[0].get_bounds<1,coord_t>());
+  DomainT<1> col_dom(regions[2].get_bounds<1,coord_t>());
 
 #define CMP(TAG)                                                    \
   case (TAG): {                                                     \
@@ -69,7 +69,7 @@ verify_scalar_column(
     casacore::Vector<DataType<TAG>::CasacoreType> ary =             \
       scol.getColumn();                                             \
     const RO<DataType<TAG>::ValueType, 1>                           \
-      col(regions[0], Column::VALUE_FID);                           \
+      col(regions[2], Column::VALUE_FID);                           \
     PointInDomainIterator<1> pid(col_dom);                          \
     recorder.expect_true(                                           \
       std::string("verify values, column ") + targs->column,        \
@@ -103,91 +103,103 @@ verify_array_column(
   Runtime* runtime) {
 
   testing::TestLog<READ_WRITE> log(
+    task->regions[0].region,
+    regions[0],
     task->regions[1].region,
     regions[1],
-    task->regions[2].region,
-    regions[2],
     context,
     runtime);
   testing::TestRecorder<READ_WRITE> recorder(log);
 
-  DomainT<DIM> col_dom(regions[0].get_bounds<DIM,coord_t>());
-
-#define CMP(TAG)                                                        \
-  case (TAG): {                                                         \
-    auto acol =                                                         \
-      casacore::ArrayColumn<DataType<TAG>::CasacoreType>(               \
-        tb,                                                             \
-        casacore::String(targs->column));                               \
-    recorder.assert_true(                                               \
-      std::string("verify rank, column ") + targs->column,              \
-      TE(acol.ndim(0)) == DIM - 1);                                     \
-    recorder.assert_true(                                               \
-      std::string("verify nrows, column ") + targs->column,             \
-      TE(Domain(col_dom).hi()[0]) == acol.nrow() - 1);                  \
-    {                                                                   \
-      PointInDomainIterator<DIM> pid(col_dom, false);                   \
-      recorder.assert_true(                                             \
-        std::string("verify bounds, column ") + targs->column,          \
-        testing::TestEval(                                              \
-          [&pid, &acol]() {                                             \
-            bool result = true;                                         \
-            while (result && pid()) {                                   \
-              auto last_p = *pid;                                       \
-              while (result && pid()) {                                 \
-                pid++;                                                  \
-                if (!pid() || pid[0] != last_p[0]) {                    \
-                  casacore::IPosition shp(acol.shape(last_p[0]));       \
-                  Point<DIM> cpt;                                       \
-                  cpt[0] = last_p[0];                                   \
-                  for (size_t i = 0; i < DIM - 1; ++i)                  \
-                    cpt[i + 1] = shp[DIM - 2 - i] - 1;                  \
-                  result = cpt == last_p;                               \
-                }                                                       \
-                if (pid())                                              \
-                  last_p = *pid;                                        \
-              }                                                         \
-            }                                                           \
-            return result;                                              \
-          }));                                                          \
-    }                                                                   \
-    {                                                                   \
-      const RO<DataType<TAG>::ValueType, DIM>                           \
-        col(regions[0], Column::VALUE_FID);                             \
-      PointInDomainIterator<DIM> pid(col_dom, false);                   \
-      recorder.assert_true(                                             \
-        std::string("verify values, column ") + targs->column,          \
-        testing::TestEval(                                              \
-          [&pid, &acol, &col]() {                                       \
-            bool result = true;                                         \
-            casacore::Array<DataType<TAG>::CasacoreType> ary;           \
-            casacore::IPosition ipos(DIM - 1);                          \
-            while (result && pid()) {                                   \
-              auto row = pid[0];                                        \
-              acol.get(row, ary, true);                                 \
-              while (result && pid()) {                                 \
-                for (size_t i = 0; i < DIM - 1; ++i)                    \
-                  ipos[DIM - 2 - i] = pid[i + 1];                       \
-                DataType<TAG>::ValueType a;                             \
-                DataType<TAG>::from_casacore(a, ary(ipos));             \
-                result = DataType<TAG>::equiv(a, col[*pid]);            \
-                pid++;                                                  \
-                if (pid() && pid[0] != row) {                           \
-                  row = pid[0];                                         \
-                  acol.get(row, ary, true);                             \
-                }                                                       \
-              }                                                         \
-            }                                                           \
-            return result;                                              \
-          }));                                                          \
-    }                                                                   \
-    break;                                                              \
-}
-
-  switch (targs->tag) {
-    LEGMS_FOREACH_DATATYPE(CMP);
-  }
+  if (regions.size() > 2) {
+    DomainT<DIM> col_dom(regions[2].get_bounds<DIM,coord_t>());
+    switch (targs->tag) {
+#define CMP(TAG)                                                      \
+      case (TAG): {                                                   \
+        auto acol =                                                   \
+          casacore::ArrayColumn<DataType<TAG>::CasacoreType>(         \
+            tb,                                                       \
+            casacore::String(targs->column));                         \
+        recorder.assert_true(                                         \
+          std::string("verify rank, column ") + targs->column,        \
+          TE(acol.ndim(0)) == DIM - 1);                               \
+        recorder.assert_true(                                         \
+          std::string("verify nrows, column ") + targs->column,       \
+          TE(Domain(col_dom).hi()[0]) == acol.nrow() - 1);            \
+        {                                                             \
+          PointInDomainIterator<DIM> pid(col_dom, false);             \
+          recorder.assert_true(                                       \
+            std::string("verify bounds, column ") + targs->column,    \
+            testing::TestEval(                                        \
+              [&pid, &acol]() {                                       \
+                bool result = true;                                   \
+                while (result && pid()) {                             \
+                  auto last_p = *pid;                                 \
+                  while (result && pid()) {                           \
+                    pid++;                                            \
+                    if (!pid() || pid[0] != last_p[0]) {              \
+                      casacore::IPosition shp(acol.shape(last_p[0])); \
+                      Point<DIM> cpt;                                 \
+                      cpt[0] = last_p[0];                             \
+                      for (size_t i = 0; i < DIM - 1; ++i)            \
+                        cpt[i + 1] = shp[DIM - 2 - i] - 1;            \
+                      result = cpt == last_p;                         \
+                    }                                                 \
+                    if (pid())                                        \
+                      last_p = *pid;                                  \
+                  }                                                   \
+                }                                                     \
+                return result;                                        \
+              }));                                                    \
+        }                                                             \
+        {                                                             \
+          const RO<DataType<TAG>::ValueType, DIM>                     \
+            col(regions[2], Column::VALUE_FID);                       \
+          PointInDomainIterator<DIM> pid(col_dom, false);             \
+          recorder.assert_true(                                       \
+            std::string("verify values, column ") + targs->column,    \
+            testing::TestEval(                                        \
+              [&pid, &acol, &col]() {                                 \
+                bool result = true;                                   \
+                casacore::Array<DataType<TAG>::CasacoreType> ary;     \
+                casacore::IPosition ipos(DIM - 1);                    \
+                while (result && pid()) {                             \
+                  auto row = pid[0];                                  \
+                  acol.get(row, ary, true);                           \
+                  while (result && pid()) {                           \
+                    for (size_t i = 0; i < DIM - 1; ++i)              \
+                      ipos[DIM - 2 - i] = pid[i + 1];                 \
+                    DataType<TAG>::ValueType a;                       \
+                    DataType<TAG>::from_casacore(a, ary(ipos));       \
+                    result = DataType<TAG>::equiv(a, col[*pid]);      \
+                    pid++;                                            \
+                    if (pid() && pid[0] != row) {                     \
+                      row = pid[0];                                   \
+                      acol.get(row, ary, true);                       \
+                    }                                                 \
+                  }                                                   \
+                }                                                     \
+                return result;                                        \
+              }));                                                    \
+        }                                                             \
+        break;                                                        \
+      }
+      LEGMS_FOREACH_DATATYPE(CMP);
 #undef CMP
+    }
+  } else {
+    auto tcol =
+      casacore::TableColumn(tb, casacore::String(targs->column));
+    recorder.expect_true(
+      std::string("verify empty, column ") + targs->column,
+      testing::TestEval(
+        [&tcol]() {
+          bool result = true;
+          for (unsigned i = 0; result && i < tcol.nrow(); ++i)
+            result = !tcol.isDefined(i);
+          return result;
+        }));
+  }
 }
 
 void
@@ -240,7 +252,7 @@ read_full_ms(
   std::vector<std::string> expected_columns{
     "UVW",
     "FLAG",
-    //"FLAG_CATEGORY",
+    "FLAG_CATEGORY",
     "WEIGHT",
     "SIGMA",
     "ANTENNA1",
@@ -260,7 +272,7 @@ read_full_ms(
     "TIME",
     "TIME_CENTROID",
     "DATA",
-    //"WEIGHT_SPECTRUM"
+    "WEIGHT_SPECTRUM"
   };
   recorder.assert_true(
     "table has expected columns",
@@ -308,26 +320,26 @@ read_full_ms(
     TaskArgument(&args, sizeof(args)));
   for (size_t i = 0; i < expected_columns.size(); ++i) {
     auto col = table.column(ctx, rt, expected_columns[i]);
+    args.tag = col.datatype(ctx, rt);
+    std::strncpy(args.column, col.name(ctx, rt).c_str(), sizeof(args.column));
+    args.column[sizeof(args.column) - 1] = '\0';
+    verify_task.region_requirements.clear();
+    auto log_reqs =
+      remaining_log.requirements<READ_WRITE>(
+        rt->get_logical_subregion_by_color(verify_col_logs, Point<1>(i)),
+        log.log_reference().log_region());
+    std::for_each(
+      log_reqs.begin(),
+      log_reqs.end(),
+      [&verify_task](auto& req) {
+        verify_task.add_region_requirement(req);
+      });
     if (!col.is_empty()) {
-      args.tag = col.datatype(ctx, rt);
-      std::strncpy(args.column, col.name(ctx, rt).c_str(), sizeof(args.column));
-      args.column[sizeof(args.column) - 1] = '\0';
-      verify_task.region_requirements.clear();
-      verify_task.add_region_requirement(
-        RegionRequirement(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr));
-      verify_task.add_field(0, Column::VALUE_FID);
-      auto log_reqs =
-        remaining_log.requirements<READ_WRITE>(
-          rt->get_logical_subregion_by_color(verify_col_logs, Point<1>(i)),
-          log.log_reference().log_region());
-      std::for_each(
-        log_reqs.begin(),
-        log_reqs.end(),
-        [&verify_task](auto& req) {
-          verify_task.add_region_requirement(req);
-        });
-      rt->execute_task(ctx, verify_task);
+      RegionRequirement req(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
+      req.add_field(Column::VALUE_FID);
+      verify_task.add_region_requirement(req);
     }
+    rt->execute_task(ctx, verify_task);
   }
   rt->destroy_logical_partition(ctx, verify_col_logs);
   rt->destroy_index_partition(ctx, col_log_ip);

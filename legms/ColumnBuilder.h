@@ -86,12 +86,18 @@ public:
   Column
   column(Legion::Context ctx, Legion::Runtime* rt) const {
     IndexTreeL itree;
-    std::vector<Axes> ax;
-    if (index_tree().rank().value() == axes().size()) {
+    auto itrank = index_tree().rank();
+    if (itrank && itrank.value() == rank())
       itree = index_tree();
-      ax = axes();
-    }
-    return Column::create(ctx, rt, name(), ax, datatype(), itree, keywords());
+    return
+      Column::create(
+        ctx,
+        rt,
+        name(),
+        axes(),
+        datatype(),
+        itree,
+        keywords());
   }
 
 protected:
