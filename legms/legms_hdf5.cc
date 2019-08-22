@@ -810,6 +810,10 @@ legms::hdf5::init_column(
             attr_access_pl,
             xfer_pl);
         assert(ixtree);
+        auto itrank = ixtree.value().rank();
+        IndexTreeL it;
+        if (itrank && itrank.value() == axes.size())
+          it = ixtree.value();
         result =
           Column::create(
             ctx,
@@ -818,7 +822,7 @@ legms::hdf5::init_column(
             axes_uid,
             axes,
             datatype,
-            ixtree.value(),
+            it,
             keywords);
       }
     }
@@ -1225,7 +1229,8 @@ legms::hdf5::attach_table_columns(
       std::tuple<std::optional<PhysicalRegion>, std::optional<PhysicalRegion>>
         regions;
       if (!col.is_empty()) {
-        AttachLauncher col_attach(EXTERNAL_HDF5_FILE, col.values_lr, col.values_lr);
+        AttachLauncher
+          col_attach(EXTERNAL_HDF5_FILE, col.values_lr, col.values_lr);
         col_attach.mapped = mapped;
         std::string col_path = table_root + colname + "/" + LEGMS_COLUMN_DS;
         std::map<FieldID, const char*>
