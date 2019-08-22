@@ -9,64 +9,83 @@
 #include "legion/legion_c_util.h"
 
 using namespace legms;
-// need the following for column_partition_t...should remove that requirement
 using namespace legms::CObjectWrapper;
 
-// static std::unique_ptr<Column>
-// to_column(
-//   legion_context_t context,
-//   legion_runtime_t runtime,
-//   const column_t& col) {
+const Legion::FieldID metadata_fs[3] =
+  {Column::METADATA_NAME_FID,
+   Column::METADATA_AXES_UID_FID,
+   Column::METADATA_DATATYPE_FID};
+const Legion::FieldID axes_fs[1] = {Column::AXES_FID};
+const Legion::FieldID values_fs[1] = {Column::VALUE_FID};
 
-//   return
-//     ColumnGenArgs(col)(
-//       Legion::CObjectWrapper::unwrap(context)->context(),
-//       Legion::CObjectWrapper::unwrap(runtime));
-// }
+const legion_field_id_t*
+column_metadata_fs() {
+  return metadata_fs;
+}
 
-// legion_logical_region_t
-// column_values_region(const column_t* column) {
-//   return Legion::CObjectWrapper::wrap(
-//     Legion::CObjectWrapper::unwrap(column->values));
-// }
+const legion_field_id_t*
+column_axes_fs() {
+  return axes_fs;
+}
 
-// legion_index_space_t
-// column_index_space(const column_t* column) {
-//   return Legion::CObjectWrapper::wrap(
-//     Legion::CObjectWrapper::unwrap(column->values).get_index_space());
-// }
+// values field types: [metadata[0][2]]
+const legion_field_id_t*
+column_values_fs() {
+  return values_fs;
+}
 
-// column_partition_t
-// column_partition_on_axes(
-//   legion_context_t context,
-//   legion_runtime_t runtime,
-//   const column_t* column,
-//   unsigned num_axes,
-//   const int* axes) {
+unsigned
+column_rank(legion_runtime_t rt, column_t col) {
+  return unwrap(col).rank(Legion::CObjectWrapper::unwrap(rt));
+}
 
-//   std::vector<int> ax(num_axes);
-//   std::memcpy(ax.data(), axes, num_axes * sizeof(int));
+int
+column_is_empty(column_t col) {
+  return unwrap(col).is_empty();
+}
 
-//   return wrap(to_column(context, runtime, *column)->partition_on_axes(ax));
-// }
+column_partition_t
+column_partition_on_axes(
+  legion_context_t ctx,
+  legion_runtime_t rt,
+  column_t col,
+  unsigned num_axes,
+  const int* axes) {
 
-// column_partition_t
-// column_projected_column_partition(
-//   legion_context_t context,
-//   legion_runtime_t runtime,
-//   const column_t* column,
-//   column_partition_t column_partition) {
+  std::vector<int> ax;
+  ax.reserve(num_axes);
+  std::copy(axes, axes + num_axes, std::back_inserter(ax));
 
-//   return
-//     wrap(
-//       to_column(context, runtime, *column)
-//       ->projected_column_partition(unwrap(column_partition)));
-// }
+  return
+    wrap(
+      unwrap(col)
+      .partition_on_axes(
+        Legion::CObjectWrapper::unwrap(ctx)->context(),
+        Legion::CObjectWrapper::unwrap(rt),
+        ax));
+}
 
-// legion_field_id_t
-// column_value_fid() {
-//   return Column::value_fid;
-// }
+column_partition_t
+column_projected_column_partition(
+  legion_context_t ctx,
+  legion_runtime_t rt,
+  column_t col,
+  column_partition_t cp) {
+  return
+    wrap(
+      unwrap(col)
+      .projected_column_partition(
+        Legion::CObjectWrapper::unwrap(ctx)->context(),
+        Legion::CObjectWrapper::unwrap(rt),
+        unwrap(cp)));
+}
+
+void
+column_destroy(legion_context_t ctx, legion_runtime_t rt, column_t col) {
+  unwrap(col).destroy(
+    Legion::CObjectWrapper::unwrap(ctx)->context(),
+    Legion::CObjectWrapper::unwrap(rt));
+}
 
 // Local Variables:
 // mode: c++

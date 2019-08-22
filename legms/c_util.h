@@ -6,86 +6,34 @@
 #ifdef __cplusplus
 #pragma GCC visibility push(default)
 #include <memory>
+#include "legion/legion_c_util.h"
 #pragma GCC visibility pop
 
 namespace legms {
 namespace CObjectWrapper {
 
-template <typename Wrapper>
-struct UniqueWrapped {
-  // typedef type_t;
-  // typedef std::unique_ptr<type_t> impl_t;
-};
-
-template <typename Wrapper>
-struct SharedWrapped {
-  // typedef type_t;
-  // typedef std::shared_ptr<type_t> impl_t;
+template <typename Unwrapped>
+struct Wrapper {
+  // typedef ... t
+  // static t wrap(const Unwrapped&);
 };
 
 template <typename Wrapped>
-struct UniqueWrapper {
-  // typedef type_t;
+struct Unwrapper {
+  // typedef ... t
+  // static t unwrap(const Wrapper&)
 };
 
-template <typename Wrapped>
-struct SharedWrapper {
-  // typedef type_t
-};
-
-template <typename Wrapped>
-static typename UniqueWrapper<Wrapped>::type_t
-wrap(std::unique_ptr<Wrapped>&& wrapped) {
-  typename UniqueWrapper<Wrapped>::type_t result;
-  std::unique_ptr<Wrapped>* impl =
-    new std::unique_ptr<Wrapped>(std::move(wrapped));
-  result.impl = impl;
-  return result;
-};
-
-template <typename Wrapper>
-static typename UniqueWrapped<Wrapper>::type_t*
-unwrap(Wrapper wrapper) {
-  return
-    (static_cast<std::unique_ptr<typename UniqueWrapped<Wrapper>::type_t>*>(
-      wrapper.impl))->get();
-}
-
-template <
-  typename Wrapper,
-  typename Impl = typename UniqueWrapped<Wrapper>::impl_t>
-static void
-destroy(Wrapper& wrapper) {
-  Impl* impl = static_cast<Impl *>(wrapper.impl);
-  delete impl;
+template <typename Unwrapped>
+static typename Wrapper<Unwrapped>::t
+wrap(const Unwrapped& u) {
+  return Wrapper<Unwrapped>::wrap(u);
 }
 
 template <typename Wrapped>
-static typename SharedWrapper<Wrapped>::type_t
-wrap(std::shared_ptr<Wrapped>&& wrapped) {
-  typename SharedWrapper<Wrapped>::type_t result;
-  std::shared_ptr<Wrapped>* impl =
-    new std::shared_ptr<Wrapped>(
-      std::forward<std::shared_ptr<Wrapped>>(wrapped));
-  result.impl = impl;
-  return result;
-};
-
-template <typename Wrapper>
-static std::shared_ptr<typename SharedWrapped<Wrapper>::type_t>&
-unwrap(Wrapper wrapper) {
-  return
-    *(static_cast<std::shared_ptr<typename SharedWrapped<Wrapper>::type_t>*>(
-        wrapper.impl));
-}
-
-template <
-  typename Wrapper,
-  typename Impl = typename SharedWrapped<Wrapper>::impl_t>
-static void
-destroy(Wrapper wrapper) {
-  Impl* impl = static_cast<Impl *>(wrapper.impl);
-  delete impl;
+static typename Unwrapper<Wrapped>::t
+unwrap(const Wrapped& w) {
+  return Unwrapper<Wrapped>::unwrap(w);
 }
 
 }

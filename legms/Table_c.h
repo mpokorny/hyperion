@@ -12,15 +12,37 @@ typedef struct LEGMS_API table_t {
   legion_logical_region_t metadata;
   legion_logical_region_t axes;
   legion_logical_region_t columns;
-  legion_logical_region_t keywords_type_tags;
-  legion_logical_region_t keywords_values;
+  legion_logical_region_t keyword_type_tags;
+  legion_logical_region_t keyword_values;
 } table_t;
 
-/* LEGMS_API int */
-/* table_has_column(const table_t* table, const char* name); */
+/* metadata field types: [char*, char*] */
+LEGMS_API const legion_field_id_t*
+table_metadata_fs();
 
-/* LEGMS_API const column_t* */
-/* table_column(const table_t* table, const char* name); */
+/* axes field types: [int] */
+LEGMS_API const legion_field_id_t*
+table_axes_fs();
+
+LEGMS_API int
+table_is_empty(legion_context_t ctx, legion_runtime_t rt, table_t t);
+
+LEGMS_API char**
+table_column_names(legion_context_t ctx, legion_runtime_t rt, table_t tab);
+
+LEGMS_API column_t
+table_column(
+  legion_context_t ctx,
+  legion_runtime_t rt,
+  table_t tab,
+  const char* name);
+
+LEGMS_API void
+table_destroy(
+  legion_context_t ctx,
+  legion_runtime_t rt,
+  table_t tab,
+  int destroy_columns);
 
 /* LEGMS_API table_t */
 /* table_reindexed( */

@@ -16,6 +16,82 @@
 #pragma GCC visibility pop
 
 using namespace legms;
+using namespace legms::CObjectWrapper;
+
+const Legion::FieldID metadata_fs[2] =
+  {Table::METADATA_NAME_FID, Table::METADATA_AXES_UID_FID};
+const Legion::FieldID axes_fs[1] = {Table::AXES_FID};
+
+/* metadata field types: [char*, char*] */
+const legion_field_id_t*
+table_metadata_fs() {
+  return metadata_fs;
+}
+
+/* axes field types: [int] */
+const legion_field_id_t*
+table_axes_fs() {
+  return axes_fs;
+}
+
+int
+table_is_empty(legion_context_t ctx, legion_runtime_t rt, table_t tab) {
+  return
+    unwrap(tab)
+    .is_empty(
+      Legion::CObjectWrapper::unwrap(ctx)->context(),
+      Legion::CObjectWrapper::unwrap(rt));
+}
+
+LEGMS_API char**
+table_column_names(
+  legion_context_t ctx,
+  legion_runtime_t rt,
+  table_t tab) {
+
+  std::vector<std::string> names =
+    unwrap(tab)
+    .column_names(
+      Legion::CObjectWrapper::unwrap(ctx)->context(),
+      Legion::CObjectWrapper::unwrap(rt));
+  char **result = static_cast<char**>(std::calloc(names.size(), sizeof(char*)));
+  char **nms = result;
+  for (auto& name : names) {
+    char* nm = static_cast<char*>(std::malloc(name.size() + 1));
+    std::strcpy(nm, name.c_str());
+    *nms++ = nm;
+  }
+  *nms++ = NULL;
+  return result;
+}
+
+LEGMS_API column_t
+table_column(
+  legion_context_t ctx,
+  legion_runtime_t rt,
+  table_t tab,
+  const char* name) {
+  return
+    wrap(
+      unwrap(tab)
+      .column(
+        Legion::CObjectWrapper::unwrap(ctx)->context(),
+        Legion::CObjectWrapper::unwrap(rt),
+        name));
+}
+
+LEGMS_API void
+table_destroy(
+  legion_context_t ctx,
+  legion_runtime_t rt,
+  table_t tab,
+  int destroy_columns) {
+  unwrap(tab)
+    .destroy(
+      Legion::CObjectWrapper::unwrap(ctx)->context(),
+      Legion::CObjectWrapper::unwrap(rt),
+      destroy_columns);
+}
 
 // static std::unique_ptr<Table>
 // to_table(

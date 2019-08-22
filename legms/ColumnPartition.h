@@ -93,14 +93,31 @@ public:
 };
 
 template <>
-struct CObjectWrapper::UniqueWrapper<ColumnPartition> {
-  typedef column_partition_t type_t;
+struct CObjectWrapper::Wrapper<ColumnPartition> {
+
+  typedef column_partition_t t;
+  static column_partition_t
+  wrap(const ColumnPartition& cp) {
+    return
+      column_partition_t{
+      Legion::CObjectWrapper::wrap(cp.axes_uid_lr),
+        Legion::CObjectWrapper::wrap(cp.axes_lr),
+        Legion::CObjectWrapper::wrap(cp.index_partition)};
+  }
 };
 
 template <>
-struct CObjectWrapper::UniqueWrapped<column_partition_t> {
-  typedef ColumnPartition type_t;
-  typedef std::unique_ptr<type_t> impl_t;
+struct CObjectWrapper::Unwrapper<column_partition_t> {
+
+  typedef ColumnPartition t;
+  static ColumnPartition
+  unwrap(const column_partition_t& cp) {
+    return
+      ColumnPartition(
+        Legion::CObjectWrapper::unwrap(cp.axes_uid),
+        Legion::CObjectWrapper::unwrap(cp.axes),
+        Legion::CObjectWrapper::unwrap(cp.index_partition));
+  }
 };
 
 } // end namespace legms

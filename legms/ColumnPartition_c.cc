@@ -9,26 +9,39 @@
 using namespace legms;
 using namespace legms::CObjectWrapper;
 
-// legion_index_partition_t
-// column_partition_index_partition(
-//   column_partition_t column_partition) {
-//   return Legion::CObjectWrapper::wrap(column_partition.index_partition);
-// }
+const Legion::FieldID axes_uid_fs[1] = {ColumnPartition::AXES_UID_FID};
+const Legion::FieldID axes_fs[1] = {ColumnPartition::AXES_FID};
 
-// const int *
-// column_partition_axes(column_partition_t column_partition) {
-//   return unwrap(column_partition)->axes().data();
-// }
+const legion_field_id_t*
+column_partition_axes_uid_fs() {
+  return axes_uid_fs;
+}
 
-// size_t
-// column_partition_num_axes(column_partition_t column_partition) {
-//   return unwrap(column_partition)->axes().size();
-// }
+const legion_field_id_t*
+column_partition_axes_fs() {
+  return axes_fs;
+}
 
-// void
-// column_partition_destroy(column_partition_t column_partition) {
-//   destroy(column_partition);
-// }
+legion_index_space_t
+column_partition_color_space(legion_runtime_t rt, column_partition_t cp) {
+  return
+    Legion::CObjectWrapper::wrap(
+      Legion::CObjectWrapper::unwrap(rt)
+      ->get_index_partition_color_space_name(
+        Legion::CObjectWrapper::unwrap(cp.index_partition)));
+}
+
+void
+column_partition_destroy(
+  legion_context_t ctx,
+  legion_runtime_t rt,
+  column_partition_t cp,
+  int destroy_color_space) {
+  unwrap(cp).destroy(
+    Legion::CObjectWrapper::unwrap(ctx)->context(),
+    Legion::CObjectWrapper::unwrap(rt),
+    destroy_color_space);
+}
 
 // Local Variables:
 // mode: c++

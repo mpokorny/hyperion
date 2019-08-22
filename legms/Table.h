@@ -546,14 +546,37 @@ private:
 #endif // !NO_REINDEX
 
 template <>
-struct CObjectWrapper::UniqueWrapper<Table> {
-  typedef table_t type_t;
+struct CObjectWrapper::Wrapper<Table> {
+
+  typedef table_t t;
+  static table_t
+  wrap(const Table& tb) {
+    return
+      table_t{
+      Legion::CObjectWrapper::wrap(tb.metadata_lr),
+        Legion::CObjectWrapper::wrap(tb.axes_lr),
+        Legion::CObjectWrapper::wrap(tb.columns_lr),
+        Legion::CObjectWrapper::wrap(tb.keywords.type_tags_lr),
+        Legion::CObjectWrapper::wrap(tb.keywords.values_lr)};
+  }
 };
 
 template <>
-struct CObjectWrapper::UniqueWrapped<table_t> {
-  typedef Table type_t;
-  typedef std::unique_ptr<type_t> impl_t;
+struct CObjectWrapper::Unwrapper<table_t> {
+
+  typedef Table t;
+  static Table
+  unwrap(const table_t& tb) {
+    return
+      Table(
+        Legion::CObjectWrapper::unwrap(tb.metadata),
+        Legion::CObjectWrapper::unwrap(tb.axes),
+        Legion::CObjectWrapper::unwrap(tb.columns),
+        Keywords(
+          Keywords::pair<Legion::LogicalRegion>{
+            Legion::CObjectWrapper::unwrap(tb.keyword_type_tags),
+              Legion::CObjectWrapper::unwrap(tb.keyword_values)}));
+  }
 };
 
 } // end namespace legms

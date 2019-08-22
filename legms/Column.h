@@ -292,6 +292,40 @@ protected:
     const std::vector<std::tuple<int, Legion::coord_t>>& ds) const;
 };
 
+template <>
+struct CObjectWrapper::Wrapper<Column> {
+
+  typedef column_t t;
+  static column_t
+  wrap(const Column& c) {
+    return
+      column_t{
+      Legion::CObjectWrapper::wrap(c.metadata_lr),
+        Legion::CObjectWrapper::wrap(c.axes_lr),
+        Legion::CObjectWrapper::wrap(c.values_lr),
+        Legion::CObjectWrapper::wrap(c.keywords.type_tags_lr),
+        Legion::CObjectWrapper::wrap(c.keywords.values_lr)};
+  }
+};
+
+template <>
+struct CObjectWrapper::Unwrapper<column_t> {
+
+  typedef Column t;
+  static Column
+  unwrap(const column_t& c) {
+    return
+      Column(
+        Legion::CObjectWrapper::unwrap(c.metadata),
+        Legion::CObjectWrapper::unwrap(c.axes),
+        Legion::CObjectWrapper::unwrap(c.values),
+        Keywords(
+          Keywords::pair<Legion::LogicalRegion>{
+            Legion::CObjectWrapper::unwrap(c.keyword_type_tags),
+              Legion::CObjectWrapper::unwrap(c.keyword_values)}));
+  }
+};
+
 } // end namespace legms
 
 #endif // LEGMS_COLUMN_H_

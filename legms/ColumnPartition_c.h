@@ -13,14 +13,23 @@ typedef struct LEGMS_API column_partition_t {
   legion_index_partition_t index_partition;
 } column_partition_t;
 
-/* LEGMS_API const int * */
-/* column_partition_axes(column_partition_t column_partition); */
+// axes_uid field types: [char*]
+LEGMS_API const legion_field_id_t*
+column_partition_axes_uid_fs();
 
-/* LEGMS_API size_t */
-/* column_partition_num_axes(column_partition_t column_partition); */
+// axes field types: [int]
+LEGMS_API const legion_field_id_t*
+column_partition_axes_fs();
 
-/* LEGMS_API void */
-/* column_partition_destroy(column_partition_t column_partition); */
+LEGMS_API legion_index_space_t
+column_partition_color_space(legion_runtime_t rt, column_partition_t cp);
+
+LEGMS_API void
+column_partition_destroy(
+  legion_context_t ctx,
+  legion_runtime_t rt,
+  column_partition_t cp,
+  int destroy_color_space);
 
 #ifdef __cplusplus
 }
