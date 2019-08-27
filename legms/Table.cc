@@ -544,9 +544,7 @@ index_column(
       ::new (rns.ptr(i)) std::vector<DomainPoint>;
       tie(values[i], rns[i]) = acc[i];
     }
-    std::cout << "wrote in " << task << " " << col_req.region << std::endl;
     runtime->unmap_region(ctx, result_pr);
-    std::cout << "unmapped in " << task << " " << col_req.region << std::endl;
     // TODO: keep?
     //runtime->destroy_field_space(ctx, result_fs);
     //runtime->destroy_index_space(ctx, result_is);
@@ -1827,63 +1825,11 @@ public:
         TaskArgument(NULL, 0),
         ArgumentMap());
 
-    unsigned i = 0;
-    std::for_each(
-      m_ix_columns.begin(),
-      m_ix_columns.end(),
-      [&launcher, &i, &ctx, runtime](LogicalRegion lr) {
-        RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
-        req.add_field(IndexColumnTask::ROWS_FID);
-        // {
-        //   auto pr = runtime->map_region(ctx, req);
-        //   typedef const ROAccessor<std::vector<DomainPoint>, 1> rows_acc_t;
-        //   rows_acc_t rows(pr, IndexColumnTask::ROWS_FID);
-        //   for (PointInDomainIterator<1> pid(
-        //          runtime->get_index_space_domain(ctx, lr.get_index_space()));
-        //        pid();
-        //        pid++) {
-        //     cout << i << "," << *pid << ":";
-        //     for (auto& p : rows[*pid])
-        //       cout << p << ",";
-        //     cout << endl;
-        //   }
-        //   runtime->unmap_region(ctx, pr);
-        //   ++i;
-        // }
-        //launcher.add_region_requirement(req);
-
-        LogicalRegion clr =
-          runtime->create_logical_region(
-            ctx,
-            lr.get_index_space(),
-            lr.get_field_space());
-        RegionRequirement creq(clr, WRITE_ONLY, EXCLUSIVE, clr);
-        creq.add_field(IndexColumnTask::ROWS_FID);
-        CopyLauncher cpy;
-        cpy.add_copy_requirements(req, creq);
-        runtime->issue_copy_operation(ctx, cpy);
-
-        RegionRequirement rreq(clr, READ_ONLY, EXCLUSIVE, clr);
-        rreq.add_field(IndexColumnTask::ROWS_FID);
-        {
-          auto pr = runtime->map_region(ctx, rreq);
-          typedef const ROAccessor<std::vector<DomainPoint>, 1, true>
-            rows_acc_t;
-          rows_acc_t rows(pr, IndexColumnTask::ROWS_FID);
-          for (PointInDomainIterator<1> pid(
-                 runtime->get_index_space_domain(ctx, clr.get_index_space()));
-               pid();
-               pid++) {
-            std::cout << i << "," << *pid << ":";
-            for (auto& p : rows[*pid])
-              std::cout << p << ",";
-            std::cout << std::endl;
-          }
-          runtime->unmap_region(ctx, pr);
-          ++i;
-        }
-        launcher.add_region_requirement(rreq);
-      });
+    for (auto& lr : m_ix_columns) {
+      RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+      req.add_field(IndexColumnTask::ROWS_FID);
+      launcher.add_region_requirement(req);
+    }
     {
       RegionRequirement
         req(
@@ -1900,7 +1846,6 @@ public:
       req.add_field(0);
       launcher.add_region_requirement(req);
     }
-
     runtime->execute_index_space(ctx, launcher);
   }
 
@@ -1910,8 +1855,6 @@ public:
     const std::vector<PhysicalRegion>& regions,
     Context context,
     Runtime *runtime) {
-
-    std::cout << "ComputeRowColorsTask " << task->current_proc << std::endl;
 
     typedef const ROAccessor<std::vector<DomainPoint>, 1, true> rows_acc_t;
 
@@ -1927,25 +1870,6 @@ public:
       common_rows = intersection(common_rows, rows[task->index_point[i]]);
     }
 
-#define WRITE_COLORS(ROWDIM, COLORDIM)                  \
-    case (ROWDIM * LEGION_MAX_DIM + COLORDIM): {        \
-      const FieldAccessor<                              \
-        WRITE_ONLY,  \
-        Point<COLORDIM>, \
-        ROWDIM>                             \
-        colors(regions.back(), color_fid);              \
-      const FieldAccessor<                              \
-        WRITE_ONLY,              \
-        coord_t,\
-        ROWDIM>                          \
-        flags(regions.back(), color_flag_fid);          \
-      Point<COLORDIM,coord_t> color(task->index_point); \
-      for (size_t i = 0; i < common_rows.size(); ++i) { \
-        colors[common_rows[i]] = color;                 \
-        flags[common_rows[i]] = COLOR_IS_SET;           \
-      }                                                 \
-      break;                                            \
-    }
     if (common_rows.size() > 0) {
       auto rowdim = common_rows[0].get_dim();
       switch (rowdim * LEGION_MAX_DIM + ixdim) {
@@ -1960,9 +1884,6 @@ public:
           for (size_t i = 0; i < common_rows.size(); ++i) {             \
             Point<ROWDIM> r(common_rows[i]);                            \
             colors[r] <<= color;                                        \
-            std::cout << "(" << task->current_proc                      \
-                      << ") at " << r                                   \
-                      << " color " << color << std::endl;               \
           }                                                             \
           break;                                                        \
         }
@@ -2203,8 +2124,6 @@ public:
       regions[0].get_logical_region(),
       lr);
     ctask.dispatch(context, runtime);
-    std::cout << "create_partition_by_field in PartitionRowsTask "
-              << task->current_proc << std::endl;
     auto result =
       runtime->create_partition_by_field(
         context,
@@ -2212,8 +2131,6 @@ public:
         lr,
         PART_FID,
         args->colors_is);
-    std::cout << "completed create_partition_by_field in PartitionRowsTask "
-              << task->current_proc << std::endl;
     // runtime->destroy_logical_region(context, lr);
     // runtime->destroy_field_space(context, fs);
     return result;
@@ -2389,7 +2306,6 @@ Table::ipartition_by_value(
   // rely on the colors_lr field
 
   IndexSpace flags_cs = rt->create_index_space(ctx, Rect<1>(0, 1));
-  std::cout << "call create_partition_by_field" << std::endl;
   IndexPartition color_flag_ip =
     rt->create_partition_by_field(
       ctx,
