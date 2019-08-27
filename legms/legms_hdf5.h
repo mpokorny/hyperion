@@ -17,8 +17,6 @@ namespace fs = std::experimental::filesystem;
 #include <string>
 #include <unordered_set>
 #include <vector>
-
-
 #pragma GCC visibility pop
 
 #include "utility.h"
@@ -394,9 +392,9 @@ attach_keywords(
   bool read_only = true);
 
 LEGMS_API Legion::PhysicalRegion
-legms::hdf5::attach_column_values(
-  Context ctx,
-  Runtime* rt,
+attach_column_values(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
   const fs::path& file_path,
   const std::string& table_root,
   const Column& column,
@@ -420,6 +418,58 @@ attach_table_keywords(
   const std::string& root_path,
   const Table& table,
   bool read_only = true);
+
+class AttachTableLauncher {
+public:
+
+  static Legion::TaskID TASK_ID;
+  static const char* TASK_NAME;
+
+  AttachTableLauncher(
+    const fs::path& file_path,
+    const std::string& root_path,
+    const Table& table,
+    const std::unordered_set<std::string> mapped = {},
+    const std::unordered_set<std::string> read_write = {},
+    Legion::Predicate pred = Legion::Predicate::TRUE_PRED,
+    Legion::MapperID id = 0,
+    Legion::MappingTagID tag = 0);
+
+  void
+  dispatch(Legion::Context ctx, Legion::Runtime* rt);
+
+  static void
+  base_impl(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *rt);
+
+  static void
+  preregister_task();
+
+private:
+
+  fs::path m_file_path;
+  std::string m_root_path;
+  Table m_table;
+  std::unordered_set<std::string> m_mapped;
+  std::unordered_set<std::string> m_read_write;
+  Legion::Predicate m_pred;
+  Legion::MapperID m_mapper;
+  Legion::MappingTagID m_mapping_tag;
+
+  struct TaskArgs {
+    legms::string file_path;
+    legms::string table_root;
+  };
+
+  struct ColumnFlags {
+    bool mapped;
+    bool read_only;
+  };
+
+};
 
 struct LEGMS_API binary_index_tree_serdez {
 

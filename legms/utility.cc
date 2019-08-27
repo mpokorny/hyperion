@@ -9,6 +9,10 @@
 #include "tree_index_space.h"
 #include "MSTable.h"
 
+#ifdef LEGMS_USE_HDF5
+# include "legms_hdf5.h"
+#endif // LEGMS_USE_HDF5
+
 using namespace legms;
 using namespace Legion;
 
@@ -369,6 +373,7 @@ legms::preregister_all() {
   OpsManager::preregister_ops();
 #ifdef LEGMS_USE_HDF5
   H5DatatypeManager::preregister_datatypes();
+  hdf5::AttachTableLauncher::preregister_task();
 #endif
 
 #define REG_AXES(T) \
