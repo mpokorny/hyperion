@@ -550,10 +550,13 @@ table_tests(
     // }
     // attach to file, and read back values
     {
-      auto tb_cols =
-        attach_table_columns(ctx, rt, fname, "/", tb0);
+      std::unordered_map<std::string,PhysicalRegion> tb_cols;
+      for (auto& cn : tb0.column_names(ctx, rt)) {
+        auto col = tb0.column(ctx, rt, cn);
+        tb_cols[cn] = attach_column_values(ctx, rt, fname, "/table0", col);
+      }
       recorder.expect_true(
-        "All table columns attached",
+        "All column values attached",
         testing::TestEval(
           [&tb0, &tb_cols, &ctx, rt]() {
             std::unordered_set<std::string> names;
@@ -561,37 +564,20 @@ table_tests(
               tb_cols.begin(),
               tb_cols.end(),
               std::inserter(names, names.end()),
-              [&tb0](auto& nm_pr2) { return std::get<0>(nm_pr2); });
+              [&tb0](auto& nm_pr) { return std::get<0>(nm_pr); });
             auto tbcns = tb0.column_names(ctx, rt);
             return (names ==
                     std::unordered_set<std::string>(tbcns.begin(), tbcns.end()));
           }));
-      recorder.assert_true(
-        "Table column values attached",
-        TE(
-          std::all_of(
-            tb_cols.begin(),
-            tb_cols.end(),
-            [](auto& nm_pr2) {
-              return std::get<0>(std::get<1>(nm_pr2)).has_value();
-            })));
-      recorder.assert_true(
-        "Column keywords attached only when present",
-        TE(!std::get<1>(tb_cols["X"]).has_value()
-           && std::get<1>(tb_cols["Y"]).has_value()
-           && !std::get<1>(tb_cols["Z"]).has_value()));
-      auto prx = std::get<0>(tb_cols["X"]).value();
       recorder.expect_true(
         "Column 'X' values as expected",
-        TE(verify_col<1>(table0_x, prx, {TABLE0_NUM_ROWS}, ctx, rt)));
-      auto pry = std::get<0>(tb_cols["Y"]).value();
+        TE(verify_col<1>(table0_x, tb_cols["X"], {TABLE0_NUM_ROWS}, ctx, rt)));
       recorder.expect_true(
         "Column 'Y' values as expected",
-        TE(verify_col<1>(table0_y, pry, {TABLE0_NUM_ROWS}, ctx, rt)));
-      auto prz = std::get<0>(tb_cols["Z"]).value();
+        TE(verify_col<1>(table0_y, tb_cols["Y"], {TABLE0_NUM_ROWS}, ctx, rt)));
       recorder.expect_true(
         "Column 'Z' values as expected",
-        TE(verify_col<2>(table0_z, prz, {TABLE0_NUM_ROWS, 2}, ctx, rt)));
+        TE(verify_col<2>(table0_z, tb_cols["Z"], {TABLE0_NUM_ROWS, 2}, ctx, rt)));
 
       recorder.expect_no_throw(
         "Table columns detached",
@@ -600,11 +586,8 @@ table_tests(
             std::for_each(
               tb_cols.begin(),
               tb_cols.end(),
-              [&rt, &ctx](auto& nm_pr2) {
-                auto [vpr, kpr] = std::get<1>(nm_pr2);
-                rt->detach_external_resource(ctx, vpr.value());
-                if (kpr)
-                  rt->detach_external_resource(ctx, kpr.value());
+              [&rt, &ctx](auto& nm_pr) {
+                rt->detach_external_resource(ctx, std::get<1>(nm_pr));
               });
             return true;
           }));

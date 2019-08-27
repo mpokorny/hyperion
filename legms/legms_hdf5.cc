@@ -1165,7 +1165,7 @@ legms::hdf5::get_table_column_keyword_paths(
   return result;
 }
 
-std::optional<PhysicalRegion>
+PhysicalRegion
 legms::hdf5::attach_keywords(
   Context ctx,
   Runtime* rt,
@@ -1174,84 +1174,48 @@ legms::hdf5::attach_keywords(
   const Keywords& keywords,
   bool read_only) {
 
-  std::optional<PhysicalRegion> result;
+  assert(!keywords.is_empty());
   auto kws = keywords.values_lr;
-  if (kws != LogicalRegion::NO_REGION) {
-    std::vector<std::string> keys = keywords.keys(rt);
-    std::vector<std::string> field_paths(keys.size());
-    std::map<FieldID, const char*> fields;
-    for (size_t i = 0; i < keys.size(); ++i) {
-      field_paths[i] = keywords_path + "/" + keys[i];
-      fields[i] = field_paths[i].c_str();
-    }
-    AttachLauncher kws_attach(EXTERNAL_HDF5_FILE, kws, kws);
-    kws_attach.attach_hdf5(
-      file_path.c_str(),
-      fields,
-      read_only ? LEGION_FILE_READ_ONLY : LEGION_FILE_READ_WRITE);
-    result = rt->attach_external_resource(ctx, kws_attach);
+  std::vector<std::string> keys = keywords.keys(rt);
+  std::vector<std::string> field_paths(keys.size());
+  std::map<FieldID, const char*> fields;
+  for (size_t i = 0; i < keys.size(); ++i) {
+    field_paths[i] = keywords_path + "/" + keys[i];
+    fields[i] = field_paths[i].c_str();
   }
-  return result;
+  AttachLauncher kws_attach(EXTERNAL_HDF5_FILE, kws, kws);
+  kws_attach.attach_hdf5(
+    file_path.c_str(),
+    fields,
+    read_only ? LEGION_FILE_READ_ONLY : LEGION_FILE_READ_WRITE);
+  return rt->attach_external_resource(ctx, kws_attach);
 }
 
-std::unordered_map<
-  std::string,
-  std::tuple<
-    std::optional<PhysicalRegion>,
-    std::optional<PhysicalRegion>>>
-legms::hdf5::attach_table_columns(
+PhysicalRegion
+legms::hdf5::attach_column_values(
   Context ctx,
   Runtime* rt,
-  const Table& table,
   const fs::path& file_path,
   const std::string& table_root,
+  const Column& column,
   bool mapped,
   bool read_only) {
 
-  std::unordered_map<
-    std::string,
-    std::tuple<
-      std::optional<PhysicalRegion>,
-      std::optional<PhysicalRegion>>> result;
-  std::string table_root = root_path;
-  if (table_root.back() != '/')
-    table_root.push_back('/');
-  table_root += table.name(ctx, rt) + "/";
-
-  {
-    RegionRequirement
-      req(table.columns_lr, READ_ONLY, EXCLUSIVE, table.columns_lr);
-    req.add_field(Table::COLUMNS_FID);
-    auto columns = rt->map_region(ctx, req);
-    auto colnames = Table::column_names(ctx, rt, columns);
-    for (auto& colname : colnames) {
-      auto col = Table::column(ctx, rt, columns, colname);
-      std::tuple<std::optional<PhysicalRegion>, std::optional<PhysicalRegion>>
-        regions;
-      if (!col.is_empty()) {
-        AttachLauncher
-          col_attach(EXTERNAL_HDF5_FILE, col.values_lr, col.values_lr);
-        col_attach.mapped = mapped;
-        std::string col_path = table_root + colname + "/" + LEGMS_COLUMN_DS;
-        std::map<FieldID, const char*>
-          fields{{Column::VALUE_FID, col_path.c_str()}};
-        col_attach.attach_hdf5(
-          file_path.c_str(),
-          fields,
-          read_only ? LEGION_FILE_READ_ONLY : LEGION_FILE_READ_WRITE);
-        std::get<0>(regions) =
-          rt->attach_external_resource(ctx, col_attach);
-        std::get<1>(regions) =
-          attach_keywords(ctx, rt, file_path, col_path, col.keywords, read_only);
-      }
-      result[colname] = std::move(regions);
-    }
-    rt->unmap_region(ctx, columns);
-  }
-  return result;
+  assert(!column.is_empty());
+  AttachLauncher attach(EXTERNAL_HDF5_FILE, column.values_lr, column.values_lr);
+  attach.mapped = mapped;
+  std::string col_path =
+    table_root + column.name(ctx, rt) + "/" + LEGMS_COLUMN_DS;
+  std::map<FieldID, const char*>
+    fields{{Column::VALUE_FID, col_path.c_str()}};
+  attach.attach_hdf5(
+    file_path.c_str(),
+    fields,
+    read_only ? LEGION_FILE_READ_ONLY : LEGION_FILE_READ_WRITE);
+  return rt->attach_external_resource(ctx, col_attach);
 }
 
-std::optional<PhysicalRegion>
+PhysicalRegion
 legms::hdf5::attach_table_keywords(
   Context ctx,
   Runtime* rt,

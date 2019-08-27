@@ -384,7 +384,7 @@ get_table_column_keyword_paths(
   const Table& table,
   const std::string& colname);
 
-LEGMS_API std::optional<Legion::PhysicalRegion>
+LEGMS_API Legion::PhysicalRegion
 attach_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
@@ -393,22 +393,26 @@ attach_keywords(
   const Keywords& keywords,
   bool read_only = true);
 
-// returns value/keywords region pairs by column
-LEGMS_API std::unordered_map<
-  std::string,
-  std::tuple<
-    std::optional<Legion::PhysicalRegion>,
-    std::optional<Legion::PhysicalRegion>>>
-attach_table_columns(
-  Legion::Context context,
-  Legion::Runtime* runtime,
-  const std::experimental::filesystem::path& file_path,
-  const std::string& root_path,
-  const Table& table,
+LEGMS_API Legion::PhysicalRegion
+legms::hdf5::attach_column_values(
+  Context ctx,
+  Runtime* rt,
+  const fs::path& file_path,
+  const std::string& table_root,
+  const Column& column,
   bool mapped = true,
   bool read_only = true);
 
-LEGMS_API std::optional<Legion::PhysicalRegion>
+LEGMS_API Legion::PhysicalRegion
+attach_column_keywords(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const fs::path& file_path,
+  const std::string& table_root,
+  const Column& column,
+  bool read_only = true);
+
+LEGMS_API Legion::PhysicalRegion
 attach_table_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
