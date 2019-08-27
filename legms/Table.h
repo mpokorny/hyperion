@@ -276,6 +276,22 @@ public:
     Legion::Runtime* rt,
     const Legion::PhysicalRegion& columns);
 
+  template <typename FN>
+  std::vector<std::invoke_result_t<FN,Legion::Context,Legion::Runtime*,Column>>
+  map_columns(Legion::Context ctx, Legion::Runtime* rt) const {
+    Legion::RegionRequirement req(columns_lr, READ_ONLY, EXCLUSIVE, columns_lr);
+    req.add_field(COLUMNS_FID);
+    auto pr = rt->map_region(ctx, req);
+    std::vector<std::invoke_result_t<FN,Legion::Context,Legion::Runtime*,Column>>
+      result;
+    for (auto& colname : column_names(ctx, rt, pr)) {
+      auto col = column(ctx, rt, pr, colname);
+      result.push_back(FN(ctx, rt, col));
+    }
+    rt->unmap_region(ctx, pr);
+    return result;
+  }
+
 #ifndef NO_REINDEX
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
   Legion::Future/* Table */
