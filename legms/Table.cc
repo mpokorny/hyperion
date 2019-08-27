@@ -1914,9 +1914,6 @@ public:
       for (size_t i = 0; i < common_rows.size(); ++i) { \
         colors[common_rows[i]] = color;                 \
         flags[common_rows[i]] = COLOR_IS_SET;           \
-        std::cout << "(" << task->current_proc               \
-                  << ") at " << common_rows[i]               \
-                  << " color " << color << std::endl;        \
       }                                                 \
       break;                                            \
     }
@@ -1942,7 +1939,6 @@ public:
       layouts[DIM - 1] = Runtime::preregister_layout(lc);               \
       task_ids[DIM - 1] = Runtime::generate_static_task_id();           \
       std::ostringstream oss;                                           \
-      oss << "ComputeColorsTask_" << DIM;                               \
       TaskVariantRegistrar registrar(                                   \
         task_ids[DIM - 1],                                              \
         oss.str().c_str(),                                              \
@@ -2034,7 +2030,6 @@ public:
   void
   dispatch(Context context, Runtime* runtime) {
 
-    std::cout << "create InitColorsTask" << std::endl;
     IndexTaskLauncher
       launcher(
         TASK_ID,
