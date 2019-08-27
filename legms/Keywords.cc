@@ -10,6 +10,11 @@ Keywords::Keywords(pair<LogicalRegion> regions)
   , values_lr(regions.values) {
 }
 
+bool
+Keywords::is_empty() const {
+  return values_lr == LogicalRegion::NO_REGION;
+}
+
 std::vector<std::string>
 Keywords::keys(Runtime* rt) const {
 

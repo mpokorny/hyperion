@@ -58,6 +58,9 @@ struct LEGMS_API Keywords {
 
   Keywords(pair<Legion::LogicalRegion> regions);
 
+  bool
+  is_empty() const;
+
   std::vector<std::string>
   keys(Legion::Runtime* rt) const;
 
