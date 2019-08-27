@@ -38,6 +38,12 @@
                      + __GNUC_MINOR * 100 \
                      + __GNUC_PATCHLEVEL__)
 
+// The following reiterates a constant in Realm -- unfortunately there is no way
+// to either import or discover its value. Hopefully the impact is minor, as
+// this value should only be required by serdez functions, and Realm has
+// implemented a runtime check.
+#define LEGMS_IB_MAX_SIZE (size_t)(64 * (1uL << 20))
+
 namespace legms {
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;
@@ -179,8 +185,7 @@ public:
 
   typedef std::vector<T> FIELD_TYPE;
 
-  static const size_t MAX_SERIALIZED_SIZE =
-    std::numeric_limits<size_t>::max();
+  static const size_t MAX_SERIALIZED_SIZE = LEGMS_IB_MAX_SIZE;
 
   static size_t
   serialized_size(const FIELD_TYPE& val) {
@@ -226,8 +231,7 @@ public:
 
   typedef std::vector<bool> FIELD_TYPE;
 
-  static const size_t MAX_SERIALIZED_SIZE =
-    std::numeric_limits<size_t>::max();
+  static const size_t MAX_SERIALIZED_SIZE = LEGMS_IB_MAX_SIZE;
 
   static size_t
   serialized_size(const FIELD_TYPE& val) {
@@ -275,8 +279,7 @@ public:
   typedef std::vector<
   std::tuple<T, std::vector<Legion::DomainPoint>>> FIELD_TYPE;
 
-  static const size_t MAX_SERIALIZED_SIZE =
-    std::numeric_limits<size_t>::max();
+  static const size_t MAX_SERIALIZED_SIZE = LEGMS_IB_MAX_SIZE;
 
   static size_t
   serialized_size(const FIELD_TYPE& val) {
@@ -390,8 +393,7 @@ public:
   typedef std::vector<
   std::tuple<legms::string, std::vector<Legion::DomainPoint>>> FIELD_TYPE;
 
-  static const size_t MAX_SERIALIZED_SIZE =
-    std::numeric_limits<size_t>::max();
+  static const size_t MAX_SERIALIZED_SIZE = LEGMS_IB_MAX_SIZE;
 
   static size_t
   serialized_size(const FIELD_TYPE& val) {
@@ -452,7 +454,7 @@ class LEGMS_API index_tree_serdez {
 public:
   typedef IndexTreeL FIELD_TYPE;
 
-  static const size_t MAX_SERIALIZED_SIZE = std::numeric_limits<size_t>::max();
+  static const size_t MAX_SERIALIZED_SIZE = LEGMS_IB_MAX_SIZE;
 
   static size_t
   serialized_size(const IndexTreeL& val) {
