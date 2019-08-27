@@ -6,12 +6,19 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#if GCC_VERSION >= 90000
+# include <filesystem>
+namespace fs = std::filesystem;
+#else
+# include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
 #include <optional>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
-#include <experimental/filesystem>
+
 #pragma GCC visibility pop
 
 #include "utility.h"
@@ -265,7 +272,7 @@ LEGMS_API void
 write_column(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const std::experimental::filesystem::path& path,
+  const fs::path& path,
   hid_t table_id,
   const std::string& table_name,
   const Column& column,
@@ -285,7 +292,7 @@ LEGMS_API void
 write_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const std::experimental::filesystem::path& path,
+  const fs::path& path,
   hid_t loc_id,
   const Table& table,
   const std::unordered_set<std::string>& excluded_columns = {},
@@ -326,7 +333,7 @@ LEGMS_API legms::Table
 init_table(
   Legion::Context context,
   Legion::Runtime* runtime,
-  const std::experimental::filesystem::path& file_path,
+  const fs::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& column_names,
   unsigned flags = H5F_ACC_RDONLY,
@@ -350,11 +357,11 @@ init_table(
   hid_t xfer_pl = H5P_DEFAULT);
 
 LEGMS_API std::unordered_set<std::string>
-get_table_paths(const std::experimental::filesystem::path& file_path);
+get_table_paths(const fs::path& file_path);
 
 LEGMS_API std::unordered_set<std::string>
 get_column_names(
-  const std::experimental::filesystem::path& file_path,
+  const fs::path& file_path,
   const std::string& table_path);
 
 LEGMS_API std::unordered_map<std::string, std::string>
@@ -381,7 +388,7 @@ LEGMS_API std::optional<Legion::PhysicalRegion>
 attach_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
-  const std::experimental::filesystem::path& file_path,
+  const fs::path& file_path,
   const std::string& keywords_path,
   const Keywords& keywords,
   bool read_only = true);
@@ -405,7 +412,7 @@ LEGMS_API std::optional<Legion::PhysicalRegion>
 attach_table_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
-  const std::experimental::filesystem::path& file_path,
+  const fs::path& file_path,
   const std::string& root_path,
   const Table& table,
   bool read_only = true);

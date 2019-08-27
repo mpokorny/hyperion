@@ -297,7 +297,7 @@ void
 legms::hdf5::write_column(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const std::experimental::filesystem::path& path,
+  const fs::path& path,
   hid_t table_id,
   const std::string& table_name,
   const Column& column,
@@ -489,7 +489,7 @@ void
 legms::hdf5::write_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const std::experimental::filesystem::path& path,
+  const fs::path& path,
   hid_t loc_id,
   const Table& table,
   const std::unordered_set<std::string>& excluded_columns,
@@ -989,7 +989,7 @@ Table
 legms::hdf5::init_table(
   Context context,
   Runtime* runtime,
-  const std::experimental::filesystem::path& file_path,
+  const fs::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& column_names,
   unsigned flags,
@@ -1053,7 +1053,7 @@ acc_table_paths(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
 
 std::unordered_set<std::string>
 legms::hdf5::get_table_paths(
-  const std::experimental::filesystem::path& file_path) {
+  const fs::path& file_path) {
 
   std::unordered_set<std::string> result;
   hid_t fid = H5Fopen(file_path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
@@ -1098,7 +1098,7 @@ acc_column_names(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
 
 std::unordered_set<std::string>
 legms::hdf5::get_column_names(
-  const std::experimental::filesystem::path& file_path,
+  const fs::path& file_path,
   const std::string& table_path) {
 
   std::unordered_set<std::string> result;
@@ -1169,7 +1169,7 @@ std::optional<PhysicalRegion>
 legms::hdf5::attach_keywords(
   Context ctx,
   Runtime* rt,
-  const std::experimental::filesystem::path& file_path,
+  const fs::path& file_path,
   const std::string& keywords_path,
   const Keywords& keywords,
   bool read_only) {
@@ -1202,9 +1202,9 @@ std::unordered_map<
 legms::hdf5::attach_table_columns(
   Context ctx,
   Runtime* rt,
-  const std::experimental::filesystem::path& file_path,
-  const std::string& root_path,
   const Table& table,
+  const fs::path& file_path,
+  const std::string& table_root,
   bool mapped,
   bool read_only) {
 
@@ -1255,7 +1255,7 @@ std::optional<PhysicalRegion>
 legms::hdf5::attach_table_keywords(
   Context ctx,
   Runtime* rt,
-  const std::experimental::filesystem::path& file_path,
+  const fs::path& file_path,
   const std::string& root_path,
   const Table& table,
   bool read_only) {
