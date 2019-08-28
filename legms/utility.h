@@ -42,7 +42,7 @@
 // to either import or discover its value. Hopefully the impact is minor, as
 // this value should only be required by serdez functions, and Realm has
 // implemented a runtime check.
-#define LEGMS_IB_MAX_SIZE (size_t)(64 * (1uL << 20))
+#define LEGMS_IB_MAX_SIZE (63 * (((size_t)1) << 20))
 
 namespace legms {
 
