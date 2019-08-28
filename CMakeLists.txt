@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 project(legms)
 
+find_package(ZLIB)
 find_package(HDF5)
 find_package(casacore)
 

@@ -39,6 +39,10 @@ list(APPEND Legion_ARGS Legion_USE_HDF5)
 set(Legion_USE_LIBDL ON CACHE BOOL "Enable support for libdl")
 list(APPEND Legion_ARGS Legion_USE_LIBDL)
 
+# Legion_USE_ZLIB set to OFF because of Legion build issues when it's ON
+set(Legion_USE_ZLIB OFF CACHE BOOL "Use zlib")
+list(APPEND Legion_ARGS Legion_USE_ZLIB)
+
 set(Legion_USE_HWLOC OFF CACHE BOOL "Use hwloc for topology awareness")
 list(APPEND Legion_ARGS Legion_USE_HWLOC)
 
@@ -77,6 +81,7 @@ ExternalProject_Add(legion_build
   CMAKE_ARGS -DLegion_USE_LLVM=${Legion_USE_LLVM}
   CMAKE_ARGS -DLegion_USE_HDF5=${Legion_USE_HDF5}
   CMAKE_ARGS -DLegion_USE_LIBDL=${Legion_USE_LIBDL}
+  CMAKE_ARGS -DLegion_USE_ZLIB=${Legion_USE_ZLIB}
   CMAKE_ARGS -DLegion_USE_HWLOC=${Legion_USE_HWLOC}
   CMAKE_ARGS -DLegion_MAX_FIELDS=${Legion_MAX_FIELDS}
   CMAKE_ARGS -DLegion_ENABLE_TLS=${Legion_ENABLE_TLS}
