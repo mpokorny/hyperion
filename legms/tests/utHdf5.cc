@@ -328,15 +328,6 @@ verify_col(
   pt.fill(0);
   size_t off = 0;
   while (result && pid() && pt[0] < dims[0]) {
-    // std::cout << "pid " << *pid
-    //           << "; dims [";
-    // for (size_t i = 0; i < N; ++i)
-    //   std::cout << dims[i] << ",";
-    // std::cout << "]"
-    //           << "; off " << off
-    //           << "; val " << acc[*pid]
-    //           << "; exp " << expected[off]
-    //           << std::endl;
     result = acc[*pid] == expected[off];
     pid++;
     ++off;
