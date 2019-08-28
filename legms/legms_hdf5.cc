@@ -1205,7 +1205,7 @@ legms::hdf5::attach_column_values(
   AttachLauncher attach(EXTERNAL_HDF5_FILE, column.values_lr, column.values_lr);
   attach.mapped = mapped;
   std::string col_path =
-    table_root + column.name(ctx, rt) + "/" + LEGMS_COLUMN_DS;
+    table_root + "/" + column.name(ctx, rt) + "/" + LEGMS_COLUMN_DS;
   std::map<FieldID, const char*>
     fields{{Column::VALUE_FID, col_path.c_str()}};
   attach.attach_hdf5(
