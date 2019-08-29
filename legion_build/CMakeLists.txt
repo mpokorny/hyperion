@@ -39,8 +39,7 @@ list(APPEND Legion_ARGS Legion_USE_HDF5)
 set(Legion_USE_LIBDL ON CACHE BOOL "Enable support for libdl")
 list(APPEND Legion_ARGS Legion_USE_LIBDL)
 
-# Legion_USE_ZLIB set to OFF because of Legion build issues when it's ON
-set(Legion_USE_ZLIB OFF CACHE BOOL "Use zlib")
+set(Legion_USE_ZLIB ${ZLIB_FOUND} CACHE BOOL "Use zlib")
 list(APPEND Legion_ARGS Legion_USE_ZLIB)
 
 set(Legion_USE_HWLOC OFF CACHE BOOL "Use hwloc for topology awareness")
