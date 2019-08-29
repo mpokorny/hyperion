@@ -8,10 +8,8 @@
 #include <exception>
 #if GCC_VERSION >= 90000
 # include <filesystem>
-namespace fs = std::filesystem;
 #else
 # include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
 #endif
 #include <optional>
 #include <string>
@@ -270,7 +268,7 @@ LEGMS_API void
 write_column(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const fs::path& path,
+  const LEGMS_FS::path& path,
   hid_t table_id,
   const std::string& table_name,
   const Column& column,
@@ -290,7 +288,7 @@ LEGMS_API void
 write_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const fs::path& path,
+  const LEGMS_FS::path& path,
   hid_t loc_id,
   const Table& table,
   const std::unordered_set<std::string>& excluded_columns = {},
@@ -331,7 +329,7 @@ LEGMS_API legms::Table
 init_table(
   Legion::Context context,
   Legion::Runtime* runtime,
-  const fs::path& file_path,
+  const LEGMS_FS::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& column_names,
   unsigned flags = H5F_ACC_RDONLY,
@@ -355,11 +353,11 @@ init_table(
   hid_t xfer_pl = H5P_DEFAULT);
 
 LEGMS_API std::unordered_set<std::string>
-get_table_paths(const fs::path& file_path);
+get_table_paths(const LEGMS_FS::path& file_path);
 
 LEGMS_API std::unordered_set<std::string>
 get_column_names(
-  const fs::path& file_path,
+  const LEGMS_FS::path& file_path,
   const std::string& table_path);
 
 LEGMS_API std::unordered_map<std::string, std::string>
@@ -386,7 +384,7 @@ LEGMS_API Legion::PhysicalRegion
 attach_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
-  const fs::path& file_path,
+  const LEGMS_FS::path& file_path,
   const std::string& keywords_path,
   const Keywords& keywords,
   bool read_only = true);
@@ -395,7 +393,7 @@ LEGMS_API Legion::PhysicalRegion
 attach_column_values(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const fs::path& file_path,
+  const LEGMS_FS::path& file_path,
   const std::string& table_root,
   const Column& column,
   bool mapped = true,
@@ -405,7 +403,7 @@ LEGMS_API Legion::PhysicalRegion
 attach_column_keywords(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const fs::path& file_path,
+  const LEGMS_FS::path& file_path,
   const std::string& table_root,
   const Column& column,
   bool read_only = true);
@@ -414,7 +412,7 @@ LEGMS_API Legion::PhysicalRegion
 attach_table_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
-  const fs::path& file_path,
+  const LEGMS_FS::path& file_path,
   const std::string& root_path,
   const Table& table,
   bool read_only = true);

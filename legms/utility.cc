@@ -566,7 +566,7 @@ legms::H5DatatypeManager::commit_derived(
 
 hid_t
 legms::H5DatatypeManager::create(
-  const std::experimental::filesystem::path& path,
+  const LEGMS_FS::path& path,
   unsigned flags,
   hid_t fcpl_t,
   hid_t fapl_t) {

@@ -4,7 +4,11 @@
 #pragma GCC visibility push(default)
 #include <algorithm>
 #include <cassert>
-#include <experimental/filesystem>
+#if GCC_VERSION >= 90000
+# include <filesystem>
+#else
+# include <experimental/filesystem>
+#endif
 #include <memory>
 #include <optional>
 #include <unordered_map>

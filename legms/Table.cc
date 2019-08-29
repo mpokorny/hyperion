@@ -2370,7 +2370,7 @@ Table
 Table::from_ms(
   Context ctx,
   Runtime* runtime,
-  const std::experimental::filesystem::path& path,
+  const LEGMS_FS::path& path,
   const std::unordered_set<std::string>& column_selections) {
 
   std::string table_name = path.filename();

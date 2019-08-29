@@ -23,7 +23,11 @@
 #pragma GCC visibility push(default)
 #ifdef LEGMS_USE_HDF5
 # include <hdf5.h>
-# include <experimental/filesystem>
+# if GCC_VERSION >= 90000
+#  include <filesystem>
+# else
+#  include <experimental/filesystem>
+# endif
 #endif
 
 #ifdef LEGMS_USE_CASACORE
@@ -779,7 +783,7 @@ public:
 
   static hid_t
   create(
-    const std::experimental::filesystem::path& path,
+    const LEGMS_FS::path& path,
     unsigned flags,
     hid_t fcpl_t = H5P_DEFAULT,
     hid_t fapl_t = H5P_DEFAULT);

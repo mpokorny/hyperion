@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <experimental/filesystem>
 #include <map>
 #include <memory>
 #include <vector>
@@ -15,8 +14,6 @@
 #include "TestSuiteDriver.h"
 #include "TestRecorder.h"
 #include "TestExpression.h"
-
-namespace fs = std::experimental::filesystem;
 
 using namespace legms;
 using namespace Legion;

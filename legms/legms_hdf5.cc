@@ -297,7 +297,7 @@ void
 legms::hdf5::write_column(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const fs::path& path,
+  const LEGMS_FS::path& path,
   hid_t table_id,
   const std::string& table_name,
   const Column& column,
@@ -489,7 +489,7 @@ void
 legms::hdf5::write_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const fs::path& path,
+  const LEGMS_FS::path& path,
   hid_t loc_id,
   const Table& table,
   const std::unordered_set<std::string>& excluded_columns,
@@ -989,7 +989,7 @@ Table
 legms::hdf5::init_table(
   Context context,
   Runtime* runtime,
-  const fs::path& file_path,
+  const LEGMS_FS::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& column_names,
   unsigned flags,
@@ -1053,7 +1053,7 @@ acc_table_paths(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
 
 std::unordered_set<std::string>
 legms::hdf5::get_table_paths(
-  const fs::path& file_path) {
+  const LEGMS_FS::path& file_path) {
 
   std::unordered_set<std::string> result;
   hid_t fid = H5Fopen(file_path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
@@ -1098,7 +1098,7 @@ acc_column_names(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
 
 std::unordered_set<std::string>
 legms::hdf5::get_column_names(
-  const fs::path& file_path,
+  const LEGMS_FS::path& file_path,
   const std::string& table_path) {
 
   std::unordered_set<std::string> result;
@@ -1169,7 +1169,7 @@ PhysicalRegion
 legms::hdf5::attach_keywords(
   Context ctx,
   Runtime* rt,
-  const fs::path& file_path,
+  const LEGMS_FS::path& file_path,
   const std::string& keywords_path,
   const Keywords& keywords,
   bool read_only) {
@@ -1195,7 +1195,7 @@ PhysicalRegion
 legms::hdf5::attach_column_values(
   Context ctx,
   Runtime* rt,
-  const fs::path& file_path,
+  const LEGMS_FS::path& file_path,
   const std::string& table_root,
   const Column& column,
   bool mapped,
@@ -1219,7 +1219,7 @@ PhysicalRegion
 legms::hdf5::attach_table_keywords(
   Context ctx,
   Runtime* rt,
-  const fs::path& file_path,
+  const LEGMS_FS::path& file_path,
   const std::string& root_path,
   const Table& table,
   bool read_only) {

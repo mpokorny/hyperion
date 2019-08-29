@@ -10,6 +10,12 @@
 #define LEGMS_API __attribute__((visibility("default")))
 #define LEGMS_LOCAL __attribute__((visibility("hidden")))
 
+#if GCC_VERSION >= 90000
+# define LEGMS_FS std::filesystem
+#else
+# define LEGMS_FS std::experimental::filesystem
+#endif
+
 #endif // LEGMS_LEGMS_H_
 
 // Local Variables:

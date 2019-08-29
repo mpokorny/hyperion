@@ -1,7 +1,11 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
-#include <experimental/filesystem>
+#if GCC_VERSION >= 90000
+# include <filesystem>
+#else
+# include <experimental/filesystem>
+#endif
 #include <unordered_set>
 
 #include "legms.h"
@@ -22,9 +26,9 @@ enum {
 void
 get_args(
   const InputArgs& args,
-  fs::path& ms_path,
+  LEGMS_FS::path& ms_path,
   std::vector<std::string>& tables,
-  fs::path& h5_path) {
+  LEGMS_FS::path& h5_path) {
 
   ms_path.clear();
   tables.clear();
@@ -57,7 +61,7 @@ public:
   static const int NAME_FID = 0;
 
   TableNameCollectorTask(
-    const fs::path& ms,
+    const LEGMS_FS::path& ms,
     LogicalRegion table_names_lr)
     : m_ms(ms)
     , m_table_names_lr(table_names_lr) {}
@@ -117,7 +121,7 @@ public:
       if (tb.nrow() > 0)
         names[i++] = legms::string("MAIN");
     }
-    for (auto& p : fs::directory_iterator(args.ms)) {
+    for (auto& p : LEGMS_FS::directory_iterator(args.ms)) {
       if (i < MAX_TABLES
           && casacore::Table::isReadable(casacore::String(p.path()))) {
         casacore::Table tb(
@@ -142,7 +146,7 @@ public:
 private:
 
   struct TaskArgs {
-    fs::path ms;
+    LEGMS_FS::path ms;
 
     size_t
     serialized_size() {
@@ -164,7 +168,7 @@ private:
     }
   };
 
-  fs::path m_ms;
+  LEGMS_FS::path m_ms;
 
   LogicalRegion m_table_names_lr;
 };
@@ -184,9 +188,9 @@ public:
   }
 
   static bool
-  args_ok(const fs::path& ms,
+  args_ok(const LEGMS_FS::path& ms,
           const std::vector<std::string>& table_args,
-          const fs::path& h5,
+          const LEGMS_FS::path& h5,
           Context context,
           Runtime* runtime) {
 
@@ -208,8 +212,8 @@ public:
       return false;
     }
 
-    auto ms_status = fs::status(ms);
-    if (!fs::is_directory(ms)) {
+    auto ms_status = LEGMS_FS::status(ms);
+    if (!LEGMS_FS::is_directory(ms)) {
       std::ostringstream oss;
       oss << "MS directory " << ms
           << " does not exist"
@@ -218,7 +222,7 @@ public:
       return false;
     }
 
-    if (fs::exists(h5)) {
+    if (LEGMS_FS::exists(h5)) {
       std::ostringstream oss;
       oss << "HDF5 file path " << h5
           << " exists and will not be overwritten"
@@ -239,8 +243,8 @@ public:
           std::back_inserter(T),
           [](unsigned char c) { return std::toupper(c); });
         if (T != "MAIN" && T != "." && T[0] != '~') {
-          auto stat = fs::status(ms / T);
-          if (!fs::is_directory(stat))
+          auto stat = LEGMS_FS::status(ms / T);
+          if (!LEGMS_FS::is_directory(stat))
             missing_tables.push_back(t);
         }
       });
@@ -272,9 +276,9 @@ public:
     legms::register_tasks(ctx, rt);
 
     const InputArgs& args = Runtime::get_input_args();
-    fs::path ms;
+    LEGMS_FS::path ms;
     std::vector<std::string> table_args;
-    fs::path h5;
+    LEGMS_FS::path h5;
     get_args(args, ms, table_args, h5);
 
     if (!args_ok(ms, table_args, h5, ctx, rt))
@@ -291,7 +295,7 @@ public:
 
     std::vector<Table> tables;
     for (auto& tn : table_names) {
-      fs::path path;
+      LEGMS_FS::path path;
       if (tn != "MAIN")
         path = ms / tn;
       else
