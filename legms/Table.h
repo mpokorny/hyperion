@@ -316,7 +316,7 @@ public:
     const std::string& root_path,
     FN f,
     const std::unordered_set<std::string> mapped = {},
-    const std::unordered_set<std::string> read_write = {}) const {
+    const std::unordered_set<std::string> read_write = {}) {
 
     std::string table_root = root_path;
     if (table_root.back() != '/')
@@ -345,7 +345,7 @@ public:
           return result;
         });
 
-    f(ctx, rt);
+    f(ctx, rt, *this);
 
     for (auto& pr : prs) {
       Legion::ReleaseLauncher
@@ -355,7 +355,7 @@ public:
       rt->detach_external_resource(ctx, pr);
     }
   }
-#endif
+#endif // LEGMS_USE_HDF5
 
 #ifndef NO_REINDEX
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
