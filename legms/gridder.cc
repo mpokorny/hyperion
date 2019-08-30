@@ -1,11 +1,12 @@
 #include "legms.h"
 
-// #if LEGION_MAX_DIM < 9
-// # error "MAX_DIM too small"
-// #endif
+#if LEGION_MAX_DIM < 7
+# error "MAX_DIM too small"
+#endif
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdio>
 #if GCC_VERSION >= 90000
 # include <filesystem>
