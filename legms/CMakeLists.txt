@@ -193,7 +193,7 @@ if (USE_HDF5 AND USE_CASACORE)
     PUBLIC ${casacore_INCLUDE_DIR}
     PUBLIC ${HDF5_INCLUDE_DIRS})
   install(TARGETS ms2h5 RUNTIME DESTINATION bin)
-endif (USE_HDF5 AND USE_CASACORE)
+endif()
 
 if (USE_HDF5)
   add_executable(gridder gridder.cc)
@@ -206,7 +206,7 @@ if (USE_HDF5)
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
     PUBLIC ${HDF5_INCLUDE_DIRS})
   install(TARGETS gridder RUNTIME DESTINATION bin)
-endif (USE_HDF5)
+endif()
 
 add_subdirectory(testing)
 add_subdirectory(tests)
