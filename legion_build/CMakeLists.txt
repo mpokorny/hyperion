@@ -33,6 +33,15 @@ list(APPEND Legion_ARGS Legion_GASNet_ROOT)
 set(Legion_USE_LLVM OFF CACHE BOOL "Use LLVM JIT operations")
 list(APPEND Legion_ARGS Legion_USE_LLVM)
 
+if(Legion_USE_LLVM)
+  set(Legion_ALLOW_MISSING_LLVM_LIBS ON BOOL)
+  set(Legion_LINK_LLVM_LIBS OFF BOOL)
+  # TODO: set LLVM_CONFIG_EXECUTABLE to env var LLVM_CONFIG, if set
+else()
+  set(Legion_ALLOW_MISSING_LLVM_LIBS OFF BOOL)
+  set(Legion_LINK_LLVM_LIBS ON BOOL)
+endif()
+
 set(Legion_USE_HDF5 ${USE_HDF5} CACHE BOOL "Enable support for HDF5")
 list(APPEND Legion_ARGS Legion_USE_HDF5)
 
@@ -78,6 +87,8 @@ ExternalProject_Add(legion_build
   CMAKE_ARGS -DGASNet_CONDUIT=${Legion_GASNet_CONDUIT}
   CMAKE_ARGS -DGASNet_ROOT_DIR=${Legion_GASNet_ROOT}
   CMAKE_ARGS -DLegion_USE_LLVM=${Legion_USE_LLVM}
+  CMAKE_ARGS -DLegion_ALLOW_MISSING_LLVM_LIBS=${Legion_ALLOW_MISSING_LLVM_LIBS}
+  CMAKE_ARGS -DLegion_LINK_LLVM_LIBS=${Legion_LINK_LLVM_LIBS}
   CMAKE_ARGS -DLegion_USE_HDF5=${Legion_USE_HDF5}
   CMAKE_ARGS -DLegion_USE_LIBDL=${Legion_USE_LIBDL}
   CMAKE_ARGS -DLegion_USE_ZLIB=${Legion_USE_ZLIB}
