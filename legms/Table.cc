@@ -104,14 +104,21 @@ Table::create_metadata(
   Context ctx,
   Runtime* rt,
   const std::string& name,
-  const std::string& axes_uid) {
+  const std::string& axes_uid,
+  const std::string& name_prefix) {
 
   IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
   FieldSpace fs = rt->create_field_space(ctx);
   FieldAllocator fa = rt->create_field_allocator(ctx, fs);
   fa.allocate_field(sizeof(legms::string), METADATA_NAME_FID);
+  rt->attach_name(fs, METADATA_NAME_FID, "name");
   fa.allocate_field(sizeof(legms::string), METADATA_AXES_UID_FID);
+  rt->attach_name(fs, METADATA_AXES_UID_FID, "axes_uid");
   LogicalRegion result = rt->create_logical_region(ctx, is, fs);
+  {
+    std::string result_name = name_prefix + "/metadata";
+    rt->attach_name(result, result_name.c_str());
+  }
   {
     RegionRequirement req(result, WRITE_ONLY, EXCLUSIVE, result);
     req.add_field(METADATA_NAME_FID);
@@ -130,7 +137,8 @@ LogicalRegion
 Table::create_axes(
   Context ctx,
   Runtime* rt,
-  const std::vector<int>& index_axes)  {
+  const std::vector<int>& index_axes,
+  const std::string& name_prefix)  {
 
   Rect<1> rect(0, index_axes.size() - 1);
   IndexSpace is = rt->create_index_space(ctx, rect);
@@ -138,6 +146,10 @@ Table::create_axes(
   FieldAllocator fa = rt->create_field_allocator(ctx, fs);
   fa.allocate_field(sizeof(int), AXES_FID);
   LogicalRegion result = rt->create_logical_region(ctx, is, fs);
+  {
+    std::string result_name = name_prefix + "/axes";
+    rt->attach_name(result, result_name.c_str());
+  }
   {
     RegionRequirement req(result, WRITE_ONLY, EXCLUSIVE, result);
     req.add_field(AXES_FID);

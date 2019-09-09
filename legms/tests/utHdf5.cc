@@ -128,19 +128,7 @@ Column::Generator
 table0_col(const std::string& name) {
   if (name == "X") {
     return
-      [name](Context ctx, Runtime* rt) {
-        return
-          Column::create(
-            ctx,
-            rt,
-            name,
-            std::vector<Table0Axes>{Table0Axes::ROW},
-            ValueType<unsigned>::DataType,
-            IndexTreeL(TABLE0_NUM_ROWS));
-      };
-  } else if (name == "Y"){
-    return
-      [name](Context ctx, Runtime* rt) {
+      [name](Context ctx, Runtime* rt, const std::string& name_prefix) {
         return
           Column::create(
             ctx,
@@ -149,11 +137,26 @@ table0_col(const std::string& name) {
             std::vector<Table0Axes>{Table0Axes::ROW},
             ValueType<unsigned>::DataType,
             IndexTreeL(TABLE0_NUM_ROWS),
-            Keywords::kw_desc_t{{"perfect", ValueType<short>::DataType}});
+            {},
+            name_prefix);
+      };
+  } else if (name == "Y"){
+    return
+      [name](Context ctx, Runtime* rt, const std::string& name_prefix) {
+        return
+          Column::create(
+            ctx,
+            rt,
+            name,
+            std::vector<Table0Axes>{Table0Axes::ROW},
+            ValueType<unsigned>::DataType,
+            IndexTreeL(TABLE0_NUM_ROWS),
+            Keywords::kw_desc_t{{"perfect", ValueType<short>::DataType}},
+            name_prefix);
       };
   } else /* name == "Z" */ {
     return
-      [name](Context ctx, Runtime* rt) {
+      [name](Context ctx, Runtime* rt, const std::string& name_prefix) {
         return
           Column::create(
             ctx,
@@ -161,7 +164,9 @@ table0_col(const std::string& name) {
             name,
             std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP},
             ValueType<unsigned>::DataType,
-            IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
+            IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}),
+            {},
+            name_prefix);
       };
   }
 }

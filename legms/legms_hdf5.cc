@@ -741,6 +741,7 @@ legms::hdf5::init_column(
   const std::string& axes_uid,
   hid_t loc_id,
   hid_t axes_dt,
+  const std::string& name_prefix,
   hid_t attr_access_pl,
   hid_t link_access_pl,
   hid_t xfer_pl) {
@@ -824,7 +825,8 @@ legms::hdf5::init_column(
             axes,
             datatype,
             it,
-            keywords);
+            keywords,
+            name_prefix);
       }
     }
   }
@@ -846,6 +848,7 @@ return_nothing:
 }
 
 struct acc_col_ctx {
+  const std::string& table_name;
   const std::unordered_set<std::string>* column_names;
   std::vector<legms::Column>* acc;
   std::string axes_uid;
@@ -882,6 +885,7 @@ acc_col(
           args->axes_uid,
           col_group_id,
           args->axes_dt,
+          args->table_name,
           args->attr_access_pl,
           args->link_access_pl,
           args->xfer_pl);
@@ -898,6 +902,7 @@ legms::hdf5::init_table(
   const std::string& table_name,
   hid_t loc_id,
   const std::unordered_set<std::string>& column_names,
+  const std::string& name_prefix,
   hid_t type_access_pl,
   hid_t attr_access_pl,
   hid_t link_access_pl,
@@ -946,7 +951,7 @@ legms::hdf5::init_table(
   }
   {
     struct acc_col_ctx acc_col_ctx{
-      &column_names, &cols, axes_uid, axes_dt,
+      name_prefix, &column_names, &cols, axes_uid, axes_dt,
       attr_access_pl, link_access_pl, xfer_pl,
       rt, ctx};
     hsize_t position = 0;
@@ -1008,14 +1013,16 @@ legms::hdf5::init_table(
     try {
       hid_t table_loc = H5Gopen(fid, table_path.c_str(), table_access_pl);
       if (table_loc >= 0) {
+        auto table_basename = table_path.rfind('/') + 1;
         try {
           result =
             init_table(
               context,
               runtime,
-              table_path.substr(table_path.rfind('/') + 1),
+              table_path.substr(table_basename),
               table_loc,
               column_names,
+              table_path.substr(0, table_basename),
               type_access_pl,
               attr_access_pl,
               link_access_pl,

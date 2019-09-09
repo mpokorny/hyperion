@@ -68,7 +68,11 @@ Keywords::value_types(
 }
 
 Keywords
-Keywords::create(Context ctx, Runtime* rt, const kw_desc_t& kws) {
+Keywords::create(
+  Context ctx,
+  Runtime* rt,
+  const kw_desc_t& kws,
+  const std::string& name_prefix) {
 
   LogicalRegion tts, vals;
   if (kws.size() > 0) {
@@ -84,7 +88,23 @@ Keywords::create(Context ctx, Runtime* rt, const kw_desc_t& kws) {
       add_field(dt, val_fa, i);
     }
     tts = rt->create_logical_region(ctx, is, tt_fs);
+    {
+      std::string tts_name = "kws/type_tags";
+      if (name_prefix.size() > 0)
+        tts_name =
+          ((name_prefix.back() != '/') ? (name_prefix + "/") : name_prefix)
+          + tts_name;
+      rt->attach_name(tts, tts_name.c_str());
+    }
     vals = rt->create_logical_region(ctx, is, val_fs);
+    {
+      std::string vals_name = "kws/values";
+      if (name_prefix.size() > 0)
+        vals_name =
+          ((name_prefix.back() != '/') ? (name_prefix + "/") : name_prefix)
+          + vals_name;
+      rt->attach_name(vals, vals_name.c_str());
+    }
     RegionRequirement req(tts, WRITE_ONLY, EXCLUSIVE, tts);
     for (size_t i = 0; i < kws.size(); ++i)
       req.add_field(i);

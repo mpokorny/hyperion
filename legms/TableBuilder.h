@@ -104,8 +104,11 @@ public:
     std::vector<Column::Generator> result;
     for (auto& nm_cb : m_columns) {
       result.push_back(
-        [cb=nm_cb.second](Legion::Context ctx, Legion::Runtime* rt) {
-          return cb->column(ctx, rt);
+        [cb=nm_cb.second]
+        (Legion::Context ctx,
+         Legion::Runtime* rt,
+         const std::string& name_prefix) {
+          return cb->column(ctx, rt, name_prefix);
         });
     }
     return result;

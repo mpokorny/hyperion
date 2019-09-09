@@ -124,7 +124,7 @@ unsigned table0_z[TABLE0_NUM_ROWS] {
 Column::Generator
 table0_col(const std::string& name) {
   return
-    [=](Context context, Runtime* runtime) {
+    [=](Context context, Runtime* runtime, const std::string& name_prefix) {
       return
         Column::create(
           context,
@@ -132,7 +132,9 @@ table0_col(const std::string& name) {
           name,
           std::vector<Table0Axes>{Table0Axes::ROW},
           ValueType<unsigned>::DataType,
-          IndexTreeL(TABLE0_NUM_ROWS));
+          IndexTreeL(TABLE0_NUM_ROWS),
+          {},
+          name_prefix);
     };
 }
 

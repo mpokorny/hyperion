@@ -84,7 +84,11 @@ public:
   add_row(const std::any&) = 0;
 
   Column
-  column(Legion::Context ctx, Legion::Runtime* rt) const {
+  column(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::string& name_prefix) const {
+
     IndexTreeL itree;
     auto itrank = index_tree().rank();
     if (itrank && itrank.value() == rank())
@@ -97,7 +101,8 @@ public:
         axes(),
         datatype(),
         itree,
-        keywords());
+        keywords(),
+        name_prefix);
   }
 
 protected:

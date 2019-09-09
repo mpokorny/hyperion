@@ -73,7 +73,9 @@ public:
     Legion::AffineAccessor<legms::TypeTag, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
-  typedef std::function<Column(Legion::Context, Legion::Runtime*)> Generator;
+  typedef std::function<
+    Column(Legion::Context, Legion::Runtime*, const std::string&)>
+  Generator;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxesAccessor =
@@ -108,7 +110,8 @@ public:
     const std::vector<int>& axes,
     legms::TypeTag datatype,
     const IndexTreeL& index_tree,
-    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t());
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
+    const std::string& name_prefix = "");
 
   void
   destroy(Legion::Context ctx, Legion::Runtime* rt);
@@ -122,7 +125,8 @@ public:
     const std::vector<D>& axes,
     legms::TypeTag datatype,
     const IndexTreeL& index_tree,
-    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
+    const std::string& name_prefix = "") {
     return
       create(
         ctx,
@@ -132,7 +136,8 @@ public:
         map_to_int(axes),
         datatype,
         index_tree,
-        kws);
+        kws,
+        name_prefix);
   }
 
   std::string
@@ -274,8 +279,12 @@ public:
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
     return
-      [=](Legion::Context ctx, Legion::Runtime* rt) {
-        return create(ctx, rt, name, axes, datatype, index_tree, kws);
+      [=]
+      (Legion::Context ctx,
+       Legion::Runtime* rt,
+       const std::string& name_prefix) {
+        return
+          create(ctx, rt, name, axes, datatype, index_tree, kws, name_prefix);
       };
   }
 

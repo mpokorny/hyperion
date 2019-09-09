@@ -136,7 +136,11 @@ struct LEGMS_API Keywords {
   }
 
   static Keywords
-  create(Legion::Context ctx, Legion::Runtime* rt, const kw_desc_t& kws);
+  create(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const kw_desc_t& kws,
+    const std::string& name_prefix = "");
 
   void
   destroy(Legion::Context ctx, Legion::Runtime* rt);

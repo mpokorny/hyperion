@@ -127,11 +127,20 @@ public:
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
     const C<Column>& columns_,
-    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
+    const std::string& name_prefix = "") {
 
-    Legion::LogicalRegion metadata = create_metadata(ctx, rt, name, axes_uid);
-    Legion::LogicalRegion axes = create_axes(ctx, rt, index_axes);
-    Keywords keywords = Keywords::create(ctx, rt, kws);
+    std::string component_name_prefix = name;
+    if (name_prefix.size() > 0)
+      component_name_prefix =
+        ((name_prefix.back() != '/') ? (name_prefix + "/") : name_prefix)
+        + component_name_prefix;
+
+    Legion::LogicalRegion metadata =
+      create_metadata(ctx, rt, name, axes_uid, component_name_prefix);
+    Legion::LogicalRegion axes =
+      create_axes(ctx, rt, index_axes, component_name_prefix);
+    Keywords keywords = Keywords::create(ctx, rt, kws, component_name_prefix);
     Legion::LogicalRegion columns;
     {
       Legion::Rect<1> rect(0, columns_.size() - 1);
@@ -140,6 +149,10 @@ public:
       Legion::FieldAllocator fa = rt->create_field_allocator(ctx, fs);
       fa.allocate_field(sizeof(Column), COLUMNS_FID);
       columns = rt->create_logical_region(ctx, is, fs);
+      {
+        std::string columns_name = component_name_prefix + "/columns";
+        rt->attach_name(columns, columns_name.c_str());
+      }
       Legion::RegionRequirement req(columns, WRITE_ONLY, EXCLUSIVE, columns);
       req.add_field(COLUMNS_FID);
       Legion::PhysicalRegion pr = rt->map_region(ctx, req);
@@ -167,10 +180,19 @@ public:
     const std::string& name,
     const std::vector<D>& index_axes,
     const C<Column>& columns,
-    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
+    const std::string& name_prefix = "") {
 
     return
-      create(ctx, rt, name, Axes<D>::uid, map_to_int(index_axes), columns, kws);
+      create(
+        ctx,
+        rt,
+        name,
+        Axes<D>::uid,
+        map_to_int(index_axes),
+        columns,
+        kws,
+        name_prefix);
   }
 
   template <template <typename> typename C>
@@ -182,11 +204,20 @@ public:
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
     const C<Column::Generator>& column_generators,
-    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
+    const std::string& name_prefix = "") {
 
-    Legion::LogicalRegion metadata = create_metadata(ctx, rt, name, axes_uid);
-    Legion::LogicalRegion axes = create_axes(ctx, rt, index_axes);
-    Keywords keywords = Keywords::create(ctx, rt, kws);
+    std::string component_name_prefix = name;
+    if (name_prefix.size() > 0)
+      component_name_prefix =
+        ((name_prefix.back() != '/') ? (name_prefix + "/") : name_prefix)
+        + component_name_prefix;
+
+    Legion::LogicalRegion metadata =
+      create_metadata(ctx, rt, name, axes_uid, component_name_prefix);
+    Legion::LogicalRegion axes =
+      create_axes(ctx, rt, index_axes, component_name_prefix);
+    Keywords keywords = Keywords::create(ctx, rt, kws, component_name_prefix);
     Legion::LogicalRegion columns;
     {
       Legion::Rect<1> rect(0, column_generators.size() - 1);
@@ -202,7 +233,7 @@ public:
       Legion::PointInRectIterator<1> pir(rect);
       for (auto& cg : column_generators) {
         assert(pir());
-        cols[*pir] = cg(ctx, rt);
+        cols[*pir] = cg(ctx, rt, component_name_prefix);
         pir++;
       }
       assert(!pir());
@@ -222,7 +253,8 @@ public:
     const std::string& name,
     const std::vector<D>& index_axes,
     const C<Column::Generator>& column_generators,
-    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
+    const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
+    const std::string& name_prefix = "") {
 
     return
       create(
@@ -232,7 +264,8 @@ public:
         Axes<D>::uid,
         map_to_int(index_axes),
         column_generators,
-        kws);
+        kws,
+        name_prefix);
   }
 
   void
@@ -474,13 +507,15 @@ protected:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::string& name,
-    const std::string& axes_uid);
+    const std::string& axes_uid,
+    const std::string& name_prefix);
 
   static Legion::LogicalRegion
   create_axes(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<int>& index_axes);
+    const std::vector<int>& index_axes,
+    const std::string& name_prefix);
 
 #ifndef NO_REINDEX
   Legion::Future/* Table */

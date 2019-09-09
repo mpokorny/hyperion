@@ -44,7 +44,14 @@ Column::create(
   const std::vector<int>& axes,
   legms::TypeTag datatype,
   const IndexTreeL& index_tree,
-  const Keywords::kw_desc_t& kws) {
+  const Keywords::kw_desc_t& kws,
+  const std::string& name_prefix) {
+
+  std::string component_name_prefix = name;
+  if (name_prefix.size() > 0)
+    component_name_prefix =
+      ((name_prefix.back() != '/') ? (name_prefix + "/") : name_prefix)
+      + component_name_prefix;
 
   LogicalRegion metadata;
   {
@@ -52,9 +59,16 @@ Column::create(
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(legms::string), METADATA_NAME_FID);
+    rt->attach_name(fs, METADATA_NAME_FID, "name");
     fa.allocate_field(sizeof(legms::string), METADATA_AXES_UID_FID);
+    rt->attach_name(fs, METADATA_AXES_UID_FID, "axes_uid");
     fa.allocate_field(sizeof(legms::TypeTag), METADATA_DATATYPE_FID);
+    rt->attach_name(fs, METADATA_DATATYPE_FID, "datatype");
     metadata = rt->create_logical_region(ctx, is, fs);
+    {
+      std::string metadata_name = component_name_prefix + "/metadata";
+      rt->attach_name(metadata, metadata_name.c_str());
+    }
     {
       RegionRequirement req(metadata, WRITE_ONLY, EXCLUSIVE, metadata);
       req.add_field(METADATA_NAME_FID);
@@ -79,6 +93,10 @@ Column::create(
     fa.allocate_field(sizeof(int), AXES_FID);
     axs = rt->create_logical_region(ctx, is, fs);
     {
+      std::string axs_name = component_name_prefix + "/axes";
+      rt->attach_name(axs, axs_name.c_str());
+    }
+    {
       RegionRequirement req(axs, WRITE_ONLY, EXCLUSIVE, axs);
       req.add_field(AXES_FID);
       PhysicalRegion pr = rt->map_region(ctx, req);
@@ -95,8 +113,17 @@ Column::create(
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     add_field(datatype, fa, VALUE_FID);
     values = rt->create_logical_region(ctx, is, fs);
+    {
+      std::string values_name = component_name_prefix + "/values";
+      rt->attach_name(values, values_name.c_str());
+    }
   }
-  return Column(metadata, axs, values, Keywords::create(ctx, rt, kws));
+  return
+    Column(
+      metadata,
+      axs,
+      values,
+      Keywords::create(ctx, rt, kws, component_name_prefix));
 }
 
 void
