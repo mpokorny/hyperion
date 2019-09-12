@@ -367,6 +367,46 @@ Column::projected_column_partition(
   }
 }
 
+#ifdef LEGMS_USE_HDF5
+PhysicalRegion
+Column::with_attached_prologue(
+  Context ctx,
+  Runtime* rt,
+  const LEGMS_FS::path& file_path,
+  const std::string& table_root,
+  bool mapped,
+  bool read_write) {
+
+  std::string tb_root = table_root;
+  if (tb_root.back() != '/')
+    tb_root.push_back('/');
+  tb_root += name(ctx, rt);
+
+  PhysicalRegion result =
+    hdf5::attach_column_values(
+      ctx,
+      rt,
+      file_path,
+      tb_root,
+      *this,
+      mapped,
+      read_write);
+  AcquireLauncher acquire(values_lr, values_lr, result);
+  acquire.add_field(Column::VALUE_FID);
+  rt->issue_acquire(ctx, acquire);
+  return result;
+}
+
+void
+Column::with_attached_epilogue(Context ctx, Runtime* rt, PhysicalRegion pr) {
+
+  ReleaseLauncher release(values_lr, values_lr, pr);
+  release.add_field(Column::VALUE_FID);
+  rt->issue_release(ctx, release);
+  rt->detach_external_resource(ctx, pr);
+}
+#endif // LEGMS_USE_HDF5
+
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2

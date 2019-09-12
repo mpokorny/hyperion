@@ -171,7 +171,44 @@ public:
   index_tree(Legion::Runtime* rt) const;
 
 #ifdef LEGMS_USE_HDF5
-  template <typename FN>
+  template <
+    typename FN,
+    std::enable_if_t<
+      !std::is_void_v<
+        std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Column&>>,
+      int> = 0>
+  std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Column&>
+  with_attached(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const LEGMS_FS::path& file_path,
+    const std::string& table_root,
+    FN f,
+    bool mapped = false,
+    bool read_write = false) {
+
+    typedef
+      std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Column&> RET;
+
+    Legion::PhysicalRegion pr =
+      with_attached_prologue(
+        ctx,
+        rt,
+        file_path,
+        table_root,
+        mapped,
+        read_write);
+    RET result = f(ctx, rt, *this);
+    with_attached_epilogue(ctx, rt, pr);
+    return result;
+  }
+
+  template <
+    typename FN,
+    std::enable_if_t<
+      std::is_void_v<
+      std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Column&>>,
+      int> = 0>
   void
   with_attached(
     Legion::Context ctx,
@@ -182,30 +219,16 @@ public:
     bool mapped = false,
     bool read_write = false) {
 
-    std::string tb_root = table_root;
-    if (tb_root.back() != '/')
-      tb_root.push_back('/');
-    tb_root += name(ctx, rt);
-
     Legion::PhysicalRegion pr =
-      hdf5::attach_column_values(
+      with_attached_prologue(
         ctx,
         rt,
         file_path,
-        tb_root,
-        *this,
+        table_root,
         mapped,
         read_write);
-    Legion::AcquireLauncher acquire(values_lr, values_lr, pr);
-    acquire.add_field(Column::VALUE_FID);
-    rt->issue_acquire(ctx, acquire);
-
     f(ctx, rt, *this);
-
-    Legion::ReleaseLauncher release(values_lr, values_lr, pr);
-    release.add_field(Column::VALUE_FID);
-    rt->issue_release(ctx, release);
-    rt->detach_external_resource(ctx, pr);
+    with_attached_epilogue(ctx, rt, pr);
   }
 #endif // LEGMS_USE_HDF5
 
@@ -330,6 +353,22 @@ public:
   }
 
 protected:
+#ifdef LEGMS_USE_HDF5
+  Legion::PhysicalRegion
+  with_attached_prologue(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const LEGMS_FS::path& file_path,
+    const std::string& table_root,
+    bool mapped,
+    bool read_write);
+
+  void
+  with_attached_epilogue(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    Legion::PhysicalRegion pr);
+#endif // LEGMS_USE_HDF5
 
   ColumnPartition
   partition_on_iaxes(

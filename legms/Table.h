@@ -340,7 +340,44 @@ public:
   }
 
 #ifdef LEGMS_USE_HDF5
-  template <typename FN>
+  template <
+    typename FN,
+    std::enable_if_t<
+      !std::is_void_v<
+        std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table&>>,
+      int> = 0>
+  std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table&>
+  with_columns_attached(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const LEGMS_FS::path& file_path,
+    const std::string& root_path,
+    FN f,
+    const std::unordered_set<std::string> mapped = {},
+    const std::unordered_set<std::string> read_write = {}) {
+
+    typedef
+      std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table&> RET;
+
+    std::vector<Legion::PhysicalRegion> prs =
+      with_columns_attached_prologue(
+        ctx,
+        rt,
+        file_path,
+        root_path,
+        mapped,
+        read_write);
+    RET result = f(ctx, rt, *this);
+    with_columns_attached_epilogue(ctx, rt, prs);
+    return result;
+  }
+
+  template <
+    typename FN,
+    std::enable_if_t<
+      std::is_void_v<
+        std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table&>>,
+      int> = 0>
   void
   with_columns_attached(
     Legion::Context ctx,
@@ -351,42 +388,16 @@ public:
     const std::unordered_set<std::string> mapped = {},
     const std::unordered_set<std::string> read_write = {}) {
 
-    std::string table_root = root_path;
-    if (table_root.back() != '/')
-      table_root.push_back('/');
-    table_root += name(ctx, rt);
-
     std::vector<Legion::PhysicalRegion> prs =
-      map_columns(
+      with_columns_attached_prologue(
         ctx,
         rt,
-        [&file_path, &table_root, &mapped, &read_write]
-        (Legion::Context c, Legion::Runtime* r, const Column& col) {
-          auto cn = col.name(c, r);
-          auto result =
-            hdf5::attach_column_values(
-              c,
-              r,
-              file_path,
-              table_root,
-              col,
-              mapped.count(cn) > 0,
-              read_write.count(cn) > 0);
-          Legion::AcquireLauncher acquire(col.values_lr, col.values_lr, result);
-          acquire.add_field(Column::VALUE_FID);
-          r->issue_acquire(c, acquire);
-          return result;
-        });
-
+        file_path,
+        root_path,
+        mapped,
+        read_write);
     f(ctx, rt, *this);
-
-    for (auto& pr : prs) {
-      Legion::ReleaseLauncher
-        release(pr.get_logical_region(), pr.get_logical_region(), pr);
-      release.add_field(Column::VALUE_FID);
-      rt->issue_release(ctx, release);
-      rt->detach_external_resource(ctx, pr);
-    }
+    with_columns_attached_epilogue(ctx, rt, prs);
   }
 #endif // LEGMS_USE_HDF5
 
@@ -516,6 +527,23 @@ protected:
     Legion::Runtime* rt,
     const std::vector<int>& index_axes,
     const std::string& name_prefix);
+
+#ifdef LEGMS_USE_HDF5
+  std::vector<Legion::PhysicalRegion>
+  with_columns_attached_prologue(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const LEGMS_FS::path& file_path,
+    const std::string& root_path,
+    const std::unordered_set<std::string> mapped,
+    const std::unordered_set<std::string> read_write);
+
+  void
+  with_columns_attached_epilogue(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    std::vector<Legion::PhysicalRegion>& prs);
+#endif // LEGMS_USE_HDF5
 
 #ifndef NO_REINDEX
   Legion::Future/* Table */

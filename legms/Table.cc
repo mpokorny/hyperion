@@ -290,6 +290,60 @@ Table::min_rank_column(
   return result;
 }
 
+#ifdef LEGMS_USE_HDF5
+std::vector<PhysicalRegion>
+Table::with_columns_attached_prologue(
+  Context ctx,
+  Runtime* rt,
+  const LEGMS_FS::path& file_path,
+  const std::string& root_path,
+  const std::unordered_set<std::string> mapped,
+  const std::unordered_set<std::string> read_write) {
+
+  std::string table_root = root_path;
+  if (table_root.back() != '/')
+    table_root.push_back('/');
+  table_root += name(ctx, rt);
+
+  return
+    map_columns(
+      ctx,
+      rt,
+      [&file_path, &table_root, &mapped, &read_write]
+      (Context c, Runtime* r, const Column& col) {
+        auto cn = col.name(c, r);
+        auto result =
+          hdf5::attach_column_values(
+            c,
+            r,
+            file_path,
+            table_root,
+            col,
+            mapped.count(cn) > 0,
+            read_write.count(cn) > 0);
+        AcquireLauncher acquire(col.values_lr, col.values_lr, result);
+        acquire.add_field(Column::VALUE_FID);
+        r->issue_acquire(c, acquire);
+        return result;
+      });
+}
+
+void
+Table::with_columns_attached_epilogue(
+  Context ctx,
+  Runtime* rt,
+  std::vector<PhysicalRegion>& prs) {
+
+  for (auto& pr : prs) {
+    ReleaseLauncher
+      release(pr.get_logical_region(), pr.get_logical_region(), pr);
+    release.add_field(Column::VALUE_FID);
+    rt->issue_release(ctx, release);
+    rt->detach_external_resource(ctx, pr);
+  }
+}
+#endif // LEGMS_USE_HDF5
+
 #ifndef NO_REINDEX
 TaskID ReindexedTableTask::TASK_ID;
 const char* ReindexedTableTask::TASK_NAME = "ReindexedTableTask";
