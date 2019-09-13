@@ -334,6 +334,8 @@ public:
   }
 };
 
+FieldID UnitaryClassifyAntennasTask::TASK_ID = 0;
+
 struct PAValues {
   static const FieldID PA_ORIGIN_FID = 0;
   static const FieldID PA_STEP_FID = 1;
@@ -425,10 +427,9 @@ struct PAValues {
   find(PhysicalRegion region, float pa) {
     const ROAccessor<float, 1> origin(region, PA_ORIGIN_FID);
     const ROAccessor<float, 1> step(region, PA_STEP_FID);
-    float a = pa - origin[0];
-    if (a < 0.0f)
-      a += std::ceil(std::abs(a) / 360.0f) * 360.0f;
-    return std::lrint(std::floor(a / step[0]));
+    pa -= origin[0];
+    pa -= std::floor(pa / 360.0f) * 360.0f;
+    return std::lrint(std::floor(pa / step[0]));
   }
 
   void
@@ -436,10 +437,294 @@ struct PAValues {
     rt->destroy_field_space(ctx, parameters.get_field_space());
     rt->destroy_index_space(ctx, parameters.get_index_space());
     rt->destroy_logical_region(ctx, parameters);
+    parameters = LogicalRegion::NO_REGION;
   }
 };
 
-FieldID UnitaryClassifyAntennasTask::TASK_ID = 0;
+class CFMap {
+public:
+
+  CFMap(
+    Context ctx,
+    Runtime* rt,
+    const GridderArgs<VALUE_ARGS>& gridder_args,
+    const std::string& ms_root,
+    const std::unordered_map<MSTables,Table>& tables,
+    unsigned num_antenna_classes,
+    LogicalRegion antenna_classes,
+    const PAValues& pa_values) {
+
+    // compute the map index space bounds
+    m_bounds =
+      tables[MS_DATA_DESCRIPTION]
+      .with_columns_attached(
+        ctx,
+        rt,
+        gridder_args.h5,
+        ms_root,
+        [&tables, &gridder_args, &pa_values, &ms_root]
+        (Context ctx, Runtime* rt, const Table& dd) {
+          return 
+            tables[MS_SPECTRAL_WINDOW]
+            .column(
+              ctx,
+              rt,
+              COLUMN_NAME(MS_SPECTRAL_WINDOW, NUM_CHAN))
+            .with_attached(
+              ctx,
+              rt,
+              gridder_args.h5,
+              ms_root + TableColumns<MS_SPECTRAL_WINDOW>::table_name,
+              [&tables, &gridder_args, &pa_values, &ms_root, &dd]
+              (Context ctx, Runtime* rt, const Column& num_chan) {
+                return 
+                  tables[MS_POLARIZATION]
+                  .column(
+                    ctx,
+                    rt,
+                    COLUMN_NAME(MS_POLARIZATION, NUM_CORR))
+                  .with_attached(
+                    ctx,
+                    rt,
+                    gridder_args.h5,
+                    ms_root + TableColumns<MS_POLARIZATION>::table_name,
+                    [&gridder_args, &pa_values, &num_chan, &dd]
+                    (Context ctx, Runtime* rt, const Column& num_corr) {
+                      return
+                        CFMap::bounding_index_space(
+                          ctx,
+                          rt,
+                          dd,
+                          num_chan,
+                          num_corr,
+                          num_antenna_classes,
+                          gridder_args.w_proj_planes,
+                          pa_values.num_steps(ctx, rt));
+                    });
+                  });        
+        });
+
+    // create and initialize preimage, which records, for every point in
+    // m_bounds, a row number that maps to that point
+    LogicalRegion preimage;
+    {
+      FieldSpace fs = rt->create_field_space(ctx);
+      FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+      fa.allocate_field(sizeof(Point<1>), 0); // row number
+      fa.allocate_field(sizeof(Point<1>), 1); // "assigned" flag
+      preimage = rt->create_logical_region(ctx, m_bounds, fs);
+      rt->fill_field(ctx, preimage, preimage, 0, Point<1>(-1));
+      rt->fill_field(ctx, preimage, preimage, 1, Point<1>(0));
+      // FIXME: launch index space task over visibilities to write row numbers
+      // and flags to preimage via reductions
+    }
+
+    // create m_partition, the partition of m_bounds by "assigned" flag of
+    // preimage
+    {
+      IndexSpace flag_values = rt->create_index_space(ctx, Rect<1>(0, 1));
+      m_partition =
+        rt->create_partition_by_field(
+          ctx,
+          preimage,
+          preimage,
+          1,
+          flag_values);
+      rt->destroy_index_space(ctx, flag_values);
+    }
+
+    // create m_cfs, the region of cfs, using as index space the sub-space of
+    // m_partition with an "assigned" flag value of 1
+    {
+      FieldSpace fs = rt->create_field_space(ctx);
+      {
+        FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+        fa.allocate_field(sizeof(LogicalRegion), 0);
+      }
+      m_cfs =
+        rt->create_logical_region(
+          ctx,
+          rt->get_index_subspace(ctx, m_partition, Point<1>(1)),
+          fs);
+    }
+
+    // create common field space of every cf
+    m_cf_fs = rt->create_field_space(ctx);
+    {
+      FieldAllocator fa = rt->create_field_allocator(ctx, m_cf_fs);
+      fa.allocate_field(sizeof(std::complex<float>), 0);
+    }
+
+    // FIXME: launch index space task on m_cfs to create and initialize its
+    // values, using "preimage" to select the row used for initialization
+
+    rt->destroy_field_space(ctx, preimage.get_field_space());
+    rt->destroy_logical_region(ctc, preimage);
+  }
+
+  struct Key {
+    unsigned ant1_class;
+    unsigned ant2_class;
+    unsigned pa;
+    unsigned dd;
+    unsigned channel;
+    unsigned w_plane;
+    unsigned correlation;
+
+    operator Point<7>() const {
+      coord_t
+        vals[7]{ant1_class, ant2_class, pa, dd, channel, w_plane, correlation};
+      return Point<7>(vals);
+    }
+  };
+
+  LogicalRegion
+  lookup(Context ctx, Runtime* rt, const Key& key) {
+    RegionRequirement req(m_cfs, READ_ONLY, EXCLUSIVE, m_cfs);
+    req.add_field(0);
+    auto pr = rt->map_region(ctx, req);
+    auto result = lookup(pr, key);
+    rt->unmap_region(ctx, pr);
+    return result;
+  }
+
+  static LogicalRegion
+  lookup(PhysicalRegion pr, const Key& key) {
+    const ROAccessor<LogicalRegion, 7> lrs(pr, 0);
+    return lrs[key];
+  }
+
+  void
+  destroy(Context ctx, Runtime* rt, bool destroy_cfs = true) {
+    if (destroy_cfs) {
+      RegionRequirement req(m_cfs, READ_ONLY, EXCLUSIVE, m_cfs);
+      req.add_field(0);
+      auto pr = rt->map_region(ctx, req);
+      const ROAccessor<LogicalRegion, 7> cfs(pr, 0);
+      for (PointInDomainIterator<7>
+             pid(rt->get_index_space_domain(m_cfs.get_index_space()));
+           pid();
+           pid++) {
+        LogicalRegion cf = cfs[*pid];
+        if (cf != LogicalRegion::NO_REGION) {
+          rt->destroy_index_space(ctx, cf.get_index_space());
+          // DON'T destroy the field space of cf, as cfs share a common field
+          // space! TODO: can they share a common index space?
+          rt->destroy_logical_region(cf);
+        }
+      }
+      rt->unmap_region(ctx, pr);
+      destroy_common_field_space(ctx, rt);
+    }
+    rt->destroy_field_space(ctx, m_cfs.get_field_space());
+    rt->destroy_logical_region(ctx, m_cfs);
+    m_cfs = LogicalRegion::NO_REGION;
+
+    rt->destroy_index_space(ctx, m_bounds);
+  }
+
+  void
+  destroy_common_field_space(Context ctx, Runtime* rt) {
+    // call this after destroy() has been called with "destroy_cfs" set to
+    // "false"; it is nevertheless safe but unnecessary to call after destroy()
+    // was called with a "true" value
+    if (m_cf_fs != FieldSpace::NO_SPACE){
+      rt->destroy_field_space(ctx, m_cf_fs);
+      m_cf_fs = FieldSpace::NO_SPACE;
+    }
+  }
+
+  static IndexSpace
+  bounding_index_space(
+    Context ctx,
+    Runtime* rt,
+    const Table& data_description_tbl,
+    const Column& num_chan_col,
+    const Column& num_corr_col,
+    unsigned num_antenna_classes,
+    int w_proj_planes,
+    coord_t num_pa_steps) {
+
+    coord_t num_dd;
+    PhysicalRegion spw_id_pr;
+    {
+      const Column& col =
+        data_description_tbl.column(
+          ctx,
+          rt,
+          COLUMN_NAME(MS_DATA_DESCRIPTION, SPECTRAL_WINDOW_ID));
+      Rect<1> rows(
+        rt->get_index_space_domain(col.values_lr.get_index_space()));
+      num_dd = rows.hi[0] + 1;
+      RegionRequirement req(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
+      req.add_field(Column::VALUE_FID);
+      spw_id_pr = rt->map_region(ctx, req);
+    }
+    const ROAccessor<int, 1> spw_ids(spw_id_pr, Column::VALUE_FID);    
+
+    PhysicalRegion pol_id_pr;
+    {
+      const Column& col =
+        data_description_tbl.column(
+          ctx,
+          rt,
+          COLUMN_NAME(MS_DATA_DESCRIPTION, POLARIZATION_ID));
+      RegionRequirement req(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
+      req.add_field(Column::VALUE_FID);
+      pol_id_pr = rt->map_region(ctx, req);
+    }
+    const ROAccessor<int, 1> pol_ids(pol_id_pr, Column::VALUE_FID);
+
+    PhysicalRegion num_chan_pr;
+    {
+      RegionRequirement
+        req(
+          num_chan_col.values_lr,
+          READ_ONLY,
+          EXCLUSIVE,
+          num_chan_col.values_lr);
+      num_chan_pr = rt->map_region(ctx, req);
+    }
+    const ROAccessor<int, 1> num_chan(num_chan_pr, Column::VALUE_FID);
+
+    PhysicalRegion num_corr_pr;
+    {
+      RegionRequirement
+        req(
+          num_corr_col.values_lr,
+          READ_ONLY,
+          EXCLUSIVE,
+          num_corr_col.values_lr);
+      num_corr_pr = rt->map_region(ctx, req);
+    }
+    const ROAccessor<int, 1> num_corr(num_corr_pr, Column::VALUE_FID);
+
+    std::vector<IndexSpace> is_pieces;
+    for (coord_t ant0 = 0; ant0 < num_antenna_classes; ++ant0)
+      for (coord_t ant1 = ant0; ant1 < num_antenna_classes; ++ant1)
+        for (coord_t pa = 0; pa < num_pa_steps; ++pa)
+          for (coord_t dd = 0; dd < num_dd; ++dd) {
+            coord_t lo[7]{ant0, ant1, pa, dd, 0, 0, 0};
+            coord_t hi[7]{ant0, ant1, pa, dd, num_chan[spw_ids[dd]] - 1,
+                w_proj_planes - 1, num_corr[pol_ids[dd]] - 1};
+            is_pieces.push_back(
+              rt->create_index_space(ctx, Rect<7>(Point<7>(lo), Point<7>(hi))));
+          }
+    rt->unmap_region(ctx, pol_id_pr);
+    rt->unmap_region(ctx, spw_id_pr);
+    rt->unmap_region(ctx, num_chan_pr);
+    rt->unmap_region(ctx, num_corr_pr);
+    return rt->union_index_spaces(ctx, is_pieces);
+  }
+
+private:
+
+  IndexSpace m_bounds;
+
+  LogicalRegion m_cfs;
+
+  FieldSpace m_cf_fs;
+};
 
 typedef enum {VALUE_ARGS, STRING_ARGS} gridder_args_t;
 
@@ -519,92 +804,6 @@ public:
     return std::nullopt;
   }
 
-  static IndexSpace
-  compute_cf_cache_index_space(
-    Context ctx,
-    Runtime* rt,
-    unsigned num_antenna_classes,
-    const GridderArgs<VALUE_ARGS>& gridder_args,
-    const PAValues& pa_values,
-    const Table& dd_table,
-    const Column& num_chan_col,
-    const Column& num_corr_col) {
-
-    auto num_pa_steps = pa_values.num_steps(ctx, rt);
-
-    coord_t num_dd;
-    PhysicalRegion spw_id_pr;
-    {
-      const Column& col =
-        dd_table.column(
-          ctx,
-          rt,
-          COLUMN_NAME(MS_DATA_DESCRIPTION, SPECTRAL_WINDOW_ID));
-      Rect<1> rows(
-        rt->get_index_space_domain(col.values_lr.get_index_space()));
-      num_dd = rows.hi[0] + 1;
-      RegionRequirement req(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
-      req.add_field(Column::VALUE_FID);
-      spw_id_pr = rt->map_region(ctx, req);
-    }
-    const ROAccessor<int, 1> spw_ids(spw_id_pr, Column::VALUE_FID);    
-
-    PhysicalRegion pol_id_pr;
-    {
-      const Column& col =
-        dd_table.column(
-          ctx,
-          rt,
-          COLUMN_NAME(MS_DATA_DESCRIPTION, POLARIZATION_ID));
-      RegionRequirement req(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
-      req.add_field(Column::VALUE_FID);
-      pol_id_pr = rt->map_region(ctx, req);
-    }
-    const ROAccessor<int, 1> pol_ids(pol_id_pr, Column::VALUE_FID);
-
-    PhysicalRegion num_chan_pr;
-    {
-      RegionRequirement
-        req(
-          num_chan_col.values_lr,
-          READ_ONLY,
-          EXCLUSIVE,
-          num_chan_col.values_lr);
-      num_chan_pr = rt->map_region(ctx, req);
-    }
-    const ROAccessor<int, 1> num_chan(num_chan_pr, Column::VALUE_FID);
-
-    PhysicalRegion num_corr_pr;
-    {
-      RegionRequirement
-        req(
-          num_corr_col.values_lr,
-          READ_ONLY,
-          EXCLUSIVE,
-          num_corr_col.values_lr);
-      num_corr_pr = rt->map_region(ctx, req);
-    }
-    const ROAccessor<int, 1> num_corr(num_corr_pr, Column::VALUE_FID);
-
-    std::vector<IndexSpace> is_pieces;
-    for (coord_t ant0 = 0; ant0 < num_antenna_classes; ++ant0)
-      for (coord_t ant1 = ant0; ant1 < num_antenna_classes; ++ant1)
-        for (coord_t pa = 0; pa < num_pa_steps; ++pa)
-          for (coord_t dd = 0; dd < num_dd; ++dd) {
-            coord_t lo[7]{ant0, ant1, pa, dd, 0, 0, 0};
-            coord_t hi[7]{ant0, ant1, pa, dd, num_chan[spw_ids[dd]] - 1,
-                gridder_args.w_proj_planes - 1, num_corr[pol_ids[dd]] - 1};
-            is_pieces.push_back(
-              rt->create_index_space(ctx, Rect<7>(Point<7>(lo), Point<7>(hi))));
-          }
-    IndexSpace result = rt->union_index_spaces(ctx, is_pieces);
-    rt->unmap_region(ctx, pol_id_pr);
-    rt->unmap_region(ctx, spw_id_pr);
-    rt->unmap_region(ctx, num_chan_pr);
-    rt->unmap_region(ctx, num_corr_pr);
-    return result;
-  }
-
   static void
   base_impl(
     const Legion::Task*,
@@ -614,6 +813,7 @@ public:
 
     legms::register_tasks(ctx, rt);
 
+    // process command line arguments
     GridderArgs<VALUE_ARGS> gridder_args;
     {
       const Legion::InputArgs& input_args = Legion::Runtime::get_input_args();
@@ -652,6 +852,7 @@ public:
     }
     gridder_args.pa_step = std::fmod(std::abs(gridder_args.pa_step), 360.f);
 
+    // initialize Tables used by gridder from HDF5 file
     const std::string ms_root = "/";
     MSTables mstables[] = {
       MS_ANTENNA,
@@ -663,8 +864,11 @@ public:
     for (auto& mst : mstables)
       tables[mst] = init_table(ctx, rt, gridder_args.h5, ms_root, mst);
 
+    // create region mapping antenna index to antenna class
     LogicalRegion antenna_classes;
     {
+      // note that ClassifyAntennasTask uses an index space from the antenna
+      // table for the region it creates
       tables[MS_ANTENNA]
         .with_columns_attached(
           ctx,
@@ -679,60 +883,32 @@ public:
     }
     rt->attach_name(antenna_classes, "antenna_classes");
 
+    // create vector of parallactic angle values
     PAValues pa_values(ctx, rt, tables, gridder_args.pa_step);
     rt->attach_name(pa_values.parameters, "pa_values");
 
-    // IndexSpace cf_cache_is;    
-    // tables[MS_DATA_DESCRIPTION]
-    //   .with_columns_attached(
-    //     ctx,
-    //     rt,
-    //     gridder_args.h5,
-    //     ms_root,
-    //     [&tables, &gridder_args, &pa_values, &ms_root, &cf_cache_is]
-    //     (Context ctx, Runtime* rt, const Table& dd) {
-    //       tables.[MS_SPECTRAL_WINDOW]
-    //         .column(
-    //           ctx,
-    //           rt,
-    //           COLUMN_NAME(MS_SPECTRAL_WINDOW, NUM_CHAN))
-    //         .with_attached(
-    //           ctx,
-    //           rt,
-    //           gridder_args.h5,
-    //           ms_root + TableColumns<MS_SPECTRAL_WINDOW>::table_name,
-    //           [&tables, &gridder_args, &pa_values, &ms_root, &dd, &cf_cache_is]
-    //           (Context ctx, Runtime* rt, const Column& num_chan) {
-    //             tables[MS_POLARIZATION]
-    //               .column(
-    //                 ctx,
-    //                 rt,
-    //                 COLUMN_NAME(MS_POLARIZATION, NUM_CORR))
-    //               .with_attached(
-    //                 ctx,
-    //                 rt,
-    //                 gridder_args.h5,
-    //                 ms_root + TableColumns<MS_POLARIZATION>::table_name,
-    //                 [&gridder_args, &pa_values, &num_chan, &dd, &cf_cache_is]
-    //                 (Context ctx, Runtime* rt, const Column& num_corr) {
-    //                   cf_cache_is =
-    //                     compute_cf_cache_index_space(
-    //                       ctx,
-    //                       rt,
-    //                       UnitaryClassifyAntennasTask::num_classes,
-    //                       gridder_args,
-    //                       pa_values,
-    //                       dd,
-    //                       num_chan,
-    //                       num_corr);
-    //                 })
-    //               });        
-    //     });
+    // create convolution function map
+    CFMap cf_map(
+      ctx,
+      rt,
+      gridder_args,
+      ms_root,
+      tables,
+      UnitaryClassifyAntennasTask::num_classes,
+      antenna_classes,
+      pa_values);
 
-    // rt->destroy_index_space(cf_cache_is);
+    // TODO: the rest goes here
+
+    // clean up
+    cf_map.destroy(ctx, rt);
     pa_values.destroy(ctx, rt);
+    // don't destroy index space of antenna_classes, as it is shared with an
+    // index space in the antenna table
     rt->destroy_field_space(ctx, antenna_classes.get_field_space());
     rt->destroy_logical_region(ctx, antenna_classes);
+    for (auto& tt : tables)
+      tt.second.destroy(ctx, rt);
   }
 
   static void
@@ -743,7 +919,6 @@ public:
     Legion::Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
     Legion::Runtime::set_top_level_task_id(TASK_ID);
   }
-
 };
 
 int
