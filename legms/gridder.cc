@@ -557,59 +557,36 @@ public:
 
     // compute the map index space bounds
     IndexSpace bounds =
-      tables[MS_DATA_DESCRIPTION]
-      .with_columns_attached(
+      Table::with_columns_attached(
         ctx,
         rt,
         gridder_args.h5,
         ms_root,
-        {COLUMN_NAME(MS_DATA_DESCRIPTION, SPECTRAL_WINDOW_ID),
-         COLUMN_NAME(MS_DATA_DESCRIPTION, POLARIZATION_ID)},
-        {},
-        [&tables, &gridder_args, &pa_values, &ms_root, &num_antenna_classes]
-        (Context ctx, Runtime* rt, const Table& dd) {
-          return 
-            tables[MS_SPECTRAL_WINDOW]
-            .with_columns_attached(
-              ctx,
-              rt,
-              gridder_args.h5,
-              ms_root,
-              {COLUMN_NAME(MS_SPECTRAL_WINDOW, NUM_CHAN)},
-              {},
-              [&tables, &gridder_args, &pa_values, &ms_root,
-               &num_antenna_classes, &dd]
-              (Context ctx, Runtime* rt, const Table& spw) {
-                return 
-                  tables[MS_POLARIZATION]
-                  .with_columns_attached(
-                    ctx,
-                    rt,
-                    gridder_args.h5,
-                    ms_root,
-                    {COLUMN_NAME(MS_POLARIZATION, NUM_CORR)},
-                    {},
-                    [&gridder_args, &pa_values, &num_antenna_classes, &spw,
-                     &dd]
-                    (Context ctx, Runtime* rt, const Table& pol) {
-                      return
-                        CFMap::bounding_index_space(
-                          ctx,
-                          rt,
-                          dd,
-                          spw.column(
-                            ctx,
-                            rt,
-                            COLUMN_NAME(MS_SPECTRAL_WINDOW, NUM_CHAN)),
-                          pol.column(
-                            ctx,
-                            rt,
-                            COLUMN_NAME(MS_POLARIZATION, NUM_CORR)),
-                          num_antenna_classes,
-                          gridder_args.w_proj_planes,
-                          pa_values.num_steps(ctx, rt));
-                    });
-                  });        
+        {{&tables[MS_DATA_DESCRIPTION],
+          {COLUMN_NAME(MS_DATA_DESCRIPTION, SPECTRAL_WINDOW_ID),
+           COLUMN_NAME(MS_DATA_DESCRIPTION, POLARIZATION_ID)},
+          {}},
+         {&tables[MS_SPECTRAL_WINDOW],
+          {COLUMN_NAME(MS_SPECTRAL_WINDOW, NUM_CHAN)},
+          {}},
+         {&tables[MS_POLARIZATION],
+          {COLUMN_NAME(MS_POLARIZATION, NUM_CORR)},
+          {}}},
+        [num_antenna_classes, &gridder_args, &pa_values]
+        (Context c, Runtime* r,
+         std::unordered_map<std::string, Table*>& tables) {
+          return
+            CFMap::bounding_index_space(
+              c,
+              r,
+              *tables[TableColumns<MS_DATA_DESCRIPTION>::table_name],
+              tables[TableColumns<MS_SPECTRAL_WINDOW>::table_name]->column(
+                c, r, COLUMN_NAME(MS_SPECTRAL_WINDOW, NUM_CHAN)),
+              tables[TableColumns<MS_POLARIZATION>::table_name]->column(
+                c, r, COLUMN_NAME(MS_POLARIZATION, NUM_CORR)),
+              num_antenna_classes,
+              gridder_args.w_proj_planes,
+              pa_values.num_steps(c, r));
         });
 
 #if 0
@@ -989,8 +966,8 @@ public:
            COLUMN_NAME(MS_ANTENNA, DISH_DIAMETER)},
           {},
           [&antenna_classes]
-          (Context ctx, Runtime* rt, const Table& tb) {
-            CLASSIFY_ANTENNAS_TASK task(tb);
+          (Context ctx, Runtime* rt, const Table* tb) {
+            CLASSIFY_ANTENNAS_TASK task(*tb);
             antenna_classes = task.dispatch(ctx, rt);
           });
     }

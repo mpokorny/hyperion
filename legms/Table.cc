@@ -297,8 +297,12 @@ Table::with_columns_attached_prologue(
   Runtime* rt,
   const LEGMS_FS::path& file_path,
   const std::string& root_path,
-  const std::unordered_set<std::string> read_only,
-  const std::unordered_set<std::string> read_write) {
+  const std::tuple<
+  Table*,
+  std::unordered_set<std::string>,
+  std::unordered_set<std::string>>& table_columns) {
+
+  auto& [table, read_only, read_write] = table_columns;
 
   std::unordered_set<std::string> only_read_only;
   std::copy_if(
@@ -312,10 +316,10 @@ Table::with_columns_attached_prologue(
   std::string table_root = root_path;
   if (table_root.back() != '/')
     table_root.push_back('/');
-  table_root += name(ctx, rt);
+  table_root += table->name(ctx, rt);
 
   std::vector<PhysicalRegion> result;
-  foreach_column(
+  table->foreach_column(
     ctx,
     rt,
     [&file_path, &table_root, &only_read_only, &read_write, &result]

@@ -344,9 +344,9 @@ public:
     typename FN,
     std::enable_if_t<
       !std::is_void_v<
-        std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table&>>,
+        std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table*>>,
       int> = 0>
-  std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table&>
+  std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table*>
   with_columns_attached(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -357,7 +357,7 @@ public:
     FN f) {
 
     typedef
-      std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table&> RET;
+      std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table*> RET;
 
     std::vector<Legion::PhysicalRegion> prs =
       with_columns_attached_prologue(
@@ -365,18 +365,22 @@ public:
         rt,
         file_path,
         root_path,
-        read_only,
-        read_write);
-    RET result = f(ctx, rt, *this);
-    with_columns_attached_epilogue(ctx, rt, prs);
-    return result;
+        {this, read_only, read_write});
+    try {
+      RET result = f(ctx, rt, this);
+      with_columns_attached_epilogue(ctx, rt, prs);
+      return result;
+    } catch (...) {
+      with_columns_attached_epilogue(ctx, rt, prs);
+      throw;
+    }
   }
 
   template <
     typename FN,
     std::enable_if_t<
       std::is_void_v<
-        std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table&>>,
+        std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table*>>,
       int> = 0>
   void
   with_columns_attached(
@@ -394,11 +398,126 @@ public:
         rt,
         file_path,
         root_path,
-        read_only,
-        read_write);
-    f(ctx, rt, *this);
-    with_columns_attached_epilogue(ctx, rt, prs);
+        {this, read_only, read_write});
+    try {
+      f(ctx, rt, this);
+      with_columns_attached_epilogue(ctx, rt, prs);
+    } catch (...) {
+      with_columns_attached_epilogue(ctx, rt, prs);
+      throw;
+    }
   }
+
+  template <
+    typename FN,
+    std::enable_if_t<
+      !std::is_void_v<
+        std::invoke_result_t<
+          FN,
+          Legion::Context,
+          Legion::Runtime*,
+          std::unordered_map<std::string,Table*>&>>,
+    int> = 0>
+  static std::invoke_result_t<
+    FN,
+    Legion::Context,
+    Legion::Runtime*,
+    std::unordered_map<std::string,Table*>&>
+  with_columns_attached(
+    Legion::Context ctx,
+    Legion::Runtime *rt,
+    const LEGMS_FS::path& file_path,
+    const std::string& root_path,
+    const std::vector<
+      std::tuple<
+        Table*,
+        std::unordered_set<std::string>,
+        std::unordered_set<std::string>>>& table_columns,
+    FN f) {
+
+    typedef
+      std::invoke_result_t<
+        FN,
+        Legion::Context,
+        Legion::Runtime*,
+        std::unordered_map<std::string,Table*>&> RET;
+
+    std::unordered_map<std::string,Table*> tables;
+    std::vector<Legion::PhysicalRegion> prs;
+    std::for_each(
+      table_columns.begin(),
+      table_columns.end(),
+      [&ctx, rt, &file_path, &root_path, &tables, &prs](auto& t_ro_rw) {
+        auto tprs =
+          with_columns_attached_prologue(
+            ctx,
+            rt,
+            file_path,
+            root_path,
+            t_ro_rw);
+        std::copy(tprs.begin(), tprs.end(), std::back_inserter(prs));
+        auto t = std::get<0>(t_ro_rw);
+        tables[t->name(ctx, rt)] = t;
+      });
+    try {
+      RET result = f(ctx, rt, tables);
+      with_columns_attached_epilogue(ctx, rt, prs);
+      return result;
+    } catch(...) {
+      with_columns_attached_epilogue(ctx, rt, prs);
+      throw;
+    }
+  }
+
+  template <
+    typename FN,
+    std::enable_if_t<
+      std::is_void_v<
+        std::invoke_result_t<
+          FN,
+          Legion::Context,
+          Legion::Runtime*,
+          std::unordered_map<std::string,Table*>&>>,
+    int> = 0>
+  static void
+  with_columns_attached(
+    Legion::Context ctx,
+    Legion::Runtime *rt,
+    const LEGMS_FS::path& file_path,
+    const std::string& root_path,
+    const std::vector<
+      std::tuple<
+        Table*,
+        std::unordered_set<std::string>,
+        std::unordered_set<std::string>>>& table_columns,
+    FN f) {
+
+    std::unordered_map<std::string,Table*> tables;
+    std::vector<Legion::PhysicalRegion> prs;
+    std::for_each(
+      table_columns.begin(),
+      table_columns.end(),
+      [&ctx, rt, &file_path, &root_path, &tables, &prs](auto& t_ro_rw) {
+        auto tprs =
+          with_columns_attached_prologue(
+            ctx,
+            rt,
+            file_path,
+            root_path,
+            t_ro_rw);
+        std::copy(tprs.begin(), tprs.end(), std::back_inserter(prs));
+        auto t = std::get<0>(t_ro_rw);
+        tables[t->name(ctx, rt)] = t;
+      });
+    try {
+      f(ctx, rt, tables);
+      with_columns_attached_epilogue(ctx, rt, prs);
+    } catch(...) {
+      with_columns_attached_epilogue(ctx, rt, prs);
+      throw;
+    }
+  }
+
 #endif // LEGMS_USE_HDF5
 
 #ifndef NO_REINDEX
@@ -529,16 +648,18 @@ protected:
     const std::string& name_prefix);
 
 #ifdef LEGMS_USE_HDF5
-  std::vector<Legion::PhysicalRegion>
+  static std::vector<Legion::PhysicalRegion>
   with_columns_attached_prologue(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const LEGMS_FS::path& file_path,
     const std::string& root_path,
-    const std::unordered_set<std::string> read_only,
-    const std::unordered_set<std::string> read_write);
+    const std::tuple<
+      Table*,
+      std::unordered_set<std::string>,
+      std::unordered_set<std::string>>& table_columns);
 
-  void
+  static void
   with_columns_attached_epilogue(
     Legion::Context ctx,
     Legion::Runtime* rt,
