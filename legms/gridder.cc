@@ -449,7 +449,7 @@ public:
     Runtime* rt,
     const GridderArgs<VALUE_ARGS>& gridder_args,
     const std::string& ms_root,
-    const std::unordered_map<MSTables,Table>& tables,
+    std::unordered_map<MSTables,Table>& tables,
     unsigned num_antenna_classes,
     LogicalRegion antenna_classes,
     const PAValues& pa_values) {
@@ -462,7 +462,7 @@ public:
         rt,
         gridder_args.h5,
         ms_root,
-        [&tables, &gridder_args, &pa_values, &ms_root]
+        [&tables, &gridder_args, &pa_values, &ms_root, &num_antenna_classes]
         (Context ctx, Runtime* rt, const Table& dd) {
           return 
             tables[MS_SPECTRAL_WINDOW]
@@ -475,7 +475,8 @@ public:
               rt,
               gridder_args.h5,
               ms_root + TableColumns<MS_SPECTRAL_WINDOW>::table_name,
-              [&tables, &gridder_args, &pa_values, &ms_root, &dd]
+              [&tables, &gridder_args, &pa_values, &ms_root,
+               &num_antenna_classes, &dd]
               (Context ctx, Runtime* rt, const Column& num_chan) {
                 return 
                   tables[MS_POLARIZATION]
@@ -488,7 +489,8 @@ public:
                     rt,
                     gridder_args.h5,
                     ms_root + TableColumns<MS_POLARIZATION>::table_name,
-                    [&gridder_args, &pa_values, &num_chan, &dd]
+                    [&gridder_args, &pa_values, &num_antenna_classes, &num_chan,
+                     &dd]
                     (Context ctx, Runtime* rt, const Column& num_corr) {
                       return
                         CFMap::bounding_index_space(
@@ -685,6 +687,7 @@ public:
           READ_ONLY,
           EXCLUSIVE,
           num_chan_col.values_lr);
+      req.add_field(Column::VALUE_FID);
       num_chan_pr = rt->map_region(ctx, req);
     }
     const ROAccessor<int, 1> num_chan(num_chan_pr, Column::VALUE_FID);
@@ -697,6 +700,7 @@ public:
           READ_ONLY,
           EXCLUSIVE,
           num_corr_col.values_lr);
+      req.add_field(Column::VALUE_FID);
       num_corr_pr = rt->map_region(ctx, req);
     }
     const ROAccessor<int, 1> num_corr(num_corr_pr, Column::VALUE_FID);
