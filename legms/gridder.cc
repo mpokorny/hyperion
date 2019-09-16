@@ -365,10 +365,10 @@ struct PAValues {
     auto pr = rt->map_region(ctx, req);
     const WOAccessor<float, 1> origin(pr, PA_ORIGIN_FID);
     const WOAccessor<float, 1> step(pr, PA_STEP_FID);
-    const WOAccessor<unsigned long, 1> num_step(pr, PA_STEP_FID);
+    const WOAccessor<unsigned long, 1> num_step(pr, PA_NUM_STEP_FID);
     origin[0] = pa_origin;
     step[0] = pa_step;
-    num_step[0] = std::lrint(std::ceil(360.0f / pa_step)) - 1;
+    num_step[0] = std::lrint(std::ceil(360.0f / pa_step));
     rt->unmap_region(ctx, pr);
   }
 
