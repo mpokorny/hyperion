@@ -783,6 +783,9 @@ public:
            << "' does not name a regular file" << std::endl;
     switch (std::fpclassify(val_args.pa_step)) {
     case FP_NORMAL:
+      if (std::abs(val_args.pa_step) > 360.0f)
+        errs << "--pastep value '" << str_args.pa_step
+             << "' is not in valid range [-360, 360]" << std::endl;
       break;
     case FP_ZERO:
     case FP_SUBNORMAL:
@@ -852,7 +855,7 @@ public:
         return;
       }
     }
-    gridder_args.pa_step = std::fmod(std::abs(gridder_args.pa_step), 360.f);
+    gridder_args.pa_step = std::abs(gridder_args.pa_step);
 
     // initialize Tables used by gridder from HDF5 file
     const std::string ms_root = "/";
