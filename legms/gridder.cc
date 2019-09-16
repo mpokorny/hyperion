@@ -753,6 +753,7 @@ struct GridderArgs {
   typename GridderArgType<int, G>::type w_proj_planes;
 };
 
+template <typename CLASSIFY_ANTENNAS_TASK>
 class TopLevelTask {
 public:
 
@@ -888,7 +889,7 @@ public:
           ms_root,
           [&antenna_classes]
           (Context ctx, Runtime* rt, const Table& tb) {
-            UnitaryClassifyAntennasTask task(tb);
+            CLASSIFY_ANTENNAS_TASK task(tb);
             antenna_classes = task.dispatch(ctx, rt);
           });
     }
@@ -905,7 +906,7 @@ public:
       gridder_args,
       ms_root,
       tables,
-      UnitaryClassifyAntennasTask::num_classes,
+      CLASSIFY_ANTENNAS_TASK::num_classes,
       antenna_classes,
       pa_values);
 
@@ -934,9 +935,10 @@ public:
 
 int
 main(int argc, char* argv[]) {
-  TopLevelTask::preregister();
   legms::preregister_all();
   UnitaryClassifyAntennasTask::preregister();
+  TopLevelTask<UnitaryClassifyAntennasTask>::preregister();
+  Runtime::register_reduction_op<LastPointRedop>(LAST_POINT_REDOP);
   return Runtime::start(argc, argv);
 }
 
