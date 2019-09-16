@@ -775,8 +775,10 @@ public:
     const GridderArgs<VALUE_ARGS>& val_args) {
 
     std::ostringstream errs;
-    auto h5_abs = LEGMS_FS::canonical(val_args.h5);
-    if (!LEGMS_FS::exists(h5_abs) || !LEGMS_FS::is_regular_file(h5_abs))
+    std::optional<LEGMS_FS::path> h5_abs;
+    if (LEGMS_FS::exists(val_args.h5))
+      h5_abs = LEGMS_FS::canonical(val_args.h5);
+    if (!h5_abs || !LEGMS_FS::is_regular_file(h5_abs.value()))
       errs << "Path '" << str_args.h5
            << "' does not name a regular file" << std::endl;
     switch (std::fpclassify(val_args.pa_step)) {
