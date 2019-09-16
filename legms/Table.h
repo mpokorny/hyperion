@@ -352,9 +352,9 @@ public:
     Legion::Runtime* rt,
     const LEGMS_FS::path& file_path,
     const std::string& root_path,
-    FN f,
-    const std::unordered_set<std::string> mapped = {},
-    const std::unordered_set<std::string> read_write = {}) {
+    const std::unordered_set<std::string> read_only,
+    const std::unordered_set<std::string> read_write,
+    FN f) {
 
     typedef
       std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, Table&> RET;
@@ -365,7 +365,7 @@ public:
         rt,
         file_path,
         root_path,
-        mapped,
+        read_only,
         read_write);
     RET result = f(ctx, rt, *this);
     with_columns_attached_epilogue(ctx, rt, prs);
@@ -384,9 +384,9 @@ public:
     Legion::Runtime* rt,
     const LEGMS_FS::path& file_path,
     const std::string& root_path,
-    FN f,
-    const std::unordered_set<std::string> mapped = {},
-    const std::unordered_set<std::string> read_write = {}) {
+    const std::unordered_set<std::string> read_only,
+    const std::unordered_set<std::string> read_write,
+    FN f) {
 
     std::vector<Legion::PhysicalRegion> prs =
       with_columns_attached_prologue(
@@ -394,7 +394,7 @@ public:
         rt,
         file_path,
         root_path,
-        mapped,
+        read_only,
         read_write);
     f(ctx, rt, *this);
     with_columns_attached_epilogue(ctx, rt, prs);
@@ -535,7 +535,7 @@ protected:
     Legion::Runtime* rt,
     const LEGMS_FS::path& file_path,
     const std::string& root_path,
-    const std::unordered_set<std::string> mapped,
+    const std::unordered_set<std::string> read_only,
     const std::unordered_set<std::string> read_write);
 
   void

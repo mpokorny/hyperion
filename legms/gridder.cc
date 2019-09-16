@@ -563,43 +563,48 @@ public:
         rt,
         gridder_args.h5,
         ms_root,
+        {COLUMN_NAME(MS_DATA_DESCRIPTION, SPECTRAL_WINDOW_ID),
+         COLUMN_NAME(MS_DATA_DESCRIPTION, POLARIZATION_ID)},
+        {},
         [&tables, &gridder_args, &pa_values, &ms_root, &num_antenna_classes]
         (Context ctx, Runtime* rt, const Table& dd) {
           return 
             tables[MS_SPECTRAL_WINDOW]
-            .column(
-              ctx,
-              rt,
-              COLUMN_NAME(MS_SPECTRAL_WINDOW, NUM_CHAN))
-            .with_attached(
+            .with_columns_attached(
               ctx,
               rt,
               gridder_args.h5,
-              ms_root + TableColumns<MS_SPECTRAL_WINDOW>::table_name,
+              ms_root,
+              {COLUMN_NAME(MS_SPECTRAL_WINDOW, NUM_CHAN)},
+              {},
               [&tables, &gridder_args, &pa_values, &ms_root,
                &num_antenna_classes, &dd]
-              (Context ctx, Runtime* rt, const Column& num_chan) {
+              (Context ctx, Runtime* rt, const Table& spw) {
                 return 
                   tables[MS_POLARIZATION]
-                  .column(
-                    ctx,
-                    rt,
-                    COLUMN_NAME(MS_POLARIZATION, NUM_CORR))
-                  .with_attached(
+                  .with_columns_attached(
                     ctx,
                     rt,
                     gridder_args.h5,
-                    ms_root + TableColumns<MS_POLARIZATION>::table_name,
-                    [&gridder_args, &pa_values, &num_antenna_classes, &num_chan,
+                    ms_root,
+                    {COLUMN_NAME(MS_POLARIZATION, NUM_CORR)},
+                    {},
+                    [&gridder_args, &pa_values, &num_antenna_classes, &spw,
                      &dd]
-                    (Context ctx, Runtime* rt, const Column& num_corr) {
+                    (Context ctx, Runtime* rt, const Table& pol) {
                       return
                         CFMap::bounding_index_space(
                           ctx,
                           rt,
                           dd,
-                          num_chan,
-                          num_corr,
+                          spw.column(
+                            ctx,
+                            rt,
+                            COLUMN_NAME(MS_SPECTRAL_WINDOW, NUM_CHAN)),
+                          pol.column(
+                            ctx,
+                            rt,
+                            COLUMN_NAME(MS_POLARIZATION, NUM_CORR)),
                           num_antenna_classes,
                           gridder_args.w_proj_planes,
                           pa_values.num_steps(ctx, rt));
@@ -977,6 +982,12 @@ public:
           rt,
           gridder_args.h5,
           ms_root,
+          {COLUMN_NAME(MS_ANTENNA, NAME),
+           COLUMN_NAME(MS_ANTENNA, STATION),
+           COLUMN_NAME(MS_ANTENNA, TYPE),
+           COLUMN_NAME(MS_ANTENNA, MOUNT),
+           COLUMN_NAME(MS_ANTENNA, DISH_DIAMETER)},
+          {},
           [&antenna_classes]
           (Context ctx, Runtime* rt, const Table& tb) {
             CLASSIFY_ANTENNAS_TASK task(tb);

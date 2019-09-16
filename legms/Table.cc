@@ -297,35 +297,47 @@ Table::with_columns_attached_prologue(
   Runtime* rt,
   const LEGMS_FS::path& file_path,
   const std::string& root_path,
-  const std::unordered_set<std::string> mapped,
+  const std::unordered_set<std::string> read_only,
   const std::unordered_set<std::string> read_write) {
+
+  std::unordered_set<std::string> only_read_only;
+  std::copy_if(
+    read_only.begin(),
+    read_only.end(),
+    std::inserter(only_read_only, only_read_only.end()),
+    [&read_write](auto& c) {
+      return read_write.count(c) == 0;
+    });
 
   std::string table_root = root_path;
   if (table_root.back() != '/')
     table_root.push_back('/');
   table_root += name(ctx, rt);
 
-  return
-    map_columns(
-      ctx,
-      rt,
-      [&file_path, &table_root, &mapped, &read_write]
-      (Context c, Runtime* r, const Column& col) {
-        auto cn = col.name(c, r);
-        auto result =
+  std::vector<PhysicalRegion> result;
+  foreach_column(
+    ctx,
+    rt,
+    [&file_path, &table_root, &only_read_only, &read_write, &result]
+    (Context c, Runtime* r, const Column& col) {
+      auto cn = col.name(c, r);
+      if (only_read_only.count(cn) > 0 || read_write.count(cn) > 0) {
+        auto pr =
           hdf5::attach_column_values(
             c,
             r,
             file_path,
             table_root,
             col,
-            mapped.count(cn) > 0,
+            false,
             read_write.count(cn) > 0);
-        AcquireLauncher acquire(col.values_lr, col.values_lr, result);
+        AcquireLauncher acquire(col.values_lr, col.values_lr, pr);
         acquire.add_field(Column::VALUE_FID);
         r->issue_acquire(c, acquire);
-        return result;
-      });
+        result.push_back(pr);
+      }
+    });
+  return result;
 }
 
 void
