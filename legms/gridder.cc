@@ -257,7 +257,7 @@ init_table(
   MSTables mst) {
 
   std::unordered_set<std::string> columns;
-  std::string table_name;
+  const char* table_name;
   switch (mst) {
 #define INIT(TBL)                                       \
     case (MS_##TBL): {                                  \
@@ -265,7 +265,7 @@ init_table(
         TableColumns<MS_##TBL>::column_names.begin(),   \
         TableColumns<MS_##TBL>::column_names.end(),     \
         std::inserter(columns, columns.end()));         \
-      table_name = TableColumns<MS_##TBL>::table_name;  \
+      table_name = MSTable<MS_##TBL>::name;             \
       break;                                            \
     }
     LEGMS_FOREACH_MSTABLE(INIT);
@@ -579,10 +579,10 @@ public:
             CFMap::bounding_index_space(
               c,
               r,
-              *tables[TableColumns<MS_DATA_DESCRIPTION>::table_name],
-              tables[TableColumns<MS_SPECTRAL_WINDOW>::table_name]->column(
+              *tables[MSTable<MS_DATA_DESCRIPTION>::name],
+              tables[MSTable<MS_SPECTRAL_WINDOW>::name]->column(
                 c, r, COLUMN_NAME(MS_SPECTRAL_WINDOW, NUM_CHAN)),
-              tables[TableColumns<MS_POLARIZATION>::table_name]->column(
+              tables[MSTable<MS_POLARIZATION>::name]->column(
                 c, r, COLUMN_NAME(MS_POLARIZATION, NUM_CORR)),
               num_antenna_classes,
               gridder_args.w_proj_planes,
