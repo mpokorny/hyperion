@@ -596,31 +596,33 @@ public:
 
   void
   destroy(Context ctx, Runtime* rt, bool destroy_cfs = true) {
-    if (destroy_cfs) {
-      RegionRequirement req(m_cfs, READ_ONLY, EXCLUSIVE, m_cfs);
-      req.add_field(0);
-      auto pr = rt->map_region(ctx, req);
-      const ROAccessor<LogicalRegion, 7> cfs(pr, 0);
-      for (PointInDomainIterator<7>
-             pid(rt->get_index_space_domain(m_cfs.get_index_space()));
-           pid();
-           pid++) {
-        LogicalRegion cf = cfs[*pid];
-        if (cf != LogicalRegion::NO_REGION) {
-          rt->destroy_index_space(ctx, cf.get_index_space());
-          // DON'T destroy the field space of cf, as cfs share a common field
-          // space! TODO: can they share a common index space?
-          rt->destroy_logical_region(cf);
+    if (m_cfs != LogicalRegion::NO_REGION) {
+      if (destroy_cfs) {
+        RegionRequirement req(m_cfs, READ_ONLY, EXCLUSIVE, m_cfs);
+        req.add_field(0);
+        auto pr = rt->map_region(ctx, req);
+        const ROAccessor<LogicalRegion, 7> cfs(pr, 0);
+        for (PointInDomainIterator<7>
+               pid(rt->get_index_space_domain(m_cfs.get_index_space()));
+             pid();
+             pid++) {
+          LogicalRegion cf = cfs[*pid];
+          if (cf != LogicalRegion::NO_REGION) {
+            rt->destroy_index_space(ctx, cf.get_index_space());
+            // DON'T destroy the field space of cf, as cfs share a common field
+            // space! TODO: can they share a common index space?
+            rt->destroy_logical_region(ctx, cf);
+          }
         }
+        rt->unmap_region(ctx, pr);
+        destroy_common_field_space(ctx, rt);
       }
-      rt->unmap_region(ctx, pr);
-      destroy_common_field_space(ctx, rt);
+      rt->destroy_field_space(ctx, m_cfs.get_field_space());
+      rt->destroy_logical_region(ctx, m_cfs);
+      m_cfs = LogicalRegion::NO_REGION;
     }
-    rt->destroy_field_space(ctx, m_cfs.get_field_space());
-    rt->destroy_logical_region(ctx, m_cfs);
-    m_cfs = LogicalRegion::NO_REGION;
-
-    rt->destroy_index_space(ctx, m_bounds);
+    if (m_bounds != IndexSpace::NO_SPACE)
+      rt->destroy_index_space(ctx, m_bounds);
   }
 
   void
