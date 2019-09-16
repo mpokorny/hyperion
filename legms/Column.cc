@@ -380,7 +380,6 @@ Column::with_attached_prologue(
   std::string tb_root = table_root;
   if (tb_root.back() != '/')
     tb_root.push_back('/');
-  tb_root += name(ctx, rt);
 
   PhysicalRegion result =
     hdf5::attach_column_values(
