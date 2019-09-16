@@ -78,6 +78,81 @@ enum {
   TOP_LEVEL_TASK_ID,
 };
 
+enum {
+  LAST_POINT_REDOP=100,
+};
+
+template <int DIM>
+struct LastPointRedop {
+  typedef Point<DIM> LHS;
+  typedef Point<DIM> RHS;
+
+  template <bool EXCL>
+  static void
+  apply(LHS& lhs, RHS rhs);
+
+  template <bool EXCL>
+  static void
+  fold(RHS& rhs1, RHS rhs2);
+
+  // TODO: I'd prefer not to define "identity", and reduction ops should not be
+  // required to define identity or fold according to realm/redop.h, but as of
+  // Legion afb79fe, that is not the case
+  static const Point<DIM> identity;
+};
+
+template <>
+const Point<1> LastPointRedop<1>::identity = -1;
+
+template <> template <>
+inline void
+LastPointRedop<1>::apply<true>(Point<1>& lhs, Point<1> rhs) {
+  if (rhs.x != -1)
+    lhs = rhs;
+}
+
+template <> template <>
+inline void
+LastPointRedop<1>::apply<false>(Point<1>& lhs, Point<1> rhs) {
+  if (rhs != -1)
+    __atomic_store_n(&lhs.x, rhs.x, __ATOMIC_RELEASE);
+}
+
+template <> template <>
+void
+LastPointRedop<1>::fold<true>(Point<1>& lhs, Point<1> rhs) {
+  if (rhs != -1)
+    lhs = rhs;
+}
+
+template <> template <>
+inline void
+LastPointRedop<1>::fold<false>(Point<1>& lhs, Point<1> rhs) {
+  if (rhs != -1)
+    __atomic_store_n(&lhs.x, rhs.x, __ATOMIC_RELEASE);
+}
+
+typedef enum {VALUE_ARGS, STRING_ARGS} gridder_args_t;
+
+template <typename T, gridder_args_t G>
+struct GridderArgType {
+};
+template <typename T>
+struct GridderArgType<T, VALUE_ARGS> {
+  typedef T type;
+};
+template <typename T>
+struct GridderArgType<T, STRING_ARGS> {
+  typedef std::string type;
+};
+
+template <gridder_args_t G>
+struct GridderArgs {
+  typename GridderArgType<LEGMS_FS::path, G>::type h5;
+  typename GridderArgType<float, G>::type pa_step;
+  typename GridderArgType<int, G>::type w_proj_planes;
+};
+
 template <MSTables T>
 struct TableColumns {
   //typedef ColEnums;
@@ -336,19 +411,28 @@ public:
 
 FieldID UnitaryClassifyAntennasTask::TASK_ID = 0;
 
-struct PAValues {
+class PAValues {
+public:
+
   static const FieldID PA_ORIGIN_FID = 0;
   static const FieldID PA_STEP_FID = 1;
   static const FieldID PA_NUM_STEP_FID = 2;
 
-  LogicalRegion parameters;
+  PAValues() {
+  };
 
-  PAValues(
+  PAValues(LogicalRegion parameters)
+    :m_parameters(parameters) {
+  };
+
+  static PAValues
+  create(
     Context ctx,
     Runtime* rt,
     const std::unordered_map<MSTables,Table>&,
     float pa_step,
-    float pa_origin = 0.0f) {
+    float pa_origin,
+    const std::string& name) {
 
     IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
     FieldSpace fs = rt->create_field_space(ctx);
@@ -356,7 +440,8 @@ struct PAValues {
     fa.allocate_field(sizeof(float), PA_ORIGIN_FID);
     fa.allocate_field(sizeof(float), PA_STEP_FID);
     fa.allocate_field(sizeof(unsigned long), PA_NUM_STEP_FID);
-    parameters = rt->create_logical_region(ctx, is, fs);
+    LogicalRegion parameters = rt->create_logical_region(ctx, is, fs);
+    rt->attach_name(parameters, name.c_str());
 
     RegionRequirement req(parameters, WRITE_ONLY, EXCLUSIVE, parameters);
     req.add_field(PA_ORIGIN_FID);
@@ -370,11 +455,12 @@ struct PAValues {
     step[0] = pa_step;
     num_step[0] = std::lrint(std::ceil(360.0f / pa_step));
     rt->unmap_region(ctx, pr);
+    return PAValues(parameters);
   }
 
   unsigned long
   num_steps(Context ctx, Runtime* rt) const {
-    RegionRequirement req(parameters, READ_ONLY, EXCLUSIVE, parameters);
+    RegionRequirement req(m_parameters, READ_ONLY, EXCLUSIVE, m_parameters);
     req.add_field(PA_NUM_STEP_FID);
     auto pr = rt->map_region(ctx, req);
     auto result = num_steps(pr);
@@ -390,7 +476,7 @@ struct PAValues {
 
   std::optional<std::tuple<float, float>>
   pa(Context ctx, Runtime* rt, unsigned long i) const {
-    RegionRequirement req(parameters, READ_ONLY, EXCLUSIVE, parameters);
+    RegionRequirement req(m_parameters, READ_ONLY, EXCLUSIVE, m_parameters);
     req.add_field(PA_ORIGIN_FID);
     req.add_field(PA_STEP_FID);
     req.add_field(PA_NUM_STEP_FID);
@@ -414,7 +500,7 @@ struct PAValues {
 
   unsigned long
   find(Context ctx, Runtime* rt, float pa) const {
-    RegionRequirement req(parameters, READ_ONLY, EXCLUSIVE, parameters);
+    RegionRequirement req(m_parameters, READ_ONLY, EXCLUSIVE, m_parameters);
     req.add_field(PA_ORIGIN_FID);
     req.add_field(PA_STEP_FID);
     auto pr = rt->map_region(ctx, req);
@@ -434,17 +520,32 @@ struct PAValues {
 
   void
   destroy(Context ctx, Runtime* rt) {
-    rt->destroy_field_space(ctx, parameters.get_field_space());
-    rt->destroy_index_space(ctx, parameters.get_index_space());
-    rt->destroy_logical_region(ctx, parameters);
-    parameters = LogicalRegion::NO_REGION;
+    rt->destroy_field_space(ctx, m_parameters.get_field_space());
+    rt->destroy_index_space(ctx, m_parameters.get_index_space());
+    rt->destroy_logical_region(ctx, m_parameters);
+    m_parameters = LogicalRegion::NO_REGION;
   }
+
+private:
+
+  LogicalRegion m_parameters;
 };
 
 class CFMap {
 public:
 
-  CFMap(
+  CFMap() {
+  };
+
+  CFMap(IndexSpace bounds, LogicalRegion cfs, FieldSpace cf_fs)
+    : m_bounds(bounds)
+    , m_cfs(cfs)
+    , m_cf_fs(cf_fs) {
+  }
+
+  template <int MAIN_ROW_DIM>
+  static CFMap
+  create(
     Context ctx,
     Runtime* rt,
     const GridderArgs<VALUE_ARGS>& gridder_args,
@@ -455,7 +556,7 @@ public:
     const PAValues& pa_values) {
 
     // compute the map index space bounds
-    m_bounds =
+    IndexSpace bounds =
       tables[MS_DATA_DESCRIPTION]
       .with_columns_attached(
         ctx,
@@ -506,26 +607,28 @@ public:
                   });        
         });
 
+#if 0
     // create and initialize preimage, which records, for every point in
-    // m_bounds, a row number that maps to that point
+    // bounds, a row number that maps to that point
     LogicalRegion preimage;
     {
       FieldSpace fs = rt->create_field_space(ctx);
       FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-      fa.allocate_field(sizeof(Point<1>), 0); // row number
+      fa.allocate_field(sizeof(Point<MAIN_ROW_DIM>), 0); // row number
       fa.allocate_field(sizeof(Point<1>), 1); // "assigned" flag
-      preimage = rt->create_logical_region(ctx, m_bounds, fs);
-      rt->fill_field(ctx, preimage, preimage, 0, Point<1>(-1));
+      preimage = rt->create_logical_region(ctx, bounds, fs);
+      rt->fill_field(ctx, preimage, preimage, 0, Point<MAIN_ROW_DIM>(-1));
       rt->fill_field(ctx, preimage, preimage, 1, Point<1>(0));
       // FIXME: launch index space task over visibilities to write row numbers
       // and flags to preimage via reductions
     }
 
-    // create m_partition, the partition of m_bounds by "assigned" flag of
+    // create partition, the partition of bounds by "assigned" flag of
     // preimage
+    IndexPartition partition;
     {
       IndexSpace flag_values = rt->create_index_space(ctx, Rect<1>(0, 1));
-      m_partition =
+      partition =
         rt->create_partition_by_field(
           ctx,
           preimage,
@@ -535,25 +638,27 @@ public:
       rt->destroy_index_space(ctx, flag_values);
     }
 
-    // create m_cfs, the region of cfs, using as index space the sub-space of
-    // m_partition with an "assigned" flag value of 1
+    LogicalRegion cfs;
+    // create cfs, the region of cfs, using as index space the sub-space of
+    // partition with an "assigned" flag value of 1
     {
       FieldSpace fs = rt->create_field_space(ctx);
       {
         FieldAllocator fa = rt->create_field_allocator(ctx, fs);
         fa.allocate_field(sizeof(LogicalRegion), 0);
       }
-      m_cfs =
+      cfs =
         rt->create_logical_region(
           ctx,
-          rt->get_index_subspace(ctx, m_partition, Point<1>(1)),
+          rt->get_index_subspace(ctx, partition, Point<1>(1)),
           fs);
     }
+    rt->destroy_index_partition(ctx, partition); // TODO: OK?
 
     // create common field space of every cf
-    m_cf_fs = rt->create_field_space(ctx);
+    FieldSpace cf_fs = rt->create_field_space(ctx);
     {
-      FieldAllocator fa = rt->create_field_allocator(ctx, m_cf_fs);
+      FieldAllocator fa = rt->create_field_allocator(ctx, cf_fs);
       fa.allocate_field(sizeof(std::complex<float>), 0);
     }
 
@@ -561,7 +666,13 @@ public:
     // values, using "preimage" to select the row used for initialization
 
     rt->destroy_field_space(ctx, preimage.get_field_space());
-    rt->destroy_logical_region(ctc, preimage);
+    rt->destroy_logical_region(ctx, preimage);
+#else
+    LogicalRegion cfs;
+    FieldSpace cf_fs;
+#endif
+
+    return CFMap(bounds, cfs, cf_fs);
   }
 
   struct Key {
@@ -732,27 +843,6 @@ private:
   FieldSpace m_cf_fs;
 };
 
-typedef enum {VALUE_ARGS, STRING_ARGS} gridder_args_t;
-
-template <typename T, gridder_args_t G>
-struct GridderArgType {
-};
-template <typename T>
-struct GridderArgType<T, VALUE_ARGS> {
-  typedef T type;
-};
-template <typename T>
-struct GridderArgType<T, STRING_ARGS> {
-  typedef std::string type;
-};
-
-template <gridder_args_t G>
-struct GridderArgs {
-  typename GridderArgType<LEGMS_FS::path, G>::type h5;
-  typename GridderArgType<float, G>::type pa_step;
-  typename GridderArgType<int, G>::type w_proj_planes;
-};
-
 template <typename CLASSIFY_ANTENNAS_TASK>
 class TopLevelTask {
 public:
@@ -896,19 +986,37 @@ public:
     rt->attach_name(antenna_classes, "antenna_classes");
 
     // create vector of parallactic angle values
-    PAValues pa_values(ctx, rt, tables, gridder_args.pa_step);
-    rt->attach_name(pa_values.parameters, "pa_values");
+    PAValues pa_values =
+      PAValues::create(
+        ctx,
+        rt,
+        tables,
+        gridder_args.pa_step,
+        0.0f,
+        "pa_values");
 
     // create convolution function map
-    CFMap cf_map(
-      ctx,
-      rt,
-      gridder_args,
-      ms_root,
-      tables,
-      CLASSIFY_ANTENNAS_TASK::num_classes,
-      antenna_classes,
-      pa_values);
+    CFMap cf_map;
+    switch (tables[MS_MAIN].index_axes(ctx, rt).size()) {
+#define MAKE_CFMAP(DIM) \
+      case DIM:                                 \
+        cf_map = CFMap::create<DIM>(            \
+          ctx,                                  \
+          rt,                                   \
+          gridder_args,                         \
+          ms_root,                              \
+          tables,                               \
+          CLASSIFY_ANTENNAS_TASK::num_classes,  \
+          antenna_classes,                      \
+          pa_values);                           \
+        break;
+      MAKE_CFMAP(1);
+#undef MAKE_CFMAP
+    default:
+        // for now, we only support 1-d rows (TODO: specialize LastPointRedop
+        // for DIM > 1)
+        assert(false);
+    }
 
     // TODO: the rest goes here
 
@@ -938,7 +1046,7 @@ main(int argc, char* argv[]) {
   legms::preregister_all();
   UnitaryClassifyAntennasTask::preregister();
   TopLevelTask<UnitaryClassifyAntennasTask>::preregister();
-  Runtime::register_reduction_op<LastPointRedop>(LAST_POINT_REDOP);
+  Runtime::register_reduction_op<LastPointRedop<1>>(LAST_POINT_REDOP);
   return Runtime::start(argc, argv);
 }
 
