@@ -88,7 +88,7 @@ ColumnPartition::create(
     IndexSpace is = rt->create_index_space(ctx, rect);
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    add_field(ValueType<int>::DataType, fa, AXES_FID);
+    fa.allocate_field(sizeof(int), AXES_FID);
     axs = rt->create_logical_region(ctx, is, fs);
     {
       RegionRequirement req(axs, WRITE_ONLY, EXCLUSIVE, axs);
