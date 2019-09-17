@@ -331,6 +331,7 @@ public:
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(unsigned), antenna_class_fid);
     Legion::LogicalRegion result = rt->create_logical_region(ctx, row_is, fs);
+    rt->attach_name(result, "antenna_classes");
     assert(result.get_dim() == 1);
 
     std::vector<RegionRequirement> requirements;
@@ -466,8 +467,7 @@ public:
     Runtime* rt,
     const std::unordered_map<MSTables,Table>&,
     PARALLACTIC_ANGLE_TYPE pa_step,
-    PARALLACTIC_ANGLE_TYPE pa_origin,
-    const std::string& name) {
+    PARALLACTIC_ANGLE_TYPE pa_origin) {
 
     IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
     FieldSpace fs = rt->create_field_space(ctx);
@@ -476,7 +476,7 @@ public:
     fa.allocate_field(sizeof(PARALLACTIC_ANGLE_TYPE), PA_STEP_FID);
     fa.allocate_field(sizeof(unsigned long), PA_NUM_STEP_FID);
     LogicalRegion parameters = rt->create_logical_region(ctx, is, fs);
-    rt->attach_name(parameters, name.c_str());
+    rt->attach_name(parameters, "pa_intervals");
 
     RegionRequirement req(parameters, WRITE_ONLY, EXCLUSIVE, parameters);
     req.add_field(PA_ORIGIN_FID);
@@ -596,7 +596,9 @@ public:
     fa.allocate_field(
       sizeof(PARALLACTIC_ANGLE_TYPE),
       PARALLACTIC_ANGLE_FID);
+    rt->attach_name(fs, PARALLACTIC_ANGLE_FID, "parallactic_angle");
     LogicalRegion result = rt->create_logical_region(ctx, m_row_is, fs);
+    rt->attach_name(result, "row_aux_fields");
     IndexTaskLauncher init_task(
       COMPUTE_ROW_AUX_FIELDS_TASK_ID,
       m_row_is,
@@ -1302,17 +1304,10 @@ public:
             antenna_classes = task.dispatch(ctx, rt);
           });
     }
-    rt->attach_name(antenna_classes, "antenna_classes");
 
     // create vector of parallactic angle values
     PAIntervals pa_intervals =
-      PAIntervals::create(
-        ctx,
-        rt,
-        tables,
-        gridder_args.pa_step,
-        0.0f,
-        "pa_intervals");
+      PAIntervals::create(ctx, rt, tables, gridder_args.pa_step, 0.0f);
 
     // create convolution function map
     CFMap cf_map;
