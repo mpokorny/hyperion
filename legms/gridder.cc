@@ -575,15 +575,17 @@ public:
     IndexSpace row_is,
     const Column& antenna1,
     const Column& antenna2,
+    const Column& data_desc,
     const Column& feed1,
     const Column& feed2,
-    const Column& data_desc)
+    const Column& time)
     : m_row_is(row_is)
     , m_antenna1(antenna1)
     , m_antenna2(antenna2)
+    , m_data_desc(data_desc)
     , m_feed1(feed1)
     , m_feed2(feed2)
-    , m_data_desc(data_desc) {
+    , m_time(time) {
   }
 
   LogicalRegion
@@ -601,7 +603,8 @@ public:
       m_row_is,
       TaskArgument(NULL, 0),
       ArgumentMap());
-    for (auto& col : {m_antenna1, m_antenna2, m_feed1, m_feed2, m_data_desc}) {
+    for (auto& col :
+           {m_antenna1, m_antenna2, m_data_desc, m_feed1, m_feed2, m_time}) {
       RegionRequirement
         req(col.values_lr, 0, READ_ONLY, EXCLUSIVE, col.values_lr);
       req.add_field(Column::VALUE_FID);
@@ -618,11 +621,12 @@ public:
 
   static PARALLACTIC_ANGLE_TYPE
   parallactic_angle(
-    const int& antenna1,
-    const int& antenna2,
-    const int& feed1,
-    const int& feed2,
-    const int& data_desc) {
+    const DataType<LEGMS_TYPE_INT>::ValueType& antenna1,
+    const DataType<LEGMS_TYPE_INT>::ValueType& antenna2,
+    const DataType<LEGMS_TYPE_INT>::ValueType& data_desc,
+    const DataType<LEGMS_TYPE_INT>::ValueType& feed1,
+    const DataType<LEGMS_TYPE_INT>::ValueType& feed2,
+    const DataType<LEGMS_TYPE_DOUBLE>::ValueType& time) {
 
     return 0.0;
   }
@@ -640,13 +644,15 @@ public:
     const ROAccessor<DataType<LEGMS_TYPE_INT>::ValueType, ROW_DIM>
       antenna2(regions[1], Column::VALUE_FID);
     const ROAccessor<DataType<LEGMS_TYPE_INT>::ValueType, ROW_DIM>
-      feed1(regions[2], Column::VALUE_FID);
+      data_desc(regions[2], Column::VALUE_FID);
     const ROAccessor<DataType<LEGMS_TYPE_INT>::ValueType, ROW_DIM>
-      feed2(regions[3], Column::VALUE_FID);
+      feed1(regions[3], Column::VALUE_FID);
     const ROAccessor<DataType<LEGMS_TYPE_INT>::ValueType, ROW_DIM>
-      data_desc(regions[4], Column::VALUE_FID);
+      feed2(regions[4], Column::VALUE_FID);
+    const ROAccessor<DataType<LEGMS_TYPE_DOUBLE>::ValueType, ROW_DIM>
+      time(regions[5], Column::VALUE_FID);
     const WOAccessor<PARALLACTIC_ANGLE_TYPE, ROW_DIM>
-      pa(regions[5], PARALLACTIC_ANGLE_FID);
+      pa(regions[6], PARALLACTIC_ANGLE_FID);
     for (PointInDomainIterator<ROW_DIM> pid(task->index_domain);
          pid();
          pid++)
@@ -654,9 +660,10 @@ public:
       parallactic_angle(
         antenna1[*pid],
         antenna2[*pid],
+        data_desc[*pid],
         feed1[*pid],
         feed2[*pid],
-        data_desc[*pid]);
+        time[*pid]);
   }
 
   static void
@@ -683,9 +690,10 @@ private:
   IndexSpace m_row_is;
   Column m_antenna1;
   Column m_antenna2;
+  Column m_data_desc;
   Column m_feed1;
   Column m_feed2;
-  Column m_data_desc;
+  Column m_time;
 };
 
 class CFMap {
@@ -757,9 +765,10 @@ public:
       {{&tables[MS_MAIN],
         {COLUMN_NAME(MS_MAIN, ANTENNA1),
          COLUMN_NAME(MS_MAIN, ANTENNA2),
+         COLUMN_NAME(MS_MAIN, DATA_DESC_ID),
          COLUMN_NAME(MS_MAIN, FEED1),
          COLUMN_NAME(MS_MAIN, FEED2),
-         COLUMN_NAME(MS_MAIN, DATA_DESC_ID),
+         COLUMN_NAME(MS_MAIN, TIME),
          COLUMN_NAME(MS_MAIN, UVW)},
         {}}},
       [&pa_intervals, &bounds, &cfs, &cf_fs]
@@ -772,12 +781,14 @@ public:
           main_table->column(c, r, COLUMN_NAME(MS_MAIN, ANTENNA1));
         auto antenna2 =
           main_table->column(c, r, COLUMN_NAME(MS_MAIN, ANTENNA2));
+        auto data_desc =
+          main_table->column(c, r, COLUMN_NAME(MS_MAIN, DATA_DESC_ID));
         auto feed1 =
           main_table->column(c, r, COLUMN_NAME(MS_MAIN, FEED1));
         auto feed2 =
           main_table->column(c, r, COLUMN_NAME(MS_MAIN, FEED2));
-        auto data_desc =
-          main_table->column(c, r, COLUMN_NAME(MS_MAIN, DATA_DESC_ID));
+        auto time =
+          main_table->column(c, r, COLUMN_NAME(MS_MAIN, TIME));
         auto uvw =
           main_table->column(c, r, COLUMN_NAME(MS_MAIN, UVW));
 
@@ -794,9 +805,10 @@ public:
             row_is,
             antenna1,
             antenna2,
+            data_desc,
             feed1,
             feed2,
-            data_desc);
+            time);
           row_aux = task.dispatch(c, r);
           {
             RegionRequirement req(row_aux, READ_ONLY, EXCLUSIVE, row_aux);
