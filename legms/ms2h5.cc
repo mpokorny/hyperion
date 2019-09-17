@@ -90,9 +90,6 @@ public:
     FieldAllocator fa = runtime->create_field_allocator(context, fs);
     fa.allocate_field(sizeof(DataType<LEGMS_TYPE_STRING>::ValueType), NAME_FID);
     LogicalRegion result = runtime->create_logical_region(context, is, fs);
-    // TODO: remove?
-    // runtime->destroy_field_space(context, fs);
-    // runtime->destroy_index_space(context, is);
     return result;
   }
 
@@ -289,6 +286,8 @@ public:
 
     auto table_names =
       selected_tables(table_args, table_names_lr, ctx, rt);
+    rt->destroy_field_space(ctx, table_names_lr.get_field_space());
+    rt->destroy_index_space(ctx, table_names_lr.get_index_space());
     rt->destroy_logical_region(ctx, table_names_lr);
 
     std::vector<Table> tables;
