@@ -411,21 +411,23 @@ public:
 
 FieldID UnitaryClassifyAntennasTask::TASK_ID = 0;
 
-class PAValues {
+class PAIntervals {
 public:
 
   static const FieldID PA_ORIGIN_FID = 0;
   static const FieldID PA_STEP_FID = 1;
   static const FieldID PA_NUM_STEP_FID = 2;
 
-  PAValues() {
+  LogicalRegion parameters;
+
+  PAIntervals() {
   };
 
-  PAValues(LogicalRegion parameters)
-    :m_parameters(parameters) {
+  PAIntervals(LogicalRegion parameters_)
+    :parameters(parameters_) {
   };
 
-  static PAValues
+  static PAIntervals
   create(
     Context ctx,
     Runtime* rt,
@@ -455,12 +457,12 @@ public:
     step[0] = pa_step;
     num_step[0] = std::lrint(std::ceil(360.0f / pa_step));
     rt->unmap_region(ctx, pr);
-    return PAValues(parameters);
+    return PAIntervals(parameters);
   }
 
   unsigned long
   num_steps(Context ctx, Runtime* rt) const {
-    RegionRequirement req(m_parameters, READ_ONLY, EXCLUSIVE, m_parameters);
+    RegionRequirement req(parameters, READ_ONLY, EXCLUSIVE, parameters);
     req.add_field(PA_NUM_STEP_FID);
     auto pr = rt->map_region(ctx, req);
     auto result = num_steps(pr);
@@ -476,7 +478,7 @@ public:
 
   std::optional<std::tuple<float, float>>
   pa(Context ctx, Runtime* rt, unsigned long i) const {
-    RegionRequirement req(m_parameters, READ_ONLY, EXCLUSIVE, m_parameters);
+    RegionRequirement req(parameters, READ_ONLY, EXCLUSIVE, parameters);
     req.add_field(PA_ORIGIN_FID);
     req.add_field(PA_STEP_FID);
     req.add_field(PA_NUM_STEP_FID);
@@ -500,7 +502,7 @@ public:
 
   unsigned long
   find(Context ctx, Runtime* rt, float pa) const {
-    RegionRequirement req(m_parameters, READ_ONLY, EXCLUSIVE, m_parameters);
+    RegionRequirement req(parameters, READ_ONLY, EXCLUSIVE, parameters);
     req.add_field(PA_ORIGIN_FID);
     req.add_field(PA_STEP_FID);
     auto pr = rt->map_region(ctx, req);
@@ -520,15 +522,14 @@ public:
 
   void
   destroy(Context ctx, Runtime* rt) {
-    rt->destroy_field_space(ctx, m_parameters.get_field_space());
-    rt->destroy_index_space(ctx, m_parameters.get_index_space());
-    rt->destroy_logical_region(ctx, m_parameters);
-    m_parameters = LogicalRegion::NO_REGION;
+    rt->destroy_field_space(ctx, parameters.get_field_space());
+    rt->destroy_index_space(ctx, parameters.get_index_space());
+    rt->destroy_logical_region(ctx, parameters);
+    parameters = LogicalRegion::NO_REGION;
   }
 
 private:
 
-  LogicalRegion m_parameters;
 };
 
 class CFMap {
@@ -553,7 +554,7 @@ public:
     std::unordered_map<MSTables,Table>& tables,
     unsigned num_antenna_classes,
     LogicalRegion antenna_classes,
-    const PAValues& pa_values) {
+    const PAIntervals& pa_intervals) {
 
     // compute the map index space bounds
     IndexSpace bounds =
@@ -572,7 +573,7 @@ public:
          {&tables[MS_POLARIZATION],
           {COLUMN_NAME(MS_POLARIZATION, NUM_CORR)},
           {}}},
-        [num_antenna_classes, &gridder_args, &pa_values]
+        [num_antenna_classes, &gridder_args, &pa_intervals]
         (Context c, Runtime* r,
          std::unordered_map<std::string, Table*>& tables) {
           return
@@ -586,7 +587,7 @@ public:
                 c, r, COLUMN_NAME(MS_POLARIZATION, NUM_CORR)),
               num_antenna_classes,
               gridder_args.w_proj_planes,
-              pa_values.num_steps(c, r));
+              pa_intervals.num_steps(c, r));
         });
 
 #if 0
@@ -974,14 +975,14 @@ public:
     rt->attach_name(antenna_classes, "antenna_classes");
 
     // create vector of parallactic angle values
-    PAValues pa_values =
-      PAValues::create(
+    PAIntervals pa_intervals =
+      PAIntervals::create(
         ctx,
         rt,
         tables,
         gridder_args.pa_step,
         0.0f,
-        "pa_values");
+        "pa_intervals");
 
     // create convolution function map
     CFMap cf_map;
@@ -996,7 +997,7 @@ public:
           tables,                               \
           CLASSIFY_ANTENNAS_TASK::num_classes,  \
           antenna_classes,                      \
-          pa_values);                           \
+          pa_intervals);                        \
         break;
       MAKE_CFMAP(1);
 #undef MAKE_CFMAP
@@ -1010,7 +1011,7 @@ public:
 
     // clean up
     cf_map.destroy(ctx, rt);
-    pa_values.destroy(ctx, rt);
+    pa_intervals.destroy(ctx, rt);
     // don't destroy index space of antenna_classes, as it is shared with an
     // index space in the antenna table
     rt->destroy_field_space(ctx, antenna_classes.get_field_space());
