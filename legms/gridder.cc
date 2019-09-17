@@ -27,6 +27,8 @@
 
 #define DEFAULT_PA_STEP_STR "360.0"
 #define DEFAULT_W_PROJ_PLANES_STR "1"
+#define PARALLACTIC_ANGLE_TYPE float
+#define PARALLACTIC_360 ((PARALLACTIC_ANGLE_TYPE)360.0)
 
 #define AUTO_W_PROJ_PLANES_VALUE -1
 #define INVALID_W_PROJ_PLANES_VALUE -2
@@ -151,7 +153,7 @@ struct GridderArgType<T, STRING_ARGS> {
 template <gridder_args_t G>
 struct GridderArgs {
   typename GridderArgType<LEGMS_FS::path, G>::type h5;
-  typename GridderArgType<float, G>::type pa_step;
+  typename GridderArgType<PARALLACTIC_ANGLE_TYPE, G>::type pa_step;
   typename GridderArgType<int, G>::type w_proj_planes;
 };
 
@@ -463,15 +465,15 @@ public:
     Context ctx,
     Runtime* rt,
     const std::unordered_map<MSTables,Table>&,
-    float pa_step,
-    float pa_origin,
+    PARALLACTIC_ANGLE_TYPE pa_step,
+    PARALLACTIC_ANGLE_TYPE pa_origin,
     const std::string& name) {
 
     IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    fa.allocate_field(sizeof(float), PA_ORIGIN_FID);
-    fa.allocate_field(sizeof(float), PA_STEP_FID);
+    fa.allocate_field(sizeof(PARALLACTIC_ANGLE_TYPE), PA_ORIGIN_FID);
+    fa.allocate_field(sizeof(PARALLACTIC_ANGLE_TYPE), PA_STEP_FID);
     fa.allocate_field(sizeof(unsigned long), PA_NUM_STEP_FID);
     LogicalRegion parameters = rt->create_logical_region(ctx, is, fs);
     rt->attach_name(parameters, name.c_str());
@@ -481,8 +483,8 @@ public:
     req.add_field(PA_STEP_FID);
     req.add_field(PA_NUM_STEP_FID);
     auto pr = rt->map_region(ctx, req);
-    const WOAccessor<float, 1> origin(pr, PA_ORIGIN_FID);
-    const WOAccessor<float, 1> step(pr, PA_STEP_FID);
+    const WOAccessor<PARALLACTIC_ANGLE_TYPE, 1> origin(pr, PA_ORIGIN_FID);
+    const WOAccessor<PARALLACTIC_ANGLE_TYPE, 1> step(pr, PA_STEP_FID);
     const WOAccessor<unsigned long, 1> num_step(pr, PA_NUM_STEP_FID);
     origin[0] = pa_origin;
     step[0] = pa_step;
@@ -507,7 +509,7 @@ public:
     return num_step[0];
   }
 
-  std::optional<std::tuple<float, float>>
+  std::optional<std::tuple<PARALLACTIC_ANGLE_TYPE, PARALLACTIC_ANGLE_TYPE>>
   pa(Context ctx, Runtime* rt, unsigned long i) const {
     RegionRequirement req(parameters, READ_ONLY, EXCLUSIVE, parameters);
     req.add_field(PA_ORIGIN_FID);
@@ -519,20 +521,22 @@ public:
     return result;
   }
 
-  static std::optional<std::tuple<float, float>>
+  static
+  std::optional<std::tuple<PARALLACTIC_ANGLE_TYPE, PARALLACTIC_ANGLE_TYPE>>
   pa(PhysicalRegion region, unsigned long i) {
-    const ROAccessor<float, 1> origin(region, PA_ORIGIN_FID);
-    const ROAccessor<float, 1> step(region, PA_STEP_FID);
+    const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1> origin(region, PA_ORIGIN_FID);
+    const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1> step(region, PA_STEP_FID);
     const ROAccessor<unsigned long, 1> num_step(region, PA_NUM_STEP_FID);
     if (i >= num_step[0])
       return std::nullopt;
-    float lo = i * step[0];
-    float width = (i == num_step[0] - 1) ? (360.0f - lo) : step[0];
+    PARALLACTIC_ANGLE_TYPE lo = i * step[0];
+    PARALLACTIC_ANGLE_TYPE width =
+      (i == num_step[0] - 1) ? (PARALLACTIC_360 - lo) : step[0];
     return std::make_tuple(origin[0] + lo, width);
   }
 
   unsigned long
-  find(Context ctx, Runtime* rt, float pa) const {
+  find(Context ctx, Runtime* rt, PARALLACTIC_ANGLE_TYPE pa) const {
     RegionRequirement req(parameters, READ_ONLY, EXCLUSIVE, parameters);
     req.add_field(PA_ORIGIN_FID);
     req.add_field(PA_STEP_FID);
@@ -543,11 +547,11 @@ public:
   }
 
   static unsigned long
-  find(PhysicalRegion region, float pa) {
-    const ROAccessor<float, 1> origin(region, PA_ORIGIN_FID);
-    const ROAccessor<float, 1> step(region, PA_STEP_FID);
+  find(PhysicalRegion region, PARALLACTIC_ANGLE_TYPE pa) {
+    const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1> origin(region, PA_ORIGIN_FID);
+    const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1> step(region, PA_STEP_FID);
     pa -= origin[0];
-    pa -= std::floor(pa / 360.0f) * 360.0f;
+    pa -= std::floor(pa / PARALLACTIC_360) * PARALLACTIC_360;
     return std::lrint(std::floor(pa / step[0]));
   }
 
@@ -569,8 +573,6 @@ public:
 
   static const constexpr char* TASK_NAME = "ComputeRowAuxFieldsTask";
   static const constexpr FieldID PARALLACTIC_ANGLE_FID = 0;
-
-  typedef float PARALLACTIC_ANGLE_TYPE;
 
   ComputeRowAuxFieldsTask(
     IndexSpace row_is,
@@ -790,7 +792,7 @@ public:
             RegionRequirement req(row_aux, READ_ONLY, EXCLUSIVE, row_aux);
             req.add_field(ComputeRowAuxFieldsTask::PARALLACTIC_ANGLE_FID);
             auto pr = r->map_region(c, req);
-            const ROAccessor<ComputeRowAuxFieldsTask::PARALLACTIC_ANGLE_TYPE, 1>
+            const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1>
               pa(pr, ComputeRowAuxFieldsTask::PARALLACTIC_ANGLE_FID);
             for (PointInDomainIterator<1>
                    pid(r->get_index_space_domain(row_is));
@@ -1190,7 +1192,7 @@ public:
            << "' does not name a regular file" << std::endl;
     switch (std::fpclassify(val_args.pa_step)) {
     case FP_NORMAL:
-      if (std::abs(val_args.pa_step) > 360.0f)
+      if (std::abs(val_args.pa_step) > PARALLACTIC_360)
         errs << "--pastep value '" << str_args.pa_step
              << "' is not in valid range [-360, 360]" << std::endl;
       break;
