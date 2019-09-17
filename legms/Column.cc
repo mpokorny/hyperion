@@ -129,16 +129,13 @@ Column::create(
 void
 Column::destroy(Context ctx, Runtime* rt) {
   std::vector<LogicalRegion*> lrs{&metadata_lr, &axes_lr, &values_lr};
-  for (auto lr : lrs)
-    if (*lr != LogicalRegion::NO_REGION)
-      rt->destroy_field_space(ctx, lr->get_field_space());
-  for (auto lr : lrs)
-    if (*lr != LogicalRegion::NO_REGION)
-      rt->destroy_index_space(ctx, lr->get_index_space());
   for (auto lr : lrs) {
-    if (*lr != LogicalRegion::NO_REGION)
+    if (*lr != LogicalRegion::NO_REGION) {
+      rt->destroy_field_space(ctx, lr->get_field_space());
+      rt->destroy_index_space(ctx, lr->get_index_space());
       rt->destroy_logical_region(ctx, *lr);
-    *lr = LogicalRegion::NO_REGION;
+      *lr = LogicalRegion::NO_REGION;
+    }
   }
   keywords.destroy(ctx, rt);
 }
