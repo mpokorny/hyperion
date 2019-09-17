@@ -182,7 +182,7 @@ public:
     runtime->print_once(
       context,
       stderr,
-      "usage: ms2h5 [OPTION...] MS [TABLE...] OUTPUT");
+      "usage: ms2h5 [OPTION...] MS [TABLE...] OUTPUT\n");
   }
 
   static bool
@@ -196,7 +196,7 @@ public:
       runtime->print_once(
         context,
         stderr,
-        "MS directory path is missing from arguments");
+        "MS directory path is missing from arguments\n");
       usage(context, runtime);
       return false;
     }
@@ -205,7 +205,7 @@ public:
       runtime->print_once(
         context,
         stderr,
-        "Output HDF5 path is missing from arguments");
+        "Output HDF5 path is missing from arguments\n");
       usage(context, runtime);
       return false;
     }
