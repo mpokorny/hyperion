@@ -83,7 +83,8 @@ enum {
 };
 
 enum {
-  LAST_POINT_REDOP=100, // TODO: fix OpsManager to avoid using an offset here
+  // TODO: fix OpsManager to avoid using an offset here
+  LAST_POINT_REDOP=100, // reserve LEGMS_MAX_DIM ids from here
 };
 
 template <int DIM>
@@ -565,13 +566,9 @@ public:
 };
 
 class ComputeRowAuxFieldsTask {
-  // TODO: parameterize on ROW_DIM
-private:
-  static const constexpr int ROW_DIM = 1;
-
 public:
 
-  static const constexpr char* TASK_NAME = "ComputeRowAuxFieldsTask";
+  static const constexpr char* TASK_NAME = "ComputeRowAuxFieldsTask_";
   static const constexpr FieldID PARALLACTIC_ANGLE_FID = 0;
 
   ComputeRowAuxFieldsTask(
@@ -600,7 +597,7 @@ public:
     LogicalRegion result = rt->create_logical_region(ctx, m_row_is, fs);
     rt->attach_name(result, "row_aux_fields");
     IndexTaskLauncher init_task(
-      COMPUTE_ROW_AUX_FIELDS_TASK_ID,
+      COMPUTE_ROW_AUX_FIELDS_TASK_ID + m_row_is.get_dim() - 1,
       m_row_is,
       TaskArgument(NULL, 0),
       ArgumentMap());
@@ -630,6 +627,7 @@ public:
     return 0.0;
   }
 
+  template <int ROW_DIM>
   static void
   base_impl(
     const Task* task,
@@ -663,11 +661,21 @@ public:
 
   static void
   preregister() {
-    TaskVariantRegistrar registrar(COMPUTE_ROW_AUX_FIELDS_TASK_ID, TASK_NAME);
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.set_leaf(true);
-    registrar.set_idempotent(true);
-    Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
+#define REG_TASK(DIM) {                                   \
+      std::string tname = std::string(TASK_NAME) + #DIM;  \
+      TaskVariantRegistrar registrar(                     \
+        COMPUTE_ROW_AUX_FIELDS_TASK_ID + DIM - 1,         \
+        tname.c_str());                                   \
+      registrar.add_constraint(                           \
+        ProcessorConstraint(Processor::LOC_PROC));        \
+      registrar.set_leaf(true);                           \
+      registrar.set_idempotent(true);                     \
+      Runtime::preregister_task_variant<base_impl<DIM>>(  \
+        registrar,                                        \
+        tname.c_str());                                   \
+    }
+    LEGMS_FOREACH_N(REG_TASK);
+#undef REG_TASK
   }
 
 private:
