@@ -81,7 +81,7 @@ enum {
 };
 
 enum {
-  LAST_POINT_REDOP=100,
+  LAST_POINT_REDOP=100, // TODO: fix OpsManager to avoid using an offset here
 };
 
 template <int DIM>

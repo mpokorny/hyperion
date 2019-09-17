@@ -684,6 +684,8 @@ public:
   static void
   preregister_ops();
 
+  // FIXME: the following constants are an irritant to application code that
+  // needs to register its own serdez or redop ids
   enum {
     INDEX_TREE_SID = 1,
 
