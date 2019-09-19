@@ -128,7 +128,9 @@ if(USE_CASACORE)
     TableReadTask.cc
     TableReadTask.h
     TableReadTask_c.cc
-    TableReadTask_c.h)
+    TableReadTask_c.h
+    Measures.h
+    Measures.cc)
   set(LEGMS_USE_CASACORE ON)
 endif()
 if(USE_HDF5)
@@ -168,6 +170,7 @@ if (USE_CASACORE)
   target_link_directories(legms PUBLIC ${casacore_LIBRARY_DIR})
   target_link_libraries(legms PUBLIC casa_tables)
   target_link_libraries(legms PUBLIC casa_casa)
+  target_link_libraries(legms PUBLIC casa_measures)
 endif()
 if (USE_HDF5)
   target_include_directories(legms PUBLIC ${HDF5_INCLUDE_DIRS})
