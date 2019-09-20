@@ -675,28 +675,16 @@ template <typename COORD_T>
 class IndexTreeIterator {
 public:
 
-  IndexTreeIterator(const IndexTree<COORD_T>& tree, COORD_T stride = 0)
+  IndexTreeIterator(const IndexTree<COORD_T>& tree)
     : m_current(0) {
     m_tree_coords.push_back({});
     gather_coords(tree, m_tree_coords);
     m_tree_coords.pop_back();
-    COORD_T i, n;
-    std::tie(i, n, std::ignore) = tree.children().back();
-    m_stride = std::max(i + n, stride);
   }
 
   IndexTreeIterator&
   operator++() {
     ++m_current;
-    if (m_current == m_tree_coords.size()) {
-      m_current = 0;
-      std::for_each(
-        m_tree_coords.begin(),
-        m_tree_coords.end(),
-        [this](auto& cs) {
-          cs[0] += m_stride;
-        });
-    }
     return *this;
   }
 
@@ -704,16 +692,11 @@ public:
   operator++(int) {
     IndexTreeIterator result = *this;
     ++m_current;
-    if (m_current == m_tree_coords.size()) {
-      m_current = 0;
-      std::for_each(
-        m_tree_coords.begin(),
-        m_tree_coords.end(),
-        [this](auto& cs) {
-          cs[0] += m_stride;
-        });
-    }
     return result;
+  }
+
+  operator bool() const {
+    return m_current != m_tree_coords.size();
   }
 
   const std::vector<COORD_T>&
