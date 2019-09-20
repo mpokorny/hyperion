@@ -50,7 +50,7 @@ if (USE_HDF5)
   add_test(
     NAME Hdf5UnitTest
     COMMAND ../testing/TestRunner.py ./utHdf5)
-endif (USE_HDF5)
+endif()
 
 if (USE_CASACORE)
   add_executable(utMS utMS.cc)
@@ -61,6 +61,14 @@ if (USE_CASACORE)
     NAME MSUnitTest
     COMMAND ../testing/TestRunner.py ./utMS -ll:io 1)
   set_property(TEST MSUnitTest PROPERTY DEPENDS data/t0_unpack)
-endif (USE_CASACORE)
+
+  add_executable(utMeasures utMeasures.cc)
+  set_target_properties(utMeasures PROPERTIES
+    CXX_STANDARD 17
+    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+  add_test(
+    NAME MeasuresUnitTest
+    COMMAND ../testing/TestRunner.py ./utMeasures)
+endif()
 
 add_subdirectory(data)
