@@ -30,8 +30,10 @@ TreeIndexSpaceTask::dispatch(Context context, Runtime* runtime) {
       m_trees.begin(),
       m_trees.end(),
       [&launcher, &context, runtime](auto& t) {
-        TreeIndexSpaceTask ti(t);
-        launcher.add_future(ti.dispatch(context, runtime));
+        if (t != IndexTreeL()) {
+          TreeIndexSpaceTask ti(t);
+          launcher.add_future(ti.dispatch(context, runtime));
+        }
       });
     result = runtime->execute_task(context, launcher);
   } else {
