@@ -392,7 +392,7 @@ table_test_suite(
         })));
 
   {
-    bool destroy_color_space = true;
+    bool destroy_color_space = false;
     for (auto& p : parts) {
       std::get<1>(p).destroy(ctx, rt, destroy_color_space);
       destroy_color_space = false;
