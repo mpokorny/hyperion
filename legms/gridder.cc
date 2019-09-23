@@ -35,6 +35,7 @@
 
 #define AUTO_W_PROJ_PLANES_VALUE -1
 #define INVALID_W_PROJ_PLANES_VALUE -2
+#define INVALID_MAIN_TABLE_ROW_BLOCK_SIZE_VALUE 0
 
 using namespace legms;
 using namespace Legion;
@@ -360,16 +361,17 @@ public:
       rt->unmap_region(ctx, cols);
     }
     {
-      RegionRequirement req(result, 0, WRITE_ONLY, EXCLUSIVE, result);
+      IndexPartition ip =
+        rt->create_partition_by_blockify(ctx, row_is, Point<1>(1));
+      LogicalPartition lp = rt->get_logical_partition(ctx, result, ip);
+      RegionRequirement req(lp, 0, WRITE_ONLY, EXCLUSIVE, result);
       req.add_field(antenna_class_fid);
       requirements.push_back(req);
+      rt->destroy_logical_partition(ctx, lp);
+      rt->destroy_index_partition(ctx, ip);
     }
     IndexTaskLauncher
-      launcher(
-        T::TASK_ID,
-        result.get_index_space(),
-        TaskArgument(NULL, 0),
-        ArgumentMap());
+      launcher(T::TASK_ID, row_is, TaskArgument(NULL, 0), ArgumentMap());
     for (auto& req : requirements)
       launcher.add_region_requirement(req);
     rt->execute_index_space(ctx, launcher);
@@ -577,6 +579,7 @@ public:
   static const constexpr FieldID PARALLACTIC_ANGLE_FID = 0;
 
   ComputeRowAuxFieldsTask(
+    DomainPoint row_block,
     IndexSpace row_is,
     const Column& antenna1,
     const Column& antenna2,
@@ -584,7 +587,8 @@ public:
     const Column& feed1,
     const Column& feed2,
     const Column& time)
-    : m_row_is(row_is)
+    : m_row_block(row_block)
+    , m_row_is(row_is)
     , m_antenna1(antenna1)
     , m_antenna2(antenna2)
     , m_data_desc(data_desc)
@@ -603,24 +607,38 @@ public:
     rt->attach_name(fs, PARALLACTIC_ANGLE_FID, "parallactic_angle");
     LogicalRegion result = rt->create_logical_region(ctx, m_row_is, fs);
     rt->attach_name(result, "row_aux_fields");
+
+    IndexPartition ip =
+      rt->create_partition_by_blockify(ctx, m_row_is, m_row_block);
     IndexTaskLauncher init_task(
       COMPUTE_ROW_AUX_FIELDS_TASK_ID + m_row_is.get_dim() - 1,
-      m_row_is,
+      rt->get_index_partition_color_space(ctx, ip),
       TaskArgument(NULL, 0),
       ArgumentMap());
     for (auto& col :
            {m_antenna1, m_antenna2, m_data_desc, m_feed1, m_feed2, m_time}) {
-      RegionRequirement
-        req(col.values_lr, 0, READ_ONLY, EXCLUSIVE, col.values_lr);
+      IndexPartition ip =
+        rt->create_partition_by_blockify(
+          ctx,
+          col.values_lr.get_index_space(),
+          m_row_block);
+      LogicalPartition lp = rt->get_logical_partition(ctx, col.values_lr, ip);
+      RegionRequirement req(lp, 0, READ_ONLY, EXCLUSIVE, col.values_lr);
       req.add_field(Column::VALUE_FID);
       init_task.add_region_requirement(req);
+      rt->destroy_logical_partition(ctx, lp);
+      rt->destroy_index_partition(ctx, ip);
     }
     {
-      RegionRequirement req(result, 0, WRITE_ONLY, EXCLUSIVE, result);
+      LogicalPartition lp = rt->get_logical_partition(ctx, result, ip);
+      RegionRequirement req(lp, 0, WRITE_ONLY, EXCLUSIVE, result);
       req.add_field(PARALLACTIC_ANGLE_FID);
       init_task.add_region_requirement(req);
+      rt->destroy_logical_partition(ctx, lp);
     }
     rt->execute_index_space(ctx, init_task);
+    rt->destroy_index_space(ctx, rt->get_index_partition_color_space_name(ip));
+    rt->destroy_index_partition(ctx, ip);
     return result;
   }
 
@@ -633,7 +651,7 @@ public:
     const DataType<LEGMS_TYPE_INT>::ValueType& feed2,
     const DataType<LEGMS_TYPE_DOUBLE>::ValueType& time) {
 
-    return 0.0;
+    return time * (antenna1 + antenna2 + data_desc + feed1 + feed2);
   }
 
   template <int ROW_DIM>
@@ -642,7 +660,7 @@ public:
     const Task* task,
     const std::vector<PhysicalRegion>& regions,
     Context,
-    Runtime *) {
+    Runtime *rt) {
 
     const ROAccessor<DataType<LEGMS_TYPE_INT>::ValueType, ROW_DIM>
       antenna1(regions[0], Column::VALUE_FID);
@@ -658,17 +676,20 @@ public:
       time(regions[5], Column::VALUE_FID);
     const WOAccessor<PARALLACTIC_ANGLE_TYPE, ROW_DIM>
       pa(regions[6], PARALLACTIC_ANGLE_FID);
-    for (PointInDomainIterator<ROW_DIM> pid(task->index_domain);
+    for (PointInDomainIterator<ROW_DIM>
+           pid(
+             rt->get_index_space_domain(
+                 task->regions[6].region.get_index_space()));
          pid();
          pid++)
-    pa[*pid] =
-      parallactic_angle(
-        antenna1[*pid],
-        antenna2[*pid],
-        data_desc[*pid],
-        feed1[*pid],
-        feed2[*pid],
-        time[*pid]);
+      pa[*pid] =
+        parallactic_angle(
+          antenna1[*pid],
+          antenna2[*pid],
+          data_desc[*pid],
+          feed1[*pid],
+          feed2[*pid],
+          time[*pid]);
   }
 
   static void
@@ -692,6 +713,7 @@ public:
 
 private:
 
+  DomainPoint m_row_block;
   IndexSpace m_row_is;
   Column m_antenna1;
   Column m_antenna2;
@@ -776,7 +798,7 @@ public:
          COLUMN_NAME(MS_MAIN, TIME),
          COLUMN_NAME(MS_MAIN, UVW)},
         {}}},
-      [&pa_intervals, &bounds, &cfs, &cf_fs]
+      [&gridder_args, &pa_intervals, &bounds, &cfs, &cf_fs]
       (Context c, Runtime* r, std::unordered_map<std::string,Table*>& tables) {
         // get some columns that we'll be using
         auto main_table = tables[MSTable<MS_MAIN>::name];
@@ -797,16 +819,12 @@ public:
         auto uvw =
           main_table->column(c, r, COLUMN_NAME(MS_MAIN, UVW));
 
-        // get row-wise index partition (only needed for uvw)
-        auto row_part =
-          uvw.partition_on_axes(c, r, main_table->index_axes(c, r));
-        auto uvw_lp =
-          r->get_logical_partition(c, uvw.values_lr, row_part.index_partition);
-
         // compute auxiliary row-wise data
         LogicalRegion row_aux;
         {
+          // TODO: modify main_table_row_block_size for MAIN_ROW_DIM > 1
           ComputeRowAuxFieldsTask task(
+            Point<MAIN_ROW_DIM>(gridder_args.main_table_row_block_size),
             row_is,
             antenna1,
             antenna2,
@@ -1006,8 +1024,6 @@ public:
 
         r->destroy_field_space(c, row_aux.get_field_space());
         r->destroy_logical_region(c, row_aux);
-        r->destroy_logical_partition(c, uvw_lp);
-        row_part.destroy(c, r, true);
         // r->destroy_field_space(c, preimage.get_field_space());
         // r->destroy_logical_region(c, preimage);
       });
@@ -1196,12 +1212,14 @@ public:
 
     for (int i = 1; i < args.argc; ++i) {
       std::string ai = args.argv[i];
-      if (ai == "--ms")
+      if (ai == "--ms" && i + 1 < args.argc)
         gridder_args.h5 = args.argv[++i];
-      else if (ai == "--pastep")
+      else if (ai == "--pastep" && i + 1 < args.argc)
         gridder_args.pa_step = args.argv[++i];
-      else if (ai == "--wprojplanes")
+      else if (ai == "--wprojplanes" && i + 1 < args.argc)
         gridder_args.w_proj_planes = args.argv[++i];
+      else if (ai == "--mainblock" && i + 1 < args.argc)
+        gridder_args.main_table_row_block_size = args.argv[++i];
       else if (ai == "--echo") {
         gridder_args.echo_args = "true";
         if (i + 1 < args.argc && args.argv[i + 1][0] != '-')
@@ -1245,6 +1263,7 @@ public:
            << "' is invalid" << std::endl;
       break;
     }
+
     if (val_args.w_proj_planes <= INVALID_W_PROJ_PLANES_VALUE)
       errs << "--wprojplanes value '" << str_args.w_proj_planes
            << "' is less than the minimum valid value of "
@@ -1252,6 +1271,12 @@ public:
     else if (val_args.w_proj_planes == AUTO_W_PROJ_PLANES_VALUE)
       errs << "Automatic computation of the number of W-projection "
            << "planes is unimplemented" << std::endl;
+
+    if (val_args.main_table_row_block_size
+        == INVALID_MAIN_TABLE_ROW_BLOCK_SIZE_VALUE)
+      errs << "--mainblock value '" << str_args.main_table_row_block_size
+           <<"' is not a positive integer value" << std::endl;
+
     if (errs.str().size() > 0)
       return errs.str();
     return std::nullopt;
@@ -1274,8 +1299,10 @@ public:
       str_args.echo_args = DEFAULT_ECHO_ARGS;
       str_args.pa_step = DEFAULT_PA_STEP_STR;
       str_args.w_proj_planes = DEFAULT_W_PROJ_PLANES_STR;
+      str_args.main_table_row_block_size = DEFAULT_MAIN_TABLE_ROW_BLOCK_SIZE;
       get_args(input_args, str_args);
       gridder_args.h5 = str_args.h5;
+      {
         std::string echo_args = str_args.echo_args;
         std::transform(
           echo_args.begin(),
@@ -1309,6 +1336,22 @@ public:
       } catch (const std::out_of_range&) {
         gridder_args.pa_step = INVALID_W_PROJ_PLANES_VALUE;
       }
+      try {
+        std::size_t pos;
+        gridder_args.main_table_row_block_size =
+          std::stoull(str_args.main_table_row_block_size, &pos);
+        if (pos != str_args.main_table_row_block_size.size())
+          gridder_args.main_table_row_block_size =
+            INVALID_MAIN_TABLE_ROW_BLOCK_SIZE_VALUE;
+        if (gridder_args.main_table_row_block_size == 0)
+          gridder_args.main_table_row_block_size = 1;
+      } catch (const std::invalid_argument&) {
+        gridder_args.main_table_row_block_size =
+          INVALID_MAIN_TABLE_ROW_BLOCK_SIZE_VALUE;
+      } catch (const std::out_of_range&) {
+        gridder_args.main_table_row_block_size =
+          INVALID_MAIN_TABLE_ROW_BLOCK_SIZE_VALUE;
+      }
       auto errstr = args_error(str_args, gridder_args);
       if (errstr) {
         std::cerr << errstr.value() << std::endl;
@@ -1320,6 +1363,9 @@ public:
     if (gridder_args.echo_args && gridder_args.echo_args.value()) {
       std::ostringstream oss;
       oss << "MS path: " << gridder_args.h5
+          << std::endl
+          << "Main table row block size: "
+          << gridder_args.main_table_row_block_size
           << std::endl
           << "PA step: " << gridder_args.pa_step
           << std::endl
