@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #if GCC_VERSION >= 90000
@@ -25,6 +26,8 @@
 #include "Table.h"
 #include "Column.h"
 
+#define DEFAULT_ECHO_ARGS "false"
+#define DEFAULT_MAIN_TABLE_ROW_BLOCK_SIZE "100000"
 #define DEFAULT_PA_STEP_STR "360.0"
 #define DEFAULT_W_PROJ_PLANES_STR "1"
 #define PARALLACTIC_ANGLE_TYPE float
@@ -154,6 +157,8 @@ struct GridderArgType<T, STRING_ARGS> {
 template <gridder_args_t G>
 struct GridderArgs {
   typename GridderArgType<LEGMS_FS::path, G>::type h5;
+  typename GridderArgType<std::optional<bool>, G>::type echo_args;
+  typename GridderArgType<size_t, G>::type main_table_row_block_size;
   typename GridderArgType<PARALLACTIC_ANGLE_TYPE, G>::type pa_step;
   typename GridderArgType<int, G>::type w_proj_planes;
 };
@@ -1197,6 +1202,13 @@ public:
         gridder_args.pa_step = args.argv[++i];
       else if (ai == "--wprojplanes")
         gridder_args.w_proj_planes = args.argv[++i];
+      else if (ai == "--echo") {
+        gridder_args.echo_args = "true";
+        if (i + 1 < args.argc && args.argv[i + 1][0] != '-')
+          gridder_args.echo_args = args.argv[++i];
+      } else if (ai == "--noecho") {
+        gridder_args.echo_args = "false";
+      }
     }
   }
 
@@ -1212,6 +1224,11 @@ public:
     if (!h5_abs || !LEGMS_FS::is_regular_file(h5_abs.value()))
       errs << "Path '" << str_args.h5
            << "' does not name a regular file" << std::endl;
+
+    if (!val_args.echo_args)
+      errs << "--echo value '" << str_args.echo_args
+           << "' is not a valid boolean" << std::endl;
+
     switch (std::fpclassify(val_args.pa_step)) {
     case FP_NORMAL:
       if (std::abs(val_args.pa_step) > PARALLACTIC_360)
@@ -1254,10 +1271,22 @@ public:
     {
       const Legion::InputArgs& input_args = Legion::Runtime::get_input_args();
       GridderArgs<STRING_ARGS> str_args;
+      str_args.echo_args = DEFAULT_ECHO_ARGS;
       str_args.pa_step = DEFAULT_PA_STEP_STR;
       str_args.w_proj_planes = DEFAULT_W_PROJ_PLANES_STR;
       get_args(input_args, str_args);
       gridder_args.h5 = str_args.h5;
+        std::string echo_args = str_args.echo_args;
+        std::transform(
+          echo_args.begin(),
+          echo_args.end(),
+          echo_args.begin(),
+          [](unsigned char c){ return std::toupper(c); });
+        if (echo_args == "T" || echo_args == "TRUE" || echo_args == "1")
+          gridder_args.echo_args = true;
+        else if (echo_args == "F" || echo_args == "FALSE" || echo_args == "0")
+          gridder_args.echo_args = false;
+      }
       try {
         std::size_t pos;
         gridder_args.pa_step = std::stof(str_args.pa_step, &pos);
@@ -1287,6 +1316,17 @@ public:
       }
     }
     gridder_args.pa_step = std::abs(gridder_args.pa_step);
+
+    if (gridder_args.echo_args && gridder_args.echo_args.value()) {
+      std::ostringstream oss;
+      oss << "MS path: " << gridder_args.h5
+          << std::endl
+          << "PA step: " << gridder_args.pa_step
+          << std::endl
+          << "Number w-projection planes: " << gridder_args.w_proj_planes
+          << std::endl;
+      std::cout << oss.str() << std::endl;
+    }
 
     // initialize Tables used by gridder from HDF5 file
     const std::string ms_root = "/";
