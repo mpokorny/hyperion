@@ -221,6 +221,8 @@ public:
 
   std::optional<unsigned>
   rank() const {
+    if (m_children.size() == 0)
+      return 0;
     if (is_leaf())
       return 1;
     auto ch = m_children.begin();
