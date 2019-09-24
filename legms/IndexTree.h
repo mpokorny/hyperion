@@ -113,9 +113,9 @@ public:
     else if (other_empty)
       result = false;
     else {
-      auto& [ie, ne, te] = m_children[m_children.size() - 1];
+      auto& [ie, ne, te] = m_children.back();
       auto jch = other.children();
-      auto& [j0, jn0, jt0]= jch[0];
+      auto& [j0, jn0, jt0]= jch.front();
       if (ie + ne <= j0)
         result = true;
       else if (jn0 == 1 && jch.size() == 1 && ie + ne - 1 == j0)
@@ -317,7 +317,9 @@ public:
     if (*this == IndexTree())
       return tree;
     std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> newch;
-    if (less_than(tree)) {
+    if (less_than(tree)
+        && (std::get<0>(m_children.back()) + std::get<1>(m_children.back())
+            < std::get<0>(tree.children().front()))) {
       newch = m_children;
       std::copy(
         tree.children().begin(),
