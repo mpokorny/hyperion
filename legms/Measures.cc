@@ -117,8 +117,8 @@ expand_tree(const IndexTreeL& tree, unsigned rank) {
 }
 
 struct MeasureIndexTrees {
-  IndexTreeL metadata_tree;
-  IndexTreeL value_tree;
+  std::optional<IndexTreeL> metadata_tree;
+  std::optional<IndexTreeL> value_tree;
 };
 
 MeasureIndexTrees
@@ -156,27 +156,33 @@ measure_index_trees(const casacore::Measure& measure) {
           .size());
       break;
     default:
-      if (m != nullptr) {
+      if (m != nullptr)
         ctrees = measure_index_trees(*m);
-      } else {
-        ctrees.metadata_tree = IndexTreeL();
-        ctrees.value_tree = IndexTreeL();
-      }
       break;
     }
-    result.metadata_tree =
-      result.metadata_tree.merged_with(
-        IndexTreeL({{c, 1, ctrees.metadata_tree}}));
-    result.value_tree =
-      result.value_tree.merged_with(
-        IndexTreeL({{c, 1, ctrees.value_tree}}));
+    if (ctrees.metadata_tree) {
+      auto md = IndexTreeL({{c, 1, ctrees.metadata_tree.value()}});
+      if (result.metadata_tree)
+        result.metadata_tree = result.metadata_tree.value().merged_with(md);
+      else
+        result.metadata_tree = md;
+    }
+    if (ctrees.value_tree) {
+      auto v = IndexTreeL({{c, 1, ctrees.value_tree.value()}});
+      if (result.value_tree)
+        result.value_tree = result.value_tree.value().merged_with(v);
+      else
+        result.value_tree = v;
+    }
   }
-  if (!result.metadata_tree.rank())
-    result.metadata_tree =
-      expand_tree(result.metadata_tree, result.metadata_tree.height() + 1);
-  if (!result.value_tree.rank())
-    result.value_tree =
-      expand_tree(result.value_tree, result.value_tree.height() + 1);
+  if (result.metadata_tree && !result.metadata_tree.value().rank()) {
+    auto md = result.metadata_tree.value();
+    result.metadata_tree = expand_tree(md, md.height() + 1);
+  }
+  if (result.value_tree && !result.value_tree.value().rank()) {
+    auto v = result.value_tree.value();
+    result.value_tree = expand_tree(v, v.height() + 1);
+  }
   return result;
 }
 
@@ -209,7 +215,7 @@ initialize(
     auto ms_size = ms.size();
     auto level = ms_size - 1;
     for (unsigned j = level + 1; j < D; ++j)
-      p1[j] = p1[j] = 0;
+      p[j] = p1[j] = 0;
     p1[D] = 0;
 
     auto ref_base = m->getRefPtr();
@@ -226,7 +232,7 @@ initialize(
       rtypes[p] = m->type();
       numvals[p] = mvals.size();
       std::string name = m->tellMe();
-      if (name == "") mclasses[p] = MeasureRegion::MClass::M_NONE;
+      if (name == "") assert(false);
 #define MCLASS(M)                               \
       else if (name == MClass<M>::name)         \
         mclasses[p] = M;
@@ -267,8 +273,6 @@ initialize(
       c = (MeasureRegion::ArrayComponent)((unsigned)c + 1);
       if (cm != nullptr)
         ms.push(std::make_tuple(cm, MeasureRegion::ArrayComponent::VALUE));
-      else
-        mclasses[p] = MeasureRegion::MClass::M_NONE;
     }
 
     if (ms_size == ms.size())
@@ -280,7 +284,8 @@ template <int D>
 std::unique_ptr<casacore::Measure>
 instantiate(
   PhysicalRegion value_pr,
-  PhysicalRegion metadata_pr) {
+  PhysicalRegion metadata_pr,
+  Domain metadata_domain) {
 
   // TODO: remove bounds check on the following accessors
   const MeasureRegion::ValueAccessor<READ_ONLY, D+1, true>
@@ -316,37 +321,34 @@ instantiate(
     auto ms_size = ms.size();
     auto level = ms_size - 1;
     for (unsigned j = level + 1; j < D; ++j)
-      p1[j] = p1[j] = 0;
+      p[j] = p1[j] = 0;
     p1[D] = 0;
 
     if (c == MeasureRegion::ArrayComponent::VALUE) {
       // the measure value itself
       p[level] = p1[level] = MeasureRegion::ArrayComponent::VALUE;
       k = (MeasureRegion::MClass)mclasses[p];
-      if (k != MeasureRegion::MClass::M_NONE) {
-        casacore::Vector<MeasureRegion::VALUE_TYPE> mvals(numvals[p]);
-        for (unsigned i = 0; i < mvals.size(); ++i) {
-          p1[level + 1] = i;
-          mvals[i] = vals[p1];
-        }
-        switch (k) {
-#define VR(M)                                                       \
-          case M:                                                   \
-            v = std::make_unique<MClass<M>::type::MVType>(mvals);   \
-            r = std::make_unique<MClass<M>::type::Ref>(rtypes[p]);  \
-            break;                                                  
-          FOREACH_MEASURE(VR);
-#undef VR
-        default:
-          assert(false);
-          break;
-        }
-        c = MeasureRegion::ArrayComponent::OFFSET;
-        p[level] = p1[level] = c;
-        PUSH_NEW(ms);
-      } else {
-        ms.pop();
+      casacore::Vector<MeasureRegion::VALUE_TYPE> mvals(numvals[p]);
+      for (unsigned i = 0; i < mvals.size(); ++i) {
+        p1[level + 1] = i;
+        mvals[i] = vals[p1];
       }
+      switch (k) {
+#define VR(M)                                                     \
+        case M:                                                   \
+          v = std::make_unique<MClass<M>::type::MVType>(mvals);   \
+          r = std::make_unique<MClass<M>::type::Ref>(rtypes[p]);  \
+          break;
+        FOREACH_MEASURE(VR);
+#undef VR
+      default:
+        assert(false);
+        break;
+      }
+      c = MeasureRegion::ArrayComponent::OFFSET;
+      p[level] = p1[level] = c;
+      if (metadata_domain.contains(p))
+        PUSH_NEW(ms);
     }
 
     while (ms_size == ms.size()
@@ -371,22 +373,18 @@ instantiate(
             break;
           }
         }
-        PUSH_NEW(ms);
         break;
       case MeasureRegion::ArrayComponent::EPOCH:
         if (cm)
           r->getFrame().resetEpoch(*cm);
-        PUSH_NEW(ms);
         break;
       case MeasureRegion::ArrayComponent::POSITION:
         if (cm)
           r->getFrame().resetPosition(*cm);
-        PUSH_NEW(ms);
         break;
       case MeasureRegion::ArrayComponent::DIRECTION:
         if (cm)
           r->getFrame().resetDirection(*cm);
-        PUSH_NEW(ms);
         break;
       case MeasureRegion::ArrayComponent::RADIAL_VELOCITY:
         if (cm)
@@ -412,6 +410,8 @@ instantiate(
       }
       c = (MeasureRegion::ArrayComponent)((unsigned)c + 1);
       p[level] = p1[level] = c;
+      if (metadata_domain.contains(p))
+        PUSH_NEW(ms);
     }
 
     if (ms_size == ms.size())
@@ -507,9 +507,14 @@ MeasureRegion::make(Context ctx, Runtime* rt) const {
 
   std::unique_ptr<casacore::Measure> result;
   switch (metadata_region.get_dim()) {
-#define INST(D)                                       \
-    case D:                                           \
-      result = instantiate<D>(value_pr, metadata_pr); \
+#define INST(D)                                   \
+    case D:                                       \
+      result =                                    \
+        instantiate<D>(                           \
+          value_pr,                               \
+          metadata_pr,                            \
+          rt->get_index_space_domain(             \
+            metadata_region.get_index_space()));  \
       break;
     LEGMS_FOREACH_N_LESS_MAX(INST);
 #undef INST
