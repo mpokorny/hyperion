@@ -4,6 +4,8 @@
 #include "Measures.h"
 #include <casacore/measures/Measures/MEpoch.h>
 #include <casacore/measures/Measures/MeasData.h>
+#include <casacore/measures/Measures/MCEpoch.h>
+#include <casacore/casa/System/AppState.h>
 
 #ifdef LEGMS_USE_CASACORE
 
@@ -14,12 +16,33 @@ enum {
   MEASURES_TEST_SUITE,
 };
 
+class CasacoreState
+  : public casacore::AppState {
+public:
+
+  CasacoreState() {}
+
+  std::list<std::string>
+  dataPath() const override {
+    static std::list<std::string>
+      result{"/users/mpokorny/projects/casa.git/data"};
+    return result;
+  }
+
+  bool
+  initialized() const override {
+    return true;
+  }
+};
+
 void
 measures_test_suite(
   const Task *task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime* rt) {
+
+  casacore::AppStateSource::initialize(new CasacoreState);
   
   register_tasks(ctx, rt);
 
@@ -35,14 +58,35 @@ measures_test_suite(
   casacore::MEpoch::Ref reftai(casacore::MEpoch::TAI);
   casacore::MEpoch::Ref refutc(casacore::MEpoch::UTC);
   casacore::Quantity mjd2000(casacore::MeasData::MJD2000, "d");
-  casacore::MEpoch utc_val(mjd2000, reftai);
+  casacore::Quantity mjdb1950(casacore::MeasData::MJDB1950, "d");
   {
-    MeasureRegion utc_region = MeasureRegion::create_from(ctx, rt, utc_val);
-    auto val = utc_region.make<casacore::MEpoch>(ctx, rt);
+    casacore::MEpoch tai_val(mjd2000, reftai);
+    MeasureRegion tai_region = MeasureRegion::create_from(ctx, rt, tai_val);
+    auto val = tai_region.make<casacore::MEpoch>(ctx, rt);
     recorder.expect_true(
       "Readback of region initialized from MEpoch has expected value",
-      utc_val.get("s") == val->get("s"));
-    utc_region.destroy(ctx, rt);
+      tai_val.get("s") == val->get("s"));
+    tai_region.destroy(ctx, rt);
+  }
+  {
+    casacore::MEpoch val1950(mjdb1950, reftai);
+    casacore::MEpoch::Ref ref1950(casacore::MEpoch::TAI, val1950);
+    casacore::MEpoch val20_50(
+      casacore::Quantity(
+        casacore::MeasData::MJD2000 - casacore::MeasData::MJDB1950,
+        "d"),
+      ref1950);
+    MeasureRegion reg20_50 = MeasureRegion::create_from(ctx, rt, val20_50);
+    auto val = reg20_50.make<casacore::MEpoch>(ctx, rt);
+    recorder.expect_true(
+      "Readback of region initialized from MEpoch with reference has expected value",
+      val20_50.get("s") == val->get("s"));
+    casacore::MEpoch::Convert tai_to_utc20_50(val20_50, refutc);
+    casacore::MEpoch::Convert tai_to_utc(*val, refutc);
+    recorder.expect_true(
+      "Conversion using instantiated MEpoch equals conversion using original",
+      tai_to_utc20_50().get("d") == tai_to_utc().get("d"));
+    reg20_50.destroy(ctx, rt);
   }
 }
 

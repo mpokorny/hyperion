@@ -108,7 +108,8 @@ expand_tree(const IndexTreeL& tree, unsigned rank) {
         coords.pop_back();
       }
     }
-    result.merged_with(ch);
+    assert(coords.size() == 0);
+    result = result.merged_with(ch);
     ++it;
   }
   assert(result.rank());
@@ -229,7 +230,7 @@ initialize(
         p1[level + 1] = j;
         vals[p1] = mvals[j];
       }
-      rtypes[p] = m->type();
+      rtypes[p] = ref_base->getType();
       numvals[p] = mvals.size();
       std::string name = m->tellMe();
       if (name == "") assert(false);
@@ -389,20 +390,6 @@ instantiate(
       case MeasureRegion::ArrayComponent::RADIAL_VELOCITY:
         if (cm)
           r->getFrame().resetRadialVelocity(*cm);
-        switch (k) {
-#define SET_RESULT(M)                                             \
-          case M:                                                 \
-            result =                                              \
-              std::make_unique<MClass<M>::type>(                  \
-                *dynamic_cast<MClass<M>::type::MVType*>(v.get()), \
-                *dynamic_cast<MClass<M>::type::Ref*>(r.get()));   \
-            break;
-          FOREACH_MEASURE(SET_RESULT);
-#undef SET_RESULT
-        default:
-          assert(false);
-          break;
-        }
         break;
       default:
         assert(false);
@@ -414,11 +401,38 @@ instantiate(
         PUSH_NEW(ms);
     }
 
-    if (ms_size == ms.size())
+    if (ms_size == ms.size()) {
+      switch (k) {
+#define SET_RESULT(M)                                           \
+        case M:                                                 \
+          result =                                              \
+            std::make_unique<MClass<M>::type>(                  \
+              *dynamic_cast<MClass<M>::type::MVType*>(v.get()), \
+              *dynamic_cast<MClass<M>::type::Ref*>(r.get()));   \
+          break;
+        FOREACH_MEASURE(SET_RESULT);
+#undef SET_RESULT
+      default:
+        assert(false);
+        break;
+      }
       ms.pop();
+    }
   }
   return result;
 #undef PUSH_NEW
+}
+
+template <int DIM>
+void
+show_index_space(Runtime* rt, IndexSpaceT<DIM> is) {
+  std::ostringstream oss;
+  for (PointInDomainIterator<DIM> pid(rt->get_index_space_domain(is));
+       pid();
+       pid++)
+    oss << *pid << " ";
+  oss << std::endl;
+  std::cout << oss.str();
 }
 
 MeasureRegion
@@ -431,7 +445,8 @@ MeasureRegion::create_like(
 
   LogicalRegion metadata_region;
   {
-    IndexSpace is = tree_index_space(index_trees.metadata_tree, ctx, rt);
+    IndexSpace is =
+      tree_index_space(index_trees.metadata_tree.value(), ctx, rt);
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(MEASURE_CLASS_TYPE), MEASURE_CLASS_FID);
@@ -442,11 +457,12 @@ MeasureRegion::create_like(
 
   LogicalRegion value_region;
   {
-    IndexSpace is = tree_index_space(index_trees.value_tree, ctx, rt);
+    IndexSpace is =
+      tree_index_space(index_trees.value_tree.value(), ctx, rt);
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(double), 0);
-    value_region = rt->create_logical_region(ctx, is, fs);  
+    value_region = rt->create_logical_region(ctx, is, fs);
   }
   return MeasureRegion(value_region, metadata_region);
 }
