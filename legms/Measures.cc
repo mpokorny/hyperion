@@ -123,24 +123,26 @@ struct MeasureIndexTrees {
 };
 
 MeasureIndexTrees
-measure_index_trees(const casacore::Measure& measure) {
+measure_index_trees(const casacore::Measure& measure, bool with_reference) {
   std::unordered_map<MeasureRegion::ArrayComponent, const casacore::Measure*>
     components;
   components[MeasureRegion::ArrayComponent::VALUE] = &measure;
-  auto ref_base = measure.getRefPtr();
-  auto offset = ref_base->offset();
-  components[MeasureRegion::ArrayComponent::OFFSET] = offset;
-  auto frame = ref_base->getFrame();
-  auto epoch = frame.epoch();
-  components[MeasureRegion::ArrayComponent::EPOCH] = epoch;
-  auto position = frame.position();
-  components[MeasureRegion::ArrayComponent::POSITION] = position;
-  auto direction = frame.direction();
-  components[MeasureRegion::ArrayComponent::DIRECTION] = direction;
-  auto radial_velocity = frame.radialVelocity();
-  components[MeasureRegion::ArrayComponent::RADIAL_VELOCITY] = radial_velocity;
-  auto comet = frame.comet();
-  assert(comet == nullptr);
+  if (with_reference){
+    auto ref_base = measure.getRefPtr();
+    auto offset = ref_base->offset();
+    components[MeasureRegion::ArrayComponent::OFFSET] = offset;
+    auto frame = ref_base->getFrame();
+    auto epoch = frame.epoch();
+    components[MeasureRegion::ArrayComponent::EPOCH] = epoch;
+    auto position = frame.position();
+    components[MeasureRegion::ArrayComponent::POSITION] = position;
+    auto direction = frame.direction();
+    components[MeasureRegion::ArrayComponent::DIRECTION] = direction;
+    auto radial_velocity = frame.radialVelocity();
+    components[MeasureRegion::ArrayComponent::RADIAL_VELOCITY] = radial_velocity;
+    auto comet = frame.comet();
+    assert(comet == nullptr);
+  }
 
   MeasureIndexTrees result;
   for (auto& c_m : components) {
@@ -158,7 +160,7 @@ measure_index_trees(const casacore::Measure& measure) {
       break;
     default:
       if (m != nullptr)
-        ctrees = measure_index_trees(*m);
+        ctrees = measure_index_trees(*m, with_reference);
       break;
     }
     if (ctrees.metadata_tree) {
@@ -192,13 +194,21 @@ void
 initialize(
   PhysicalRegion value_pr,
   PhysicalRegion metadata_pr,
-  const casacore::Measure& measure) {
+  const casacore::Measure& measure,
+  bool with_reference) {
 
   // TODO: remove bounds check on the following accessors
   const MeasureRegion::ValueAccessor<WRITE_ONLY, D+1, true>
     vals(value_pr, 0);
+  // rtypes will not be used if with_reference is false, but statically creating
+  // the accessor conditionally would require another template parameter, so
+  // instead we create a duplicate accessor for another field...hacky!
   const MeasureRegion::RefTypeAccessor<WRITE_ONLY, D, true>
-    rtypes(metadata_pr, MeasureRegion::REF_TYPE_FID);
+    rtypes(
+      metadata_pr,
+      with_reference
+      ? MeasureRegion::REF_TYPE_FID
+      : MeasureRegion::NUM_VALUES_FID);
   const MeasureRegion::MeasureClassAccessor<WRITE_ONLY, D, true>
     mclasses(metadata_pr, MeasureRegion::MEASURE_CLASS_FID);
   const MeasureRegion::NumValuesAccessor<WRITE_ONLY, D, true>
@@ -219,9 +229,6 @@ initialize(
       p[j] = p1[j] = 0;
     p1[D] = 0;
 
-    auto ref_base = m->getRefPtr();
-    auto frame = ref_base->getFrame();
-
     if (c == MeasureRegion::ArrayComponent::VALUE) {
       // the measure value itself
       p[level] = p1[level] = MeasureRegion::ArrayComponent::VALUE;
@@ -230,7 +237,8 @@ initialize(
         p1[level + 1] = j;
         vals[p1] = mvals[j];
       }
-      rtypes[p] = ref_base->getType();
+      if (with_reference)
+        rtypes[p] = m->getRefPtr()->getType();
       numvals[p] = mvals.size();
       std::string name = m->tellMe();
       if (name == "") assert(false);
@@ -243,39 +251,43 @@ initialize(
       c = MeasureRegion::ArrayComponent::OFFSET;
     }
 
-    while (ms_size == ms.size()
-           && c < MeasureRegion::ArrayComponent::NUM_COMPONENTS) {
-      const casacore::Measure* cm;
-      switch (c) {
-      case MeasureRegion::ArrayComponent::VALUE:
-        assert(false);
-        cm = nullptr;
-        break;
-      case MeasureRegion::ArrayComponent::OFFSET:
-        cm = ref_base->offset();
-        break;
-      case MeasureRegion::ArrayComponent::EPOCH:
-        cm = frame.epoch();
-        break;
-      case MeasureRegion::ArrayComponent::POSITION:
-        cm = frame.position();
-        break;
-      case MeasureRegion::ArrayComponent::DIRECTION:
-        cm = frame.direction();
-        break;
-      case MeasureRegion::ArrayComponent::RADIAL_VELOCITY:
-        cm = frame.radialVelocity();
-        break;
-      default:
-        assert(false);
-        break;
-      }
-      p[level] = p1[level] = c;
-      c = (MeasureRegion::ArrayComponent)((unsigned)c + 1);
-      if (cm != nullptr)
-        ms.push(std::make_tuple(cm, MeasureRegion::ArrayComponent::VALUE));
-    }
+    if (with_reference) {
+      auto ref_base = m->getRefPtr();
+      auto frame = ref_base->getFrame();
 
+      while (ms_size == ms.size()
+             && c < MeasureRegion::ArrayComponent::NUM_COMPONENTS) {
+        const casacore::Measure* cm;
+        switch (c) {
+        case MeasureRegion::ArrayComponent::VALUE:
+          assert(false);
+          cm = nullptr;
+          break;
+        case MeasureRegion::ArrayComponent::OFFSET:
+          cm = ref_base->offset();
+          break;
+        case MeasureRegion::ArrayComponent::EPOCH:
+          cm = frame.epoch();
+          break;
+        case MeasureRegion::ArrayComponent::POSITION:
+          cm = frame.position();
+          break;
+        case MeasureRegion::ArrayComponent::DIRECTION:
+          cm = frame.direction();
+          break;
+        case MeasureRegion::ArrayComponent::RADIAL_VELOCITY:
+          cm = frame.radialVelocity();
+          break;
+        default:
+          assert(false);
+          break;
+        }
+        p[level] = p1[level] = c;
+        c = (MeasureRegion::ArrayComponent)((unsigned)c + 1);
+        if (cm != nullptr)
+          ms.push(std::make_tuple(cm, MeasureRegion::ArrayComponent::VALUE));
+      }
+    }
     if (ms_size == ms.size())
       ms.pop();
   }
@@ -439,9 +451,10 @@ MeasureRegion
 MeasureRegion::create_like(
   Context ctx,
   Runtime* rt,
-  const casacore::Measure& measure) {
+  const casacore::Measure& measure,
+  bool with_reference) {
 
-  auto index_trees = measure_index_trees(measure);
+  auto index_trees = measure_index_trees(measure, with_reference);
 
   LogicalRegion metadata_region;
   {
@@ -450,7 +463,8 @@ MeasureRegion::create_like(
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(MEASURE_CLASS_TYPE), MEASURE_CLASS_FID);
-    fa.allocate_field(sizeof(REF_TYPE_TYPE), REF_TYPE_FID);
+    if (with_reference)
+      fa.allocate_field(sizeof(REF_TYPE_TYPE), REF_TYPE_FID);
     fa.allocate_field(sizeof(NUM_VALUES_TYPE), NUM_VALUES_FID);
     metadata_region = rt->create_logical_region(ctx, is, fs);
   }
@@ -471,9 +485,10 @@ MeasureRegion
 MeasureRegion::create_from(
   Context ctx,
   Runtime* rt,
-  const casacore::Measure& measure) {
+  const casacore::Measure& measure,
+  bool with_reference) {
 
-  MeasureRegion result = create_like(ctx, rt, measure);
+  MeasureRegion result = create_like(ctx, rt, measure, with_reference);
   RegionRequirement
     value_req(result.value_region, WRITE_ONLY, EXCLUSIVE, result.value_region);
   value_req.add_field(0);
@@ -485,14 +500,15 @@ MeasureRegion::create_from(
       EXCLUSIVE,
       result.metadata_region);
   metadata_req.add_field(MEASURE_CLASS_FID);
-  metadata_req.add_field(REF_TYPE_FID);
+  if (with_reference)
+    metadata_req.add_field(REF_TYPE_FID);
   metadata_req.add_field(NUM_VALUES_FID);
   auto metadata_pr = rt->map_region(ctx, metadata_req);
 
   switch (result.metadata_region.get_dim()) {
-#define INIT(D)                                       \
-    case D:                                           \
-      initialize<D>(value_pr, metadata_pr, measure);  \
+#define INIT(D)                                                       \
+    case D:                                                           \
+      initialize<D>(value_pr, metadata_pr, measure, with_reference);  \
       break;
     LEGMS_FOREACH_N_LESS_MAX(INIT);
 #undef INIT

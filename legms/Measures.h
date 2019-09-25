@@ -102,13 +102,15 @@ public:
   create_like(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const casacore::Measure& measure);
+    const casacore::Measure& measure,
+    bool with_reference = true);
 
   static MeasureRegion
   create_from(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const casacore::Measure& measure);
+    const casacore::Measure& measure,
+    bool with_reference = true);
 
   std::unique_ptr<casacore::Measure>
   make(Legion::Context ctx, Legion::Runtime* rt) const;
