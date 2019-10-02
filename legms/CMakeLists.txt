@@ -132,7 +132,9 @@ if(USE_CASACORE)
     Measures.h
     Measures.cc
     MeasRef.h
-    MeasRef.cc)
+    MeasRef.cc
+    MeasRefDict.h
+    MeasRefDict.cc)
   set(LEGMS_USE_CASACORE ON)
 endif()
 if(USE_HDF5)
