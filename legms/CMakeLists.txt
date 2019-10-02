@@ -130,7 +130,9 @@ if(USE_CASACORE)
     TableReadTask_c.cc
     TableReadTask_c.h
     Measures.h
-    Measures.cc)
+    Measures.cc
+    MeasRef.h
+    MeasRef.cc)
   set(LEGMS_USE_CASACORE ON)
 endif()
 if(USE_HDF5)

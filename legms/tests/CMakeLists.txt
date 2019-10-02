@@ -69,6 +69,14 @@ if (USE_CASACORE)
   add_test(
     NAME MeasuresUnitTest
     COMMAND ../testing/TestRunner.py ./utMeasures)
+
+  add_executable(utMeasRef utMeasRef.cc)
+  set_target_properties(utMeasRef PROPERTIES
+    CXX_STANDARD 17
+    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+  add_test(
+    NAME MeasRefUnitTest
+    COMMAND ../testing/TestRunner.py ./utMeasRef)
 endif()
 
 add_subdirectory(data)

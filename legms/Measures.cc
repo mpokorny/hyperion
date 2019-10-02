@@ -6,16 +6,6 @@
 #include "tree_index_space.h"
 #include "utility.h"
 
-#include <casacore/measures/Measures/MBaseline.h>
-#include <casacore/measures/Measures/MDirection.h>
-#include <casacore/measures/Measures/MDoppler.h>
-#include <casacore/measures/Measures/MEarthMagnetic.h>
-#include <casacore/measures/Measures/MEpoch.h>
-#include <casacore/measures/Measures/MFrequency.h>
-#include <casacore/measures/Measures/MPosition.h>
-#include <casacore/measures/Measures/MRadialVelocity.h>
-#include <casacore/measures/Measures/Muvw.h>
-
 #include <cassert>
 #include <stack>
 #include <unordered_map>
@@ -23,77 +13,12 @@
 using namespace legms;
 using namespace Legion;
 
-template <MeasureRegion::MClass k>
-struct MClass {
-  // typedef casacore::... type;
-  // std::string name;
-};
-template <>
-struct MClass<MeasureRegion::MClass::M_BASELINE> {
-  typedef casacore::MBaseline type;
-  static const std::string name;
-};
-
-template <>
-struct MClass<MeasureRegion::MClass::M_DIRECTION> {
-  typedef casacore::MDirection type;
-  static const std::string name;
-};
-
-template <>
-struct MClass<MeasureRegion::MClass::M_DOPPLER> {
-  typedef casacore::MDoppler type;
-  static const std::string name;
-};
-
-template <>
-struct MClass<MeasureRegion::MClass::M_EARTH_MAGNETIC> {
-  typedef casacore::MEarthMagnetic type;
-  static const std::string name;
-};
-template <>
-struct MClass<MeasureRegion::MClass::M_EPOCH> {
-  typedef casacore::MEpoch type;
-  static const std::string name;
-};
-template <>
-struct MClass<MeasureRegion::MClass::M_FREQUENCY> {
-  typedef casacore::MFrequency type;
-  static const std::string name;
-};
-template <>
-struct MClass<MeasureRegion::MClass::M_POSITION> {
-  typedef casacore::MPosition type;
-  static const std::string name;
-};
-template <>
-struct MClass<MeasureRegion::MClass::M_RADIAL_VELOCITY> {
-  typedef casacore::MRadialVelocity type;
-  static const std::string name;
-};
-template <>
-struct MClass<MeasureRegion::MClass::M_UVW> {
-  typedef casacore::Muvw type;
-  static const std::string name;
-};
-
-#define FOREACH_MEASURE(__func__)                     \
-  __func__(MeasureRegion::MClass::M_BASELINE)         \
-  __func__(MeasureRegion::MClass::M_DIRECTION)        \
-  __func__(MeasureRegion::MClass::M_DOPPLER)          \
-  __func__(MeasureRegion::MClass::M_EARTH_MAGNETIC)   \
-  __func__(MeasureRegion::MClass::M_EPOCH)            \
-  __func__(MeasureRegion::MClass::M_FREQUENCY)        \
-  __func__(MeasureRegion::MClass::M_POSITION)         \
-  __func__(MeasureRegion::MClass::M_RADIAL_VELOCITY)  \
-  __func__(MeasureRegion::MClass::M_UVW)
-
 #define MCLASS_NAME(M) \
-  const std::string MClass<M>::name = MClass<M>::type::showMe();
-FOREACH_MEASURE(MCLASS_NAME)
+  const std::string MClassT<M>::name = MClassT<M>::type::showMe();
+FOREACH_MCLASS(MCLASS_NAME)
 #undef MCLASS_NAME
 
-IndexTreeL
+static IndexTreeL
 expand_tree(const IndexTreeL& tree, unsigned rank) {
   IndexTreeL result;
   auto it = IndexTreeIterator(tree);
@@ -122,7 +47,7 @@ struct MeasureIndexTrees {
   std::optional<IndexTreeL> value_tree;
 };
 
-MeasureIndexTrees
+static MeasureIndexTrees
 measure_index_trees(const casacore::Measure& measure, bool with_reference) {
   std::unordered_map<MeasureRegion::ArrayComponent, const casacore::Measure*>
     components;
@@ -190,7 +115,7 @@ measure_index_trees(const casacore::Measure& measure, bool with_reference) {
 }
 
 template <int D>
-void
+static void
 initialize(
   PhysicalRegion value_pr,
   PhysicalRegion metadata_pr,
@@ -243,9 +168,9 @@ initialize(
       std::string name = m->tellMe();
       if (name == "") assert(false);
 #define MCLASS(M)                               \
-      else if (name == MClass<M>::name)         \
+      else if (name == MClassT<M>::name)        \
         mclasses[p] = M;
-      FOREACH_MEASURE(MCLASS)
+      FOREACH_MCLASS(MCLASS)
 #undef MCLASS
       else assert(false);
       c = MeasureRegion::ArrayComponent::OFFSET;
@@ -294,7 +219,7 @@ initialize(
 }
 
 template <int D>
-std::unique_ptr<casacore::Measure>
+static std::unique_ptr<casacore::Measure>
 instantiate(
   PhysicalRegion value_pr,
   PhysicalRegion metadata_pr,
@@ -318,13 +243,13 @@ instantiate(
     std::tuple<
       std::unique_ptr<casacore::MeasValue>,
       std::unique_ptr<casacore::MRBase>,
-      MeasureRegion::MClass,
+      MClass,
       MeasureRegion::ArrayComponent>> ms;
 #define PUSH_NEW(s) (s).push(                   \
     std::make_tuple(                            \
       std::unique_ptr<casacore::MeasValue>(),   \
       std::unique_ptr<casacore::MRBase>(),      \
-      MeasureRegion::MClass::M_NONE,            \
+      MClass::M_NONE,                           \
       MeasureRegion::ArrayComponent::VALUE))
 
   PUSH_NEW(ms);
@@ -340,7 +265,7 @@ instantiate(
     if (c == MeasureRegion::ArrayComponent::VALUE) {
       // the measure value itself
       p[level] = p1[level] = MeasureRegion::ArrayComponent::VALUE;
-      k = (MeasureRegion::MClass)mclasses[p];
+      k = (MClass)mclasses[p];
       casacore::Vector<MeasureRegion::VALUE_TYPE> mvals(numvals[p]);
       for (unsigned i = 0; i < mvals.size(); ++i) {
         p1[level + 1] = i;
@@ -349,10 +274,10 @@ instantiate(
       switch (k) {
 #define VR(M)                                                     \
         case M:                                                   \
-          v = std::make_unique<MClass<M>::type::MVType>(mvals);   \
-          r = std::make_unique<MClass<M>::type::Ref>(rtypes[p]);  \
+          v = std::make_unique<MClassT<M>::type::MVType>(mvals);  \
+          r = std::make_unique<MClassT<M>::type::Ref>(rtypes[p]); \
           break;
-        FOREACH_MEASURE(VR);
+        FOREACH_MCLASS(VR);
 #undef VR
       default:
         assert(false);
@@ -374,12 +299,12 @@ instantiate(
       case MeasureRegion::ArrayComponent::OFFSET:
         if (cm) {
           switch (k) {
-#define SET_OFFSET(M)                                             \
-            case M:                                               \
-              dynamic_cast<MClass<M>::type::Ref*>(r.get())        \
-                ->set(*dynamic_cast<MClass<M>::type*>(cm.get())); \
+#define SET_OFFSET(M)                                               \
+            case M:                                                 \
+              dynamic_cast<MClassT<M>::type::Ref*>(r.get())         \
+                ->set(*dynamic_cast<MClassT<M>::type*>(cm.get()));  \
               break;
-            FOREACH_MEASURE(SET_OFFSET);
+            FOREACH_MCLASS(SET_OFFSET);
 #undef SET_OFFSET
           default:
             assert(false);
@@ -415,14 +340,14 @@ instantiate(
 
     if (ms_size == ms.size()) {
       switch (k) {
-#define SET_RESULT(M)                                           \
-        case M:                                                 \
-          result =                                              \
-            std::make_unique<MClass<M>::type>(                  \
-              *dynamic_cast<MClass<M>::type::MVType*>(v.get()), \
-              *dynamic_cast<MClass<M>::type::Ref*>(r.get()));   \
+#define SET_RESULT(M)                                             \
+        case M:                                                   \
+          result =                                                \
+            std::make_unique<MClassT<M>::type>(                   \
+              *dynamic_cast<MClassT<M>::type::MVType*>(v.get()),  \
+              *dynamic_cast<MClassT<M>::type::Ref*>(r.get()));    \
           break;
-        FOREACH_MEASURE(SET_RESULT);
+        FOREACH_MCLASS(SET_RESULT);
 #undef SET_RESULT
       default:
         assert(false);
@@ -436,7 +361,7 @@ instantiate(
 }
 
 template <int DIM>
-void
+static void
 show_index_space(Runtime* rt, IndexSpaceT<DIM> is) {
   std::ostringstream oss;
   for (PointInDomainIterator<DIM> pid(rt->get_index_space_domain(is));
