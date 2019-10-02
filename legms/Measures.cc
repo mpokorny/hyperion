@@ -3,8 +3,8 @@
 #ifdef LEGMS_USE_CASACORE
 
 #define MCLASS_NAME(M) \
-  const std::string MClassT<M>::name = MClassT<M>::type::showMe();
-FOREACH_MCLASS(MCLASS_NAME)
+  const std::string legms::MClassT<M>::name = legms::MClassT<M>::type::showMe();
+LEGMS_FOREACH_MCLASS(MCLASS_NAME)
 #undef MCLASS_NAME
 
 #endif // LEGMS_USE_CASACORE

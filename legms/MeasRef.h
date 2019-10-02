@@ -131,7 +131,7 @@ public:
 #define CREATE(M)                                                       \
     else if (typeid(MClassT<M>::type).hash_code() == typeid(Ms).hash_code()) \
       return create(ctx, rt, name, &meas_ref, M);
-    FOREACH_MCLASS(CREATE)
+    LEGMS_FOREACH_MCLASS(CREATE)
 #undef CM
     else assert(false);
   }

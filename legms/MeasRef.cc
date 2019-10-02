@@ -177,11 +177,11 @@ initialize_vm(
             numvals[p] = mvals.size();
             std::string name = measure->tellMe();
             if (name == "") assert(false);
-#define MCLASS(M)                               \
+#define SET_MCLASS(M)                           \
             else if (name == MClassT<M>::name)  \
               mclasses[p] = M;
-            FOREACH_MCLASS(MCLASS)
-#undef MCLASS
+            LEGMS_FOREACH_MCLASS(SET_MCLASS)
+#undef SET_MCLASS
             else assert(false);
             ref_base = measure->getRefPtr();
           },
@@ -367,7 +367,7 @@ instantiate_vm(
             v = std::make_unique<MClassT<M>::type::MVType>(mvals);  \
           r = std::make_unique<MClassT<M>::type::Ref>(rtypes[p]);   \
           break;
-        FOREACH_MCLASS(VR)
+        LEGMS_FOREACH_MCLASS(VR)
 #undef VR
       default:
         assert(false);
@@ -397,7 +397,7 @@ instantiate_vm(
               dynamic_cast<MClassT<M>::type::Ref*>(r.get())         \
                 ->set(*dynamic_cast<MClassT<M>::type*>(cm.get()));  \
               break;
-            FOREACH_MCLASS(SET_OFFSET);
+            LEGMS_FOREACH_MCLASS(SET_OFFSET)
 #undef SET_OFFSET
           default:
             assert(false);
@@ -443,7 +443,7 @@ instantiate_vm(
           else                                                      \
             result = std::move(r);                                  \
           break;
-        FOREACH_MCLASS(SET_RESULT);
+        LEGMS_FOREACH_MCLASS(SET_RESULT)
 #undef SET_RESULT
       default:
         assert(false);
@@ -500,7 +500,7 @@ instantiate<1>(
             result =                                              \
               std::make_unique<MClassT<M>::type::Ref>(rtypes[p]); \
             break;
-          FOREACH_MCLASS(MRB)
+          LEGMS_FOREACH_MCLASS(MRB)
 #undef MRB
         default:
           assert(false);

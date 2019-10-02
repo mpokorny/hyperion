@@ -17,7 +17,7 @@ MeasRefDict::get(const std::string& name) const {
               std::make_unique<Ref>(                          \
                 *mr->make<MClassT<M>::type>(m_ctx, m_rt))));  \
           break;
-        FOREACH_MCLASS(MK)
+        LEGMS_FOREACH_MCLASS(MK)
 #undef MK
       default:
           assert(false);

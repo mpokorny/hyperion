@@ -49,7 +49,7 @@ check_dict_value_type(
       result =                                                          \
         std::holds_alternative<casacore::MeasRef<MClassT<M>::type>>(value); \
     break;
-    FOREACH_MCLASS(CHECK)
+    LEGMS_FOREACH_MCLASS(CHECK)
   default:
     assert(false);
     break;

@@ -89,16 +89,16 @@ struct MClassT<MClass::M_UVW> {
   static const std::string name;
 };
 
-#define FOREACH_MCLASS(__func__)                \
-  __func__(MClass::M_BASELINE)                  \
-  __func__(MClass::M_DIRECTION)                 \
-  __func__(MClass::M_DOPPLER)                   \
-  __func__(MClass::M_EARTH_MAGNETIC)            \
-  __func__(MClass::M_EPOCH)                     \
-  __func__(MClass::M_FREQUENCY)                 \
-  __func__(MClass::M_POSITION)                  \
-  __func__(MClass::M_RADIAL_VELOCITY)           \
-  __func__(MClass::M_UVW)
+#define LEGMS_FOREACH_MCLASS(__func__)          \
+  __func__(::legms::MClass::M_BASELINE)         \
+  __func__(::legms::MClass::M_DIRECTION)        \
+  __func__(::legms::MClass::M_DOPPLER)          \
+  __func__(::legms::MClass::M_EARTH_MAGNETIC)   \
+  __func__(::legms::MClass::M_EPOCH)            \
+  __func__(::legms::MClass::M_FREQUENCY)        \
+  __func__(::legms::MClass::M_POSITION)         \
+  __func__(::legms::MClass::M_RADIAL_VELOCITY)  \
+  __func__(::legms::MClass::M_UVW)
 
 } // end namespace legms
 
