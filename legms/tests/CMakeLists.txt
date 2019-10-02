@@ -62,14 +62,6 @@ if (USE_CASACORE)
     COMMAND ../testing/TestRunner.py ./utMS -ll:io 1)
   set_property(TEST MSUnitTest PROPERTY DEPENDS data/t0_unpack)
 
-  add_executable(utMeasures utMeasures.cc)
-  set_target_properties(utMeasures PROPERTIES
-    CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
-  add_test(
-    NAME MeasuresUnitTest
-    COMMAND ../testing/TestRunner.py ./utMeasures)
-
   add_executable(utMeasRef utMeasRef.cc)
   set_target_properties(utMeasRef PROPERTIES
     CXX_STANDARD 17
