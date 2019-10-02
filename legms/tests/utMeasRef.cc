@@ -5,6 +5,7 @@
 
 #ifdef LEGMS_USE_CASACORE
 #include <casacore/measures/Measures/MeasData.h>
+#include <casacore/measures/Measures/MCEpoch.h>
 #include <casacore/casa/System/AppState.h>
 
 using namespace legms;
@@ -43,7 +44,7 @@ meas_ref_test_suite(
   Runtime* rt) {
 
   casacore::AppStateSource::initialize(new CasacoreState);
-  
+
   register_tasks(ctx, rt);
 
   testing::TestRecorder<READ_WRITE> recorder(
@@ -56,6 +57,8 @@ meas_ref_test_suite(
       rt));
 
   casacore::MEpoch::Ref reftai(casacore::MEpoch::TAI);
+  casacore::MEpoch::Ref refutc(casacore::MEpoch::UTC);
+  casacore::Quantity mjd2000(casacore::MeasData::MJD2000, "d");
   casacore::Quantity mjdb1950(casacore::MeasData::MJDB1950, "d");
   {
     MeasRef mr_tai = MeasRef::create(ctx, rt, "EPOCH", reftai);
@@ -95,11 +98,19 @@ meas_ref_test_suite(
     // TODO: add more comparisons -- casacore::MeasRef equality operator is
     // insufficient, as it relies on pointer comparisons, so will have to
     // dissect the MeasRefs and compare parts (which?) individually by value
+
+    {
+      casacore::MEpoch val_2000(mjd2000, reftai);
+      casacore::MEpoch val_ref(mjd2000, ref.value());
+      recorder.expect_true(
+        "MEpoch value using MeasRef reference equals MEpoch value using original reference",
+        val_2000.get("s") == val_ref.get("s"));
+    }
     mr_tai.destroy(ctx, rt);
   }
   {
-    casacore::MEpoch val1950(mjdb1950, reftai);
-    casacore::MEpoch::Ref ref1950(casacore::MEpoch::TAI, val1950);
+    casacore::MEpoch val_1950(mjdb1950, reftai);
+    casacore::MEpoch::Ref ref1950(casacore::MEpoch::TAI, val_1950);
     casacore::MVEpoch v20_50(
       casacore::Quantity(
         casacore::MeasData::MJD2000 - casacore::MeasData::MJDB1950,
@@ -108,12 +119,24 @@ meas_ref_test_suite(
     MeasRef mr_1950 = MeasRef::create(ctx, rt, "EPOCH", ref1950);
     auto ref = mr_1950.make<casacore::MEpoch>(ctx, rt);
     recorder.expect_true(
-      "Instance of MEpoch::Ref region with offset has same MEpoch value as original",
+      "Instance of MEpoch::Ref with offset region has same MEpoch value as original",
       testing::TestEval(
         [&v20_50, &e20_50, &ref]() {
           auto ep = casacore::MEpoch(v20_50, ref.value());
           return ep.getValue() == v20_50;
         }));
+
+    casacore::MEpoch val_ref(v20_50, ref.value());
+    recorder.expect_true(
+      "MEpoch value using MeasRef reference with offset equals MEpoch value using original reference",
+      e20_50.get("s") == val_ref.get("s"));
+
+    casacore::MEpoch::Convert tai_to_utc20_50(e20_50, refutc);
+    casacore::MEpoch::Convert tai_to_utc(val_ref, refutc);
+    recorder.expect_true(
+      "Conversion using MeasRef reference equals conversion using original reference",
+      tai_to_utc20_50().get("d") == tai_to_utc().get("d"));
+
     mr_1950.destroy(ctx, rt);
   }
 }
