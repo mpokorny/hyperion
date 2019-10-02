@@ -1,13 +1,13 @@
-#include "testing/TestSuiteDriver.h"
-#include "testing/TestRecorder.h"
+#include <legms/testing/TestSuiteDriver.h>
+#include <legms/testing/TestRecorder.h>
 
 #include <memory>
 #include <ostream>
 #include <vector>
 
-#include "utility.h"
-#include "Table.h"
-#include "Column.h"
+#include <legms/utility.h>
+#include <legms/Table.h>
+#include <legms/Column.h>
 
 using namespace legms;
 using namespace Legion;

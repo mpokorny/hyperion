@@ -1,12 +1,12 @@
-#include "c_util.h"
-#include "Table_c.h"
-#include "Table.h"
+#include <legms/c_util.h>
+#include <legms/Table_c.h>
+#include <legms/Table.h>
 #ifdef LEGMS_USE_HDF5
-# include "legms_hdf5.h"
+# include <legms/hdf5.h>
 #endif
 
 #pragma GCC visibility push(default)
-#include "legion/legion_c_util.h"
+#include <legion/legion_c_util.h>
 
 #include <cstdlib>
 #include <cstring>

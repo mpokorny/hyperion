@@ -16,22 +16,19 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include "legms.h"
-
-#include "Table_c.h"
-
-#include "utility.h"
-#include "Keywords.h"
-#include "Column.h"
-#include "IndexTree.h"
-#include "ColumnPartition.h"
-#include "MSTable.h"
+#include <legms/legms.h>
+#include <legms/Table_c.h>
+#include <legms/utility.h>
+#include <legms/Keywords.h>
+#include <legms/Column.h>
+#include <legms/IndexTree.h>
+#include <legms/ColumnPartition.h>
+#include <legms/MSTable.h>
+#include <legms/c_util.h>
 
 #ifdef LEGMS_USE_HDF5
-#include "legms_hdf5.h"
+# include <legms/hdf5.h>
 #endif // LEGMS_USE_HDF5
-
-#include "c_util.h"
 
 #define NO_REINDEX 1
 

@@ -1,7 +1,7 @@
 #ifndef LEGMS_MS_TABLE_C_H_
 #define LEGMS_MS_TABLE_C_H_
 
-#include "c_util.h"
+#include <legms/c_util.h>
 
 #ifdef __cplusplus
 extern "C" {

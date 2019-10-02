@@ -17,9 +17,9 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include "utility.h"
-#include "IndexTree.h"
-#include "Keywords.h"
+#include <legms/utility.h>
+#include <legms/IndexTree.h>
+#include <legms/Keywords.h>
 
 #pragma GCC visibility push(default)
 #include <hdf5.h>

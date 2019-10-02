@@ -1,8 +1,10 @@
-#include "legms_hdf5.h"
+#include <legms/hdf5.h>
+#include <legms/Table.h>
+#include <legms/Column.h>
 
-#include "TestSuiteDriver.h"
-#include "TestRecorder.h"
-#include "TestExpression.h"
+#include <legms/testing/TestSuiteDriver.h>
+#include <legms/testing/TestRecorder.h>
+#include <legms/testing/TestExpression.h>
 
 #include <algorithm>
 #include <array>
@@ -16,9 +18,6 @@
 using namespace legms;
 using namespace legms::hdf5;
 using namespace Legion;
-
-#include "Table.h"
-#include "Column.h"
 
 enum {
   HDF5_TEST_SUITE,

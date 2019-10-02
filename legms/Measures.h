@@ -1,14 +1,16 @@
 #ifndef LEGMS_MEASURES_H_
 #define LEGMS_MEASURES_H_
 
-#include "legms.h"
-#include "utility.h"
+#include <legms/legms.h>
+#include <legms/utility.h>
 
+#pragma GCC visibility push(default)
 #include <memory>
+#pragma GCC visibility pop
 
 #ifdef LEGMS_USE_CASACORE
+#pragma GCC visibility push(default)
 #include <casacore/measures/Measures.h>
-
 #include <casacore/measures/Measures/MBaseline.h>
 #include <casacore/measures/Measures/MDirection.h>
 #include <casacore/measures/Measures/MDoppler.h>
@@ -18,6 +20,7 @@
 #include <casacore/measures/Measures/MPosition.h>
 #include <casacore/measures/Measures/MRadialVelocity.h>
 #include <casacore/measures/Measures/Muvw.h>
+#pragma GCC visibility pop
 
 namespace legms {
 

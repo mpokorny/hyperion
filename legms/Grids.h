@@ -5,7 +5,7 @@
 #include <tuple>
 #pragma GCC visibility pop
 
-#include "legms.h"
+#include <legms/legms.h>
 
 namespace legms {
 

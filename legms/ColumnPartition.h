@@ -6,11 +6,11 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include "legms.h"
-#include "utility.h"
-#include "ColumnPartition_c.h"
+#include <legms/legms.h>
+#include <legms/utility.h>
+#include <legms/ColumnPartition_c.h>
 
-#include "c_util.h"
+#include <legms/c_util.h>
 
 namespace legms {
 

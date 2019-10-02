@@ -1,8 +1,8 @@
-#include "utility_c.h"
-#include "utility.h"
+#include <legms/utility_c.h>
+#include <legms/utility.h>
 
 #pragma GCC visibility push(default)
-#include "legion/legion_c_util.h"
+#include <legion/legion_c_util.h>
 #pragma GCC visibility pop
 
 void

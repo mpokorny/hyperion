@@ -1,7 +1,7 @@
 #include <iostream>
 
-#include "TestLog.h"
-#include "TestSuiteDriver.h"
+#include <legms/testing/TestLog.h>
+#include <legms/testing/TestSuiteDriver.h>
 
 using namespace legms;
 using namespace Legion;

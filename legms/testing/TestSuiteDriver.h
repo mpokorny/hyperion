@@ -5,8 +5,8 @@
 #include <array>
 #pragma GCC visibility pop
 
-#include "legms.h"
-#include "utility.h"
+#include <legms/legms.h>
+#include <legms/utility.h>
 
 #ifndef TEST_SUITE_DRIVER_LOG_LENGTH
 # define TEST_SUITE_DRIVER_LOG_LENGTH 100

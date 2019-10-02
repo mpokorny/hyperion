@@ -13,13 +13,13 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include "legms.h"
-#include "KeywordsBuilder.h"
-#include "ColumnBuilder.h"
-#include "Column.h"
-#include "Table.h"
-#include "IndexTree.h"
-#include "MSTable.h"
+#include <legms/legms.h>
+#include <legms/KeywordsBuilder.h>
+#include <legms/ColumnBuilder.h>
+#include <legms/Column.h>
+#include <legms/Table.h>
+#include <legms/IndexTree.h>
+#include <legms/MSTable.h>
 
 #pragma GCC visibility push(default)
 #include <casacore/casa/aipstype.h>

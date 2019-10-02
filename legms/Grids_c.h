@@ -1,7 +1,7 @@
 #ifndef LEGMS_GRIDS_C_H_
 #define LEGMS_GRIDS_C_H_
 
-#include "utility_c.h"
+#include <legms/utility_c.h>
 
 #ifdef __cplusplus
 extern "C" {

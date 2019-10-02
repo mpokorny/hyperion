@@ -2,7 +2,7 @@
 #include <algorithm>
 #pragma GCC visibility pop
 
-#include "TestLog.h"
+#include <legms/testing/TestLog.h>
 
 using namespace legms::testing;
 using namespace Legion;

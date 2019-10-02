@@ -2,7 +2,7 @@
 #include <algorithm>
 #pragma GCC visibility pop
 
-#include "TableReadTask.h"
+#include <legms/TableReadTask.h>
 
 using namespace legms;
 

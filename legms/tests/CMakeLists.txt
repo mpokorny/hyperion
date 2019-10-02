@@ -1,5 +1,6 @@
 include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/..
+  ${CMAKE_CURRENT_SOURCE_DIR}/../..
+  ${CMAKE_CURRENT_BINARY_DIR}/../..
   ${Legion_INSTALL_DIR}/include)
 if (USE_CASACORE)
   include_directories(${casacore_INCLUDE_DIR})

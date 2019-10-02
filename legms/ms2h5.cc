@@ -8,10 +8,10 @@
 #endif
 #include <unordered_set>
 
-#include "legms.h"
-#include "legms_hdf5.h"
-#include "Table.h"
-#include "TableReadTask.h"
+#include <legms/legms.h>
+#include <legms/hdf5.h>
+#include <legms/Table.h>
+#include <legms/TableReadTask.h>
 
 using namespace legms;
 using namespace Legion;

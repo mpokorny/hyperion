@@ -23,8 +23,8 @@ set_target_properties(legms_testing PROPERTIES
 add_dependencies(legms_testing legms)
 target_include_directories(legms_testing
   PRIVATE ${Legion_INSTALL_DIR}/include
-  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}../..
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 if (USE_CASACORE)
 target_include_directories(legms_testing PRIVATE ${casacore_INCLUDE_DIR})
 endif()

@@ -1,4 +1,4 @@
-#include "legms_hdf5.h"
+#include <legms/hdf5.h>
 
 #pragma GCC visibility push(default)
 #include <algorithm>
@@ -8,10 +8,10 @@
 #include <sstream>
 #pragma GCC visibility pop
 
-#include "tree_index_space.h"
-#include "MSTable.h"
-#include "Table.h"
-#include "Column.h"
+#include <legms/tree_index_space.h>
+#include <legms/MSTable.h>
+#include <legms/Table.h>
+#include <legms/Column.h>
 
 using namespace legms::hdf5;
 using namespace legms;

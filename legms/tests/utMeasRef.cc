@@ -1,7 +1,7 @@
-#include "testing/TestSuiteDriver.h"
-#include "testing/TestRecorder.h"
+#include <legms/testing/TestSuiteDriver.h>
+#include <legms/testing/TestRecorder.h>
 
-#include "MeasRef.h"
+#include <legms/MeasRef.h>
 
 #ifdef LEGMS_USE_CASACORE
 #include <casacore/measures/Measures/MeasData.h>

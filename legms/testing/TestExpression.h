@@ -8,8 +8,8 @@
 #include <typeinfo>
 #pragma GCC visibility pop
 
-#include "legms.h"
-#include "TestRecorder.h"
+#include <legms/legms.h>
+#include <legms/testing/TestRecorder.h>
 
 namespace legms{
 namespace testing {

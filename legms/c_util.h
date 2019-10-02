@@ -1,12 +1,12 @@
 #ifndef LEGMS_C_UTIL_H_
 #define LEGMS_C_UTIL_H_
 
-#include "legms_c.h"
+#include <legms/legms_c.h>
 
 #ifdef __cplusplus
 #pragma GCC visibility push(default)
 #include <memory>
-#include "legion/legion_c_util.h"
+#include <legion/legion_c_util.h>
 #pragma GCC visibility pop
 
 namespace legms {

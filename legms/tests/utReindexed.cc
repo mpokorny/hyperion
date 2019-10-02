@@ -1,14 +1,14 @@
-#include "testing/TestSuiteDriver.h"
-#include "testing/TestRecorder.h"
+#include <legms/testing/TestSuiteDriver.h>
+#include <legms/testing/TestRecorder.h>
 
 #include <algorithm>
 #include <memory>
 #include <ostream>
 #include <vector>
 
-#include "utility.h"
-#include "Table.h"
-#include "Column.h"
+#include <legms/utility.h>
+#include <legms/Table.h>
+#include <legms/Column.h>
 
 #ifndef NO_REINDEX
 

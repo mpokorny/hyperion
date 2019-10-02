@@ -7,10 +7,9 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include "legms.h"
-#include "utility.h"
-
-#include "MSTable_c.h"
+#include <legms/legms.h>
+#include <legms/utility.h>
+#include <legms/MSTable_c.h>
 
 #ifdef LEGMS_USE_HDF5
 #pragma GCC visibility push(default)

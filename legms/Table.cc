@@ -7,11 +7,11 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include "legms.h"
-#include "legion/legion_c_util.h"
-#include "Column.h"
-#include "Table.h"
-#include "TableBuilder.h"
+#include <legion/legion_c_util.h>
+#include <legms/legms.h>
+#include <legms/Column.h>
+#include <legms/Table.h>
+#include <legms/TableBuilder.h>
 
 #ifdef LEGMS_USE_HDF5
 #pragma GCC visibility push(default)

@@ -1,4 +1,4 @@
-#include "ColumnPartition.h"
+#include <legms/ColumnPartition.h>
 
 using namespace legms;
 using namespace Legion;

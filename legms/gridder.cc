@@ -1,4 +1,4 @@
-#include "legms.h"
+#include <legms/legms.h>
 
 #if LEGION_MAX_DIM < 7
 # error "MAX_DIM too small"
@@ -21,10 +21,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "legms.h"
-#include "legms_hdf5.h"
-#include "Table.h"
-#include "Column.h"
+#include <legms/hdf5.h>
+#include <legms/Table.h>
+#include <legms/Column.h>
 
 #define DEFAULT_ECHO_ARGS "false"
 #define DEFAULT_MAIN_TABLE_ROW_BLOCK_SIZE "100000"

@@ -139,8 +139,8 @@ if(USE_CASACORE)
 endif()
 if(USE_HDF5)
   list(APPEND LEGMS_SRC
-    legms_hdf5.h
-    legms_hdf5.cc)
+    hdf5.h
+    hdf5.cc)
   set(LEGMS_USE_HDF5 ON)
 endif()
 
@@ -166,8 +166,8 @@ set_target_properties(legms PROPERTIES
 add_dependencies(legms legion_build)
 target_include_directories(legms
   PUBLIC ${Legion_INSTALL_DIR}/include
-  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-  PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
+  PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..)
 target_link_directories(legms PUBLIC ${Legion_INSTALL_DIR}/lib64)
 if (USE_CASACORE)
   target_include_directories(legms PUBLIC ${casacore_INCLUDE_DIR})
@@ -186,7 +186,7 @@ target_link_libraries(legms PUBLIC realm)
 set_target_properties(legms PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(legms PROPERTIES SOVERSION ${SOVERSION})
 install(TARGETS legms RUNTIME DESTINATION lib)
-install(FILES LEGMS_INCLUDE DESTINATION include)
+install(FILES LEGMS_INCLUDE DESTINATION include/legms)
 
 if (USE_HDF5 AND USE_CASACORE)
   add_executable(ms2h5 ms2h5.cc)
@@ -196,7 +196,8 @@ if (USE_HDF5 AND USE_CASACORE)
   target_link_libraries(ms2h5 legms)
   target_include_directories(ms2h5
     PUBLIC ${Legion_INSTALL_DIR}/include
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
+    PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..
     PUBLIC ${casacore_INCLUDE_DIR}
     PUBLIC ${HDF5_INCLUDE_DIRS})
   install(TARGETS ms2h5 RUNTIME DESTINATION bin)
@@ -210,7 +211,8 @@ if (USE_HDF5)
   target_link_libraries(gridder legms)
   target_include_directories(gridder
     PUBLIC ${Legion_INSTALL_DIR}/include
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
+    PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..
     PUBLIC ${HDF5_INCLUDE_DIRS})
   install(TARGETS gridder RUNTIME DESTINATION bin)
 endif()

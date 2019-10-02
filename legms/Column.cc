@@ -1,12 +1,12 @@
 #pragma GCC visibility push(default)
 #include <cassert>
+#include <legion/legion_c_util.h>
 #pragma GCC visibility pop
 
-#include "legms.h"
-#include "tree_index_space.h"
-#include "legion/legion_c_util.h"
-#include "Column.h"
-#include "Table.h"
+#include <legms/legms.h>
+#include <legms/tree_index_space.h>
+#include <legms/Column.h>
+#include <legms/Table.h>
 
 using namespace legms;
 using namespace Legion;

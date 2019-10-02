@@ -9,13 +9,13 @@
 #include <unordered_map>
 #pragma GCC visibility pop
 
-#include "legms.h"
+#include <legms/legms.h>
 
 #ifdef LEGMS_USE_CASACORE
 
-#include "Table.h"
-#include "utility.h"
-#include "Column.h"
+#include <legms/Table.h>
+#include <legms/utility.h>
+#include <legms/Column.h>
 
 #pragma GCC visibility push(default)
 #include <casacore/casa/aipstype.h>

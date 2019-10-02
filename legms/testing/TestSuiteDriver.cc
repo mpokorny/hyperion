@@ -1,6 +1,6 @@
-#include "TestSuiteDriver.h"
-#include "TestLog.h"
-#include "utility.h"
+#include <legms/testing/TestSuiteDriver.h>
+#include <legms/testing/TestLog.h>
+#include <legms/utility.h>
 
 using namespace legms;
 using namespace legms::testing;

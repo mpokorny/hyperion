@@ -3,17 +3,17 @@
 #include <memory>
 #include <vector>
 
-#include "legms.h"
-#include "utility.h"
-#include "IndexTree.h"
-#include "Column.h"
-#include "Table.h"
-#include "TableBuilder.h"
-#include "TableReadTask.h"
+#include <legms/legms.h>
+#include <legms/utility.h>
+#include <legms/IndexTree.h>
+#include <legms/Column.h>
+#include <legms/Table.h>
+#include <legms/TableBuilder.h>
+#include <legms/TableReadTask.h>
 
-#include "TestSuiteDriver.h"
-#include "TestRecorder.h"
-#include "TestExpression.h"
+#include <legms/testing/TestSuiteDriver.h>
+#include <legms/testing/TestRecorder.h>
+#include <legms/testing/TestExpression.h>
 
 using namespace legms;
 using namespace Legion;

@@ -5,9 +5,9 @@
 #include <exception>
 #pragma GCC visibility pop
 
-#include "legms.h"
-#include "TestLog.h"
-#include "TestExpression.h"
+#include <legms/legms.h>
+#include <legms/testing/TestLog.h>
+#include <legms/testing/TestExpression.h>
 
 namespace legms {
 namespace testing {

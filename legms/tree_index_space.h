@@ -8,9 +8,9 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include "legms.h"
-#include "utility.h"
-#include "IndexTree.h"
+#include <legms/legms.h>
+#include <legms/utility.h>
+#include <legms/IndexTree.h>
 
 namespace legms {
 

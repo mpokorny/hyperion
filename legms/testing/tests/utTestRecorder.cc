@@ -1,9 +1,9 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "TestSuiteDriver.h"
-#include "TestRecorder.h"
-#include "TestExpression.h"
+#include <legms/testing/TestSuiteDriver.h>
+#include <legms/testing/TestRecorder.h>
+#include <legms/testing/TestExpression.h>
 
 using namespace legms;
 using namespace Legion;

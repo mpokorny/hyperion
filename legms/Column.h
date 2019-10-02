@@ -10,19 +10,19 @@
 #include <unordered_map>
 #pragma GCC visibility pop
 
-#include "legms.h"
-#include "utility.h"
+#include <legms/legms.h>
+#include <legms/utility.h>
 
-#include "Column_c.h"
+#include <legms/Column_c.h>
 
-#include "Keywords.h"
-#include "IndexTree.h"
-#include "ColumnPartition.h"
+#include <legms/Keywords.h>
+#include <legms/IndexTree.h>
+#include <legms/ColumnPartition.h>
 
-#include "c_util.h"
+#include <legms/c_util.h>
 
 #ifdef LEGMS_USE_HDF5
-#include "legms_hdf5.h"
+#include <legms/hdf5.h>
 #endif // LEGMS_USE_HDF5
 
 namespace legms {

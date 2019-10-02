@@ -1,4 +1,4 @@
-#include "Measures.h"
+#include <legms/Measures.h>
 
 #ifdef LEGMS_USE_CASACORE
 

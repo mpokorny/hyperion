@@ -2,15 +2,15 @@
 #include<algorithm>
 #pragma GCC visibility pop
 
-#include "utility.h"
-#include "Column.h"
-#include "Table.h"
-#include "TableReadTask.h"
-#include "tree_index_space.h"
-#include "MSTable.h"
+#include <legms/utility.h>
+#include <legms/Column.h>
+#include <legms/Table.h>
+#include <legms/TableReadTask.h>
+#include <legms/tree_index_space.h>
+#include <legms/MSTable.h>
 
 #ifdef LEGMS_USE_HDF5
-# include "legms_hdf5.h"
+# include <legms/hdf5.h>
 #endif // LEGMS_USE_HDF5
 
 using namespace legms;

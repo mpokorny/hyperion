@@ -13,12 +13,12 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include "legms.h"
-#include "utility.h"
-#include "KeywordsBuilder.h"
-#include "IndexTree.h"
-#include "Column.h"
-#include "MSTable.h"
+#include <legms/legms.h>
+#include <legms/utility.h>
+#include <legms/KeywordsBuilder.h>
+#include <legms/IndexTree.h>
+#include <legms/Column.h>
+#include <legms/MSTable.h>
 
 namespace legms {
 

@@ -1,12 +1,11 @@
 #pragma GCC visibility push(default)
 #include <vector>
+#include <legion/legion_c_util.h>
 #pragma GCC visibility pop
 
-#include "c_util.h"
-#include "Column_c.h"
-#include "Column.h"
-
-#include "legion/legion_c_util.h"
+#include <legms/c_util.h>
+#include <legms/Column_c.h>
+#include <legms/Column.h>
 
 using namespace legms;
 using namespace legms::CObjectWrapper;

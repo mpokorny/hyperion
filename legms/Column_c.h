@@ -1,9 +1,9 @@
 #ifndef LEGMS_COLUMN_C_H_
 #define LEGMS_COLUMN_C_H_
 
-#include "legms_c.h"
-#include "utility_c.h"
-#include "ColumnPartition_c.h"
+#include <legms/legms_c.h>
+#include <legms/utility_c.h>
+#include <legms/ColumnPartition_c.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -2,10 +2,10 @@
 #define LEGMS_LEGMS_H_
 
 #pragma GCC visibility push(default)
-#include "legion.h"
+#include <legion.h>
 #pragma GCC visibility pop
 
-#include "legms_config.h"
+#include <legms/legms_config.h>
 
 #define LEGMS_API __attribute__((visibility("default")))
 #define LEGMS_LOCAL __attribute__((visibility("hidden")))

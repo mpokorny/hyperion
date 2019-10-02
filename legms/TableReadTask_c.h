@@ -1,8 +1,8 @@
 #ifndef LEGMS_TABLE_READ_TASK_C_H_
 #define LEGMS_TABLE_READ_TASK_C_H_
 
-#include "utility_c.h"
-#include "Table_c.h"
+#include <legms/utility_c.h>
+#include <legms/Table_c.h>
 
 #ifdef __cplusplus
 extern "C" {

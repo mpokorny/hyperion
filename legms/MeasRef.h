@@ -1,16 +1,19 @@
 #ifndef LEGMS_MEAS_REF_H_
 #define LEGMS_MEAS_REF_H_
 
-#include "legms.h"
-#include "utility.h"
+#include <legms/legms.h>
+#include <legms/utility.h>
+#include <legms/Measures.h>
 
+#pragma GCC visibility push(default)
 #include <memory>
 #include <optional>
-
-#include "Measures.h"
+#pragma GCC visibility pop
 
 #ifdef LEGMS_USE_CASACORE
+#pragma GCC visibility push(default)
 #include <casacore/measures/Measures.h>
+#pragma GCC visibility pop
 
 namespace legms {
 

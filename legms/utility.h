@@ -15,10 +15,9 @@
 #include <unordered_map>
 #pragma GCC visibility pop
 
-#include "legms.h"
-#include "IndexTree.h"
-
-#include "utility_c.h"
+#include <legms/legms.h>
+#include <legms/IndexTree.h>
+#include <legms/utility_c.h>
 
 #pragma GCC visibility push(default)
 #ifdef LEGMS_USE_HDF5

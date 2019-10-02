@@ -1,9 +1,9 @@
-#include "c_util.h"
-#include "ColumnPartition_c.h"
-#include "ColumnPartition.h"
+#include <legms/c_util.h>
+#include <legms/ColumnPartition_c.h>
+#include <legms/ColumnPartition.h>
 
 #pragma GCC visibility push(default)
-#include "legion/legion_c_util.h"
+#include <legion/legion_c_util.h>
 #pragma GCC visibility pop
 
 using namespace legms;

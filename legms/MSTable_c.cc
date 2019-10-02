@@ -1,6 +1,6 @@
-#include "MSTable_c.h"
-#include "MSTable.h"
-#include "c_util.h"
+#include <legms/MSTable_c.h>
+#include <legms/MSTable.h>
+#include <legms/c_util.h>
 
 #pragma GCC visibility push(default)
 #include <algorithm>

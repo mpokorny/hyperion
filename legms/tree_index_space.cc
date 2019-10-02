@@ -1,4 +1,4 @@
-#include "tree_index_space.h"
+#include <legms/tree_index_space.h>
 
 using namespace legms;
 using namespace Legion;
