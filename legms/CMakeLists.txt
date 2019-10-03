@@ -6,6 +6,12 @@ set(SOVERSION 1)
 
 ExternalProject_Get_Property(legion_build INSTALL_DIR)
 set(Legion_INSTALL_DIR ${INSTALL_DIR})
+if (BUILD_CASACORE)
+  ExternalProject_Get_Property(casacore_build INSTALL_DIR)
+  set(casacore_INSTALL_DIR ${INSTALL_DIR})
+  set(casacore_INCLUDE_DIR ${INSTALL_DIR}/include)
+  set(casacore_LIBRARY_DIR ${INSTALL_DIR}/lib)
+endif ()
 
 #------------------------------------------------------------------------------#
 #
@@ -149,10 +155,6 @@ configure_file(legms_config.h.in legms_config.h)
 set(LEGMS_INCLUDE LEGMS_SRC)
 list(FILTER LEGMS_INCLUDE INCLUDE REGEX ".*\.h")
 
-set(CASACORE
-  "/users/mpokorny/projects/casacore.git/casacore-install"
-  CACHE PATH "Path to casacore installation")
-
 add_library(legms SHARED ${LEGMS_SRC})
 set(legms_COMPILE_DEFINITIONS "")
 list(APPEND
@@ -170,6 +172,9 @@ target_include_directories(legms
   PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..)
 target_link_directories(legms PUBLIC ${Legion_INSTALL_DIR}/lib64)
 if (USE_CASACORE)
+  if (BUILD_CASACORE)
+    add_dependencies(legms casacore_build)
+  endif ()
   target_include_directories(legms PUBLIC ${casacore_INCLUDE_DIR})
   target_link_directories(legms PUBLIC ${casacore_LIBRARY_DIR})
   target_link_libraries(legms PUBLIC casa_tables)
@@ -204,17 +209,19 @@ if (USE_HDF5 AND USE_CASACORE)
 endif()
 
 if (USE_HDF5)
-  add_executable(gridder gridder.cc)
-  set_target_properties(gridder PROPERTIES
-    CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
-  target_link_libraries(gridder legms)
-  target_include_directories(gridder
-    PUBLIC ${Legion_INSTALL_DIR}/include
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
-    PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..
-    PUBLIC ${HDF5_INCLUDE_DIRS})
-  install(TARGETS gridder RUNTIME DESTINATION bin)
+  if (MAX_DIM GREATER_EQUAL "7")
+    add_executable(gridder gridder.cc)
+    set_target_properties(gridder PROPERTIES
+      CXX_STANDARD 17
+      COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+    target_link_libraries(gridder legms)
+    target_include_directories(gridder
+      PUBLIC ${Legion_INSTALL_DIR}/include
+      PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
+      PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..
+      PUBLIC ${HDF5_INCLUDE_DIRS})
+    install(TARGETS gridder RUNTIME DESTINATION bin)
+  endif ()
 endif()
 
 add_subdirectory(testing)
