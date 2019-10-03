@@ -30,15 +30,12 @@ endif ()
 
 enable_testing()
 
-add_subdirectory(legion_build)
-
+add_subdirectory(legion)
 if (BUILD_REGENT)
-  add_subdirectory(terra_build)
+  add_subdirectory(terra)
   add_subdirectory(regent)
 endif ()
-
 if (BUILD_CASACORE)
-  add_subdirectory(casacore_build)
+  add_subdirectory(casacore)
 endif ()
-
 add_subdirectory(legms)
