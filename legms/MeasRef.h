@@ -99,6 +99,8 @@ public:
     Legion::AffineAccessor<NUM_VALUES_TYPE, N, Legion::coord_t>,
     CHECK_BOUNDS>;
 
+  MeasRef() {}
+
   MeasRef(
     Legion::LogicalRegion name_region_,
     Legion::LogicalRegion value_region_,
