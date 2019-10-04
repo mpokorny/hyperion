@@ -22,14 +22,21 @@
 #include <legms/c_util.h>
 
 #ifdef LEGMS_USE_HDF5
-#include <legms/hdf5.h>
+# include <legms/hdf5.h>
 #endif // LEGMS_USE_HDF5
+
+#ifdef LEGMS_USE_CASACORE
+# include <legms/MeasRefContainer.h>
+# include <legms/MeasRefDict.h>
+#endif
 
 namespace legms {
 
-class Column;
-
-class LEGMS_API Column {
+class LEGMS_API Column
+#ifdef LEGMS_USE_CASACORE
+  : public MeasRefContainer
+#endif
+{
 
 public:
 
@@ -87,19 +94,61 @@ public:
     Legion::AffineAccessor<int, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
-  Column();
+  Column() {}
+
+#ifdef LEGMS_USE_CASACORE
+  Column(
+    Legion::LogicalRegion metadata,
+    Legion::LogicalRegion axes,
+    Legion::LogicalRegion values,
+    const std::vector<MeasRef>& new_meas_refs,
+    const MeasRefContainer& inherited_meas_refs,
+    const Keywords& keywords)
+    : MeasRefContainer(new_meas_refs, inherited_meas_refs)
+    , metadata_lr(metadata)
+    , axes_lr(axes)
+    , values_lr(values)
+    , keywords(keywords) {
+  }
 
   Column(
     Legion::LogicalRegion metadata,
     Legion::LogicalRegion axes,
     Legion::LogicalRegion values,
-    const Keywords& keywords);
+    const std::vector<MeasRef>& new_meas_refs,
+    const MeasRefContainer& inherited_meas_refs,
+    Keywords&& keywords)
+    : MeasRefContainer(new_meas_refs, inherited_meas_refs)
+    , metadata_lr(metadata)
+    , axes_lr(axes)
+    , values_lr(values)
+    , keywords(std::move(keywords)) {
+  }
+
+#else // !LEGMS_USE_CASACORE
 
   Column(
     Legion::LogicalRegion metadata,
     Legion::LogicalRegion axes,
     Legion::LogicalRegion values,
-    Keywords&& keywords);
+    const Keywords& keywords)
+    : metadata_lr(metadata)
+    , axes_lr(axes)
+    , values_lr(values)
+    , keywords(keywords) {
+  }
+
+  Column(
+    Legion::LogicalRegion metadata,
+    Legion::LogicalRegion axes,
+    Legion::LogicalRegion values,
+    Keywords&& keywords)
+    : metadata_lr(metadata)
+    , axes_lr(axes)
+    , values_lr(values)
+    , keywords(std::move(keywords)) {
+}
+#endif
 
   static Column
   create(
@@ -110,6 +159,10 @@ public:
     const std::vector<int>& axes,
     legms::TypeTag datatype,
     const IndexTreeL& index_tree,
+#ifdef LEGMS_USE_CASACORE
+    const std::vector<MeasRef>& new_meas_refs,
+    const MeasRefContainer& inherited_meas_refs,
+#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
 
@@ -125,6 +178,10 @@ public:
     const std::vector<D>& axes,
     legms::TypeTag datatype,
     const IndexTreeL& index_tree,
+#ifdef LEGMS_USE_CASACORE
+    const std::vector<MeasRef>& new_meas_refs,
+    const MeasRefContainer& meas_refs,
+#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "") {
     return
@@ -136,6 +193,10 @@ public:
         map_to_int(axes),
         datatype,
         index_tree,
+#ifdef LEGMS_USE_CASACORE
+        new_meas_refs,
+        meas_refs,
+#endif
         kws,
         name_prefix);
   }
@@ -169,6 +230,15 @@ public:
 
   IndexTreeL
   index_tree(Legion::Runtime* rt) const;
+
+#ifdef LEGMS_USE_CASACORE
+
+  MeasRefDict
+  get_measure_references_dictionary(
+    Legion::Context ctx,
+    Legion::Runtime* rt) const;
+
+#endif // LEGMS_USE_CASACORE
 
 #ifdef LEGMS_USE_HDF5
   template <
@@ -299,6 +369,10 @@ public:
     const std::vector<D>& axes,
     legms::TypeTag datatype,
     const IndexTreeL& index_tree,
+#ifdef LEGMS_USE_CASACORE
+    const std::vector<MeasRef>& new_meas_refs,
+    const MeasRefContainer& inherited_meas_refs,
+#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
     return
@@ -307,7 +381,19 @@ public:
        Legion::Runtime* rt,
        const std::string& name_prefix) {
         return
-          create(ctx, rt, name, axes, datatype, index_tree, kws, name_prefix);
+          create(
+            ctx,
+            rt,
+            name,
+            axes,
+            datatype,
+            index_tree,
+#ifdef LEGMS_USE_CASACORE
+            new_meas_refs,
+            inherited_meas_refs,
+#endif
+            kws,
+            name_prefix);
       };
   }
 
@@ -319,6 +405,10 @@ public:
     legms::TypeTag datatype,
     const IndexTreeL& row_index_pattern,
     unsigned num_rows,
+#ifdef LEGMS_USE_CASACORE
+    const std::vector<MeasRef>& new_meas_refs,
+    const MeasRefContainer& inherited_meas_refs,
+#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
     return
@@ -327,6 +417,10 @@ public:
         axes,
         datatype,
         IndexTreeL(row_index_pattern, num_rows),
+#ifdef LEGMS_USE_CASACORE
+        new_meas_refs,
+        inherited_meas_refs,
+#endif
         kws);
   }
 
@@ -339,6 +433,10 @@ public:
     const IndexTreeL& row_index_pattern,
     const IndexTreeL& row_pattern,
     unsigned num_rows,
+#ifdef LEGMS_USE_CASACORE
+    const std::vector<MeasRef>& new_meas_refs,
+    const MeasRefContainer& inherited_meas_refs,
+#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
     return
@@ -349,6 +447,10 @@ public:
         IndexTreeL(
           row_pattern,
           num_rows * row_pattern.size() / row_index_pattern.size()),
+#ifdef LEGMS_USE_CASACORE
+        new_meas_refs,
+        inherited_meas_refs,
+#endif
         kws);
   }
 
@@ -410,6 +512,8 @@ struct CObjectWrapper::Unwrapper<column_t> {
         Legion::CObjectWrapper::unwrap(c.metadata),
         Legion::CObjectWrapper::unwrap(c.axes),
         Legion::CObjectWrapper::unwrap(c.values),
+        {}, // FIXME
+        MeasRefContainer(), // FIXME
         Keywords(
           Keywords::pair<Legion::LogicalRegion>{
             Legion::CObjectWrapper::unwrap(c.keyword_type_tags),

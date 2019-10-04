@@ -825,6 +825,10 @@ legms::hdf5::init_column(
             axes,
             datatype,
             it,
+#ifdef LEGMS_USE_CASACORE
+            {},
+            MeasRefContainer(),
+#endif
             keywords,
             name_prefix);
       }

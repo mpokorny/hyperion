@@ -136,6 +136,10 @@ table0_col(const std::string& name) {
             std::vector<Table0Axes>{Table0Axes::ROW},
             ValueType<unsigned>::DataType,
             IndexTreeL(TABLE0_NUM_ROWS),
+#ifdef LEGMS_USE_CASACORE
+            {}, // FIXME
+            MeasRefContainer(), // FIXME
+#endif
             {},
             name_prefix);
       };
@@ -150,6 +154,10 @@ table0_col(const std::string& name) {
             std::vector<Table0Axes>{Table0Axes::ROW},
             ValueType<unsigned>::DataType,
             IndexTreeL(TABLE0_NUM_ROWS),
+#ifdef LEGMS_USE_CASACORE
+            {}, // FIXME
+            MeasRefContainer(), // FIXME
+#endif
             Keywords::kw_desc_t{{"perfect", ValueType<short>::DataType}},
             name_prefix);
       };
@@ -164,6 +172,10 @@ table0_col(const std::string& name) {
             std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP},
             ValueType<unsigned>::DataType,
             IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}),
+#ifdef LEGMS_USE_CASACORE
+            {}, // FIXME
+            MeasRefContainer(), // FIXME
+#endif
             {},
             name_prefix);
       };

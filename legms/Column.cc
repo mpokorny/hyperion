@@ -11,30 +11,6 @@
 using namespace legms;
 using namespace Legion;
 
-Column::Column() {}
-
-Column::Column(
-  LogicalRegion metadata,
-  LogicalRegion axes,
-  LogicalRegion values,
-  const Keywords& keywords_)
-  : metadata_lr(metadata)
-  , axes_lr(axes)
-  , values_lr(values)
-  , keywords(keywords_) {
-}
-
-Column::Column(
-  LogicalRegion metadata,
-  LogicalRegion axes,
-  LogicalRegion values,
-  Keywords&& keywords_)
-  : metadata_lr(metadata)
-  , axes_lr(axes)
-  , values_lr(values)
-  , keywords(std::move(keywords_)) {
-}
-
 Column
 Column::create(
   Context ctx,
@@ -44,6 +20,10 @@ Column::create(
   const std::vector<int>& axes,
   legms::TypeTag datatype,
   const IndexTreeL& index_tree,
+#ifdef LEGMS_USE_CASACORE
+  const std::vector<MeasRef>& new_meas_refs,
+  const MeasRefContainer& inherited_meas_refs,
+#endif
   const Keywords::kw_desc_t& kws,
   const std::string& name_prefix) {
 
@@ -123,6 +103,10 @@ Column::create(
       metadata,
       axs,
       values,
+#ifdef LEGMS_USE_CASACORE
+      new_meas_refs,
+      inherited_meas_refs,
+#endif
       Keywords::create(ctx, rt, kws, component_name_prefix));
 }
 

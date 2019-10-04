@@ -101,6 +101,10 @@ public:
         axes(),
         datatype(),
         itree,
+#ifdef LEGMS_USE_CASACORE
+        {}, // FIXME
+        MeasRefContainer(), // FIXME
+#endif
         keywords(),
         name_prefix);
   }

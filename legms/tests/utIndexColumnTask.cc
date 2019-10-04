@@ -97,6 +97,10 @@ table0_col(const std::string& name) {
           std::vector<Table0Axes>{Table0Axes::ROW},
           ValueType<unsigned>::DataType,
           IndexTreeL(TABLE0_NUM_ROWS),
+#ifdef LEGMS_USE_CASACORE
+          {}, // FIXME
+          MeasRefContainer(), // FIXME
+#endif
           {},
           name_prefix);
     };
