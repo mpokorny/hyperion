@@ -978,6 +978,7 @@ legms::hdf5::init_table(
         index_axes,
         cols,
 #ifdef LEGMS_USE_CASACORE
+        std::vector<MeasRef>(), // FIXME
         MeasRefContainer(), // FIXME
 #endif
         keywords);

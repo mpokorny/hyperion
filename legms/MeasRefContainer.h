@@ -4,6 +4,7 @@
 #pragma GCC visibility push(default)
 #include <array>
 #include <numeric>
+#include <tuple>
 #pragma GCC visibility pop
 
 #include <legms/legms.h>
@@ -17,64 +18,78 @@ class MeasRefContainer {
 public:
 
   unsigned num_meas_refs;
-  std::array<MeasRef, LEGMS_MAX_NUM_MS_MEASURES> meas_refs;
+  std::array<std::tuple<bool, MeasRef>, LEGMS_MAX_NUM_MS_MEASURES> meas_refs;
 
   MeasRefContainer()
     : num_meas_refs(0) {
   }
 
   template <template <typename> typename C>
-  MeasRefContainer(const C<const MeasRef>& mrs) {
+  MeasRefContainer(const C<MeasRef>& owned) {
 
     num_meas_refs =
       std::accumulate(
-        mrs.begin(),
-        mrs.end(),
+        owned.begin(),
+        owned.end(),
         0,
         [this](unsigned i, const MeasRef& mr) {
           assert(i < LEGMS_MAX_NUM_MS_MEASURES);
-          meas_refs[i] = mr;
+          meas_refs[i] = std::make_tuple(true, mr);
           return i + 1;
         });
   }
 
   template <typename MRIter>
-  MeasRefContainer(MRIter begin, MRIter end) {
+  MeasRefContainer(MRIter begin_owned, MRIter end_owned) {
 
     num_meas_refs =
       std::accumulate(
-        begin,
-        end,
+        begin_owned,
+        end_owned,
         0,
         [this](unsigned i, const MeasRef& mr) {
           assert(i < LEGMS_MAX_NUM_MS_MEASURES);
-          meas_refs[i] = mr;
+          meas_refs[i] = std::make_tuple(true, mr);
           return i + 1;
         });
   }
 
-  MeasRefContainer(const MeasRefContainer& other)
-    : num_meas_refs(other.num_meas_refs)
-    , meas_refs(other.meas_refs) {
+  template <template <typename> typename C>
+  MeasRefContainer(
+    const C<MeasRef> owned,
+    const MeasRefContainer& borrowed) {
+
+    num_meas_refs =
+      std::accumulate(
+        owned.begin(),
+        owned.end(),
+        0,
+        [this](unsigned i, const MeasRef& mr) {
+          assert(i < LEGMS_MAX_NUM_MS_MEASURES);
+          meas_refs[i] = std::make_tuple(true, mr);
+          return i + 1;
+        });
+    num_meas_refs =
+      std::accumulate(
+        borrowed.meas_refs.begin(),
+        borrowed.meas_refs.end(),
+        num_meas_refs,
+        [this](unsigned i, auto& bmr) {
+          assert(i < LEGMS_MAX_NUM_MS_MEASURES);
+          meas_refs[i] = std::make_tuple(false, std::get<1>(bmr));
+          return i + 1;
+        });
   }
 
-  MeasRefContainer(MeasRefContainer&& other)
-    : num_meas_refs(std::move(other).num_meas_refs)
-    , meas_refs(std::move(other).meas_refs) {
-  }
+protected:
 
-  MeasRefContainer&
-  operator=(const MeasRefContainer& other) {
-    num_meas_refs = other.num_meas_refs;
-    meas_refs = other.meas_refs;
-    return *this;
-  }
-
-  MeasRefContainer&
-  operator=(MeasRefContainer&& other) {
-    num_meas_refs = std::move(other).num_meas_refs;
-    meas_refs = std::move(other).meas_refs;
-    return *this;
+  std::vector<MeasRef*>
+  owned_meas_ref() const {
+    std::vector<MeasRef*> result;
+    for (auto& [is_owned, mr] : meas_refs)
+      if (is_owned)
+        result.push_back(const_cast<MeasRef*>(&mr));
+    return result;
   }
 };
 

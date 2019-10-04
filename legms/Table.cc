@@ -27,59 +27,6 @@ using namespace Legion;
 
 #undef SAVE_LAYOUT_CONSTRAINT_IDS
 
-Table::Table() {
-}
-
-#ifdef LEGMS_USE_CASACORE
-Table::Table(
-  Legion::LogicalRegion metadata,
-  Legion::LogicalRegion axes,
-  Legion::LogicalRegion columns,
-  const MeasRefContainer& meas_refs,
-  const Keywords& keywords_)
-  : MeasRefContainer(meas_refs)
-  , metadata_lr(metadata)
-  , axes_lr(axes)
-  , columns_lr(columns)
-  , keywords(keywords_) {
-}
-
-Table::Table(
-  Legion::LogicalRegion metadata,
-  Legion::LogicalRegion axes,
-  Legion::LogicalRegion columns,
-  const MeasRefContainer& meas_refs,
-  Keywords&& keywords_)
-  : MeasRefContainer(meas_refs)
-  , metadata_lr(metadata)
-  , axes_lr(axes)
-  , columns_lr(columns)
-  , keywords(std::move(keywords_)) {
-}
-#else // !LEGMS_USE_CASACORE
-Table::Table(
-  LogicalRegion metadata,
-  LogicalRegion axes,
-  LogicalRegion columns,
-  const Keywords& keywords_)
-  : metadata_lr(metadata)
-  , axes_lr(axes)
-  , columns_lr(columns)
-  , keywords(keywords_) {
-}
-
-Table::Table(
-  LogicalRegion metadata,
-  LogicalRegion axes,
-  LogicalRegion columns,
-  Keywords&& keywords_)
-  : metadata_lr(metadata)
-  , axes_lr(axes)
-  , columns_lr(columns)
-  , keywords(std::move(keywords_)) {
-}
-#endif // LEGMS_USE_CASACORE
-
 std::string
 Table::name(Context ctx, Runtime* rt) const {
   RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
@@ -138,7 +85,7 @@ Table::get_measure_references_dictionary(
     &meas_refs[0],
     &meas_refs[num_meas_refs],
     std::back_inserter(mrps),
-    [](auto& mr) { return &mr; });
+    [](auto& mr) { return &std::get<1>(mr); });
   return MeasRefDict(ctx, rt, mrps);
 }
 #endif // LEGMS_USE_CASACORE
@@ -232,6 +179,9 @@ Table::destroy(Context ctx, Runtime* rt, bool destroy_columns) {
     }
   }
   keywords.destroy(ctx, rt);
+
+  for (auto& mr : owned_meas_ref())
+    mr->destroy(ctx, rt);
 }
 
 bool

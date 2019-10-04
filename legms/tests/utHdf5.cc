@@ -379,6 +379,7 @@ table_tests(
             table0_col("Y"),
             table0_col("Z")},
 #ifdef LEGMS_USE_CASACORE
+        std::vector<MeasRef>(), // FIXME
         MeasRefContainer(), // FIXME
 #endif
         {{"MS_VERSION", ValueType<float>::DataType},
