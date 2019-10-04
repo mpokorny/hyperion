@@ -30,6 +30,33 @@ using namespace Legion;
 Table::Table() {
 }
 
+#ifdef LEGMS_USE_CASACORE
+Table::Table(
+  Legion::LogicalRegion metadata,
+  Legion::LogicalRegion axes,
+  Legion::LogicalRegion columns,
+  const MeasRefContainer& meas_refs,
+  const Keywords& keywords_)
+  : MeasRefContainer(meas_refs)
+  , metadata_lr(metadata)
+  , axes_lr(axes)
+  , columns_lr(columns)
+  , keywords(keywords_) {
+}
+
+Table::Table(
+  Legion::LogicalRegion metadata,
+  Legion::LogicalRegion axes,
+  Legion::LogicalRegion columns,
+  const MeasRefContainer& meas_refs,
+  Keywords&& keywords_)
+  : MeasRefContainer(meas_refs)
+  , metadata_lr(metadata)
+  , axes_lr(axes)
+  , columns_lr(columns)
+  , keywords(std::move(keywords_)) {
+}
+#else // !LEGMS_USE_CASACORE
 Table::Table(
   LogicalRegion metadata,
   LogicalRegion axes,
@@ -51,6 +78,7 @@ Table::Table(
   , columns_lr(columns)
   , keywords(std::move(keywords_)) {
 }
+#endif // LEGMS_USE_CASACORE
 
 std::string
 Table::name(Context ctx, Runtime* rt) const {
@@ -98,6 +126,22 @@ Table::index_axes(Context ctx, Runtime* rt) const {
   rt->unmap_region(ctx, pr);
   return result;
 }
+
+#ifdef LEGMS_USE_CASACORE
+MeasRefDict
+Table::get_measure_references_dictionary(
+  Legion::Context ctx,
+  Legion::Runtime* rt) const {
+
+  std::vector<const MeasRef*> mrps;
+  std::transform(
+    &meas_refs[0],
+    &meas_refs[num_meas_refs],
+    std::back_inserter(mrps),
+    [](auto& mr) { return &mr; });
+  return MeasRefDict(ctx, rt, mrps);
+}
+#endif // LEGMS_USE_CASACORE
 
 LogicalRegion
 Table::create_metadata(

@@ -315,6 +315,7 @@ from_ms(
       builder.name(),
       std::vector<Axes>{MSTable<T>::ROW_AXIS},
       builder.column_generators(),
+      MeasRefContainer(), // FIXME
       builder.keywords());
 }
 #endif // LEGMS_USE_CASACORE

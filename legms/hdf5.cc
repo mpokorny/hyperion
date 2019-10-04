@@ -977,6 +977,9 @@ legms::hdf5::init_table(
         axes_uid,
         index_axes,
         cols,
+#ifdef LEGMS_USE_CASACORE
+        MeasRefContainer(), // FIXME
+#endif
         keywords);
   }
 return_nothing:

@@ -274,7 +274,11 @@ table_test_suite(
       std::vector<Column::Generator>{
         table0_col("X"),
           table0_col("Y"),
-          table0_col("Z")});
+          table0_col("Z")}
+#ifdef LEGMS_USE_CASACORE
+      , MeasRefContainer() // FIXME
+#endif
+      );
   auto col_x =
     attach_table0_col(ctx, rt, table0.column(ctx, rt, "X"), table0_x);
   auto col_y =

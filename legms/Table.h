@@ -30,11 +30,20 @@
 # include <legms/hdf5.h>
 #endif // LEGMS_USE_HDF5
 
+#ifdef LEGMS_USE_CASACORE
+# include <legms/MeasRefContainer.h>
+# include <legms/MeasRefDict.h>
+#endif
+
 #define NO_REINDEX 1
 
 namespace legms {
 
-class LEGMS_API Table {
+class LEGMS_API Table
+#ifdef LEGMS_USE_CASACORE
+  : public MeasRefContainer
+#endif
+{
 public:
 
   static const constexpr Legion::FieldID METADATA_NAME_FID = 0;
@@ -92,12 +101,18 @@ public:
     Legion::LogicalRegion metadata,
     Legion::LogicalRegion axes,
     Legion::LogicalRegion columns,
+#ifdef LEGMS_USE_CASACORE
+    const MeasRefContainer& meas_refs,
+#endif
     const Keywords& keywords);
 
   Table(
     Legion::LogicalRegion metadata,
     Legion::LogicalRegion axes,
     Legion::LogicalRegion columns,
+#ifdef LEGMS_USE_CASACORE
+    const MeasRefContainer& meas_refs,
+#endif
     Keywords&& keywords);
 
   std::string
@@ -115,6 +130,15 @@ public:
   std::vector<int>
   index_axes(Legion::Context ctx, Legion::Runtime* rt) const;
 
+#ifdef LEGMS_USE_CASACORE
+
+  MeasRefDict
+  get_measure_references_dictionary(
+    Legion::Context ctx,
+    Legion::Runtime* rt) const;
+
+#endif // LEGMS_USE_CASACORE
+
   template <template <typename> typename C>
   static Table
   create(
@@ -124,6 +148,9 @@ public:
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
     const C<Column>& columns_,
+#ifdef LEGMS_USE_CASACORE
+    const MeasRefContainer& meas_refs,
+#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "") {
 
@@ -163,7 +190,11 @@ public:
       assert(!pir());
       rt->unmap_region(ctx, pr);
     }
+#ifdef LEGMS_USE_CASACORE
+    return Table(metadata, axes, columns, meas_refs, keywords);
+#else
     return Table(metadata, axes, columns, keywords);
+#endif // LEGMS_USE_CASACORE
   }
 
   template <
@@ -177,6 +208,9 @@ public:
     const std::string& name,
     const std::vector<D>& index_axes,
     const C<Column>& columns,
+#ifdef LEGMS_USE_CASACORE
+    const MeasRefContainer& meas_refs,
+#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "") {
 
@@ -188,6 +222,9 @@ public:
         Axes<D>::uid,
         map_to_int(index_axes),
         columns,
+#ifdef LEGMS_USE_CASACORE
+        meas_refs,
+#endif
         kws,
         name_prefix);
   }
@@ -201,6 +238,9 @@ public:
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
     const C<Column::Generator>& column_generators,
+#ifdef LEGMS_USE_CASACORE
+    const MeasRefContainer& meas_refs,
+#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "") {
 
@@ -222,6 +262,9 @@ public:
         axes_uid,
         index_axes,
         cols,
+#ifdef LEGMS_USE_CASACORE
+        meas_refs,
+#endif
         kws,
         name_prefix);
   }
@@ -237,6 +280,9 @@ public:
     const std::string& name,
     const std::vector<D>& index_axes,
     const C<Column::Generator>& column_generators,
+#ifdef LEGMS_USE_CASACORE
+    const MeasRefContainer& meas_refs,
+#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "") {
 
@@ -248,6 +294,9 @@ public:
         Axes<D>::uid,
         map_to_int(index_axes),
         column_generators,
+#ifdef LEGMS_USE_CASACORE
+        meas_refs,
+#endif
         kws,
         name_prefix);
   }
@@ -821,6 +870,7 @@ struct CObjectWrapper::Unwrapper<table_t> {
         Legion::CObjectWrapper::unwrap(tb.metadata),
         Legion::CObjectWrapper::unwrap(tb.axes),
         Legion::CObjectWrapper::unwrap(tb.columns),
+        MeasRefContainer(),
         Keywords(
           Keywords::pair<Legion::LogicalRegion>{
             Legion::CObjectWrapper::unwrap(tb.keyword_type_tags),
