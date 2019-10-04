@@ -210,33 +210,20 @@ public:
         ((name_prefix.back() != '/') ? (name_prefix + "/") : name_prefix)
         + component_name_prefix;
 
-    Legion::LogicalRegion metadata =
-      create_metadata(ctx, rt, name, axes_uid, component_name_prefix);
-    Legion::LogicalRegion axes =
-      create_axes(ctx, rt, index_axes, component_name_prefix);
-    Keywords keywords = Keywords::create(ctx, rt, kws, component_name_prefix);
-    Legion::LogicalRegion columns;
-    {
-      Legion::Rect<1> rect(0, column_generators.size() - 1);
-      Legion::IndexSpace is = rt->create_index_space(ctx, rect);
-      Legion::FieldSpace fs = rt->create_field_space(ctx);
-      Legion::FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-      fa.allocate_field(sizeof(Column), COLUMNS_FID);
-      columns = rt->create_logical_region(ctx, is, fs);
-      Legion::RegionRequirement req(columns, WRITE_ONLY, EXCLUSIVE, columns);
-      req.add_field(COLUMNS_FID);
-      Legion::PhysicalRegion pr = rt->map_region(ctx, req);
-      const ColumnsAccessor<WRITE_ONLY> cols(pr, COLUMNS_FID);
-      Legion::PointInRectIterator<1> pir(rect);
-      for (auto& cg : column_generators) {
-        assert(pir());
-        cols[*pir] = cg(ctx, rt, component_name_prefix);
-        pir++;
-      }
-      assert(!pir());
-      rt->unmap_region(ctx, pr);
-    }
-    return Table(metadata, axes, columns, keywords);    
+    std::vector<Column> cols;
+    for (auto& cg : column_generators)
+      cols.push_back(cg(ctx, rt, component_name_prefix));
+
+    return
+      create(
+        ctx,
+        rt,
+        name,
+        axes_uid,
+        index_axes,
+        cols,
+        kws,
+        name_prefix);
   }
 
   template <
