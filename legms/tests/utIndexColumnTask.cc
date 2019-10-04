@@ -154,7 +154,7 @@ index_column_task_test_suite(
         table0_col("X"),
           table0_col("Y")}
 #ifdef LEGMS_USE_CASACORE
-      , std::vector<MeasRef>() // FIXME
+      , {} // FIXME
       , MeasRefContainer() // FIXME
 #endif
       );

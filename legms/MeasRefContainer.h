@@ -5,6 +5,7 @@
 #include <array>
 #include <numeric>
 #include <tuple>
+#include <vector>
 #pragma GCC visibility pop
 
 #include <legms/legms.h>
@@ -24,8 +25,7 @@ public:
     : num_meas_refs(0) {
   }
 
-  template <template <typename> typename C>
-  MeasRefContainer(const C<MeasRef>& owned) {
+  MeasRefContainer(const std::vector<MeasRef>& owned) {
 
     num_meas_refs =
       std::accumulate(
@@ -54,9 +54,8 @@ public:
         });
   }
 
-  template <template <typename> typename C>
   MeasRefContainer(
-    const C<MeasRef> owned,
+    const std::vector<MeasRef>& owned,
     const MeasRefContainer& borrowed) {
 
     num_meas_refs =

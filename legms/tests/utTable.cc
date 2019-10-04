@@ -276,7 +276,7 @@ table_test_suite(
           table0_col("Y"),
           table0_col("Z")}
 #ifdef LEGMS_USE_CASACORE
-      , std::vector<MeasRef>(), // FIXME
+      , {} // FIXME
       , MeasRefContainer() // FIXME
 #endif
       );

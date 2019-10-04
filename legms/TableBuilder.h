@@ -315,7 +315,7 @@ from_ms(
       builder.name(),
       std::vector<Axes>{MSTable<T>::ROW_AXIS},
       builder.column_generators(),
-      std::vector<MeasRef>(), // FIXME
+      {}, // FIXME
       MeasRefContainer(), // FIXME
       builder.keywords());
 }

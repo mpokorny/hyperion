@@ -95,89 +95,27 @@ public:
     Legion::AffineAccessor<Column, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
-  Table() {}
+  Table();
 
+  Table(
+    Legion::LogicalRegion metadata,
+    Legion::LogicalRegion axes,
+    Legion::LogicalRegion columns,
 #ifdef LEGMS_USE_CASACORE
-  template <template <typename> typename C>
-  Table(
-    Legion::LogicalRegion metadata,
-    Legion::LogicalRegion axes,
-    Legion::LogicalRegion columns,
-    const C<MeasRef>& new_meas_refs,
+    const std::vector<MeasRef>& new_meas_refs,
     const MeasRefContainer& inherited_meas_refs,
-    const Keywords& keywords)
-    : MeasRefContainer(new_meas_refs, inherited_meas_refs)
-    , metadata_lr(metadata)
-    , axes_lr(axes)
-    , columns_lr(columns)
-    , keywords(keywords) {
-  }
-
-  template <template <typename> typename C>
-    Table(
-      Legion::LogicalRegion metadata,
-      Legion::LogicalRegion axes,
-      Legion::LogicalRegion columns,
-      const C<MeasRef>& meas_refs,
-      const Keywords& keywords)
-    : MeasRefContainer(meas_refs)
-    , metadata_lr(metadata)
-    , axes_lr(axes)
-    , columns_lr(columns)
-    , keywords(keywords) {
-  }
-
-  template <template <typename> typename C>
-  Table(
-    Legion::LogicalRegion metadata,
-    Legion::LogicalRegion axes,
-    Legion::LogicalRegion columns,
-    const C<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
-    Keywords&& keywords)
-    : MeasRefContainer(new_meas_refs, inherited_meas_refs)
-    , metadata_lr(metadata)
-    , axes_lr(axes)
-    , columns_lr(columns)
-    , keywords(std::move(keywords)) {
-  }
-
-  template <template <typename> typename C>
-    Table(
-      Legion::LogicalRegion metadata,
-      Legion::LogicalRegion axes,
-      Legion::LogicalRegion columns,
-      const C<MeasRef>& meas_refs,
-      Keywords&& keywords)
-    : MeasRefContainer(meas_refs)
-    , metadata_lr(metadata)
-    , axes_lr(axes)
-    , columns_lr(columns)
-    , keywords(std::move(keywords)) {
-  }
-#else
-  Table(
-    Legion::LogicalRegion metadata,
-    Legion::LogicalRegion axes,
-    Legion::LogicalRegion columns,
-    const Keywords& keywords)
-    : metadata_lr(metadata)
-    , axes_lr(axes)
-    , columns_lr(columns)
-    , keywords(keywords) {
-  }
-
-  Table(
-    Legion::LogicalRegion metadata,
-    Legion::LogicalRegion axes,
-    Legion::LogicalRegion columns,
-    Keywords&& keywords)
-    : metadata_lr(metadata)
-    , axes_lr(axes)
-    , columns_lr(columns)
-    , keywords(std::move(keywords)) {
-  }
 #endif
+    const Keywords& keywords);
+
+  Table(
+    Legion::LogicalRegion metadata,
+    Legion::LogicalRegion axes,
+    Legion::LogicalRegion columns,
+#ifdef LEGMS_USE_CASACORE
+    const std::vector<MeasRef>& new_meas_refs,
+    const MeasRefContainer& inherited_meas_refs,
+#endif
+    Keywords&& keywords);
 
   std::string
   name(Legion::Context ctx, Legion::Runtime* rt) const;
@@ -203,9 +141,6 @@ public:
 
 #endif // LEGMS_USE_CASACORE
 
-  template <
-    template <typename> typename C,
-    template <typename> typename C1>
   static Table
   create(
     Legion::Context ctx,
@@ -213,65 +148,16 @@ public:
     const std::string& name,
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
-    const C<Column>& columns_,
+    const std::vector<Column>& columns_,
 #ifdef LEGMS_USE_CASACORE
-    const C1<MeasRef>& new_meas_refs,
+    const std::vector<MeasRef>& new_meas_refs,
     const MeasRefContainer& inherited_meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
-    const std::string& name_prefix = "") {
-
-    std::string component_name_prefix = name;
-    if (name_prefix.size() > 0)
-      component_name_prefix =
-        ((name_prefix.back() != '/') ? (name_prefix + "/") : name_prefix)
-        + component_name_prefix;
-
-    Legion::LogicalRegion metadata =
-      create_metadata(ctx, rt, name, axes_uid, component_name_prefix);
-    Legion::LogicalRegion axes =
-      create_axes(ctx, rt, index_axes, component_name_prefix);
-    Keywords keywords = Keywords::create(ctx, rt, kws, component_name_prefix);
-    Legion::LogicalRegion columns;
-    {
-      Legion::Rect<1> rect(0, columns_.size() - 1);
-      Legion::IndexSpace is = rt->create_index_space(ctx, rect);
-      Legion::FieldSpace fs = rt->create_field_space(ctx);
-      Legion::FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-      fa.allocate_field(sizeof(Column), COLUMNS_FID);
-      columns = rt->create_logical_region(ctx, is, fs);
-      {
-        std::string columns_name = component_name_prefix + "/columns";
-        rt->attach_name(columns, columns_name.c_str());
-      }
-      Legion::RegionRequirement req(columns, WRITE_ONLY, EXCLUSIVE, columns);
-      req.add_field(COLUMNS_FID);
-      Legion::PhysicalRegion pr = rt->map_region(ctx, req);
-      const ColumnsAccessor<WRITE_ONLY> cols(pr, COLUMNS_FID);
-      Legion::PointInRectIterator<1> pir(rect);
-      for (auto& col : columns_) {
-        assert(pir());
-        cols[*pir] = col;
-        pir++;
-      }
-      assert(!pir());
-      rt->unmap_region(ctx, pr);
-    }
-    return Table(
-      metadata,
-      axes,
-      columns,
-#ifdef LEGMS_USE_CASACORE
-      new_meas_refs,
-      inherited_meas_refs,
-#endif //LEGMS_USE_CASACORE
-      keywords);
-  }
+    const std::string& name_prefix = "");
 
   template <
     typename D,
-    template <typename> typename C,
-    template <typename> typename C1,
     std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
   static Table
   create(
@@ -279,9 +165,9 @@ public:
     Legion::Runtime* rt,
     const std::string& name,
     const std::vector<D>& index_axes,
-    const C<Column>& columns,
+    const std::vector<Column>& columns,
 #ifdef LEGMS_USE_CASACORE
-    const C1<MeasRef>& new_meas_refs,
+    const std::vector<MeasRef>& new_meas_refs,
     const MeasRefContainer& inherited_meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
@@ -303,9 +189,6 @@ public:
         name_prefix);
   }
 
-  template <
-    template <typename> typename C,
-    template <typename> typename C1>
   static Table
   create(
     Legion::Context ctx,
@@ -313,58 +196,28 @@ public:
     const std::string& name,
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
-    const C<Column::Generator>& column_generators,
+    const std::vector<Column::Generator>& column_generators,
 #ifdef LEGMS_USE_CASACORE
-    const C1<MeasRef>& new_meas_refs,
+    const std::vector<MeasRef>& new_meas_refs,
     const MeasRefContainer& inherited_meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
-    const std::string& name_prefix = "") {
+    const std::string& name_prefix = "");
 
-    std::string component_name_prefix = name;
-    if (name_prefix.size() > 0)
-      component_name_prefix =
-        ((name_prefix.back() != '/') ? (name_prefix + "/") : name_prefix)
-        + component_name_prefix;
-
-    std::vector<Column> cols;
-    for (auto& cg : column_generators)
-      cols.push_back(cg(ctx, rt, component_name_prefix));
-
-    return
-      create(
-        ctx,
-        rt,
-        name,
-        axes_uid,
-        index_axes,
-        cols,
-#ifdef LEGMS_USE_CASACORE
-        new_meas_refs,
-        inherited_meas_refs,
-#endif
-        kws,
-        name_prefix);
-  }
-
-  template <
-    typename D,
-    template <typename> typename C,
-    template <typename> typename C1,
-    std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
   static Table
   create(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::string& name,
     const std::vector<D>& index_axes,
-    const C<Column::Generator>& column_generators,
+    const std::vector<Column::Generator>& column_generators,
 #ifdef LEGMS_USE_CASACORE
-    const C1<MeasRef>& new_meas_refs,
+    const std::vector<MeasRef>& new_meas_refs,
     const MeasRefContainer& inherited_meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
-    const std::string& name_prefix = "") {
+    const std::string& name_prefix = "")  {
 
     return
       create(
@@ -381,6 +234,7 @@ public:
         kws,
         name_prefix);
   }
+
 
   void
   destroy(Legion::Context ctx, Legion::Runtime* rt, bool destroy_columns=true);
@@ -951,7 +805,7 @@ struct CObjectWrapper::Unwrapper<table_t> {
         Legion::CObjectWrapper::unwrap(tb.metadata),
         Legion::CObjectWrapper::unwrap(tb.axes),
         Legion::CObjectWrapper::unwrap(tb.columns),
-        std::vector<MeasRef>(),
+        {},
         MeasRefContainer(),
         Keywords(
           Keywords::pair<Legion::LogicalRegion>{
