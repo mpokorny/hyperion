@@ -32,18 +32,13 @@
 
 #ifdef LEGMS_USE_CASACORE
 # include <legms/MeasRefContainer.h>
-# include <legms/MeasRefDict.h>
 #endif
 
 #define NO_REINDEX 1
 
 namespace legms {
 
-class LEGMS_API Table
-#ifdef LEGMS_USE_CASACORE
-  : public MeasRefContainer
-#endif
-{
+class LEGMS_API Table {
 public:
 
   static const constexpr Legion::FieldID METADATA_NAME_FID = 0;
@@ -53,6 +48,9 @@ public:
   Legion::LogicalRegion axes_lr;
   static const constexpr Legion::FieldID COLUMNS_FID = 0;
   Legion::LogicalRegion columns_lr;
+#ifdef LEGMS_USE_CASACORE
+  MeasRefContainer meas_refs;
+#endif
   Keywords keywords;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -102,8 +100,7 @@ public:
     Legion::LogicalRegion axes,
     Legion::LogicalRegion columns,
 #ifdef LEGMS_USE_CASACORE
-    const std::vector<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
+    const MeasRefContainer& meas_refs,
 #endif
     const Keywords& keywords);
 
@@ -112,8 +109,7 @@ public:
     Legion::LogicalRegion axes,
     Legion::LogicalRegion columns,
 #ifdef LEGMS_USE_CASACORE
-    const std::vector<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
+    const MeasRefContainer& meas_refs,
 #endif
     Keywords&& keywords);
 
@@ -131,15 +127,6 @@ public:
 
   std::vector<int>
   index_axes(Legion::Context ctx, Legion::Runtime* rt) const;
-
-#ifdef LEGMS_USE_CASACORE
-
-  MeasRefDict
-  get_measure_references_dictionary(
-    Legion::Context ctx,
-    Legion::Runtime* rt) const;
-
-#endif // LEGMS_USE_CASACORE
 
   static Table
   create(
@@ -805,8 +792,9 @@ struct CObjectWrapper::Unwrapper<table_t> {
         Legion::CObjectWrapper::unwrap(tb.metadata),
         Legion::CObjectWrapper::unwrap(tb.axes),
         Legion::CObjectWrapper::unwrap(tb.columns),
-        {},
-        MeasRefContainer(),
+#ifdef LEGMS_USE_CASACORE
+        MeasRefContainer(), // FIXME
+#endif
         Keywords(
           Keywords::pair<Legion::LogicalRegion>{
             Legion::CObjectWrapper::unwrap(tb.keyword_type_tags),

@@ -4,6 +4,7 @@
 #pragma GCC visibility push(default)
 #include <array>
 #include <numeric>
+#include <optional>
 #include <tuple>
 #include <vector>
 #pragma GCC visibility pop
@@ -12,84 +13,104 @@
 
 #ifdef LEGMS_USE_CASACORE
 #include <legms/MeasRef.h>
+#include <legms/MeasRefDict.h>
 
 namespace legms {
 
-class MeasRefContainer {
+class LEGMS_API MeasRefContainer {
 public:
 
-  unsigned num_meas_refs;
-  std::array<std::tuple<bool, MeasRef>, LEGMS_MAX_NUM_MS_MEASURES> meas_refs;
+  static const constexpr Legion::FieldID OWNED_FID = 0;
+  static const constexpr Legion::FieldID MEAS_REF_FID = 1;
+  Legion::LogicalRegion meas_refs_lr;
 
-  MeasRefContainer()
-    : num_meas_refs(0) {
-  }
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using OwnedAccessor =
+    Legion::FieldAccessor<
+    MODE,
+    bool,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<bool, 1, Legion::coord_t>,
+    CHECK_BOUNDS>;
 
-  MeasRefContainer(const std::vector<MeasRef>& owned) {
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using MeasRefAccessor =
+    Legion::FieldAccessor<
+    MODE,
+    MeasRef,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<MeasRef, 1, Legion::coord_t>,
+    CHECK_BOUNDS>;
 
-    num_meas_refs =
-      std::accumulate(
-        owned.begin(),
-        owned.end(),
-        0,
-        [this](unsigned i, const MeasRef& mr) {
-          assert(i < LEGMS_MAX_NUM_MS_MEASURES);
-          meas_refs[i] = std::make_tuple(true, mr);
-          return i + 1;
-        });
-  }
+  MeasRefContainer();
 
-  template <typename MRIter>
-  MeasRefContainer(MRIter begin_owned, MRIter end_owned) {
+  MeasRefContainer(Legion::LogicalRegion meas_refs);
 
-    num_meas_refs =
-      std::accumulate(
-        begin_owned,
-        end_owned,
-        0,
-        [this](unsigned i, const MeasRef& mr) {
-          assert(i < LEGMS_MAX_NUM_MS_MEASURES);
-          meas_refs[i] = std::make_tuple(true, mr);
-          return i + 1;
-        });
-  }
-
-  MeasRefContainer(
+  static MeasRefContainer
+  create(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
     const std::vector<MeasRef>& owned,
-    const MeasRefContainer& borrowed) {
+    const MeasRefContainer& borrowed);
 
-    num_meas_refs =
-      std::accumulate(
-        owned.begin(),
-        owned.end(),
-        0,
-        [this](unsigned i, const MeasRef& mr) {
-          assert(i < LEGMS_MAX_NUM_MS_MEASURES);
-          meas_refs[i] = std::make_tuple(true, mr);
-          return i + 1;
-        });
-    num_meas_refs =
-      std::accumulate(
-        borrowed.meas_refs.begin(),
-        borrowed.meas_refs.end(),
-        num_meas_refs,
-        [this](unsigned i, auto& bmr) {
-          assert(i < LEGMS_MAX_NUM_MS_MEASURES);
-          meas_refs[i] = std::make_tuple(false, std::get<1>(bmr));
-          return i + 1;
-        });
-  }
+  static MeasRefContainer
+  create(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<MeasRef>& owned);
 
-protected:
+template <
+    typename FN,
+    std::enable_if_t<
+      !std::is_void_v<
+       std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, MeasRefDict*>>,
+      int> = 0>
+  std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, MeasRefDict*>
+  with_measure_references_dictionary(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    FN fn) {
 
-  std::vector<MeasRef*>
-  owned_meas_ref() const {
-    std::vector<MeasRef*> result;
-    for (auto& [is_owned, mr] : meas_refs)
-      if (is_owned)
-        result.push_back(const_cast<MeasRef*>(&mr));
+    auto& [dict, pr] = with_measure_references_dictionary_prologue(ctx, rt);
+    auto result = fn(ctx, rt, &dict);
+    with_measure_references_dictionary_epilogue(ctx, rt, pr);
     return result;
   }
+
+  template <
+    typename FN,
+    std::enable_if_t<
+      std::is_void_v<
+        std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, MeasRefDict*>>,
+      int> = 0>
+  void
+  with_measure_references_dictionary(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    FN fn) {
+
+    auto& [dict, pr] = with_measure_references_dictionary_prologue(ctx, rt);
+    fn(ctx, rt, &dict);
+    with_measure_references_dictionary_epilogue(ctx, rt, pr);
+  }
+
+  void
+  destroy(Legion::Context ctx, Legion::Runtime* rt);
+
+private:
+
+  std::tuple<MeasRefDict, std::optional<Legion::PhysicalRegion>>
+  with_measure_references_dictionary_prologue(
+    Legion::Context ctx,
+    Legion::Runtime* rt);
+
+  void
+  with_measure_references_dictionary_epilogue(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::optional<Legion::PhysicalRegion>& pr);
 };
 
 } // end namespace legms

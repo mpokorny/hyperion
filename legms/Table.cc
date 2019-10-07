@@ -29,61 +29,39 @@ using namespace Legion;
 
 Table::Table() {}
 
+Table::Table(
+  LogicalRegion metadata,
+  LogicalRegion axes,
+  LogicalRegion columns,
 #ifdef LEGMS_USE_CASACORE
-
-Table::Table(
-  LogicalRegion metadata,
-  LogicalRegion axes,
-  LogicalRegion columns,
-  const std::vector<MeasRef>& new_meas_refs,
-  const MeasRefContainer& inherited_meas_refs,
-  const Keywords& keywords)
-  : MeasRefContainer(new_meas_refs, inherited_meas_refs)
-  , metadata_lr(metadata)
-  , axes_lr(axes)
-  , columns_lr(columns)
-  , keywords(keywords) {
-}
-
-Table::Table(
-  LogicalRegion metadata,
-  LogicalRegion axes,
-  LogicalRegion columns,
-  const std::vector<MeasRef>& new_meas_refs,
-  const MeasRefContainer& inherited_meas_refs,
-  Keywords&& keywords)
-  : MeasRefContainer(new_meas_refs, inherited_meas_refs)
-  , metadata_lr(metadata)
-  , axes_lr(axes)
-  , columns_lr(columns)
-  , keywords(std::move(keywords)) {
-}
-
-#else
-
-Table::Table(
-  LogicalRegion metadata,
-  LogicalRegion axes,
-  LogicalRegion columns,
-  const Keywords& keywords)
-  : metadata_lr(metadata)
-  , axes_lr(axes)
-  , columns_lr(columns)
-  , keywords(keywords) {
-}
-
-Table::Table(
-  LogicalRegion metadata,
-  LogicalRegion axes,
-  LogicalRegion columns,
-  Keywords&& keywords)
-  : metadata_lr(metadata)
-  , axes_lr(axes)
-  , columns_lr(columns)
-  , keywords(std::move(keywords)) {
-}
-
+  const MeasRefContainer& meas_refs,
 #endif
+  const Keywords& keywords)
+  : metadata_lr(metadata)
+  , axes_lr(axes)
+  , columns_lr(columns)
+#ifdef LEGMS_USE_CASACORE
+  , meas_refs(meas_refs)
+#endif
+  , keywords(keywords) {
+}
+
+Table::Table(
+  LogicalRegion metadata,
+  LogicalRegion axes,
+  LogicalRegion columns,
+#ifdef LEGMS_USE_CASACORE
+  const MeasRefContainer& meas_refs,
+#endif
+  Keywords&& keywords)
+  : metadata_lr(metadata)
+  , axes_lr(axes)
+  , columns_lr(columns)
+#ifdef LEGMS_USE_CASACORE
+  , meas_refs(meas_refs)
+#endif
+  , keywords(std::move(keywords)) {
+}
 
 std::string
 Table::name(Context ctx, Runtime* rt) const {
@@ -132,22 +110,6 @@ Table::index_axes(Context ctx, Runtime* rt) const {
   return result;
 }
 
-#ifdef LEGMS_USE_CASACORE
-MeasRefDict
-Table::get_measure_references_dictionary(
-  Legion::Context ctx,
-  Legion::Runtime* rt) const {
-
-  std::vector<const MeasRef*> mrps;
-  std::transform(
-    &meas_refs[0],
-    &meas_refs[num_meas_refs],
-    std::back_inserter(mrps),
-    [](auto& mr) { return &std::get<1>(mr); });
-  return MeasRefDict(ctx, rt, mrps);
-}
-#endif // LEGMS_USE_CASACORE
-
 Table
 Table::create(
   Legion::Context ctx,
@@ -174,6 +136,10 @@ Table::create(
   Legion::LogicalRegion axes =
     create_axes(ctx, rt, index_axes, component_name_prefix);
   Keywords keywords = Keywords::create(ctx, rt, kws, component_name_prefix);
+#ifdef LEGMS_USE_CASACORE
+  MeasRefContainer meas_refs =
+    MeasRefContainer::create(ctx, rt, new_meas_refs, inherited_meas_refs);
+#endif
   Legion::LogicalRegion columns;
   {
     Legion::Rect<1> rect(0, columns_.size() - 1);
@@ -204,8 +170,7 @@ Table::create(
     axes,
     columns,
 #ifdef LEGMS_USE_CASACORE
-    new_meas_refs,
-    inherited_meas_refs,
+    meas_refs,
 #endif //LEGMS_USE_CASACORE
     keywords);
 }
@@ -340,9 +305,9 @@ Table::destroy(Context ctx, Runtime* rt, bool destroy_columns) {
     }
   }
   keywords.destroy(ctx, rt);
-
-  for (auto& mr : owned_meas_ref())
-    mr->destroy(ctx, rt);
+#ifdef LEGMS_USE_CASACORE
+  meas_refs.destroy(ctx, rt);
+#endif
 }
 
 bool

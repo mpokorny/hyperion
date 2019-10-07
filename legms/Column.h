@@ -27,17 +27,11 @@
 
 #ifdef LEGMS_USE_CASACORE
 # include <legms/MeasRefContainer.h>
-# include <legms/MeasRefDict.h>
 #endif
 
 namespace legms {
 
-class LEGMS_API Column
-#ifdef LEGMS_USE_CASACORE
-  : public MeasRefContainer
-#endif
-{
-
+class LEGMS_API Column {
 public:
 
   static const constexpr Legion::FieldID METADATA_NAME_FID = 0;
@@ -48,6 +42,9 @@ public:
   Legion::LogicalRegion axes_lr;
   static const constexpr Legion::FieldID VALUE_FID = 0;
   Legion::LogicalRegion values_lr;
+#ifdef LEGMS_USE_CASACORE
+  MeasRefContainer meas_refs;
+#endif
   Keywords keywords;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -94,61 +91,25 @@ public:
     Legion::AffineAccessor<int, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
-  Column() {}
+  Column();
 
+  Column(
+    Legion::LogicalRegion metadata,
+    Legion::LogicalRegion axes,
+    Legion::LogicalRegion values,
 #ifdef LEGMS_USE_CASACORE
-  Column(
-    Legion::LogicalRegion metadata,
-    Legion::LogicalRegion axes,
-    Legion::LogicalRegion values,
-    const std::vector<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
-    const Keywords& keywords)
-    : MeasRefContainer(new_meas_refs, inherited_meas_refs)
-    , metadata_lr(metadata)
-    , axes_lr(axes)
-    , values_lr(values)
-    , keywords(keywords) {
-  }
-
-  Column(
-    Legion::LogicalRegion metadata,
-    Legion::LogicalRegion axes,
-    Legion::LogicalRegion values,
-    const std::vector<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
-    Keywords&& keywords)
-    : MeasRefContainer(new_meas_refs, inherited_meas_refs)
-    , metadata_lr(metadata)
-    , axes_lr(axes)
-    , values_lr(values)
-    , keywords(std::move(keywords)) {
-  }
-
-#else // !LEGMS_USE_CASACORE
-
-  Column(
-    Legion::LogicalRegion metadata,
-    Legion::LogicalRegion axes,
-    Legion::LogicalRegion values,
-    const Keywords& keywords)
-    : metadata_lr(metadata)
-    , axes_lr(axes)
-    , values_lr(values)
-    , keywords(keywords) {
-  }
-
-  Column(
-    Legion::LogicalRegion metadata,
-    Legion::LogicalRegion axes,
-    Legion::LogicalRegion values,
-    Keywords&& keywords)
-    : metadata_lr(metadata)
-    , axes_lr(axes)
-    , values_lr(values)
-    , keywords(std::move(keywords)) {
-}
+    const MeasRefContainer& meas_refs,
 #endif
+    const Keywords& keywords);
+
+  Column(
+    Legion::LogicalRegion metadata,
+    Legion::LogicalRegion axes,
+    Legion::LogicalRegion values,
+#ifdef LEGMS_USE_CASACORE
+    const MeasRefContainer& meas_refs,
+#endif
+    Keywords&& keywords);
 
   static Column
   create(
@@ -230,15 +191,6 @@ public:
 
   IndexTreeL
   index_tree(Legion::Runtime* rt) const;
-
-#ifdef LEGMS_USE_CASACORE
-
-  MeasRefDict
-  get_measure_references_dictionary(
-    Legion::Context ctx,
-    Legion::Runtime* rt) const;
-
-#endif // LEGMS_USE_CASACORE
 
 #ifdef LEGMS_USE_HDF5
   template <
@@ -512,8 +464,9 @@ struct CObjectWrapper::Unwrapper<column_t> {
         Legion::CObjectWrapper::unwrap(c.metadata),
         Legion::CObjectWrapper::unwrap(c.axes),
         Legion::CObjectWrapper::unwrap(c.values),
-        {}, // FIXME
+#ifdef LEGMS_USE_CASACORE
         MeasRefContainer(), // FIXME
+#endif
         Keywords(
           Keywords::pair<Legion::LogicalRegion>{
             Legion::CObjectWrapper::unwrap(c.keyword_type_tags),

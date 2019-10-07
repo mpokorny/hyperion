@@ -11,6 +11,42 @@
 using namespace legms;
 using namespace Legion;
 
+Column::Column() {}
+
+Column::Column(
+  LogicalRegion metadata,
+  LogicalRegion axes,
+  LogicalRegion values,
+#ifdef LEGMS_USE_CASACORE
+  const MeasRefContainer& meas_refs,
+#endif
+  const Keywords& keywords)
+  : metadata_lr(metadata)
+  , axes_lr(axes)
+  , values_lr(values)
+#ifdef LEGMS_USE_CASACORE
+  , meas_refs(meas_refs)
+#endif
+  , keywords(keywords) {
+}
+
+Column::Column(
+  LogicalRegion metadata,
+  LogicalRegion axes,
+  LogicalRegion values,
+#ifdef LEGMS_USE_CASACORE
+  const MeasRefContainer& meas_refs,
+#endif
+  Keywords&& keywords)
+  : metadata_lr(metadata)
+  , axes_lr(axes)
+  , values_lr(values)
+#ifdef LEGMS_USE_CASACORE
+  , meas_refs(meas_refs)
+#endif
+  , keywords(std::move(keywords)) {
+}
+
 Column
 Column::create(
   Context ctx,
@@ -33,6 +69,10 @@ Column::create(
       ((name_prefix.back() != '/') ? (name_prefix + "/") : name_prefix)
       + component_name_prefix;
 
+#ifdef LEGMS_USE_CASACORE
+  MeasRefContainer meas_refs =
+    MeasRefContainer::create(ctx, rt, new_meas_refs, inherited_meas_refs);
+#endif
   LogicalRegion metadata;
   {
     IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
@@ -104,8 +144,7 @@ Column::create(
       axs,
       values,
 #ifdef LEGMS_USE_CASACORE
-      new_meas_refs,
-      inherited_meas_refs,
+      meas_refs,
 #endif
       Keywords::create(ctx, rt, kws, component_name_prefix));
 }
@@ -122,6 +161,9 @@ Column::destroy(Context ctx, Runtime* rt) {
     }
   }
   keywords.destroy(ctx, rt);
+#ifdef LEGMS_USE_CASACORE
+  meas_refs.destroy(ctx, rt);
+#endif
 }
 
 std::string
