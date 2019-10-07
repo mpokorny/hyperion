@@ -24,6 +24,7 @@
 #include <legms/hdf5.h>
 #include <legms/Table.h>
 #include <legms/Column.h>
+#include <legms/MeasRefContainer.h>
 
 #define DEFAULT_ECHO_ARGS "false"
 #define DEFAULT_MAIN_TABLE_ROW_BLOCK_SIZE "100000"
@@ -295,6 +296,7 @@ init_table(
   Legion::Runtime* rt,
   const LEGMS_FS::path& ms,
   const std::string& root,
+  const MeasRefContainer& ms_meas_ref,
   MSTables mst) {
 
   std::unordered_set<std::string> columns;
@@ -311,7 +313,14 @@ init_table(
     }
     LEGMS_FOREACH_MSTABLE(INIT);
   }
-  return legms::hdf5::init_table(ctx, rt, ms, root + table_name, columns);
+  return
+    legms::hdf5::init_table(
+      ctx,
+      rt,
+      ms,
+      root + table_name,
+      columns,
+      ms_meas_ref);
 }
 
 static const FieldID antenna_class_fid = 0;
@@ -1383,8 +1392,10 @@ public:
       MS_SPECTRAL_WINDOW
     };
     std::unordered_map<MSTables,Table> tables;
+    MeasRefContainer ms_meas_ref; // FIXME
     for (auto& mst : mstables)
-      tables[mst] = init_table(ctx, rt, gridder_args.h5, ms_root, mst);
+      tables[mst] =
+        init_table(ctx, rt, gridder_args.h5, ms_root, ms_meas_ref, mst);
 
     // create region mapping antenna index to antenna class
     LogicalRegion antenna_classes;

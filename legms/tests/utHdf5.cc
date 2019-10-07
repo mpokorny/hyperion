@@ -1,10 +1,14 @@
+#include <legms/testing/TestSuiteDriver.h>
+#include <legms/testing/TestRecorder.h>
+#include <legms/testing/TestExpression.h>
+
 #include <legms/hdf5.h>
 #include <legms/Table.h>
 #include <legms/Column.h>
 
-#include <legms/testing/TestSuiteDriver.h>
-#include <legms/testing/TestRecorder.h>
-#include <legms/testing/TestExpression.h>
+#ifdef LEGMS_USE_CASACORE
+# include <legms/MeasRefContainer.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -127,7 +131,12 @@ Column::Generator
 table0_col(const std::string& name) {
   if (name == "X") {
     return
-      [name](Context ctx, Runtime* rt, const std::string& name_prefix) {
+      [name]
+      (Context ctx, Runtime* rt, const std::string& name_prefix
+#ifdef LEGMS_USE_CASACORE
+       , const MeasRefContainer& table_mr
+#endif
+        ) {
         return
           Column::create(
             ctx,
@@ -137,15 +146,19 @@ table0_col(const std::string& name) {
             ValueType<unsigned>::DataType,
             IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef LEGMS_USE_CASACORE
-            {}, // FIXME
-            MeasRefContainer(), // FIXME
+            MeasRefContainer::create(ctx, rt, {}, table_mr), // FIXME
 #endif
             {},
             name_prefix);
       };
   } else if (name == "Y"){
     return
-      [name](Context ctx, Runtime* rt, const std::string& name_prefix) {
+      [name]
+      (Context ctx, Runtime* rt, const std::string& name_prefix
+#ifdef LEGMS_USE_CASACORE
+       , const MeasRefContainer& table_mr
+#endif
+        ) {
         return
           Column::create(
             ctx,
@@ -155,15 +168,19 @@ table0_col(const std::string& name) {
             ValueType<unsigned>::DataType,
             IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef LEGMS_USE_CASACORE
-            {}, // FIXME
-            MeasRefContainer(), // FIXME
+            MeasRefContainer::create(ctx, rt, {}, table_mr), // FIXME
 #endif
             Keywords::kw_desc_t{{"perfect", ValueType<short>::DataType}},
             name_prefix);
       };
   } else /* name == "Z" */ {
     return
-      [name](Context ctx, Runtime* rt, const std::string& name_prefix) {
+      [name]
+      (Context ctx, Runtime* rt, const std::string& name_prefix
+#ifdef LEGMS_USE_CASACORE
+       , const MeasRefContainer& table_mr
+#endif
+        ) {
         return
           Column::create(
             ctx,
@@ -173,8 +190,7 @@ table0_col(const std::string& name) {
             ValueType<unsigned>::DataType,
             IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}),
 #ifdef LEGMS_USE_CASACORE
-            {}, // FIXME
-            MeasRefContainer(), // FIXME
+            MeasRefContainer::create(ctx, rt, {}, table_mr), // FIXME
 #endif
             {},
             name_prefix);
@@ -391,7 +407,6 @@ table_tests(
             table0_col("Y"),
             table0_col("Z")},
 #ifdef LEGMS_USE_CASACORE
-        {}, // FIXME
         MeasRefContainer(), // FIXME
 #endif
         {{"MS_VERSION", ValueType<float>::DataType},
@@ -470,7 +485,17 @@ table_tests(
   }
   {
     // read back metadata
-    auto tb0 = init_table(ctx, rt, fname, "/table0", {"X", "Y", "Z"});
+    auto tb0 =
+      init_table(
+        ctx,
+        rt,
+        fname,
+        "/table0",
+        {"X", "Y", "Z"}
+#ifdef LEGMS_USE_CASACORE
+        , MeasRefContainer()
+#endif
+        );
     recorder.assert_false(
       "Table initialized from HDF5 is not empty",
       TE(tb0.is_empty(ctx, rt)));

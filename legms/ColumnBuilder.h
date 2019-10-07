@@ -87,7 +87,8 @@ public:
   column(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::string& name_prefix) const {
+    const std::string& name_prefix,
+    const MeasRefContainer& inherited_meas_ref) const {
 
     IndexTreeL itree;
     auto itrank = index_tree().rank();
@@ -102,8 +103,7 @@ public:
         datatype(),
         itree,
 #ifdef LEGMS_USE_CASACORE
-        {}, // FIXME
-        MeasRefContainer(), // FIXME
+        MeasRefContainer::create(ctx, rt, {}, inherited_meas_ref), // FIXME
 #endif
         keywords(),
         name_prefix);

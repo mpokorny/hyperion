@@ -77,9 +77,18 @@ public:
     Legion::AffineAccessor<legms::TypeTag, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
+#ifdef LEGMS_USE_CASACORE
   typedef std::function<
-    Column(Legion::Context, Legion::Runtime*, const std::string&)>
-  Generator;
+    Column(
+      Legion::Context,
+      Legion::Runtime*,
+      const std::string&,
+      const MeasRefContainer&)>
+    Generator;
+#else
+  typedef std::function<
+    Column(Legion::Context, Legion::Runtime*, const std::string&)> Generator;
+#endif
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxesAccessor =
@@ -121,8 +130,7 @@ public:
     legms::TypeTag datatype,
     const IndexTreeL& index_tree,
 #ifdef LEGMS_USE_CASACORE
-    const std::vector<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
+    const MeasRefContainer& meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
@@ -140,7 +148,6 @@ public:
     legms::TypeTag datatype,
     const IndexTreeL& index_tree,
 #ifdef LEGMS_USE_CASACORE
-    const std::vector<MeasRef>& new_meas_refs,
     const MeasRefContainer& meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
@@ -155,7 +162,6 @@ public:
         datatype,
         index_tree,
 #ifdef LEGMS_USE_CASACORE
-        new_meas_refs,
         meas_refs,
 #endif
         kws,
@@ -323,7 +329,6 @@ public:
     const IndexTreeL& index_tree,
 #ifdef LEGMS_USE_CASACORE
     const std::vector<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
@@ -331,7 +336,11 @@ public:
       [=]
       (Legion::Context ctx,
        Legion::Runtime* rt,
-       const std::string& name_prefix) {
+       const std::string& name_prefix
+#ifdef LEGMS_USE_CASACORE
+       , const MeasRefContainer& inherited_meas_refs
+#endif
+        ) {
         return
           create(
             ctx,
@@ -341,8 +350,7 @@ public:
             datatype,
             index_tree,
 #ifdef LEGMS_USE_CASACORE
-            new_meas_refs,
-            inherited_meas_refs,
+            MeasRefContainer(new_meas_refs, inherited_meas_refs),
 #endif
             kws,
             name_prefix);
@@ -359,7 +367,6 @@ public:
     unsigned num_rows,
 #ifdef LEGMS_USE_CASACORE
     const std::vector<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
@@ -371,7 +378,6 @@ public:
         IndexTreeL(row_index_pattern, num_rows),
 #ifdef LEGMS_USE_CASACORE
         new_meas_refs,
-        inherited_meas_refs,
 #endif
         kws);
   }
@@ -387,7 +393,6 @@ public:
     unsigned num_rows,
 #ifdef LEGMS_USE_CASACORE
     const std::vector<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
@@ -401,7 +406,6 @@ public:
           num_rows * row_pattern.size() / row_index_pattern.size()),
 #ifdef LEGMS_USE_CASACORE
         new_meas_refs,
-        inherited_meas_refs,
 #endif
         kws);
   }

@@ -9,6 +9,10 @@
 #include <legms/Table.h>
 #include <legms/Column.h>
 
+#ifdef LEGMS_USE_CASACORE
+# include <legms/MeasRefContainer.h>
+#endif
+
 using namespace legms;
 using namespace Legion;
 
@@ -88,18 +92,22 @@ unsigned table0_y[TABLE0_NUM_ROWS] {
 Column::Generator
 table0_col(const std::string& name) {
   return
-    [=](Context context, Runtime* runtime, const std::string& name_prefix) {
+    [=](Context ctx, Runtime* rt, const std::string& name_prefix
+#ifdef LEGMS_USE_CASACORE
+        , const MeasRefContainer& table_mr
+#endif
+      )
+      {
       return
         Column::create(
-          context,
-          runtime,
+          ctx,
+          rt,
           name,
           std::vector<Table0Axes>{Table0Axes::ROW},
           ValueType<unsigned>::DataType,
           IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef LEGMS_USE_CASACORE
-          {}, // FIXME
-          MeasRefContainer(), // FIXME
+          MeasRefContainer::create(ctx, rt, {}, table_mr), // FIXME
 #endif
           {},
           name_prefix);
@@ -158,7 +166,6 @@ index_column_task_test_suite(
         table0_col("X"),
           table0_col("Y")}
 #ifdef LEGMS_USE_CASACORE
-      , {} // FIXME
       , MeasRefContainer() // FIXME
 #endif
       );

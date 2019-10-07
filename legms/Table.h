@@ -137,8 +137,7 @@ public:
     const std::vector<int>& index_axes,
     const std::vector<Column>& columns_,
 #ifdef LEGMS_USE_CASACORE
-    const std::vector<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
+    const MeasRefContainer& meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
@@ -154,8 +153,7 @@ public:
     const std::vector<D>& index_axes,
     const std::vector<Column>& columns,
 #ifdef LEGMS_USE_CASACORE
-    const std::vector<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
+    const MeasRefContainer& meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "") {
@@ -169,8 +167,7 @@ public:
         map_to_int(index_axes),
         columns,
 #ifdef LEGMS_USE_CASACORE
-        new_meas_refs,
-        inherited_meas_refs,
+        meas_refs,
 #endif
         kws,
         name_prefix);
@@ -185,8 +182,7 @@ public:
     const std::vector<int>& index_axes,
     const std::vector<Column::Generator>& column_generators,
 #ifdef LEGMS_USE_CASACORE
-    const std::vector<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
+    const MeasRefContainer& meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
@@ -200,8 +196,7 @@ public:
     const std::vector<D>& index_axes,
     const std::vector<Column::Generator>& column_generators,
 #ifdef LEGMS_USE_CASACORE
-    const std::vector<MeasRef>& new_meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
+    const MeasRefContainer& meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "")  {
@@ -215,8 +210,7 @@ public:
         map_to_int(index_axes),
         column_generators,
 #ifdef LEGMS_USE_CASACORE
-        new_meas_refs,
-        inherited_meas_refs,
+        meas_refs,
 #endif
         kws,
         name_prefix);

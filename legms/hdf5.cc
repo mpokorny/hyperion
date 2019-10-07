@@ -741,6 +741,9 @@ legms::hdf5::init_column(
   const std::string& axes_uid,
   hid_t loc_id,
   hid_t axes_dt,
+#ifdef LEGMS_USE_CASACORE
+  const MeasRefContainer& table_meas_ref,
+#endif
   const std::string& name_prefix,
   hid_t attr_access_pl,
   hid_t link_access_pl,
@@ -826,8 +829,7 @@ legms::hdf5::init_column(
             datatype,
             it,
 #ifdef LEGMS_USE_CASACORE
-            {},
-            MeasRefContainer(),
+            table_meas_ref, // FIXME: add column MeasRef
 #endif
             keywords,
             name_prefix);
@@ -857,11 +859,14 @@ struct acc_col_ctx {
   std::vector<legms::Column>* acc;
   std::string axes_uid;
   hid_t axes_dt;
+#ifdef LEGMS_USE_CASACORE
+  const MeasRefContainer* table_meas_ref;
+#endif
   hid_t attr_access_pl;
   hid_t link_access_pl;
   hid_t xfer_pl;
-  Runtime* runtime;
-  Context context;
+  Runtime* rt;
+  Context ctx;
 };
 
 static herr_t
@@ -883,12 +888,20 @@ acc_col(
       assert(col_group_id >= 0);
       auto col =
         init_column(
-          args->context,
-          args->runtime,
+          args->ctx,
+          args->rt,
           name,
           args->axes_uid,
           col_group_id,
           args->axes_dt,
+#ifdef LEGMS_USE_CASACORE
+          // FIXME: complete column MeasRef
+          MeasRefContainer::create(
+            args->ctx,
+            args->rt,
+            {},
+            *args->table_meas_ref),
+#endif
           args->table_name,
           args->attr_access_pl,
           args->link_access_pl,
@@ -906,6 +919,9 @@ legms::hdf5::init_table(
   const std::string& table_name,
   hid_t loc_id,
   const std::unordered_set<std::string>& column_names,
+#ifdef LEGMS_USE_CASACORE
+  const MeasRefContainer& ms_meas_ref,
+#endif
   const std::string& name_prefix,
   hid_t type_access_pl,
   hid_t attr_access_pl,
@@ -916,6 +932,11 @@ legms::hdf5::init_table(
 
   if (column_names.size() == 0)
     return result;
+
+#ifdef LEGMS_USE_CASACORE
+  // FIXME: complete Table MeasRef
+  auto table_meas_ref = MeasRefContainer::create(ctx, rt, {}, ms_meas_ref);
+#endif
 
   std::vector<int> index_axes;
   hid_t index_axes_id = -1;
@@ -956,6 +977,9 @@ legms::hdf5::init_table(
   {
     struct acc_col_ctx acc_col_ctx{
       name_prefix, &column_names, &cols, axes_uid, axes_dt,
+#ifdef LEGMS_USE_CASACORE
+      &table_meas_ref,
+#endif
       attr_access_pl, link_access_pl, xfer_pl,
       rt, ctx};
     hsize_t position = 0;
@@ -982,8 +1006,7 @@ legms::hdf5::init_table(
         index_axes,
         cols,
 #ifdef LEGMS_USE_CASACORE
-        std::vector<MeasRef>(), // FIXME
-        MeasRefContainer(), // FIXME
+        table_meas_ref,
 #endif
         keywords);
   }
@@ -1006,6 +1029,9 @@ legms::hdf5::init_table(
   const LEGMS_FS::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& column_names,
+#ifdef LEGMS_USE_CASACORE
+  const MeasRefContainer& ms_meas_ref,
+#endif
   unsigned flags,
   hid_t file_access_pl,
   hid_t table_access_pl,
@@ -1030,6 +1056,9 @@ legms::hdf5::init_table(
               table_path.substr(table_basename),
               table_loc,
               column_names,
+#ifdef LEGMS_USE_CASACORE
+              ms_meas_ref,
+#endif
               table_path.substr(0, table_basename),
               type_access_pl,
               attr_access_pl,

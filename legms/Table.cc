@@ -119,8 +119,7 @@ Table::create(
   const std::vector<int>& index_axes,
   const std::vector<Column>& columns_,
 #ifdef LEGMS_USE_CASACORE
-  const std::vector<MeasRef>& new_meas_refs,
-  const MeasRefContainer& inherited_meas_refs,
+  const MeasRefContainer& meas_refs,
 #endif
   const Keywords::kw_desc_t& kws,
   const std::string& name_prefix) {
@@ -136,10 +135,6 @@ Table::create(
   Legion::LogicalRegion axes =
     create_axes(ctx, rt, index_axes, component_name_prefix);
   Keywords keywords = Keywords::create(ctx, rt, kws, component_name_prefix);
-#ifdef LEGMS_USE_CASACORE
-  MeasRefContainer meas_refs =
-    MeasRefContainer::create(ctx, rt, new_meas_refs, inherited_meas_refs);
-#endif
   Legion::LogicalRegion columns;
   {
     Legion::Rect<1> rect(0, columns_.size() - 1);
@@ -165,14 +160,15 @@ Table::create(
     assert(!pir());
     rt->unmap_region(ctx, pr);
   }
-  return Table(
-    metadata,
-    axes,
-    columns,
+  return
+    Table(
+      metadata,
+      axes,
+      columns,
 #ifdef LEGMS_USE_CASACORE
-    meas_refs,
+      meas_refs,
 #endif //LEGMS_USE_CASACORE
-    keywords);
+      keywords);
 }
 
 Table
@@ -184,8 +180,7 @@ Table::create(
   const std::vector<int>& index_axes,
   const std::vector<Column::Generator>& column_generators,
 #ifdef LEGMS_USE_CASACORE
-  const std::vector<MeasRef>& new_meas_refs,
-  const MeasRefContainer& inherited_meas_refs,
+  const MeasRefContainer& meas_refs,
 #endif
   const Keywords::kw_desc_t& kws,
   const std::string& name_prefix) {
@@ -198,7 +193,15 @@ Table::create(
 
   std::vector<Column> cols;
   for (auto& cg : column_generators)
-    cols.push_back(cg(ctx, rt, component_name_prefix));
+    cols.push_back(
+      cg(
+        ctx,
+        rt,
+        component_name_prefix
+#ifdef LEGMS_USE_CASACORE
+        , meas_refs
+#endif
+        ));
 
   return
     create(
@@ -209,8 +212,7 @@ Table::create(
       index_axes,
       cols,
 #ifdef LEGMS_USE_CASACORE
-      new_meas_refs,
-      inherited_meas_refs,
+      meas_refs,
 #endif
       kws,
       name_prefix);

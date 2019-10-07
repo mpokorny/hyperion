@@ -20,6 +20,7 @@
 #include <legms/Table.h>
 #include <legms/IndexTree.h>
 #include <legms/MSTable.h>
+#include <legms/MeasRefContainer.h>
 
 #pragma GCC visibility push(default)
 #include <casacore/casa/aipstype.h>
@@ -107,8 +108,9 @@ public:
         [cb=nm_cb.second]
         (Legion::Context ctx,
          Legion::Runtime* rt,
-         const std::string& name_prefix) {
-          return cb->column(ctx, rt, name_prefix);
+         const std::string& name_prefix,
+         const MeasRefContainer& table_meas_ref) {
+         return cb->column(ctx, rt, name_prefix, table_meas_ref);
         });
     }
     return result;
@@ -315,7 +317,6 @@ from_ms(
       builder.name(),
       std::vector<Axes>{MSTable<T>::ROW_AXIS},
       builder.column_generators(),
-      {}, // FIXME
       MeasRefContainer(), // FIXME
       builder.keywords());
 }

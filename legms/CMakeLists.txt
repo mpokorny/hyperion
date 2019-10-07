@@ -208,9 +208,7 @@ if (USE_HDF5 AND USE_CASACORE)
     PUBLIC ${casacore_INCLUDE_DIR}
     PUBLIC ${HDF5_INCLUDE_DIRS})
   install(TARGETS ms2h5 RUNTIME DESTINATION bin)
-endif()
 
-if (USE_HDF5)
   if (MAX_DIM GREATER_EQUAL "7")
     add_executable(gridder gridder.cc)
     set_target_properties(gridder PROPERTIES

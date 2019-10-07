@@ -57,8 +57,7 @@ Column::create(
   legms::TypeTag datatype,
   const IndexTreeL& index_tree,
 #ifdef LEGMS_USE_CASACORE
-  const std::vector<MeasRef>& new_meas_refs,
-  const MeasRefContainer& inherited_meas_refs,
+  const MeasRefContainer& meas_refs,
 #endif
   const Keywords::kw_desc_t& kws,
   const std::string& name_prefix) {
@@ -69,10 +68,6 @@ Column::create(
       ((name_prefix.back() != '/') ? (name_prefix + "/") : name_prefix)
       + component_name_prefix;
 
-#ifdef LEGMS_USE_CASACORE
-  MeasRefContainer meas_refs =
-    MeasRefContainer::create(ctx, rt, new_meas_refs, inherited_meas_refs);
-#endif
   LogicalRegion metadata;
   {
     IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));

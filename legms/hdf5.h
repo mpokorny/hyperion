@@ -25,6 +25,10 @@
 #include <hdf5.h>
 #pragma GCC visibility pop
 
+#ifdef LEGMS_USE_CASACORE
+# include <legms/MeasRefContainer.h>
+#endif
+
 namespace legms {
 
 class Table;
@@ -325,6 +329,9 @@ init_column(
   const std::string& axes_uid,
   hid_t loc_id,
   hid_t axes_dt,
+#ifdef LEGMS_USE_CASACORE
+  const MeasRefContainer& table_meas_ref,
+#endif
   const std::string& name_prefix = "",
   hid_t attr_access_pl = H5P_DEFAULT,
   hid_t link_access_pl = H5P_DEFAULT,
@@ -337,6 +344,9 @@ init_table(
   const LEGMS_FS::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& column_names,
+#ifdef LEGMS_USE_CASACORE
+  const MeasRefContainer& ms_meas_ref,
+#endif
   unsigned flags = H5F_ACC_RDONLY,
   hid_t file_access_pl = H5P_DEFAULT,
   hid_t table_access_pl = H5P_DEFAULT,
@@ -352,6 +362,9 @@ init_table(
   const std::string& table_name,
   hid_t loc_id,
   const std::unordered_set<std::string>& column_names,
+#ifdef LEGMS_USE_CASACORE
+  const MeasRefContainer& ms_meas_ref,
+#endif
   const std::string& name_prefix = "",
   hid_t type_access_pl = H5P_DEFAULT,
   hid_t attr_access_pl = H5P_DEFAULT,
