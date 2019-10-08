@@ -131,7 +131,7 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::string& name,
-    casacore::MeasRef<Ms>& meas_ref) {
+    casacore::MeasRef<Ms> meas_ref) {
     if (false) assert(false);
 #define CREATE(M)                                                       \
     else if (typeid(MClassT<M>::type).hash_code() == typeid(Ms).hash_code()) \
