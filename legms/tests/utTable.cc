@@ -126,7 +126,12 @@ unsigned table0_z[TABLE0_NUM_ROWS] {
                    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
 
 Column::Generator
-table0_col(const std::string& name) {
+table0_col(
+  const std::string& name
+#ifdef LEGMS_USE_CASACORE
+  , const std::vector<MeasRef>& measures
+#endif
+  ) {
   return
     [=]
     (Context ctx, Runtime* rt, const std::string& name_prefix
@@ -143,7 +148,7 @@ table0_col(const std::string& name) {
           ValueType<unsigned>::DataType,
           IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef LEGMS_USE_CASACORE
-          MeasRefContainer::create(ctx, rt, {}, table_mr), // FIXME
+          MeasRefContainer::create(ctx, rt, measures, table_mr),
 #endif
           {},
           name_prefix);
@@ -277,20 +282,115 @@ table_test_suite(
       ctx,
       rt));
 
+#ifdef LEGMS_USE_CASACORE
+  casacore::MeasRef<casacore::MEpoch>
+    epoch(casacore::MEpoch::TAI);
+  auto table0_meas_ref =
+    MeasRefContainer::create(
+      ctx,
+      rt,
+      {
+        MeasRef::create(ctx, rt, "EPOCH", epoch)
+      });
+#endif
+
+#ifdef LEGMS_USE_CASACORE
+  casacore::MeasRef<casacore::MDirection>
+    direction(casacore::MDirection::J2000);
+  casacore::MeasRef<casacore::MFrequency>
+    frequency(casacore::MFrequency::GEO);
+  std::unordered_map<std::string, std::vector<MeasRef>> col_measures{
+    {"X", {MeasRef::create(ctx, rt, "DIRECTION", direction)}},
+    {"Y", {}},
+    {"Z", {MeasRef::create(ctx, rt, "FREQUENCY", frequency)}}
+  };
+  std::vector<Column::Generator> column_generators{
+    table0_col("X", col_measures["X"]),
+    table0_col("Y", col_measures["Y"]),
+    table0_col("Z", col_measures["Z"])
+  };
+#else
+  std::vector<Column::Generator> column_generators{
+    table0_col("X"),
+    table0_col("Y"),
+    table0_col("Z")
+  };
+#endif
+
   Table table0 =
     Table::create(
       ctx,
       rt,
       "table0",
       std::vector<Table0Axes>{Table0Axes::ROW},
-      std::vector<Column::Generator>{
-        table0_col("X"),
-          table0_col("Y"),
-          table0_col("Z")}
+      column_generators
 #ifdef LEGMS_USE_CASACORE
-      , MeasRefContainer() // FIXME
+      , table0_meas_ref
 #endif
       );
+
+#ifdef LEGMS_USE_CASACORE
+  recorder.expect_true(
+    "Create expected table measures using table name prefix",
+    testing::TestEval(
+      [&table0, &ctx, rt]() {
+        return
+          table0.meas_refs.with_measure_references_dictionary(
+            ctx,
+            rt,
+            [](Context c, Runtime* r, MeasRefDict* dict) {
+              return dict->get("table0/EPOCH").has_value();
+            });
+      }));
+  recorder.expect_true(
+    "Create expected 'X' column measures using table/column name prefix",
+    testing::TestEval(
+      [col=table0.column(ctx, rt, "X"), &ctx, rt]() {
+        return
+          col.meas_refs.with_measure_references_dictionary(
+            ctx,
+            rt,
+            [](Context c, Runtime* r, MeasRefDict* dict) {
+              std::set<std::string>
+                expected{"table0/EPOCH", "table0/X/DIRECTION"};
+              auto names = dict->names();
+              std::set<std::string> snames(names.begin(), names.end());
+              return expected == snames;
+            });
+      }));
+  recorder.expect_true(
+    "Create expected 'Y' column measures using table/column name prefix",
+    testing::TestEval(
+      [col=table0.column(ctx, rt, "Y"), &ctx, rt]() {
+        return
+          col.meas_refs.with_measure_references_dictionary(
+            ctx,
+            rt,
+            [](Context c, Runtime* r, MeasRefDict* dict) {
+              std::set<std::string> expected{"table0/EPOCH"};
+              auto names = dict->names();
+              std::set<std::string> snames(names.begin(), names.end());
+              return expected == snames;
+            });
+      }));
+  recorder.expect_true(
+    "Create expected 'Z' column measures using table/column name prefix",
+    testing::TestEval(
+      [col=table0.column(ctx, rt, "Z"), &ctx, rt]() {
+        return
+          col.meas_refs.with_measure_references_dictionary(
+            ctx,
+            rt,
+            [](Context c, Runtime* r, MeasRefDict* dict) {
+              std::set<std::string>
+                expected{"table0/EPOCH", "table0/Z/FREQUENCY"};
+              auto names = dict->names();
+              std::set<std::string> snames(names.begin(), names.end());
+              return expected == snames;
+            });
+      }));
+#endif
+
   auto col_x =
     attach_table0_col(ctx, rt, table0.column(ctx, rt, "X"), table0_x);
   auto col_y =
