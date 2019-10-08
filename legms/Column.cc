@@ -133,6 +133,9 @@ Column::create(
       rt->attach_name(values, values_name.c_str());
     }
   }
+#ifdef LEGMS_USE_CASACORE
+  meas_refs.add_prefix_to_owned(ctx, rt, component_name_prefix);
+#endif
   return
     Column(
       metadata,

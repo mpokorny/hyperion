@@ -160,6 +160,9 @@ Table::create(
     assert(!pir());
     rt->unmap_region(ctx, pr);
   }
+#ifdef LEGMS_USE_CASACORE
+  meas_refs.add_prefix_to_owned(ctx, rt, component_name_prefix);
+#endif
   return
     Table(
       metadata,
