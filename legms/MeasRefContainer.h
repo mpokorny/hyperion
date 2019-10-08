@@ -61,6 +61,12 @@ public:
     Legion::Runtime* rt,
     const std::vector<MeasRef>& owned);
 
+  void
+  add_prefix_to_owned(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::string& prefix) const;
+
 template <
     typename FN,
     std::enable_if_t<
@@ -71,9 +77,9 @@ template <
   with_measure_references_dictionary(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    FN fn) {
+    FN fn) const {
 
-    auto& [dict, pr] = with_measure_references_dictionary_prologue(ctx, rt);
+    auto [dict, pr] = with_measure_references_dictionary_prologue(ctx, rt);
     auto result = fn(ctx, rt, &dict);
     with_measure_references_dictionary_epilogue(ctx, rt, pr);
     return result;
@@ -89,9 +95,9 @@ template <
   with_measure_references_dictionary(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    FN fn) {
+    FN fn) const {
 
-    auto& [dict, pr] = with_measure_references_dictionary_prologue(ctx, rt);
+    auto [dict, pr] = with_measure_references_dictionary_prologue(ctx, rt);
     fn(ctx, rt, &dict);
     with_measure_references_dictionary_epilogue(ctx, rt, pr);
   }
@@ -104,13 +110,13 @@ private:
   std::tuple<MeasRefDict, std::optional<Legion::PhysicalRegion>>
   with_measure_references_dictionary_prologue(
     Legion::Context ctx,
-    Legion::Runtime* rt);
+    Legion::Runtime* rt) const;
 
   void
   with_measure_references_dictionary_epilogue(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::optional<Legion::PhysicalRegion>& pr);
+    const std::optional<Legion::PhysicalRegion>& pr) const;
 };
 
 } // end namespace legms

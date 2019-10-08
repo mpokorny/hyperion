@@ -78,6 +78,46 @@ MeasRefContainer::create(
 }
 
 void
+MeasRefContainer::add_prefix_to_owned(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const std::string& prefix) const {
+
+  if (meas_refs_lr != LogicalRegion::NO_REGION) {
+    std::string pre = prefix;
+    if (pre.back() != '/')
+      pre.push_back('/');
+    RegionRequirement
+      own_req(meas_refs_lr, READ_ONLY, EXCLUSIVE, meas_refs_lr);
+    own_req.add_field(OWNED_FID);
+    auto own_pr = rt->map_region(ctx, own_req);
+    RegionRequirement
+      mrefs_req(meas_refs_lr, READ_ONLY, EXCLUSIVE, meas_refs_lr);
+    mrefs_req.add_field(MEAS_REF_FID);
+    auto mrefs_pr = rt->map_region(ctx, mrefs_req);
+    const OwnedAccessor<READ_ONLY> owned(own_pr, OWNED_FID);
+    const MeasRefAccessor<READ_ONLY> mrefs(mrefs_pr, MEAS_REF_FID);
+    for (PointInDomainIterator<1> pid(
+           rt->get_index_space_domain(meas_refs_lr.get_index_space()));
+         pid();
+         pid++) {
+      if (owned[*pid]) {
+        auto mr = mrefs[*pid];
+        RegionRequirement
+          r(mr.name_region, READ_WRITE, EXCLUSIVE, mr.name_region);
+        r.add_field(MeasRef::NAME_FID);
+        auto nm_pr = rt->map_region(ctx, r);
+        const MeasRef::NameAccessor<READ_WRITE> nm(nm_pr, MeasRef::NAME_FID);
+        nm[0] = pre + std::string(nm[0]);
+        rt->unmap_region(ctx, nm_pr);
+      }
+    }
+    rt->unmap_region(ctx, mrefs_pr);
+    rt->unmap_region(ctx, own_pr);
+  }
+}
+
+void
 MeasRefContainer::destroy(Context ctx, Runtime* rt) {
   if (meas_refs_lr != LogicalRegion::NO_REGION) {
     RegionRequirement req(meas_refs_lr, READ_WRITE, EXCLUSIVE, meas_refs_lr);
@@ -103,7 +143,7 @@ MeasRefContainer::destroy(Context ctx, Runtime* rt) {
 std::tuple<MeasRefDict, std::optional<PhysicalRegion>>
 MeasRefContainer::with_measure_references_dictionary_prologue(
   Context ctx,
-  Runtime* rt) {
+  Runtime* rt) const {
 
   std::vector<const MeasRef*> refs;
   std::optional<PhysicalRegion> pr;
@@ -111,7 +151,7 @@ MeasRefContainer::with_measure_references_dictionary_prologue(
     RegionRequirement req(meas_refs_lr, READ_ONLY, EXCLUSIVE, meas_refs_lr);
     req.add_field(MEAS_REF_FID);
     pr = rt->map_region(ctx, req);
-    const MeasRefAccessor<READ_WRITE> mr(pr.value(), MEAS_REF_FID);
+    const MeasRefAccessor<READ_ONLY> mr(pr.value(), MEAS_REF_FID);
     for (PointInDomainIterator<1> pid(
            rt->get_index_space_domain(meas_refs_lr.get_index_space()));
          pid();
@@ -125,7 +165,7 @@ void
 MeasRefContainer::with_measure_references_dictionary_epilogue(
   Context ctx,
   Runtime* rt,
-  const std::optional<PhysicalRegion>& pr) {
+  const std::optional<PhysicalRegion>& pr) const {
 
   if (pr)
     rt->unmap_region(ctx, pr.value());
