@@ -1,6 +1,19 @@
 #include "MeasRefDict.h"
+#include <algorithm>
 
 using namespace legms;
+
+std::unordered_set<std::string>
+MeasRefDict::names() const {
+
+  std::unordered_set<std::string> result;
+  std::transform(
+    m_meas_refs.begin(),
+    m_meas_refs.end(),
+    std::inserter(result, result.end()),
+    [](auto& nm_r) { return std::get<0>(nm_r); });
+  return result;
+}
 
 std::optional<const MeasRefDict::Ref*>
 MeasRefDict::get(const std::string& name) const {

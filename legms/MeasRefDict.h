@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 #include <variant>
 
 #ifdef LEGMS_USE_CASACORE
@@ -58,6 +59,9 @@ public:
         return std::make_pair(mr->name(ctx, rt), mr);
       });
   }
+
+  std::unordered_set<std::string>
+  names() const;
 
   std::optional<const Ref*>
   get(const std::string& name) const;
