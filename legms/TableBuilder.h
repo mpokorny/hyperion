@@ -53,7 +53,9 @@ public:
 
   template <typename T>
   void
-  add_scalar_column(const casacore::Table& table, const std::string& name) {
+  add_scalar_column(
+    const casacore::Table& table,
+    const std::string& name) {
     add_column(table, ScalarColumnBuilder<D>::template generator<T>(name)());
   }
 
@@ -165,7 +167,7 @@ protected:
 
     switch (element_axes.size()) {
     case 0:
-      add_scalar_column<VT>(table, nm);
+      add_scalar_column<VT>( table, nm);
       break;
 
     case 1:
@@ -203,8 +205,11 @@ protected:
     auto nf = kws.nfields();
     for (unsigned f = 0; f < nf; ++f) {
       std::string name = kws.name(f);
-      if (name != "MEASINFO" && name != "QuantumUnits") {
-        auto dt = kws.dataType(f);
+      auto dt = kws.dataType(f);
+      if (name == "MEASINFO") {
+        if (dt == casacore::DataType::TpRecord)
+          scol->add_meas_record(kws.asRecord(f));
+      } else if (name != "QuantumUnits") {
         switch (dt) {
 #define ADD_KW(DT)                              \
           case DataType<DT>::CasacoreTypeTag:   \
@@ -273,7 +278,7 @@ public:
 #define ADD_FROM_TCOL(DT)                                               \
           case DataType<DT>::CasacoreTypeTag:                           \
             result.template add_from_table_column<DT>(                  \
-              table, nm, axes, array_names);                            \
+              table, nm, axes, array_names);                          \
             break;
           LEGMS_FOREACH_DATATYPE(ADD_FROM_TCOL);
 #undef ADD_FROM_TCOL
@@ -382,7 +387,7 @@ from_ms(
       builder.name(),
       std::vector<Axes>{MSTable<T>::ROW_AXIS},
       builder.column_generators(),
-      MeasRefContainer(), // FIXME
+      MeasRefContainer(),
       builder.keywords());
 
   initialize_keywords_from_ms(ctx, rt, table_path, result);

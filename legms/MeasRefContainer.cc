@@ -42,8 +42,8 @@ MeasRefContainer::create(
     req.add_field(OWNED_FID);
     req.add_field(MEAS_REF_FID);
     auto pr = rt->map_region(ctx, req);
-    const OwnedAccessor<WRITE_ONLY> o(pr, OWNED_FID);
-    const MeasRefAccessor<WRITE_ONLY> mr(pr, MEAS_REF_FID);
+    const OwnedAccessor<WRITE_ONLY, true> o(pr, OWNED_FID);
+    const MeasRefAccessor<WRITE_ONLY, true> mr(pr, MEAS_REF_FID);
     size_t i = 0;
     while  (i < owned.size()) {
       o[i] = true;
@@ -115,6 +115,15 @@ MeasRefContainer::add_prefix_to_owned(
     rt->unmap_region(ctx, mrefs_pr);
     rt->unmap_region(ctx, own_pr);
   }
+}
+
+size_t
+MeasRefContainer::size(Legion::Runtime* rt) const {
+  if (meas_refs_lr == LogicalRegion::NO_REGION)
+    return 0;
+  else
+    return
+      rt->get_index_space_domain(meas_refs_lr.get_index_space()).get_volume();
 }
 
 void

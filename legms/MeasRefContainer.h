@@ -67,6 +67,9 @@ public:
     Legion::Runtime* rt,
     const std::string& prefix) const;
 
+  size_t
+  size(Legion::Runtime* rt) const;
+
 template <
     typename FN,
     std::enable_if_t<
