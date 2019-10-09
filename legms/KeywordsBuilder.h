@@ -9,6 +9,7 @@
 
 #include <legms/legms.h>
 #include <legms/utility.h>
+#include <legms/Keywords.h>
 
 namespace legms {
 

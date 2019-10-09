@@ -131,6 +131,7 @@ list(APPEND LEGMS_SRC
 if(USE_CASACORE)
   list(APPEND LEGMS_SRC
     TableBuilder.h
+    TableBuilder.cc
     TableReadTask.cc
     TableReadTask.h
     TableReadTask_c.cc

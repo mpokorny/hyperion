@@ -61,34 +61,48 @@ struct LEGMS_API Keywords {
   bool
   is_empty() const;
 
+  size_t
+  size(Legion::Runtime* rt) const;
+
   std::vector<std::string>
   keys(Legion::Runtime* rt) const;
 
   std::optional<Legion::FieldID>
   find_keyword(Legion::Runtime* rt, const std::string& name) const;
 
-  std::vector<legms::TypeTag>
+  std::vector<std::optional<legms::TypeTag>>
   value_types(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::vector<Legion::FieldID>& fids) const;
 
-  template <legion_privilege_mode_t MODE, template <typename> typename C>
-  pair<Legion::RegionRequirement>
-  requirements(const C<Legion::FieldID>& fids) const {
+  template <template <typename> typename C>
+  std::optional<pair<Legion::RegionRequirement>>
+  requirements(
+    Legion::Runtime* rt,
+    const C<Legion::FieldID>& fids,
+    legion_privilege_mode_t mode) const {
 
-    // allow runtime to catch erroneous FieldIDs
-    Legion::RegionRequirement
-      tt(type_tags_lr, READ_ONLY, EXCLUSIVE, type_tags_lr);
-    Legion::RegionRequirement v(values_lr, MODE, EXCLUSIVE, values_lr);
-    std::for_each(
-      std::begin(fids),
-      std::end(fids),
-      [&tt, &v](auto fid) {
-        tt.add_field(fid);
-        v.add_field(fid);
-      });
-    return pair<Legion::RegionRequirement>{tt, v};
+    std::optional<pair<Legion::RegionRequirement>> result;
+    auto n = size(rt);
+    if (
+      std::all_of(
+        fids.begin(),
+        fids.end(),
+        [&n](auto& fid) { return 0 <= fid && fid < n;} )) {
+      Legion::RegionRequirement
+        tt(type_tags_lr, READ_ONLY, EXCLUSIVE, type_tags_lr);
+      Legion::RegionRequirement v(values_lr, mode, EXCLUSIVE, values_lr);
+      std::for_each(
+        std::begin(fids),
+        std::end(fids),
+        [&tt, &v](auto fid) {
+          tt.add_field(fid);
+          v.add_field(fid);
+        });
+      result = pair<Legion::RegionRequirement>{tt, v};
+    }
+    return result;
   }
 
   template <typename T>
@@ -100,18 +114,21 @@ struct LEGMS_API Keywords {
     const T& t) const {
 
     bool result = false;
-    auto reqs = requirements<WRITE_ONLY>(std::vector<Legion::FieldID>{fid});
-    auto prs =
-      reqs.map(
-        [&ctx, rt](const Legion::RegionRequirement& r){
-          return rt->map_region(ctx, r);
+    auto reqs =
+      requirements(rt, std::vector<Legion::FieldID>{fid}, WRITE_ONLY);
+    if (reqs) {
+      auto prs =
+        reqs.value().map(
+          [&ctx, rt](const Legion::RegionRequirement& r){
+            return rt->map_region(ctx, r);
+          });
+      result = write<WRITE_ONLY>(prs, fid, t);
+      prs.map(
+        [&ctx, rt](const Legion::PhysicalRegion& p) {
+          rt->unmap_region(ctx, p);
+          return 0;
         });
-    result = write<WRITE_ONLY>(prs, fid, t);
-    prs.map(
-      [&ctx, rt](const Legion::PhysicalRegion& p) {
-        rt->unmap_region(ctx, p);
-        return 0;
-      });
+    }
     return result;
   }
 
@@ -119,19 +136,22 @@ struct LEGMS_API Keywords {
   std::optional<T>
   read(Legion::Context ctx, Legion::Runtime* rt, Legion::FieldID fid) const {
 
-    bool result = false;
-    auto reqs = requirements<READ_ONLY>(std::vector<Legion::FieldID>{fid});
-    auto prs =
-      reqs.map(
-        [&ctx, rt](const Legion::RegionRequirement& r){
-          return rt->map_region(ctx, r);
+    std::optional<T> result;
+    auto reqs =
+      requirements(rt, std::vector<Legion::FieldID>{fid}, READ_ONLY);
+    if (reqs) {
+      auto prs =
+        reqs.value().map(
+          [&ctx, rt](const Legion::RegionRequirement& r){
+            return rt->map_region(ctx, r);
+          });
+      result = read<T>(prs, fid);
+      prs.map(
+        [&ctx, rt](const Legion::PhysicalRegion& p) {
+          rt->unmap_region(ctx, p);
+          return 0;
         });
-    result = read(prs, fid);
-    prs.map(
-      [&ctx, rt](const Legion::PhysicalRegion& p) {
-        rt->unmap_region(ctx, p);
-        return 0;
-      });
+    }
     return result;
   }
 
@@ -169,8 +189,8 @@ struct LEGMS_API Keywords {
   read(const pair<Legion::PhysicalRegion>& prs, Legion::FieldID fid) {
 
     const TypeTagAccessor<READ_ONLY> dt(prs.type_tags, fid);
-    const ValueAccessor<READ_ONLY, T> val(prs.values, fid + 1);
-    return ((dt[0] == ValueType<T>::DataType) ? val[0] : std::nullopt);
+    const ValueAccessor<READ_ONLY, T> val(prs.values, fid);
+    return ((dt[0] == ValueType<T>::DataType) ? val[0] : std::optional<T>());
   }
 };
 

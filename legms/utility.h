@@ -1215,6 +1215,18 @@ H5DatatypeManager::datatype() {
   __func__(LEGMS_TYPE_DCOMPLEX)          \
   __func__(LEGMS_TYPE_STRING)
 
+#define LEGMS_FOREACH_RECORD_DATATYPE(__func__)  \
+  __func__(LEGMS_TYPE_BOOL)                     \
+  __func__(LEGMS_TYPE_UCHAR)                    \
+  __func__(LEGMS_TYPE_SHORT)                    \
+  __func__(LEGMS_TYPE_INT)                      \
+  __func__(LEGMS_TYPE_UINT)                     \
+  __func__(LEGMS_TYPE_FLOAT)                    \
+  __func__(LEGMS_TYPE_DOUBLE)                   \
+  __func__(LEGMS_TYPE_COMPLEX)                  \
+  __func__(LEGMS_TYPE_DCOMPLEX)                 \
+  __func__(LEGMS_TYPE_STRING)
+
 #define LEGMS_FOREACH_BARE_DATATYPE(__func__)  \
   __func__(BOOL)          \
   __func__(CHAR)          \

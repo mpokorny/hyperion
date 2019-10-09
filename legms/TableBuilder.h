@@ -53,13 +53,14 @@ public:
 
   template <typename T>
   void
-  add_scalar_column(const std::string& name) {
-    add_column(ScalarColumnBuilder<D>::template generator<T>(name)());
+  add_scalar_column(const casacore::Table& table, const std::string& name) {
+    add_column(table, ScalarColumnBuilder<D>::template generator<T>(name)());
   }
 
   template <typename T, int DIM>
   void
   add_array_column(
+    const casacore::Table& table,
     const std::string& name,
     const std::vector<Axes>& element_axes,
     std::function<std::array<size_t, DIM>(const std::any&)> element_shape) {
@@ -69,6 +70,7 @@ public:
       element_axes.end(),
       std::back_inserter(axes));
     add_column(
+      table,
       ArrayColumnBuilder<D, DIM>::template generator<T>(name, element_shape)(
         axes));
   }
@@ -154,6 +156,7 @@ protected:
   template <TypeTag DT>
   void
   add_from_table_column(
+    const casacore::Table& table,
     const std::string& nm,
     const std::vector<Axes>& element_axes,
     std::unordered_set<std::string>& array_names) {
@@ -162,21 +165,21 @@ protected:
 
     switch (element_axes.size()) {
     case 0:
-      add_scalar_column<VT>(nm);
+      add_scalar_column<VT>(table, nm);
       break;
 
     case 1:
-      add_array_column<VT, 1>(nm, element_axes, size<1>);
+      add_array_column<VT, 1>(table, nm, element_axes, size<1>);
       array_names.insert(nm);
       break;
 
     case 2:
-      add_array_column<VT, 2>(nm, element_axes, size<2>);
+      add_array_column<VT, 2>(table, nm, element_axes, size<2>);
       array_names.insert(nm);
       break;
 
     case 3:
-      add_array_column<VT, 3>(nm, element_axes, size<3>);
+      add_array_column<VT, 3>(table, nm, element_axes, size<3>);
       array_names.insert(nm);
       break;
 
@@ -187,11 +190,37 @@ protected:
   }
 
   void
-  add_column(std::unique_ptr<ColumnBuilder<D>>&& col) {
+  add_column(
+    const casacore::Table& table,
+    std::unique_ptr<ColumnBuilder<D>>&& col) {
+
     std::shared_ptr<ColumnBuilder<D>> scol = std::move(col);
     assert(scol->num_rows() == m_num_rows);
     assert(m_columns.count(scol->name()) == 0);
     m_columns[scol->name()] = scol;
+    auto tcol = casacore::TableColumn(table, scol->name());
+    auto kws = tcol.keywordSet();
+    auto nf = kws.nfields();
+    for (unsigned f = 0; f < nf; ++f) {
+      std::string name = kws.name(f);
+      if (name != "MEASINFO" && name != "QuantumUnits") {
+        auto dt = kws.dataType(f);
+        switch (dt) {
+#define ADD_KW(DT)                              \
+          case DataType<DT>::CasacoreTypeTag:   \
+            scol->add_keyword(name, DT);        \
+            break;
+          LEGMS_FOREACH_DATATYPE(ADD_KW);
+#undef ADD_KW
+        default:
+          // ignore other kw types, like Table
+
+          // TODO: support for Array<String> could be useful (e.g, in
+          // FLAG_CATEGORY)
+          break;
+        }
+      }
+    }
   }
 
   std::string m_name;
@@ -204,7 +233,7 @@ public:
 
   static TableBuilderT
   from_casacore_table(
-    const std::experimental::filesystem::path& path,
+    const LEGMS_FS::path& path,
     const std::unordered_set<std::string>& column_selections,
     const std::unordered_map<std::string, std::vector<Axes>>& element_axes) {
 
@@ -237,12 +266,14 @@ public:
     std::for_each(
       actual_column_selections.begin(),
       actual_column_selections.end(),
-      [&result, &tdesc, &element_axes, &array_names](auto& nm) {
+      [&table, &result, &tdesc, &element_axes, &array_names](auto& nm) {
         auto axes = element_axes.at(nm);
-        switch (tdesc[nm].dataType()) {
+        auto cdesc = tdesc[nm];
+        switch (cdesc.dataType()) {
 #define ADD_FROM_TCOL(DT)                                               \
           case DataType<DT>::CasacoreTypeTag:                           \
-            result.template add_from_table_column<DT>(nm, axes, array_names); \
+            result.template add_from_table_column<DT>(                  \
+              table, nm, axes, array_names);                            \
             break;
           LEGMS_FOREACH_DATATYPE(ADD_FROM_TCOL);
 #undef ADD_FROM_TCOL
@@ -252,6 +283,28 @@ public:
         }
       });
 
+    // get table keyword names and types
+    {
+      auto kws = table.keywordSet();
+      auto nf = kws.nfields();
+      for (unsigned f = 0; f < nf; ++f) {
+        std::string name = kws.name(f);
+        if (name != "MEASINFO" && name != "QuantumUnits") {
+          auto dt = kws.dataType(f);
+          switch (dt) {
+#define ADD_KW(DT)                              \
+            case DataType<DT>::CasacoreTypeTag: \
+              result.add_keyword(name, DT);     \
+              break;
+            LEGMS_FOREACH_DATATYPE(ADD_KW);
+#undef ADD_KW
+          default:
+            // ignore other kw types, like Table
+            break;
+          }
+        }
+      }
+    }
     // scan rows to get shapes for all selected array columns
     //
     std::unordered_map<std::string, std::any> args;
@@ -281,13 +334,12 @@ public:
   }
 };
 
-#ifdef LEGMS_USE_CASACORE
 struct LEGMS_API TableBuilder {
 
   template <MSTables T>
   static TableBuilderT<T>
   from_ms(
-    const std::experimental::filesystem::path& path,
+    const LEGMS_FS::path& path,
     const std::unordered_set<std::string>& column_selections) {
 
     return
@@ -300,17 +352,30 @@ struct LEGMS_API TableBuilder {
   }
 };
 
+void
+initialize_keywords_from_ms(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const LEGMS_FS::path& path,
+  Table& table);
+
 template <MSTables T>
 Table
 from_ms(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const std::experimental::filesystem::path& path,
+  const LEGMS_FS::path& path,
   const std::unordered_set<std::string>& column_selections) {
 
   typedef typename MSTable<T>::Axes Axes;
-  auto builder = TableBuilder::from_ms<T>(path, column_selections);
-  return
+
+  const LEGMS_FS::path& table_path =
+    ((path.filename() == MSTable<T>::name)
+     ? path
+     : (path / MSTable<T>::name));
+
+  auto builder = TableBuilder::from_ms<T>(table_path, column_selections);
+  auto result =
     Table::create(
       ctx,
       rt,
@@ -319,8 +384,11 @@ from_ms(
       builder.column_generators(),
       MeasRefContainer(), // FIXME
       builder.keywords());
+
+  initialize_keywords_from_ms(ctx, rt, table_path, result);
+  
+  return result;
 }
-#endif // LEGMS_USE_CASACORE
 
 } // end namespace legms
 

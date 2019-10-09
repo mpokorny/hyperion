@@ -423,9 +423,9 @@ table_tests(
       // initialize table0 keyword values
       std::vector<FieldID> fids(2);
       std::iota(fids.begin(), fids.end(), 0);
-      auto reqs = table0.keywords.requirements<WRITE_ONLY>(fids);
+      auto reqs = table0.keywords.requirements(rt, fids, WRITE_ONLY);
       auto prs =
-        reqs.map(
+        reqs.value().map(
           [&ctx, rt](const RegionRequirement& r){
             return rt->map_region(ctx, r);
           });
@@ -508,8 +508,12 @@ table_tests(
           std::iota(fids.begin(), fids.end(), 0);
           std::set<std::tuple<std::string, legms::TypeTag>> tbkw;
           auto tts = tb0.keywords.value_types(ctx, rt, fids);
-          for (size_t i = 0; i < tts.size(); ++i)
-            tbkw.insert(make_tuple(keys[i], tts[i]));
+          for (size_t i = 0; i < tts.size(); ++i) {
+            if (tts[i])
+              tbkw.insert(make_tuple(keys[i], tts[i].value()));
+            else
+              return false;
+          }
           std::set<std::tuple<std::string, legms::TypeTag>>
             kw{{"MS_VERSION", ValueType<float>::DataType},
                {"NAME", ValueType<std::string>::DataType}};

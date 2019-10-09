@@ -271,7 +271,7 @@ legms::hdf5::write_keywords(
   for (size_t i = 0; i < keys.size(); ++i) {
     assert(keys[i].substr(0, sizeof(LEGMS_NAMESPACE_PREFIX) - 1)
            != LEGMS_NAMESPACE_PREFIX);
-    switch (value_types[i]) {
+    switch (value_types[i].value()) {
 #define WRITE_KW(DT)                            \
       case (DT): {                              \
         write_kw<DT>(                           \

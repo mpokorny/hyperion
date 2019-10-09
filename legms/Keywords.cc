@@ -15,17 +15,28 @@ Keywords::is_empty() const {
   return values_lr == LogicalRegion::NO_REGION;
 }
 
+size_t
+Keywords::size(Runtime* rt) const {
+  if (is_empty())
+    return 0;
+  std::vector<FieldID> fids;
+  rt->get_field_space_fields(type_tags_lr.get_field_space(), fids);
+  return fids.size();
+}
+
 std::vector<std::string>
 Keywords::keys(Runtime* rt) const {
-
-  auto fs = type_tags_lr.get_field_space();
-  std::vector<FieldID> fids;
-  rt->get_field_space_fields(fs, fids);
-  std::vector<std::string> result(fids.size());
-  for (auto& fid : fids) {
-    const char* fname;
-    rt->retrieve_name(fs, fid, fname);
-    result[fid] = fname;
+  std::vector<std::string> result;
+  if (!is_empty()) {
+    std::vector<FieldID> fids;
+    auto fs = type_tags_lr.get_field_space();
+    rt->get_field_space_fields(fs, fids);
+    result.resize(fids.size());
+    for (auto& fid : fids) {
+      const char* fname;
+      rt->retrieve_name(fs, fid, fname);
+      result[fid] = fname;
+    }
   }
   return result;
 }
@@ -33,8 +44,10 @@ Keywords::keys(Runtime* rt) const {
 std::optional<FieldID>
 Keywords::find_keyword(Runtime* rt, const std::string& name) const {
 
-  auto fs = type_tags_lr.get_field_space();
+  if (is_empty())
+    return std::nullopt;
   std::vector<FieldID> fids;
+  auto fs = type_tags_lr.get_field_space();
   rt->get_field_space_fields(fs, fids);
   auto f =
     std::find_if(
@@ -45,25 +58,28 @@ Keywords::find_keyword(Runtime* rt, const std::string& name) const {
         rt->retrieve_name(fs, fid, fname);
         return name == fname;
       });
-  return ((f != fids.end()) ? std::make_optional(*f - 1) : std::nullopt);
+  return ((f != fids.end()) ? std::make_optional(*f) : std::nullopt);
 }
 
-std::vector<legms::TypeTag>
+std::vector<std::optional<legms::TypeTag>>
 Keywords::value_types(
   Context ctx,
   Runtime* rt,
   const std::vector<FieldID>& fids) const {
 
-  // allow runtime to catch erroneous FieldIDs
-  RegionRequirement req(type_tags_lr, READ_ONLY, EXCLUSIVE, type_tags_lr);
-  for (auto& fid : fids)
-    req.add_field(fid);
-  auto pr = rt->map_region(ctx, req);
-  std::vector<legms::TypeTag> result;
-  result.reserve(fids.size());
-  for (auto& fid : fids)
-    result.push_back(value_type(pr, fid));
-  rt->unmap_region(ctx, pr);
+  std::vector<std::optional<legms::TypeTag>> result(fids.size());
+  if (!is_empty()) {
+    auto n = size(rt);
+    RegionRequirement req(type_tags_lr, READ_ONLY, EXCLUSIVE, type_tags_lr);
+    for (auto& fid : fids)
+      if (0 <= fid && fid < n)
+        req.add_field(fid);
+    auto pr = rt->map_region(ctx, req);
+    for (size_t i = 0; i < fids.size(); ++i)
+      if (0 <= fids[i] && fids[i] < n)
+        result[i] = value_type(pr, fids[i]);
+    rt->unmap_region(ctx, pr);
+  }
   return result;
 }
 

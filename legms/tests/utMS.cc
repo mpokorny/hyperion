@@ -32,6 +32,8 @@ struct VerifyColumnTaskArgs {
   legms::TypeTag tag;
   char table[160];
   char column[32];
+  bool has_values;
+  bool has_keywords;
 };
 
 void
@@ -52,41 +54,46 @@ verify_scalar_column(
     runtime);
   testing::TestRecorder<READ_WRITE> recorder(log);
 
-  DomainT<1> col_dom(regions[2].get_bounds<1,coord_t>());
+  if (targs->has_values) {
+    DomainT<1> col_dom(regions[2].get_bounds<1,coord_t>());
 
-#define CMP(TAG)                                                    \
-  case (TAG): {                                                     \
-    auto scol =                                                     \
-      casacore::ScalarColumn<DataType<TAG>::CasacoreType>(          \
-        tb,                                                         \
-        casacore::String(targs->column));                           \
-    recorder.assert_true(                                           \
-      std::string("verify bounds, column ") + targs->column,        \
-      TE(Domain(col_dom)) == Domain(Rect<1>(0, scol.nrow() - 1)));  \
-    casacore::Vector<DataType<TAG>::CasacoreType> ary =             \
-      scol.getColumn();                                             \
-    const RO<DataType<TAG>::ValueType, 1>                           \
-      col(regions[2], Column::VALUE_FID);                           \
-    PointInDomainIterator<1> pid(col_dom);                          \
-    recorder.expect_true(                                           \
-      std::string("verify values, column ") + targs->column,        \
-      testing::TestEval(                                            \
-      [&pid, &col, &ary, targs]() {                                 \
-      bool result = true;                                           \
-      for (; result && pid(); pid++) {                              \
-        DataType<TAG>::ValueType a;                                 \
-        DataType<TAG>::from_casacore(a, ary[pid[0]]);               \
-        result = DataType<TAG>::equiv(a, col[*pid]);                \
-      }                                                             \
-      return result;                                                \
-    }));                                                            \
-    break;                                                          \
-  }
-
-  switch (targs->tag) {
-    LEGMS_FOREACH_DATATYPE(CMP);
-  }
+    switch (targs->tag) {
+#define CMP(TAG)                                                        \
+      case (TAG): {                                                     \
+        auto scol =                                                     \
+          casacore::ScalarColumn<DataType<TAG>::CasacoreType>(          \
+            tb,                                                         \
+            casacore::String(targs->column));                           \
+        recorder.assert_true(                                           \
+          std::string("verify bounds, column ") + targs->column,        \
+          TE(Domain(col_dom)) == Domain(Rect<1>(0, scol.nrow() - 1)));  \
+        casacore::Vector<DataType<TAG>::CasacoreType> ary =             \
+          scol.getColumn();                                             \
+        const RO<DataType<TAG>::ValueType, 1>                           \
+          col(regions[2], Column::VALUE_FID);                           \
+        PointInDomainIterator<1> pid(col_dom);                          \
+        recorder.expect_true(                                           \
+          std::string("verify values, column ") + targs->column,        \
+          testing::TestEval(                                            \
+            [&pid, &col, &ary, targs]() {                               \
+              bool result = true;                                       \
+              for (; result && pid(); pid++) {                          \
+                DataType<TAG>::ValueType a;                             \
+                DataType<TAG>::from_casacore(a, ary[pid[0]]);           \
+                result = DataType<TAG>::equiv(a, col[*pid]);            \
+              }                                                         \
+              return result;                                            \
+            }));                                                        \
+        break;                                                          \
+      }
+      LEGMS_FOREACH_DATATYPE(CMP);
 #undef CMP
+    }
+  } else {
+    recorder.expect_true(
+      std::string("verify empty, column ") + targs->column,
+      TE(tb.tableDesc().isColumn(targs->column)));
+  }
 }
 
 template <int DIM>
@@ -108,7 +115,7 @@ verify_array_column(
     runtime);
   testing::TestRecorder<READ_WRITE> recorder(log);
 
-  if (regions.size() > 2) {
+  if (targs->has_values) {
     DomainT<DIM> col_dom(regions[2].get_bounds<DIM,coord_t>());
     switch (targs->tag) {
 #define CMP(TAG)                                                      \
@@ -227,6 +234,87 @@ verify_column_task(
     }
 #undef VERIFY_ARRAY
   }
+
+  testing::TestLog<READ_WRITE> log(
+    task->regions[0].region,
+    regions[0],
+    task->regions[1].region,
+    regions[1],
+    context,
+    runtime);
+  testing::TestRecorder<READ_WRITE> recorder(log);
+
+  auto col = casacore::TableColumn(tb, args->column);
+  auto kws = col.keywordSet();
+  if (args->has_keywords) {
+    unsigned tt_region_idx = 2 + (args->has_values ? 1 : 0);
+    Keywords::pair<PhysicalRegion>
+      prs{regions[tt_region_idx], regions[tt_region_idx + 1]};
+    Keywords keywords(
+      Keywords::pair<LogicalRegion>{
+        prs.type_tags.get_logical_region(),
+          prs.values.get_logical_region()});
+    unsigned nf = kws.nfields();
+    bool all_ok = true;
+    for (unsigned i = 0; all_ok && i < nf; ++i) {
+      std::string nm = kws.name(i);
+      if (nm != "MEASINFO" && nm != "QuantumUnits") {
+        switch (kws.dataType(i)) {
+#define CMP_KW(DT)                                                      \
+          case DataType<DT>::CasacoreTypeTag: {                         \
+            DataType<DT>::CasacoreType cv;                              \
+            kws.get(i, cv);                                             \
+            DataType<DT>::ValueType v;                                  \
+            DataType<DT>::from_casacore(v, cv);                         \
+            auto ofid = keywords.find_keyword(runtime, nm);             \
+            all_ok = ofid.has_value();                                  \
+            if (all_ok) {                                               \
+              all_ok =                                                  \
+                (DT == Keywords::value_type(prs.type_tags, ofid.value())); \
+              if (all_ok) {                                             \
+                auto kv =                                               \
+                  Keywords::read<DataType<DT>::ValueType>(prs, ofid.value()) \
+                  .value();                                             \
+                all_ok = DataType<DT>::equiv(kv, v);                    \
+              }                                                         \
+            }                                                           \
+            break;                                                      \
+          }
+          LEGMS_FOREACH_RECORD_DATATYPE(CMP_KW)
+#undef CMP_KW
+        default:
+            break;
+        }
+      }
+      recorder.expect_true(
+        std::string("verify keywords, column ") + args->column,
+        TE(all_ok));
+    }
+  } else {
+    recorder.expect_true(
+      std::string("verify no keywords, column ") + args->column,
+      testing::TestEval(
+        [&kws]() {
+          unsigned num_expected = 0;
+          unsigned nf = kws.nfields();
+          for (unsigned i = 0; i < nf; ++i) {
+            std::string nm = kws.name(i);
+            if (nm != "MEASINFO" && nm != "QuantumUnits") {
+              switch (kws.dataType(i)) {
+#define CMP_KW(DT)                                  \
+                case DataType<DT>::CasacoreTypeTag:
+                LEGMS_FOREACH_RECORD_DATATYPE(CMP_KW)
+                  ++num_expected;
+                  break; // break is here intentionally
+#undef CMP_KW
+              default:
+                  break;
+              }
+            }
+          }
+          return num_expected == 0;
+        }));
+  }
 }
 
 void
@@ -281,6 +369,25 @@ read_full_ms(
           std::set<std::string>(expected_columns.begin(), expected_columns.end());
       }));
 
+  recorder.expect_true(
+    "table has expected MS_VERSION keyword value",
+    testing::TestEval(
+      [&table, &ctx, rt]() {
+        auto fid = table.keywords.find_keyword(rt, "MS_VERSION");
+        std::optional<float> msv;
+        if (fid)
+          msv = table.keywords.read<float>(ctx, rt, fid.value());
+        return fid && msv && msv.value() == 2.0;
+      }));
+  recorder.expect_true(
+    "only table keyword is MS_VERSION",
+    testing::TestEval(
+      [&table, &ctx, rt]() {
+        auto keys = table.keywords.keys(rt);
+        std::set<std::string> expected{"MS_VERSION"};
+        std::set<std::string> kw(keys.begin(), keys.end());
+        return expected == kw;
+      }));
   //
   // read MS table columns to initialize the Column LogicalRegions
   //
@@ -308,7 +415,7 @@ read_full_ms(
   LogicalPartitionT<1> verify_col_logs(
     rt->get_logical_partition(ctx, remaining_log.log_region(), col_log_ip));
   VerifyColumnTaskArgs args;
-  std::strncpy(args.table, t0_path.c_str(), sizeof(args.table));
+  fstrcpy(args.table, t0_path.c_str());
   args.table[sizeof(args.table) - 1] = '\0';
   // can't use IndexTaskLauncher here since column LogicalRegions are not
   // sub-regions of a common LogicalPartition
@@ -318,7 +425,7 @@ read_full_ms(
   for (size_t i = 0; i < expected_columns.size(); ++i) {
     auto col = table.column(ctx, rt, expected_columns[i]);
     args.tag = col.datatype(ctx, rt);
-    std::strncpy(args.column, col.name(ctx, rt).c_str(), sizeof(args.column));
+    fstrcpy(args.column, col.name(ctx, rt).c_str());
     args.column[sizeof(args.column) - 1] = '\0';
     verify_task.region_requirements.clear();
     auto log_reqs =
@@ -335,6 +442,20 @@ read_full_ms(
       RegionRequirement req(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
       req.add_field(Column::VALUE_FID);
       verify_task.add_region_requirement(req);
+      args.has_values = true;
+    } else {
+      args.has_values = false;
+    }
+    if (!col.keywords.is_empty()) {
+      auto n = col.keywords.size(rt);
+      std::vector<FieldID> fids(n);
+      std::iota(fids.begin(), fids.end(), 0);
+      auto reqs = col.keywords.requirements(rt, fids, READ_ONLY).value();
+      verify_task.add_region_requirement(reqs.type_tags);
+      verify_task.add_region_requirement(reqs.values);
+      args.has_keywords = true;
+    } else {
+      args.has_keywords = false;
     }
     rt->execute_task(ctx, verify_task);
   }
