@@ -22,7 +22,7 @@ public:
 
   static const constexpr Legion::FieldID OWNED_FID = 0;
   static const constexpr Legion::FieldID MEAS_REF_FID = 1;
-  Legion::LogicalRegion meas_refs_lr;
+  Legion::LogicalRegion lr;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using OwnedAccessor =

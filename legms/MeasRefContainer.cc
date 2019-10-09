@@ -8,7 +8,7 @@ using namespace Legion;
 MeasRefContainer::MeasRefContainer() {}
 
 MeasRefContainer::MeasRefContainer(Legion::LogicalRegion meas_refs)
-  : meas_refs_lr(meas_refs) {
+  : lr(meas_refs) {
 }
 
 MeasRefContainer
@@ -19,11 +19,11 @@ MeasRefContainer::create(
   const MeasRefContainer& borrowed) {
 
   size_t bn;
-  if (borrowed.meas_refs_lr == LogicalRegion::NO_REGION)
+  if (borrowed.lr == LogicalRegion::NO_REGION)
     bn = 0;
   else
     bn =
-      rt->get_index_space_domain(borrowed.meas_refs_lr.get_index_space())
+      rt->get_index_space_domain(borrowed.lr.get_index_space())
       .get_volume();
   size_t n = owned.size() + bn;
   if (n == 0)
@@ -52,7 +52,7 @@ MeasRefContainer::create(
     }
     if (bn > 0) {
       RegionRequirement
-        breq(borrowed.meas_refs_lr, READ_ONLY, EXCLUSIVE, borrowed.meas_refs_lr);
+        breq(borrowed.lr, READ_ONLY, EXCLUSIVE, borrowed.lr);
       breq.add_field(MEAS_REF_FID);
       auto bpr = rt->map_region(ctx, breq);
       const MeasRefAccessor<READ_ONLY> bmr(bpr, MEAS_REF_FID);
@@ -83,22 +83,20 @@ MeasRefContainer::add_prefix_to_owned(
   Legion::Runtime* rt,
   const std::string& prefix) const {
 
-  if (meas_refs_lr != LogicalRegion::NO_REGION) {
+  if (lr != LogicalRegion::NO_REGION) {
     std::string pre = prefix;
     if (pre.back() != '/')
       pre.push_back('/');
-    RegionRequirement
-      own_req(meas_refs_lr, READ_ONLY, EXCLUSIVE, meas_refs_lr);
+    RegionRequirement own_req(lr, READ_ONLY, EXCLUSIVE, lr);
     own_req.add_field(OWNED_FID);
     auto own_pr = rt->map_region(ctx, own_req);
-    RegionRequirement
-      mrefs_req(meas_refs_lr, READ_ONLY, EXCLUSIVE, meas_refs_lr);
+    RegionRequirement mrefs_req(lr, READ_ONLY, EXCLUSIVE, lr);
     mrefs_req.add_field(MEAS_REF_FID);
     auto mrefs_pr = rt->map_region(ctx, mrefs_req);
     const OwnedAccessor<READ_ONLY> owned(own_pr, OWNED_FID);
     const MeasRefAccessor<READ_ONLY> mrefs(mrefs_pr, MEAS_REF_FID);
     for (PointInDomainIterator<1> pid(
-           rt->get_index_space_domain(meas_refs_lr.get_index_space()));
+           rt->get_index_space_domain(lr.get_index_space()));
          pid();
          pid++) {
       if (owned[*pid]) {
@@ -119,32 +117,32 @@ MeasRefContainer::add_prefix_to_owned(
 
 size_t
 MeasRefContainer::size(Legion::Runtime* rt) const {
-  if (meas_refs_lr == LogicalRegion::NO_REGION)
+  if (lr == LogicalRegion::NO_REGION)
     return 0;
   else
     return
-      rt->get_index_space_domain(meas_refs_lr.get_index_space()).get_volume();
+      rt->get_index_space_domain(lr.get_index_space()).get_volume();
 }
 
 void
 MeasRefContainer::destroy(Context ctx, Runtime* rt) {
-  if (meas_refs_lr != LogicalRegion::NO_REGION) {
-    RegionRequirement req(meas_refs_lr, READ_WRITE, EXCLUSIVE, meas_refs_lr);
+  if (lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(lr, READ_WRITE, EXCLUSIVE, lr);
     req.add_field(OWNED_FID);
     req.add_field(MEAS_REF_FID);
     auto pr = rt->map_region(ctx, req);
     const OwnedAccessor<READ_WRITE> o(pr, OWNED_FID);
     const MeasRefAccessor<READ_WRITE> mr(pr, MEAS_REF_FID);
     for (PointInDomainIterator<1> pid(
-           rt->get_index_space_domain(meas_refs_lr.get_index_space()));
+           rt->get_index_space_domain(lr.get_index_space()));
          pid();
          pid++)
       if (o[*pid])
         mr[*pid].destroy(ctx, rt);
     rt->unmap_region(ctx, pr);
-    rt->destroy_field_space(ctx, meas_refs_lr.get_field_space());
-    rt->destroy_index_space(ctx, meas_refs_lr.get_index_space());
-    rt->destroy_logical_region(ctx, meas_refs_lr);
+    rt->destroy_field_space(ctx, lr.get_field_space());
+    rt->destroy_index_space(ctx, lr.get_index_space());
+    rt->destroy_logical_region(ctx, lr);
   }
 }
 
@@ -156,13 +154,13 @@ MeasRefContainer::with_measure_references_dictionary_prologue(
 
   std::vector<const MeasRef*> refs;
   std::optional<PhysicalRegion> pr;
-  if (meas_refs_lr != LogicalRegion::NO_REGION) {
-    RegionRequirement req(meas_refs_lr, READ_ONLY, EXCLUSIVE, meas_refs_lr);
+  if (lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
     req.add_field(MEAS_REF_FID);
     pr = rt->map_region(ctx, req);
     const MeasRefAccessor<READ_ONLY> mr(pr.value(), MEAS_REF_FID);
     for (PointInDomainIterator<1> pid(
-           rt->get_index_space_domain(meas_refs_lr.get_index_space()));
+           rt->get_index_space_domain(lr.get_index_space()));
          pid();
          pid++)
       refs.push_back(mr.ptr(*pid));
