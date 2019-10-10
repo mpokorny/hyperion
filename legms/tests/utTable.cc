@@ -338,6 +338,7 @@ table_test_suite(
           table0.meas_refs.with_measure_references_dictionary(
             ctx,
             rt,
+            false,
             [](Context c, Runtime* r, MeasRefDict* dict) {
               return dict->get("table0/EPOCH").has_value();
             });
@@ -350,6 +351,7 @@ table_test_suite(
           col.meas_refs.with_measure_references_dictionary(
             ctx,
             rt,
+            false,
             [](Context c, Runtime* r, MeasRefDict* dict) {
               std::set<std::string>
                 expected{"table0/EPOCH", "table0/X/DIRECTION"};
@@ -366,6 +368,7 @@ table_test_suite(
           col.meas_refs.with_measure_references_dictionary(
             ctx,
             rt,
+            false,
             [](Context c, Runtime* r, MeasRefDict* dict) {
               std::set<std::string> expected{"table0/EPOCH"};
               auto names = dict->names();
@@ -381,6 +384,7 @@ table_test_suite(
           col.meas_refs.with_measure_references_dictionary(
             ctx,
             rt,
+            false,
             [](Context c, Runtime* r, MeasRefDict* dict) {
               std::set<std::string>
                 expected{"table0/EPOCH", "table0/Z/FREQUENCY"};

@@ -190,29 +190,37 @@ MeasRefContainer::destroy(Context ctx, Runtime* rt) {
 }
 
 std::vector<const MeasRef*>
-MeasRefContainer::get_mr_ptrs(Legion::Runtime* rt, Legion::PhysicalRegion pr) {
+MeasRefContainer::get_mr_ptrs(
+  Legion::Runtime* rt,
+  Legion::PhysicalRegion pr,
+  bool owned_only) {
+
   std::vector<const MeasRef*> result;
+  const OwnedAccessor<READ_ONLY> owned(pr, OWNED_FID);
   const MeasRefAccessor<READ_ONLY> mr(pr, MEAS_REF_FID);
   for (PointInDomainIterator<1> pid(
          rt->get_index_space_domain(pr.get_logical_region().get_index_space()));
        pid();
        pid++)
-    result.push_back(mr.ptr(*pid));
+    if (!owned_only || owned[*pid])
+      result.push_back(mr.ptr(*pid));
   return result;
 }
 
 std::tuple<MeasRefDict, std::optional<PhysicalRegion>>
 MeasRefContainer::with_measure_references_dictionary_prologue(
   Context ctx,
-  Runtime* rt) const {
+  Runtime* rt,
+  bool owned_only) const {
 
   std::vector<const MeasRef*> refs;
   std::optional<PhysicalRegion> pr;
   if (lr != LogicalRegion::NO_REGION) {
     RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+    req.add_field(OWNED_FID);
     req.add_field(MEAS_REF_FID);
     pr = rt->map_region(ctx, req);
-    refs = get_mr_ptrs(rt, pr.value());
+    refs = get_mr_ptrs(rt, pr.value(), owned_only);
   }
   return std::make_tuple(MeasRefDict(ctx, rt, refs), pr);
 }

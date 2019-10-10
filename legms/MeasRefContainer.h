@@ -86,9 +86,11 @@ public:
   with_measure_references_dictionary(
     Legion::Context ctx,
     Legion::Runtime* rt,
+    bool owned_only,
     FN fn) const {
 
-    auto [dict, pr] = with_measure_references_dictionary_prologue(ctx, rt);
+    auto [dict, pr] =
+      with_measure_references_dictionary_prologue(ctx, rt, owned_only);
     auto result = fn(ctx, rt, &dict);
     with_measure_references_dictionary_epilogue(ctx, rt, pr);
     return result;
@@ -104,9 +106,11 @@ public:
   with_measure_references_dictionary(
     Legion::Context ctx,
     Legion::Runtime* rt,
+    bool owned_only,
     FN fn) const {
 
-    auto [dict, pr] = with_measure_references_dictionary_prologue(ctx, rt);
+    auto [dict, pr] =
+      with_measure_references_dictionary_prologue(ctx, rt, owned_only);
     fn(ctx, rt, &dict);
     with_measure_references_dictionary_epilogue(ctx, rt, pr);
   }
@@ -122,9 +126,10 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     Legion::PhysicalRegion pr,
+    bool owned_only,
     FN fn) {
 
-    auto mrs = get_mr_ptrs(rt, pr);
+    auto mrs = get_mr_ptrs(rt, pr, owned_only);
     auto dict = MeasRefDict(ctx, rt, mrs);
     return fn(ctx, rt, &dict);
   }
@@ -140,9 +145,10 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     Legion::PhysicalRegion pr,
+    bool owned_only,
     FN fn) {
 
-    auto mrs = get_mr_ptrs(rt, pr);
+    auto mrs = get_mr_ptrs(rt, pr, owned_only);
     auto dict = MeasRefDict(ctx, rt, mrs);
     fn(ctx, rt, &dict);
     return;
@@ -154,12 +160,13 @@ public:
 private:
 
   static std::vector<const MeasRef*>
-  get_mr_ptrs(Legion::Runtime* rt, Legion::PhysicalRegion pr);
+  get_mr_ptrs(Legion::Runtime* rt, Legion::PhysicalRegion pr, bool owned_only);
 
   std::tuple<MeasRefDict, std::optional<Legion::PhysicalRegion>>
   with_measure_references_dictionary_prologue(
     Legion::Context ctx,
-    Legion::Runtime* rt) const;
+    Legion::Runtime* rt,
+    bool owned_only) const;
 
   void
   with_measure_references_dictionary_epilogue(

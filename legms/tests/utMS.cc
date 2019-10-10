@@ -338,6 +338,7 @@ verify_column_task(
           context,
           runtime,
           pr,
+          false,
           [](Legion::Context c, Legion::Runtime* r, MeasRefDict* dict) {
             auto names = dict->names();
             return
@@ -519,6 +520,7 @@ read_full_ms(
       args.has_measures = true;
       RegionRequirement
         req(col.meas_refs.lr, READ_ONLY, EXCLUSIVE, col.meas_refs.lr);
+      req.add_field(MeasRefContainer::OWNED_FID);
       req.add_field(MeasRefContainer::MEAS_REF_FID);
       verify_task.add_region_requirement(req);
       auto creqs = col.meas_refs.component_requirements(ctx, rt);
