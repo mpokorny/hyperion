@@ -5,6 +5,7 @@
 #include "utility.h"
 #include "MeasRef.h"
 
+#include <memory>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
@@ -20,15 +21,15 @@ class LEGMS_API MeasRefDict {
 public:
 
   typedef std::variant<
-    casacore::MeasRef<casacore::MBaseline>,
-    casacore::MeasRef<casacore::MDirection>,
-    casacore::MeasRef<casacore::MDoppler>,
-    casacore::MeasRef<casacore::MEarthMagnetic>,
-    casacore::MeasRef<casacore::MEpoch>,
-    casacore::MeasRef<casacore::MFrequency>,
-    casacore::MeasRef<casacore::MPosition>,
-    casacore::MeasRef<casacore::MRadialVelocity>,
-    casacore::MeasRef<casacore::Muvw>> Ref;
+    std::shared_ptr<casacore::MeasRef<casacore::MBaseline>>,
+    std::shared_ptr<casacore::MeasRef<casacore::MDirection>>,
+    std::shared_ptr<casacore::MeasRef<casacore::MDoppler>>,
+    std::shared_ptr<casacore::MeasRef<casacore::MEarthMagnetic>>,
+    std::shared_ptr<casacore::MeasRef<casacore::MEpoch>>,
+    std::shared_ptr<casacore::MeasRef<casacore::MFrequency>>,
+    std::shared_ptr<casacore::MeasRef<casacore::MPosition>>,
+    std::shared_ptr<casacore::MeasRef<casacore::MRadialVelocity>>,
+    std::shared_ptr<casacore::MeasRef<casacore::Muvw>>> Ref;
 
   template <template <typename> typename C>
   MeasRefDict(
@@ -63,8 +64,24 @@ public:
   std::unordered_set<std::string>
   names() const;
 
-  std::optional<const Ref*>
+  std::optional<Ref>
   get(const std::string& name) const;
+
+  template <MClass M>
+  static bool
+  holds(const Ref& ref) {
+    return
+      std::holds_alternative<
+        std::shared_ptr<casacore::MeasRef<typename MClassT<M>::type>>>(ref);
+  }
+
+  template <MClass M>
+  static std::shared_ptr<casacore::MeasRef<typename MClassT<M>::type>>
+  get(const Ref& ref) {
+    return
+      std::get<std::shared_ptr<casacore::MeasRef<typename MClassT<M>::type>>>(
+        ref);
+  }
 
 private:
 
@@ -77,9 +94,7 @@ private:
   // the context in which they are created
   std::unordered_map<std::string, const MeasRef*> m_meas_refs;
 
-  // save unique_ptr to Refs to provide stability for pointers returned from
-  // get()
-  mutable std::unordered_map<std::string, std::unique_ptr<const Ref>> m_refs;
+  mutable std::unordered_map<std::string, Ref> m_refs;
 };
 
 } // end namespace legms

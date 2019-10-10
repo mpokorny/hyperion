@@ -124,6 +124,49 @@ MeasRefContainer::size(Legion::Runtime* rt) const {
       rt->get_index_space_domain(lr.get_index_space()).get_volume();
 }
 
+std::vector<RegionRequirement>
+MeasRefContainer::component_requirements(
+  Context ctx,
+  Runtime* rt,
+  legion_privilege_mode_t mode) const {
+
+  std::vector<RegionRequirement> result;
+  if (lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+    req.add_field(MEAS_REF_FID);
+    auto pr = rt->map_region(ctx, req);
+    const MeasRefAccessor<READ_ONLY> mrs(pr, MEAS_REF_FID);
+    for (PointInDomainIterator<1> pid(
+           rt->get_index_space_domain(lr.get_index_space()));
+         pid();
+         pid++) {
+      const MeasRef& mr = mrs[*pid];
+      {
+        RegionRequirement
+          req(mr.name_region, mode, EXCLUSIVE, mr.name_region);
+        req.add_field(MeasRef::NAME_FID);
+        result.push_back(req);
+      }
+      {
+        RegionRequirement
+          req(mr.metadata_region, mode, EXCLUSIVE, mr.metadata_region);
+        req.add_field(MeasRef::MEASURE_CLASS_FID);
+        req.add_field(MeasRef::REF_TYPE_FID);
+        req.add_field(MeasRef::NUM_VALUES_FID);
+        result.push_back(req);
+      }
+      if (mr.value_region != LogicalRegion::NO_REGION) {
+        RegionRequirement
+          req(mr.value_region, mode, EXCLUSIVE, mr.value_region);
+        req.add_field(0);
+        result.push_back(req);
+      }
+    }
+    rt->unmap_region(ctx, pr);
+  }
+  return result;
+}
+
 void
 MeasRefContainer::destroy(Context ctx, Runtime* rt) {
   if (lr != LogicalRegion::NO_REGION) {
@@ -146,6 +189,17 @@ MeasRefContainer::destroy(Context ctx, Runtime* rt) {
   }
 }
 
+std::vector<const MeasRef*>
+MeasRefContainer::get_mr_ptrs(Legion::Runtime* rt, Legion::PhysicalRegion pr) {
+  std::vector<const MeasRef*> result;
+  const MeasRefAccessor<READ_ONLY> mr(pr, MEAS_REF_FID);
+  for (PointInDomainIterator<1> pid(
+         rt->get_index_space_domain(pr.get_logical_region().get_index_space()));
+       pid();
+       pid++)
+    result.push_back(mr.ptr(*pid));
+  return result;
+}
 
 std::tuple<MeasRefDict, std::optional<PhysicalRegion>>
 MeasRefContainer::with_measure_references_dictionary_prologue(
@@ -158,12 +212,7 @@ MeasRefContainer::with_measure_references_dictionary_prologue(
     RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
     req.add_field(MEAS_REF_FID);
     pr = rt->map_region(ctx, req);
-    const MeasRefAccessor<READ_ONLY> mr(pr.value(), MEAS_REF_FID);
-    for (PointInDomainIterator<1> pid(
-           rt->get_index_space_domain(lr.get_index_space()));
-         pid();
-         pid++)
-      refs.push_back(mr.ptr(*pid));
+    refs = get_mr_ptrs(rt, pr.value());
   }
   return std::make_tuple(MeasRefDict(ctx, rt, refs), pr);
 }

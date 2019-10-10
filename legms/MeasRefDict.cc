@@ -15,20 +15,20 @@ MeasRefDict::names() const {
   return result;
 }
 
-std::optional<const MeasRefDict::Ref*>
+std::optional<MeasRefDict::Ref>
 MeasRefDict::get(const std::string& name) const {
-  std::optional<const Ref*> result;
+  std::optional<Ref> result;
   if (m_meas_refs.count(name) > 0) {
     if (m_refs.count(name) == 0) {
       const auto& mr = m_meas_refs.at(name);
       switch (mr->mclass(m_ctx, m_rt)) {
-#define MK(M)                                                 \
-        case M:                                               \
-          m_refs.insert(                                      \
-            std::make_pair(                                   \
-              name,                                           \
-              std::make_unique<Ref>(                          \
-                *mr->make<MClassT<M>::type>(m_ctx, m_rt))));  \
+#define MK(M)                                           \
+        case M:                                         \
+          m_refs.insert(                                \
+            std::make_pair(                             \
+              name,                                     \
+              mr->make<MClassT<M>::type>(m_ctx, m_rt)   \
+              .value()));                               \
           break;
         LEGMS_FOREACH_MCLASS(MK)
 #undef MK
@@ -37,7 +37,7 @@ MeasRefDict::get(const std::string& name) const {
         break;
       }
     }
-    result = m_refs.at(name).get();
+    result = m_refs.at(name);
   }
   return result;
 }

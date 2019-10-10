@@ -10,6 +10,7 @@
 #include <legms/Table.h>
 #include <legms/TableBuilder.h>
 #include <legms/TableReadTask.h>
+#include <legms/Measures.h>
 
 #include <legms/testing/TestSuiteDriver.h>
 #include <legms/testing/TestRecorder.h>
@@ -34,6 +35,7 @@ struct VerifyColumnTaskArgs {
   char column[32];
   bool has_values;
   bool has_keywords;
+  bool has_measures;
 };
 
 void
@@ -246,24 +248,25 @@ verify_column_task(
 
   auto col = casacore::TableColumn(tb, args->column);
   auto kws = col.keywordSet();
+  unsigned region_idx = 2 + (args->has_values ? 1 : 0);
   if (args->has_keywords) {
-    unsigned tt_region_idx = 2 + (args->has_values ? 1 : 0);
     Keywords::pair<PhysicalRegion>
-      prs{regions[tt_region_idx], regions[tt_region_idx + 1]};
+      prs{regions[region_idx], regions[region_idx + 1]};
+    region_idx += 2;
     Keywords keywords(
       Keywords::pair<LogicalRegion>{
         prs.type_tags.get_logical_region(),
           prs.values.get_logical_region()});
     unsigned nf = kws.nfields();
     bool all_ok = true;
-    for (unsigned i = 0; all_ok && i < nf; ++i) {
-      std::string nm = kws.name(i);
+    for (unsigned f = 0; all_ok && f < nf; ++f) {
+      std::string nm = kws.name(f);
       if (nm != "MEASINFO" && nm != "QuantumUnits") {
-        switch (kws.dataType(i)) {
+        switch (kws.dataType(f)) {
 #define CMP_KW(DT)                                                      \
           case DataType<DT>::CasacoreTypeTag: {                         \
             DataType<DT>::CasacoreType cv;                              \
-            kws.get(i, cv);                                             \
+            kws.get(f, cv);                                             \
             DataType<DT>::ValueType v;                                  \
             DataType<DT>::from_casacore(v, cv);                         \
             auto ofid = keywords.find_keyword(runtime, nm);             \
@@ -297,10 +300,10 @@ verify_column_task(
         [&kws]() {
           unsigned num_expected = 0;
           unsigned nf = kws.nfields();
-          for (unsigned i = 0; i < nf; ++i) {
-            std::string nm = kws.name(i);
+          for (unsigned f = 0; f < nf; ++f) {
+            std::string nm = kws.name(f);
             if (nm != "MEASINFO" && nm != "QuantumUnits") {
-              switch (kws.dataType(i)) {
+              switch (kws.dataType(f)) {
 #define CMP_KW(DT)                                  \
                 case DataType<DT>::CasacoreTypeTag:
                 LEGMS_FOREACH_RECORD_DATATYPE(CMP_KW)
@@ -314,6 +317,58 @@ verify_column_task(
           }
           return num_expected == 0;
         }));
+  }
+  {
+    std::optional<unsigned> fmeas;
+    unsigned nf = kws.nfields();
+    for (unsigned f = 0; !fmeas && f < nf; ++f) {
+      std::string nm = kws.name(f);
+      if (nm == "MEASINFO" && kws.dataType(f) == casacore::DataType::TpRecord)
+        fmeas = f;
+    }
+    recorder.expect_true(
+      std::string("column ") + args->column
+      + " has measure only if MS column has a measure",
+      TE(args->has_measures == fmeas.has_value()));
+    if (args->has_measures) {
+      PhysicalRegion pr = regions[region_idx];
+      region_idx += 1;
+      std::optional<MeasRefDict::Ref> oref =
+        MeasRefContainer::with_measure_references_dictionary(
+          context,
+          runtime,
+          pr,
+          [](Legion::Context c, Legion::Runtime* r, MeasRefDict* dict) {
+            auto names = dict->names();
+            return
+              ((names.size() == 1) ? dict->get(*names.begin()) : std::nullopt);
+          });
+      recorder.assert_true(
+        std::string("column ") + args->column + " has exactly one measure",
+        TE(oref.has_value()));
+      recorder.expect_true(
+        std::string("column ") + args->column + " has expected measure",
+        testing::TestEval(
+          [&kws, &fmeas, &oref]() {
+            bool result = false;
+            casacore::MeasureHolder mh;
+            casacore::String err;
+            auto converted = mh.fromType(err, kws.asRecord(fmeas.value()));
+            if (converted) {
+              auto ref = oref.value();
+              // TODO: improve the test for comparing MeasRef values
+              if (false) {}
+#define MATCH(MC)                                                       \
+              else if (MClassT<MC>::holds(mh)) {                        \
+                result = MeasRefDict::holds<MC>(ref);                   \
+              }
+              LEGMS_FOREACH_MCLASS(MATCH)
+#undef MATCH
+              else {}
+            }
+            return result;
+          }));
+    }
   }
 }
 
@@ -388,6 +443,9 @@ read_full_ms(
         std::set<std::string> kw(keys.begin(), keys.end());
         return expected == kw;
       }));
+  recorder.expect_true(
+    "table has no measures",
+    TE(table.meas_refs.size(rt) == 0));
   //
   // read MS table columns to initialize the Column LogicalRegions
   //
@@ -456,6 +514,18 @@ read_full_ms(
       args.has_keywords = true;
     } else {
       args.has_keywords = false;
+    }
+    if (col.meas_refs.size(rt) > 0) {
+      args.has_measures = true;
+      RegionRequirement
+        req(col.meas_refs.lr, READ_ONLY, EXCLUSIVE, col.meas_refs.lr);
+      req.add_field(MeasRefContainer::MEAS_REF_FID);
+      verify_task.add_region_requirement(req);
+      auto creqs = col.meas_refs.component_requirements(ctx, rt);
+      for (auto& r : creqs)
+        verify_task.add_region_requirement(r);
+    } else {
+      args.has_measures = false;
     }
     rt->execute_task(ctx, verify_task);
   }

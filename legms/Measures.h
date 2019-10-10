@@ -20,6 +20,7 @@
 #include <casacore/measures/Measures/MPosition.h>
 #include <casacore/measures/Measures/MRadialVelocity.h>
 #include <casacore/measures/Measures/Muvw.h>
+#include <casacore/measures/Measures/MeasureHolder.h>
 #pragma GCC visibility pop
 
 namespace legms {
@@ -42,54 +43,130 @@ template <MClass k>
 struct MClassT {
   // typedef casacore::... type;
   // std::string name;
+  // static bool
+  // holds(const casacore::MeasureHolder& mh);
+  // static const type&
+  // get(const casacore::MeasureHolder& mh);
 };
 template <>
-struct MClassT<MClass::M_BASELINE> {
+struct LEGMS_API MClassT<MClass::M_BASELINE> {
   typedef casacore::MBaseline type;
   static const std::string name;
+  static bool
+  holds(const casacore::MeasureHolder& mh) {
+    return mh.isMBaseline();
+  }
+  static const type&
+  get(const casacore::MeasureHolder& mh) {
+    return mh.asMBaseline();
+  }
 };
 
 template <>
-struct MClassT<MClass::M_DIRECTION> {
+struct LEGMS_API MClassT<MClass::M_DIRECTION> {
   typedef casacore::MDirection type;
   static const std::string name;
+  static bool
+  holds(const casacore::MeasureHolder& mh) {
+    return mh.isMDirection();
+  }
+  static const type&
+  get(const casacore::MeasureHolder& mh) {
+    return mh.asMDirection();
+  }
 };
 
 template <>
-struct MClassT<MClass::M_DOPPLER> {
+struct LEGMS_API MClassT<MClass::M_DOPPLER> {
   typedef casacore::MDoppler type;
   static const std::string name;
+  static bool
+  holds(const casacore::MeasureHolder& mh) {
+    return mh.isMDoppler();
+  }
+  static const type&
+  get(const casacore::MeasureHolder& mh) {
+    return mh.asMDoppler();
+  }
 };
 
 template <>
-struct MClassT<MClass::M_EARTH_MAGNETIC> {
+struct LEGMS_API MClassT<MClass::M_EARTH_MAGNETIC> {
   typedef casacore::MEarthMagnetic type;
   static const std::string name;
+  static bool
+  holds(const casacore::MeasureHolder& mh) {
+    return mh.isMEarthMagnetic();
+  }
+  static const type&
+  get(const casacore::MeasureHolder& mh) {
+    return mh.asMEarthMagnetic();
+  }
 };
 template <>
-struct MClassT<MClass::M_EPOCH> {
+struct LEGMS_API MClassT<MClass::M_EPOCH> {
   typedef casacore::MEpoch type;
   static const std::string name;
+  static bool
+  holds(const casacore::MeasureHolder& mh) {
+    return mh.isMEpoch();
+  }
+  static const type&
+  get(const casacore::MeasureHolder& mh) {
+    return mh.asMEpoch();
+  }
 };
 template <>
-struct MClassT<MClass::M_FREQUENCY> {
+struct LEGMS_API MClassT<MClass::M_FREQUENCY> {
   typedef casacore::MFrequency type;
   static const std::string name;
+  static bool
+  holds(const casacore::MeasureHolder& mh) {
+    return mh.isMFrequency();
+  }
+  static const type&
+  get(const casacore::MeasureHolder& mh) {
+    return mh.asMFrequency();
+  }
 };
 template <>
-struct MClassT<MClass::M_POSITION> {
+struct LEGMS_API MClassT<MClass::M_POSITION> {
   typedef casacore::MPosition type;
   static const std::string name;
+  static bool
+  holds(const casacore::MeasureHolder& mh) {
+    return mh.isMPosition();
+  }
+  static const type&
+  get(const casacore::MeasureHolder& mh) {
+    return mh.asMPosition();
+  }
 };
 template <>
-struct MClassT<MClass::M_RADIAL_VELOCITY> {
+struct LEGMS_API MClassT<MClass::M_RADIAL_VELOCITY> {
   typedef casacore::MRadialVelocity type;
   static const std::string name;
+  static bool
+  holds(const casacore::MeasureHolder& mh) {
+    return mh.isMRadialVelocity();
+  }
+  static const type&
+  get(const casacore::MeasureHolder& mh) {
+    return mh.asMRadialVelocity();
+  }
 };
 template <>
-struct MClassT<MClass::M_UVW> {
+struct LEGMS_API MClassT<MClass::M_UVW> {
   typedef casacore::Muvw type;
   static const std::string name;
+  static bool
+  holds(const casacore::MeasureHolder& mh) {
+    return mh.isMuvw();
+  }
+  static const type&
+  get(const casacore::MeasureHolder& mh) {
+    return mh.asMuvw();
+  }
 };
 
 #define LEGMS_FOREACH_MCLASS(__func__)          \

@@ -46,8 +46,7 @@ check_dict_value_type(
   switch (ref.mclass(ctx, rt)) {
 #define CHECK(M)                                                        \
     case M:                                                             \
-      result =                                                          \
-        std::holds_alternative<casacore::MeasRef<MClassT<M>::type>>(value); \
+      result = MeasRefDict::holds<M>(value);                            \
     break;
     LEGMS_FOREACH_MCLASS(CHECK)
   default:
@@ -107,7 +106,7 @@ meas_ref_dict_test_suite(
         recorder.expect_true(
           std::string("Contained value for MeasRef ")
           + name + " has expected type",
-          TE(check_dict_value_type(ctx, rt, *ref.value(), *mr)));
+          TE(check_dict_value_type(ctx, rt, ref.value(), *mr)));
       }
     }
 

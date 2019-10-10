@@ -145,13 +145,13 @@ public:
   make(Legion::Context ctx, Legion::Runtime* rt) const;
 
   template <typename Ms>
-  std::optional<typename casacore::MeasRef<Ms>>
+  std::optional<std::shared_ptr<typename casacore::MeasRef<Ms>>>
   make(Legion::Context ctx, Legion::Runtime* rt) const {
-    std::optional<casacore::MeasRef<Ms>> result;
+    std::optional<std::shared_ptr<typename casacore::MeasRef<Ms>>> result;
     std::shared_ptr<casacore::MRBase> mrb = make(ctx, rt);
     auto mr = std::dynamic_pointer_cast<typename casacore::MeasRef<Ms>>(mrb);
     if (mr)
-      result = *mr;
+      result = mr;
     return result;
   }
 

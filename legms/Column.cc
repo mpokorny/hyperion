@@ -62,9 +62,6 @@ Column::create(
   const Keywords::kw_desc_t& kws,
   const std::string& name_prefix) {
 
-  // TODO: support measure columns with variable reference or offset
-  assert(meas_refs.size(rt) <= 1);
-
   std::string component_name_prefix = name;
   if (name_prefix.size() > 0)
     component_name_prefix =

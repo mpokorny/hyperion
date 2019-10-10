@@ -70,7 +70,13 @@ public:
   size_t
   size(Legion::Runtime* rt) const;
 
-template <
+  std::vector<Legion::RegionRequirement>
+  component_requirements(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    legion_privilege_mode_t mode = READ_ONLY) const;
+
+  template <
     typename FN,
     std::enable_if_t<
       !std::is_void_v<
@@ -105,10 +111,50 @@ template <
     with_measure_references_dictionary_epilogue(ctx, rt, pr);
   }
 
+  template <
+    typename FN,
+    std::enable_if_t<
+      !std::is_void_v<
+       std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, MeasRefDict*>>,
+      int> = 0>
+  static std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, MeasRefDict*>
+  with_measure_references_dictionary(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    Legion::PhysicalRegion pr,
+    FN fn) {
+
+    auto mrs = get_mr_ptrs(rt, pr);
+    auto dict = MeasRefDict(ctx, rt, mrs);
+    return fn(ctx, rt, &dict);
+  }
+
+  template <
+    typename FN,
+    std::enable_if_t<
+      std::is_void_v<
+        std::invoke_result_t<FN, Legion::Context, Legion::Runtime*, MeasRefDict*>>,
+      int> = 0>
+  static void
+  with_measure_references_dictionary(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    Legion::PhysicalRegion pr,
+    FN fn) {
+
+    auto mrs = get_mr_ptrs(rt, pr);
+    auto dict = MeasRefDict(ctx, rt, mrs);
+    fn(ctx, rt, &dict);
+    return;
+  }
+
   void
   destroy(Legion::Context ctx, Legion::Runtime* rt);
 
 private:
+
+  static std::vector<const MeasRef*>
+  get_mr_ptrs(Legion::Runtime* rt, Legion::PhysicalRegion pr);
 
   std::tuple<MeasRefDict, std::optional<Legion::PhysicalRegion>>
   with_measure_references_dictionary_prologue(
