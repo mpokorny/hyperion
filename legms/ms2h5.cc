@@ -43,7 +43,7 @@ get_args(
       } else {
         tables.push_back(args.argv[i]);
       }
-    } else {
+    } else if (i < args.argc - 1 && *args.argv[i + 1] != '-') {
       ++i; // skip option argument
     }
   }
