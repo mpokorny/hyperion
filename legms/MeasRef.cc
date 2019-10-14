@@ -539,6 +539,11 @@ MeasRef::name(Legion::Context ctx, Legion::Runtime* rt) const {
   return result;
 }
 
+std::string::size_type
+MeasRef::find_tag(const std::string& name) {
+  return name.rfind("/") + 1; // also OK if rfind returns npos (= -1)
+}
+
 MClass
 MeasRef::mclass(Legion::Context ctx, Legion::Runtime* rt) const {
   RegionRequirement req(metadata_region, READ_ONLY, EXCLUSIVE, metadata_region);

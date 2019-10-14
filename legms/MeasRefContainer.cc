@@ -57,8 +57,10 @@ MeasRefContainer::create(
       auto bpr = rt->map_region(ctx, breq);
       const MeasRefAccessor<READ_ONLY> bmr(bpr, MEAS_REF_FID);
       for (size_t j = 0; j < bn; ++j, ++i) {
+        auto nm = bmr[j].name(ctx, rt);
         o[i] = false;
         mr[i] = bmr[j];
+        ++i;
       }
       rt->unmap_region(ctx, bpr);
     }

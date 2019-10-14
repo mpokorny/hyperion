@@ -119,6 +119,9 @@ public:
     return nm[0];
   }
 
+  static std::string::size_type
+  find_tag(const std::string& name);
+
   MClass
   mclass(Legion::Context ctx, Legion::Runtime* rt) const;
 

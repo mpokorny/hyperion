@@ -340,15 +340,17 @@ verify_column_task(
           pr,
           false,
           [](Legion::Context c, Legion::Runtime* r, MeasRefDict* dict) {
-            auto names = dict->names();
+            auto tags = dict->tags();
             return
-              ((names.size() == 1) ? dict->get(*names.begin()) : std::nullopt);
+              ((tags.size() == 1) ? dict->get(*tags.begin()) : std::nullopt);
           });
       recorder.assert_true(
-        std::string("column ") + args->column + " has exactly one measure",
+        std::string("column ") + args->column
+        + " has exactly one tagged measure",
         TE(oref.has_value()));
       recorder.expect_true(
-        std::string("column ") + args->column + " has expected measure",
+        std::string("column ") + args->column
+        + " has expected tagged measure",
         testing::TestEval(
           [&kws, &fmeas, &oref]() {
             bool result = false;

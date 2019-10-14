@@ -264,6 +264,30 @@ check_partition(
   return result;
 }
 
+static bool
+verify_mr_names(
+  Context ctx,
+  Runtime* rt,
+  LogicalRegion mr_region,
+  std::set<std::string> expected) {
+
+  RegionRequirement req(mr_region, READ_ONLY, EXCLUSIVE, mr_region);
+  req.add_field(MeasRefContainer::MEAS_REF_FID);
+  auto pr = rt->map_region(ctx, req);
+  std::set<std::string> names;
+  const MeasRefContainer::MeasRefAccessor<READ_ONLY>
+    mrs(pr, MeasRefContainer::MEAS_REF_FID);
+  for (PointInDomainIterator<1>
+         pid(rt->get_index_space_domain(mr_region.get_index_space()));
+       pid();
+       pid++) {
+    const MeasRef& mr = mrs[*pid];
+    names.insert(mr.name(ctx, rt));
+  }
+  rt->unmap_region(ctx, pr);
+  return names == expected;
+}
+
 void
 table_test_suite(
   const Task* task,
@@ -283,15 +307,13 @@ table_test_suite(
       rt));
 
 #ifdef LEGMS_USE_CASACORE
-  casacore::MeasRef<casacore::MEpoch>
-    epoch(casacore::MEpoch::TAI);
+  casacore::MeasRef<casacore::MEpoch> tai(casacore::MEpoch::TAI);
+  casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
   auto table0_meas_ref =
     MeasRefContainer::create(
       ctx,
       rt,
-      {
-        MeasRef::create(ctx, rt, "EPOCH", epoch)
-      });
+      {MeasRef::create(ctx, rt, "EPOCH", tai)});
 #endif
 
 #ifdef LEGMS_USE_CASACORE
@@ -302,7 +324,7 @@ table_test_suite(
   std::unordered_map<std::string, std::vector<MeasRef>> col_measures{
     {"X", {MeasRef::create(ctx, rt, "DIRECTION", direction)}},
     {"Y", {}},
-    {"Z", {MeasRef::create(ctx, rt, "FREQUENCY", frequency)}}
+    {"Z", {MeasRef::create(ctx, rt, "EPOCH", utc)}}
   };
   std::vector<Column::Generator> column_generators{
     table0_col("X", col_measures["X"]),
@@ -335,62 +357,59 @@ table_test_suite(
     testing::TestEval(
       [&table0, &ctx, rt]() {
         return
-          table0.meas_refs.with_measure_references_dictionary(
-            ctx,
-            rt,
-            false,
-            [](Context c, Runtime* r, MeasRefDict* dict) {
-              return dict->get("table0/EPOCH").has_value();
-            });
+          verify_mr_names(ctx, rt, table0.meas_refs.lr, {"table0/EPOCH"});
       }));
   recorder.expect_true(
     "Create expected 'X' column measures using table/column name prefix",
     testing::TestEval(
       [col=table0.column(ctx, rt, "X"), &ctx, rt]() {
         return
-          col.meas_refs.with_measure_references_dictionary(
+          verify_mr_names(
             ctx,
             rt,
-            false,
-            [](Context c, Runtime* r, MeasRefDict* dict) {
-              std::set<std::string>
-                expected{"table0/EPOCH", "table0/X/DIRECTION"};
-              auto names = dict->names();
-              std::set<std::string> snames(names.begin(), names.end());
-              return expected == snames;
-            });
+            col.meas_refs.lr,
+            {"table0/EPOCH", "table0/X/DIRECTION"});
       }));
   recorder.expect_true(
     "Create expected 'Y' column measures using table/column name prefix",
     testing::TestEval(
       [col=table0.column(ctx, rt, "Y"), &ctx, rt]() {
         return
-          col.meas_refs.with_measure_references_dictionary(
+          verify_mr_names(
             ctx,
             rt,
-            false,
-            [](Context c, Runtime* r, MeasRefDict* dict) {
-              std::set<std::string> expected{"table0/EPOCH"};
-              auto names = dict->names();
-              std::set<std::string> snames(names.begin(), names.end());
-              return expected == snames;
-            });
+            col.meas_refs.lr,
+            {"table0/EPOCH"});
       }));
   recorder.expect_true(
     "Create expected 'Z' column measures using table/column name prefix",
     testing::TestEval(
       [col=table0.column(ctx, rt, "Z"), &ctx, rt]() {
         return
+          verify_mr_names(
+            ctx,
+            rt,
+            col.meas_refs.lr,
+            {"table0/EPOCH", "table0/Z/EPOCH"});
+      }));
+  recorder.expect_true(
+    "Tagged EPOCH measure is that defined by 'Z' column",
+    testing::TestEval(
+      [col=table0.column(ctx, rt, "Z"), &utc, &ctx, rt]() {
+        return
           col.meas_refs.with_measure_references_dictionary(
             ctx,
             rt,
             false,
-            [](Context c, Runtime* r, MeasRefDict* dict) {
-              std::set<std::string>
-                expected{"table0/EPOCH", "table0/Z/FREQUENCY"};
-              auto names = dict->names();
-              std::set<std::string> snames(names.begin(), names.end());
-              return expected == snames;
+            [&utc](Context c, Runtime* r, MeasRefDict* dict) {
+              auto mr = dict->get("EPOCH");
+              if (mr)
+                return
+                  MeasRefDict::holds<MClass::M_EPOCH>(mr.value())
+                  && (MeasRefDict::get<MClass::M_EPOCH>(mr.value())->getType()
+                      == utc.getType());
+              else
+                return false;
             });
       }));
 #endif

@@ -41,6 +41,7 @@ public:
 
     for (auto& mr : refs)
       m_meas_refs[mr->name(ctx, rt)] = mr;
+    add_tags();
   }
 
   template <typename MRIter>
@@ -52,17 +53,20 @@ public:
     : m_ctx(ctx)
     , m_rt(rt) {
 
-    std::transform(
+    std::for_each(
       begin,
       end,
-      std::inserter(m_meas_refs, m_meas_refs.end()),
-      [&ctx, rt](const MeasRef* mr) {
-        return std::make_pair(mr->name(ctx, rt), mr);
+      [this, &ctx, rt](const MeasRef* mr) {
+        m_meas_refs[mr->name(ctx, rt)] = mr;
       });
+    add_tags();
   }
 
   std::unordered_set<std::string>
   names() const;
+
+  std::unordered_set<std::string>
+  tags() const;
 
   std::optional<Ref>
   get(const std::string& name) const;
@@ -84,6 +88,9 @@ public:
   }
 
 private:
+
+  void
+  add_tags();
 
   Legion::Context m_ctx;
 
