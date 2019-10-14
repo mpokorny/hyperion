@@ -242,8 +242,8 @@ write_kw<LEGMS_TYPE_STRING> (
 
 void
 legms::hdf5::write_keywords(
-  Legion::Context ctx,
-  Legion::Runtime *rt,
+  Context ctx,
+  Runtime *rt,
   hid_t loc_id,
   const Keywords& keywords,
   bool with_data,
@@ -294,10 +294,317 @@ legms::hdf5::write_keywords(
   }
 }
 
+template <int D, typename A, typename T>
+std::vector<T>
+copy_mr_region(
+  Context ctx,
+  Runtime *rt,
+  LogicalRegion lr,
+  FieldID fid) {
+
+  // copy values into buff...lr index space may be sparse
+  RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+  req.add_field(fid);
+  auto pr = rt->map_region(ctx, req);
+  const A acc(pr, fid);
+  Domain dom = rt->get_index_space_domain(lr.get_index_space());
+  Rect<D,coord_t> rect = dom.bounds<D,coord_t>();
+  size_t sz = 1;
+  for (size_t i = 0; i < D; ++i)
+    sz *= rect.hi[i] + 1;
+  std::vector<T> result(sz);
+  auto t = result.begin();
+  for (PointInRectIterator<D> pir(rect, false); pir(); pir++) {
+    if (dom.contains(*pir))
+      *t = acc[*pir];
+    ++t;
+  }
+  rt->unmap_region(ctx, pr);
+  return result;
+}
+
+template <int D, typename A, typename T>
+static void
+write_mr_region(
+  Context ctx,
+  Runtime *rt,
+  hid_t ds,
+  LogicalRegion lr,
+  FieldID fid) {
+
+  std::vector<T> buff = copy_mr_region<D, A, T>(ctx, rt, lr, fid);
+
+  herr_t err =
+    H5Dwrite(
+      ds,
+      H5DatatypeManager::datatype<ValueType<T>::DataType>(),
+      H5S_ALL,
+      H5S_ALL,
+      H5P_DEFAULT,
+      buff.data());
+  assert(err >= 0);
+}
+
+static void
+write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
+
+  std::vector<hsize_t> dims, dims1;
+  hid_t sp, sp1 = -1;
+  switch (mr.metadata_region.get_index_space().get_dim()) {
+#define SP(D)                                                           \
+    case D:                                                             \
+    {                                                                   \
+      Rect<D> bounds =                                                  \
+        rt->get_index_space_domain(mr.metadata_region.get_index_space()); \
+      dims.resize(D);                                                   \
+      for (size_t i = 0; i < D; ++i)                                    \
+        dims[i] = bounds.hi[i] + 1;                                     \
+      sp = H5Screate_simple(D, dims.data(), NULL);                      \
+      assert(sp >= 0);                                                  \
+    }                                                                   \
+                                                                        \
+    if (mr.value_region != LogicalRegion::NO_REGION) {                  \
+      Rect<D+1> bounds =                                                \
+        rt->get_index_space_domain(mr.value_region.get_index_space());  \
+      dims1.resize(D + 1);                                              \
+      for (size_t i = 0; i < D + 1; ++i)                                \
+        dims1[i] = bounds.hi[i] + 1;                                    \
+      sp1 = H5Screate_simple(D + 1, dims1.data(), NULL);                \
+      assert(sp1 >= 0);                                                 \
+    }                                                                   \
+    break;
+    LEGMS_FOREACH_N_LESS_MAX(SP)
+#undef SP
+  default:
+    assert(false);
+    break;
+  }
+  {
+    // Write the datasets for the MeasRef values directly, without going through
+    // the Legion HDF5 interface, as the dataset sizes are small. Not worrying
+    // too much about efficiency for this, in any case.
+    {
+      hid_t ds =
+        H5Dcreate(
+          loc_id,
+          LEGMS_MEAS_REF_MCLASS_DS,
+          H5DatatypeManager::datatype<
+            ValueType<MeasRef::MEASURE_CLASS_TYPE>::DataType>(),
+          sp,
+          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      assert(ds >= 0);
+
+      switch (dims.size()) {
+#define W_MCLASS(D)                                                     \
+        case D:                                                         \
+          write_mr_region<                                              \
+            D, \
+            MeasRef::MeasureClassAccessor<READ_ONLY, D>, \
+            MeasRef::MEASURE_CLASS_TYPE>( \
+              ctx,                                                      \
+              rt,                                                       \
+              ds,                                                       \
+              mr.metadata_region,                                       \
+              MeasRef::MEASURE_CLASS_FID);                              \
+          break;
+        LEGMS_FOREACH_N_LESS_MAX(W_MCLASS);
+#undef W_MCLASS
+      default:
+        assert(false);
+        break;
+      }
+      herr_t err = H5Dclose(ds);
+      assert(err >= 0);
+    }
+    {
+      hid_t ds =
+        H5Dcreate(
+          loc_id,
+          LEGMS_MEAS_REF_RTYPE_DS,
+          H5DatatypeManager::datatype<
+            ValueType<MeasRef::REF_TYPE_TYPE>::DataType>(),
+          sp,
+          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      assert(ds >= 0);
+
+      switch (dims.size()) {
+#define W_RTYPE(D)                                                      \
+        case D:                                                         \
+          write_mr_region<                                              \
+            D, \
+            MeasRef::RefTypeAccessor<READ_ONLY, D>, \
+            MeasRef::REF_TYPE_TYPE>( \
+              ctx,                                                      \
+              rt,                                                       \
+              ds,                                                       \
+              mr.metadata_region,                                       \
+              MeasRef::REF_TYPE_FID);                                   \
+          break;
+        LEGMS_FOREACH_N_LESS_MAX(W_RTYPE);
+#undef W_RTYPE
+      default:
+        assert(false);
+        break;
+      }
+      herr_t err = H5Dclose(ds);
+      assert(err >= 0);
+    }
+    {
+      hid_t ds =
+        H5Dcreate(
+          loc_id,
+          LEGMS_MEAS_REF_NVAL_DS,
+          H5DatatypeManager::datatype<
+            ValueType<MeasRef::NUM_VALUES_TYPE>::DataType>(),
+          sp,
+          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      assert(ds >= 0);
+
+      switch (dims.size()) {
+#define W_NVAL(D)                                                       \
+        case D:                                                         \
+          write_mr_region<                                              \
+            D, \
+            MeasRef::NumValuesAccessor<READ_ONLY, D>, \
+            MeasRef::NUM_VALUES_TYPE>( \
+              ctx,                                                      \
+              rt,                                                       \
+              ds,                                                       \
+              mr.metadata_region,                                       \
+              MeasRef::NUM_VALUES_FID);                                 \
+          break;
+        LEGMS_FOREACH_N_LESS_MAX(W_NVAL);
+#undef W_NVAL
+      default:
+        assert(false);
+        break;
+      }
+      herr_t err = H5Dclose(ds);
+      assert(err >= 0);
+    }
+  }
+  if (dims1.size() > 0) {
+    hid_t ds =
+      H5Dcreate(
+        loc_id,
+        LEGMS_MEAS_REF_VALUES_DS,
+        H5DatatypeManager::datatype<ValueType<MeasRef::VALUE_TYPE>::DataType>(),
+        sp1,
+        H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    assert(ds >= 0);
+
+    switch (dims1.size()) {
+#define W_VALUES(D)                                                     \
+      case D + 1:                                                       \
+        write_mr_region<                                                \
+          D + 1, \
+          MeasRef::ValueAccessor<READ_ONLY, D + 1>, \
+          MeasRef::VALUE_TYPE>( \
+            ctx,                                                        \
+            rt,                                                         \
+            ds,                                                         \
+            mr.value_region,                                            \
+            0);                                                         \
+        break;
+      LEGMS_FOREACH_N_LESS_MAX(W_VALUES);
+#undef W_VALUES
+    default:
+      assert(false);
+      break;
+    }
+    herr_t err = H5Dclose(ds);
+    assert(err >= 0);
+  }
+}
+
+void
+legms::hdf5::write_measures(
+  Context ctx,
+  Runtime* rt,
+  hid_t loc_id,
+  const std::string& component_path,
+  const MeasRefContainer& meas_refs) {
+
+  size_t num_meas_refs = meas_refs.size(rt);
+  if (num_meas_refs == 0)
+    return;
+
+  {
+    htri_t rc = H5Lexists(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+    if (rc > 0) {
+      herr_t err = H5Ldelete(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+      assert(err >= 0);
+    }
+  }
+  hid_t measures_id =
+    H5Gcreate(
+      loc_id,
+      LEGMS_MEASURES_GROUP,
+      H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  assert(measures_id >= 0);
+  {
+    std::string component_prefix = component_path;
+    if (component_prefix.back() != '/')
+      component_prefix.push_back('/');
+    auto prefix_sz = component_prefix.size();
+    RegionRequirement req(meas_refs.lr, READ_ONLY, EXCLUSIVE, meas_refs.lr);
+    req.add_field(MeasRefContainer::MEAS_REF_FID);
+    auto pr = rt->map_region(ctx, req);
+    const MeasRefContainer::MeasRefAccessor<READ_ONLY>
+      mrs(pr, MeasRefContainer::MEAS_REF_FID);
+    legms::string mr_lname = LEGMS_MEAS_REF_LINK_PREFIX;
+    unsigned mr_lname_idx = 0;
+    const size_t mr_lname_offset = sizeof(LEGMS_MEAS_REF_LINK_PREFIX);
+    for (size_t i = 0; i < num_meas_refs; ++i) {
+      MeasRef mr = mrs[i];
+      std::string name;
+      {
+        RegionRequirement
+          nreq(mr.name_region, READ_ONLY, EXCLUSIVE, mr.name_region);
+        nreq.add_field(MeasRef::NAME_FID);
+        auto nm_pr = rt->map_region(ctx, nreq);
+        const MeasRef::NameAccessor<READ_ONLY> nm(nm_pr, MeasRef::NAME_FID);
+        name = nm[0];
+        rt->unmap_region(ctx, nm_pr);
+      }
+      if (name.substr(0, prefix_sz) == component_prefix) {
+        // write value into new group
+        std::string tag = name.substr(MeasRef::find_tag(name));
+        hid_t mr_id =
+          H5Gcreate(
+            measures_id,
+            tag.c_str(),
+            H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        assert(mr_id > 0);
+        write_meas_ref(ctx, rt, mr_id, mr);
+        herr_t err = H5Gclose(mr_id);
+        assert(err >= 0);
+      } else {
+        // create soft link
+        std::snprintf(
+          &mr_lname.val[mr_lname_offset],
+          sizeof(mr_lname.val) - mr_lname_offset,
+          "%u",
+          mr_lname_idx++);
+        herr_t err =
+          H5Lcreate_soft(
+            name.c_str(),
+            measures_id,
+            mr_lname.val,
+            H5P_DEFAULT, H5P_DEFAULT);
+        assert(err >= 0);
+      }
+    }
+    rt->unmap_region(ctx, pr);
+  }
+  herr_t err = H5Gclose(measures_id);
+  assert(err >= 0);
+}
+
 void
 legms::hdf5::write_column(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
+  Context ctx,
+  Runtime* rt,
   const LEGMS_FS::path& path,
   hid_t table_id,
   const std::string& table_name,
@@ -444,12 +751,14 @@ legms::hdf5::write_column(
   }
 
   // write data to dataset
+  // FIXME: the value of column_path is only correct when the table group
+  // occurs at the HDF5 root...must add some way to pass in the path to the
+  // table HDF5 group
+  std::string column_path =
+    std::string("/") + table_name + "/" + colname;
+
   if (with_data) {
-    // FIXME: the value of column_ds_name is only correct when the table group
-    // occurs at the HDF5 root...must add some way to pass in the path to the
-    // table HDF5 group
-    std::string column_ds_name =
-      std::string("/") + table_name + "/" + colname + "/" + LEGMS_COLUMN_DS;
+    std::string column_ds_name = column_path + "/" + LEGMS_COLUMN_DS;
     std::map<FieldID, const char*>
       field_map{{Column::VALUE_FID, column_ds_name.c_str()}};
     LogicalRegion values_lr =
@@ -460,7 +769,8 @@ legms::hdf5::write_column(
     AttachLauncher attach(EXTERNAL_HDF5_FILE, values_lr, values_lr);
     attach.attach_hdf5(path.c_str(), field_map, LEGION_FILE_READ_WRITE);
     PhysicalRegion values_pr = rt->attach_external_resource(ctx, attach);
-    RegionRequirement src(column.values_lr, READ_ONLY, EXCLUSIVE, column.values_lr);
+    RegionRequirement
+      src(column.values_lr, READ_ONLY, EXCLUSIVE, column.values_lr);
     src.add_field(Column::VALUE_FID);
     RegionRequirement dst(values_lr, WRITE_ONLY, EXCLUSIVE, values_lr);
     dst.add_field(Column::VALUE_FID);
@@ -470,7 +780,11 @@ legms::hdf5::write_column(
     rt->detach_external_resource(ctx, values_pr);
     rt->destroy_logical_region(ctx, values_lr);
   }
+
   write_keywords(ctx, rt, col_group_id, column.keywords, with_data);
+
+  write_measures(ctx, rt, col_group_id, column_path, column.meas_refs);
+
   herr_t err = H5Gclose(col_group_id);
   assert(err >= 0);
 
@@ -488,8 +802,8 @@ legms::hdf5::write_column(
 
 void
 legms::hdf5::write_table(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
+  Context ctx,
+  Runtime* rt,
   const LEGMS_FS::path& path,
   hid_t loc_id,
   const Table& table,
@@ -630,6 +944,10 @@ legms::hdf5::write_table(
       dataset_access_pl,
       xfer_pl);
 
+    {
+      std::string table_path = std::string("/") + tabname;
+      write_measures(ctx, rt, table_id, table_path, table.meas_refs);
+    }
   } catch (...) {
     herr_t err = H5Gclose(table_id);
     assert(err >= 0);

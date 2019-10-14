@@ -38,7 +38,7 @@ class Keywords;
 namespace hdf5 {
 
 #define LEGMS_NAMESPACE "legms"
-#define LEGMS_NAME_SEP "::"
+#define LEGMS_NAME_SEP ":"
 #define LEGMS_NAMESPACE_PREFIX LEGMS_NAMESPACE LEGMS_NAME_SEP
 #define LEGMS_ATTRIBUTE_DT LEGMS_NAMESPACE_PREFIX "dt"
 #define LEGMS_ATTRIBUTE_DT_PREFIX LEGMS_ATTRIBUTE_DT LEGMS_NAME_SEP
@@ -47,6 +47,12 @@ namespace hdf5 {
 #define LEGMS_ATTRIBUTE_DS LEGMS_NAMESPACE_PREFIX "ds"
 #define LEGMS_ATTRIBUTE_DS_PREFIX LEGMS_ATTRIBUTE_DS LEGMS_NAME_SEP
 #define LEGMS_COLUMN_DS LEGMS_NAMESPACE_PREFIX "col"
+#define LEGMS_MEASURES_GROUP LEGMS_NAMESPACE_PREFIX "measures"
+#define LEGMS_MEAS_REF_MCLASS_DS LEGMS_NAMESPACE_PREFIX "mclass"
+#define LEGMS_MEAS_REF_RTYPE_DS LEGMS_NAMESPACE_PREFIX "rtype"
+#define LEGMS_MEAS_REF_NVAL_DS LEGMS_NAMESPACE_PREFIX "nval"
+#define LEGMS_MEAS_REF_VALUES_DS LEGMS_NAMESPACE_PREFIX "values"
+#define LEGMS_MEAS_REF_LINK_PREFIX LEGMS_NAMESPACE_PREFIX "mr" LEGMS_NAME_SEP
 
 #define LEGMS_LARGE_TREE_MIN (64 * (1 << 10))
 
@@ -271,6 +277,14 @@ write_keywords(
   hid_t dataset_creation_pl = H5P_DEFAULT,
   hid_t dataset_access_pl = H5P_DEFAULT,
   hid_t xfer_pl = H5P_DEFAULT);
+
+LEGMS_API void
+write_measures(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  hid_t loc_id,
+  const std::string& component_path,
+  const MeasRefContainer& meas_refs);
 
 LEGMS_API void
 write_column(

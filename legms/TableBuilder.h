@@ -430,7 +430,8 @@ from_ms(
       std::vector<Axes>{MSTable<T>::ROW_AXIS},
       builder.column_generators(),
       MeasRefContainer::create(ctx, rt, meas_refs),
-      builder.keywords());
+      builder.keywords(),
+      "/");
 
   initialize_keywords_from_ms(ctx, rt, table_path, result);
   
