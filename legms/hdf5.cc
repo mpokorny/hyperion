@@ -233,6 +233,7 @@ legms::hdf5::write_keywords(
   }
 }
 
+#ifdef LEGMS_USE_CASACORE
 template <int D, typename A, typename T>
 std::vector<T>
 copy_mr_region(
@@ -539,6 +540,7 @@ legms::hdf5::write_measures(
   herr_t err = H5Gclose(measures_id);
   assert(err >= 0);
 }
+#endif //LEGMS_USE_CASACORE
 
 void
 legms::hdf5::write_column(
@@ -705,7 +707,9 @@ legms::hdf5::write_column(
 
   write_keywords(ctx, rt, col_group_id, column.keywords, with_data);
 
+#ifdef LEGMS_USE_CASACORE
   write_measures(ctx, rt, col_group_id, column_path, column.meas_refs);
+#endif
 
   herr_t err = H5Gclose(col_group_id);
   assert(err >= 0);
@@ -826,10 +830,12 @@ legms::hdf5::write_table(
 
     write_keywords(ctx, rt, table_id, table.keywords, with_data);
 
+#ifdef LEGMS_USE_CASACORE
     {
       std::string table_path = std::string("/") + tabname;
       write_measures(ctx, rt, table_id, table_path, table.meas_refs);
     }
+#endif
   } catch (...) {
     herr_t err = H5Gclose(table_id);
     assert(err >= 0);

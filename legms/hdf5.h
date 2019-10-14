@@ -47,12 +47,14 @@ namespace hdf5 {
 #define LEGMS_ATTRIBUTE_DS LEGMS_NAMESPACE_PREFIX "ds"
 #define LEGMS_ATTRIBUTE_DS_PREFIX LEGMS_ATTRIBUTE_DS LEGMS_NAME_SEP
 #define LEGMS_COLUMN_DS LEGMS_NAMESPACE_PREFIX "col"
+#ifdef LEGMS_USE_CASACORE
 #define LEGMS_MEASURES_GROUP LEGMS_NAMESPACE_PREFIX "measures"
 #define LEGMS_MEAS_REF_MCLASS_DS LEGMS_NAMESPACE_PREFIX "mclass"
 #define LEGMS_MEAS_REF_RTYPE_DS LEGMS_NAMESPACE_PREFIX "rtype"
 #define LEGMS_MEAS_REF_NVAL_DS LEGMS_NAMESPACE_PREFIX "nval"
 #define LEGMS_MEAS_REF_VALUES_DS LEGMS_NAMESPACE_PREFIX "values"
 #define LEGMS_MEAS_REF_LINK_PREFIX LEGMS_NAMESPACE_PREFIX "mr" LEGMS_NAME_SEP
+#endif // LEGMS_USE_CASACORE
 
 #define LEGMS_LARGE_TREE_MIN (64 * (1 << 10))
 
@@ -257,6 +259,7 @@ write_keywords(
   const Keywords& keywords,
   bool with_data = true);
 
+#ifdef LEGMS_USE_CASACORE
 LEGMS_API void
 write_measures(
   Legion::Context ctx,
@@ -264,6 +267,7 @@ write_measures(
   hid_t loc_id,
   const std::string& component_path,
   const MeasRefContainer& meas_refs);
+#endif
 
 LEGMS_API void
 write_column(
