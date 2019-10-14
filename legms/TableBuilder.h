@@ -96,6 +96,16 @@ public:
     add_row(std::unordered_map<std::string, std::any>());
   }
 
+  void
+  add_meas_record(const casacore::Record& rec) {
+    m_meas_records.push_back(rec);
+  }
+
+  const std::vector<casacore::Record>&
+  meas_records() const {
+    return m_meas_records;
+  }
+
   std::unordered_set<std::string>
   column_names() const {
     std::unordered_set<std::string> result;
@@ -234,6 +244,8 @@ protected:
 
   size_t m_num_rows;
 
+  std::vector<casacore::Record> m_meas_records;
+
 public:
 
   static TableBuilderT
@@ -294,8 +306,11 @@ public:
       auto nf = kws.nfields();
       for (unsigned f = 0; f < nf; ++f) {
         std::string name = kws.name(f);
-        if (name != "MEASINFO" && name != "QuantumUnits") {
-          auto dt = kws.dataType(f);
+        auto dt = kws.dataType(f);
+        if (name == "MEASINFO") {
+          if (dt == casacore::DataType::TpRecord)
+            result.add_meas_record(kws.asRecord(f));
+        } else if (name != "QuantumUnits") {
           switch (dt) {
 #define ADD_KW(DT)                              \
             case DataType<DT>::CasacoreTypeTag: \
@@ -380,6 +395,33 @@ from_ms(
      : (path / MSTable<T>::name));
 
   auto builder = TableBuilder::from_ms<T>(table_path, column_selections);
+
+  std::vector<MeasRef> meas_refs;
+  std::for_each(
+    builder.meas_records().begin(),
+    builder.meas_records().end(),
+    [&meas_refs, &ctx, rt](const casacore::RecordInterface& rec) {
+      casacore::MeasureHolder mh;
+      casacore::String err;
+      auto converted = mh.fromType(err, rec);
+      if (converted) {
+        if (false) {}
+#define MK_MR(MC)                               \
+        else if (MClassT<MC>::holds(mh)) {      \
+          auto m = MClassT<MC>::get(mh);        \
+          meas_refs.push_back(                  \
+            MeasRef::create<MClassT<MC>::type>( \
+              ctx,                              \
+              rt,                               \
+              MClassT<MC>::name,                \
+              m.getRef()));                     \
+        }
+        LEGMS_FOREACH_MCLASS(MK_MR)
+#undef MK_MR
+        else { assert(false); }
+      }
+    }
+    );
   auto result =
     Table::create(
       ctx,
@@ -387,7 +429,7 @@ from_ms(
       builder.name(),
       std::vector<Axes>{MSTable<T>::ROW_AXIS},
       builder.column_generators(),
-      MeasRefContainer(),
+      MeasRefContainer::create(ctx, rt, meas_refs),
       builder.keywords());
 
   initialize_keywords_from_ms(ctx, rt, table_path, result);

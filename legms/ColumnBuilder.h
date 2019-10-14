@@ -104,92 +104,28 @@ public:
     if (itrank && itrank.value() == rank())
       itree = index_tree();
     std::vector<MeasRef> meas_refs;
-    std::transform(
+    std::for_each(
       m_meas_records.begin(),
       m_meas_records.end(),
-      std::back_inserter(meas_refs),
-      [&ctx, rt](const casacore::RecordInterface& rec) {
+      [&meas_refs, &ctx, rt](const casacore::RecordInterface& rec) {
         casacore::MeasureHolder mh;
         casacore::String err;
         auto converted = mh.fromType(err, rec);
         if (converted) {
-          if (mh.isMBaseline()) {
-            auto baseline = mh.asMBaseline();
-            return
-              MeasRef::create<casacore::MBaseline>(
-                ctx,
-                rt,
-                MClassT<MClass::M_BASELINE>::name,
-                baseline.getRef());
-          } else if (mh.isMDirection()) {
-            auto direction = mh.asMDirection();
-            return
-              MeasRef::create<casacore::MDirection>(
-                ctx,
-                rt,
-                MClassT<MClass::M_DIRECTION>::name,
-                direction.getRef());
-          } else if (mh.isMDoppler()) {
-            auto doppler = mh.asMDoppler();
-            return
-              MeasRef::create<casacore::MDoppler>(
-                ctx,
-                rt,
-                MClassT<MClass::M_DOPPLER>::name,
-                doppler.getRef());
-          } else if (mh.isMEarthMagnetic()) {
-            auto earth_magnetic = mh.asMEarthMagnetic();
-            return
-              MeasRef::create<casacore::MEarthMagnetic>(
-                ctx,
-                rt,
-                MClassT<MClass::M_EARTH_MAGNETIC>::name,
-                earth_magnetic.getRef());
-          } else if (mh.isMEpoch()) {
-            auto epoch = mh.asMEpoch();
-            return
-              MeasRef::create<casacore::MEpoch>(
-                ctx,
-                rt,
-                MClassT<MClass::M_EPOCH>::name,
-                epoch.getRef());
-          } else if (mh.isMFrequency()) {
-            auto frequency = mh.asMFrequency();
-            return
-              MeasRef::create<casacore::MFrequency>(
-                ctx,
-                rt,
-                MClassT<MClass::M_FREQUENCY>::name,
-                frequency.getRef());
-          } else if (mh.isMPosition()) {
-            auto position = mh.asMPosition();
-            return
-              MeasRef::create<casacore::MPosition>(
-                ctx,
-                rt,
-                MClassT<MClass::M_POSITION>::name,
-                position.getRef());
-          } else if (mh.isMRadialVelocity()) {
-            auto radial_velocity = mh.asMRadialVelocity();
-            return
-              MeasRef::create<casacore::MRadialVelocity>(
-                ctx,
-                rt,
-                MClassT<MClass::M_RADIAL_VELOCITY>::name,
-                radial_velocity.getRef());
-          } else if (mh.isMuvw()) {
-            auto uvw = mh.asMuvw();
-            return
-              MeasRef::create<casacore::Muvw>(
-                ctx,
-                rt,
-                MClassT<MClass::M_UVW>::name,
-                uvw.getRef());
-          } else {
-            assert(false);
+          if (false) {}
+#define MK_MR(MC)                                 \
+          else if (MClassT<MC>::holds(mh)) {      \
+            auto m = MClassT<MC>::get(mh);        \
+            meas_refs.push_back(                  \
+              MeasRef::create<MClassT<MC>::type>( \
+                ctx,                              \
+                rt,                               \
+                MClassT<MC>::name,                \
+                m.getRef()));                     \
           }
-        } else {
-          assert(false);
+          LEGMS_FOREACH_MCLASS(MK_MR)
+#undef MK_MR
+          else { assert(false); }
         }
       });
     return
