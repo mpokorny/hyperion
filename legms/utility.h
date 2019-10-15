@@ -120,6 +120,9 @@ fstrcpy(char(& dest)[N], const char* src) {
   return &dest[0];
 }
 
+IndexTreeL
+index_space_as_tree(Legion::Runtime* rt, Legion::IndexSpace is);
+
 struct LEGMS_API string {
 
   string() {

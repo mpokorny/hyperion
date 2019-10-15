@@ -241,35 +241,7 @@ Column::is_empty() const {
 
 IndexTreeL
 Column::index_tree(Runtime* rt) const {
-
-  IndexTreeL result;
-  Domain dom = rt->get_index_space_domain(values_lr.get_index_space());
-  switch (dom.get_dim()) {
-#define TREE(N)                                         \
-    case (N): {                                         \
-      RectInDomainIterator<N> rid(dom);                 \
-      while (rid()) {                                   \
-        IndexTreeL t;                                   \
-        for (size_t i = N; i > 0; --i) {                \
-          t =                                           \
-            IndexTreeL({                                \
-                std::make_tuple(                        \
-                  rid->lo[i - 1],                       \
-                  rid->hi[i - 1] - rid->lo[i - 1] + 1,  \
-                  t)});                                 \
-        }                                               \
-        result = result.merged_with(t);                 \
-        rid++;                                          \
-      }                                                 \
-      break;                                            \
-    }
-    LEGMS_FOREACH_N(TREE)
-#undef TREE
-  default:
-      assert(false);
-    break;
-  }
-  return result;
+  return index_space_as_tree(rt, values_lr.get_index_space());
 }
 
 ColumnPartition
