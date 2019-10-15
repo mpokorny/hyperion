@@ -75,6 +75,9 @@ meas_ref_test_suite(
           auto r = mr_tai.make<casacore::MDirection>(ctx, rt);
           return r.has_value();
         }));
+    recorder.expect_true(
+      "MeasRef equivalence relation is reflexive",
+      TE(mr_tai.equiv(ctx, rt, mr_tai)));
     auto ref = mr_tai.make<casacore::MEpoch>(ctx, rt);
     recorder.assert_true(
       "Instance of MEpoch::Ref region has expected class",

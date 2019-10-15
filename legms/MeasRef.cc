@@ -573,6 +573,107 @@ MeasRef::mclass(Legion::PhysicalRegion pr) {
   }
 }
 
+bool
+MeasRef::equiv(Context ctx, Runtime* rt, const MeasRef& other) const {
+  if (metadata_region == other.metadata_region &&
+      value_region == other.value_region)
+    return true;
+  assert(metadata_region != other.metadata_region);
+  assert((value_region != other.value_region)
+         || (value_region == LogicalRegion::NO_REGION
+             && other.value_region == LogicalRegion::NO_REGION));
+  std::tuple<PhysicalRegion, std::optional<PhysicalRegion>> pr_x;
+  {
+    RegionRequirement
+      req(metadata_region, READ_ONLY, EXCLUSIVE, metadata_region);
+    req.add_field(MEASURE_CLASS_FID);
+    req.add_field(REF_TYPE_FID);
+    req.add_field(NUM_VALUES_FID);
+    std::get<0>(pr_x) = rt->map_region(ctx, req);
+  }
+  if (value_region != LogicalRegion::NO_REGION) {
+    RegionRequirement req(value_region, READ_ONLY, EXCLUSIVE, value_region);
+    req.add_field(0);
+    std::get<1>(pr_x) = rt->map_region(ctx, req);
+  }
+  std::tuple<PhysicalRegion, std::optional<PhysicalRegion>> pr_y;
+  {
+    RegionRequirement
+      req(other.metadata_region, READ_ONLY, EXCLUSIVE, other.metadata_region);
+    req.add_field(MEASURE_CLASS_FID);
+    req.add_field(REF_TYPE_FID);
+    req.add_field(NUM_VALUES_FID);
+    std::get<0>(pr_y) = rt->map_region(ctx, req);
+  }
+  if (other.value_region != LogicalRegion::NO_REGION) {
+    RegionRequirement
+      req(other.value_region, READ_ONLY, EXCLUSIVE, other.value_region);
+    req.add_field(0);
+    std::get<1>(pr_y) = rt->map_region(ctx, req);
+  }
+
+  bool result = equiv(rt, pr_x, pr_y);
+
+  rt->unmap_region(ctx, std::get<0>(pr_x));
+  if (std::get<1>(pr_x))
+    rt->unmap_region(ctx, std::get<1>(pr_x).value());
+  rt->unmap_region(ctx, std::get<0>(pr_y));
+  if (std::get<1>(pr_y))
+    rt->unmap_region(ctx, std::get<1>(pr_y).value());
+  return result;
+}
+
+bool
+MeasRef::equiv(
+  Runtime* rt,
+  const std::tuple<PhysicalRegion, std::optional<PhysicalRegion>>& x,
+  const std::tuple<PhysicalRegion, std::optional<PhysicalRegion>>& y) {
+
+  auto& [m_x, v_x] = x;
+  auto& [m_y, v_y] = y;
+  bool result = v_x.has_value() == v_y.has_value();
+  if (result) {
+    IndexSpace is = m_x.get_logical_region().get_index_space();
+    switch (is.get_dim()) {
+#define CMP(D)                                                          \
+      case D: {                                                         \
+        const MeasureClassAccessor<READ_ONLY, D>                        \
+          mclass_x(m_x, MEASURE_CLASS_FID);                             \
+        const MeasureClassAccessor<READ_ONLY, D>                        \
+          mclass_y(m_y, MEASURE_CLASS_FID);                             \
+        const RefTypeAccessor<READ_ONLY, D> rtype_x(m_x, REF_TYPE_FID); \
+        const RefTypeAccessor<READ_ONLY, D> rtype_y(m_y, REF_TYPE_FID); \
+        const NumValuesAccessor<READ_ONLY, D> nvals_x(m_x, NUM_VALUES_FID); \
+        const NumValuesAccessor<READ_ONLY, D> nvals_y(m_y, NUM_VALUES_FID); \
+        for (PointInDomainIterator<D> pid(rt->get_index_space_domain(is)); \
+             result && pid();                                           \
+             pid++)                                                     \
+          result =                                                      \
+            mclass_x[*pid] == mclass_y[*pid]                            \
+            && rtype_x[*pid] == rtype_y[*pid]                           \
+            && nvals_x[*pid] == nvals_y[*pid];                          \
+        if (std::get<1>(x).has_value()) {                               \
+          auto pvx = v_x.value();                                       \
+          auto pvy = v_y.value();                                       \
+          const ValueAccessor<READ_ONLY, D + 1> values_x(pvx, 0);       \
+          const ValueAccessor<READ_ONLY, D + 1> values_y(pvy, 0);       \
+          for (PointInDomainIterator<D + 1>                             \
+                 pid(                                                   \
+                   rt->get_index_space_domain(                          \
+                     pvx.get_logical_region().get_index_space()));      \
+               result && pid();                                         \
+               pid++)                                                   \
+            result = values_x[*pid] == values_y[*pid];                  \
+        }                                                               \
+        break;                                                          \
+      }
+      LEGMS_FOREACH_N_LESS_MAX(CMP);
+#undef CMP
+    }
+  }
+  return result;
+}
+
 std::array<LogicalRegion, 3>
 MeasRef::create_regions(
   Context ctx,

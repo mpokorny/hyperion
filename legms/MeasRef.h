@@ -129,6 +129,19 @@ public:
   static MClass
   mclass(Legion::PhysicalRegion pr);
 
+  bool
+  equiv(Legion::Context ctx, Legion::Runtime* rt, const MeasRef& other) const;
+
+  static bool
+  equiv(
+    Legion::Runtime* rt,
+    const std::tuple<
+      Legion::PhysicalRegion,
+      std::optional<Legion::PhysicalRegion>>& x,
+    const std::tuple<
+      Legion::PhysicalRegion,
+      std::optional<Legion::PhysicalRegion>>& y);
+
   template <typename Ms>
   static MeasRef
   create(
