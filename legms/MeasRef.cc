@@ -573,15 +573,13 @@ MeasRef::mclass(Legion::PhysicalRegion pr) {
   }
 }
 
-MeasRef
-MeasRef::create(
-  Legion::Context ctx,
-  Legion::Runtime *rt,
+std::array<LogicalRegion, 3>
+MeasRef::create_regions(
+  Context ctx,
+  Runtime* rt,
   const std::string& name,
-  casacore::MRBase* mr,
-  MClass klass) {
-
-  auto index_trees = measure_index_trees(mr);
+  const IndexTreeL& metadata_tree,
+  const std::optional<IndexTreeL>& value_tree) {
 
   LogicalRegion name_region;
   {
@@ -601,8 +599,7 @@ MeasRef::create(
 
   LogicalRegion metadata_region;
   {
-    IndexSpace is =
-      tree_index_space(index_trees.metadata_tree.value(), ctx, rt);
+    IndexSpace is = tree_index_space(metadata_tree, ctx, rt);
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(MEASURE_CLASS_TYPE), MEASURE_CLASS_FID);
@@ -612,15 +609,45 @@ MeasRef::create(
   }
 
   LogicalRegion value_region;
-  if (index_trees.value_tree) {
-    IndexSpace is =
-      tree_index_space(index_trees.value_tree.value(), ctx, rt);
+  if (value_tree) {
+    IndexSpace is = tree_index_space(value_tree.value(), ctx, rt);
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(VALUE_TYPE), 0);
     value_region = rt->create_logical_region(ctx, is, fs);
   }
 
+  return {name_region, metadata_region, value_region};
+}
+
+MeasRef
+MeasRef::create(
+  Context ctx,
+  Runtime *rt,
+  const std::string& name,
+  casacore::MRBase* mr,
+  MClass klass) {
+
+  auto index_trees = measure_index_trees(mr);
+  std::array<LogicalRegion, 3> regions =
+    create_regions(
+      ctx,
+      rt,
+      name,
+      index_trees.metadata_tree.value(),
+      index_trees.value_tree);
+
+  LogicalRegion name_region = regions[0];
+  LogicalRegion metadata_region = regions[1];
+  LogicalRegion value_region = regions[2];
+  {
+    RegionRequirement req(name_region, WRITE_ONLY, EXCLUSIVE, name_region);
+    req.add_field(NAME_FID);
+    auto pr = rt->map_region(ctx, req);
+    const NameAccessor<WRITE_ONLY> nm(pr, NAME_FID);
+    nm[0] = name;
+    rt->unmap_region(ctx, pr);
+  }
   {
     std::optional<PhysicalRegion> value_pr;
     if (value_region != LogicalRegion::NO_REGION) {

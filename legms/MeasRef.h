@@ -6,6 +6,7 @@
 #include <legms/Measures.h>
 
 #pragma GCC visibility push(default)
+#include <array>
 #include <memory>
 #include <optional>
 #pragma GCC visibility pop
@@ -143,6 +144,14 @@ public:
 #undef CM
     else assert(false);
   }
+
+  static std::array<Legion::LogicalRegion, 3>
+  create_regions(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::string& name,
+    const IndexTreeL& metadata_tree,
+    const std::optional<IndexTreeL>& value_tree);
 
   std::unique_ptr<casacore::MRBase>
   make(Legion::Context ctx, Legion::Runtime* rt) const;
