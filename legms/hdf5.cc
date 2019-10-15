@@ -269,6 +269,7 @@ write_mr_region(
   Context ctx,
   Runtime *rt,
   hid_t ds,
+  hid_t dt,
   LogicalRegion lr,
   FieldID fid) {
 
@@ -277,7 +278,7 @@ write_mr_region(
   herr_t err =
     H5Dwrite(
       ds,
-      H5DatatypeManager::datatype<ValueType<T>::DataType>(),
+      dt,
       H5S_ALL,
       H5S_ALL,
       H5P_DEFAULT,
@@ -328,8 +329,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
         H5Dcreate(
           loc_id,
           LEGMS_MEAS_REF_MCLASS_DS,
-          H5DatatypeManager::datatype<
-            ValueType<MeasRef::MEASURE_CLASS_TYPE>::DataType>(),
+          H5DatatypeManager::datatypes()[H5DatatypeManager::MEASURE_CLASS_H5T],
           sp,
           H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
       assert(ds >= 0);
@@ -344,6 +344,8 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
               ctx,                                                      \
               rt,                                                       \
               ds,                                                       \
+              H5DatatypeManager::datatypes()[                           \
+                H5DatatypeManager::MEASURE_CLASS_H5T],                  \
               mr.metadata_region,                                       \
               MeasRef::MEASURE_CLASS_FID);                              \
           break;
@@ -377,6 +379,8 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
               ctx,                                                      \
               rt,                                                       \
               ds,                                                       \
+              H5DatatypeManager::datatype<                              \
+                ValueType<MeasRef::REF_TYPE_TYPE>::DataType>(),           \
               mr.metadata_region,                                       \
               MeasRef::REF_TYPE_FID);                                   \
           break;
@@ -410,6 +414,8 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
               ctx,                                                      \
               rt,                                                       \
               ds,                                                       \
+              H5DatatypeManager::datatype<                              \
+                ValueType<MeasRef::NUM_VALUES_TYPE>::DataType>(),         \
               mr.metadata_region,                                       \
               MeasRef::NUM_VALUES_FID);                                 \
           break;
@@ -443,6 +449,8 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
             ctx,                                                        \
             rt,                                                         \
             ds,                                                         \
+            H5DatatypeManager::datatype<                                \
+              ValueType<MeasRef::VALUE_TYPE>::DataType>(),                \
             mr.value_region,                                            \
             0);                                                         \
         break;

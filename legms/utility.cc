@@ -13,6 +13,10 @@
 # include <legms/hdf5.h>
 #endif // LEGMS_USE_HDF5
 
+#ifdef LEGMS_USE_CASACORE
+# include <legms/Measures.h>
+#endif
+
 using namespace legms;
 using namespace Legion;
 
@@ -467,7 +471,7 @@ legms::AxesRegistrar::in_range(
 
 #ifdef LEGMS_USE_HDF5
 hid_t
-legms::H5DatatypeManager::datatypes_[DATATYPE_H5T + 1];
+legms::H5DatatypeManager::datatypes_[N_H5T_DATATYPES];
 
 void
 legms::H5DatatypeManager::preregister_datatypes() {
@@ -505,11 +509,23 @@ legms::H5DatatypeManager::preregister_datatypes() {
       herr_t err = H5Tenum_insert(dt, #T, &val);  \
       assert(err >= 0);                           \
     } while(0);
-
     LEGMS_FOREACH_BARE_DATATYPE(DTINSERT);
-
+#undef DTINSERT
     datatypes_[DATATYPE_H5T] = dt;
   }
+#ifdef LEGMS_USE_CASACORE
+  {
+    hid_t dt = H5Tenum_create(H5T_NATIVE_UINT);
+#define MCINSERT(MC) do {                                               \
+      unsigned val = MC;                                                \
+      herr_t err = H5Tenum_insert(dt, MClassT<MC>::name.c_str(), &val); \
+      assert(err >= 0);                                                 \
+    } while(0);
+    LEGMS_FOREACH_MCLASS(MCINSERT);
+#undef MCINSERT
+    datatypes_[MEASURE_CLASS_H5T] = dt;
+  }
+#endif
 }
 
 herr_t
@@ -560,6 +576,19 @@ legms::H5DatatypeManager::commit_derived(
       lcpl_id,
       tcpl_id,
       tapl_id);
+
+  if (result < 0)
+    return result;
+
+  result =
+    H5Tcommit(
+      loc_id,
+      "legms::MClass",
+      datatypes_[MEASURE_CLASS_H5T],
+      lcpl_id,
+      tcpl_id,
+      tapl_id);
+
   return result;
 }
 

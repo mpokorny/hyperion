@@ -778,6 +778,10 @@ public:
     DCOMPLEX_H5T,
     STRING_H5T,
     DATATYPE_H5T,
+#ifdef LEGMS_USE_CASACORE
+    MEASURE_CLASS_H5T,
+#endif
+    N_H5T_DATATYPES
   };
 
   static void
@@ -808,7 +812,7 @@ public:
 
 private:
 
-  static hid_t datatypes_[DATATYPE_H5T + 1];
+  static hid_t datatypes_[N_H5T_DATATYPES];
 };
 #endif
 
