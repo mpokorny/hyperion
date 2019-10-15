@@ -492,9 +492,6 @@ legms::hdf5::write_measures(
     auto pr = rt->map_region(ctx, req);
     const MeasRefContainer::MeasRefAccessor<READ_ONLY>
       mrs(pr, MeasRefContainer::MEAS_REF_FID);
-    legms::string mr_lname = LEGMS_MEAS_REF_LINK_PREFIX;
-    unsigned mr_lname_idx = 0;
-    const size_t mr_lname_offset = sizeof(LEGMS_MEAS_REF_LINK_PREFIX);
     for (size_t i = 0; i < num_meas_refs; ++i) {
       MeasRef mr = mrs[i];
       std::string name;
@@ -517,21 +514,23 @@ legms::hdf5::write_measures(
             H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
         assert(mr_id > 0);
         write_meas_ref(ctx, rt, mr_id, mr);
-        herr_t err = H5Gclose(mr_id);
-        assert(err >= 0);
-      } else {
-        // create soft link
-        std::snprintf(
-          &mr_lname.val[mr_lname_offset],
-          sizeof(mr_lname.val) - mr_lname_offset,
-          "%u",
-          mr_lname_idx++);
-        herr_t err =
-          H5Lcreate_soft(
-            name.c_str(),
+        IndexTreeL metadata_tree =
+          index_space_as_tree(rt, mr.metadata_region.get_index_space());
+        write_index_tree_to_attr<binary_index_tree_serdez>(
+          metadata_tree,
+          measures_id,
+          tag.c_str(),
+          "metadata_index_tree");
+        if (mr.value_region != LogicalRegion::NO_REGION) {
+          IndexTreeL value_tree =
+            index_space_as_tree(rt, mr.value_region.get_index_space());
+          write_index_tree_to_attr<binary_index_tree_serdez>(
+            value_tree,
             measures_id,
-            mr_lname.val,
-            H5P_DEFAULT, H5P_DEFAULT);
+            tag.c_str(),
+            "value_index_tree");
+        }
+        herr_t err = H5Gclose(mr_id);
         assert(err >= 0);
       }
     }
@@ -1102,6 +1101,22 @@ acc_col(
   return 0;
 }
 
+struct acc_meas_ref_ctx {
+  Context ctx;
+  Runtime* rt;
+  std::vector<MeasRef> acc;
+};
+
+static herr_t
+acc_meas_ref(
+  hid_t group,
+  const char* name,
+  const H5L_info_t* info,
+  void* ctx) {
+
+  struct acc_meas_ref_ctx* args = static_cast<acc_meas_ref_ctx*>(ctx);
+}
+
 Table
 legms::hdf5::init_table(
   Context ctx,
@@ -1121,7 +1136,28 @@ legms::hdf5::init_table(
 
 #ifdef LEGMS_USE_CASACORE
   // FIXME: complete Table MeasRef
-  auto table_meas_ref = MeasRefContainer::create(ctx, rt, {}, ms_meas_ref);
+  htri_t rc = H5Lexists(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+  assert(rc >= 0);
+  std::vector<MeasRef> mrs;
+  if (rc > 0) {
+    hid_t measures_id = H5Gopen(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+    assert(measures_id >= 0);
+    hsize_t position;
+    struct acc_meas_ref_ctx acc_meas_ref_ctx;
+    herr_t err =
+      H5Literate(
+        loc_id,
+        H5_INDEX_NAME,
+        H5_ITER_NATIVE,
+        &position,
+        acc_meas_ref,
+        &acc_meas_ref_ctx);
+    assert(err >= 0);
+    mrs = std::move(acc_meas_ref_ctx.acc);
+    err = H5Gclose(measures_id);
+    assert(err >= 0);
+  }
+  auto table_meas_ref = MeasRefContainer::create(ctx, rt, mrs, ms_meas_ref);
 #endif
 
   std::vector<int> index_axes;
