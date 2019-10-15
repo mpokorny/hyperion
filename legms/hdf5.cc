@@ -943,6 +943,240 @@ legms::hdf5::init_keywords(
       });
 }
 
+#ifdef LEGMS_USE_CASACORE
+template <typename T>
+std::vector<T>
+copy_mr_ds(hid_t ds) {
+
+  hid_t spc = H5Dget_space(ds);
+  assert(spc >= 0);
+  int rank = H5Sget_simple_extent_ndims(spc);
+  assert(rank > 0);
+  hssize_t npts = H5Sget_simple_extent_npoints(spc);
+  std::vector<T> result(npts);
+  herr_t err =
+    H5Dread(
+      ds,
+      H5DatatypeManager::datatype<ValueType<T>::DataType>(),
+      H5S_ALL,
+      H5S_ALL,
+      H5P_DEFAULT,
+      result.data());
+  assert(err >= 0);
+  err = H5Sclose(spc);
+  assert(err >= 0);
+  return result;
+}
+
+template <int D, typename A, typename T>
+static void
+read_mr_region(
+  Context ctx,
+  Runtime* rt,
+  hid_t ds,
+  LogicalRegion region,
+  FieldID fid) {
+
+  std::vector<T> buff = copy_mr_ds<T>(ds);
+  RegionRequirement req(region, WRITE_ONLY, EXCLUSIVE, region);
+  req.add_field(fid);
+  auto pr = rt->map_region(ctx, req);
+  const A acc(pr, fid);
+  Domain dom = rt->get_index_space_domain(region.get_index_space());
+  Rect<D,coord_t> rect = dom.bounds<D,coord_t>();
+  auto t = buff.begin();
+  for (PointInRectIterator<D> pir(rect, false); pir(); pir++) {
+    if (dom.contains(*pir))
+      acc[*pir] = *t;
+    ++t;
+  }
+  rt->unmap_region(ctx, pr);
+}
+
+static MeasRef
+init_meas_ref(
+  Context ctx,
+  Runtime* rt,
+  hid_t loc_id,
+  const char* name,
+  const IndexTreeL& metadata_tree,
+  const std::optional<IndexTreeL>& value_tree) {
+
+  std::array<LogicalRegion, 3> regions =
+    MeasRef::create_regions(ctx, rt, name, metadata_tree, value_tree);
+  LogicalRegion name_region = regions[0];
+  LogicalRegion metadata_region = regions[1];
+  LogicalRegion value_region = regions[2];
+
+  {
+    // Read the datasets for the MeasRef values directly.
+    {
+      hid_t ds = H5Dopen(loc_id, LEGMS_MEAS_REF_MCLASS_DS, H5P_DEFAULT);
+      assert(ds >= 0);
+
+      switch (metadata_region.get_index_space().get_dim()) {
+#define W_MCLASS(D)                                                     \
+        case D:                                                         \
+          read_mr_region<                                               \
+            D, \
+            MeasRef::MeasureClassAccessor<WRITE_ONLY, D>, \
+            MeasRef::MEASURE_CLASS_TYPE>( \
+              ctx,                                                      \
+              rt,                                                       \
+              ds,                                                       \
+              metadata_region,                                          \
+              MeasRef::MEASURE_CLASS_FID);                              \
+          break;
+        LEGMS_FOREACH_N_LESS_MAX(W_MCLASS);
+#undef W_MCLASS
+      default:
+        assert(false);
+        break;
+      }
+      herr_t err = H5Dclose(ds);
+      assert(err >= 0);
+    }
+    {
+      hid_t ds = H5Dopen(loc_id, LEGMS_MEAS_REF_RTYPE_DS, H5P_DEFAULT);
+      assert(ds >= 0);
+
+      switch (metadata_region.get_index_space().get_dim()) {
+#define W_RTYPE(D)                                                      \
+        case D:                                                         \
+          read_mr_region<                                               \
+            D, \
+            MeasRef::RefTypeAccessor<WRITE_ONLY, D>, \
+            MeasRef::REF_TYPE_TYPE>( \
+              ctx,                                                      \
+              rt,                                                       \
+              ds,                                                       \
+              metadata_region,                                          \
+              MeasRef::REF_TYPE_FID);                                   \
+          break;
+        LEGMS_FOREACH_N_LESS_MAX(W_RTYPE);
+#undef W_RTYPE
+      default:
+        assert(false);
+        break;
+      }
+      herr_t err = H5Dclose(ds);
+      assert(err >= 0);
+    }
+    {
+      hid_t ds = H5Dopen(loc_id, LEGMS_MEAS_REF_NVAL_DS, H5P_DEFAULT);
+      assert(ds >= 0);
+
+      switch (metadata_region.get_index_space().get_dim()) {
+#define W_NVAL(D)                                                       \
+        case D:                                                         \
+          read_mr_region<                                               \
+            D, \
+            MeasRef::NumValuesAccessor<WRITE_ONLY, D>, \
+            MeasRef::NUM_VALUES_TYPE>( \
+              ctx,                                                      \
+              rt,                                                       \
+              ds,                                                       \
+              metadata_region,                                          \
+              MeasRef::NUM_VALUES_FID);                                 \
+          break;
+        LEGMS_FOREACH_N_LESS_MAX(W_NVAL);
+#undef W_NVAL
+      default:
+        assert(false);
+        break;
+      }
+      herr_t err = H5Dclose(ds);
+      assert(err >= 0);
+    }
+  }
+  if (value_region != LogicalRegion::NO_REGION) {
+    hid_t ds = H5Dopen(loc_id, LEGMS_MEAS_REF_VALUES_DS, H5P_DEFAULT);
+    assert(ds >= 0);
+
+    switch (value_region.get_index_space().get_dim()) {
+#define W_VALUES(D)                                                     \
+      case D:                                                           \
+        read_mr_region<                                                 \
+          D, \
+          MeasRef::ValueAccessor<WRITE_ONLY, D>, \
+          MeasRef::VALUE_TYPE>( \
+            ctx,                                                        \
+            rt,                                                         \
+            ds,                                                         \
+            value_region,                                               \
+            0);                                                         \
+        break;
+      LEGMS_FOREACH_N(W_VALUES);
+#undef W_VALUES
+    default:
+      assert(false);
+      break;
+    }
+    herr_t err = H5Dclose(ds);
+    assert(err >= 0);
+  }
+  return MeasRef(name_region, metadata_region, value_region);
+}
+
+struct acc_meas_ref_ctx {
+  Context ctx;
+  Runtime* rt;
+  std::vector<MeasRef> acc;
+};
+
+static herr_t
+acc_meas_ref(
+  hid_t group,
+  const char* name,
+  const H5L_info_t* info,
+  void* ctx) {
+
+  struct acc_meas_ref_ctx* args = static_cast<acc_meas_ref_ctx*>(ctx);
+  H5O_info_t infobuf;
+  {
+    herr_t err = H5Oget_info_by_name(group, name, &infobuf, H5P_DEFAULT);
+    assert(err >= 0);
+  }
+  if (infobuf.type == H5O_TYPE_GROUP) {
+    hid_t mr_id = H5Gopen(group, name, H5P_DEFAULT);
+    assert(mr_id >= 0);
+    IndexTreeL metadata_tree;
+    {
+      std::string sid =
+        read_index_tree_attr_metadata(group, "metadata_index_tree").value();
+      assert(sid == "legms::hdf5::binary_index_tree_serdez");
+      metadata_tree =
+        read_index_tree_from_attr<binary_index_tree_serdez>(
+          group,
+          "metadata_index_tree").value();
+    }
+    std::optional<IndexTreeL> value_tree;
+    {
+      std::optional<std::string> sid =
+        read_index_tree_attr_metadata(group, "value_index_tree");
+      if (sid) {
+        assert(sid.value() == "legms::hdf5::binary_index_tree_serdez");
+        value_tree =
+          read_index_tree_from_attr<binary_index_tree_serdez>(
+            group,
+            "value_index_tree");
+      }
+    }
+    args->acc.push_back(
+      init_meas_ref(
+        args->ctx,
+        args->rt,
+        mr_id,
+        name,
+        metadata_tree,
+        value_tree));
+    herr_t err = H5Gclose(mr_id);
+    assert(err >= 0);
+  }
+  return 0;
+}
+#endif // LEGMS_USE_CASACORE
+
 Column
 legms::hdf5::init_column(
   Context ctx,
@@ -957,6 +1191,34 @@ legms::hdf5::init_column(
   const std::string& name_prefix) {
 
   Column result;
+
+#ifdef LEGMS_USE_CASACORE
+  std::vector<MeasRef> mrs;
+  {
+    htri_t rc = H5Lexists(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+    assert(rc >= 0);
+    if (rc > 0) {
+      hid_t measures_id = H5Gopen(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+      assert(measures_id >= 0);
+      hsize_t position;
+      struct acc_meas_ref_ctx acc_meas_ref_ctx;
+      herr_t err =
+        H5Literate(
+          loc_id,
+          H5_INDEX_NAME,
+          H5_ITER_NATIVE,
+          &position,
+          acc_meas_ref,
+          &acc_meas_ref_ctx);
+      assert(err >= 0);
+      mrs = std::move(acc_meas_ref_ctx.acc);
+      err = H5Gclose(measures_id);
+      assert(err >= 0);
+    }
+  }
+  auto column_meas_ref =
+    MeasRefContainer::create(ctx, rt, mrs, table_meas_ref);
+#endif
 
   legms::TypeTag datatype = ValueType<int>::DataType;
   hid_t datatype_id = -1;
@@ -1032,7 +1294,7 @@ legms::hdf5::init_column(
             datatype,
             it,
 #ifdef LEGMS_USE_CASACORE
-            table_meas_ref, // FIXME: add column MeasRef
+            column_meas_ref,
 #endif
             keywords,
             name_prefix);
@@ -1109,22 +1371,6 @@ acc_col(
   return 0;
 }
 
-struct acc_meas_ref_ctx {
-  Context ctx;
-  Runtime* rt;
-  std::vector<MeasRef> acc;
-};
-
-static herr_t
-acc_meas_ref(
-  hid_t group,
-  const char* name,
-  const H5L_info_t* info,
-  void* ctx) {
-
-  struct acc_meas_ref_ctx* args = static_cast<acc_meas_ref_ctx*>(ctx);
-}
-
 Table
 legms::hdf5::init_table(
   Context ctx,
@@ -1143,27 +1389,28 @@ legms::hdf5::init_table(
     return result;
 
 #ifdef LEGMS_USE_CASACORE
-  // FIXME: complete Table MeasRef
-  htri_t rc = H5Lexists(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
-  assert(rc >= 0);
   std::vector<MeasRef> mrs;
-  if (rc > 0) {
-    hid_t measures_id = H5Gopen(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
-    assert(measures_id >= 0);
-    hsize_t position;
-    struct acc_meas_ref_ctx acc_meas_ref_ctx;
-    herr_t err =
-      H5Literate(
-        loc_id,
-        H5_INDEX_NAME,
-        H5_ITER_NATIVE,
-        &position,
-        acc_meas_ref,
-        &acc_meas_ref_ctx);
-    assert(err >= 0);
-    mrs = std::move(acc_meas_ref_ctx.acc);
-    err = H5Gclose(measures_id);
-    assert(err >= 0);
+  {
+    htri_t rc = H5Lexists(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+    assert(rc >= 0);
+    if (rc > 0) {
+      hid_t measures_id = H5Gopen(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+      assert(measures_id >= 0);
+      hsize_t position;
+      struct acc_meas_ref_ctx acc_meas_ref_ctx;
+      herr_t err =
+        H5Literate(
+          loc_id,
+          H5_INDEX_NAME,
+          H5_ITER_NATIVE,
+          &position,
+          acc_meas_ref,
+          &acc_meas_ref_ctx);
+      assert(err >= 0);
+      mrs = std::move(acc_meas_ref_ctx.acc);
+      err = H5Gclose(measures_id);
+      assert(err >= 0);
+    }
   }
   auto table_meas_ref = MeasRefContainer::create(ctx, rt, mrs, ms_meas_ref);
 #endif
