@@ -22,9 +22,7 @@ MeasRefContainer::create(
   if (borrowed.lr == LogicalRegion::NO_REGION)
     bn = 0;
   else
-    bn =
-      rt->get_index_space_domain(borrowed.lr.get_index_space())
-      .get_volume();
+    bn = rt->get_index_space_domain(borrowed.lr.get_index_space()).get_volume();
   size_t n = owned.size() + bn;
   if (n == 0)
     return MeasRefContainer();
@@ -56,8 +54,7 @@ MeasRefContainer::create(
       breq.add_field(MEAS_REF_FID);
       auto bpr = rt->map_region(ctx, breq);
       const MeasRefAccessor<READ_ONLY> bmr(bpr, MEAS_REF_FID);
-      for (size_t j = 0; j < bn; ++j, ++i) {
-        auto nm = bmr[j].name(ctx, rt);
+      for (size_t j = 0; j < bn; ++j) {
         o[i] = false;
         mr[i] = bmr[j];
         ++i;
@@ -89,20 +86,18 @@ MeasRefContainer::add_prefix_to_owned(
     std::string pre = prefix;
     if (pre.back() != '/')
       pre.push_back('/');
-    RegionRequirement own_req(lr, READ_ONLY, EXCLUSIVE, lr);
-    own_req.add_field(OWNED_FID);
-    auto own_pr = rt->map_region(ctx, own_req);
-    RegionRequirement mrefs_req(lr, READ_ONLY, EXCLUSIVE, lr);
-    mrefs_req.add_field(MEAS_REF_FID);
-    auto mrefs_pr = rt->map_region(ctx, mrefs_req);
-    const OwnedAccessor<READ_ONLY> owned(own_pr, OWNED_FID);
-    const MeasRefAccessor<READ_ONLY> mrefs(mrefs_pr, MEAS_REF_FID);
+    RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+    req.add_field(OWNED_FID);
+    req.add_field(MEAS_REF_FID);
+    auto pr = rt->map_region(ctx, req);
+    const OwnedAccessor<READ_ONLY> owned(pr, OWNED_FID);
+    const MeasRefAccessor<READ_ONLY> mrefs(pr, MEAS_REF_FID);
     for (PointInDomainIterator<1> pid(
            rt->get_index_space_domain(lr.get_index_space()));
          pid();
          pid++) {
       if (owned[*pid]) {
-        auto mr = mrefs[*pid];
+        auto& mr = mrefs[*pid];
         RegionRequirement
           r(mr.name_region, READ_WRITE, EXCLUSIVE, mr.name_region);
         r.add_field(MeasRef::NAME_FID);
@@ -112,8 +107,7 @@ MeasRefContainer::add_prefix_to_owned(
         rt->unmap_region(ctx, nm_pr);
       }
     }
-    rt->unmap_region(ctx, mrefs_pr);
-    rt->unmap_region(ctx, own_pr);
+    rt->unmap_region(ctx, pr);
   }
 }
 
