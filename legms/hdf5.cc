@@ -47,6 +47,8 @@ legms::hdf5::read_index_tree_attr_metadata(
         assert(rc >= 0);
         result = attr.val;
       }
+      herr_t err = H5Aclose(attr_id);
+      assert(err >= 0);
     }
   }
   return result;
@@ -1366,6 +1368,8 @@ acc_col(
 #endif
           args->table_name);
       args->acc->push_back(std::move(col));
+      herr_t err = H5Gclose(col_group_id);
+      assert(err >= 0);
     }
   }
   return 0;
@@ -1604,6 +1608,8 @@ acc_column_names(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
       if (infobuf.type == H5O_TYPE_DATASET)
         colnames->insert(name);
     }
+    herr_t err = H5Gclose(gid);
+    assert(err >= 0);
   }
   return 0;
 }
