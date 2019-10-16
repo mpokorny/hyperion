@@ -109,6 +109,8 @@ public:
     : name_region(name_region_)
     , value_region(value_region_)
     , metadata_region(metadata_region_) {
+    assert(name_region != Legion::LogicalRegion::NO_REGION);
+    assert(metadata_region != Legion::LogicalRegion::NO_REGION);
   }
 
   std::string
