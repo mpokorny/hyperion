@@ -484,12 +484,7 @@ legms::hdf5::write_measures(
       assert(err >= 0);
     }
   }
-  hid_t measures_id =
-    H5Gcreate(
-      loc_id,
-      LEGMS_MEASURES_GROUP,
-      H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  assert(measures_id >= 0);
+  hid_t measures_id = -1;
   {
     std::string component_prefix = component_path;
     if (component_prefix.back() != '/')
@@ -514,6 +509,14 @@ legms::hdf5::write_measures(
       }
       if (name.substr(0, prefix_sz) == component_prefix) {
         // write value into new group
+        if (measures_id < 0) {
+          measures_id =
+            H5Gcreate(
+              loc_id,
+              LEGMS_MEASURES_GROUP,
+              H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+          assert(measures_id >= 0);
+        }
         std::string tag = name.substr(MeasRef::find_tag(name));
         hid_t mr_id =
           H5Gcreate(
@@ -544,8 +547,10 @@ legms::hdf5::write_measures(
     }
     rt->unmap_region(ctx, pr);
   }
-  herr_t err = H5Gclose(measures_id);
-  assert(err >= 0);
+  if (measures_id >= 0) {
+    herr_t err = H5Gclose(measures_id);
+    assert(err >= 0);
+  }
 }
 #endif //LEGMS_USE_CASACORE
 
@@ -998,7 +1003,7 @@ init_meas_ref(
   Context ctx,
   Runtime* rt,
   hid_t loc_id,
-  const char* name,
+  const std::string& name,
   const IndexTreeL& metadata_tree,
   const std::optional<IndexTreeL>& value_tree) {
 
@@ -1115,7 +1120,7 @@ init_meas_ref(
     herr_t err = H5Dclose(ds);
     assert(err >= 0);
   }
-  return MeasRef(name_region, metadata_region, value_region);
+  return MeasRef(name_region, value_region, metadata_region);
 }
 
 struct acc_meas_ref_ctx {
@@ -1143,22 +1148,22 @@ acc_meas_ref(
     IndexTreeL metadata_tree;
     {
       std::string sid =
-        read_index_tree_attr_metadata(group, "metadata_index_tree").value();
+        read_index_tree_attr_metadata(mr_id, "metadata_index_tree").value();
       assert(sid == "legms::hdf5::binary_index_tree_serdez");
       metadata_tree =
         read_index_tree_from_attr<binary_index_tree_serdez>(
-          group,
+          mr_id,
           "metadata_index_tree").value();
     }
     std::optional<IndexTreeL> value_tree;
     {
       std::optional<std::string> sid =
-        read_index_tree_attr_metadata(group, "value_index_tree");
+        read_index_tree_attr_metadata(mr_id, "value_index_tree");
       if (sid) {
         assert(sid.value() == "legms::hdf5::binary_index_tree_serdez");
         value_tree =
           read_index_tree_from_attr<binary_index_tree_serdez>(
-            group,
+            mr_id,
             "value_index_tree");
       }
     }
@@ -1200,11 +1205,11 @@ legms::hdf5::init_column(
     if (rc > 0) {
       hid_t measures_id = H5Gopen(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
       assert(measures_id >= 0);
-      hsize_t position;
-      struct acc_meas_ref_ctx acc_meas_ref_ctx;
+      hsize_t position = 0;
+      struct acc_meas_ref_ctx acc_meas_ref_ctx{ctx, rt};
       herr_t err =
         H5Literate(
-          loc_id,
+          measures_id,
           H5_INDEX_NAME,
           H5_ITER_NATIVE,
           &position,
@@ -1357,12 +1362,7 @@ acc_col(
           col_group_id,
           args->axes_dt,
 #ifdef LEGMS_USE_CASACORE
-          // FIXME: complete column MeasRef
-          MeasRefContainer::create(
-            args->ctx,
-            args->rt,
-            {},
-            *args->table_meas_ref),
+          *args->table_meas_ref,
 #endif
           args->table_name);
       args->acc->push_back(std::move(col));
@@ -1396,11 +1396,11 @@ legms::hdf5::init_table(
     if (rc > 0) {
       hid_t measures_id = H5Gopen(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
       assert(measures_id >= 0);
-      hsize_t position;
-      struct acc_meas_ref_ctx acc_meas_ref_ctx;
+      hsize_t position = 0;
+      struct acc_meas_ref_ctx acc_meas_ref_ctx{ctx, rt};
       herr_t err =
         H5Literate(
-          loc_id,
+          measures_id,
           H5_INDEX_NAME,
           H5_ITER_NATIVE,
           &position,
@@ -1452,7 +1452,7 @@ legms::hdf5::init_table(
   }
   {
     struct acc_col_ctx acc_col_ctx{
-      name_prefix, &column_names, &cols, axes_uid, axes_dt,
+      table_name, &column_names, &cols, axes_uid, axes_dt,
 #ifdef LEGMS_USE_CASACORE
       &table_meas_ref,
 #endif
@@ -1567,12 +1567,13 @@ legms::hdf5::get_table_paths(
   std::unordered_set<std::string> result;
   hid_t fid = H5Fopen(file_path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
   if (fid >= 0) {
+    hsize_t n = 0;
     herr_t err =
       H5Literate(
         fid,
         H5_INDEX_NAME,
         H5_ITER_NATIVE,
-        NULL,
+        &n,
         acc_table_paths,
         &result);
     assert(err >= 0);
@@ -1589,7 +1590,9 @@ acc_column_names(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
   H5O_info_t infobuf;
   herr_t err = H5Oget_info_by_name(loc_id, name, &infobuf, H5P_DEFAULT);
   assert(err >= 0);
-  if (infobuf.type == H5O_TYPE_GROUP) {
+  if (infobuf.type == H5O_TYPE_GROUP
+      && (std::string(name).substr(0, sizeof(LEGMS_NAMESPACE_PREFIX) - 1)
+          != LEGMS_NAMESPACE_PREFIX)) {
     hid_t gid = H5Gopen(loc_id, name, H5P_DEFAULT);
     assert(gid >= 0);
     htri_t has_col_ds = H5Oexists_by_name(gid, LEGMS_COLUMN_DS, H5P_DEFAULT);
@@ -1615,12 +1618,13 @@ legms::hdf5::get_column_names(
   if (fid >= 0) {
     hid_t tid = H5Gopen(fid, table_path.c_str(), H5P_DEFAULT);
     if (tid >= 0) {
+      hsize_t n = 0;
       herr_t err =
         H5Literate(
           tid,
           H5_INDEX_NAME,
           H5_ITER_NATIVE,
-          NULL,
+          &n,
           acc_column_names,
           &result);
       assert(err >= 0);
