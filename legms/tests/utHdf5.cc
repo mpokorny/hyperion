@@ -95,7 +95,7 @@ unsigned table0_y[TABLE0_NUM_ROWS] {
 unsigned table0_z[2 * TABLE0_NUM_ROWS];
 
 LogicalRegion
-copy_region(const PhysicalRegion& region, Context context, Runtime* runtime) {
+copy_region(Context context, Runtime* runtime, const PhysicalRegion& region) {
   LogicalRegion lr = region.get_logical_region();
   LogicalRegion result =
     runtime->create_logical_region(
@@ -356,7 +356,7 @@ verify_col(
   Context context,
   Runtime* runtime) {
 
-  LogicalRegion lr = copy_region(region, context, runtime);
+  LogicalRegion lr = copy_region(context, runtime, region);
   RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
   req.add_field(Column::VALUE_FID);
   PhysicalRegion pr = runtime->map_region(context, req);
@@ -669,36 +669,37 @@ table_tests(
               {"table0/Z/EPOCH", columnZ_epoch}})));
     }
 
-    // attach to file, and read back keywords
+    //attach to file, and read back keywords
     // {
-    //   auto tb_kws =
+    //   auto kws =
     //     attach_table_keywords(
+    //       ctx,
+    //       rt,
     //       fname,
     //       "/",
-    //       tb0.get(),
-    //       rt,
-    //       ctx);
-    //   recorder.assert_true(
-    //     "Table keywords attached",
-    //     TE(tb_kws.has_value()));
-    //   std::map<std::string, size_t> fids;
-    //   for (size_t i = 0; i < tb0->keywords().size(); ++i)
-    //     fids[std::get<0>(tb0->keywords()[i])] = i;
+    //       tb0);
+    //   std::map<std::string, FieldID> fids;
+    //   for (auto& k : tb0.keywords.keys(rt))
+    //     fids[k] = tb0.keywords.find_keyword(rt, k).value();
     //   recorder.expect_true(
     //     "Table has expected keyword values",
     //     testing::TestEval(
-    //       [&tb_kws, &fids, &ms_vn, &ms_nm, ctx, rt]() {
-    //         LogicalRegion kws = copy_region(tb_kws.value(), ctx, rt);
-    //         RegionRequirement req(kws, READ_ONLY, EXCLUSIVE, kws);
+    //       [&kws, &fids, &ms_vn, &ms_nm, ctx, rt]() {
+    //         LogicalRegion lr = copy_region(ctx, rt, kws);
+    //         RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
     //         for (size_t i = 0; i < fids.size(); ++i)
     //           req.add_field(i);
-    //         PhysicalRegion pr = rt->map_region(ctx, req);
-    //         const FieldAccessor<READ_ONLY, float, 1>
-    //           vn(pr, fids.at("MS_VERSION"));
-    //         const FieldAccessor<READ_ONLY, casacore::String, 1>
-    //           nm(pr, fids.at("NAME"));
-    //         return vn[0] == ms_vn && nm[0] == ms_nm;
+    //         auto pr = rt->map_region(ctx, req);
+    //         const FA<READ_ONLY, float, 1> vn(pr, fids.at("MS_VERSION"));
+    //         const FA<READ_ONLY, legms::string, 1> nm(pr, fids.at("NAME"));
+    //         std::string name = nm[0];
+    //         bool result = vn[0] == ms_vn && name == std::string(ms_nm);
+    //         rt->unmap_region(ctx, pr);
+    //         return result;
     //        }));
+    //   recorder.expect_no_throw(
+    //     "Table keywords detached",
+    //     TE((rt->detach_external_resource(ctx, kws), true)));
     // }
     // attach to file, and read back values
     {
