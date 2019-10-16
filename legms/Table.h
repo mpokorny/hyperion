@@ -34,8 +34,6 @@
 # include <legms/MeasRefContainer.h>
 #endif
 
-#define NO_REINDEX 1
-
 namespace legms {
 
 class LEGMS_API Table {

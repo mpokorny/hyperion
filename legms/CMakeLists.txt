@@ -160,6 +160,16 @@ list(FILTER LEGMS_INCLUDE INCLUDE REGEX ".*\.h")
 
 add_library(legms SHARED ${LEGMS_SRC})
 set(legms_COMPILE_DEFINITIONS "")
+
+# table/column reindexing was broken by earlier changes, but it's something we
+# want working again sometime, and we retain the code and its unit tests, but
+# disable them with the following definitions
+set(legms_NO_REINDEX ON)
+if(legms_NO_REINDEX)
+  list(APPEND
+    legms_COMPILE_DEFINITIONS "NO_REINDEX")
+endif()
+
 list(APPEND
   legms_COMPILE_DEFINITIONS "LEGION_MAX_DIM=${MAX_DIM}")
 list(APPEND

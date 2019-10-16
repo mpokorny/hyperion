@@ -11,29 +11,31 @@ if (USE_HDF5)
 endif (USE_HDF5)
 link_libraries(legms_testing)
 
-add_executable(utIndexColumnTask utIndexColumnTask.cc)
-set_target_properties(utIndexColumnTask PROPERTIES
-  CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
-add_test(
-  NAME IndexColumnTaskUnitTest
-  COMMAND ../testing/TestRunner.py ./utIndexColumnTask)
+if(NOT legms_NO_REINDEX)
+  add_executable(utIndexColumnTask utIndexColumnTask.cc)
+  set_target_properties(utIndexColumnTask PROPERTIES
+    CXX_STANDARD 17
+    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+  add_test(
+    NAME IndexColumnTaskUnitTest
+    COMMAND ../testing/TestRunner.py ./utIndexColumnTask)
 
-add_executable(utReindexColumnTask utReindexColumnTask.cc)
-set_target_properties(utReindexColumnTask PROPERTIES
-  CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
-add_test(
-  NAME ReindexColumnTaskUnitTest
-  COMMAND ../testing/TestRunner.py ./utReindexColumnTask)
+  add_executable(utReindexColumnTask utReindexColumnTask.cc)
+  set_target_properties(utReindexColumnTask PROPERTIES
+    CXX_STANDARD 17
+    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+  add_test(
+    NAME ReindexColumnTaskUnitTest
+    COMMAND ../testing/TestRunner.py ./utReindexColumnTask)
 
-add_executable(utReindexed utReindexed.cc)
-set_target_properties(utReindexed PROPERTIES
-  CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
-add_test(
-  NAME ReindexedUnitTest
-  COMMAND ../testing/TestRunner.py ./utReindexed)
+  add_executable(utReindexed utReindexed.cc)
+  set_target_properties(utReindexed PROPERTIES
+    CXX_STANDARD 17
+    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+  add_test(
+    NAME ReindexedUnitTest
+    COMMAND ../testing/TestRunner.py ./utReindexed)
+endif()
 
 add_executable(utTable utTable.cc)
 set_target_properties(utTable PROPERTIES
