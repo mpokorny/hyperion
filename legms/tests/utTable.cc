@@ -314,9 +314,7 @@ table_test_suite(
       ctx,
       rt,
       {MeasRef::create(ctx, rt, "EPOCH", tai)});
-#endif
 
-#ifdef LEGMS_USE_CASACORE
   casacore::MeasRef<casacore::MDirection>
     direction(casacore::MDirection::J2000);
   casacore::MeasRef<casacore::MFrequency>
