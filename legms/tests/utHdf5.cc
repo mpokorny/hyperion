@@ -434,9 +434,10 @@ verify_mr_values(
 
 void
 table_tests(
-  testing::TestRecorder<READ_WRITE>& recorder,
   Context ctx,
-  Runtime* rt) {
+  Runtime* rt,
+  bool save_output_file,
+  testing::TestRecorder<READ_WRITE>& recorder) {
 
   for (size_t i = 0; i < TABLE0_NUM_ROWS; ++i) {
     table0_z[2 * i] = table0_x[i];
@@ -526,7 +527,8 @@ table_tests(
     // write HDF5 file
     int fd = mkstemp(fname.data());
     assert(fd != -1);
-    std::cout << "test file name: " << fname << std::endl;
+    if (save_output_file)
+      std::cout << "test file name: " << fname << std::endl;
     close(fd);
     recorder.assert_no_throw(
       "Write to HDF5 file",
@@ -747,6 +749,8 @@ table_tests(
     }
     tb0.destroy(ctx, rt);
   }
+  if (!save_output_file)
+    LEGMS_FS::remove(fname);
 }
 
 void
@@ -755,6 +759,11 @@ hdf5_test_suite(
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime *runtime) {
+
+  const InputArgs& args = Runtime::get_input_args();
+  bool save_output_file = false;
+  for (int i = 1; i < args.argc; ++i)
+    save_output_file = std::string(args.argv[i]) == "--save-output";
 
   register_tasks(ctx, runtime);
 
@@ -768,7 +777,7 @@ hdf5_test_suite(
   testing::TestRecorder<READ_WRITE> recorder(log);
 
   tree_tests(recorder);
-  table_tests(recorder, ctx, runtime);
+  table_tests(ctx, runtime, save_output_file, recorder);
 }
 
 int
