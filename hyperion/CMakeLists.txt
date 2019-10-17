@@ -10,7 +10,6 @@ if (BUILD_CASACORE)
   ExternalProject_Get_Property(casacore_build INSTALL_DIR)
   set(casacore_INSTALL_DIR ${INSTALL_DIR})
   set(casacore_INCLUDE_DIR ${INSTALL_DIR}/include)
-  set(casacore_LIBRARY_DIR ${INSTALL_DIR}/lib)
 endif ()
 
 #------------------------------------------------------------------------------#
@@ -183,13 +182,19 @@ target_include_directories(hyperion
   PUBLIC ${Legion_INSTALL_DIR}/include
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
   PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..)
-target_link_directories(hyperion PUBLIC ${Legion_INSTALL_DIR}/lib64)
+target_link_directories(hyperion
+  PUBLIC ${Legion_INSTALL_DIR}/lib64
+  PUBLIC ${Legion_INSTALL_DIR}/lib)
 if (USE_CASACORE)
   if (BUILD_CASACORE)
     add_dependencies(hyperion casacore_build)
+    target_link_directories(
+      hyperion PUBLIC ${casacore_INSTALL_DIR}/lib64
+      hyperion PUBLIC ${casacore_INSTALL_DIR}/lib)
+  else()
+    target_link_directories(hyperion PUBLIC ${casacore_LIBRARY_DIR})
   endif ()
   target_include_directories(hyperion PUBLIC ${casacore_INCLUDE_DIR})
-  target_link_directories(hyperion PUBLIC ${casacore_LIBRARY_DIR})
   target_link_libraries(hyperion PUBLIC casa_tables)
   target_link_libraries(hyperion PUBLIC casa_casa)
   target_link_libraries(hyperion PUBLIC casa_measures)
