@@ -15,7 +15,7 @@
  */
 #include "MeasRef.h"
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 
 #include "IndexTree.h"
 #include "tree_index_space.h"
@@ -26,7 +26,7 @@
 #include <unordered_map>
 #include <variant>
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 static IndexTreeL
@@ -195,7 +195,7 @@ initialize_vm(
 #define SET_MCLASS(M)                           \
             else if (name == MClassT<M>::name)  \
               mclasses[p] = M;
-            LEGMS_FOREACH_MCLASS(SET_MCLASS)
+            HYPERION_FOREACH_MCLASS(SET_MCLASS)
 #undef SET_MCLASS
             else assert(false);
             ref_base = measure->getRefPtr();
@@ -382,7 +382,7 @@ instantiate_vm(
             v = std::make_unique<MClassT<M>::type::MVType>(mvals);  \
           r = std::make_unique<MClassT<M>::type::Ref>(rtypes[p]);   \
           break;
-        LEGMS_FOREACH_MCLASS(VR)
+        HYPERION_FOREACH_MCLASS(VR)
 #undef VR
       default:
         assert(false);
@@ -412,7 +412,7 @@ instantiate_vm(
               dynamic_cast<MClassT<M>::type::Ref*>(r.get())         \
                 ->set(*dynamic_cast<MClassT<M>::type*>(cm.get()));  \
               break;
-            LEGMS_FOREACH_MCLASS(SET_OFFSET)
+            HYPERION_FOREACH_MCLASS(SET_OFFSET)
 #undef SET_OFFSET
           default:
             assert(false);
@@ -458,7 +458,7 @@ instantiate_vm(
           else                                                      \
             result = std::move(r);                                  \
           break;
-        LEGMS_FOREACH_MCLASS(SET_RESULT)
+        HYPERION_FOREACH_MCLASS(SET_RESULT)
 #undef SET_RESULT
       default:
         assert(false);
@@ -515,7 +515,7 @@ instantiate<1>(
             result =                                              \
               std::make_unique<MClassT<M>::type::Ref>(rtypes[p]); \
             break;
-          LEGMS_FOREACH_MCLASS(MRB)
+          HYPERION_FOREACH_MCLASS(MRB)
 #undef MRB
         default:
           assert(false);
@@ -580,7 +580,7 @@ MeasRef::mclass(Legion::PhysicalRegion pr) {
       return (MClass)mc[p];                     \
       break;                                    \
     }
-    LEGMS_FOREACH_N_LESS_MAX(MC)
+    HYPERION_FOREACH_N_LESS_MAX(MC)
 #undef MC
     default:
       assert(false);
@@ -682,7 +682,7 @@ MeasRef::equiv(
         }                                                               \
         break;                                                          \
       }
-      LEGMS_FOREACH_N_LESS_MAX(CMP);
+      HYPERION_FOREACH_N_LESS_MAX(CMP);
 #undef CMP
     }
   }
@@ -787,7 +787,7 @@ MeasRef::create(
         initialize<D>(value_pr, metadata_pr, km); \
         break;                                    \
       }
-      LEGMS_FOREACH_N_LESS_MAX(INIT);
+      HYPERION_FOREACH_N_LESS_MAX(INIT);
 #undef INIT
     default:
       assert(false);
@@ -830,7 +830,7 @@ MeasRef::make(Context ctx, Runtime* rt) const {
           rt->get_index_space_domain(             \
             metadata_region.get_index_space()));  \
       break;
-    LEGMS_FOREACH_N_LESS_MAX(INST);
+    HYPERION_FOREACH_N_LESS_MAX(INST);
 #undef INST
   default:
     assert(false);
@@ -855,7 +855,7 @@ MeasRef::destroy(Context ctx, Runtime* rt) {
   }
 }
 
-#endif // LEGMS_USE_CASACORE
+#endif // HYPERION_USE_CASACORE
 
 // Local Variables:
 // mode: c++

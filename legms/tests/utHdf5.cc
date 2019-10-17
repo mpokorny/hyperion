@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/testing/TestSuiteDriver.h>
-#include <legms/testing/TestRecorder.h>
-#include <legms/testing/TestExpression.h>
+#include <hyperion/testing/TestSuiteDriver.h>
+#include <hyperion/testing/TestRecorder.h>
+#include <hyperion/testing/TestExpression.h>
 
-#include <legms/hdf5.h>
-#include <legms/Table.h>
-#include <legms/Column.h>
+#include <hyperion/hdf5.h>
+#include <hyperion/Table.h>
+#include <hyperion/Column.h>
 
-#ifdef LEGMS_USE_CASACORE
-# include <legms/MeasRefContainer.h>
+#ifdef HYPERION_USE_CASACORE
+# include <hyperion/MeasRefContainer.h>
 #endif
 
 #include <algorithm>
@@ -34,8 +34,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-using namespace legms;
-using namespace legms::hdf5;
+using namespace hyperion;
+using namespace hyperion::hdf5;
 using namespace Legion;
 
 enum {
@@ -51,17 +51,17 @@ enum struct Table0Axes {
 
 
 template <>
-struct legms::Axes<Table0Axes> {
+struct hyperion::Axes<Table0Axes> {
   static const constexpr char* uid = "Table0Axes";
   static const std::vector<std::string> names;
   static const unsigned num_axes = 4;
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   static const hid_t h5_datatype;
 #endif
 };
 
 const std::vector<std::string>
-legms::Axes<Table0Axes>::names{"ROW", "X", "Y", "ZP"};
+hyperion::Axes<Table0Axes>::names{"ROW", "X", "Y", "ZP"};
 
 hid_t
 h5_dt() {
@@ -79,7 +79,7 @@ h5_dt() {
 }
 
 const hid_t
-legms::Axes<Table0Axes>::h5_datatype = h5_dt();
+hyperion::Axes<Table0Axes>::h5_datatype = h5_dt();
 
 std::ostream&
 operator<<(std::ostream& stream, const Table0Axes& ax) {
@@ -145,7 +145,7 @@ copy_region(Context context, Runtime* runtime, const PhysicalRegion& region) {
 Column::Generator
 table0_col(
   const std::string& name
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   , const std::vector<MeasRef>& measures
 #endif
   ) {
@@ -153,7 +153,7 @@ table0_col(
     return
       [=]
       (Context ctx, Runtime* rt, const std::string& name_prefix
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
        , const MeasRefContainer& table_mr
 #endif
         ) {
@@ -165,7 +165,7 @@ table0_col(
             std::vector<Table0Axes>{Table0Axes::ROW},
             ValueType<unsigned>::DataType,
             IndexTreeL(TABLE0_NUM_ROWS),
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
             MeasRefContainer::create(ctx, rt, measures, table_mr),
 #endif
             {},
@@ -175,7 +175,7 @@ table0_col(
     return
       [=]
       (Context ctx, Runtime* rt, const std::string& name_prefix
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
        , const MeasRefContainer& table_mr
 #endif
         ) {
@@ -187,7 +187,7 @@ table0_col(
             std::vector<Table0Axes>{Table0Axes::ROW},
             ValueType<unsigned>::DataType,
             IndexTreeL(TABLE0_NUM_ROWS),
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
             MeasRefContainer::create(ctx, rt, measures, table_mr),
 #endif
             Keywords::kw_desc_t{{"perfect", ValueType<short>::DataType}},
@@ -197,7 +197,7 @@ table0_col(
     return
       [=]
       (Context ctx, Runtime* rt, const std::string& name_prefix
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
        , const MeasRefContainer& table_mr
 #endif
         ) {
@@ -209,7 +209,7 @@ table0_col(
             std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP},
             ValueType<unsigned>::DataType,
             IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}),
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
             MeasRefContainer::create(ctx, rt, measures, table_mr),
 #endif
             {},
@@ -336,11 +336,11 @@ tree_tests(testing::TestRecorder<READ_WRITE>& recorder) {
       fid,
       dataset_name,
       recorder,
-      IndexTreeL(LEGMS_LARGE_TREE_MIN / 2 + 1),
+      IndexTreeL(HYPERION_LARGE_TREE_MIN / 2 + 1),
       "small-tree");
 
     IndexTreeL tree1(4);
-    while (tree1.serialized_size() < LEGMS_LARGE_TREE_MIN)
+    while (tree1.serialized_size() < HYPERION_LARGE_TREE_MIN)
       tree1 = IndexTreeL({{0, 1, tree1}});
     test_index_tree_attribute(fid, dataset_name, recorder, tree1, "large-tree");
 
@@ -460,10 +460,10 @@ table_tests(
   }
 
   const float ms_vn = -42.1f;
-  legms::string ms_nm("test");
+  hyperion::string ms_nm("test");
   std::string fname = "h5.XXXXXX";
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   casacore::MeasRef<casacore::MEpoch> tai(casacore::MEpoch::TAI);
   casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
   auto table0_epoch = MeasRef::create(ctx, rt, "EPOCH", tai);
@@ -501,7 +501,7 @@ table_tests(
         "table0",
         std::vector<Table0Axes>{Table0Axes::ROW},
         column_generators,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
         table0_meas_ref,
 #endif
         {{"MS_VERSION", ValueType<float>::DataType},
@@ -589,7 +589,7 @@ table_tests(
         fname,
         "/table0",
         {"X", "Y", "Z"}
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
         , MeasRefContainer()
 #endif
         );
@@ -603,7 +603,7 @@ table_tests(
           auto keys = tb0.keywords.keys(rt);
           std::vector<FieldID> fids(keys.size());
           std::iota(fids.begin(), fids.end(), 0);
-          std::set<std::tuple<std::string, legms::TypeTag>> tbkw;
+          std::set<std::tuple<std::string, hyperion::TypeTag>> tbkw;
           auto tts = tb0.keywords.value_types(ctx, rt, fids);
           for (size_t i = 0; i < tts.size(); ++i) {
             if (tts[i])
@@ -611,7 +611,7 @@ table_tests(
             else
               return false;
           }
-          std::set<std::tuple<std::string, legms::TypeTag>>
+          std::set<std::tuple<std::string, hyperion::TypeTag>>
             kw{{"MS_VERSION", ValueType<float>::DataType},
                {"NAME", ValueType<std::string>::DataType}};
           return tbkw == kw;
@@ -708,7 +708,7 @@ table_tests(
     //           req.add_field(i);
     //         auto pr = rt->map_region(ctx, req);
     //         const FA<READ_ONLY, float, 1> vn(pr, fids.at("MS_VERSION"));
-    //         const FA<READ_ONLY, legms::string, 1> nm(pr, fids.at("NAME"));
+    //         const FA<READ_ONLY, hyperion::string, 1> nm(pr, fids.at("NAME"));
     //         std::string name = nm[0];
     //         bool result = vn[0] == ms_vn && name == std::string(ms_nm);
     //         rt->unmap_region(ctx, pr);
@@ -765,7 +765,7 @@ table_tests(
     tb0.destroy(ctx, rt);
   }
   if (!save_output_file)
-    LEGMS_FS::remove(fname);
+    HYPERION_FS::remove(fname);
 }
 
 void

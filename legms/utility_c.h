@@ -13,41 +13,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_UTILITY_C_H_
-#define LEGMS_UTILITY_C_H_
+#ifndef HYPERION_UTILITY_C_H_
+#define HYPERION_UTILITY_C_H_
 
-#include <legms/legms_c.h>
+#include <hyperion/hyperion_c.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef enum type_tag_t {
-  LEGMS_TYPE_BOOL,
-  LEGMS_TYPE_CHAR,
-  LEGMS_TYPE_UCHAR,
-  LEGMS_TYPE_SHORT,
-  LEGMS_TYPE_USHORT,
-  LEGMS_TYPE_INT,
-  LEGMS_TYPE_UINT,
-  LEGMS_TYPE_FLOAT,
-  LEGMS_TYPE_DOUBLE,
-  LEGMS_TYPE_COMPLEX,
-  LEGMS_TYPE_DCOMPLEX,
-  LEGMS_TYPE_STRING
+  HYPERION_TYPE_BOOL,
+  HYPERION_TYPE_CHAR,
+  HYPERION_TYPE_UCHAR,
+  HYPERION_TYPE_SHORT,
+  HYPERION_TYPE_USHORT,
+  HYPERION_TYPE_INT,
+  HYPERION_TYPE_UINT,
+  HYPERION_TYPE_FLOAT,
+  HYPERION_TYPE_DOUBLE,
+  HYPERION_TYPE_COMPLEX,
+  HYPERION_TYPE_DCOMPLEX,
+  HYPERION_TYPE_STRING
 } type_tag_t;
 
-LEGMS_API void
+HYPERION_API void
 preregister_all();
 
-LEGMS_API void
+HYPERION_API void
 register_tasks(legion_context_t context, legion_runtime_t runtime);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // LEGMS_UTILITY_C_H_
+#endif // HYPERION_UTILITY_C_H_
 
 // Local Variables:
 // mode: c

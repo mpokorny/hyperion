@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_WITH_KEYWORDS_H_
-#define LEGMS_WITH_KEYWORDS_H_
+#ifndef HYPERION_WITH_KEYWORDS_H_
+#define HYPERION_WITH_KEYWORDS_H_
 
 #pragma GCC visibility push(default)
 #include <algorithm>
@@ -24,12 +24,12 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/utility.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
 
-namespace legms {
+namespace hyperion {
 
-struct LEGMS_API Keywords {
+struct HYPERION_API Keywords {
 
   Legion::LogicalRegion type_tags_lr;
 
@@ -51,10 +51,10 @@ struct LEGMS_API Keywords {
   using TypeTagAccessor =
     Legion::FieldAccessor<
     MODE,
-    legms::TypeTag,
+    hyperion::TypeTag,
     1,
     coord_t,
-    Legion::AffineAccessor<legms::TypeTag, 1, coord_t>,
+    Legion::AffineAccessor<hyperion::TypeTag, 1, coord_t>,
     CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, typename FT, bool CHECK_BOUNDS=false>
@@ -67,7 +67,7 @@ struct LEGMS_API Keywords {
     Legion::AffineAccessor<FT, 1, coord_t>,
     CHECK_BOUNDS>;
 
-  typedef std::vector<std::tuple<std::string, legms::TypeTag>> kw_desc_t;
+  typedef std::vector<std::tuple<std::string, hyperion::TypeTag>> kw_desc_t;
 
   Keywords();
 
@@ -85,7 +85,7 @@ struct LEGMS_API Keywords {
   std::optional<Legion::FieldID>
   find_keyword(Legion::Runtime* rt, const std::string& name) const;
 
-  std::vector<std::optional<legms::TypeTag>>
+  std::vector<std::optional<hyperion::TypeTag>>
   value_types(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -180,7 +180,7 @@ struct LEGMS_API Keywords {
   void
   destroy(Legion::Context ctx, Legion::Runtime* rt);
 
-  static legms::TypeTag
+  static hyperion::TypeTag
   value_type(const Legion::PhysicalRegion& tt, Legion::FieldID fid);
 
   template <legion_privilege_mode_t MODE, typename T>
@@ -209,9 +209,9 @@ struct LEGMS_API Keywords {
   }
 };
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_WITH_KEYWORDS_H_
+#endif // HYPERION_WITH_KEYWORDS_H_
 
 // Local Variables:
 // mode: c++

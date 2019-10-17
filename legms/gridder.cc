@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/legms.h>
+#include <hyperion/hyperion.h>
 
 #if LEGION_MAX_DIM < 7
 # error "MAX_DIM too small"
@@ -36,10 +36,10 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include <legms/hdf5.h>
-#include <legms/Table.h>
-#include <legms/Column.h>
-#include <legms/MeasRefContainer.h>
+#include <hyperion/hdf5.h>
+#include <hyperion/Table.h>
+#include <hyperion/Column.h>
+#include <hyperion/MeasRefContainer.h>
 
 #define DEFAULT_ECHO_ARGS "false"
 #define DEFAULT_MAIN_TABLE_ROW_BLOCK_SIZE "100000"
@@ -52,7 +52,7 @@
 #define INVALID_W_PROJ_PLANES_VALUE -2
 #define INVALID_MAIN_TABLE_ROW_BLOCK_SIZE_VALUE 0
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 template <typename FT, int N, bool CHECK_BOUNDS=false>
@@ -103,7 +103,7 @@ enum {
 
 enum {
   // TODO: fix OpsManager to avoid using an offset here
-  LAST_POINT_REDOP=100, // reserve LEGMS_MAX_DIM ids from here
+  LAST_POINT_REDOP=100, // reserve HYPERION_MAX_DIM ids from here
 };
 
 template <int DIM>
@@ -172,7 +172,7 @@ struct GridderArgType<T, STRING_ARGS> {
 
 template <gridder_args_t G>
 struct GridderArgs {
-  typename GridderArgType<LEGMS_FS::path, G>::type h5;
+  typename GridderArgType<HYPERION_FS::path, G>::type h5;
   typename GridderArgType<std::optional<bool>, G>::type echo_args;
   typename GridderArgType<size_t, G>::type main_table_row_block_size;
   typename GridderArgType<PARALLACTIC_ANGLE_TYPE, G>::type pa_step;
@@ -309,7 +309,7 @@ Table
 init_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const LEGMS_FS::path& ms,
+  const HYPERION_FS::path& ms,
   const std::string& root,
   const MeasRefContainer& ms_meas_ref,
   MSTables mst) {
@@ -326,10 +326,10 @@ init_table(
       table_name = MSTable<MS_##TBL>::name;             \
       break;                                            \
     }
-    LEGMS_FOREACH_MSTABLE(INIT);
+    HYPERION_FOREACH_MSTABLE(INIT);
   }
   return
-    legms::hdf5::init_table(
+    hyperion::hdf5::init_table(
       ctx,
       rt,
       ms,
@@ -406,13 +406,13 @@ public:
     const Point<1>& pt,
     const std::vector<Legion::PhysicalRegion>& regions) {
 
-    const ROAccessor<legms::string, 1>
+    const ROAccessor<hyperion::string, 1>
       names(regions[TableColumns<MS_ANTENNA>::NAME], Column::VALUE_FID);
-    const ROAccessor<legms::string, 1>
+    const ROAccessor<hyperion::string, 1>
       stations(regions[TableColumns<MS_ANTENNA>::STATION], Column::VALUE_FID);
-    const ROAccessor<legms::string, 1>
+    const ROAccessor<hyperion::string, 1>
       types(regions[TableColumns<MS_ANTENNA>::TYPE], Column::VALUE_FID);
-    const ROAccessor<legms::string, 1>
+    const ROAccessor<hyperion::string, 1>
       mounts(regions[TableColumns<MS_ANTENNA>::MOUNT], Column::VALUE_FID);
     const ROAccessor<double, 1>
       diameters(
@@ -667,12 +667,12 @@ public:
 
   static PARALLACTIC_ANGLE_TYPE
   parallactic_angle(
-    const DataType<LEGMS_TYPE_INT>::ValueType& antenna1,
-    const DataType<LEGMS_TYPE_INT>::ValueType& antenna2,
-    const DataType<LEGMS_TYPE_INT>::ValueType& data_desc,
-    const DataType<LEGMS_TYPE_INT>::ValueType& feed1,
-    const DataType<LEGMS_TYPE_INT>::ValueType& feed2,
-    const DataType<LEGMS_TYPE_DOUBLE>::ValueType& time) {
+    const DataType<HYPERION_TYPE_INT>::ValueType& antenna1,
+    const DataType<HYPERION_TYPE_INT>::ValueType& antenna2,
+    const DataType<HYPERION_TYPE_INT>::ValueType& data_desc,
+    const DataType<HYPERION_TYPE_INT>::ValueType& feed1,
+    const DataType<HYPERION_TYPE_INT>::ValueType& feed2,
+    const DataType<HYPERION_TYPE_DOUBLE>::ValueType& time) {
 
     return time * (antenna1 + antenna2 + data_desc + feed1 + feed2);
   }
@@ -685,17 +685,17 @@ public:
     Context,
     Runtime *rt) {
 
-    const ROAccessor<DataType<LEGMS_TYPE_INT>::ValueType, ROW_DIM>
+    const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
       antenna1(regions[0], Column::VALUE_FID);
-    const ROAccessor<DataType<LEGMS_TYPE_INT>::ValueType, ROW_DIM>
+    const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
       antenna2(regions[1], Column::VALUE_FID);
-    const ROAccessor<DataType<LEGMS_TYPE_INT>::ValueType, ROW_DIM>
+    const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
       data_desc(regions[2], Column::VALUE_FID);
-    const ROAccessor<DataType<LEGMS_TYPE_INT>::ValueType, ROW_DIM>
+    const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
       feed1(regions[3], Column::VALUE_FID);
-    const ROAccessor<DataType<LEGMS_TYPE_INT>::ValueType, ROW_DIM>
+    const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
       feed2(regions[4], Column::VALUE_FID);
-    const ROAccessor<DataType<LEGMS_TYPE_DOUBLE>::ValueType, ROW_DIM>
+    const ROAccessor<DataType<HYPERION_TYPE_DOUBLE>::ValueType, ROW_DIM>
       time(regions[5], Column::VALUE_FID);
     const WOAccessor<PARALLACTIC_ANGLE_TYPE, ROW_DIM>
       pa(regions[6], PARALLACTIC_ANGLE_FID);
@@ -730,7 +730,7 @@ public:
         registrar,                                        \
         tname.c_str());                                   \
     }
-    LEGMS_FOREACH_N(REG_TASK);
+    HYPERION_FOREACH_N(REG_TASK);
 #undef REG_TASK
   }
 
@@ -1259,10 +1259,10 @@ public:
     const GridderArgs<VALUE_ARGS>& val_args) {
 
     std::ostringstream errs;
-    std::optional<LEGMS_FS::path> h5_abs;
-    if (LEGMS_FS::exists(val_args.h5))
-      h5_abs = LEGMS_FS::canonical(val_args.h5);
-    if (!h5_abs || !LEGMS_FS::is_regular_file(h5_abs.value()))
+    std::optional<HYPERION_FS::path> h5_abs;
+    if (HYPERION_FS::exists(val_args.h5))
+      h5_abs = HYPERION_FS::canonical(val_args.h5);
+    if (!h5_abs || !HYPERION_FS::is_regular_file(h5_abs.value()))
       errs << "Path '" << str_args.h5
            << "' does not name a regular file" << std::endl;
 
@@ -1312,7 +1312,7 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt) {
 
-    legms::register_tasks(ctx, rt);
+    hyperion::register_tasks(ctx, rt);
 
     // process command line arguments
     GridderArgs<VALUE_ARGS> gridder_args;
@@ -1487,7 +1487,7 @@ public:
 
 int
 main(int argc, char* argv[]) {
-  legms::preregister_all();
+  hyperion::preregister_all();
   UnitaryClassifyAntennasTask::preregister();
   TopLevelTask<UnitaryClassifyAntennasTask>::preregister();
   ComputeRowAuxFieldsTask::preregister();

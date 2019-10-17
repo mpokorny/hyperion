@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_UTILITY_H_
-#define LEGMS_UTILITY_H_
+#ifndef HYPERION_UTILITY_H_
+#define HYPERION_UTILITY_H_
 
 #pragma GCC visibility push(default)
 #include <algorithm>
@@ -30,12 +30,12 @@
 #include <unordered_map>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/IndexTree.h>
-#include <legms/utility_c.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/IndexTree.h>
+#include <hyperion/utility_c.h>
 
 #pragma GCC visibility push(default)
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 # include <hdf5.h>
 # if GCC_VERSION >= 90000
 #  include <filesystem>
@@ -44,7 +44,7 @@
 # endif
 #endif
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 # include <casacore/casa/aipstype.h>
 # include <casacore/casa/Arrays/IPosition.h>
 # include <casacore/casa/BasicSL/String.h>
@@ -60,9 +60,9 @@
 // to either import or discover its value. Hopefully the impact is minor, as
 // this value should only be required by serdez functions, and Realm has
 // implemented a runtime check.
-#define LEGMS_IB_MAX_SIZE (63 * (((size_t)1) << 20))
+#define HYPERION_IB_MAX_SIZE (63 * (((size_t)1) << 20))
 
-namespace legms {
+namespace hyperion {
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;
 
@@ -107,12 +107,12 @@ struct Axes {
   static const char* uid;
   static const std::vector<std::string> names;
   static const unsigned num_axes;
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   static const hid_t h5_datatype;
 #endif
 };
 
-LEGMS_LOCAL std::optional<int>
+HYPERION_LOCAL std::optional<int>
 column_is_axis(
   const std::vector<std::string>& axis_names,
   const std::string& colname,
@@ -138,7 +138,7 @@ fstrcpy(char(& dest)[N], const char* src) {
 IndexTreeL
 index_space_as_tree(Legion::Runtime* rt, Legion::IndexSpace is);
 
-struct LEGMS_API string {
+struct HYPERION_API string {
 
   string() {
     val[0] = '\0';
@@ -158,7 +158,7 @@ struct LEGMS_API string {
     return *this;
   }
 
-  char val[LEGMS_MAX_STRING_SIZE];
+  char val[HYPERION_MAX_STRING_SIZE];
 
   operator std::string() const {
     return std::string(val);
@@ -220,7 +220,7 @@ public:
 
   typedef std::vector<T> FIELD_TYPE;
 
-  static const size_t MAX_SERIALIZED_SIZE = LEGMS_IB_MAX_SIZE;
+  static const size_t MAX_SERIALIZED_SIZE = HYPERION_IB_MAX_SIZE;
 
   static size_t
   serialized_size(const FIELD_TYPE& val) {
@@ -266,7 +266,7 @@ public:
 
   typedef std::vector<bool> FIELD_TYPE;
 
-  static const size_t MAX_SERIALIZED_SIZE = LEGMS_IB_MAX_SIZE;
+  static const size_t MAX_SERIALIZED_SIZE = HYPERION_IB_MAX_SIZE;
 
   static size_t
   serialized_size(const FIELD_TYPE& val) {
@@ -314,7 +314,7 @@ public:
   typedef std::vector<
   std::tuple<T, std::vector<Legion::DomainPoint>>> FIELD_TYPE;
 
-  static const size_t MAX_SERIALIZED_SIZE = LEGMS_IB_MAX_SIZE;
+  static const size_t MAX_SERIALIZED_SIZE = HYPERION_IB_MAX_SIZE;
 
   static size_t
   serialized_size(const FIELD_TYPE& val) {
@@ -422,13 +422,13 @@ public:
 };
 
 template <>
-class acc_field_serdez<legms::string> {
+class acc_field_serdez<hyperion::string> {
 public:
 
   typedef std::vector<
-  std::tuple<legms::string, std::vector<Legion::DomainPoint>>> FIELD_TYPE;
+  std::tuple<hyperion::string, std::vector<Legion::DomainPoint>>> FIELD_TYPE;
 
-  static const size_t MAX_SERIALIZED_SIZE = LEGMS_IB_MAX_SIZE;
+  static const size_t MAX_SERIALIZED_SIZE = HYPERION_IB_MAX_SIZE;
 
   static size_t
   serialized_size(const FIELD_TYPE& val) {
@@ -440,7 +440,7 @@ public:
         [](auto& acc, auto& t) {
           return
             acc
-            + sizeof(legms::string)
+            + sizeof(hyperion::string)
             + vector_serdez<Legion::DomainPoint>::serialized_size(
               std::get<1>(t));
         });
@@ -455,8 +455,8 @@ public:
     char* buff = static_cast<char*>(buffer);
     for (size_t i = 0; i < n; ++i) {
       auto& [t, rns] = val[i];
-      std::memcpy(buff, t.val, sizeof(legms::string));
-      buff += sizeof(legms::string);
+      std::memcpy(buff, t.val, sizeof(hyperion::string));
+      buff += sizeof(hyperion::string);
       buff += vector_serdez<Legion::DomainPoint>::serialize(rns, buff);
     }
     return result;
@@ -470,9 +470,9 @@ public:
     val.reserve(n);
     const char* buff = static_cast<const char*>(buffer);
     for (size_t i = 0; i < n; ++i) {
-      legms::string str;
-      std::memcpy(str.val, buff, sizeof(legms::string));
-      buff += sizeof(legms::string);
+      hyperion::string str;
+      std::memcpy(str.val, buff, sizeof(hyperion::string));
+      buff += sizeof(hyperion::string);
       std::vector<Legion::DomainPoint> rns;
       buff += vector_serdez<Legion::DomainPoint>::deserialize(rns, buff);
       val.emplace_back(str, rns);
@@ -485,11 +485,11 @@ public:
   }
 };
 
-class LEGMS_API index_tree_serdez {
+class HYPERION_API index_tree_serdez {
 public:
   typedef IndexTreeL FIELD_TYPE;
 
-  static const size_t MAX_SERIALIZED_SIZE = LEGMS_IB_MAX_SIZE;
+  static const size_t MAX_SERIALIZED_SIZE = HYPERION_IB_MAX_SIZE;
 
   static size_t
   serialized_size(const IndexTreeL& val) {
@@ -512,7 +512,7 @@ public:
   }
 };
 
-class LEGMS_LOCAL bool_or_redop {
+class HYPERION_LOCAL bool_or_redop {
 public:
   typedef bool LHS;
   typedef bool RHS;
@@ -651,7 +651,7 @@ template <typename T>
 typename acc_field_redop<T>::RHS const acc_field_redop<T>::identity =
   acc_field_redop_rhs<T>{{}};
 
-struct LEGMS_API coord_bor_redop {
+struct HYPERION_API coord_bor_redop {
 
   typedef coord_t LHS;
   typedef coord_t RHS;
@@ -695,7 +695,7 @@ struct DataType {
   //typedef X ValueType;
 };
 
-class LEGMS_API OpsManager {
+class HYPERION_API OpsManager {
 public:
 
   static void
@@ -773,8 +773,8 @@ public:
   }
 };
 
-#ifdef LEGMS_USE_HDF5
-class LEGMS_API H5DatatypeManager {
+#ifdef HYPERION_USE_HDF5
+class HYPERION_API H5DatatypeManager {
 public:
 
   // TODO: add support for non-native types in HDF5 files
@@ -793,7 +793,7 @@ public:
     DCOMPLEX_H5T,
     STRING_H5T,
     DATATYPE_H5T,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     MEASURE_CLASS_H5T,
 #endif
     N_H5T_DATATYPES
@@ -820,7 +820,7 @@ public:
 
   static hid_t
   create(
-    const LEGMS_FS::path& path,
+    const HYPERION_FS::path& path,
     unsigned flags,
     hid_t fcpl_t = H5P_DEFAULT,
     hid_t fapl_t = H5P_DEFAULT);
@@ -831,18 +831,18 @@ private:
 };
 #endif
 
-class LEGMS_API AxesRegistrar {
+class HYPERION_API AxesRegistrar {
 public:
 
   struct A {
     std::string uid;
     std::vector<std::string> names;
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
     hid_t h5_datatype;
 #endif
   };
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   static void
   register_axes(
     const std::string uid,
@@ -854,7 +854,7 @@ public:
   register_axes() {
     register_axes(Axes<D>::uid, Axes<D>::names, Axes<D>::h5_datatype);
   }
-#else // !LEGMS_USE_HDF5
+#else // !HYPERION_USE_HDF5
   static void
   register_axes(
     const std::string uid,
@@ -870,10 +870,10 @@ public:
   static std::optional<A>
   axes(const std::string& uid);
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   static std::optional<std::string>
   match_axes_datatype(hid_t hid);
-#endif // LEGMS_USE_HDF5
+#endif // HYPERION_USE_HDF5
 
   static bool
   in_range(const std::string& uid, const std::vector<int> xs);
@@ -883,21 +883,21 @@ private:
   static std::unordered_map<std::string, A> axes_;
 };
 
-LEGMS_API Legion::FieldID
+HYPERION_API Legion::FieldID
 add_field(
   TypeTag datatype,
   Legion::FieldAllocator fa,
   Legion::FieldID field_id = AUTO_GENERATE_ID);
 
 template <>
-struct DataType<LEGMS_TYPE_BOOL> {
+struct DataType<HYPERION_TYPE_BOOL> {
   typedef bool ValueType;
   constexpr static const char* s = "bool";
   constexpr static int id = 0;
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_BOOL_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_BOOL_REDOP;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef casacore::Bool CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpBool;
@@ -908,7 +908,7 @@ struct DataType<LEGMS_TYPE_BOOL> {
     v = c;
   }
 #endif
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::BOOL_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -917,14 +917,14 @@ struct DataType<LEGMS_TYPE_BOOL> {
 };
 
 template <>
-struct DataType<LEGMS_TYPE_CHAR> {
+struct DataType<HYPERION_TYPE_CHAR> {
   typedef char ValueType;
   constexpr static const char* s = "char";
   constexpr static int id = 1;
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_CHAR_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_CHAR_REDOP;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef casacore::Char CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpChar;
@@ -935,7 +935,7 @@ struct DataType<LEGMS_TYPE_CHAR> {
     v = c;
   }
 #endif
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::CHAR_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -944,14 +944,14 @@ struct DataType<LEGMS_TYPE_CHAR> {
 };
 
 template <>
-struct DataType<LEGMS_TYPE_UCHAR> {
+struct DataType<HYPERION_TYPE_UCHAR> {
   typedef unsigned char ValueType;
   constexpr static const char* s = "uChar";
   constexpr static int id = 2;
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_UCHAR_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_UCHAR_REDOP;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef casacore::uChar CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpUChar;
@@ -962,7 +962,7 @@ struct DataType<LEGMS_TYPE_UCHAR> {
     v = c;
   }
 #endif
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::UCHAR_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -971,14 +971,14 @@ struct DataType<LEGMS_TYPE_UCHAR> {
 };
 
 template <>
-struct DataType<LEGMS_TYPE_SHORT> {
+struct DataType<HYPERION_TYPE_SHORT> {
   typedef short ValueType;
   constexpr static const char* s = "short";
   constexpr static int id = 3;
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_SHORT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_SHORT_REDOP;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef casacore::Short CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpShort;
@@ -989,7 +989,7 @@ struct DataType<LEGMS_TYPE_SHORT> {
     v = c;
   }
 #endif
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::SHORT_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -998,14 +998,14 @@ struct DataType<LEGMS_TYPE_SHORT> {
 };
 
 template <>
-struct DataType<LEGMS_TYPE_USHORT> {
+struct DataType<HYPERION_TYPE_USHORT> {
   typedef unsigned short ValueType;
   constexpr static const char* s = "uShort";
   constexpr static int id = 4;
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_USHORT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_USHORT_REDOP;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef casacore::uShort CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpUShort;
@@ -1016,7 +1016,7 @@ struct DataType<LEGMS_TYPE_USHORT> {
     v = c;
   }
 #endif
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::USHORT_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -1025,14 +1025,14 @@ struct DataType<LEGMS_TYPE_USHORT> {
 };
 
 template <>
-struct DataType<LEGMS_TYPE_INT> {
+struct DataType<HYPERION_TYPE_INT> {
   typedef int ValueType;
   constexpr static const char* s = "int";
   constexpr static int id = 5;
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_INT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_INT_REDOP;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef casacore::Int CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpInt;
@@ -1043,7 +1043,7 @@ struct DataType<LEGMS_TYPE_INT> {
     v = c;
   }
 #endif
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::INT_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -1052,14 +1052,14 @@ struct DataType<LEGMS_TYPE_INT> {
 };
 
 template <>
-struct DataType<LEGMS_TYPE_UINT> {
+struct DataType<HYPERION_TYPE_UINT> {
   typedef unsigned int ValueType;
   constexpr static const char* s = "uInt";
   constexpr static int id = 6;
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_UINT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_UINT_REDOP;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef casacore::uInt CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpUInt;
@@ -1070,7 +1070,7 @@ struct DataType<LEGMS_TYPE_UINT> {
     v = c;
   }
 #endif
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::UINT_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -1079,14 +1079,14 @@ struct DataType<LEGMS_TYPE_UINT> {
 };
 
 template <>
-struct DataType<LEGMS_TYPE_FLOAT> {
+struct DataType<HYPERION_TYPE_FLOAT> {
   typedef float ValueType;
   constexpr static const char* s = "float";
   constexpr static int id = 7;
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_FLOAT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_FLOAT_REDOP;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef casacore::Float CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpFloat;
@@ -1097,7 +1097,7 @@ struct DataType<LEGMS_TYPE_FLOAT> {
     v = c;
   }
 #endif
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::FLOAT_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -1106,14 +1106,14 @@ struct DataType<LEGMS_TYPE_FLOAT> {
 };
 
 template <>
-struct DataType<LEGMS_TYPE_DOUBLE> {
+struct DataType<HYPERION_TYPE_DOUBLE> {
   typedef double ValueType;
   constexpr static const char* s = "double";
   constexpr static int id = 8;
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_DOUBLE_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_DOUBLE_REDOP;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef casacore::Double CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpDouble;
@@ -1124,7 +1124,7 @@ struct DataType<LEGMS_TYPE_DOUBLE> {
     v = c;
   }
 #endif
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::DOUBLE_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -1133,14 +1133,14 @@ struct DataType<LEGMS_TYPE_DOUBLE> {
 };
 
 template <>
-struct DataType<LEGMS_TYPE_COMPLEX> {
+struct DataType<HYPERION_TYPE_COMPLEX> {
   typedef std::complex<float> ValueType;
   constexpr static const char* s = "complex";
   constexpr static int id = 9;
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_COMPLEX_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_COMPLEX_REDOP;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef casacore::Complex CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpComplex;
@@ -1151,7 +1151,7 @@ struct DataType<LEGMS_TYPE_COMPLEX> {
     v = c;
   }
 #endif
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::COMPLEX_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -1160,14 +1160,14 @@ struct DataType<LEGMS_TYPE_COMPLEX> {
 };
 
 template <>
-struct DataType<LEGMS_TYPE_DCOMPLEX> {
+struct DataType<HYPERION_TYPE_DCOMPLEX> {
   typedef std::complex<double> ValueType;
   constexpr static const char* s = "dComplex";
   constexpr static int id = 10;
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_DCOMPLEX_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_DCOMPLEX_REDOP;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef casacore::DComplex CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpDComplex;
@@ -1178,7 +1178,7 @@ struct DataType<LEGMS_TYPE_DCOMPLEX> {
     v = c;
   }
 #endif
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::DCOMPLEX_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -1187,14 +1187,14 @@ struct DataType<LEGMS_TYPE_DCOMPLEX> {
 };
 
 template <>
-struct DataType<LEGMS_TYPE_STRING> {
-  typedef legms::string ValueType;
+struct DataType<HYPERION_TYPE_STRING> {
+  typedef hyperion::string ValueType;
   constexpr static const char* s = "string";
   constexpr static int id = 11;
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_STRING_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_STRING_REDOP;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef casacore::String CasacoreType;
   constexpr static casacore::DataType CasacoreTypeTag =
     casacore::DataType::TpString;
@@ -1205,7 +1205,7 @@ struct DataType<LEGMS_TYPE_STRING> {
     fstrcpy(v.val, c);
   }
 #endif
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   constexpr static hid_t h5t_id = H5DatatypeManager::STRING_H5T;
 #endif
   static bool equiv(const ValueType& a, const ValueType& b) {
@@ -1213,7 +1213,7 @@ struct DataType<LEGMS_TYPE_STRING> {
   }
 };
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 template <TypeTag DT>
 hid_t
 H5DatatypeManager::datatype() {
@@ -1221,35 +1221,35 @@ H5DatatypeManager::datatype() {
 }
 #endif
 
-#define NUM_LEGMS_DATATYPES (DataType<LEGMS_TYPE_STRING>::id + 1)
+#define NUM_HYPERION_DATATYPES (DataType<HYPERION_TYPE_STRING>::id + 1)
 
-#define LEGMS_FOREACH_DATATYPE(__func__)              \
-  __func__(LEGMS_TYPE_BOOL)              \
-  __func__(LEGMS_TYPE_CHAR)              \
-  __func__(LEGMS_TYPE_UCHAR)             \
-  __func__(LEGMS_TYPE_SHORT)             \
-  __func__(LEGMS_TYPE_USHORT)            \
-  __func__(LEGMS_TYPE_INT)               \
-  __func__(LEGMS_TYPE_UINT)              \
-  __func__(LEGMS_TYPE_FLOAT)             \
-  __func__(LEGMS_TYPE_DOUBLE)            \
-  __func__(LEGMS_TYPE_COMPLEX)           \
-  __func__(LEGMS_TYPE_DCOMPLEX)          \
-  __func__(LEGMS_TYPE_STRING)
+#define HYPERION_FOREACH_DATATYPE(__func__)              \
+  __func__(HYPERION_TYPE_BOOL)              \
+  __func__(HYPERION_TYPE_CHAR)              \
+  __func__(HYPERION_TYPE_UCHAR)             \
+  __func__(HYPERION_TYPE_SHORT)             \
+  __func__(HYPERION_TYPE_USHORT)            \
+  __func__(HYPERION_TYPE_INT)               \
+  __func__(HYPERION_TYPE_UINT)              \
+  __func__(HYPERION_TYPE_FLOAT)             \
+  __func__(HYPERION_TYPE_DOUBLE)            \
+  __func__(HYPERION_TYPE_COMPLEX)           \
+  __func__(HYPERION_TYPE_DCOMPLEX)          \
+  __func__(HYPERION_TYPE_STRING)
 
-#define LEGMS_FOREACH_RECORD_DATATYPE(__func__)  \
-  __func__(LEGMS_TYPE_BOOL)                     \
-  __func__(LEGMS_TYPE_UCHAR)                    \
-  __func__(LEGMS_TYPE_SHORT)                    \
-  __func__(LEGMS_TYPE_INT)                      \
-  __func__(LEGMS_TYPE_UINT)                     \
-  __func__(LEGMS_TYPE_FLOAT)                    \
-  __func__(LEGMS_TYPE_DOUBLE)                   \
-  __func__(LEGMS_TYPE_COMPLEX)                  \
-  __func__(LEGMS_TYPE_DCOMPLEX)                 \
-  __func__(LEGMS_TYPE_STRING)
+#define HYPERION_FOREACH_RECORD_DATATYPE(__func__)  \
+  __func__(HYPERION_TYPE_BOOL)                     \
+  __func__(HYPERION_TYPE_UCHAR)                    \
+  __func__(HYPERION_TYPE_SHORT)                    \
+  __func__(HYPERION_TYPE_INT)                      \
+  __func__(HYPERION_TYPE_UINT)                     \
+  __func__(HYPERION_TYPE_FLOAT)                    \
+  __func__(HYPERION_TYPE_DOUBLE)                   \
+  __func__(HYPERION_TYPE_COMPLEX)                  \
+  __func__(HYPERION_TYPE_DCOMPLEX)                 \
+  __func__(HYPERION_TYPE_STRING)
 
-#define LEGMS_FOREACH_BARE_DATATYPE(__func__)  \
+#define HYPERION_FOREACH_BARE_DATATYPE(__func__)  \
   __func__(BOOL)          \
   __func__(CHAR)          \
   __func__(UCHAR)         \
@@ -1274,15 +1274,15 @@ struct ValueType {
     constexpr static TypeTag DataType = dt;   \
   };
 
-LEGMS_FOREACH_DATATYPE(VT)
+HYPERION_FOREACH_DATATYPE(VT)
 
 template <>
 struct ValueType<std::string> {
-  constexpr static TypeTag DataType = LEGMS_TYPE_STRING;
+  constexpr static TypeTag DataType = HYPERION_TYPE_STRING;
 };
 #undef VT
 
-class LEGMS_API ProjectedIndexPartitionTask
+class HYPERION_API ProjectedIndexPartitionTask
   : Legion::IndexTaskLauncher {
 public:
 
@@ -1295,7 +1295,7 @@ public:
   };
 
   constexpr static const char * const TASK_NAME =
-    "legms::ProjectedIndexPartitionTask";
+    "hyperion::ProjectedIndexPartitionTask";
   static Legion::TaskID TASK_ID;
 
   ProjectedIndexPartitionTask(
@@ -1387,7 +1387,7 @@ projected_index_partition(
   return result;
 }
 
-LEGMS_API Legion::IndexPartition
+HYPERION_API Legion::IndexPartition
 projected_index_partition(
   Legion::Context ctx,
   Legion::Runtime* runtime,
@@ -1395,7 +1395,7 @@ projected_index_partition(
   Legion::IndexSpace prj_is,
   const std::vector<int>& dmap);
 
-struct LEGMS_API AxisPartition {
+struct HYPERION_API AxisPartition {
   std::string axes_uid;
   int dim;
   Legion::coord_t stride;
@@ -1438,51 +1438,51 @@ struct LEGMS_API AxisPartition {
   }
 };
 
-LEGMS_API Legion::LayoutConstraintRegistrar&
+HYPERION_API Legion::LayoutConstraintRegistrar&
 add_row_major_order_constraint(
   Legion::LayoutConstraintRegistrar& lc,
   unsigned rank);
 
-LEGMS_API void
+HYPERION_API void
 preregister_all();
 
-LEGMS_API void
+HYPERION_API void
 register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 #if LEGION_MAX_DIM == 1
 
-#define LEGMS_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)               \
   __func__(1) 
-#define LEGMS_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)              \
   __func__(1,1)
-#define LEGMS_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)              \
   __func__(1,1)
-#define LEGMS_FOREACH_LESS_MAX_N(__func__)
+#define HYPERION_FOREACH_LESS_MAX_N(__func__)
 
 #elif LEGION_MAX_DIM == 2
 
-#define LEGMS_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)               \
   __func__(1)                                   \
   __func__(2)
-#define LEGMS_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(2,1)                                 \
   __func__(2,2)
-#define LEGMS_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(2,2)
-#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
   __func__(1)
 
 #elif LEGION_MAX_DIM == 3
 
-#define LEGMS_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)               \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)
-#define LEGMS_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1492,25 +1492,25 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(3,1)                                 \
   __func__(3,2)                                 \
   __func__(3,3)
-#define LEGMS_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
   __func__(2,2)                                 \
   __func__(2,3)                                 \
   __func__(3,3)
-#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
   __func__(1)                                   \
   __func__(2)
 
 #elif LEGION_MAX_DIM == 4
 
-#define LEGMS_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)               \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
   __func__(4)
-#define LEGMS_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1527,7 +1527,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(4,2)                                 \
   __func__(4,3)                                 \
   __func__(4,4)
-#define LEGMS_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1538,20 +1538,20 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(3,3)                                 \
   __func__(3,4)                                 \
   __func__(4,4)
-#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)
 
 #elif LEGION_MAX_DIM == 5
 
-#define LEGMS_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)               \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
   __func__(4)                                   \
   __func__(5)
-#define LEGMS_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1577,7 +1577,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(5,3)                                 \
   __func__(5,4)                                 \
   __func__(5,5)
-#define LEGMS_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1593,7 +1593,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(4,4)                                 \
   __func__(4,5)                                 \
   __func__(5,5)
-#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1601,14 +1601,14 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 #elif LEGION_MAX_DIM == 6
 
-#define LEGMS_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)               \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
   __func__(4)                                   \
   __func__(5)                                   \
   __func__(6)
-#define LEGMS_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1645,7 +1645,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(6,4)                                 \
   __func__(6,5)                                 \
   __func__(6,6)
-#define LEGMS_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1667,7 +1667,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(5,5)                                 \
   __func__(5,6)                                 \
   __func__(6,6)
-#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1676,7 +1676,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 #elif LEGION_MAX_DIM == 7
 
-#define LEGMS_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)               \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1684,7 +1684,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(5)                                   \
   __func__(6)                                   \
   __func__(7)
-#define LEGMS_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1734,7 +1734,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(7,5)                                 \
   __func__(7,6)                                 \
   __func__(7,7)
-#define LEGMS_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1763,7 +1763,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(6,6)                                 \
   __func__(6,7)                                 \
   __func__(7,7)
-#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1773,7 +1773,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 #elif LEGION_MAX_DIM == 8
 
-#define LEGMS_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)               \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1782,7 +1782,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(6)                                   \
   __func__(7)                                   \
   __func__(8)
-#define LEGMS_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1847,7 +1847,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(8,6)                                 \
   __func__(8,7)                                 \
   __func__(8,8)
-#define LEGMS_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1884,7 +1884,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(7,7)                                 \
   __func__(7,8)                                 \
   __func__(8,8)
-#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1895,7 +1895,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 #elif LEGION_MAX_DIM == 9
 
-#define LEGMS_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)               \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1905,7 +1905,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(7)                                   \
   __func__(8)                                   \
   __func__(9)
-#define LEGMS_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1987,7 +1987,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(9,7)                                 \
   __func__(9,8)                                 \
   __func__(9,9)
-#define LEGMS_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)              \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -2033,7 +2033,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(8,8)                                 \
   __func__(8,9)                                 \
   __func__(9,9)
-#define LEGMS_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -2086,15 +2086,15 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
     for (int i = 0; i < DIM; ++i)                               \
       __atomic_fetch_add(&rhs1[i], rhs2[i], __ATOMIC_ACQUIRE);  \
   }
-LEGMS_FOREACH_N(DEFINE_POINT_ADD_REDOP);
+HYPERION_FOREACH_N(DEFINE_POINT_ADD_REDOP);
 #undef DEFINE_POINT_ADD_REDOP
 
-} // end namespace legms
+} // end namespace hyperion
 
 std::ostream&
-operator<<(std::ostream& stream, const legms::string& str);
+operator<<(std::ostream& stream, const hyperion::string& str);
 
-#endif // LEGMS_UTILITY_H_
+#endif // HYPERION_UTILITY_H_
 
 // Local Variables:
 // mode: c++

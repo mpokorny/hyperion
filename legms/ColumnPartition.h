@@ -13,23 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_COLUMN_PARTITION_H_
-#define LEGMS_COLUMN_PARTITION_H_
+#ifndef HYPERION_COLUMN_PARTITION_H_
+#define HYPERION_COLUMN_PARTITION_H_
 
 #pragma GCC visibility push(default)
 #include <algorithm>
 #include <vector>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/utility.h>
-#include <legms/ColumnPartition_c.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
+#include <hyperion/ColumnPartition_c.h>
 
-#include <legms/c_util.h>
+#include <hyperion/c_util.h>
 
-namespace legms {
+namespace hyperion {
 
-class LEGMS_API ColumnPartition {
+class HYPERION_API ColumnPartition {
 public:
   static const constexpr Legion::FieldID AXES_UID_FID = 0;
   Legion::LogicalRegion axes_uid_lr;
@@ -42,10 +42,10 @@ public:
   using AxesUidAccessor =
     Legion::FieldAccessor<
     MODE,
-    legms::string,
+    hyperion::string,
     1,
     Legion::coord_t,
-    Legion::AffineAccessor<legms::string, 1, Legion::coord_t>,
+    Legion::AffineAccessor<hyperion::string, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -135,9 +135,9 @@ struct CObjectWrapper::Unwrapper<column_partition_t> {
   }
 };
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_COLUMN_PARTITION_H_
+#endif // HYPERION_COLUMN_PARTITION_H_
 
 // Local Variables:
 // mode: c++

@@ -16,7 +16,7 @@
 #include "Grids_c.h"
 #include "Grids.h"
 
-#include <legms/legms_c.h>
+#include <hyperion/hyperion_c.h>
 
 #pragma GCC visibility push(default)
 #include <legion/legion_c_util.h>
@@ -34,7 +34,7 @@ block_and_halo_partitions_1d(
 
   Legion::IndexSpaceT<1> grid1(Legion::CObjectWrapper::unwrap(grid));
   auto [bip, hip] =
-    legms::block_and_halo_partitions(
+    hyperion::block_and_halo_partitions(
       Legion::CObjectWrapper::unwrap(ctx)->context(),
       Legion::CObjectWrapper::unwrap(runtime),
       grid1,
@@ -56,7 +56,7 @@ block_and_halo_partitions_2d(
 
   Legion::IndexSpaceT<2> grid2(Legion::CObjectWrapper::unwrap(grid));
   auto [bip, hip] =
-    legms::block_and_halo_partitions(
+    hyperion::block_and_halo_partitions(
       Legion::CObjectWrapper::unwrap(ctx)->context(),
       Legion::CObjectWrapper::unwrap(runtime),
       grid2,
@@ -78,7 +78,7 @@ block_and_halo_partitions_3d(
 
   Legion::IndexSpaceT<3> grid3(Legion::CObjectWrapper::unwrap(grid));
   auto [bip, hip] =
-    legms::block_and_halo_partitions(
+    hyperion::block_and_halo_partitions(
       Legion::CObjectWrapper::unwrap(ctx)->context(),
       Legion::CObjectWrapper::unwrap(runtime),
       grid3,

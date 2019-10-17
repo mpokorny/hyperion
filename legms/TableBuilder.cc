@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/legms.h>
-#include <legms/TableBuilder.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/TableBuilder.h>
 
-using namespace legms;
+using namespace hyperion;
 
 void
-legms::initialize_keywords_from_ms(
+hyperion::initialize_keywords_from_ms(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const LEGMS_FS::path& path,
+  const HYPERION_FS::path& path,
   Table& table) {
 
   if (!table.keywords.is_empty()) {
@@ -51,7 +51,7 @@ legms::initialize_keywords_from_ms(
           table.keywords.template write<WRITE_ONLY>(prs, fids[i], vv);  \
           break;                                                        \
         }
-        LEGMS_FOREACH_RECORD_DATATYPE(WRITE_KWVAL)
+        HYPERION_FOREACH_RECORD_DATATYPE(WRITE_KWVAL)
 #undef WRITE_KWVAL
       default:
           assert(false);

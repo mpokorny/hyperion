@@ -85,7 +85,7 @@ if(COMPILER_SUPPORTS_NO_STRICT_ALIASING)
 endif()
 
 #------------------------------------------------------------------------------#
-# legms library
+# hyperion library
 #------------------------------------------------------------------------------#
 
 set(CMAKE_CXX_FLAGS
@@ -94,8 +94,8 @@ set(CMAKE_CXX_FLAGS
 set(CMAKE_CXX_FLAGS_DEBUG
   "${CMAKE_CXX_FLAGS_DEBUG} -Og")
 
-list(APPEND LEGMS_SRC
-  legms_c.h
+list(APPEND HYPERION_SRC
+  hyperion_c.h
   Grids_c.cc
   Grids_c.h
   Grids.h
@@ -129,7 +129,7 @@ list(APPEND LEGMS_SRC
   KeywordsBuilder.h)
 
 if(USE_CASACORE)
-  list(APPEND LEGMS_SRC
+  list(APPEND HYPERION_SRC
     TableBuilder.h
     TableBuilder.cc
     TableReadTask.cc
@@ -144,74 +144,74 @@ if(USE_CASACORE)
     MeasRefDict.cc
     MeasRefContainer.h
     MeasRefContainer.cc)
-  set(LEGMS_USE_CASACORE ON)
+  set(HYPERION_USE_CASACORE ON)
 endif()
 if(USE_HDF5)
-  list(APPEND LEGMS_SRC
+  list(APPEND HYPERION_SRC
     hdf5.h
     hdf5.cc)
-  set(LEGMS_USE_HDF5 ON)
+  set(HYPERION_USE_HDF5 ON)
 endif()
 
-configure_file(legms_config.h.in legms_config.h)
+configure_file(hyperion_config.h.in hyperion_config.h)
 
-set(LEGMS_INCLUDE LEGMS_SRC)
-list(FILTER LEGMS_INCLUDE INCLUDE REGEX ".*\.h")
+set(HYPERION_INCLUDE HYPERION_SRC)
+list(FILTER HYPERION_INCLUDE INCLUDE REGEX ".*\.h")
 
-add_library(legms SHARED ${LEGMS_SRC})
-set(legms_COMPILE_DEFINITIONS "")
+add_library(hyperion SHARED ${HYPERION_SRC})
+set(hyperion_COMPILE_DEFINITIONS "")
 
 # table/column reindexing was broken by earlier changes, but it's something we
 # want working again sometime, and we retain the code and its unit tests, but
 # disable them with the following definitions
-set(legms_NO_REINDEX ON)
-if(legms_NO_REINDEX)
+set(hyperion_NO_REINDEX ON)
+if(hyperion_NO_REINDEX)
   list(APPEND
-    legms_COMPILE_DEFINITIONS "NO_REINDEX")
+    hyperion_COMPILE_DEFINITIONS "NO_REINDEX")
 endif()
 
 list(APPEND
-  legms_COMPILE_DEFINITIONS "LEGION_MAX_DIM=${MAX_DIM}")
+  hyperion_COMPILE_DEFINITIONS "LEGION_MAX_DIM=${MAX_DIM}")
 list(APPEND
-  legms_COMPILE_DEFINITIONS "REALM_MAX_DIM=${MAX_DIM}")
+  hyperion_COMPILE_DEFINITIONS "REALM_MAX_DIM=${MAX_DIM}")
 
-set_target_properties(legms PROPERTIES
+set_target_properties(hyperion PROPERTIES
   CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
-add_dependencies(legms legion_build)
-target_include_directories(legms
+  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+add_dependencies(hyperion legion_build)
+target_include_directories(hyperion
   PUBLIC ${Legion_INSTALL_DIR}/include
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
   PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..)
-target_link_directories(legms PUBLIC ${Legion_INSTALL_DIR}/lib64)
+target_link_directories(hyperion PUBLIC ${Legion_INSTALL_DIR}/lib64)
 if (USE_CASACORE)
   if (BUILD_CASACORE)
-    add_dependencies(legms casacore_build)
+    add_dependencies(hyperion casacore_build)
   endif ()
-  target_include_directories(legms PUBLIC ${casacore_INCLUDE_DIR})
-  target_link_directories(legms PUBLIC ${casacore_LIBRARY_DIR})
-  target_link_libraries(legms PUBLIC casa_tables)
-  target_link_libraries(legms PUBLIC casa_casa)
-  target_link_libraries(legms PUBLIC casa_measures)
+  target_include_directories(hyperion PUBLIC ${casacore_INCLUDE_DIR})
+  target_link_directories(hyperion PUBLIC ${casacore_LIBRARY_DIR})
+  target_link_libraries(hyperion PUBLIC casa_tables)
+  target_link_libraries(hyperion PUBLIC casa_casa)
+  target_link_libraries(hyperion PUBLIC casa_measures)
 endif()
 if (USE_HDF5)
-  target_include_directories(legms PUBLIC ${HDF5_INCLUDE_DIRS})
-  target_link_libraries(legms PUBLIC ${HDF5_LIBRARIES})
+  target_include_directories(hyperion PUBLIC ${HDF5_INCLUDE_DIRS})
+  target_link_libraries(hyperion PUBLIC ${HDF5_LIBRARIES})
 endif()
-target_link_libraries(legms PUBLIC stdc++fs)
-target_link_libraries(legms PUBLIC legion)
-target_link_libraries(legms PUBLIC realm)
-set_target_properties(legms PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_target_properties(legms PROPERTIES SOVERSION ${SOVERSION})
-install(TARGETS legms RUNTIME DESTINATION lib)
-install(FILES LEGMS_INCLUDE DESTINATION include/legms)
+target_link_libraries(hyperion PUBLIC stdc++fs)
+target_link_libraries(hyperion PUBLIC legion)
+target_link_libraries(hyperion PUBLIC realm)
+set_target_properties(hyperion PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(hyperion PROPERTIES SOVERSION ${SOVERSION})
+install(TARGETS hyperion RUNTIME DESTINATION lib)
+install(FILES HYPERION_INCLUDE DESTINATION include/hyperion)
 
 if (USE_HDF5 AND USE_CASACORE)
   add_executable(ms2h5 ms2h5.cc)
   set_target_properties(ms2h5 PROPERTIES
     CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
-  target_link_libraries(ms2h5 legms)
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+  target_link_libraries(ms2h5 hyperion)
   target_include_directories(ms2h5
     PUBLIC ${Legion_INSTALL_DIR}/include
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
@@ -224,8 +224,8 @@ if (USE_HDF5 AND USE_CASACORE)
     add_executable(gridder gridder.cc)
     set_target_properties(gridder PROPERTIES
       CXX_STANDARD 17
-      COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
-    target_link_libraries(gridder legms)
+      COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+    target_link_libraries(gridder hyperion)
     target_include_directories(gridder
       PUBLIC ${Legion_INSTALL_DIR}/include
       PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..

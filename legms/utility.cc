@@ -17,26 +17,26 @@
 #include<algorithm>
 #pragma GCC visibility pop
 
-#include <legms/utility.h>
-#include <legms/Column.h>
-#include <legms/Table.h>
-#include <legms/TableReadTask.h>
-#include <legms/tree_index_space.h>
-#include <legms/MSTable.h>
+#include <hyperion/utility.h>
+#include <hyperion/Column.h>
+#include <hyperion/Table.h>
+#include <hyperion/TableReadTask.h>
+#include <hyperion/tree_index_space.h>
+#include <hyperion/MSTable.h>
 
-#ifdef LEGMS_USE_HDF5
-# include <legms/hdf5.h>
-#endif // LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
+# include <hyperion/hdf5.h>
+#endif // HYPERION_USE_HDF5
 
-#ifdef LEGMS_USE_CASACORE
-# include <legms/Measures.h>
+#ifdef HYPERION_USE_CASACORE
+# include <hyperion/Measures.h>
 #endif
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 std::optional<int>
-legms::column_is_axis(
+hyperion::column_is_axis(
   const std::vector<std::string>& axis_names,
   const std::string& colname,
   const std::vector<int>& axes) {
@@ -52,7 +52,7 @@ legms::column_is_axis(
 }
 
 std::ostream&
-operator<<(std::ostream& stream, const legms::string& str) {
+operator<<(std::ostream& stream, const hyperion::string& str) {
   stream << str.val;
   return stream;
 }
@@ -60,11 +60,11 @@ operator<<(std::ostream& stream, const legms::string& str) {
 #define POINT_ADD_REDOP_IDENTITY(DIM)                       \
   const point_add_redop<DIM>::RHS                           \
   point_add_redop<DIM>::identity = Point<DIM>((coord_t)0);
-LEGMS_FOREACH_N(POINT_ADD_REDOP_IDENTITY);
+HYPERION_FOREACH_N(POINT_ADD_REDOP_IDENTITY);
 #undef POINT_ADD_REDOP_IDENTITY
 
 void
-legms::OpsManager::preregister_ops() {
+hyperion::OpsManager::preregister_ops() {
   Runtime::register_custom_serdez_op<index_tree_serdez>(
     INDEX_TREE_SID);
 
@@ -74,40 +74,40 @@ legms::OpsManager::preregister_ops() {
     string_serdez<std::string>>(STD_STRING_SID);
 
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<LEGMS_TYPE_STRING>::ValueType>>(
+    acc_field_serdez<DataType<HYPERION_TYPE_STRING>::ValueType>>(
       ACC_FIELD_STRING_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<LEGMS_TYPE_BOOL>::ValueType>>(
+    acc_field_serdez<DataType<HYPERION_TYPE_BOOL>::ValueType>>(
       ACC_FIELD_BOOL_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<LEGMS_TYPE_CHAR>::ValueType>>(
+    acc_field_serdez<DataType<HYPERION_TYPE_CHAR>::ValueType>>(
       ACC_FIELD_CHAR_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<LEGMS_TYPE_UCHAR>::ValueType>>(
+    acc_field_serdez<DataType<HYPERION_TYPE_UCHAR>::ValueType>>(
       ACC_FIELD_UCHAR_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<LEGMS_TYPE_SHORT>::ValueType>>(
+    acc_field_serdez<DataType<HYPERION_TYPE_SHORT>::ValueType>>(
       ACC_FIELD_SHORT_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<LEGMS_TYPE_USHORT>::ValueType>>(
+    acc_field_serdez<DataType<HYPERION_TYPE_USHORT>::ValueType>>(
       ACC_FIELD_USHORT_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<LEGMS_TYPE_INT>::ValueType>>(
+    acc_field_serdez<DataType<HYPERION_TYPE_INT>::ValueType>>(
       ACC_FIELD_INT_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<LEGMS_TYPE_UINT>::ValueType>>(
+    acc_field_serdez<DataType<HYPERION_TYPE_UINT>::ValueType>>(
       ACC_FIELD_UINT_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<LEGMS_TYPE_FLOAT>::ValueType>>(
+    acc_field_serdez<DataType<HYPERION_TYPE_FLOAT>::ValueType>>(
       ACC_FIELD_FLOAT_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<LEGMS_TYPE_DOUBLE>::ValueType>>(
+    acc_field_serdez<DataType<HYPERION_TYPE_DOUBLE>::ValueType>>(
       ACC_FIELD_DOUBLE_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<LEGMS_TYPE_COMPLEX>::ValueType>>(
+    acc_field_serdez<DataType<HYPERION_TYPE_COMPLEX>::ValueType>>(
       ACC_FIELD_COMPLEX_SID);
   Runtime::register_custom_serdez_op<
-    acc_field_serdez<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>>(
+    acc_field_serdez<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>>(
       ACC_FIELD_DCOMPLEX_SID);
 
   Runtime::register_reduction_op<bool_or_redop>(BOOL_OR_REDOP);
@@ -117,122 +117,122 @@ legms::OpsManager::preregister_ops() {
   Runtime::register_reduction_op(
     ACC_FIELD_STRING_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_STRING>::ValueType>>(),
-    acc_field_redop<DataType<LEGMS_TYPE_STRING>::ValueType>::init_fn,
-    acc_field_redop<DataType<LEGMS_TYPE_STRING>::ValueType>::fold_fn);
+    acc_field_redop<DataType<HYPERION_TYPE_STRING>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_STRING>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_STRING>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_BOOL_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_BOOL>::ValueType>>(),
-    acc_field_redop<DataType<LEGMS_TYPE_BOOL>::ValueType>::init_fn,
-    acc_field_redop<DataType<LEGMS_TYPE_BOOL>::ValueType>::fold_fn);
+    acc_field_redop<DataType<HYPERION_TYPE_BOOL>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_BOOL>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_BOOL>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_CHAR_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_CHAR>::ValueType>>(),
-    acc_field_redop<DataType<LEGMS_TYPE_CHAR>::ValueType>::init_fn,
-    acc_field_redop<DataType<LEGMS_TYPE_CHAR>::ValueType>::fold_fn);
+    acc_field_redop<DataType<HYPERION_TYPE_CHAR>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_CHAR>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_CHAR>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_UCHAR_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_UCHAR>::ValueType>>(),
-    acc_field_redop<DataType<LEGMS_TYPE_UCHAR>::ValueType>::init_fn,
-    acc_field_redop<DataType<LEGMS_TYPE_UCHAR>::ValueType>::fold_fn);
+    acc_field_redop<DataType<HYPERION_TYPE_UCHAR>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_UCHAR>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_UCHAR>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_SHORT_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_SHORT>::ValueType>>(),
-    acc_field_redop<DataType<LEGMS_TYPE_SHORT>::ValueType>::init_fn,
-    acc_field_redop<DataType<LEGMS_TYPE_SHORT>::ValueType>::fold_fn);
+    acc_field_redop<DataType<HYPERION_TYPE_SHORT>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_SHORT>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_SHORT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_USHORT_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_USHORT>::ValueType>>(),
-    acc_field_redop<DataType<LEGMS_TYPE_USHORT>::ValueType>::init_fn,
-    acc_field_redop<DataType<LEGMS_TYPE_USHORT>::ValueType>::fold_fn);
+    acc_field_redop<DataType<HYPERION_TYPE_USHORT>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_USHORT>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_USHORT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_INT_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_INT>::ValueType>>(),
-    acc_field_redop<DataType<LEGMS_TYPE_INT>::ValueType>::init_fn,
-    acc_field_redop<DataType<LEGMS_TYPE_INT>::ValueType>::fold_fn);
+    acc_field_redop<DataType<HYPERION_TYPE_INT>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_INT>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_INT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_UINT_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_UINT>::ValueType>>(),
-    acc_field_redop<DataType<LEGMS_TYPE_UINT>::ValueType>::init_fn,
-    acc_field_redop<DataType<LEGMS_TYPE_UINT>::ValueType>::fold_fn);
+    acc_field_redop<DataType<HYPERION_TYPE_UINT>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_UINT>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_UINT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_FLOAT_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_FLOAT>::ValueType>>(),
-    acc_field_redop<DataType<LEGMS_TYPE_FLOAT>::ValueType>::init_fn,
-    acc_field_redop<DataType<LEGMS_TYPE_FLOAT>::ValueType>::fold_fn);
+    acc_field_redop<DataType<HYPERION_TYPE_FLOAT>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_FLOAT>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_FLOAT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_DOUBLE_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_DOUBLE>::ValueType>>(),
-    acc_field_redop<DataType<LEGMS_TYPE_DOUBLE>::ValueType>::init_fn,
-    acc_field_redop<DataType<LEGMS_TYPE_DOUBLE>::ValueType>::fold_fn);
+    acc_field_redop<DataType<HYPERION_TYPE_DOUBLE>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_DOUBLE>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_DOUBLE>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_COMPLEX_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_COMPLEX>::ValueType>>(),
-    acc_field_redop<DataType<LEGMS_TYPE_COMPLEX>::ValueType>::init_fn,
-    acc_field_redop<DataType<LEGMS_TYPE_COMPLEX>::ValueType>::fold_fn);
+    acc_field_redop<DataType<HYPERION_TYPE_COMPLEX>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_COMPLEX>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_COMPLEX>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
     ACC_FIELD_DCOMPLEX_REDOP,
     Realm::ReductionOpUntyped::create_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>>(),
-    acc_field_redop<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>::init_fn,
-    acc_field_redop<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>::fold_fn);
+    acc_field_redop<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>::fold_fn);
 #else
   Runtime::register_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_STRING>::ValueType>>(
+    acc_field_redop<DataType<HYPERION_TYPE_STRING>::ValueType>>(
     ACC_FIELD_STRING_REDOP);
   Runtime::register_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_BOOL>::ValueType>>(
+    acc_field_redop<DataType<HYPERION_TYPE_BOOL>::ValueType>>(
     ACC_FIELD_BOOL_REDOP);
   Runtime::register_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_CHAR>::ValueType>>(
+    acc_field_redop<DataType<HYPERION_TYPE_CHAR>::ValueType>>(
     ACC_FIELD_CHAR_REDOP);
   Runtime::register_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_UCHAR>::ValueType>>(
+    acc_field_redop<DataType<HYPERION_TYPE_UCHAR>::ValueType>>(
     ACC_FIELD_UCHAR_REDOP);
   Runtime::register_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_SHORT>::ValueType>>(
+    acc_field_redop<DataType<HYPERION_TYPE_SHORT>::ValueType>>(
     ACC_FIELD_SHORT_REDOP);
   Runtime::register_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_USHORT>::ValueType>>(
+    acc_field_redop<DataType<HYPERION_TYPE_USHORT>::ValueType>>(
     ACC_FIELD_USHORT_REDOP);
   Runtime::register_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_INT>::ValueType>>(
+    acc_field_redop<DataType<HYPERION_TYPE_INT>::ValueType>>(
     ACC_FIELD_INT_REDOP);
   Runtime::register_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_UINT>::ValueType>>(
+    acc_field_redop<DataType<HYPERION_TYPE_UINT>::ValueType>>(
     ACC_FIELD_UINT_REDOP);
   Runtime::register_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_FLOAT>::ValueType>>(
+    acc_field_redop<DataType<HYPERION_TYPE_FLOAT>::ValueType>>(
     ACC_FIELD_FLOAT_REDOP);
   Runtime::register_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_DOUBLE>::ValueType>>(
+    acc_field_redop<DataType<HYPERION_TYPE_DOUBLE>::ValueType>>(
     ACC_FIELD_DOUBLE_REDOP);
   Runtime::register_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_COMPLEX>::ValueType>>(
+    acc_field_redop<DataType<HYPERION_TYPE_COMPLEX>::ValueType>>(
     ACC_FIELD_COMPLEX_REDOP);
   Runtime::register_reduction_op<
-    acc_field_redop<DataType<LEGMS_TYPE_DCOMPLEX>::ValueType>>(
+    acc_field_redop<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>>(
     ACC_FIELD_DCOMPLEX_REDOP);
 #endif // WITH_ACC_FIELD_REDOP_SERDEZ
 
 #define REGISTER_POINT_ADD_REDOP(DIM)                   \
   Runtime::register_reduction_op<point_add_redop<DIM>>(POINT_ADD_REDOP(DIM));
-  LEGMS_FOREACH_N(REGISTER_POINT_ADD_REDOP);
+  HYPERION_FOREACH_N(REGISTER_POINT_ADD_REDOP);
 #undef REGISTER_POINT_ADD_REDOP
 }
 
 FieldID
-legms::add_field(
+hyperion::add_field(
   TypeTag datatype,
   FieldAllocator fa,
   FieldID field_id) {
@@ -247,7 +247,7 @@ legms::add_field(
     break;
 
   switch (datatype) {
-    LEGMS_FOREACH_DATATYPE(ALLOC_FLD);
+    HYPERION_FOREACH_DATATYPE(ALLOC_FLD);
   default:
     assert(false);
     break;
@@ -333,7 +333,7 @@ ProjectedIndexPartitionTask::base_impl(
     case (I * LEGION_MAX_DIM + P):              \
       pipt_impl<I, P>(task, regions, ctx, rt);  \
       break;
-    LEGMS_FOREACH_NN(PIPT);
+    HYPERION_FOREACH_NN(PIPT);
 #undef PIPT
   default:
     assert(false);
@@ -355,7 +355,7 @@ ProjectedIndexPartitionTask::preregister_task() {
 TaskID ProjectedIndexPartitionTask::TASK_ID;
 
 IndexPartition
-legms::projected_index_partition(
+hyperion::projected_index_partition(
   Context ctx,
   Runtime* rt,
   IndexPartition ip,
@@ -376,7 +376,7 @@ legms::projected_index_partition(
           IndexSpaceT<P>(prj_is),               \
           dmap);                                \
       break;
-    LEGMS_FOREACH_NN(PIP);
+    HYPERION_FOREACH_NN(PIP);
 #undef PIP
   default:
     assert(false);
@@ -385,7 +385,7 @@ legms::projected_index_partition(
 }
 
 LayoutConstraintRegistrar&
-legms::add_row_major_order_constraint(
+hyperion::add_row_major_order_constraint(
   LayoutConstraintRegistrar& lc,
   unsigned rank) {
 
@@ -400,46 +400,46 @@ legms::add_row_major_order_constraint(
 }
 
 void
-legms::preregister_all() {
+hyperion::preregister_all() {
   OpsManager::preregister_ops();
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   H5DatatypeManager::preregister_datatypes();
 #endif
 
 #define REG_AXES(T) \
   AxesRegistrar::register_axes<typename MSTable<MS_##T>::Axes>();
 
-  LEGMS_FOREACH_MSTABLE(REG_AXES);
+  HYPERION_FOREACH_MSTABLE(REG_AXES);
 #undef REG_AXES
 
   TreeIndexSpaceTask::preregister_task();
   Table::preregister_tasks();
   ProjectedIndexPartitionTask::preregister_task();
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   TableReadTask::preregister_task();
 #endif
 }
 
 void
-legms::register_tasks(Context context, Runtime* runtime) {
+hyperion::register_tasks(Context context, Runtime* runtime) {
   Table::register_tasks(context, runtime);
 }
 
-std::unordered_map<std::string, legms::AxesRegistrar::A>
-legms::AxesRegistrar::axes_;
+std::unordered_map<std::string, hyperion::AxesRegistrar::A>
+hyperion::AxesRegistrar::axes_;
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 void
-legms::AxesRegistrar::register_axes(
+hyperion::AxesRegistrar::register_axes(
   const std::string uid,
   const std::vector<std::string> names,
   hid_t hid) {
   A a{uid, names, hid};
   axes_[uid] = a;
 }
-#else // !LEGMS_USE_HDF5
+#else // !HYPERION_USE_HDF5
 void
-legms::AxesRegistrar::register_axes(
+hyperion::AxesRegistrar::register_axes(
   const std::string uid,
   const std::vector<std::string> names) {
   A a{uid, names};
@@ -447,14 +447,14 @@ legms::AxesRegistrar::register_axes(
 }
 #endif
 
-std::optional<legms::AxesRegistrar::A>
-legms::AxesRegistrar::axes(const std::string& uid) {
+std::optional<hyperion::AxesRegistrar::A>
+hyperion::AxesRegistrar::axes(const std::string& uid) {
   return (axes_.count(uid) > 0) ? axes_[uid] : std::optional<A>();
 }
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 std::optional<std::string>
-legms::AxesRegistrar::match_axes_datatype(hid_t hid) {
+hyperion::AxesRegistrar::match_axes_datatype(hid_t hid) {
   auto ad =
     std::find_if(
       axes_.begin(),
@@ -465,10 +465,10 @@ legms::AxesRegistrar::match_axes_datatype(hid_t hid) {
   return
     (ad != axes_.end()) ? std::get<0>(*ad) : std::optional<std::string>();
 }
-#endif // LEGMS_USE_HDF5
+#endif // HYPERION_USE_HDF5
 
 bool
-legms::AxesRegistrar::in_range(
+hyperion::AxesRegistrar::in_range(
   const std::string& uid,
   const std::vector<int> xs) {
 
@@ -484,12 +484,12 @@ legms::AxesRegistrar::in_range(
       });
 }
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 hid_t
-legms::H5DatatypeManager::datatypes_[N_H5T_DATATYPES];
+hyperion::H5DatatypeManager::datatypes_[N_H5T_DATATYPES];
 
 void
-legms::H5DatatypeManager::preregister_datatypes() {
+hyperion::H5DatatypeManager::preregister_datatypes() {
   datatypes_[BOOL_H5T] = H5T_NATIVE_HBOOL;
   datatypes_[CHAR_H5T] = H5T_NATIVE_SCHAR;
   datatypes_[UCHAR_H5T] = H5T_NATIVE_UCHAR;
@@ -513,22 +513,22 @@ legms::H5DatatypeManager::preregister_datatypes() {
   }
   {
     hid_t dt = H5Tcopy(H5T_C_S1);
-    H5Tset_size(dt, LEGMS_MAX_STRING_SIZE);
+    H5Tset_size(dt, HYPERION_MAX_STRING_SIZE);
     datatypes_[STRING_H5T] = dt;
   }
   {
     hid_t dt = H5Tenum_create(H5T_NATIVE_UINT);
 
 #define DTINSERT(T) do {                          \
-      unsigned val = LEGMS_TYPE_##T;              \
+      unsigned val = HYPERION_TYPE_##T;              \
       herr_t err = H5Tenum_insert(dt, #T, &val);  \
       assert(err >= 0);                           \
     } while(0);
-    LEGMS_FOREACH_BARE_DATATYPE(DTINSERT);
+    HYPERION_FOREACH_BARE_DATATYPE(DTINSERT);
 #undef DTINSERT
     datatypes_[DATATYPE_H5T] = dt;
   }
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   {
     hid_t dt = H5Tenum_create(H5T_NATIVE_UINT);
 #define MCINSERT(MC) do {                                               \
@@ -536,7 +536,7 @@ legms::H5DatatypeManager::preregister_datatypes() {
       herr_t err = H5Tenum_insert(dt, MClassT<MC>::name.c_str(), &val); \
       assert(err >= 0);                                                 \
     } while(0);
-    LEGMS_FOREACH_MCLASS(MCINSERT);
+    HYPERION_FOREACH_MCLASS(MCINSERT);
 #undef MCINSERT
     datatypes_[MEASURE_CLASS_H5T] = dt;
   }
@@ -544,7 +544,7 @@ legms::H5DatatypeManager::preregister_datatypes() {
 }
 
 herr_t
-legms::H5DatatypeManager::commit_derived(
+hyperion::H5DatatypeManager::commit_derived(
   hid_t loc_id,
   hid_t lcpl_id,
   hid_t tcpl_id,
@@ -553,7 +553,7 @@ legms::H5DatatypeManager::commit_derived(
   herr_t result =
     H5Tcommit(
       loc_id,
-      "legms::complex",
+      "hyperion::complex",
       datatypes_[COMPLEX_H5T],
       lcpl_id,
       tcpl_id,
@@ -564,7 +564,7 @@ legms::H5DatatypeManager::commit_derived(
   result =
     H5Tcommit(
       loc_id,
-      "legms::dcomplex",
+      "hyperion::dcomplex",
       datatypes_[DCOMPLEX_H5T],
       lcpl_id,
       tcpl_id,
@@ -575,7 +575,7 @@ legms::H5DatatypeManager::commit_derived(
   result =
     H5Tcommit(
       loc_id,
-      "legms::string",
+      "hyperion::string",
       datatypes_[STRING_H5T],
       lcpl_id,
       tcpl_id,
@@ -586,7 +586,7 @@ legms::H5DatatypeManager::commit_derived(
   result =
     H5Tcommit(
       loc_id,
-      "legms::TypeTag",
+      "hyperion::TypeTag",
       datatypes_[DATATYPE_H5T],
       lcpl_id,
       tcpl_id,
@@ -598,7 +598,7 @@ legms::H5DatatypeManager::commit_derived(
   result =
     H5Tcommit(
       loc_id,
-      "legms::MClass",
+      "hyperion::MClass",
       datatypes_[MEASURE_CLASS_H5T],
       lcpl_id,
       tcpl_id,
@@ -608,8 +608,8 @@ legms::H5DatatypeManager::commit_derived(
 }
 
 hid_t
-legms::H5DatatypeManager::create(
-  const LEGMS_FS::path& path,
+hyperion::H5DatatypeManager::create(
+  const HYPERION_FS::path& path,
   unsigned flags,
   hid_t fcpl_t,
   hid_t fapl_t) {
@@ -621,10 +621,10 @@ legms::H5DatatypeManager::create(
   }
   return result;
 }
-#endif // LEGMS_USE_HDF5
+#endif // HYPERION_USE_HDF5
 
 IndexTreeL
-legms::index_space_as_tree(Runtime* rt, IndexSpace is) {
+hyperion::index_space_as_tree(Runtime* rt, IndexSpace is) {
   IndexTreeL result;
   Domain dom = rt->get_index_space_domain(is);
   switch (dom.get_dim()) {
@@ -646,7 +646,7 @@ legms::index_space_as_tree(Runtime* rt, IndexSpace is) {
       }                                                 \
       break;                                            \
     }
-    LEGMS_FOREACH_N(TREE)
+    HYPERION_FOREACH_N(TREE)
 #undef TREE
   default:
       assert(false);

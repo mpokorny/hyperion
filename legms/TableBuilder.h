@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_TABLE_BUILDER_H_
-#define LEGMS_TABLE_BUILDER_H_
+#ifndef HYPERION_TABLE_BUILDER_H_
+#define HYPERION_TABLE_BUILDER_H_
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 
 #pragma GCC visibility push(default)
 #include <algorithm>
@@ -28,14 +28,14 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/KeywordsBuilder.h>
-#include <legms/ColumnBuilder.h>
-#include <legms/Column.h>
-#include <legms/Table.h>
-#include <legms/IndexTree.h>
-#include <legms/MSTable.h>
-#include <legms/MeasRefContainer.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/KeywordsBuilder.h>
+#include <hyperion/ColumnBuilder.h>
+#include <hyperion/Column.h>
+#include <hyperion/Table.h>
+#include <hyperion/IndexTree.h>
+#include <hyperion/MSTable.h>
+#include <hyperion/MeasRefContainer.h>
 
 #pragma GCC visibility push(default)
 #include <casacore/casa/aipstype.h>
@@ -43,7 +43,7 @@
 #include <casacore/tables/Tables.h>
 #pragma GCC visibility pop
 
-namespace legms {
+namespace hyperion {
 
 template <MSTables D>
 class TableBuilderT
@@ -188,7 +188,7 @@ protected:
     const std::vector<Axes>& element_axes,
     std::unordered_set<std::string>& array_names) {
 
-    typedef typename legms::DataType<DT>::ValueType VT;
+    typedef typename hyperion::DataType<DT>::ValueType VT;
 
     switch (element_axes.size()) {
     case 0:
@@ -240,7 +240,7 @@ protected:
           case DataType<DT>::CasacoreTypeTag:   \
             scol->add_keyword(name, DT);        \
             break;
-          LEGMS_FOREACH_DATATYPE(ADD_KW);
+          HYPERION_FOREACH_DATATYPE(ADD_KW);
 #undef ADD_KW
         default:
           // ignore other kw types, like Table
@@ -265,7 +265,7 @@ public:
 
   static TableBuilderT
   from_casacore_table(
-    const LEGMS_FS::path& path,
+    const HYPERION_FS::path& path,
     const std::unordered_set<std::string>& column_selections,
     const std::unordered_map<std::string, std::vector<Axes>>& element_axes) {
 
@@ -307,7 +307,7 @@ public:
             result.template add_from_table_column<DT>(                  \
               table, nm, axes, array_names);                          \
             break;
-          LEGMS_FOREACH_DATATYPE(ADD_FROM_TCOL);
+          HYPERION_FOREACH_DATATYPE(ADD_FROM_TCOL);
 #undef ADD_FROM_TCOL
         default:
           assert(false);
@@ -331,7 +331,7 @@ public:
             case DataType<DT>::CasacoreTypeTag: \
               result.add_keyword(name, DT);     \
               break;
-            LEGMS_FOREACH_DATATYPE(ADD_KW);
+            HYPERION_FOREACH_DATATYPE(ADD_KW);
 #undef ADD_KW
           default:
             // ignore other kw types, like Table
@@ -369,12 +369,12 @@ public:
   }
 };
 
-struct LEGMS_API TableBuilder {
+struct HYPERION_API TableBuilder {
 
   template <MSTables T>
   static TableBuilderT<T>
   from_ms(
-    const LEGMS_FS::path& path,
+    const HYPERION_FS::path& path,
     const std::unordered_set<std::string>& column_selections) {
 
     return
@@ -391,7 +391,7 @@ void
 initialize_keywords_from_ms(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const LEGMS_FS::path& path,
+  const HYPERION_FS::path& path,
   Table& table);
 
 template <MSTables T>
@@ -399,12 +399,12 @@ Table
 from_ms(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const LEGMS_FS::path& path,
+  const HYPERION_FS::path& path,
   const std::unordered_set<std::string>& column_selections) {
 
   typedef typename MSTable<T>::Axes Axes;
 
-  const LEGMS_FS::path& table_path =
+  const HYPERION_FS::path& table_path =
     ((path.filename() == MSTable<T>::name)
      ? path
      : (path / MSTable<T>::name));
@@ -431,7 +431,7 @@ from_ms(
               MClassT<MC>::name,                \
               m.getRef()));                     \
         }
-        LEGMS_FOREACH_MCLASS(MK_MR)
+        HYPERION_FOREACH_MCLASS(MK_MR)
 #undef MK_MR
         else { assert(false); }
       }
@@ -453,11 +453,11 @@ from_ms(
   return result;
 }
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_USE_CASACORE
+#endif // HYPERION_USE_CASACORE
 
-#endif // LEGMS_TABLE_BUILDER_H_
+#endif // HYPERION_TABLE_BUILDER_H_
 
 // Local Variables:
 // mode: c++

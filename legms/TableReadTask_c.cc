@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/TableReadTask_c.h>
-#include <legms/TableReadTask.h>
-#include <legms/c_util.h>
+#include <hyperion/TableReadTask_c.h>
+#include <hyperion/TableReadTask.h>
+#include <hyperion/c_util.h>
 
 #pragma GCC visibility push(default)
 #include <legion/legion_c_util.h>
 #pragma GCC visibility pop
 
-using namespace legms;
+using namespace hyperion;
 
 // void
 // table_block_read_task(

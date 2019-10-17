@@ -16,11 +16,11 @@
 #include <iostream>
 #include <stdexcept>
 
-#include <legms/testing/TestSuiteDriver.h>
-#include <legms/testing/TestRecorder.h>
-#include <legms/testing/TestExpression.h>
+#include <hyperion/testing/TestSuiteDriver.h>
+#include <hyperion/testing/TestRecorder.h>
+#include <hyperion/testing/TestExpression.h>
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 enum {

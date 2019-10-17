@@ -18,12 +18,12 @@
 #include <legion/legion_c_util.h>
 #pragma GCC visibility pop
 
-#include <legms/c_util.h>
-#include <legms/Column_c.h>
-#include <legms/Column.h>
+#include <hyperion/c_util.h>
+#include <hyperion/Column_c.h>
+#include <hyperion/Column.h>
 
-using namespace legms;
-using namespace legms::CObjectWrapper;
+using namespace hyperion;
+using namespace hyperion::CObjectWrapper;
 
 const Legion::FieldID metadata_fs[3] =
   {Column::METADATA_NAME_FID,

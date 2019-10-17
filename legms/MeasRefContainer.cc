@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/MeasRefContainer.h>
+#include <hyperion/MeasRefContainer.h>
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 
 MeasRefContainer::MeasRefContainer() {}
 
@@ -246,7 +246,7 @@ MeasRefContainer::with_measure_references_dictionary_epilogue(
     rt->unmap_region(ctx, pr.value());
 }
 
-#endif // LEGMS_USE_CASACORE
+#endif // HYPERION_USE_CASACORE
 
 // Local Variables:
 // mode: c++

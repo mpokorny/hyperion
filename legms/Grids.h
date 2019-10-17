@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_GRIDS_H_
-#define LEGMS_GRIDS_H_
+#ifndef HYPERION_GRIDS_H_
+#define HYPERION_GRIDS_H_
 
 #pragma GCC visibility push(default)
 #include <tuple>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
+#include <hyperion/hyperion.h>
 
-namespace legms {
+namespace hyperion {
 
 constexpr void
 bb(
@@ -166,9 +166,9 @@ block_and_halo_partitions(
   return std::make_tuple(disjoint_ip, halo_ip);
 };
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_GRIDS_H_
+#endif // HYPERION_GRIDS_H_
 
 // Local Variables:
 // mode: c++

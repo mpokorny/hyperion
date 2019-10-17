@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_TABLE_READ_TASK_C_H_
-#define LEGMS_TABLE_READ_TASK_C_H_
+#ifndef HYPERION_TABLE_READ_TASK_C_H_
+#define HYPERION_TABLE_READ_TASK_C_H_
 
-#include <legms/utility_c.h>
-#include <legms/Table_c.h>
+#include <hyperion/utility_c.h>
+#include <hyperion/Table_c.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* LEGMS_API void */
+/* HYPERION_API void */
 /* table_block_read_task( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -37,7 +37,7 @@ extern "C" {
 }
 #endif
 
-#endif // LEGMS_TABLE_READ_TASK_C_H_
+#endif // HYPERION_TABLE_READ_TASK_C_H_
 
 // Local Variables:
 // mode: c

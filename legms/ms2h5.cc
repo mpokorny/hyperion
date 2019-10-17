@@ -23,12 +23,12 @@
 #endif
 #include <unordered_set>
 
-#include <legms/legms.h>
-#include <legms/hdf5.h>
-#include <legms/Table.h>
-#include <legms/TableReadTask.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/hdf5.h>
+#include <hyperion/Table.h>
+#include <hyperion/TableReadTask.h>
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 enum {
@@ -39,9 +39,9 @@ enum {
 void
 get_args(
   const InputArgs& args,
-  LEGMS_FS::path& ms_path,
+  HYPERION_FS::path& ms_path,
   std::vector<std::string>& tables,
-  LEGMS_FS::path& h5_path) {
+  HYPERION_FS::path& h5_path) {
 
   ms_path.clear();
   tables.clear();
@@ -74,7 +74,7 @@ public:
   static const int NAME_FID = 0;
 
   TableNameCollectorTask(
-    const LEGMS_FS::path& ms,
+    const HYPERION_FS::path& ms,
     LogicalRegion table_names_lr)
     : m_ms(ms)
     , m_table_names_lr(table_names_lr) {}
@@ -103,7 +103,7 @@ public:
       runtime->create_index_space(context, Rect<1>(0, MAX_TABLES - 1));
     FieldSpace fs = runtime->create_field_space(context);
     FieldAllocator fa = runtime->create_field_allocator(context, fs);
-    fa.allocate_field(sizeof(DataType<LEGMS_TYPE_STRING>::ValueType), NAME_FID);
+    fa.allocate_field(sizeof(DataType<HYPERION_TYPE_STRING>::ValueType), NAME_FID);
     LogicalRegion result = runtime->create_logical_region(context, is, fs);
     return result;
   }
@@ -118,10 +118,10 @@ public:
     TaskArgs args = TaskArgs::deserialize(task->args);
     const FieldAccessor<
       WRITE_ONLY,
-      legms::string,
+      hyperion::string,
       1,
       coord_t,
-      AffineAccessor<legms::string, 1, coord_t>,
+      AffineAccessor<hyperion::string, 1, coord_t>,
       false> names(regions[0], NAME_FID);
     coord_t i = 0;
     if (casacore::Table::isReadable(casacore::String(args.ms))) {
@@ -129,20 +129,20 @@ public:
         casacore::String(args.ms),
         casacore::TableLock::PermanentLockingWait);
       if (tb.nrow() > 0)
-        names[i++] = legms::string("MAIN");
+        names[i++] = hyperion::string("MAIN");
     }
-    for (auto& p : LEGMS_FS::directory_iterator(args.ms)) {
+    for (auto& p : HYPERION_FS::directory_iterator(args.ms)) {
       if (i < MAX_TABLES
           && casacore::Table::isReadable(casacore::String(p.path()))) {
         casacore::Table tb(
           casacore::String(p.path()),
           casacore::TableLock::PermanentLockingWait);
         if (tb.nrow() > 0)
-          names[i++] = legms::string(p.path().filename().c_str());
+          names[i++] = hyperion::string(p.path().filename().c_str());
       }
     }
     while (i < MAX_TABLES)
-      names[i++] = legms::string();
+      names[i++] = hyperion::string();
   }
 
   static void
@@ -156,7 +156,7 @@ public:
 private:
 
   struct TaskArgs {
-    LEGMS_FS::path ms;
+    HYPERION_FS::path ms;
 
     size_t
     serialized_size() {
@@ -178,7 +178,7 @@ private:
     }
   };
 
-  LEGMS_FS::path m_ms;
+  HYPERION_FS::path m_ms;
 
   LogicalRegion m_table_names_lr;
 };
@@ -198,9 +198,9 @@ public:
   }
 
   static bool
-  args_ok(const LEGMS_FS::path& ms,
+  args_ok(const HYPERION_FS::path& ms,
           const std::vector<std::string>& table_args,
-          const LEGMS_FS::path& h5,
+          const HYPERION_FS::path& h5,
           Context context,
           Runtime* runtime) {
 
@@ -222,8 +222,8 @@ public:
       return false;
     }
 
-    auto ms_status = LEGMS_FS::status(ms);
-    if (!LEGMS_FS::is_directory(ms)) {
+    auto ms_status = HYPERION_FS::status(ms);
+    if (!HYPERION_FS::is_directory(ms)) {
       std::ostringstream oss;
       oss << "MS directory " << ms
           << " does not exist"
@@ -232,7 +232,7 @@ public:
       return false;
     }
 
-    if (LEGMS_FS::exists(h5)) {
+    if (HYPERION_FS::exists(h5)) {
       std::ostringstream oss;
       oss << "HDF5 file path " << h5
           << " exists and will not be overwritten"
@@ -253,8 +253,8 @@ public:
           std::back_inserter(T),
           [](unsigned char c) { return std::toupper(c); });
         if (T != "MAIN" && T != "." && T[0] != '~') {
-          auto stat = LEGMS_FS::status(ms / T);
-          if (!LEGMS_FS::is_directory(stat))
+          auto stat = HYPERION_FS::status(ms / T);
+          if (!HYPERION_FS::is_directory(stat))
             missing_tables.push_back(t);
         }
       });
@@ -283,12 +283,12 @@ public:
     Context ctx,
     Runtime* rt) {
 
-    legms::register_tasks(ctx, rt);
+    hyperion::register_tasks(ctx, rt);
 
     const InputArgs& args = Runtime::get_input_args();
-    LEGMS_FS::path ms;
+    HYPERION_FS::path ms;
     std::vector<std::string> table_args;
-    LEGMS_FS::path h5;
+    HYPERION_FS::path h5;
     get_args(args, ms, table_args, h5);
 
     if (!args_ok(ms, table_args, h5, ctx, rt))
@@ -307,7 +307,7 @@ public:
 
     std::vector<Table> tables;
     for (auto& tn : table_names) {
-      LEGMS_FS::path path;
+      HYPERION_FS::path path;
       if (tn != "MAIN")
         path = ms / tn;
       else
@@ -387,10 +387,10 @@ public:
           table_names_lr));
     const FieldAccessor<
       READ_ONLY,
-      legms::string,
+      hyperion::string,
       1,
       coord_t,
-      AffineAccessor<legms::string, 1, coord_t>,
+      AffineAccessor<hyperion::string, 1, coord_t>,
       false> table_names(table_names_pr, TableNameCollectorTask::NAME_FID);
     std::unordered_set<std::string> result;
     coord_t i = 0;
@@ -427,7 +427,7 @@ main(int argc, char** argv) {
   TopLevelTask::register_task();
   TableNameCollectorTask::register_task();
   Runtime::set_top_level_task_id(TopLevelTask::TASK_ID);
-  legms::preregister_all();
+  hyperion::preregister_all();
   return Runtime::start(argc, argv);
 }
 

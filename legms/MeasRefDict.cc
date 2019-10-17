@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 #include <algorithm>
-#include <legms/MeasRefDict.h>
+#include <hyperion/MeasRefDict.h>
 
-using namespace legms;
+using namespace hyperion;
 
 std::unordered_set<std::string>
 MeasRefDict::names() const {
@@ -59,7 +59,7 @@ MeasRefDict::get(const std::string& name) const {
               mr->make<MClassT<M>::type>(m_ctx, m_rt)   \
               .value()));                               \
           break;
-        LEGMS_FOREACH_MCLASS(MK)
+        HYPERION_FOREACH_MCLASS(MK)
 #undef MK
       default:
           assert(false);

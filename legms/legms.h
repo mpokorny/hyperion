@@ -13,25 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_LEGMS_H_
-#define LEGMS_LEGMS_H_
+#ifndef HYPERION_HYPERION_H_
+#define HYPERION_HYPERION_H_
 
 #pragma GCC visibility push(default)
 #include <legion.h>
 #pragma GCC visibility pop
 
-#include <legms/legms_config.h>
+#include <hyperion/hyperion_config.h>
 
-#define LEGMS_API __attribute__((visibility("default")))
-#define LEGMS_LOCAL __attribute__((visibility("hidden")))
+#define HYPERION_API __attribute__((visibility("default")))
+#define HYPERION_LOCAL __attribute__((visibility("hidden")))
 
 #if GCC_VERSION >= 90000
-# define LEGMS_FS std::filesystem
+# define HYPERION_FS std::filesystem
 #else
-# define LEGMS_FS std::experimental::filesystem
+# define HYPERION_FS std::experimental::filesystem
 #endif
 
-#endif // LEGMS_LEGMS_H_
+#endif // HYPERION_HYPERION_H_
 
 // Local Variables:
 // mode: c

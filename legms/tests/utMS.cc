@@ -18,20 +18,20 @@
 #include <memory>
 #include <vector>
 
-#include <legms/legms.h>
-#include <legms/utility.h>
-#include <legms/IndexTree.h>
-#include <legms/Column.h>
-#include <legms/Table.h>
-#include <legms/TableBuilder.h>
-#include <legms/TableReadTask.h>
-#include <legms/Measures.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
+#include <hyperion/IndexTree.h>
+#include <hyperion/Column.h>
+#include <hyperion/Table.h>
+#include <hyperion/TableBuilder.h>
+#include <hyperion/TableReadTask.h>
+#include <hyperion/Measures.h>
 
-#include <legms/testing/TestSuiteDriver.h>
-#include <legms/testing/TestRecorder.h>
-#include <legms/testing/TestExpression.h>
+#include <hyperion/testing/TestSuiteDriver.h>
+#include <hyperion/testing/TestRecorder.h>
+#include <hyperion/testing/TestExpression.h>
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 enum {
@@ -45,7 +45,7 @@ using RO = FieldAccessor<READ_ONLY, T, DIM, coord_t, AffineAccessor<T, DIM, coor
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 
 struct VerifyColumnTaskArgs {
-  legms::TypeTag tag;
+  hyperion::TypeTag tag;
   char table[160];
   char column[32];
   bool has_values;
@@ -103,7 +103,7 @@ verify_scalar_column(
             }));                                                        \
         break;                                                          \
       }
-      LEGMS_FOREACH_DATATYPE(CMP);
+      HYPERION_FOREACH_DATATYPE(CMP);
 #undef CMP
     }
   } else {
@@ -205,7 +205,7 @@ verify_array_column(
         }                                                             \
         break;                                                        \
       }
-      LEGMS_FOREACH_DATATYPE(CMP);
+      HYPERION_FOREACH_DATATYPE(CMP);
 #undef CMP
     }
   } else {
@@ -247,7 +247,7 @@ verify_column_task(
       break;
 
     switch (cdesc.ndim() + 1) {
-      LEGMS_FOREACH_N(VERIFY_ARRAY);
+      HYPERION_FOREACH_N(VERIFY_ARRAY);
     }
 #undef VERIFY_ARRAY
   }
@@ -298,7 +298,7 @@ verify_column_task(
             }                                                           \
             break;                                                      \
           }
-          LEGMS_FOREACH_RECORD_DATATYPE(CMP_KW)
+          HYPERION_FOREACH_RECORD_DATATYPE(CMP_KW)
 #undef CMP_KW
         default:
             break;
@@ -321,7 +321,7 @@ verify_column_task(
               switch (kws.dataType(f)) {
 #define CMP_KW(DT)                                  \
                 case DataType<DT>::CasacoreTypeTag:
-                LEGMS_FOREACH_RECORD_DATATYPE(CMP_KW)
+                HYPERION_FOREACH_RECORD_DATATYPE(CMP_KW)
                   ++num_expected;
                   break; // break is here intentionally
 #undef CMP_KW
@@ -380,7 +380,7 @@ verify_column_task(
               else if (MClassT<MC>::holds(mh)) {                        \
                 result = MeasRefDict::holds<MC>(ref);                   \
               }
-              LEGMS_FOREACH_MCLASS(MATCH)
+              HYPERION_FOREACH_MCLASS(MATCH)
 #undef MATCH
               else {}
             }

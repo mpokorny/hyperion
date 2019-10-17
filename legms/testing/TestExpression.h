@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_TESTING_TEST_EXPRESSION_H_
-#define LEGMS_TESTING_TEST_EXPRESSION_H_
+#ifndef HYPERION_TESTING_TEST_EXPRESSION_H_
+#define HYPERION_TESTING_TEST_EXPRESSION_H_
 
 #pragma GCC visibility push(default)
 #include <optional>
@@ -23,10 +23,10 @@
 #include <typeinfo>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/testing/TestRecorder.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/testing/TestRecorder.h>
 
-namespace legms{
+namespace hyperion{
 namespace testing {
 
 template <template <typename> typename E,
@@ -396,9 +396,9 @@ private:
 };
 
 } // end namespace testing
-} // end namespace legms
+} // end namespace hyperion
 
-#endif //LEGMS_TESTING_TEST_EXPRESSION_H_
+#endif //HYPERION_TESTING_TEST_EXPRESSION_H_
 
 // Local Variables:
 // mode: c++

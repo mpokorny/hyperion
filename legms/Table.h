@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_TABLE_H_
-#define LEGMS_TABLE_H_
+#ifndef HYPERION_TABLE_H_
+#define HYPERION_TABLE_H_
 
 #pragma GCC visibility push(default)
 #include <algorithm>
@@ -31,27 +31,27 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/Table_c.h>
-#include <legms/utility.h>
-#include <legms/Keywords.h>
-#include <legms/Column.h>
-#include <legms/IndexTree.h>
-#include <legms/ColumnPartition.h>
-#include <legms/MSTable.h>
-#include <legms/c_util.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/Table_c.h>
+#include <hyperion/utility.h>
+#include <hyperion/Keywords.h>
+#include <hyperion/Column.h>
+#include <hyperion/IndexTree.h>
+#include <hyperion/ColumnPartition.h>
+#include <hyperion/MSTable.h>
+#include <hyperion/c_util.h>
 
-#ifdef LEGMS_USE_HDF5
-# include <legms/hdf5.h>
-#endif // LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
+# include <hyperion/hdf5.h>
+#endif // HYPERION_USE_HDF5
 
-#ifdef LEGMS_USE_CASACORE
-# include <legms/MeasRefContainer.h>
+#ifdef HYPERION_USE_CASACORE
+# include <hyperion/MeasRefContainer.h>
 #endif
 
-namespace legms {
+namespace hyperion {
 
-class LEGMS_API Table {
+class HYPERION_API Table {
 public:
 
   static const constexpr Legion::FieldID METADATA_NAME_FID = 0;
@@ -61,7 +61,7 @@ public:
   Legion::LogicalRegion axes_lr;
   static const constexpr Legion::FieldID COLUMNS_FID = 0;
   Legion::LogicalRegion columns_lr;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   MeasRefContainer meas_refs;
 #endif
   Keywords keywords;
@@ -70,20 +70,20 @@ public:
   using NameAccessor =
     Legion::FieldAccessor<
     MODE,
-    legms::string,
+    hyperion::string,
     1,
     Legion::coord_t,
-    Legion::AffineAccessor<legms::string, 1, Legion::coord_t>,
+    Legion::AffineAccessor<hyperion::string, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxesUidAccessor =
     Legion::FieldAccessor<
     MODE,
-    legms::string,
+    hyperion::string,
     1,
     Legion::coord_t,
-    Legion::AffineAccessor<legms::string, 1, Legion::coord_t>,
+    Legion::AffineAccessor<hyperion::string, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -112,7 +112,7 @@ public:
     Legion::LogicalRegion metadata,
     Legion::LogicalRegion axes,
     Legion::LogicalRegion columns,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
 #endif
     const Keywords& keywords);
@@ -121,7 +121,7 @@ public:
     Legion::LogicalRegion metadata,
     Legion::LogicalRegion axes,
     Legion::LogicalRegion columns,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
 #endif
     Keywords&& keywords);
@@ -149,7 +149,7 @@ public:
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
     const std::vector<Column>& columns_,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
@@ -165,7 +165,7 @@ public:
     const std::string& name,
     const std::vector<D>& index_axes,
     const std::vector<Column>& columns,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
@@ -179,7 +179,7 @@ public:
         Axes<D>::uid,
         map_to_int(index_axes),
         columns,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
         meas_refs,
 #endif
         kws,
@@ -194,7 +194,7 @@ public:
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
     const std::vector<Column::Generator>& column_generators,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
@@ -208,7 +208,7 @@ public:
     const std::string& name,
     const std::vector<D>& index_axes,
     const std::vector<Column::Generator>& column_generators,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
@@ -222,7 +222,7 @@ public:
         Axes<D>::uid,
         map_to_int(index_axes),
         column_generators,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
         meas_refs,
 #endif
         kws,
@@ -301,7 +301,7 @@ public:
     rt->unmap_region(ctx, pr);
   }
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   template <
     typename FN,
     std::enable_if_t<
@@ -312,7 +312,7 @@ public:
   with_columns_attached(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const LEGMS_FS::path& file_path,
+    const HYPERION_FS::path& file_path,
     const std::string& root_path,
     const std::unordered_set<std::string> read_only,
     const std::unordered_set<std::string> read_write,
@@ -348,7 +348,7 @@ public:
   with_columns_attached(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const LEGMS_FS::path& file_path,
+    const HYPERION_FS::path& file_path,
     const std::string& root_path,
     const std::unordered_set<std::string> read_only,
     const std::unordered_set<std::string> read_write,
@@ -388,7 +388,7 @@ public:
   with_columns_attached(
     Legion::Context ctx,
     Legion::Runtime *rt,
-    const LEGMS_FS::path& file_path,
+    const HYPERION_FS::path& file_path,
     const std::string& root_path,
     const std::vector<
       std::tuple<
@@ -445,7 +445,7 @@ public:
   with_columns_attached(
     Legion::Context ctx,
     Legion::Runtime *rt,
-    const LEGMS_FS::path& file_path,
+    const HYPERION_FS::path& file_path,
     const std::string& root_path,
     const std::vector<
       std::tuple<
@@ -480,7 +480,7 @@ public:
     }
   }
 
-#endif // LEGMS_USE_HDF5
+#endif // HYPERION_USE_HDF5
 
 #ifndef NO_REINDEX
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
@@ -518,7 +518,7 @@ public:
     assert(Axes<D>::uid == axes_uid(ctx, rt));
     auto ia = iindex_by_value(ctx, rt, Axes<D>::names, map_to_int(axes));
     std::unordered_map<D, Legion::Future> result =
-      legms::map(
+      hyperion::map(
         ia,
         [](auto& a_f) {
           auto& [a, f] = a_f;
@@ -577,14 +577,14 @@ public:
     return ipartition_by_value(context, runtime, axs.names, axes);
   }
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   static Table
   from_ms(
     Legion::Context ctx,
     Legion::Runtime* runtime,
     const std::experimental::filesystem::path& path,
     const std::unordered_set<std::string>& column_selections);
-#endif // LEGMS_USE_CASACORE
+#endif // HYPERION_USE_CASACORE
 
   static void
   register_tasks(Legion::Context context, Legion::Runtime* runtime);
@@ -609,12 +609,12 @@ protected:
     const std::vector<int>& index_axes,
     const std::string& name_prefix);
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   static std::vector<Legion::PhysicalRegion>
   with_columns_attached_prologue(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const LEGMS_FS::path& file_path,
+    const HYPERION_FS::path& file_path,
     const std::string& root_path,
     const std::tuple<
       Table*,
@@ -626,7 +626,7 @@ protected:
     Legion::Context ctx,
     Legion::Runtime* rt,
     std::vector<Legion::PhysicalRegion>& prs);
-#endif // LEGMS_USE_HDF5
+#endif // HYPERION_USE_HDF5
 
 #ifndef NO_REINDEX
   Legion::Future/* Table */
@@ -656,7 +656,7 @@ protected:
     const std::vector<int>& axes) const;
 };
 
-class LEGMS_API IndexColumnTask
+class HYPERION_API IndexColumnTask
   : public Legion::TaskLauncher {
 public:
 
@@ -686,7 +686,7 @@ private:
 };
 
 #ifndef NO_REINDEX
-class LEGMS_API ReindexColumnTask {
+class HYPERION_API ReindexColumnTask {
 public:
 
   static Legion::TaskID TASK_ID;
@@ -738,7 +738,7 @@ private:
   Legion::TaskLauncher m_launcher;
 };
 
-class LEGMS_API ReindexedTableTask {
+class HYPERION_API ReindexedTableTask {
 public:
 
   static Legion::TaskID TASK_ID;
@@ -799,7 +799,7 @@ struct CObjectWrapper::Unwrapper<table_t> {
         Legion::CObjectWrapper::unwrap(tb.metadata),
         Legion::CObjectWrapper::unwrap(tb.axes),
         Legion::CObjectWrapper::unwrap(tb.columns),
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
         MeasRefContainer(), // FIXME
 #endif
         Keywords(
@@ -809,9 +809,9 @@ struct CObjectWrapper::Unwrapper<table_t> {
   }
 };
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_TABLE_H_
+#endif // HYPERION_TABLE_H_
 
 // Local Variables:
 // mode: c++

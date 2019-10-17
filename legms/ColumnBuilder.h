@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_COLUMN_BUILDER_H_
-#define LEGMS_COLUMN_BUILDER_H_
+#ifndef HYPERION_COLUMN_BUILDER_H_
+#define HYPERION_COLUMN_BUILDER_H_
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 
 #pragma GCC visibility push(default)
 #include <any>
@@ -28,18 +28,18 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/utility.h>
-#include <legms/KeywordsBuilder.h>
-#include <legms/IndexTree.h>
-#include <legms/Column.h>
-#include <legms/MSTable.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
+#include <hyperion/KeywordsBuilder.h>
+#include <hyperion/IndexTree.h>
+#include <hyperion/Column.h>
+#include <hyperion/MSTable.h>
 
 #include <casacore/casa/BasicSL/String.h>
 #include <casacore/casa/Containers/Record.h>
 #include <casacore/measures/Measures/MeasureHolder.h>
 
-namespace legms {
+namespace hyperion {
 
 template <MSTables D>
 class ColumnBuilder
@@ -138,7 +138,7 @@ public:
                 MClassT<MC>::name,                \
                 m.getRef()));                     \
           }
-          LEGMS_FOREACH_MCLASS(MK_MR)
+          HYPERION_FOREACH_MCLASS(MK_MR)
 #undef MK_MR
           else { assert(false); }
         }
@@ -151,7 +151,7 @@ public:
         axes(),
         datatype(),
         itree,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
         MeasRefContainer::create(ctx, rt, meas_refs, inherited_meas_ref),
 #endif
         keywords(),
@@ -268,11 +268,11 @@ private:
   std::function<std::array<size_t, ARRAYDIM>(const std::any&)> m_element_shape;
 };
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_USE_CASACORE
+#endif // HYPERION_USE_CASACORE
 
-#endif // LEGMS_COLUMN_BUILDER_H_
+#endif // HYPERION_COLUMN_BUILDER_H_
 
 // Local Variables:
 // mode: c++

@@ -9,13 +9,13 @@ if (USE_HDF5)
   include_directories(${HDF5_INCLUDE_DIRS})
   link_libraries(${HDF5_LIBRARIES})
 endif (USE_HDF5)
-link_libraries(legms_testing)
+link_libraries(hyperion_testing)
 
-if(NOT legms_NO_REINDEX)
+if(NOT hyperion_NO_REINDEX)
   add_executable(utIndexColumnTask utIndexColumnTask.cc)
   set_target_properties(utIndexColumnTask PROPERTIES
     CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME IndexColumnTaskUnitTest
     COMMAND ../testing/TestRunner.py ./utIndexColumnTask)
@@ -23,7 +23,7 @@ if(NOT legms_NO_REINDEX)
   add_executable(utReindexColumnTask utReindexColumnTask.cc)
   set_target_properties(utReindexColumnTask PROPERTIES
     CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME ReindexColumnTaskUnitTest
     COMMAND ../testing/TestRunner.py ./utReindexColumnTask)
@@ -31,7 +31,7 @@ if(NOT legms_NO_REINDEX)
   add_executable(utReindexed utReindexed.cc)
   set_target_properties(utReindexed PROPERTIES
     CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME ReindexedUnitTest
     COMMAND ../testing/TestRunner.py ./utReindexed)
@@ -40,7 +40,7 @@ endif()
 add_executable(utTable utTable.cc)
 set_target_properties(utTable PROPERTIES
   CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
 add_test(
   NAME TableUnitTest
   COMMAND ../testing/TestRunner.py ./utTable)
@@ -49,7 +49,7 @@ if (USE_HDF5)
   add_executable(utHdf5 utHdf5.cc)
   set_target_properties(utHdf5 PROPERTIES
     CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME Hdf5UnitTest
     COMMAND ../testing/TestRunner.py ./utHdf5)
@@ -59,7 +59,7 @@ if (USE_CASACORE)
   add_executable(utMS utMS.cc)
   set_target_properties(utMS PROPERTIES
     CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME MSUnitTest
     COMMAND ../testing/TestRunner.py ./utMS -ll:io 1)
@@ -68,7 +68,7 @@ if (USE_CASACORE)
   add_executable(utMeasRef utMeasRef.cc)
   set_target_properties(utMeasRef PROPERTIES
     CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME MeasRefUnitTest
     COMMAND ../testing/TestRunner.py ./utMeasRef)
@@ -76,7 +76,7 @@ if (USE_CASACORE)
   add_executable(utMeasRefDict utMeasRefDict.cc)
   set_target_properties(utMeasRefDict PROPERTIES
     CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${legms_COMPILE_DEFINITIONS}")
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME MeasRefDictUnitTest
     COMMAND ../testing/TestRunner.py ./utMeasRefDict)

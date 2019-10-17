@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/testing/TestSuiteDriver.h>
-#include <legms/testing/TestRecorder.h>
+#include <hyperion/testing/TestSuiteDriver.h>
+#include <hyperion/testing/TestRecorder.h>
 
-#include <legms/MeasRef.h>
+#include <hyperion/MeasRef.h>
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 #include <casacore/measures/Measures/MeasData.h>
 #include <casacore/measures/Measures/MCEpoch.h>
 #include <casacore/casa/System/AppState.h>
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 enum {
@@ -170,7 +170,7 @@ main(int argc, char* argv[]) {
   return driver.start(argc, argv);
 }
 
-#endif // LEGMS_USE_CASACORE
+#endif // HYPERION_USE_CASACORE
 
 // Local Variables:
 // mode: c++

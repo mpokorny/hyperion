@@ -13,24 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_TESTING_TEST_SUITE_DRIVER_H_
-#define LEGMS_TESTING_TEST_SUITE_DRIVER_H_
+#ifndef HYPERION_TESTING_TEST_SUITE_DRIVER_H_
+#define HYPERION_TESTING_TEST_SUITE_DRIVER_H_
 
 #pragma GCC visibility push(default)
 #include <array>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/utility.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
 
 #ifndef TEST_SUITE_DRIVER_LOG_LENGTH
 # define TEST_SUITE_DRIVER_LOG_LENGTH 100
 #endif
 
-namespace legms {
+namespace hyperion {
 namespace testing {
 
-class LEGMS_API TestSuiteDriver {
+class HYPERION_API TestSuiteDriver {
 public:
 
   static Legion::TaskID TASK_ID;
@@ -127,9 +127,9 @@ private:
 };
 
 } // end namespace testing
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_TESTING_TEST_DRIVER_H_
+#endif // HYPERION_TESTING_TEST_DRIVER_H_
 
 // Local Variables:
 // mode: c++

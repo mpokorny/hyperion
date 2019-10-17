@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_KEYWORDS_BUILDER_H_
-#define LEGMS_KEYWORDS_BUILDER_H_
+#ifndef HYPERION_KEYWORDS_BUILDER_H_
+#define HYPERION_KEYWORDS_BUILDER_H_
 
 #pragma GCC visibility push(default)
 #include <string>
@@ -22,13 +22,13 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/utility.h>
-#include <legms/Keywords.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
+#include <hyperion/Keywords.h>
 
-namespace legms {
+namespace hyperion {
 
-class LEGMS_API KeywordsBuilder {
+class HYPERION_API KeywordsBuilder {
 public:
 
   KeywordsBuilder() {}
@@ -49,9 +49,9 @@ private:
 
 };
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_KEYWORDS_BUILDER_H_
+#endif // HYPERION_KEYWORDS_BUILDER_H_
 
 // Local Variables:
 // mode: c++

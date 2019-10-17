@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/testing/TestSuiteDriver.h>
-#include <legms/testing/TestRecorder.h>
+#include <hyperion/testing/TestSuiteDriver.h>
+#include <hyperion/testing/TestRecorder.h>
 
-#include <legms/MeasRefDict.h>
+#include <hyperion/MeasRefDict.h>
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 #include <casacore/measures/Measures/MeasData.h>
 #include <casacore/casa/System/AppState.h>
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 enum {
@@ -63,7 +63,7 @@ check_dict_value_type(
     case M:                                                             \
       result = MeasRefDict::holds<M>(value);                            \
     break;
-    LEGMS_FOREACH_MCLASS(CHECK)
+    HYPERION_FOREACH_MCLASS(CHECK)
   default:
     assert(false);
     break;
@@ -141,7 +141,7 @@ main(int argc, char* argv[]) {
   return driver.start(argc, argv);
 }
 
-#endif // LEGMS_USE_CASACORE
+#endif // HYPERION_USE_CASACORE
 
 // Local Variables:
 // mode: c++

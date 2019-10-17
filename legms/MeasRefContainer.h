@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_MEAS_REF_CONTAINER_H_
-#define LEGMS_MEAS_REF_CONTAINER_H_
+#ifndef HYPERION_MEAS_REF_CONTAINER_H_
+#define HYPERION_MEAS_REF_CONTAINER_H_
 
 #pragma GCC visibility push(default)
 #include <array>
@@ -24,15 +24,15 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
+#include <hyperion/hyperion.h>
 
-#ifdef LEGMS_USE_CASACORE
-#include <legms/MeasRef.h>
-#include <legms/MeasRefDict.h>
+#ifdef HYPERION_USE_CASACORE
+#include <hyperion/MeasRef.h>
+#include <hyperion/MeasRefDict.h>
 
-namespace legms {
+namespace hyperion {
 
-class LEGMS_API MeasRefContainer {
+class HYPERION_API MeasRefContainer {
 public:
 
   static const constexpr Legion::FieldID OWNED_FID = 0;
@@ -190,10 +190,10 @@ private:
     const std::optional<Legion::PhysicalRegion>& pr) const;
 };
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_USE_CASACORE
-#endif // LEGMS_MEAS_REF_CONTAINER_H_
+#endif // HYPERION_USE_CASACORE
+#endif // HYPERION_MEAS_REF_CONTAINER_H_
 
 // Local Variables:
 // mode: c++

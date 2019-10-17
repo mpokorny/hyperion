@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_TREE_INDEX_SPACE_H_
-#define LEGMS_TREE_INDEX_SPACE_H_
+#ifndef HYPERION_TREE_INDEX_SPACE_H_
+#define HYPERION_TREE_INDEX_SPACE_H_
 
 #pragma GCC visibility push(default)
 #include <algorithm>
@@ -23,15 +23,15 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/utility.h>
-#include <legms/IndexTree.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
+#include <hyperion/IndexTree.h>
 
-namespace legms {
+namespace hyperion {
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;
 
-class LEGMS_API TreeIndexSpaceTask {
+class HYPERION_API TreeIndexSpaceTask {
 public:
 
   static Legion::TaskID TASK_ID;
@@ -59,15 +59,15 @@ private:
   std::vector<IndexTreeL> m_trees;
 };
 
-LEGMS_API Legion::IndexSpace
+HYPERION_API Legion::IndexSpace
 tree_index_space(
   const IndexTreeL& tree,
   Legion::Context ctx,
   Legion::Runtime* runtime);
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_TREE_INDEX_SPACE_H_
+#endif // HYPERION_TREE_INDEX_SPACE_H_
 
 // Local Variables:
 // mode: c++

@@ -13,21 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/testing/TestSuiteDriver.h>
-#include <legms/testing/TestRecorder.h>
+#include <hyperion/testing/TestSuiteDriver.h>
+#include <hyperion/testing/TestRecorder.h>
 
 #include <algorithm>
 #include <memory>
 #include <ostream>
 #include <vector>
 
-#include <legms/utility.h>
-#include <legms/Table.h>
-#include <legms/Column.h>
+#include <hyperion/utility.h>
+#include <hyperion/Table.h>
+#include <hyperion/Column.h>
 
 #ifndef NO_REINDEX
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 enum {
@@ -41,19 +41,19 @@ enum struct Table0Axes {
 };
 
 template <>
-struct legms::Axes<Table0Axes> {
+struct hyperion::Axes<Table0Axes> {
   static const constexpr char* uid = "Table0Axes";
   static const std::vector<std::string> names;
   static const unsigned num_axes = 3;
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   static const hid_t h5_datatype;
 #endif
 };
 
 const std::vector<std::string>
-legms::Axes<Table0Axes>::names{"ROW", "X", "Y"};
+hyperion::Axes<Table0Axes>::names{"ROW", "X", "Y"};
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 hid_t
 h5_dt() {
   hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
@@ -68,7 +68,7 @@ h5_dt() {
 }
 
 const hid_t
-legms::Axes<Table0Axes>::h5_datatype = h5_dt();
+hyperion::Axes<Table0Axes>::h5_datatype = h5_dt();
 #endif
 
 std::ostream&

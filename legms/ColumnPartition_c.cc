@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/c_util.h>
-#include <legms/ColumnPartition_c.h>
-#include <legms/ColumnPartition.h>
+#include <hyperion/c_util.h>
+#include <hyperion/ColumnPartition_c.h>
+#include <hyperion/ColumnPartition.h>
 
 #pragma GCC visibility push(default)
 #include <legion/legion_c_util.h>
 #pragma GCC visibility pop
 
-using namespace legms;
-using namespace legms::CObjectWrapper;
+using namespace hyperion;
+using namespace hyperion::CObjectWrapper;
 
 const Legion::FieldID axes_uid_fs[1] = {ColumnPartition::AXES_UID_FID};
 const Legion::FieldID axes_fs[1] = {ColumnPartition::AXES_FID};

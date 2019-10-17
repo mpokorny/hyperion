@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/utility_c.h>
-#include <legms/utility.h>
+#include <hyperion/utility_c.h>
+#include <hyperion/utility.h>
 
 #pragma GCC visibility push(default)
 #include <legion/legion_c_util.h>
@@ -22,12 +22,12 @@
 
 void
 preregister_all() {
-  legms::preregister_all();
+  hyperion::preregister_all();
 }
 
 void
 register_tasks(legion_context_t context, legion_runtime_t runtime) {
-  legms::register_tasks(
+  hyperion::register_tasks(
     Legion::CObjectWrapper::unwrap(context)->context(),
     Legion::CObjectWrapper::unwrap(runtime));
 }

@@ -18,12 +18,12 @@
 #include <legion/legion_c_util.h>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/tree_index_space.h>
-#include <legms/Column.h>
-#include <legms/Table.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/tree_index_space.h>
+#include <hyperion/Column.h>
+#include <hyperion/Table.h>
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 Column::Column() {}
@@ -32,14 +32,14 @@ Column::Column(
   LogicalRegion metadata,
   LogicalRegion axes,
   LogicalRegion values,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& meas_refs,
 #endif
   const Keywords& keywords)
   : metadata_lr(metadata)
   , axes_lr(axes)
   , values_lr(values)
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   , meas_refs(meas_refs)
 #endif
   , keywords(keywords) {
@@ -49,14 +49,14 @@ Column::Column(
   LogicalRegion metadata,
   LogicalRegion axes,
   LogicalRegion values,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& meas_refs,
 #endif
   Keywords&& keywords)
   : metadata_lr(metadata)
   , axes_lr(axes)
   , values_lr(values)
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   , meas_refs(meas_refs)
 #endif
   , keywords(std::move(keywords)) {
@@ -69,9 +69,9 @@ Column::create(
   const std::string& name,
   const std::string& axes_uid,
   const std::vector<int>& axes,
-  legms::TypeTag datatype,
+  hyperion::TypeTag datatype,
   const IndexTreeL& index_tree,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& meas_refs,
 #endif
   const Keywords::kw_desc_t& kws,
@@ -88,11 +88,11 @@ Column::create(
     IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    fa.allocate_field(sizeof(legms::string), METADATA_NAME_FID);
+    fa.allocate_field(sizeof(hyperion::string), METADATA_NAME_FID);
     rt->attach_name(fs, METADATA_NAME_FID, "name");
-    fa.allocate_field(sizeof(legms::string), METADATA_AXES_UID_FID);
+    fa.allocate_field(sizeof(hyperion::string), METADATA_AXES_UID_FID);
     rt->attach_name(fs, METADATA_AXES_UID_FID, "axes_uid");
-    fa.allocate_field(sizeof(legms::TypeTag), METADATA_DATATYPE_FID);
+    fa.allocate_field(sizeof(hyperion::TypeTag), METADATA_DATATYPE_FID);
     rt->attach_name(fs, METADATA_DATATYPE_FID, "datatype");
     metadata = rt->create_logical_region(ctx, is, fs);
     {
@@ -148,7 +148,7 @@ Column::create(
       rt->attach_name(values, values_name.c_str());
     }
   }
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   meas_refs.add_prefix_to_owned(ctx, rt, component_name_prefix);
 #endif
   return
@@ -156,7 +156,7 @@ Column::create(
       metadata,
       axs,
       values,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
       meas_refs,
 #endif
       Keywords::create(ctx, rt, kws, component_name_prefix));
@@ -174,7 +174,7 @@ Column::destroy(Context ctx, Runtime* rt) {
     }
   }
   keywords.destroy(ctx, rt);
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   meas_refs.destroy(ctx, rt);
 #endif
 }
@@ -211,17 +211,17 @@ Column::axes_uid(const PhysicalRegion& metadata) {
   return axes_uid[0].val;
 }
 
-legms::TypeTag
+hyperion::TypeTag
 Column::datatype(Context ctx, Runtime*rt) const {
   RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
   req.add_field(METADATA_DATATYPE_FID);
   auto pr = rt->map_region(ctx, req);
-  legms::TypeTag result = datatype(pr);
+  hyperion::TypeTag result = datatype(pr);
   rt->unmap_region(ctx, pr);
   return result;  
 }
 
-legms::TypeTag
+hyperion::TypeTag
 Column::datatype(const PhysicalRegion& metadata) {
   const DatatypeAccessor<READ_ONLY> datatype(metadata, METADATA_DATATYPE_FID);
   return datatype[0];
@@ -280,7 +280,7 @@ Column::partition_on_axes(
   // simply names an axis, whereas for ColumnPartition::create(), "dim" is a
   // mapping from a named axis to a Column axis (i.e, an axis in the Table index
   // space to an axis in the Column index space).
-  std::vector<int> ds = legms::map(parts, [](const auto& p) { return p.dim; });
+  std::vector<int> ds = hyperion::map(parts, [](const auto& p) { return p.dim; });
   auto dm = dimensions_map(ds, axes(ctx, rt));
   std::vector<AxisPartition> iparts;
   iparts.reserve(dm.size());
@@ -308,7 +308,7 @@ Column::partition_on_iaxes(
 
   // TODO: verify values in 'ds' are valid axes
   std::vector<AxisPartition> parts =
-    legms::map(
+    hyperion::map(
       ds,
       [au=axes_uid(ctx, rt)](const auto& d) {
         return AxisPartition{au, d, 1, 0, 0, 0};
@@ -324,7 +324,7 @@ Column::partition_on_iaxes(
 
   // TODO: verify axis values in 'dss' are valid axes
   std::vector<AxisPartition> parts =
-    legms::map(
+    hyperion::map(
       dss,
       [au=axes_uid(ctx, rt)](const auto& d_s) {
         auto& [d, s] = d_s;
@@ -358,14 +358,14 @@ Column::projected_column_partition(
           rt,                                         \
           auid,                                       \
           ax,                                         \
-          legms::projected_index_partition<I, P>(     \
+          hyperion::projected_index_partition<I, P>(     \
             ctx,                                      \
             rt,                                       \
             IndexPartitionT<I>(cp.index_partition),   \
             IndexSpaceT<P>(values_lr.get_index_space()), \
             dmap));                                   \
       break;
-    LEGMS_FOREACH_NN(CP);
+    HYPERION_FOREACH_NN(CP);
 #undef CP
   default:
     assert(false);
@@ -375,12 +375,12 @@ Column::projected_column_partition(
   }
 }
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 PhysicalRegion
 Column::with_attached_prologue(
   Context ctx,
   Runtime* rt,
-  const LEGMS_FS::path& file_path,
+  const HYPERION_FS::path& file_path,
   const std::string& table_root,
   bool mapped,
   bool read_write) {
@@ -412,7 +412,7 @@ Column::with_attached_epilogue(Context ctx, Runtime* rt, PhysicalRegion pr) {
   rt->issue_release(ctx, release);
   rt->detach_external_resource(ctx, pr);
 }
-#endif // LEGMS_USE_HDF5
+#endif // HYPERION_USE_HDF5
 
 // Local Variables:
 // mode: c++

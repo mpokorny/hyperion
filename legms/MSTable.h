@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_MS_TABLE_H_
-#define LEGMS_MS_TABLE_H_
+#ifndef HYPERION_MS_TABLE_H_
+#define HYPERION_MS_TABLE_H_
 
 #pragma GCC visibility push(default)
 #include <memory>
@@ -22,21 +22,21 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/utility.h>
-#include <legms/MSTable_c.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
+#include <hyperion/MSTable_c.h>
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 #pragma GCC visibility push(default)
 # include <hdf5.h>
 #pragma GCC visibility pop
-#endif // LEGMS_USE_HDF5
+#endif // HYPERION_USE_HDF5
 
-namespace legms {
+namespace hyperion {
 
 typedef ::ms_tables_t MSTables;
 
-#define LEGMS_FOREACH_MSTABLE(FUNC) \
+#define HYPERION_FOREACH_MSTABLE(FUNC) \
   FUNC(MAIN)              \
   FUNC(ANTENNA) \
   FUNC(DATA_DESCRIPTION) \
@@ -535,11 +535,11 @@ MS_AXIS_NAME(WEATHER, INTERVAL);
 
 #undef MS_AXIS_NAME
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 #define MSAXES(T)                                                       \
   template <>                                                           \
   struct Axes<typename MSTable<MS_##T>::Axes> {                         \
-    static constexpr const char *uid = "legms::" #T;                    \
+    static constexpr const char *uid = "hyperion::" #T;                    \
     static const std::vector<std::string> names;                        \
     static const unsigned num_axes = MSTable<MS_##T>::num_axes;         \
     static const hid_t h5_datatype;                                     \
@@ -548,19 +548,19 @@ MS_AXIS_NAME(WEATHER, INTERVAL);
 #define MSAXES(T)                                                     \
   template <>                                                         \
   struct Axes<typename MSTable<MS_##T>::Axes> {                       \
-    static constexpr const char *uid = "legms::" #T;                  \
+    static constexpr const char *uid = "hyperion::" #T;                  \
     static const std::vector<std::string> names;                      \
     static const unsigned num_axes = MSTable<MS_##T>::num_axes;       \
   };
 #endif
 
-LEGMS_FOREACH_MSTABLE(MSAXES);
+HYPERION_FOREACH_MSTABLE(MSAXES);
 
 #undef MSAXES
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_MS_TABLE_H_
+#endif // HYPERION_MS_TABLE_H_
 
 // Local Variables:
 // mode: c++

@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/testing/TestSuiteDriver.h>
-#include <legms/testing/TestRecorder.h>
+#include <hyperion/testing/TestSuiteDriver.h>
+#include <hyperion/testing/TestRecorder.h>
 
 #include <algorithm>
 #include <array>
@@ -22,15 +22,15 @@
 #include <ostream>
 #include <vector>
 
-#include <legms/utility.h>
-#include <legms/Table.h>
-#include <legms/Column.h>
+#include <hyperion/utility.h>
+#include <hyperion/Table.h>
+#include <hyperion/Column.h>
 
-#ifdef LEGMS_USE_CASACORE
-# include <legms/MeasRefContainer.h>
+#ifdef HYPERION_USE_CASACORE
+# include <hyperion/MeasRefContainer.h>
 #endif
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 enum {
@@ -44,19 +44,19 @@ enum struct Table0Axes {
 };
 
 template <>
-struct legms::Axes<Table0Axes> {
+struct hyperion::Axes<Table0Axes> {
   static const constexpr char* uid = "Table0Axes";
   static const std::vector<std::string> names;
   static const unsigned num_axes = 3;
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   static const hid_t h5_datatype;
 #endif
 };
 
 const std::vector<std::string>
-legms::Axes<Table0Axes>::names{"ROW", "X", "Y"};
+hyperion::Axes<Table0Axes>::names{"ROW", "X", "Y"};
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 hid_t
 h5_dt() {
   hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
@@ -71,7 +71,7 @@ h5_dt() {
 }
 
 const hid_t
-legms::Axes<Table0Axes>::h5_datatype = h5_dt();
+hyperion::Axes<Table0Axes>::h5_datatype = h5_dt();
 #endif
 
 std::ostream&
@@ -143,14 +143,14 @@ unsigned table0_z[TABLE0_NUM_ROWS] {
 Column::Generator
 table0_col(
   const std::string& name
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   , const std::vector<MeasRef>& measures
 #endif
   ) {
   return
     [=]
     (Context ctx, Runtime* rt, const std::string& name_prefix
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
      , const MeasRefContainer& table_mr
 #endif
       ) {
@@ -162,7 +162,7 @@ table0_col(
           std::vector<Table0Axes>{Table0Axes::ROW},
           ValueType<unsigned>::DataType,
           IndexTreeL(TABLE0_NUM_ROWS),
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
           MeasRefContainer::create(ctx, rt, measures, table_mr),
 #endif
           {},
@@ -321,7 +321,7 @@ table_test_suite(
       ctx,
       rt));
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   casacore::MeasRef<casacore::MEpoch> tai(casacore::MEpoch::TAI);
   casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
   auto table0_meas_ref =
@@ -359,12 +359,12 @@ table_test_suite(
       "table0",
       std::vector<Table0Axes>{Table0Axes::ROW},
       column_generators
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
       , table0_meas_ref
 #endif
       );
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   recorder.expect_true(
     "Create expected table measures using table name prefix",
     testing::TestEval(

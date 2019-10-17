@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/testing/TestSuiteDriver.h>
-#include <legms/testing/TestLog.h>
-#include <legms/utility.h>
+#include <hyperion/testing/TestSuiteDriver.h>
+#include <hyperion/testing/TestLog.h>
+#include <hyperion/utility.h>
 
-using namespace legms;
-using namespace legms::testing;
+using namespace hyperion;
+using namespace hyperion::testing;
 using namespace Legion;
 
 Legion::TaskID TestSuiteDriver::TASK_ID;

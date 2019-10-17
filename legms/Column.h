@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_COLUMN_H_
-#define LEGMS_COLUMN_H_
+#ifndef HYPERION_COLUMN_H_
+#define HYPERION_COLUMN_H_
 
 #pragma GCC visibility push(default)
 #include <cassert>
@@ -25,28 +25,28 @@
 #include <unordered_map>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
-#include <legms/utility.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
 
-#include <legms/Column_c.h>
+#include <hyperion/Column_c.h>
 
-#include <legms/Keywords.h>
-#include <legms/IndexTree.h>
-#include <legms/ColumnPartition.h>
+#include <hyperion/Keywords.h>
+#include <hyperion/IndexTree.h>
+#include <hyperion/ColumnPartition.h>
 
-#include <legms/c_util.h>
+#include <hyperion/c_util.h>
 
-#ifdef LEGMS_USE_HDF5
-# include <legms/hdf5.h>
-#endif // LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
+# include <hyperion/hdf5.h>
+#endif // HYPERION_USE_HDF5
 
-#ifdef LEGMS_USE_CASACORE
-# include <legms/MeasRefContainer.h>
+#ifdef HYPERION_USE_CASACORE
+# include <hyperion/MeasRefContainer.h>
 #endif
 
-namespace legms {
+namespace hyperion {
 
-class LEGMS_API Column {
+class HYPERION_API Column {
 public:
 
   static const constexpr Legion::FieldID METADATA_NAME_FID = 0;
@@ -57,7 +57,7 @@ public:
   Legion::LogicalRegion axes_lr;
   static const constexpr Legion::FieldID VALUE_FID = 0;
   Legion::LogicalRegion values_lr;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   MeasRefContainer meas_refs;
 #endif
   Keywords keywords;
@@ -66,33 +66,33 @@ public:
   using NameAccessor =
     Legion::FieldAccessor<
     MODE,
-    legms::string,
+    hyperion::string,
     1,
     Legion::coord_t,
-    Legion::AffineAccessor<legms::string, 1, Legion::coord_t>,
+    Legion::AffineAccessor<hyperion::string, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxesUidAccessor =
     Legion::FieldAccessor<
     MODE,
-    legms::string,
+    hyperion::string,
     1,
     Legion::coord_t,
-    Legion::AffineAccessor<legms::string, 1, Legion::coord_t>,
+    Legion::AffineAccessor<hyperion::string, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using DatatypeAccessor =
     Legion::FieldAccessor<
     MODE,
-    legms::TypeTag,
+    hyperion::TypeTag,
     1,
     Legion::coord_t,
-    Legion::AffineAccessor<legms::TypeTag, 1, Legion::coord_t>,
+    Legion::AffineAccessor<hyperion::TypeTag, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   typedef std::function<
     Column(
       Legion::Context,
@@ -121,7 +121,7 @@ public:
     Legion::LogicalRegion metadata,
     Legion::LogicalRegion axes,
     Legion::LogicalRegion values,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
 #endif
     const Keywords& keywords);
@@ -130,7 +130,7 @@ public:
     Legion::LogicalRegion metadata,
     Legion::LogicalRegion axes,
     Legion::LogicalRegion values,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
 #endif
     Keywords&& keywords);
@@ -142,9 +142,9 @@ public:
     const std::string& name,
     const std::string& axes_uid,
     const std::vector<int>& axes,
-    legms::TypeTag datatype,
+    hyperion::TypeTag datatype,
     const IndexTreeL& index_tree,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
@@ -160,9 +160,9 @@ public:
     Legion::Runtime* rt,
     const std::string& name,
     const std::vector<D>& axes,
-    legms::TypeTag datatype,
+    hyperion::TypeTag datatype,
     const IndexTreeL& index_tree,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
@@ -176,7 +176,7 @@ public:
         map_to_int(axes),
         datatype,
         index_tree,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
         meas_refs,
 #endif
         kws,
@@ -195,10 +195,10 @@ public:
   static const char*
   axes_uid(const Legion::PhysicalRegion& metadata);
 
-  legms::TypeTag
+  hyperion::TypeTag
   datatype(Legion::Context ctx, Legion::Runtime* rt) const;
 
-  static legms::TypeTag
+  static hyperion::TypeTag
   datatype(const Legion::PhysicalRegion& metadata);
 
   std::vector<int>
@@ -213,7 +213,7 @@ public:
   IndexTreeL
   index_tree(Legion::Runtime* rt) const;
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   template <
     typename FN,
     std::enable_if_t<
@@ -224,7 +224,7 @@ public:
   with_attached(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const LEGMS_FS::path& file_path,
+    const HYPERION_FS::path& file_path,
     const std::string& table_root,
     FN f,
     bool mapped = false,
@@ -256,7 +256,7 @@ public:
   with_attached(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const LEGMS_FS::path& file_path,
+    const HYPERION_FS::path& file_path,
     const std::string& table_root,
     FN f,
     bool mapped = false,
@@ -273,7 +273,7 @@ public:
     f(ctx, rt, *this);
     with_attached_epilogue(ctx, rt, pr);
   }
-#endif // LEGMS_USE_HDF5
+#endif // HYPERION_USE_HDF5
 
   ColumnPartition
   partition_on_axes(
@@ -340,9 +340,9 @@ public:
   generator(
     const std::string& name,
     const std::vector<D>& axes,
-    legms::TypeTag datatype,
+    hyperion::TypeTag datatype,
     const IndexTreeL& index_tree,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const std::vector<MeasRef>& new_meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
@@ -352,7 +352,7 @@ public:
       (Legion::Context ctx,
        Legion::Runtime* rt,
        const std::string& name_prefix
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
        , const MeasRefContainer& inherited_meas_refs
 #endif
         ) {
@@ -364,7 +364,7 @@ public:
             axes,
             datatype,
             index_tree,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
             MeasRefContainer(new_meas_refs, inherited_meas_refs),
 #endif
             kws,
@@ -377,10 +377,10 @@ public:
   generator(
     const std::string& name,
     const std::vector<D>& axes,
-    legms::TypeTag datatype,
+    hyperion::TypeTag datatype,
     const IndexTreeL& row_index_pattern,
     unsigned num_rows,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const std::vector<MeasRef>& new_meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
@@ -391,7 +391,7 @@ public:
         axes,
         datatype,
         IndexTreeL(row_index_pattern, num_rows),
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
         new_meas_refs,
 #endif
         kws);
@@ -402,11 +402,11 @@ public:
   generator(
     const std::string& name,
     const std::vector<D>& axes,
-    legms::TypeTag datatype,
+    hyperion::TypeTag datatype,
     const IndexTreeL& row_index_pattern,
     const IndexTreeL& row_pattern,
     unsigned num_rows,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     const std::vector<MeasRef>& new_meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
@@ -419,19 +419,19 @@ public:
         IndexTreeL(
           row_pattern,
           num_rows * row_pattern.size() / row_index_pattern.size()),
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
         new_meas_refs,
 #endif
         kws);
   }
 
 protected:
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
   Legion::PhysicalRegion
   with_attached_prologue(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const LEGMS_FS::path& file_path,
+    const HYPERION_FS::path& file_path,
     const std::string& table_root,
     bool mapped,
     bool read_write);
@@ -441,7 +441,7 @@ protected:
     Legion::Context ctx,
     Legion::Runtime* rt,
     Legion::PhysicalRegion pr);
-#endif // LEGMS_USE_HDF5
+#endif // HYPERION_USE_HDF5
 
   ColumnPartition
   partition_on_iaxes(
@@ -483,7 +483,7 @@ struct CObjectWrapper::Unwrapper<column_t> {
         Legion::CObjectWrapper::unwrap(c.metadata),
         Legion::CObjectWrapper::unwrap(c.axes),
         Legion::CObjectWrapper::unwrap(c.values),
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
         MeasRefContainer(), // FIXME
 #endif
         Keywords(
@@ -493,9 +493,9 @@ struct CObjectWrapper::Unwrapper<column_t> {
   }
 };
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_COLUMN_H_
+#endif // HYPERION_COLUMN_H_
 
 // Local Variables:
 // mode: c++

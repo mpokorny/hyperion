@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_HDF_HDF5_H_
-#define LEGMS_HDF_HDF5_H_
+#ifndef HYPERION_HDF_HDF5_H_
+#define HYPERION_HDF_HDF5_H_
 
 #pragma GCC visibility push(default)
 #include <cassert>
@@ -32,19 +32,19 @@
 #include <vector>
 #pragma GCC visibility pop
 
-#include <legms/utility.h>
-#include <legms/IndexTree.h>
-#include <legms/Keywords.h>
+#include <hyperion/utility.h>
+#include <hyperion/IndexTree.h>
+#include <hyperion/Keywords.h>
 
 #pragma GCC visibility push(default)
 #include <hdf5.h>
 #pragma GCC visibility pop
 
-#ifdef LEGMS_USE_CASACORE
-# include <legms/MeasRefContainer.h>
+#ifdef HYPERION_USE_CASACORE
+# include <hyperion/MeasRefContainer.h>
 #endif
 
-namespace legms {
+namespace hyperion {
 
 class Table;
 class Column;
@@ -52,26 +52,26 @@ class Keywords;
 
 namespace hdf5 {
 
-#define LEGMS_NAMESPACE "legms"
-#define LEGMS_NAME_SEP ":"
-#define LEGMS_NAMESPACE_PREFIX LEGMS_NAMESPACE LEGMS_NAME_SEP
-#define LEGMS_ATTRIBUTE_DT LEGMS_NAMESPACE_PREFIX "dt"
-#define LEGMS_ATTRIBUTE_DT_PREFIX LEGMS_ATTRIBUTE_DT LEGMS_NAME_SEP
-#define LEGMS_ATTRIBUTE_SID LEGMS_NAMESPACE_PREFIX "sid"
-#define LEGMS_ATTRIBUTE_SID_PREFIX LEGMS_ATTRIBUTE_SID LEGMS_NAME_SEP
-#define LEGMS_ATTRIBUTE_DS LEGMS_NAMESPACE_PREFIX "ds"
-#define LEGMS_ATTRIBUTE_DS_PREFIX LEGMS_ATTRIBUTE_DS LEGMS_NAME_SEP
-#define LEGMS_COLUMN_DS LEGMS_NAMESPACE_PREFIX "col"
-#ifdef LEGMS_USE_CASACORE
-#define LEGMS_MEASURES_GROUP LEGMS_NAMESPACE_PREFIX "measures"
-#define LEGMS_MEAS_REF_MCLASS_DS LEGMS_NAMESPACE_PREFIX "mclass"
-#define LEGMS_MEAS_REF_RTYPE_DS LEGMS_NAMESPACE_PREFIX "rtype"
-#define LEGMS_MEAS_REF_NVAL_DS LEGMS_NAMESPACE_PREFIX "nval"
-#define LEGMS_MEAS_REF_VALUES_DS LEGMS_NAMESPACE_PREFIX "values"
-#define LEGMS_MEAS_REF_LINK_PREFIX LEGMS_NAMESPACE_PREFIX "mr" LEGMS_NAME_SEP
-#endif // LEGMS_USE_CASACORE
+#define HYPERION_NAMESPACE "hyperion"
+#define HYPERION_NAME_SEP ":"
+#define HYPERION_NAMESPACE_PREFIX HYPERION_NAMESPACE HYPERION_NAME_SEP
+#define HYPERION_ATTRIBUTE_DT HYPERION_NAMESPACE_PREFIX "dt"
+#define HYPERION_ATTRIBUTE_DT_PREFIX HYPERION_ATTRIBUTE_DT HYPERION_NAME_SEP
+#define HYPERION_ATTRIBUTE_SID HYPERION_NAMESPACE_PREFIX "sid"
+#define HYPERION_ATTRIBUTE_SID_PREFIX HYPERION_ATTRIBUTE_SID HYPERION_NAME_SEP
+#define HYPERION_ATTRIBUTE_DS HYPERION_NAMESPACE_PREFIX "ds"
+#define HYPERION_ATTRIBUTE_DS_PREFIX HYPERION_ATTRIBUTE_DS HYPERION_NAME_SEP
+#define HYPERION_COLUMN_DS HYPERION_NAMESPACE_PREFIX "col"
+#ifdef HYPERION_USE_CASACORE
+#define HYPERION_MEASURES_GROUP HYPERION_NAMESPACE_PREFIX "measures"
+#define HYPERION_MEAS_REF_MCLASS_DS HYPERION_NAMESPACE_PREFIX "mclass"
+#define HYPERION_MEAS_REF_RTYPE_DS HYPERION_NAMESPACE_PREFIX "rtype"
+#define HYPERION_MEAS_REF_NVAL_DS HYPERION_NAMESPACE_PREFIX "nval"
+#define HYPERION_MEAS_REF_VALUES_DS HYPERION_NAMESPACE_PREFIX "values"
+#define HYPERION_MEAS_REF_LINK_PREFIX HYPERION_NAMESPACE_PREFIX "mr" HYPERION_NAME_SEP
+#endif // HYPERION_USE_CASACORE
 
-#define LEGMS_LARGE_TREE_MIN (64 * (1 << 10))
+#define HYPERION_LARGE_TREE_MIN (64 * (1 << 10))
 
 // TODO: it might be nice to support use of types of IndexSpace descriptions
 // other than IndexTree...this might require some sort of type registration
@@ -90,23 +90,23 @@ write_index_tree_to_attr(
   const std::string& attr_name) {
 
   // remove current attribute value
-  std::string legms_attr_name =
-    std::string(LEGMS_NAMESPACE_PREFIX) + attr_name;
+  std::string hyperion_attr_name =
+    std::string(HYPERION_NAMESPACE_PREFIX) + attr_name;
   std::string attr_ds_name =
-    std::string(LEGMS_ATTRIBUTE_DS_PREFIX)
+    std::string(HYPERION_ATTRIBUTE_DS_PREFIX)
     + obj_name
-    + std::string(LEGMS_NAME_SEP)
+    + std::string(HYPERION_NAME_SEP)
     + attr_name;
 
   if (H5Aexists_by_name(
         parent_id,
         obj_name.c_str(),
-        legms_attr_name.c_str(),
+        hyperion_attr_name.c_str(),
         H5P_DEFAULT)) {
     H5Adelete_by_name(
       parent_id,
       obj_name.c_str(),
-      legms_attr_name.c_str(),
+      hyperion_attr_name.c_str(),
       H5P_DEFAULT);
     if (H5Lexists(parent_id, attr_ds_name.c_str(), H5P_DEFAULT) > 0)
       H5Ldelete(parent_id, attr_ds_name.c_str(), H5P_DEFAULT);
@@ -117,13 +117,13 @@ write_index_tree_to_attr(
   SERDEZ::serialize(spec, buf.data());
   hsize_t value_dims = size;
   hid_t value_space_id = H5Screate_simple(1, &value_dims, NULL);
-  if (size < LEGMS_LARGE_TREE_MIN) {
+  if (size < HYPERION_LARGE_TREE_MIN) {
     // small serialized size: save byte string as an attribute
     hid_t attr_id =
       H5Acreate_by_name(
         parent_id,
         obj_name.c_str(),
-        legms_attr_name.c_str(),
+        hyperion_attr_name.c_str(),
         H5T_NATIVE_UINT8,
         value_space_id,
         H5P_DEFAULT,
@@ -158,7 +158,7 @@ write_index_tree_to_attr(
       H5Acreate_by_name(
         parent_id,
         obj_name.c_str(),
-        legms_attr_name.c_str(),
+        hyperion_attr_name.c_str(),
         attr_type,
         ref_space_id,
         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
@@ -174,10 +174,10 @@ write_index_tree_to_attr(
 
   // write serdez id
   {
-    std::string md_name = std::string(LEGMS_ATTRIBUTE_SID_PREFIX) + attr_name;
+    std::string md_name = std::string(HYPERION_ATTRIBUTE_SID_PREFIX) + attr_name;
     hid_t md_space_id = H5Screate(H5S_SCALAR);
     hid_t md_attr_dt =
-      legms::H5DatatypeManager::datatype<ValueType<std::string>::DataType>();
+      hyperion::H5DatatypeManager::datatype<ValueType<std::string>::DataType>();
     hid_t md_attr_id =
       H5Acreate_by_name(
         parent_id,
@@ -187,7 +187,7 @@ write_index_tree_to_attr(
         md_space_id,
         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     assert(md_attr_id >= 0);
-    char attr[LEGMS_MAX_STRING_SIZE];
+    char attr[HYPERION_MAX_STRING_SIZE];
     std::strncpy(attr, SERDEZ::id, sizeof(attr));
     attr[sizeof(attr) - 1] = '\0';
     herr_t rc = H5Awrite(md_attr_id, md_attr_dt, attr);
@@ -195,7 +195,7 @@ write_index_tree_to_attr(
   }
 }
 
-LEGMS_API std::optional<std::string>
+HYPERION_API std::optional<std::string>
 read_index_tree_attr_metadata(hid_t loc_id, const std::string& attr_name);
 
 template <typename SERDEZ>
@@ -210,12 +210,12 @@ read_index_tree_from_attr(
   if (!metadata || metadata.value() != SERDEZ::id)
     return result;
 
-  std::string legms_attr_name =
-    std::string(LEGMS_NAMESPACE_PREFIX) + attr_name;
-  if (!H5Aexists(loc_id, legms_attr_name.c_str()))
+  std::string hyperion_attr_name =
+    std::string(HYPERION_NAMESPACE_PREFIX) + attr_name;
+  if (!H5Aexists(loc_id, hyperion_attr_name.c_str()))
     return result;
 
-  hid_t attr_id = H5Aopen(loc_id, legms_attr_name.c_str(), H5P_DEFAULT);
+  hid_t attr_id = H5Aopen(loc_id, hyperion_attr_name.c_str(), H5P_DEFAULT);
 
   if (attr_id < 0)
     return result;
@@ -266,7 +266,7 @@ read_index_tree_from_attr(
   return result;
 }
 
-LEGMS_API void
+HYPERION_API void
 write_keywords(
   Legion::Context ctx,
   Legion::Runtime *rt,
@@ -274,8 +274,8 @@ write_keywords(
   const Keywords& keywords,
   bool with_data = true);
 
-#ifdef LEGMS_USE_CASACORE
-LEGMS_API void
+#ifdef HYPERION_USE_CASACORE
+HYPERION_API void
 write_measures(
   Legion::Context ctx,
   Legion::Runtime* rt,
@@ -284,34 +284,34 @@ write_measures(
   const MeasRefContainer& meas_refs);
 #endif
 
-LEGMS_API void
+HYPERION_API void
 write_column(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const LEGMS_FS::path& path,
+  const HYPERION_FS::path& path,
   hid_t table_id,
   const std::string& table_name,
   const Column& column,
   hid_t table_axes_dt,
   bool with_data = true);
 
-LEGMS_API void
+HYPERION_API void
 write_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const LEGMS_FS::path& path,
+  const HYPERION_FS::path& path,
   hid_t loc_id,
   const Table& table,
   const std::unordered_set<std::string>& excluded_columns = {},
   bool with_data = true);
 
-LEGMS_API legms::Keywords::kw_desc_t
+HYPERION_API hyperion::Keywords::kw_desc_t
 init_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
   hid_t loc_id);
 
-LEGMS_API legms::Column
+HYPERION_API hyperion::Column
 init_column(
   Legion::Context context,
   Legion::Runtime* runtime,
@@ -319,109 +319,109 @@ init_column(
   const std::string& axes_uid,
   hid_t loc_id,
   hid_t axes_dt,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& table_meas_ref,
 #endif
   const std::string& name_prefix = "");
 
-LEGMS_API legms::Table
+HYPERION_API hyperion::Table
 init_table(
   Legion::Context context,
   Legion::Runtime* runtime,
-  const LEGMS_FS::path& file_path,
+  const HYPERION_FS::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& column_names,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& ms_meas_ref,
 #endif
   unsigned flags = H5F_ACC_RDONLY);
 
-LEGMS_API legms::Table
+HYPERION_API hyperion::Table
 init_table(
   Legion::Context context,
   Legion::Runtime* runtime,
   const std::string& table_name,
   hid_t loc_id,
   const std::unordered_set<std::string>& column_names,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& ms_meas_ref,
 #endif
   const std::string& name_prefix = "");
 
-LEGMS_API std::unordered_set<std::string>
-get_table_paths(const LEGMS_FS::path& file_path);
+HYPERION_API std::unordered_set<std::string>
+get_table_paths(const HYPERION_FS::path& file_path);
 
-LEGMS_API std::unordered_set<std::string>
+HYPERION_API std::unordered_set<std::string>
 get_column_names(
-  const LEGMS_FS::path& file_path,
+  const HYPERION_FS::path& file_path,
   const std::string& table_path);
 
-LEGMS_API std::unordered_map<std::string, std::string>
+HYPERION_API std::unordered_map<std::string, std::string>
 get_table_keyword_paths(
   Legion::Context ctx,
   Legion::Runtime* rt,
   const Table& table);
 
-LEGMS_API std::string
+HYPERION_API std::string
 get_table_column_value_path(
   Legion::Context ctx,
   Legion::Runtime* rt,
   const Table& table,
   const std::string& colname);
 
-LEGMS_API std::unordered_map<std::string, std::string>
+HYPERION_API std::unordered_map<std::string, std::string>
 get_table_column_keyword_paths(
   Legion::Context ctx,
   Legion::Runtime* rt,
   const Table& table,
   const std::string& colname);
 
-LEGMS_API Legion::PhysicalRegion
+HYPERION_API Legion::PhysicalRegion
 attach_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
-  const LEGMS_FS::path& file_path,
+  const HYPERION_FS::path& file_path,
   const std::string& keywords_path,
   const Keywords& keywords,
   bool read_only = true);
 
-LEGMS_API Legion::PhysicalRegion
+HYPERION_API Legion::PhysicalRegion
 attach_column_values(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const LEGMS_FS::path& file_path,
+  const HYPERION_FS::path& file_path,
   const std::string& table_root,
   const Column& column,
   bool mapped = true,
   bool read_only = true);
 
-LEGMS_API Legion::PhysicalRegion
+HYPERION_API Legion::PhysicalRegion
 attach_column_keywords(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const LEGMS_FS::path& file_path,
+  const HYPERION_FS::path& file_path,
   const std::string& table_root,
   const Column& column,
   bool read_only = true);
 
-LEGMS_API Legion::PhysicalRegion
+HYPERION_API Legion::PhysicalRegion
 attach_table_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
-  const LEGMS_FS::path& file_path,
+  const HYPERION_FS::path& file_path,
   const std::string& root_path,
   const Table& table,
   bool read_only = true);
 
-LEGMS_API void
+HYPERION_API void
 release_table_column_values(
   Legion::Context ctx,
   Legion::Runtime* rt,
   const Table& table);
 
-struct LEGMS_API binary_index_tree_serdez {
+struct HYPERION_API binary_index_tree_serdez {
 
-  static const constexpr char* id = "legms::hdf5::binary_index_tree_serdez";
+  static const constexpr char* id = "hyperion::hdf5::binary_index_tree_serdez";
 
   static size_t
   serialized_size(const IndexTreeL& tree) {
@@ -440,9 +440,9 @@ struct LEGMS_API binary_index_tree_serdez {
   }
 };
 
-struct LEGMS_API string_index_tree_serdez {
+struct HYPERION_API string_index_tree_serdez {
 
-  static const constexpr char* id = "legms::hdf5::string_index_tree_serdez";
+  static const constexpr char* id = "hyperion::hdf5::string_index_tree_serdez";
 
   static size_t
   serialized_size(const IndexTreeL& tree) {
@@ -464,9 +464,9 @@ struct LEGMS_API string_index_tree_serdez {
 };
 
 } // end namespace hdf5
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_HDF_HDF5_H_
+#endif // HYPERION_HDF_HDF5_H_
 
 // Local Variables:
 // mode: c++

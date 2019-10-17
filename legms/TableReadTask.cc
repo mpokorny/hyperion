@@ -17,9 +17,9 @@
 #include <algorithm>
 #pragma GCC visibility pop
 
-#include <legms/TableReadTask.h>
+#include <hyperion/TableReadTask.h>
 
-using namespace legms;
+using namespace hyperion;
 
 using namespace Legion;
 

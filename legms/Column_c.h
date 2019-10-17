@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_COLUMN_C_H_
-#define LEGMS_COLUMN_C_H_
+#ifndef HYPERION_COLUMN_C_H_
+#define HYPERION_COLUMN_C_H_
 
-#include <legms/legms_c.h>
-#include <legms/utility_c.h>
-#include <legms/ColumnPartition_c.h>
+#include <hyperion/hyperion_c.h>
+#include <hyperion/utility_c.h>
+#include <hyperion/ColumnPartition_c.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct LEGMS_API column_t {
+typedef struct HYPERION_API column_t {
   legion_logical_region_t metadata;
   legion_logical_region_t axes;
   legion_logical_region_t values;
@@ -33,24 +33,24 @@ typedef struct LEGMS_API column_t {
 } column_t;
 
 /* metadata field types: [char*, char*, type_tag_t] */
-LEGMS_API const legion_field_id_t*
+HYPERION_API const legion_field_id_t*
 column_metadata_fs();
 
 /* axes field types: [int] */
-LEGMS_API const legion_field_id_t*
+HYPERION_API const legion_field_id_t*
 column_axes_fs();
 
 /* values field types: [metadata[0][2]] */
-LEGMS_API const legion_field_id_t*
+HYPERION_API const legion_field_id_t*
 column_values_fs();
 
-LEGMS_API unsigned
+HYPERION_API unsigned
 column_rank(legion_runtime_t rt, column_t col);
 
-LEGMS_API int
+HYPERION_API int
 column_is_empty(column_t col);
 
-LEGMS_API column_partition_t
+HYPERION_API column_partition_t
 column_partition_on_axes(
   legion_context_t ctx,
   legion_runtime_t rt,
@@ -58,21 +58,21 @@ column_partition_on_axes(
   unsigned num_axes,
   const int* axes);
 
-LEGMS_API column_partition_t
+HYPERION_API column_partition_t
 column_projected_column_partition(
   legion_context_t ctx,
   legion_runtime_t rt,
   column_t col,
   column_partition_t cp);
 
-LEGMS_API void
+HYPERION_API void
 column_destroy(legion_context_t ctx, legion_runtime_t rt, column_t col);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // LEGMS_COLUMN_C_H_
+#endif // HYPERION_COLUMN_C_H_
 
 // Local Variables:
 // mode: c

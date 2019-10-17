@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_MEASURES_H_
-#define LEGMS_MEASURES_H_
+#ifndef HYPERION_MEASURES_H_
+#define HYPERION_MEASURES_H_
 
-#include <legms/legms.h>
-#include <legms/utility.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
 
 #pragma GCC visibility push(default)
 #include <memory>
 #pragma GCC visibility pop
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 #pragma GCC visibility push(default)
 #include <casacore/measures/Measures.h>
 #include <casacore/measures/Measures/MBaseline.h>
@@ -38,7 +38,7 @@
 #include <casacore/measures/Measures/MeasureHolder.h>
 #pragma GCC visibility pop
 
-namespace legms {
+namespace hyperion {
 
 enum MClass {
              M_BASELINE,
@@ -64,7 +64,7 @@ struct MClassT {
   // get(const casacore::MeasureHolder& mh);
 };
 template <>
-struct LEGMS_API MClassT<MClass::M_BASELINE> {
+struct HYPERION_API MClassT<MClass::M_BASELINE> {
   typedef casacore::MBaseline type;
   static const std::string name;
   static bool
@@ -78,7 +78,7 @@ struct LEGMS_API MClassT<MClass::M_BASELINE> {
 };
 
 template <>
-struct LEGMS_API MClassT<MClass::M_DIRECTION> {
+struct HYPERION_API MClassT<MClass::M_DIRECTION> {
   typedef casacore::MDirection type;
   static const std::string name;
   static bool
@@ -92,7 +92,7 @@ struct LEGMS_API MClassT<MClass::M_DIRECTION> {
 };
 
 template <>
-struct LEGMS_API MClassT<MClass::M_DOPPLER> {
+struct HYPERION_API MClassT<MClass::M_DOPPLER> {
   typedef casacore::MDoppler type;
   static const std::string name;
   static bool
@@ -106,7 +106,7 @@ struct LEGMS_API MClassT<MClass::M_DOPPLER> {
 };
 
 template <>
-struct LEGMS_API MClassT<MClass::M_EARTH_MAGNETIC> {
+struct HYPERION_API MClassT<MClass::M_EARTH_MAGNETIC> {
   typedef casacore::MEarthMagnetic type;
   static const std::string name;
   static bool
@@ -119,7 +119,7 @@ struct LEGMS_API MClassT<MClass::M_EARTH_MAGNETIC> {
   }
 };
 template <>
-struct LEGMS_API MClassT<MClass::M_EPOCH> {
+struct HYPERION_API MClassT<MClass::M_EPOCH> {
   typedef casacore::MEpoch type;
   static const std::string name;
   static bool
@@ -132,7 +132,7 @@ struct LEGMS_API MClassT<MClass::M_EPOCH> {
   }
 };
 template <>
-struct LEGMS_API MClassT<MClass::M_FREQUENCY> {
+struct HYPERION_API MClassT<MClass::M_FREQUENCY> {
   typedef casacore::MFrequency type;
   static const std::string name;
   static bool
@@ -145,7 +145,7 @@ struct LEGMS_API MClassT<MClass::M_FREQUENCY> {
   }
 };
 template <>
-struct LEGMS_API MClassT<MClass::M_POSITION> {
+struct HYPERION_API MClassT<MClass::M_POSITION> {
   typedef casacore::MPosition type;
   static const std::string name;
   static bool
@@ -158,7 +158,7 @@ struct LEGMS_API MClassT<MClass::M_POSITION> {
   }
 };
 template <>
-struct LEGMS_API MClassT<MClass::M_RADIAL_VELOCITY> {
+struct HYPERION_API MClassT<MClass::M_RADIAL_VELOCITY> {
   typedef casacore::MRadialVelocity type;
   static const std::string name;
   static bool
@@ -171,7 +171,7 @@ struct LEGMS_API MClassT<MClass::M_RADIAL_VELOCITY> {
   }
 };
 template <>
-struct LEGMS_API MClassT<MClass::M_UVW> {
+struct HYPERION_API MClassT<MClass::M_UVW> {
   typedef casacore::Muvw type;
   static const std::string name;
   static bool
@@ -184,21 +184,21 @@ struct LEGMS_API MClassT<MClass::M_UVW> {
   }
 };
 
-#define LEGMS_FOREACH_MCLASS(__func__)          \
-  __func__(::legms::MClass::M_BASELINE)         \
-  __func__(::legms::MClass::M_DIRECTION)        \
-  __func__(::legms::MClass::M_DOPPLER)          \
-  __func__(::legms::MClass::M_EARTH_MAGNETIC)   \
-  __func__(::legms::MClass::M_EPOCH)            \
-  __func__(::legms::MClass::M_FREQUENCY)        \
-  __func__(::legms::MClass::M_POSITION)         \
-  __func__(::legms::MClass::M_RADIAL_VELOCITY)  \
-  __func__(::legms::MClass::M_UVW)
+#define HYPERION_FOREACH_MCLASS(__func__)          \
+  __func__(::hyperion::MClass::M_BASELINE)         \
+  __func__(::hyperion::MClass::M_DIRECTION)        \
+  __func__(::hyperion::MClass::M_DOPPLER)          \
+  __func__(::hyperion::MClass::M_EARTH_MAGNETIC)   \
+  __func__(::hyperion::MClass::M_EPOCH)            \
+  __func__(::hyperion::MClass::M_FREQUENCY)        \
+  __func__(::hyperion::MClass::M_POSITION)         \
+  __func__(::hyperion::MClass::M_RADIAL_VELOCITY)  \
+  __func__(::hyperion::MClass::M_UVW)
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_USE_CASACORE
-#endif // LEGMS_MEASURES_H_
+#endif // HYPERION_USE_CASACORE
+#endif // HYPERION_MEASURES_H_
 
 // Local Variables:
 // mode: c++

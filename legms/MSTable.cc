@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/MSTable.h>
-#include <legms/c_util.h>
+#include <hyperion/MSTable.h>
+#include <hyperion/c_util.h>
 
 #pragma GCC visibility push(default)
 #include <mutex>
 #include <type_traits>
 #pragma GCC visibility pop
 
-using namespace legms;
+using namespace hyperion;
 
 template <MSTables T, int N>
 inline static std::enable_if_t<(N == 0)>
@@ -45,7 +45,7 @@ add_axis_names(std::vector<std::string>& v) {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_MAIN>::Axes>>
-legms::MSTable<MS_MAIN>::element_axes = {
+hyperion::MSTable<MS_MAIN>::element_axes = {
   {"TIME", {}},
   {"TIME_EXTRA_PREC", {}},
   {"ANTENNA1", {}},
@@ -86,7 +86,7 @@ legms::MSTable<MS_MAIN>::element_axes = {
 
 #define AXIS_NAMES(T)                                                   \
   const std::vector<std::string>&                                       \
-  legms::MSTable<MS_##T>::axis_names() {                                \
+  hyperion::MSTable<MS_##T>::axis_names() {                                \
     static std::once_flag initialized;                                  \
     static std::vector<std::string> result(T##_last + 1);               \
     std::call_once(initialized, add_axis_names<MS_##T, T##_last>, result); \
@@ -96,7 +96,7 @@ legms::MSTable<MS_MAIN>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_ANTENNA>::Axes>>
-legms::MSTable<MS_ANTENNA>::element_axes = {
+hyperion::MSTable<MS_ANTENNA>::element_axes = {
   {"NAME", {}},
   {"STATION", {}},
   {"TYPE", {}},
@@ -113,7 +113,7 @@ legms::MSTable<MS_ANTENNA>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_DATA_DESCRIPTION>::Axes>>
-legms::MSTable<MS_DATA_DESCRIPTION>::element_axes = {
+hyperion::MSTable<MS_DATA_DESCRIPTION>::element_axes = {
   {"SPECTRAL_WINDOW_ID", {}},
   {"POLARIZATION_ID", {}},
   {"LAG_ID", {}},
@@ -123,7 +123,7 @@ legms::MSTable<MS_DATA_DESCRIPTION>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_DOPPLER>::Axes>>
-legms::MSTable<MS_DOPPLER>::element_axes = {
+hyperion::MSTable<MS_DOPPLER>::element_axes = {
   {"DOPPLER_ID", {}},
   {"SOURCE_ID", {}},
   {"TRANSITION_ID", {}},
@@ -133,7 +133,7 @@ legms::MSTable<MS_DOPPLER>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_FEED>::Axes>>
-legms::MSTable<MS_FEED>::element_axes = {
+hyperion::MSTable<MS_FEED>::element_axes = {
   {"ANTENNA_ID", {}},
   {"FEED_ID", {}},
   {"SPECTRAL_WINDOW_ID", {}},
@@ -153,7 +153,7 @@ legms::MSTable<MS_FEED>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_FIELD>::Axes>>
-legms::MSTable<MS_FIELD>::element_axes = {
+hyperion::MSTable<MS_FIELD>::element_axes = {
   {"NAME", {}},
   {"CODE", {}},
   {"TIME", {}},
@@ -169,7 +169,7 @@ legms::MSTable<MS_FIELD>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_FLAG_CMD>::Axes>>
-legms::MSTable<MS_FLAG_CMD>::element_axes = {
+hyperion::MSTable<MS_FLAG_CMD>::element_axes = {
   {"TIME", {}},
   {"INTERVAL", {}},
   {"TYPE", {}},
@@ -183,7 +183,7 @@ legms::MSTable<MS_FLAG_CMD>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_FREQ_OFFSET>::Axes>>
-legms::MSTable<MS_FREQ_OFFSET>::element_axes = {
+hyperion::MSTable<MS_FREQ_OFFSET>::element_axes = {
   {"ANTENNA1", {}},
   {"ANTENNA2", {}},
   {"FEED_ID", {}},
@@ -196,7 +196,7 @@ legms::MSTable<MS_FREQ_OFFSET>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_HISTORY>::Axes>>
-legms::MSTable<MS_HISTORY>::element_axes = {
+hyperion::MSTable<MS_HISTORY>::element_axes = {
   {"TIME", {}},
   {"OBSERVATION_ID", {}},
   {"MESSAGE", {}},
@@ -211,7 +211,7 @@ legms::MSTable<MS_HISTORY>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_OBSERVATION>::Axes>>
-legms::MSTable<MS_OBSERVATION>::element_axes = {
+hyperion::MSTable<MS_OBSERVATION>::element_axes = {
   {"TELESCOPE_NAME", {}},
   {"TIME_RANGE", {OBSERVATION_TIME_RANGE}},
   {"OBSERVER", {}},
@@ -226,7 +226,7 @@ legms::MSTable<MS_OBSERVATION>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_POINTING>::Axes>>
-legms::MSTable<MS_POINTING>::element_axes = {
+hyperion::MSTable<MS_POINTING>::element_axes = {
   {"ANTENNA_ID", {}},
   {"TIME", {}},
   {"INTERVAL", {}},
@@ -247,7 +247,7 @@ legms::MSTable<MS_POINTING>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_POLARIZATION>::Axes>>
-legms::MSTable<MS_POLARIZATION>::element_axes = {
+hyperion::MSTable<MS_POLARIZATION>::element_axes = {
   {"NUM_CORR", {}},
   {"CORR_TYPE", {POLARIZATION_CORRELATION}},
   {"CORR_PRODUCT", {POLARIZATION_CORRELATION, POLARIZATION_PRODUCT}},
@@ -257,7 +257,7 @@ legms::MSTable<MS_POLARIZATION>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_PROCESSOR>::Axes>>
-legms::MSTable<MS_PROCESSOR>::element_axes = {
+hyperion::MSTable<MS_PROCESSOR>::element_axes = {
   {"TYPE", {}},
   {"SUB_TYPE", {}},
   {"TYPE_ID", {}},
@@ -269,7 +269,7 @@ legms::MSTable<MS_PROCESSOR>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_SOURCE>::Axes>>
-legms::MSTable<MS_SOURCE>::element_axes = {
+hyperion::MSTable<MS_SOURCE>::element_axes = {
   {"SOURCE_ID", {}},
   {"TIME", {}},
   {"INTERVAL", {}},
@@ -291,7 +291,7 @@ legms::MSTable<MS_SOURCE>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_SPECTRAL_WINDOW>::Axes>>
-legms::MSTable<MS_SPECTRAL_WINDOW>::element_axes = {
+hyperion::MSTable<MS_SPECTRAL_WINDOW>::element_axes = {
   {"NUM_CHAN", {}},
   {"NAME", {}},
   {"REF_FREQUENCY", {}},
@@ -317,7 +317,7 @@ legms::MSTable<MS_SPECTRAL_WINDOW>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_STATE>::Axes>>
-legms::MSTable<MS_STATE>::element_axes = {
+hyperion::MSTable<MS_STATE>::element_axes = {
   {"SIG", {}},
   {"REF", {}},
   {"CAL", {}},
@@ -330,7 +330,7 @@ legms::MSTable<MS_STATE>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_SYSCAL>::Axes>>
-legms::MSTable<MS_SYSCAL>::element_axes = {
+hyperion::MSTable<MS_SYSCAL>::element_axes = {
   {"ANTENNA_ID", {}},
   {"FEED_ID", {}},
   {"SPECTRAL_WINDOW_ID", {}},
@@ -361,7 +361,7 @@ legms::MSTable<MS_SYSCAL>::element_axes = {
 const std::unordered_map<
   std::string,
   std::vector<MSTable<MS_WEATHER>::Axes>>
-legms::MSTable<MS_WEATHER>::element_axes = {
+hyperion::MSTable<MS_WEATHER>::element_axes = {
   {"ANTENNA_ID", {}},
   {"TIME", {}},
   {"INTERVAL", {}},
@@ -383,9 +383,9 @@ legms::MSTable<MS_WEATHER>::element_axes = {
   {"WIND_SPEED_FLAG", {}}
 };
 
-LEGMS_FOREACH_MSTABLE(AXIS_NAMES);
+HYPERION_FOREACH_MSTABLE(AXIS_NAMES);
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 template <typename T>
 static hid_t
 h5_axes_dt()  {
@@ -401,17 +401,17 @@ h5_axes_dt()  {
 
 # define MSAXES(T)                                                      \
   const std::vector<std::string>                                        \
-  legms::Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names(); \
+  hyperion::Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names(); \
   const hid_t                                                           \
-  legms::Axes<typename MSTable<MS_##T>::Axes>::h5_datatype =                   \
+  hyperion::Axes<typename MSTable<MS_##T>::Axes>::h5_datatype =                   \
     h5_axes_dt<typename MSTable<MS_##T>::Axes>();
 #else
 # define MSAXES(T)                                                      \
   const std::vector<std::string>                                        \
-  legms::Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names();
+  hyperion::Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names();
 #endif
 
-LEGMS_FOREACH_MSTABLE(MSAXES);
+HYPERION_FOREACH_MSTABLE(MSAXES);
 
 #undef MSAXES
 

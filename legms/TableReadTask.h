@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_TABLE_READ_TASK_H_
-#define LEGMS_TABLE_READ_TASK_H_
+#ifndef HYPERION_TABLE_READ_TASK_H_
+#define HYPERION_TABLE_READ_TASK_H_
 #pragma GCC visibility push(default)
 #include <array>
 #include <cstring>
@@ -24,13 +24,13 @@
 #include <unordered_map>
 #pragma GCC visibility pop
 
-#include <legms/legms.h>
+#include <hyperion/hyperion.h>
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 
-#include <legms/Table.h>
-#include <legms/utility.h>
-#include <legms/Column.h>
+#include <hyperion/Table.h>
+#include <hyperion/utility.h>
+#include <hyperion/Column.h>
 
 #pragma GCC visibility push(default)
 #include <casacore/casa/aipstype.h>
@@ -38,13 +38,13 @@
 #include <casacore/tables/Tables.h>
 #pragma GCC visibility pop
 
-namespace legms {
+namespace hyperion {
 
-struct LEGMS_API TableReadTaskArgs {
+struct HYPERION_API TableReadTaskArgs {
   char table_path[1024];
 };
 
-class LEGMS_API TableReadTask {
+class HYPERION_API TableReadTask {
 public:
 
   static Legion::TaskID TASK_ID;
@@ -110,7 +110,7 @@ public:
       break;
 
     switch (lr_datatype) {
-      LEGMS_FOREACH_DATATYPE(READ_COL);
+      HYPERION_FOREACH_DATATYPE(READ_COL);
     default:
       assert(false);
     }
@@ -286,10 +286,10 @@ private:
   }
 };
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_USE_CASACORE
-#endif // LEGMS_TABLE_READ_TASK_H_
+#endif // HYPERION_USE_CASACORE
+#endif // HYPERION_TABLE_READ_TASK_H_
 
 // Local Variables:
 // mode: c++

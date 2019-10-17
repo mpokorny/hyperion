@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_GRIDS_C_H_
-#define LEGMS_GRIDS_C_H_
+#ifndef HYPERION_GRIDS_C_H_
+#define HYPERION_GRIDS_C_H_
 
-#include <legms/utility_c.h>
+#include <hyperion/utility_c.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-LEGMS_API void
+HYPERION_API void
 block_and_halo_partitions_1d(
   legion_context_t ctx,
   legion_runtime_t runtime,
@@ -32,7 +32,7 @@ block_and_halo_partitions_1d(
   legion_index_partition_t* block_ip,
   legion_index_partition_t* halo_ip);
 
-LEGMS_API void
+HYPERION_API void
 block_and_halo_partitions_2d(
   legion_context_t ctx,
   legion_runtime_t runtime,
@@ -42,7 +42,7 @@ block_and_halo_partitions_2d(
   legion_index_partition_t* block_ip,
   legion_index_partition_t* halo_ip);
 
-LEGMS_API void
+HYPERION_API void
 block_and_halo_partitions_3d(
   legion_context_t ctx,
   legion_runtime_t runtime,
@@ -56,7 +56,7 @@ block_and_halo_partitions_3d(
 }
 #endif
 
-#endif // LEGMS_GRIDS_C_H_
+#endif // HYPERION_GRIDS_C_H_
 
 // Local Variables:
 // mode: c

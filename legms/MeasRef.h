@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_MEAS_REF_H_
-#define LEGMS_MEAS_REF_H_
+#ifndef HYPERION_MEAS_REF_H_
+#define HYPERION_MEAS_REF_H_
 
-#include <legms/legms.h>
-#include <legms/utility.h>
-#include <legms/Measures.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
+#include <hyperion/Measures.h>
 
 #pragma GCC visibility push(default)
 #include <array>
@@ -26,14 +26,14 @@
 #include <optional>
 #pragma GCC visibility pop
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 #pragma GCC visibility push(default)
 #include <casacore/measures/Measures.h>
 #pragma GCC visibility pop
 
-namespace legms {
+namespace hyperion {
 
-class LEGMS_API MeasRef {
+class HYPERION_API MeasRef {
 public:
 
   enum ArrayComponent {
@@ -47,13 +47,13 @@ public:
     NUM_COMPONENTS
   };
 
-  typedef DataType<LEGMS_TYPE_DOUBLE>::ValueType VALUE_TYPE;
+  typedef DataType<HYPERION_TYPE_DOUBLE>::ValueType VALUE_TYPE;
 
   typedef unsigned MEASURE_CLASS_TYPE;
   typedef unsigned REF_TYPE_TYPE;
   typedef unsigned NUM_VALUES_TYPE;
 
-  typedef legms::string NAME_TYPE;
+  typedef hyperion::string NAME_TYPE;
 
   static const constexpr Legion::FieldID MEASURE_CLASS_FID = 0;
   static const constexpr Legion::FieldID REF_TYPE_FID = 1;
@@ -170,7 +170,7 @@ public:
 #define CREATE(M)                                                       \
     else if (typeid(MClassT<M>::type).hash_code() == typeid(Ms).hash_code()) \
       return create(ctx, rt, name, &meas_ref, M);
-    LEGMS_FOREACH_MCLASS(CREATE)
+    HYPERION_FOREACH_MCLASS(CREATE)
 #undef CM
     else assert(false);
   }
@@ -211,10 +211,10 @@ private:
     MClass klass);
 };
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_USE_CASACORE
-#endif // LEGMS_MEAS_REF_H_
+#endif // HYPERION_USE_CASACORE
+#endif // HYPERION_MEAS_REF_H_
 
 // Local Variables:
 // mode: c++

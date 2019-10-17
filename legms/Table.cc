@@ -23,18 +23,18 @@
 #pragma GCC visibility pop
 
 #include <legion/legion_c_util.h>
-#include <legms/legms.h>
-#include <legms/Column.h>
-#include <legms/Table.h>
-#include <legms/TableBuilder.h>
+#include <hyperion/hyperion.h>
+#include <hyperion/Column.h>
+#include <hyperion/Table.h>
+#include <hyperion/TableBuilder.h>
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 #pragma GCC visibility push(default)
 # include <hdf5.h>
 #pragma GCC visibility pop
 #endif
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 #undef HIERARCHICAL_COMPUTE_RECTANGLES
@@ -48,14 +48,14 @@ Table::Table(
   LogicalRegion metadata,
   LogicalRegion axes,
   LogicalRegion columns,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& meas_refs,
 #endif
   const Keywords& keywords)
   : metadata_lr(metadata)
   , axes_lr(axes)
   , columns_lr(columns)
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   , meas_refs(meas_refs)
 #endif
   , keywords(keywords) {
@@ -65,14 +65,14 @@ Table::Table(
   LogicalRegion metadata,
   LogicalRegion axes,
   LogicalRegion columns,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& meas_refs,
 #endif
   Keywords&& keywords)
   : metadata_lr(metadata)
   , axes_lr(axes)
   , columns_lr(columns)
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   , meas_refs(meas_refs)
 #endif
   , keywords(std::move(keywords)) {
@@ -133,7 +133,7 @@ Table::create(
   const std::string& axes_uid,
   const std::vector<int>& index_axes,
   const std::vector<Column>& columns_,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& meas_refs,
 #endif
   const Keywords::kw_desc_t& kws,
@@ -175,7 +175,7 @@ Table::create(
     assert(!pir());
     rt->unmap_region(ctx, pr);
   }
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   meas_refs.add_prefix_to_owned(ctx, rt, component_name_prefix);
 #endif
   return
@@ -183,9 +183,9 @@ Table::create(
       metadata,
       axes,
       columns,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
       meas_refs,
-#endif //LEGMS_USE_CASACORE
+#endif //HYPERION_USE_CASACORE
       keywords);
 }
 
@@ -197,7 +197,7 @@ Table::create(
   const std::string& axes_uid,
   const std::vector<int>& index_axes,
   const std::vector<Column::Generator>& column_generators,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& meas_refs,
 #endif
   const Keywords::kw_desc_t& kws,
@@ -216,7 +216,7 @@ Table::create(
         ctx,
         rt,
         component_name_prefix
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
         , meas_refs
 #endif
         ));
@@ -229,7 +229,7 @@ Table::create(
       axes_uid,
       index_axes,
       cols,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
       meas_refs,
 #endif
       kws,
@@ -247,9 +247,9 @@ Table::create_metadata(
   IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
   FieldSpace fs = rt->create_field_space(ctx);
   FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-  fa.allocate_field(sizeof(legms::string), METADATA_NAME_FID);
+  fa.allocate_field(sizeof(hyperion::string), METADATA_NAME_FID);
   rt->attach_name(fs, METADATA_NAME_FID, "name");
-  fa.allocate_field(sizeof(legms::string), METADATA_AXES_UID_FID);
+  fa.allocate_field(sizeof(hyperion::string), METADATA_AXES_UID_FID);
   rt->attach_name(fs, METADATA_AXES_UID_FID, "axes_uid");
   LogicalRegion result = rt->create_logical_region(ctx, is, fs);
   {
@@ -325,7 +325,7 @@ Table::destroy(Context ctx, Runtime* rt, bool destroy_columns) {
     }
   }
   keywords.destroy(ctx, rt);
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   meas_refs.destroy(ctx, rt);
 #endif
 }
@@ -430,12 +430,12 @@ Table::min_rank_column(
   return result;
 }
 
-#ifdef LEGMS_USE_HDF5
+#ifdef HYPERION_USE_HDF5
 std::vector<PhysicalRegion>
 Table::with_columns_attached_prologue(
   Context ctx,
   Runtime* rt,
-  const LEGMS_FS::path& file_path,
+  const HYPERION_FS::path& file_path,
   const std::string& root_path,
   const std::tuple<
   Table*,
@@ -498,7 +498,7 @@ Table::with_columns_attached_epilogue(
     rt->detach_external_resource(ctx, pr);
   }
 }
-#endif // LEGMS_USE_HDF5
+#endif // HYPERION_USE_HDF5
 
 #ifndef NO_REINDEX
 TaskID ReindexedTableTask::TASK_ID;
@@ -601,7 +601,7 @@ using WOAccessor =
   CHECK_BOUNDS>;
 
 template <typename T>
-class LEGMS_LOCAL IndexAccumulateTask {
+class HYPERION_LOCAL IndexAccumulateTask {
 public:
 
   typedef DataType<ValueType<T>::DataType> DT;
@@ -667,7 +667,7 @@ public:
                       std::vector<DomainPoint>{task->index_point})}};   \
         break;                                                          \
       }
-      LEGMS_FOREACH_N(ACC);
+      HYPERION_FOREACH_N(ACC);
 #undef ACC
     default:
       assert(false);
@@ -729,7 +729,7 @@ index_column(
   const Task* task,
   Context ctx,
   Runtime *runtime,
-  legms::TypeTag dt,
+  hyperion::TypeTag dt,
   const RegionRequirement& col_req) {
 
   // launch index space task on input region to compute accumulator value
@@ -796,7 +796,7 @@ IndexColumnTask::base_impl(
           DT,                                   \
           task->regions[1]);                    \
       break;
-    LEGMS_FOREACH_DATATYPE(ICR);
+    HYPERION_FOREACH_DATATYPE(ICR);
 #undef ICR
   default:
     assert(false);
@@ -808,7 +808,7 @@ IndexColumnTask::base_impl(
 #ifndef NO_REINDEX
 #ifdef HIERARCHICAL_COMPUTE_RECTANGLES
 
-class LEGMS_LOCAL ComputeRectanglesTask {
+class HYPERION_LOCAL ComputeRectanglesTask {
 public:
 
   static TaskID TASK_ID;
@@ -971,7 +971,7 @@ public:
           }
 
           switch (rowdim * LEGION_MAX_DIM + rectdim) {
-            LEGMS_FOREACH_MN(WRITE_RECTS);
+            HYPERION_FOREACH_MN(WRITE_RECTS);
           default:
             assert(false);
             break;
@@ -1070,7 +1070,7 @@ private:
 
 #else // !HIERARCHICAL_COMPUTE_RECTANGLES
 
-class LEGMS_LOCAL ComputeRectanglesTask {
+class HYPERION_LOCAL ComputeRectanglesTask {
 public:
 
   static TaskID TASK_ID;
@@ -1120,7 +1120,7 @@ public:
     }
 
     switch (m_ix_columns.size()) {
-      LEGMS_FOREACH_N(INIT_LAUNCHER);
+      HYPERION_FOREACH_N(INIT_LAUNCHER);
     default:
       assert(false);
       break;
@@ -1231,7 +1231,7 @@ public:
         - rowdim + (args.allow_rows ? 1 : 0);
       if (args.allow_rows || common_rows.size() == 1) {
         switch (rowdim * LEGION_MAX_DIM + rectdim) {
-          LEGMS_FOREACH_MN(WRITE_RECTS);
+          HYPERION_FOREACH_MN(WRITE_RECTS);
         default:
           assert(false);
           break;
@@ -1317,7 +1317,7 @@ private:
 TaskID ComputeRectanglesTask::TASK_ID;
 const char* ComputeRectanglesTask::TASK_NAME = "ComputeRectanglesTask";
 
-class LEGMS_LOCAL ReindexColumnCopyTask {
+class HYPERION_LOCAL ReindexColumnCopyTask {
 public:
 
   static TaskID TASK_ID;
@@ -1325,7 +1325,7 @@ public:
 
   ReindexColumnCopyTask(
     LogicalRegion column,
-    legms::TypeTag column_dt,
+    hyperion::TypeTag column_dt,
     IndexPartition row_partition,
     LogicalRegion new_rects_lr,
     LogicalRegion new_col_lr)
@@ -1336,7 +1336,7 @@ public:
     , m_new_col_lr(new_col_lr) {
   }
 
-  template <legms::TypeTag DT, int DIM>
+  template <hyperion::TypeTag DT, int DIM>
   using SA = FieldAccessor<
     READ_ONLY,
     typename DataType<DT>::ValueType,
@@ -1345,7 +1345,7 @@ public:
     AffineAccessor<typename DataType<DT>::ValueType, DIM, coord_t>,
     true>;
 
-  template <legms::TypeTag DT, int DIM>
+  template <hyperion::TypeTag DT, int DIM>
   using DA = FieldAccessor<
     WRITE_ONLY,
     typename DataType<DT>::ValueType,
@@ -1354,7 +1354,7 @@ public:
     AffineAccessor<typename DataType<DT>::ValueType, DIM, coord_t>,
     true>;
 
-  template <legms::TypeTag DT>
+  template <hyperion::TypeTag DT>
   static void
   copy(const PhysicalRegion& src, const PhysicalRegion& dst) {
 
@@ -1376,7 +1376,7 @@ public:
     int srcdim = src.get_logical_region().get_dim();
     int dstdim = dst.get_logical_region().get_dim();
     switch (srcdim * LEGION_MAX_DIM + dstdim) {
-      LEGMS_FOREACH_MN(CPY)
+      HYPERION_FOREACH_MN(CPY)
     default:
         assert(false);
       break;
@@ -1448,13 +1448,13 @@ public:
     Context,
     Runtime*) {
 
-    legms::TypeTag dt = *static_cast<legms::TypeTag*>(task->args);
+    hyperion::TypeTag dt = *static_cast<hyperion::TypeTag*>(task->args);
 
 #define CPYDT(DT)                                       \
     case (DT): copy<DT>(regions[0], regions[1]); break;
 
     switch (dt) {
-      LEGMS_FOREACH_DATATYPE(CPYDT)
+      HYPERION_FOREACH_DATATYPE(CPYDT)
     default:
         assert(false);
       break;
@@ -1476,7 +1476,7 @@ private:
 
   LogicalRegion m_column;
 
-  legms::TypeTag m_column_dt;
+  hyperion::TypeTag m_column_dt;
 
   IndexPartition m_row_partition;
 
@@ -1728,7 +1728,7 @@ reindex_column(
       break;                                                            \
     }
     switch (rows_is.get_dim()) {
-      LEGMS_FOREACH_N(PRINTIT)
+      HYPERION_FOREACH_N(PRINTIT)
     default:
       assert(false);
       break;
@@ -1841,7 +1841,7 @@ ReindexColumnTask::base_impl(
   }
 
   switch (olddim * LEGION_MAX_DIM + newdim) {
-    LEGMS_FOREACH_MN(REINDEX_COLUMN);
+    HYPERION_FOREACH_MN(REINDEX_COLUMN);
   default:
     assert(false);
     return ColumnGenArgs {}; // keep compiler happy
@@ -2007,7 +2007,7 @@ Table::iindex_by_value(
   return result;
 }
 
-class LEGMS_LOCAL ComputeRowColorsTask {
+class HYPERION_LOCAL ComputeRowColorsTask {
 public:
 
   static TaskID TASK_ID;
@@ -2032,7 +2032,7 @@ public:
           ctx, m_row_colors, m_row_colors, 0, point_add_redop<DIM>::identity); \
         break;                                                          \
       }
-      LEGMS_FOREACH_N(FILL_COLOR);
+      HYPERION_FOREACH_N(FILL_COLOR);
 #undef FILL_COLOR
     default:
       assert(false);
@@ -2109,7 +2109,7 @@ public:
           }                                                             \
           break;                                                        \
         }
-        LEGMS_FOREACH_NN(WRITE_COLORS);
+        HYPERION_FOREACH_NN(WRITE_COLORS);
 #undef WRITE_COLORS
       default:
         assert(false);
@@ -2161,7 +2161,7 @@ ComputeRowColorsTask::TASK_NAME = "ComputeRowColorsTask";
 // TODO: replace this macro value with a class member variable
 #define PART_FID 0
 
-class LEGMS_LOCAL InitColorsTask {
+class HYPERION_LOCAL InitColorsTask {
 public:
 
   static TaskID TASK_ID;
@@ -2233,7 +2233,7 @@ public:
         parts[task->index_point] = colors[pt];                        \
         break;                                                        \
     }
-      LEGMS_FOREACH_MN(COLOR_PARTS);
+      HYPERION_FOREACH_MN(COLOR_PARTS);
 #undef COLOR_PARTS
     default:
       assert(false);
@@ -2255,7 +2255,7 @@ public:
       case (COLOR_DIM):                                   \
         impl<COLOR_DIM>(context, runtime, task, regions); \
         break;
-      LEGMS_FOREACH_N(IMPL);
+      HYPERION_FOREACH_N(IMPL);
 #undef IMPL
     default:
       assert(false);
@@ -2286,7 +2286,7 @@ private:
 TaskID InitColorsTask::TASK_ID;
 const char* InitColorsTask::TASK_NAME = "InitColorsTask";
 
-class LEGMS_LOCAL PartitionRowsTask {
+class HYPERION_LOCAL PartitionRowsTask {
 public:
 
   static TaskID TASK_ID;
@@ -2302,7 +2302,7 @@ public:
 
     m_args.col_ispace = column_is;
     m_args.axes_uid = axes_uid;
-    assert(axes.size() <= LEGMS_MAX_NUM_TABLE_COLUMNS);
+    assert(axes.size() <= HYPERION_MAX_NUM_TABLE_COLUMNS);
     assert(axes.size() == static_cast<size_t>(colors_is.get_dim()));
     for (size_t i = 0; i < axes.size(); ++i)
       m_args.axes[i] = axes[i];
@@ -2370,7 +2370,7 @@ public:
     switch(args->colors_is.get_dim()) {
 #define IMPL(CDIM)                                                      \
       case (CDIM): ip = impl<CDIM>(task, regions, ctx, rt); break;
-      LEGMS_FOREACH_N(IMPL);
+      HYPERION_FOREACH_N(IMPL);
 #undef IMPL
     default:
       assert(false);
@@ -2399,8 +2399,8 @@ private:
 
   struct TaskArgs {
     IndexSpace col_ispace;
-    legms::string axes_uid;
-    int axes[LEGMS_MAX_NUM_TABLE_COLUMNS];
+    hyperion::string axes_uid;
+    int axes[HYPERION_MAX_NUM_TABLE_COLUMNS];
     IndexSpace colors_is;
     unsigned rowdim;
   };
@@ -2497,7 +2497,7 @@ Table::ipartition_by_value(
         fa.allocate_field(sizeof(Point<DIM>), 0);                     \
         break;                                                        \
       }
-      LEGMS_FOREACH_N(ROW_COLOR_INIT);
+      HYPERION_FOREACH_N(ROW_COLOR_INIT);
 #undef ROW_COLOR_INIT
     default:
       assert(false);
@@ -2574,7 +2574,7 @@ Table::preregister_tasks() {
   PartitionRowsTask::preregister_task();
 #define PREREG_IDX_ACCUMULATE(DT)                                   \
   IndexAccumulateTask<DataType<DT>::ValueType>::preregister_task();
-  LEGMS_FOREACH_DATATYPE(PREREG_IDX_ACCUMULATE);
+  HYPERION_FOREACH_DATATYPE(PREREG_IDX_ACCUMULATE);
 #undef PREREG_IDX_ACCUMULATE
   IndexColumnTask::preregister_task();
   InitColorsTask::preregister_task();
@@ -2586,13 +2586,13 @@ Table::preregister_tasks() {
 #endif // !NO_REINDEX
 }
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 
 Table
 Table::from_ms(
   Context ctx,
   Runtime* runtime,
-  const LEGMS_FS::path& path,
+  const HYPERION_FS::path& path,
   const std::unordered_set<std::string>& column_selections) {
 
   std::string table_name = path.filename();
@@ -2601,19 +2601,19 @@ Table::from_ms(
   do {                                                                  \
     if (table_name == MSTable<MS_##N>::name)                            \
       return                                                            \
-        legms:: template from_ms<MS_##N>(ctx, runtime, path, column_selections); \
+        hyperion:: template from_ms<MS_##N>(ctx, runtime, path, column_selections); \
   } while (0);
 
-  LEGMS_FOREACH_MSTABLE(FROM_MS_TABLE);
+  HYPERION_FOREACH_MSTABLE(FROM_MS_TABLE);
 
   // try to read as main table
   return
-    legms:: template from_ms<MS_MAIN>(ctx, runtime, path, column_selections);
+    hyperion:: template from_ms<MS_MAIN>(ctx, runtime, path, column_selections);
 
 #undef FROM_MS_TABLE
 }
 
-#endif // LEGMS_USE_CASACORE
+#endif // HYPERION_USE_CASACORE
 
 // Local Variables:
 // mode: c++

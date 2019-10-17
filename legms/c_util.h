@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_C_UTIL_H_
-#define LEGMS_C_UTIL_H_
+#ifndef HYPERION_C_UTIL_H_
+#define HYPERION_C_UTIL_H_
 
-#include <legms/legms_c.h>
+#include <hyperion/hyperion_c.h>
 
 #ifdef __cplusplus
 #pragma GCC visibility push(default)
@@ -24,7 +24,7 @@
 #include <legion/legion_c_util.h>
 #pragma GCC visibility pop
 
-namespace legms {
+namespace hyperion {
 namespace CObjectWrapper {
 
 template <typename Unwrapped>
@@ -95,7 +95,7 @@ unwrap(const Wrapped& w) {
   __func__(syscal)                             \
   __func__(weather)
 
-#endif // LEGMS_C_UTIL_H_
+#endif // HYPERION_C_UTIL_H_
 
 // Local Variables:
 // mode: c++

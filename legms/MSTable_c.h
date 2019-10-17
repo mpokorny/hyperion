@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_MS_TABLE_C_H_
-#define LEGMS_MS_TABLE_C_H_
+#ifndef HYPERION_MS_TABLE_C_H_
+#define HYPERION_MS_TABLE_C_H_
 
-#include <legms/c_util.h>
+#include <hyperion/c_util.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -314,19 +314,19 @@ typedef enum ms_weather_axes_t {
     unsigned num_axes;                          \
   } ms_##t##_column_axes_t;                     \
                                                 \
-  LEGMS_API const char*                         \
+  HYPERION_API const char*                         \
   t##_table_name();                             \
                                                 \
-  LEGMS_API const ms_##t##_column_axes_t*       \
+  HYPERION_API const ms_##t##_column_axes_t*       \
   t##_table_element_axes();                     \
                                                 \
-  LEGMS_API unsigned                            \
+  HYPERION_API unsigned                            \
   t##_table_num_columns();                      \
                                                 \
-  LEGMS_API const char* const*                  \
+  HYPERION_API const char* const*                  \
   t##_table_axis_names();                       \
                                                 \
-  LEGMS_API unsigned                            \
+  HYPERION_API unsigned                            \
   t##_table_num_axes();
 
 FOREACH_MS_TABLE_t(TABLE_FUNCTION_DECLS);
@@ -537,7 +537,7 @@ unsigned weather_table_num_axes();
 }
 #endif
 
-#endif // LEGMS_MS_TABLE_C_H_
+#endif // HYPERION_MS_TABLE_C_H_
 
 // Local Variables:
 // mode: c

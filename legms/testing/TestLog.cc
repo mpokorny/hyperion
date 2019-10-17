@@ -17,9 +17,9 @@
 #include <algorithm>
 #pragma GCC visibility pop
 
-#include <legms/testing/TestLog.h>
+#include <hyperion/testing/TestLog.h>
 
-using namespace legms::testing;
+using namespace hyperion::testing;
 using namespace Legion;
 
 TestLogReference::TestLogReference(

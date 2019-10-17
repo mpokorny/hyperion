@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/ColumnPartition.h>
+#include <hyperion/ColumnPartition.h>
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 template <int IS_DIM, int PART_DIM>
@@ -86,7 +86,7 @@ ColumnPartition::create(
     IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    fa.allocate_field(sizeof(legms::string), AXES_UID_FID);
+    fa.allocate_field(sizeof(hyperion::string), AXES_UID_FID);
     axuid = rt->create_logical_region(ctx, is, fs);
     {
       RegionRequirement req(axuid, WRITE_ONLY, EXCLUSIVE, axuid);
@@ -148,7 +148,7 @@ ColumnPartition::create(
           IndexSpaceT<IDIM>(is), parts);        \
       break;                                    \
     }
-    LEGMS_FOREACH_MN(CP);
+    HYPERION_FOREACH_MN(CP);
 #undef CP
   default:
     assert(false);

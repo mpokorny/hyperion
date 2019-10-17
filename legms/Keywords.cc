@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/Keywords.h>
+#include <hyperion/Keywords.h>
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 Keywords::Keywords() {}
@@ -76,13 +76,13 @@ Keywords::find_keyword(Runtime* rt, const std::string& name) const {
   return ((f != fids.end()) ? std::make_optional(*f) : std::nullopt);
 }
 
-std::vector<std::optional<legms::TypeTag>>
+std::vector<std::optional<hyperion::TypeTag>>
 Keywords::value_types(
   Context ctx,
   Runtime* rt,
   const std::vector<FieldID>& fids) const {
 
-  std::vector<std::optional<legms::TypeTag>> result(fids.size());
+  std::vector<std::optional<hyperion::TypeTag>> result(fids.size());
   if (!is_empty()) {
     auto n = size(rt);
     RegionRequirement req(type_tags_lr, READ_ONLY, EXCLUSIVE, type_tags_lr);
@@ -114,7 +114,7 @@ Keywords::create(
     auto val_fa = rt->create_field_allocator(ctx, val_fs);
     for (size_t i = 0; i < kws.size(); ++i) {
       auto& [nm, dt] = kws[i];
-      tt_fa.allocate_field(sizeof(legms::TypeTag), i);
+      tt_fa.allocate_field(sizeof(hyperion::TypeTag), i);
       rt->attach_name(tt_fs, i, nm.c_str());
       add_field(dt, val_fa, i);
     }
@@ -164,7 +164,7 @@ Keywords::destroy(Context ctx, Runtime* rt) {
   }
 }
 
-legms::TypeTag
+hyperion::TypeTag
 Keywords::value_type(const PhysicalRegion& tt, FieldID fid) {
 
   const TypeTagAccessor<READ_ONLY> dt(tt, fid);

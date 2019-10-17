@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
-project(legms)
+project(hyperion)
 
 find_package(ZLIB REQUIRED)
 find_package(casacore QUIET)
@@ -39,4 +39,4 @@ endif ()
 if (BUILD_CASACORE)
   add_subdirectory(casacore)
 endif ()
-add_subdirectory(legms)
+add_subdirectory(hyperion)

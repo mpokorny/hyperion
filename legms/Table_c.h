@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_TABLE_C_H_
-#define LEGMS_TABLE_C_H_
+#ifndef HYPERION_TABLE_C_H_
+#define HYPERION_TABLE_C_H_
 
-#include <legms/utility_c.h>
-#include <legms/Column_c.h>
+#include <hyperion/utility_c.h>
+#include <hyperion/Column_c.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct LEGMS_API table_t {
+typedef struct HYPERION_API table_t {
   legion_logical_region_t metadata;
   legion_logical_region_t axes;
   legion_logical_region_t columns;
@@ -32,34 +32,34 @@ typedef struct LEGMS_API table_t {
 } table_t;
 
 /* metadata field types: [char*, char*] */
-LEGMS_API const legion_field_id_t*
+HYPERION_API const legion_field_id_t*
 table_metadata_fs();
 
 /* axes field types: [int] */
-LEGMS_API const legion_field_id_t*
+HYPERION_API const legion_field_id_t*
 table_axes_fs();
 
-LEGMS_API int
+HYPERION_API int
 table_is_empty(legion_context_t ctx, legion_runtime_t rt, table_t t);
 
-LEGMS_API char**
+HYPERION_API char**
 table_column_names(legion_context_t ctx, legion_runtime_t rt, table_t tab);
 
-LEGMS_API column_t
+HYPERION_API column_t
 table_column(
   legion_context_t ctx,
   legion_runtime_t rt,
   table_t tab,
   const char* name);
 
-LEGMS_API void
+HYPERION_API void
 table_destroy(
   legion_context_t ctx,
   legion_runtime_t rt,
   table_t tab,
   int destroy_columns);
 
-/* LEGMS_API table_t */
+/* HYPERION_API table_t */
 /* table_reindexed( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -68,7 +68,7 @@ table_destroy(
 /*   const int* axes, */
 /*   int allow_rows); */
 
-/* LEGMS_API void */
+/* HYPERION_API void */
 /* table_partition_by_value( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -80,8 +80,8 @@ table_destroy(
 /*   char** col_names, */
 /*   legion_logical_partition_t* col_partitions); */
 
-/* #ifdef LEGMS_USE_CASACORE */
-/* LEGMS_API table_t */
+/* #ifdef HYPERION_USE_CASACORE */
+/* HYPERION_API table_t */
 /* table_from_ms( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -90,16 +90,16 @@ table_destroy(
 /*   const char** column_selections); */
 /* #endif */
 
-/* #ifdef LEGMS_USE_HDF5 */
+/* #ifdef HYPERION_USE_HDF5 */
 /* // returns NULL-terminated array of strings -- caller must free everything */
-/* LEGMS_API char ** */
+/* HYPERION_API char ** */
 /* tables_in_h5(const char* path); */
 
 /* // returns NULL-terminated array of strings -- caller must free everything */
-/* LEGMS_API char ** */
+/* HYPERION_API char ** */
 /* columns_in_h5(const char* path, const char* table_path); */
 
-/* LEGMS_API table_t */
+/* HYPERION_API table_t */
 /* table_from_h5( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -110,7 +110,7 @@ table_destroy(
 
 /* // use table_num_keywords() to find required minimum length of vectors */
 /* // "keywords" and "paths"; returned strings must be freed by caller */
-/* LEGMS_API void */
+/* HYPERION_API void */
 /* table_keyword_paths( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -119,7 +119,7 @@ table_destroy(
 /*   char** paths); */
 
 /* // returned string "*path" must be freed by caller */
-/* LEGMS_API void */
+/* HYPERION_API void */
 /* table_column_value_path( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -129,7 +129,7 @@ table_destroy(
 
 /* // use column_num_keywords() to find required minimum length of vector */
 /* // "keywords" and "paths"; returned strings must be freed by caller */
-/* LEGMS_API void */
+/* HYPERION_API void */
 /* table_column_keyword_paths( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -144,7 +144,7 @@ table_destroy(
 }
 #endif
 
-#endif /* LEGMS_TABLE_C_H_ */
+#endif /* HYPERION_TABLE_C_H_ */
 
 // Local Variables:
 // mode: c

@@ -15,10 +15,10 @@
  */
 #include <iostream>
 
-#include <legms/testing/TestLog.h>
-#include <legms/testing/TestSuiteDriver.h>
+#include <hyperion/testing/TestLog.h>
+#include <hyperion/testing/TestSuiteDriver.h>
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 #define LOG_LENGTH 50

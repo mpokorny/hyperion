@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_INDEX_TREE_H_
-#define LEGMS_INDEX_TREE_H_
+#ifndef HYPERION_INDEX_TREE_H_
+#define HYPERION_INDEX_TREE_H_
 
 #pragma GCC visibility push(default)
 #include <algorithm>
@@ -29,7 +29,7 @@
 #include <vector>
 #pragma GCC visibility pop
 
-namespace legms {
+namespace hyperion {
 
 template <typename COORD_T=int>
 class IndexTree {
@@ -764,16 +764,16 @@ private:
   COORD_T m_stride;
 };
 
-} // end namespace legms
+} // end namespace hyperion
 
 template <typename COORD_T>
 std::ostream&
-operator<<(std::ostream& stream, const legms::IndexTree<COORD_T>& it) {
+operator<<(std::ostream& stream, const hyperion::IndexTree<COORD_T>& it) {
   stream << it.show();
   return stream;
 }
 
-#endif // LEGMS_INDEX_TREE_H_
+#endif // HYPERION_INDEX_TREE_H_
 
 // Local Variables:
 // mode: c++

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/hdf5.h>
+#include <hyperion/hdf5.h>
 
 #pragma GCC visibility push(default)
 #include <algorithm>
@@ -23,30 +23,30 @@
 #include <sstream>
 #pragma GCC visibility pop
 
-#include <legms/tree_index_space.h>
-#include <legms/MSTable.h>
-#include <legms/Table.h>
-#include <legms/Column.h>
+#include <hyperion/tree_index_space.h>
+#include <hyperion/MSTable.h>
+#include <hyperion/Table.h>
+#include <hyperion/Column.h>
 
-using namespace legms::hdf5;
-using namespace legms;
+using namespace hyperion::hdf5;
+using namespace hyperion;
 using namespace Legion;
 
 const char* table_index_axes_attr_name =
-  LEGMS_NAMESPACE_PREFIX "index_axes";
+  HYPERION_NAMESPACE_PREFIX "index_axes";
 const char* table_axes_dt_name =
-  LEGMS_NAMESPACE_PREFIX "table_axes";
+  HYPERION_NAMESPACE_PREFIX "table_axes";
 const char* column_axes_attr_name =
-  LEGMS_NAMESPACE_PREFIX "axes";
+  HYPERION_NAMESPACE_PREFIX "axes";
 
 std::optional<std::string>
-legms::hdf5::read_index_tree_attr_metadata(
+hyperion::hdf5::read_index_tree_attr_metadata(
   hid_t loc_id,
   const std::string& attr_name) {
 
   std::optional<std::string> result;
 
-  std::string md_id_name = std::string(LEGMS_ATTRIBUTE_SID_PREFIX) + attr_name;
+  std::string md_id_name = std::string(HYPERION_ATTRIBUTE_SID_PREFIX) + attr_name;
   if (H5Aexists(loc_id, md_id_name.c_str())) {
 
     hid_t attr_id = H5Aopen(loc_id, md_id_name.c_str(), H5P_DEFAULT);
@@ -69,7 +69,7 @@ legms::hdf5::read_index_tree_attr_metadata(
   return result;
 }
 
-template <legms::TypeTag DT>
+template <hyperion::TypeTag DT>
 using KW =
   FieldAccessor<
   READ_ONLY,
@@ -85,27 +85,27 @@ using KW =
 static void
 init_datatype_attr(
   hid_t loc_id,
-  legms::TypeTag dt);
+  hyperion::TypeTag dt);
 
 static void
 init_datatype_attr(
   hid_t loc_id,
-  legms::TypeTag dt) {
+  hyperion::TypeTag dt) {
 
-  htri_t rc = H5Aexists(loc_id, LEGMS_ATTRIBUTE_DT);
+  htri_t rc = H5Aexists(loc_id, HYPERION_ATTRIBUTE_DT);
   if (rc > 0) {
-    herr_t err = H5Adelete(loc_id, LEGMS_ATTRIBUTE_DT);
+    herr_t err = H5Adelete(loc_id, HYPERION_ATTRIBUTE_DT);
     assert(err >= 0);
   }
 
   hid_t ds = H5Screate(H5S_SCALAR);
   assert(ds >= 0);
-  hid_t did = legms::H5DatatypeManager::datatypes()[
-    legms::H5DatatypeManager::DATATYPE_H5T];
+  hid_t did = hyperion::H5DatatypeManager::datatypes()[
+    hyperion::H5DatatypeManager::DATATYPE_H5T];
   hid_t attr_id =
     H5Acreate(
       loc_id,
-      LEGMS_ATTRIBUTE_DT,
+      HYPERION_ATTRIBUTE_DT,
       did,
       ds,
       H5P_DEFAULT,
@@ -124,14 +124,14 @@ init_kw(
   hid_t loc_id,
   const char *attr_name,
   hid_t type_id,
-  legms::TypeTag dt);
+  hyperion::TypeTag dt);
 
 static hid_t
 init_kw(
   hid_t loc_id,
   const char *attr_name,
   hid_t type_id,
-  legms::TypeTag dt) {
+  hyperion::TypeTag dt) {
 
   {
     htri_t rc = H5Lexists(loc_id, attr_name, H5P_DEFAULT);
@@ -160,7 +160,7 @@ init_kw(
   return result;
 }
 
-template <legms::TypeTag DT>
+template <hyperion::TypeTag DT>
 static void
 write_kw(
   hid_t loc_id,
@@ -168,7 +168,7 @@ write_kw(
   std::optional<PhysicalRegion>& region,
   FieldID fid);
 
-template <legms::TypeTag DT>
+template <hyperion::TypeTag DT>
 static void
 write_kw(
   hid_t loc_id,
@@ -176,7 +176,7 @@ write_kw(
   std::optional<PhysicalRegion>& region,
   FieldID fid) {
 
-  hid_t dt = legms::H5DatatypeManager::datatype<DT>();
+  hid_t dt = hyperion::H5DatatypeManager::datatype<DT>();
   hid_t attr_id = init_kw(loc_id, attr_name, dt, DT);
   if (region) {
     const KW<DT> kw(region.value(), fid);
@@ -190,19 +190,19 @@ write_kw(
 
 template <>
 void
-write_kw<LEGMS_TYPE_STRING> (
+write_kw<HYPERION_TYPE_STRING> (
   hid_t loc_id,
   const char *attr_name,
   std::optional<PhysicalRegion>& region,
   FieldID fid) {
 
-  hid_t dt = legms::H5DatatypeManager::datatype<LEGMS_TYPE_STRING>();
+  hid_t dt = hyperion::H5DatatypeManager::datatype<HYPERION_TYPE_STRING>();
   hid_t attr_id =
-    init_kw(loc_id, attr_name, dt, LEGMS_TYPE_STRING);
+    init_kw(loc_id, attr_name, dt, HYPERION_TYPE_STRING);
   if (region) {
-    const KW<LEGMS_TYPE_STRING> kw(region.value(), fid);
-    const legms::string& kwval = kw[0];
-    legms::string buf;
+    const KW<HYPERION_TYPE_STRING> kw(region.value(), fid);
+    const hyperion::string& kwval = kw[0];
+    hyperion::string buf;
     fstrcpy(buf.val, kwval.val);
     herr_t err = H5Dwrite(attr_id, dt, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf.val);
     assert(err >= 0);
@@ -212,7 +212,7 @@ write_kw<LEGMS_TYPE_STRING> (
 }
 
 void
-legms::hdf5::write_keywords(
+hyperion::hdf5::write_keywords(
   Context ctx,
   Runtime *rt,
   hid_t loc_id,
@@ -235,14 +235,14 @@ legms::hdf5::write_keywords(
 
   auto value_types = keywords.value_types(ctx, rt, fids);
   for (size_t i = 0; i < keys.size(); ++i) {
-    assert(keys[i].substr(0, sizeof(LEGMS_NAMESPACE_PREFIX) - 1)
-           != LEGMS_NAMESPACE_PREFIX);
+    assert(keys[i].substr(0, sizeof(HYPERION_NAMESPACE_PREFIX) - 1)
+           != HYPERION_NAMESPACE_PREFIX);
     switch (value_types[i].value()) {
 #define WRITE_KW(DT)                                  \
       case (DT):                                      \
         write_kw<DT>(loc_id, keys[i].c_str(), pr, i); \
         break;
-      LEGMS_FOREACH_DATATYPE(WRITE_KW)
+      HYPERION_FOREACH_DATATYPE(WRITE_KW)
 #undef WRITE_KW
     default:
         assert(false);
@@ -250,7 +250,7 @@ legms::hdf5::write_keywords(
   }
 }
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 template <int D, typename A, typename T>
 std::vector<T>
 copy_mr_region(
@@ -331,7 +331,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
       assert(sp1 >= 0);                                                 \
     }                                                                   \
     break;
-    LEGMS_FOREACH_N_LESS_MAX(SP)
+    HYPERION_FOREACH_N_LESS_MAX(SP)
 #undef SP
   default:
     assert(false);
@@ -345,7 +345,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
       hid_t ds =
         H5Dcreate(
           loc_id,
-          LEGMS_MEAS_REF_MCLASS_DS,
+          HYPERION_MEAS_REF_MCLASS_DS,
           H5DatatypeManager::datatypes()[H5DatatypeManager::MEASURE_CLASS_H5T],
           sp,
           H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
@@ -366,7 +366,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
               mr.metadata_region,                                       \
               MeasRef::MEASURE_CLASS_FID);                              \
           break;
-        LEGMS_FOREACH_N_LESS_MAX(W_MCLASS);
+        HYPERION_FOREACH_N_LESS_MAX(W_MCLASS);
 #undef W_MCLASS
       default:
         assert(false);
@@ -379,7 +379,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
       hid_t ds =
         H5Dcreate(
           loc_id,
-          LEGMS_MEAS_REF_RTYPE_DS,
+          HYPERION_MEAS_REF_RTYPE_DS,
           H5DatatypeManager::datatype<
             ValueType<MeasRef::REF_TYPE_TYPE>::DataType>(),
           sp,
@@ -401,7 +401,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
               mr.metadata_region,                                       \
               MeasRef::REF_TYPE_FID);                                   \
           break;
-        LEGMS_FOREACH_N_LESS_MAX(W_RTYPE);
+        HYPERION_FOREACH_N_LESS_MAX(W_RTYPE);
 #undef W_RTYPE
       default:
         assert(false);
@@ -414,7 +414,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
       hid_t ds =
         H5Dcreate(
           loc_id,
-          LEGMS_MEAS_REF_NVAL_DS,
+          HYPERION_MEAS_REF_NVAL_DS,
           H5DatatypeManager::datatype<
             ValueType<MeasRef::NUM_VALUES_TYPE>::DataType>(),
           sp,
@@ -436,7 +436,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
               mr.metadata_region,                                       \
               MeasRef::NUM_VALUES_FID);                                 \
           break;
-        LEGMS_FOREACH_N_LESS_MAX(W_NVAL);
+        HYPERION_FOREACH_N_LESS_MAX(W_NVAL);
 #undef W_NVAL
       default:
         assert(false);
@@ -450,7 +450,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
     hid_t ds =
       H5Dcreate(
         loc_id,
-        LEGMS_MEAS_REF_VALUES_DS,
+        HYPERION_MEAS_REF_VALUES_DS,
         H5DatatypeManager::datatype<ValueType<MeasRef::VALUE_TYPE>::DataType>(),
         sp1,
         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
@@ -471,7 +471,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
             mr.value_region,                                            \
             0);                                                         \
         break;
-      LEGMS_FOREACH_N_LESS_MAX(W_VALUES);
+      HYPERION_FOREACH_N_LESS_MAX(W_VALUES);
 #undef W_VALUES
     default:
       assert(false);
@@ -483,7 +483,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
 }
 
 void
-legms::hdf5::write_measures(
+hyperion::hdf5::write_measures(
   Context ctx,
   Runtime* rt,
   hid_t loc_id,
@@ -495,9 +495,9 @@ legms::hdf5::write_measures(
     return;
 
   {
-    htri_t rc = H5Lexists(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+    htri_t rc = H5Lexists(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
     if (rc > 0) {
-      herr_t err = H5Ldelete(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+      herr_t err = H5Ldelete(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
       assert(err >= 0);
     }
   }
@@ -530,7 +530,7 @@ legms::hdf5::write_measures(
           measures_id =
             H5Gcreate(
               loc_id,
-              LEGMS_MEASURES_GROUP,
+              HYPERION_MEASURES_GROUP,
               H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
           assert(measures_id >= 0);
         }
@@ -569,13 +569,13 @@ legms::hdf5::write_measures(
     assert(err >= 0);
   }
 }
-#endif //LEGMS_USE_CASACORE
+#endif //HYPERION_USE_CASACORE
 
 void
-legms::hdf5::write_column(
+hyperion::hdf5::write_column(
   Context ctx,
   Runtime* rt,
-  const LEGMS_FS::path& path,
+  const HYPERION_FS::path& path,
   hid_t table_id,
   const std::string& table_name,
   const Column& column,
@@ -617,7 +617,7 @@ legms::hdf5::write_column(
           dims[i] = rect.hi[i] + 1;             \
         break;                                  \
       }
-      LEGMS_FOREACH_N(DIMS)
+      HYPERION_FOREACH_N(DIMS)
 #undef DIMS
     default:
       assert(false);
@@ -633,7 +633,7 @@ legms::hdf5::write_column(
     switch (datatype) {
 #define DT(T) \
       case T: dt = H5DatatypeManager::datatype<T>(); break;
-      LEGMS_FOREACH_DATATYPE(DT)
+      HYPERION_FOREACH_DATATYPE(DT)
 #undef DT
     default:
       assert(false);
@@ -643,7 +643,7 @@ legms::hdf5::write_column(
     col_id =
       H5Dcreate(
         col_group_id,
-        LEGMS_COLUMN_DS,
+        HYPERION_COLUMN_DS,
         dt,
         ds,
         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
@@ -711,7 +711,7 @@ legms::hdf5::write_column(
     std::string("/") + table_name + "/" + colname;
 
   if (with_data) {
-    std::string column_ds_name = column_path + "/" + LEGMS_COLUMN_DS;
+    std::string column_ds_name = column_path + "/" + HYPERION_COLUMN_DS;
     std::map<FieldID, const char*>
       field_map{{Column::VALUE_FID, column_ds_name.c_str()}};
     LogicalRegion values_lr =
@@ -736,7 +736,7 @@ legms::hdf5::write_column(
 
   write_keywords(ctx, rt, col_group_id, column.keywords, with_data);
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   write_measures(ctx, rt, col_group_id, column_path, column.meas_refs);
 #endif
 
@@ -751,10 +751,10 @@ legms::hdf5::write_column(
 }
 
 void
-legms::hdf5::write_table(
+hyperion::hdf5::write_table(
   Context ctx,
   Runtime* rt,
-  const LEGMS_FS::path& path,
+  const HYPERION_FS::path& path,
   hid_t loc_id,
   const Table& table,
   const std::unordered_set<std::string>& excluded_columns,
@@ -859,7 +859,7 @@ legms::hdf5::write_table(
 
     write_keywords(ctx, rt, table_id, table.keywords, with_data);
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
     {
       std::string table_path = std::string("/") + tabname;
       write_measures(ctx, rt, table_id, table_path, table.meas_refs);
@@ -904,7 +904,7 @@ acc_kw_names(
   void* ctx) {
 
   std::vector<std::string>* acc = static_cast<std::vector<std::string>*>(ctx);
-  if (!starts_with(name, LEGMS_NAMESPACE_PREFIX)) {
+  if (!starts_with(name, HYPERION_NAMESPACE_PREFIX)) {
     H5O_info_t infobuf;
     herr_t err = H5Oget_info_by_name(loc_id, name, &infobuf, H5P_DEFAULT);
     assert(err >= 0);
@@ -914,20 +914,20 @@ acc_kw_names(
   return 0;
 }
 
-static legms::TypeTag
+static hyperion::TypeTag
 read_dt_value(hid_t dt_id) {
-  legms::TypeTag dt;
+  hyperion::TypeTag dt;
   // enumeration datatypes are converted by libhdf5 based on symbol names, which
-  // ensures interoperability for legms HDF5 files written with one enumeration
+  // ensures interoperability for hyperion HDF5 files written with one enumeration
   // definition and read with a different enumeration definition (for example,
-  // in two legms codes built with and without LEGMS_USE_CASACORE)
+  // in two hyperion codes built with and without HYPERION_USE_CASACORE)
   herr_t err = H5Aread(dt_id, H5T_NATIVE_INT, &dt);
   assert(err >= 0);
   return dt;
 }
 
-legms::Keywords::kw_desc_t
-legms::hdf5::init_keywords(
+hyperion::Keywords::kw_desc_t
+hyperion::hdf5::init_keywords(
   Context ctx,
   Runtime* rt,
   hid_t loc_id) {
@@ -948,24 +948,24 @@ legms::hdf5::init_keywords(
     return {};
 
   return
-    legms::map(
+    hyperion::map(
       kw_names,
       [&](const auto& nm) {
         hid_t dt_id =
           H5Aopen_by_name(
             loc_id,
             nm.c_str(),
-            LEGMS_ATTRIBUTE_DT,
+            HYPERION_ATTRIBUTE_DT,
             H5P_DEFAULT, H5P_DEFAULT);
         assert(dt_id >= 0);
-        legms::TypeTag dt = read_dt_value(dt_id);
+        hyperion::TypeTag dt = read_dt_value(dt_id);
         err = H5Aclose(dt_id);
         assert(err >= 0);
         return std::make_tuple(nm, dt);
       });
 }
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 template <typename T>
 std::vector<T>
 copy_mr_ds(hid_t ds) {
@@ -1033,7 +1033,7 @@ init_meas_ref(
   {
     // Read the datasets for the MeasRef values directly.
     {
-      hid_t ds = H5Dopen(loc_id, LEGMS_MEAS_REF_MCLASS_DS, H5P_DEFAULT);
+      hid_t ds = H5Dopen(loc_id, HYPERION_MEAS_REF_MCLASS_DS, H5P_DEFAULT);
       assert(ds >= 0);
 
       switch (metadata_region.get_index_space().get_dim()) {
@@ -1049,7 +1049,7 @@ init_meas_ref(
               metadata_region,                                          \
               MeasRef::MEASURE_CLASS_FID);                              \
           break;
-        LEGMS_FOREACH_N_LESS_MAX(W_MCLASS);
+        HYPERION_FOREACH_N_LESS_MAX(W_MCLASS);
 #undef W_MCLASS
       default:
         assert(false);
@@ -1059,7 +1059,7 @@ init_meas_ref(
       assert(err >= 0);
     }
     {
-      hid_t ds = H5Dopen(loc_id, LEGMS_MEAS_REF_RTYPE_DS, H5P_DEFAULT);
+      hid_t ds = H5Dopen(loc_id, HYPERION_MEAS_REF_RTYPE_DS, H5P_DEFAULT);
       assert(ds >= 0);
 
       switch (metadata_region.get_index_space().get_dim()) {
@@ -1075,7 +1075,7 @@ init_meas_ref(
               metadata_region,                                          \
               MeasRef::REF_TYPE_FID);                                   \
           break;
-        LEGMS_FOREACH_N_LESS_MAX(W_RTYPE);
+        HYPERION_FOREACH_N_LESS_MAX(W_RTYPE);
 #undef W_RTYPE
       default:
         assert(false);
@@ -1085,7 +1085,7 @@ init_meas_ref(
       assert(err >= 0);
     }
     {
-      hid_t ds = H5Dopen(loc_id, LEGMS_MEAS_REF_NVAL_DS, H5P_DEFAULT);
+      hid_t ds = H5Dopen(loc_id, HYPERION_MEAS_REF_NVAL_DS, H5P_DEFAULT);
       assert(ds >= 0);
 
       switch (metadata_region.get_index_space().get_dim()) {
@@ -1101,7 +1101,7 @@ init_meas_ref(
               metadata_region,                                          \
               MeasRef::NUM_VALUES_FID);                                 \
           break;
-        LEGMS_FOREACH_N_LESS_MAX(W_NVAL);
+        HYPERION_FOREACH_N_LESS_MAX(W_NVAL);
 #undef W_NVAL
       default:
         assert(false);
@@ -1112,7 +1112,7 @@ init_meas_ref(
     }
   }
   if (value_region != LogicalRegion::NO_REGION) {
-    hid_t ds = H5Dopen(loc_id, LEGMS_MEAS_REF_VALUES_DS, H5P_DEFAULT);
+    hid_t ds = H5Dopen(loc_id, HYPERION_MEAS_REF_VALUES_DS, H5P_DEFAULT);
     assert(ds >= 0);
 
     switch (value_region.get_index_space().get_dim()) {
@@ -1128,7 +1128,7 @@ init_meas_ref(
             value_region,                                               \
             0);                                                         \
         break;
-      LEGMS_FOREACH_N(W_VALUES);
+      HYPERION_FOREACH_N(W_VALUES);
 #undef W_VALUES
     default:
       assert(false);
@@ -1166,7 +1166,7 @@ acc_meas_ref(
     {
       std::string sid =
         read_index_tree_attr_metadata(mr_id, "metadata_index_tree").value();
-      assert(sid == "legms::hdf5::binary_index_tree_serdez");
+      assert(sid == "hyperion::hdf5::binary_index_tree_serdez");
       metadata_tree =
         read_index_tree_from_attr<binary_index_tree_serdez>(
           mr_id,
@@ -1177,7 +1177,7 @@ acc_meas_ref(
       std::optional<std::string> sid =
         read_index_tree_attr_metadata(mr_id, "value_index_tree");
       if (sid) {
-        assert(sid.value() == "legms::hdf5::binary_index_tree_serdez");
+        assert(sid.value() == "hyperion::hdf5::binary_index_tree_serdez");
         value_tree =
           read_index_tree_from_attr<binary_index_tree_serdez>(
             mr_id,
@@ -1197,30 +1197,30 @@ acc_meas_ref(
   }
   return 0;
 }
-#endif // LEGMS_USE_CASACORE
+#endif // HYPERION_USE_CASACORE
 
 Column
-legms::hdf5::init_column(
+hyperion::hdf5::init_column(
   Context ctx,
   Runtime* rt,
   const std::string& column_name,
   const std::string& axes_uid,
   hid_t loc_id,
   hid_t axes_dt,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& table_meas_ref,
 #endif
   const std::string& name_prefix) {
 
   Column result;
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   std::vector<MeasRef> mrs;
   {
-    htri_t rc = H5Lexists(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+    htri_t rc = H5Lexists(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
     assert(rc >= 0);
     if (rc > 0) {
-      hid_t measures_id = H5Gopen(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+      hid_t measures_id = H5Gopen(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
       assert(measures_id >= 0);
       hsize_t position = 0;
       struct acc_meas_ref_ctx acc_meas_ref_ctx{ctx, rt};
@@ -1242,16 +1242,16 @@ legms::hdf5::init_column(
     MeasRefContainer::create(ctx, rt, mrs, table_meas_ref);
 #endif
 
-  legms::TypeTag datatype = ValueType<int>::DataType;
+  hyperion::TypeTag datatype = ValueType<int>::DataType;
   hid_t datatype_id = -1;
   std::vector<int> axes;
   hid_t axes_id = -1;
   hid_t axes_id_ds = -1;
 
-  htri_t rc = H5Lexists(loc_id, LEGMS_COLUMN_DS, H5P_DEFAULT);
+  htri_t rc = H5Lexists(loc_id, HYPERION_COLUMN_DS, H5P_DEFAULT);
   if (rc > 0) {
     H5O_info_t infobuf;
-    H5Oget_info_by_name(loc_id, LEGMS_COLUMN_DS, &infobuf, H5P_DEFAULT);
+    H5Oget_info_by_name(loc_id, HYPERION_COLUMN_DS, &infobuf, H5P_DEFAULT);
     if (infobuf.type == H5O_TYPE_DATASET) {
       {
         htri_t axes_exists = H5Aexists(loc_id, column_axes_attr_name);
@@ -1272,11 +1272,11 @@ legms::hdf5::init_column(
         std::copy(ax.begin(), ax.end(), std::back_inserter(axes));
       }
       {
-        std::string datatype_name(LEGMS_ATTRIBUTE_DT);
+        std::string datatype_name(HYPERION_ATTRIBUTE_DT);
         htri_t datatype_exists =
           H5Aexists_by_name(
             loc_id,
-            LEGMS_COLUMN_DS,
+            HYPERION_COLUMN_DS,
             datatype_name.c_str(),
             H5P_DEFAULT);
         if (datatype_exists == 0)
@@ -1284,7 +1284,7 @@ legms::hdf5::init_column(
         datatype_id =
           H5Aopen_by_name(
             loc_id,
-            LEGMS_COLUMN_DS,
+            HYPERION_COLUMN_DS,
             datatype_name.c_str(),
             H5P_DEFAULT, H5P_DEFAULT);
         assert(datatype_id >= 0);
@@ -1295,7 +1295,7 @@ legms::hdf5::init_column(
         std::optional<std::string> sid =
           read_index_tree_attr_metadata(loc_id, "index_tree");
         if (!sid
-            || (sid.value() != "legms::hdf5::binary_index_tree_serdez"))
+            || (sid.value() != "hyperion::hdf5::binary_index_tree_serdez"))
           goto return_nothing;
         std::optional<IndexTreeL> ixtree =
           read_index_tree_from_attr<binary_index_tree_serdez>(
@@ -1315,7 +1315,7 @@ legms::hdf5::init_column(
             axes,
             datatype,
             it,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
             column_meas_ref,
 #endif
             keywords,
@@ -1343,10 +1343,10 @@ return_nothing:
 struct acc_col_ctx {
   const std::string& table_name;
   const std::unordered_set<std::string>* column_names;
-  std::vector<legms::Column>* acc;
+  std::vector<hyperion::Column>* acc;
   std::string axes_uid;
   hid_t axes_dt;
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer* table_meas_ref;
 #endif
   Runtime* rt;
@@ -1378,7 +1378,7 @@ acc_col(
           args->axes_uid,
           col_group_id,
           args->axes_dt,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
           *args->table_meas_ref,
 #endif
           args->table_name);
@@ -1391,13 +1391,13 @@ acc_col(
 }
 
 Table
-legms::hdf5::init_table(
+hyperion::hdf5::init_table(
   Context ctx,
   Runtime* rt,
   const std::string& table_name,
   hid_t loc_id,
   const std::unordered_set<std::string>& column_names,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& ms_meas_ref,
 #endif
   const std::string& name_prefix) {
@@ -1407,13 +1407,13 @@ legms::hdf5::init_table(
   if (column_names.size() == 0)
     return result;
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   std::vector<MeasRef> mrs;
   {
-    htri_t rc = H5Lexists(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+    htri_t rc = H5Lexists(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
     assert(rc >= 0);
     if (rc > 0) {
-      hid_t measures_id = H5Gopen(loc_id, LEGMS_MEASURES_GROUP, H5P_DEFAULT);
+      hid_t measures_id = H5Gopen(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
       assert(measures_id >= 0);
       hsize_t position = 0;
       struct acc_meas_ref_ctx acc_meas_ref_ctx{ctx, rt};
@@ -1472,7 +1472,7 @@ legms::hdf5::init_table(
   {
     struct acc_col_ctx acc_col_ctx{
       table_name, &column_names, &cols, axes_uid, axes_dt,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
       &table_meas_ref,
 #endif
       rt, ctx};
@@ -1498,7 +1498,7 @@ legms::hdf5::init_table(
         axes_uid,
         index_axes,
         cols,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
         table_meas_ref,
 #endif
         keywords);
@@ -1516,13 +1516,13 @@ return_nothing:
 }
 
 Table
-legms::hdf5::init_table(
+hyperion::hdf5::init_table(
   Context context,
   Runtime* runtime,
-  const LEGMS_FS::path& file_path,
+  const HYPERION_FS::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& column_names,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& ms_meas_ref,
 #endif
   unsigned flags) {
@@ -1543,7 +1543,7 @@ legms::hdf5::init_table(
               table_path.substr(table_basename),
               table_loc,
               column_names,
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
               ms_meas_ref,
 #endif
               table_path.substr(0, table_basename));
@@ -1580,8 +1580,8 @@ acc_table_paths(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
 }
 
 std::unordered_set<std::string>
-legms::hdf5::get_table_paths(
-  const LEGMS_FS::path& file_path) {
+hyperion::hdf5::get_table_paths(
+  const HYPERION_FS::path& file_path) {
 
   std::unordered_set<std::string> result;
   hid_t fid = H5Fopen(file_path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
@@ -1610,15 +1610,15 @@ acc_column_names(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
   herr_t err = H5Oget_info_by_name(loc_id, name, &infobuf, H5P_DEFAULT);
   assert(err >= 0);
   if (infobuf.type == H5O_TYPE_GROUP
-      && (std::string(name).substr(0, sizeof(LEGMS_NAMESPACE_PREFIX) - 1)
-          != LEGMS_NAMESPACE_PREFIX)) {
+      && (std::string(name).substr(0, sizeof(HYPERION_NAMESPACE_PREFIX) - 1)
+          != HYPERION_NAMESPACE_PREFIX)) {
     hid_t gid = H5Gopen(loc_id, name, H5P_DEFAULT);
     assert(gid >= 0);
-    htri_t has_col_ds = H5Oexists_by_name(gid, LEGMS_COLUMN_DS, H5P_DEFAULT);
+    htri_t has_col_ds = H5Oexists_by_name(gid, HYPERION_COLUMN_DS, H5P_DEFAULT);
     assert(has_col_ds >= 0);
     if (has_col_ds > 0) {
       herr_t err =
-        H5Oget_info_by_name(gid, LEGMS_COLUMN_DS, &infobuf, H5P_DEFAULT);
+        H5Oget_info_by_name(gid, HYPERION_COLUMN_DS, &infobuf, H5P_DEFAULT);
       assert(err >= 0);
       if (infobuf.type == H5O_TYPE_DATASET)
         colnames->insert(name);
@@ -1630,8 +1630,8 @@ acc_column_names(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
 }
 
 std::unordered_set<std::string>
-legms::hdf5::get_column_names(
-  const LEGMS_FS::path& file_path,
+hyperion::hdf5::get_column_names(
+  const HYPERION_FS::path& file_path,
   const std::string& table_path) {
 
   std::unordered_set<std::string> result;
@@ -1659,7 +1659,7 @@ legms::hdf5::get_column_names(
 }
 
 std::unordered_map<std::string, std::string>
-legms::hdf5::get_table_keyword_paths(
+hyperion::hdf5::get_table_keyword_paths(
   Context ctx,
   Runtime* rt,
   const Table& table) {
@@ -1672,7 +1672,7 @@ legms::hdf5::get_table_keyword_paths(
 }
 
 std::string
-legms::hdf5::get_table_column_value_path(
+hyperion::hdf5::get_table_column_value_path(
   Context ctx,
   Runtime* rt,
   const Table& table,
@@ -1680,11 +1680,11 @@ legms::hdf5::get_table_column_value_path(
 
   return
     std::string("/") + table.name(ctx, rt) + "/"
-    + colname + "/" + LEGMS_COLUMN_DS;
+    + colname + "/" + HYPERION_COLUMN_DS;
 }
 
 std::unordered_map<std::string, std::string>
-legms::hdf5::get_table_column_keyword_paths(
+hyperion::hdf5::get_table_column_keyword_paths(
   Context ctx,
   Runtime* rt,
   const Table& table,
@@ -1700,10 +1700,10 @@ legms::hdf5::get_table_column_keyword_paths(
 }
 
 PhysicalRegion
-legms::hdf5::attach_keywords(
+hyperion::hdf5::attach_keywords(
   Context ctx,
   Runtime* rt,
-  const LEGMS_FS::path& file_path,
+  const HYPERION_FS::path& file_path,
   const std::string& keywords_path,
   const Keywords& keywords,
   bool read_only) {
@@ -1726,10 +1726,10 @@ legms::hdf5::attach_keywords(
 }
 
 PhysicalRegion
-legms::hdf5::attach_column_values(
+hyperion::hdf5::attach_column_values(
   Context ctx,
   Runtime* rt,
-  const LEGMS_FS::path& file_path,
+  const HYPERION_FS::path& file_path,
   const std::string& table_root,
   const Column& column,
   bool mapped,
@@ -1741,7 +1741,7 @@ legms::hdf5::attach_column_values(
   std::string col_path = table_root;
   if (col_path.back() != '/')
     col_path.push_back('/');
-  col_path += column.name(ctx, rt) + "/" + LEGMS_COLUMN_DS;
+  col_path += column.name(ctx, rt) + "/" + HYPERION_COLUMN_DS;
   std::map<FieldID, const char*>
     fields{{Column::VALUE_FID, col_path.c_str()}};
   attach.attach_hdf5(
@@ -1752,10 +1752,10 @@ legms::hdf5::attach_column_values(
 }
 
 PhysicalRegion
-legms::hdf5::attach_table_keywords(
+hyperion::hdf5::attach_table_keywords(
   Context ctx,
   Runtime* rt,
-  const LEGMS_FS::path& file_path,
+  const HYPERION_FS::path& file_path,
   const std::string& root_path,
   const Table& table,
   bool read_only) {
@@ -1775,7 +1775,7 @@ legms::hdf5::attach_table_keywords(
 }
 
 void
-legms::hdf5::release_table_column_values(
+hyperion::hdf5::release_table_column_values(
   Context ctx,
   Runtime* rt,
   const Table& table) {

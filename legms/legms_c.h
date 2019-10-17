@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_LEGMS_C_H_
-#define LEGMS_LEGMS_C_H_
+#ifndef HYPERION_HYPERION_C_H_
+#define HYPERION_HYPERION_C_H_
 
 #pragma GCC visibility push(default)
 #include <legion/legion_c.h>
 #pragma GCC visibility pop
 
-#include <legms/legms_config.h>
+#include <hyperion/hyperion_config.h>
 
-#define LEGMS_API __attribute__((visibility("default")))
-#define LEGMS_LOCAL __attribute__((visibility("hidden")))
+#define HYPERION_API __attribute__((visibility("default")))
+#define HYPERION_LOCAL __attribute__((visibility("hidden")))
 
-#endif // LEGMS_LEGMS_C_H_
+#endif // HYPERION_HYPERION_C_H_
 
 // Local Variables:
 // mode: c

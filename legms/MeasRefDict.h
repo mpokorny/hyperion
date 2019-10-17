@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LEGMS_MEAS_REF_DICT_H_
-#define LEGMS_MEAS_REF_DICT_H_
+#ifndef HYPERION_MEAS_REF_DICT_H_
+#define HYPERION_MEAS_REF_DICT_H_
 
-#include "legms.h"
+#include "hyperion.h"
 #include "utility.h"
 #include "MeasRef.h"
 
@@ -26,11 +26,11 @@
 #include <unordered_set>
 #include <variant>
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 
-namespace legms {
+namespace hyperion {
 
-class LEGMS_API MeasRefDict {
+class HYPERION_API MeasRefDict {
   // this class is meant to be instantiated and destroyed within a single task,
   // instances should not escape their enclosing context
 public:
@@ -119,10 +119,10 @@ private:
   mutable std::unordered_map<std::string, Ref> m_refs;
 };
 
-} // end namespace legms
+} // end namespace hyperion
 
-#endif // LEGMS_USE_CASACORE
-#endif // LEGMS_MEAS_REF_DICT_H_
+#endif // HYPERION_USE_CASACORE
+#endif // HYPERION_MEAS_REF_DICT_H_
 
 // Local Variables:
 // mode: c++

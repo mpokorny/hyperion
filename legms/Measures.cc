@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/Measures.h>
+#include <hyperion/Measures.h>
 
-#ifdef LEGMS_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 
 #define MCLASS_NAME(M) \
-  const std::string legms::MClassT<M>::name = legms::MClassT<M>::type::showMe();
-LEGMS_FOREACH_MCLASS(MCLASS_NAME)
+  const std::string hyperion::MClassT<M>::name = hyperion::MClassT<M>::type::showMe();
+HYPERION_FOREACH_MCLASS(MCLASS_NAME)
 #undef MCLASS_NAME
 
-#endif // LEGMS_USE_CASACORE
+#endif // HYPERION_USE_CASACORE
 
 // Local Variables:
 // mode: c++

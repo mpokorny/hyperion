@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/c_util.h>
-#include <legms/Table_c.h>
-#include <legms/Table.h>
-#ifdef LEGMS_USE_HDF5
-# include <legms/hdf5.h>
+#include <hyperion/c_util.h>
+#include <hyperion/Table_c.h>
+#include <hyperion/Table.h>
+#ifdef HYPERION_USE_HDF5
+# include <hyperion/hdf5.h>
 #endif
 
 #pragma GCC visibility push(default)
@@ -28,8 +28,8 @@
 #include <memory>
 #pragma GCC visibility pop
 
-using namespace legms;
-using namespace legms::CObjectWrapper;
+using namespace hyperion;
+using namespace hyperion::CObjectWrapper;
 
 const Legion::FieldID metadata_fs[2] =
   {Table::METADATA_NAME_FID, Table::METADATA_AXES_UID_FID};
@@ -56,7 +56,7 @@ table_is_empty(legion_context_t ctx, legion_runtime_t rt, table_t tab) {
       Legion::CObjectWrapper::unwrap(rt));
 }
 
-LEGMS_API char**
+HYPERION_API char**
 table_column_names(
   legion_context_t ctx,
   legion_runtime_t rt,
@@ -78,7 +78,7 @@ table_column_names(
   return result;
 }
 
-LEGMS_API column_t
+HYPERION_API column_t
 table_column(
   legion_context_t ctx,
   legion_runtime_t rt,
@@ -93,7 +93,7 @@ table_column(
         name));
 }
 
-LEGMS_API void
+HYPERION_API void
 table_destroy(
   legion_context_t ctx,
   legion_runtime_t rt,
@@ -195,7 +195,7 @@ table_destroy(
 //     });
 // }
 
-// #ifdef LEGMS_USE_CASACORE
+// #ifdef HYPERION_USE_CASACORE
 // table_t
 // table_from_ms(
 //   legion_context_t context,
@@ -217,9 +217,9 @@ table_destroy(
 //       cs)
 //     ->generator_args().to_table_t();
 // }
-// #endif // LEGMS_USE_CASACORE
+// #endif // HYPERION_USE_CASACORE
 
-// #ifdef LEGMS_USE_HDF5
+// #ifdef HYPERION_USE_HDF5
 // static char**
 // struset2strv(const std::unordered_set<std::string>& us) {
 //   char** result = (char**)std::calloc(us.size() + 1, sizeof(char*));

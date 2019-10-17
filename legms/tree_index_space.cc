@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/tree_index_space.h>
+#include <hyperion/tree_index_space.h>
 
-using namespace legms;
+using namespace hyperion;
 using namespace Legion;
 
 TreeIndexSpaceTask::TreeIndexSpaceTask(const IndexTreeL& it) {
@@ -109,7 +109,7 @@ TreeIndexSpaceTask::base_impl(
       }                                                                 \
       break;                                                            \
     }
-    LEGMS_FOREACH_N_LESS_MAX(IS);
+    HYPERION_FOREACH_N_LESS_MAX(IS);
   default:
     assert(false);
     break;
@@ -130,7 +130,7 @@ TreeIndexSpaceTask::preregister_task() {
 TaskID TreeIndexSpaceTask::TASK_ID;
 
 IndexSpace
-legms::tree_index_space(
+hyperion::tree_index_space(
   const IndexTreeL& tree,
   Context context,
   Runtime* runtime) {

@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <legms/MSTable_c.h>
-#include <legms/MSTable.h>
-#include <legms/c_util.h>
+#include <hyperion/MSTable_c.h>
+#include <hyperion/MSTable.h>
+#include <hyperion/c_util.h>
 
 #pragma GCC visibility push(default)
 #include <algorithm>
@@ -25,7 +25,7 @@
 #include <mutex>
 #pragma GCC visibility pop
 
-using namespace legms;
+using namespace hyperion;
 
 #define TABLE_FUNCTION_DEFNS(T, t)                                      \
   const char*                                                           \
