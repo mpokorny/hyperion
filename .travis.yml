@@ -1,0 +1,31 @@
+dist: bionic
+language: cpp
+env:
+  global:
+    - MAKEFLAGS="-j 2"
+    - CASACORE_DATA_DIR="${HOME}/casacore_data"
+cache:
+  directories:
+    - casacore_data
+compiler:
+  - gcc
+  - clang
+before_install:
+  - sudo apt-get install -y libhdf5-dev libhdf5-100 liblockfile-bin
+install:
+  - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
+  - mkdir -p ${DEPS_DIR} && cd ${DEPS_DIR}
+  - travis_retry wget --no-check-certificate https://cmake.org/files/v3.14/cmake-3.14.7-Linux-x86_64.tar.gz
+  - tar -xvf cmake-3.14.7-Linux-x86_64.tar.gz > /dev/null
+  - mv cmake-3.14.7-Linux-x86_64 cmake-install
+  - PATH=${DEPS_DIR}/cmake-install:${DEPS_DIR}/cmake-install/bin:$PATH
+  - mkdir -p ${CASACORE_DATA_DIR}
+  - ${TRAVIS_BUILD_DIR}/scripts/ccdata.sh
+  - cd ${TRAVIS_BUILD_DIR}
+before_script:
+  - mkdir build
+  - cd build
+  - cmake -Dcasacore_DATA_DIR=${CASACORE_DATA_DIR} ..
+script:
+  - make
+  - make test
