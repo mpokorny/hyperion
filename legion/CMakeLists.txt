@@ -4,7 +4,7 @@ if(legms_LEGION_MP_GIT_REPO)
 else()
   set(legms_LEGION_GIT_REPO "https://github.com/StanfordLegion/legion.git")
 endif()
-set(legms_LEGION_TAG "master" CACHE STRING "Legion repository git tag")
+set(legms_LEGION_TAG "stable" CACHE STRING "Legion repository git tag")
 
 set(Legion_MAX_DIM ${MAX_DIM} CACHE STRING "Maximum number of dimensions")
 list(APPEND Legion_ARGS Legion_MAX_DIM)
