@@ -10,7 +10,7 @@ An initial implementation of [MeasurementSet](https://casa.nrao.edu/Memos/229.ht
 Several dependencies are optional, and while the software will build without them, functionality may be somewhat limited as a result. Flags used when `cmake` is invoked will determine whether a dependency is required or not. In the list below, after every optional requirement, in brackets, the *CMake* conditions that determine how a dependency is used are shown.
 
 * Required
-  * [CMake](https://cmake.org/), version 3.13 or later.
+  * [CMake](https://cmake.org/), version 3.13 or later
   * zlib
   * curses
   * git
@@ -20,8 +20,14 @@ Several dependencies are optional, and while the software will build without the
   * [LLVM](https://llvm.org/), any version acceptable to Legion [`Legion_USE_LLVM=ON`]
   * [GASNet](https://gasnet.lbl.gov/), any version acceptable to Legion [`Legion_USE_GASNET=ON`]
   * [casacore](https://github.com/casacore/casacore) [`USE_CASACORE=ON` and defined `casacore_ROOT`]
-  * Fortran compiler, any version acceptable to casacore [`USE_CASACORE=ON` and undefined `casacore_ROOT`]
-  * [WCSLIB](https://www.atnf.csiro.au/people/mcalabre/WCS/) [`USE_CASACORE=ON` and undefined `casacore_ROOT`] (TODO: check whether build succeeds when `USE_CASACORE=ON`, `casacore_ROOT` is undefined, and *wcslib* is not installed]
+  * Required for internal casacore build [`USE_CASACORE=ON` and undefined `casacore_ROOT`]
+    * [GFortran](https://gcc.gnu.org/wiki/GFortran)
+    * [flex](https://github.com/westes/flex)
+    * [Bison](https://www.gnu.org/software/bison/)
+    * [BLAS](http://www.netlib.org/blas/)
+    * [LAPACK](http://www.netlib.org/lapack/)
+    * [CFITSIO](https://heasarc.gsfc.nasa.gov/fitsio/), version 3.181 or later
+    * [WCSLIB](https://www.atnf.csiro.au/people/mcalabre/WCS/), version 4.20 or later
 
 The dependence on *casacore* is optional, but *hyperion* can be built using *casacore* whether or not *casacore* is already installed on your system. To build *hyperion* without any dependency on *casacore*, simply use `-DUSE_CASACORE=OFF` in the arguments to `cmake`. When `cmake` arguments include `-DUSE_CASACORE=ON` and `-Dcasacore_ROOT=/path/to/casacore/installation`, *hyperion* will be built against the *casacore* installation located at `/path/to/casacore/installation`. If your system has no *casacore* installation available, or you wish to build *casacore* specifically for *hyperion* (which is the build default), use `-DUSE_CASACORE=ON` and leave `casacore_ROOT` undefined. In this case, *casacore* will be downloaded and built as a *CMake* external project for *hyperion*. One variable to consider using when building *casacore* through *hyperion* is `casacore_DATA_DIR`, which provides the path to an instance of the *casacore* data directory. If, however, *casacore* will be built through *hyperion* and `casacore_DATA_DIR` is left undefined, the build script will download, and install within the build directory, a recent copy of the geodetic and ephemerides data automatically.
 
