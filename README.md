@@ -14,20 +14,21 @@ Several dependencies are optional, and while the software will build without the
   * zlib
   * curses
   * git
+  * git-lfs [for test data, currently no way to avoid this]
 * Optional
   * [Python3](https://www.python.org/) [`BUILD_REGENT=ON`]
   * [HDF5®](https://www.hdfgroup.org/solutions/hdf5/), version 1.10.5 or later [auto-detected, or `USE_HDF5=ON`]
-  * [LLVM](https://llvm.org/), any version acceptable to Legion [`Legion_USE_LLVM=ON`]
-  * [GASNet](https://gasnet.lbl.gov/), any version acceptable to Legion [`Legion_USE_GASNET=ON`]
-  * [casacore](https://github.com/casacore/casacore) [`USE_CASACORE=ON` and defined `casacore_ROOT`]
-  * Required for internal casacore build [`USE_CASACORE=ON` and undefined `casacore_ROOT`]
+  * [LLVM](https://llvm.org/), any version acceptable to *Legion* [`Legion_USE_LLVM=ON`]
+  * [GASNet](https://gasnet.lbl.gov/), any version acceptable to *Legion* [`Legion_USE_GASNET=ON`]
+  * [casacore](https://github.com/casacore/casacore) [auto-detected and `USE_CASACORE=ON`]
+  * Required for internal *casacore* build [`USE_CASACORE=ON` and *casacore* auto-detection fails]
     * [GFortran](https://gcc.gnu.org/wiki/GFortran)
     * [flex](https://github.com/westes/flex)
     * [Bison](https://www.gnu.org/software/bison/)
     * [BLAS](http://www.netlib.org/blas/)
     * [LAPACK](http://www.netlib.org/lapack/)
 
-The dependence on *casacore* is optional, but *hyperion* can be built using *casacore* whether or not *casacore* is already installed on your system. To build *hyperion* without any dependency on *casacore*, simply use `-DUSE_CASACORE=OFF` in the arguments to `cmake`. When `cmake` arguments include `-DUSE_CASACORE=ON` and `-Dcasacore_ROOT=/path/to/casacore/installation`, *hyperion* will be built against the *casacore* installation located at `/path/to/casacore/installation`. If your system has no *casacore* installation available, or you wish to build *casacore* specifically for *hyperion* (which is the build default), use `-DUSE_CASACORE=ON` and leave `casacore_ROOT` undefined. In this case, *casacore* will be downloaded and built as a *CMake* external project for *hyperion*. One variable to consider using when building *casacore* through *hyperion* is `casacore_DATA_DIR`, which provides the path to an instance of the *casacore* data directory. If, however, *casacore* will be built through *hyperion* and `casacore_DATA_DIR` is left undefined, the build script will download, and install within the build directory, a recent copy of the geodetic and ephemerides data automatically.
+The dependence on *casacore* is optional, but *hyperion* can be built using *casacore* whether or not *casacore* is already installed on your system. To build *hyperion* without any dependency on *casacore*, simply use `-DUSE_CASACORE=OFF` in the arguments to `cmake`. When `cmake` arguments include `-DUSE_CASACORE=ON` and *casacore* is found by *CMake*, *hyperion* will be built against your *casacore* installation. To provide a hint to locating *casacore*, you may use the `CASACORE_ROOT_DIR` *CMake* variable. If `-DUSE_CASACORE=ON` and no *casacore* installation is found on your system (which can also be forced by setting `-DCASACORE_ROOT_DIR=""`), *casacore* will be downloaded and built as a *CMake* external project for *hyperion*. One variable to consider using when building *casacore* through *hyperion* is `casacore_DATA_DIR`, which provides the path to an instance of the *casacore* data directory. If, however, *casacore* will be built through *hyperion* and `casacore_DATA_DIR` is left undefined, the build script will download, and install within the build directory, a recent copy of the geodetic and ephemerides data automatically.
 
 *Legion* itself is always built as a *CMake* external project for *hyperion*. The main reason for this arrangement is that the *hyperion* libraries are intended to be used by application code; since the *hyperion* libraries also depend on a specific *Legion* configuration, this arrangement is intended to help avoid incompatibilities between the instances of the *Legion* libraries used to build *hyperion* and those used to build an application. Other approaches to this issue may be considered in the future. Most *Legion* *CMake* build options are available from the top-level *hyperion* `cmake` command (see `legion/CMakeLists.txt` for details.) However, as configuration of *Legion* may also affect the configuration of *hyperion*, a few variables have been lifted to the top level. Those variables are currently `MAX_DIM` and `USE_HDF5`, which correspond within the *Legion* build to `Legion_MAX_DIM` and `Legion_USE_HDF5`, respectively.
 

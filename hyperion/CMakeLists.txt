@@ -8,8 +8,14 @@ ExternalProject_Get_Property(legion_build INSTALL_DIR)
 set(Legion_INSTALL_DIR ${INSTALL_DIR})
 if (BUILD_CASACORE)
   ExternalProject_Get_Property(casacore_build INSTALL_DIR)
-  set(casacore_INSTALL_DIR ${INSTALL_DIR})
-  set(casacore_INCLUDE_DIR ${INSTALL_DIR}/include)
+  set(
+    CASACORE_LIBRARIES
+    "${INSTALL_DIR}/lib/libcasa_measures.so"
+    "${INSTALL_DIR}/lib/libcasa_scimath.so"
+    "${INSTALL_DIR}/lib/libcasa_scimath_f.so"
+    "${INSTALL_DIR}/lib/libcasa_tables.so"
+    "${INSTALL_DIR}/lib/libcasa_casa.so")
+  set(CASACORE_INCLUDE_DIR ${INSTALL_DIR}/include)
 endif ()
 
 #------------------------------------------------------------------------------#
@@ -179,25 +185,23 @@ set_target_properties(hyperion PROPERTIES
   COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
 add_dependencies(hyperion legion_build)
 target_include_directories(hyperion
-  PUBLIC ${Legion_INSTALL_DIR}/include
-  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
-  PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..)
+  PUBLIC $<BUILD_INTERFACE:${Legion_INSTALL_DIR}/include>
+  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/..>
+  PUBLIC $<INSTALL_INTERFACE:include>)
 target_link_directories(hyperion
-  PUBLIC ${Legion_INSTALL_DIR}/lib64
-  PUBLIC ${Legion_INSTALL_DIR}/lib)
+  PUBLIC $<BUILD_INTERFACE:${Legion_INSTALL_DIR}/lib64>
+  PUBLIC $<BUILD_INTERFACE:${Legion_INSTALL_DIR}/lib>)
 if (USE_CASACORE)
   if (BUILD_CASACORE)
     add_dependencies(hyperion casacore_build)
-    target_link_directories(
-      hyperion PUBLIC ${casacore_INSTALL_DIR}/lib64
-      hyperion PUBLIC ${casacore_INSTALL_DIR}/lib)
+    target_include_directories(hyperion
+      PUBLIC $<BUILD_INTERFACE:${CASACORE_INCLUDE_DIR}>)
   else()
-    target_link_directories(hyperion PUBLIC ${casacore_LIBRARY_DIR})
+    target_include_directories(hyperion
+      PUBLIC ${CASACORE_INCLUDE_DIR})
   endif ()
-  target_include_directories(hyperion PUBLIC ${casacore_INCLUDE_DIR})
-  target_link_libraries(hyperion PUBLIC casa_tables)
-  target_link_libraries(hyperion PUBLIC casa_casa)
-  target_link_libraries(hyperion PUBLIC casa_measures)
+  target_link_libraries(hyperion PUBLIC ${CASACORE_LIBRARIES})
 endif()
 if (USE_HDF5)
   target_include_directories(hyperion PUBLIC ${HDF5_INCLUDE_DIRS})
@@ -208,8 +212,12 @@ target_link_libraries(hyperion PUBLIC legion)
 target_link_libraries(hyperion PUBLIC realm)
 set_target_properties(hyperion PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(hyperion PROPERTIES SOVERSION ${SOVERSION})
-install(TARGETS hyperion RUNTIME DESTINATION lib)
+install(TARGETS hyperion EXPORT HyperionConfig
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES HYPERION_INCLUDE DESTINATION include/hyperion)
+install(EXPORT HyperionConfig DESTINATION share/hyperion/cmake)
+export(TARGETS hyperion FILE HyperionConfig.cmake)
 
 if (USE_HDF5 AND USE_CASACORE)
   add_executable(ms2h5 ms2h5.cc)
@@ -221,7 +229,7 @@ if (USE_HDF5 AND USE_CASACORE)
     PUBLIC ${Legion_INSTALL_DIR}/include
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
     PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..
-    PUBLIC ${casacore_INCLUDE_DIR}
+    PUBLIC ${CASACORE_INCLUDE_DIR}
     PUBLIC ${HDF5_INCLUDE_DIRS})
   install(TARGETS ms2h5 RUNTIME DESTINATION bin)
 
