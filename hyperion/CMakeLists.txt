@@ -165,6 +165,10 @@ list(FILTER HYPERION_INCLUDE INCLUDE REGEX ".*\.h")
 
 add_library(hyperion SHARED ${HYPERION_SRC})
 set(hyperion_COMPILE_DEFINITIONS "")
+if(USE_HDF5)
+  list(APPEND
+    hyperion_COMPILE_DEFINITIONS "H5_NO_DEPRECATED_SYMBOLS")
+endif()
 
 # table/column reindexing was broken by earlier changes, but it's something we
 # want working again sometime, and we retain the code and its unit tests, but
