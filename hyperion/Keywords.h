@@ -29,7 +29,8 @@
 
 namespace hyperion {
 
-struct HYPERION_API Keywords {
+class  HYPERION_API Keywords {
+public:
 
   Legion::LogicalRegion type_tags_lr;
 
@@ -130,7 +131,10 @@ struct HYPERION_API Keywords {
 
     bool result = false;
     auto reqs =
-      requirements(rt, std::vector<Legion::FieldID>{fid}, WRITE_ONLY);
+      requirements<std::vector>(
+        rt,
+        std::vector<Legion::FieldID>{fid},
+        WRITE_ONLY);
     if (reqs) {
       auto prs =
         reqs.value().map(
@@ -153,7 +157,10 @@ struct HYPERION_API Keywords {
 
     std::optional<T> result;
     auto reqs =
-      requirements(rt, std::vector<Legion::FieldID>{fid}, READ_ONLY);
+      requirements<std::vector>(
+        rt,
+        std::vector<Legion::FieldID>{fid},
+        READ_ONLY);
     if (reqs) {
       auto prs =
         reqs.value().map(
