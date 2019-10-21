@@ -240,7 +240,7 @@ read_index_tree_from_attr(
     hobj_ref_t attr_ref;
     herr_t rc = H5Aread(attr_id, H5T_STD_REF_OBJ, &attr_ref);
     assert(rc >= 0);
-    hid_t attr_ds = H5Rdereference(loc_id, H5P_DEFAULT, H5R_OBJECT, &attr_ref);
+    hid_t attr_ds = H5Rdereference2(loc_id, H5P_DEFAULT, H5R_OBJECT, &attr_ref);
     assert(attr_ds >= 0);
     hid_t attr_sp = H5Dget_space(attr_ds);
     assert(attr_ds >= 0);
