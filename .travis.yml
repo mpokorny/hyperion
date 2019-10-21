@@ -19,7 +19,7 @@ install:
 before_script:
   - mkdir build
   - cd build
-  - cmake ..
+  - cmake -DMAX_DIM=4 ..
 script:
   - make
   - make test
