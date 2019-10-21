@@ -20,7 +20,6 @@
 
 #ifdef HYPERION_USE_CASACORE
 #include <casacore/measures/Measures/MeasData.h>
-#include <casacore/casa/System/AppState.h>
 
 using namespace hyperion;
 using namespace Legion;
