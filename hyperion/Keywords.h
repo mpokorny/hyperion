@@ -131,10 +131,7 @@ public:
 
     bool result = false;
     auto reqs =
-      requirements<std::vector>(
-        rt,
-        std::vector<Legion::FieldID>{fid},
-        WRITE_ONLY);
+      requirements(rt, std::vector<Legion::FieldID>{fid}, WRITE_ONLY);
     if (reqs) {
       auto prs =
         reqs.value().map(

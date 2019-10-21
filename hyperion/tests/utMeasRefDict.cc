@@ -29,25 +29,6 @@ enum {
   MEAS_REF_DICT_TEST_SUITE,
 };
 
-class CasacoreState
-  : public casacore::AppState {
-public:
-
-  CasacoreState() {}
-
-  std::list<std::string>
-  dataPath() const override {
-    static std::list<std::string>
-      result{"/users/mpokorny/projects/casa.git/data"};
-    return result;
-  }
-
-  bool
-  initialized() const override {
-    return true;
-  }
-};
-
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 
 bool
@@ -77,8 +58,6 @@ meas_ref_dict_test_suite(
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime* rt) {
-
-  casacore::AppStateSource::initialize(new CasacoreState);
 
   register_tasks(ctx, rt);
 

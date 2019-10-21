@@ -365,7 +365,11 @@ public:
             datatype,
             index_tree,
 #ifdef HYPERION_USE_CASACORE
-            MeasRefContainer(new_meas_refs, inherited_meas_refs),
+            MeasRefContainer::create(
+              ctx,
+              rt,
+              new_meas_refs,
+              inherited_meas_refs),
 #endif
             kws,
             name_prefix);

@@ -30,25 +30,6 @@ enum {
   MEAS_REF_TEST_SUITE,
 };
 
-class CasacoreState
-  : public casacore::AppState {
-public:
-
-  CasacoreState() {}
-
-  std::list<std::string>
-  dataPath() const override {
-    static std::list<std::string>
-      result{"/users/mpokorny/projects/casa.git/data"};
-    return result;
-  }
-
-  bool
-  initialized() const override {
-    return true;
-  }
-};
-
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 
 void
@@ -57,8 +38,6 @@ meas_ref_test_suite(
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime* rt) {
-
-  casacore::AppStateSource::initialize(new CasacoreState);
 
   register_tasks(ctx, rt);
 
@@ -139,7 +118,7 @@ meas_ref_test_suite(
     recorder.expect_true(
       "Instance of MEpoch::Ref with offset region has same MEpoch value as original",
       testing::TestEval(
-        [&v20_50, &e20_50, &ref]() {
+        [&v20_50, &ref]() {
           auto ep = casacore::MEpoch(v20_50, *ref.value());
           return ep.getValue() == v20_50;
         }));

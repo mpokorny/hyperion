@@ -21,6 +21,7 @@
 #include <ostream>
 #include <sstream>
 #include <typeinfo>
+#include <type_traits>
 #pragma GCC visibility pop
 
 #include <hyperion/hyperion.h>

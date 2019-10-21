@@ -148,13 +148,13 @@ initialize_vm(
   const std::tuple<MClass, casacore::MRBase*>& mrb) {
 
   // TODO: remove bounds check on the following accessors
-  const MeasRef::ValueAccessor<WRITE_ONLY, D+1, true>
+  const MeasRef::ValueAccessor<WRITE_ONLY, D+1>
     vals(value_pr, 0);
-  const MeasRef::RefTypeAccessor<WRITE_ONLY, D, true>
+  const MeasRef::RefTypeAccessor<WRITE_ONLY, D>
     rtypes(metadata_pr, MeasRef::REF_TYPE_FID);
-  const MeasRef::MeasureClassAccessor<WRITE_ONLY, D, true>
+  const MeasRef::MeasureClassAccessor<WRITE_ONLY, D>
     mclasses(metadata_pr, MeasRef::MEASURE_CLASS_FID);
-  const MeasRef::NumValuesAccessor<WRITE_ONLY, D, true>
+  const MeasRef::NumValuesAccessor<WRITE_ONLY, D>
     numvals(metadata_pr, MeasRef::NUM_VALUES_FID);
 
   Point<D + 1> p1;
@@ -176,13 +176,13 @@ initialize_vm(
       p[j] = p1[j] = 0;
     p1[D] = 0;
 
-    casacore::MRBase* ref_base;
+    casacore::MRBase* ref_base = nullptr;
     if (c == MeasRef::ArrayComponent::VALUE) {
       // the measure value itself
       p[level] = p1[level] = MeasRef::ArrayComponent::VALUE;
       std::visit(
         overloaded {
-          [level, &p, &p1, &vals, &numvals, &mclasses, &ref_base]
+          [level, &p, &p1, &vals, &numvals, &mclasses, &ref_base, &m]
           (const casacore::Measure* measure) {
             auto mvals = measure->getData()->getVector();
             for (unsigned j = 0; j < mvals.size(); ++j) {
@@ -199,6 +199,7 @@ initialize_vm(
 #undef SET_MCLASS
             else assert(false);
             ref_base = measure->getRefPtr();
+            m = std::make_tuple(static_cast<MClass>(mclasses[p]), ref_base);
           },
           [&p, &numvals, &mclasses, &ref_base]
           (std::tuple<MClass, casacore::MRBase*>& kr) {
@@ -209,10 +210,14 @@ initialize_vm(
           }
         },
         m);
+      assert(ref_base != nullptr);
+      rtypes[p] = ref_base->getType();
       c = MeasRef::ArrayComponent::OFFSET;
+    } else {
+      ref_base =
+        std::get<1>(std::get<std::tuple<MClass, casacore::MRBase*>>(m));
     }
     assert(ref_base != nullptr);
-    rtypes[p] = ref_base->getType();
 
     {
       auto frame = ref_base->getFrame();
@@ -283,11 +288,11 @@ initialize<1>(
       p[0] = c;
       switch (c) {
       case MeasRef::ArrayComponent::VALUE: {
-        const MeasRef::RefTypeAccessor<WRITE_ONLY, 1, true>
+        const MeasRef::RefTypeAccessor<WRITE_ONLY, 1>
           rtypes(metadata_pr, MeasRef::REF_TYPE_FID);
-        const MeasRef::MeasureClassAccessor<WRITE_ONLY, 1, true>
+        const MeasRef::MeasureClassAccessor<WRITE_ONLY, 1>
           mclasses(metadata_pr, MeasRef::MEASURE_CLASS_FID);
-        const MeasRef::NumValuesAccessor<WRITE_ONLY, 1, true>
+        const MeasRef::NumValuesAccessor<WRITE_ONLY, 1>
           numvals(metadata_pr, MeasRef::NUM_VALUES_FID);
 
         mclasses[p] = mclass;
@@ -313,7 +318,7 @@ initialize<1>(
       default:
         assert(false);
         break;
-      }    
+      }
       c = (MeasRef::ArrayComponent)((unsigned)c + 1);
     }
   }
@@ -327,13 +332,13 @@ instantiate_vm(
   Domain metadata_domain) {
 
   // TODO: remove bounds check on the following accessors
-  const MeasRef::ValueAccessor<READ_ONLY, D+1, true>
+  const MeasRef::ValueAccessor<READ_ONLY, D+1>
     vals(value_pr, 0);
-  const MeasRef::RefTypeAccessor<READ_ONLY, D, true>
+  const MeasRef::RefTypeAccessor<READ_ONLY, D>
     rtypes(metadata_pr, MeasRef::REF_TYPE_FID);
-  const MeasRef::MeasureClassAccessor<READ_ONLY, D, true>
+  const MeasRef::MeasureClassAccessor<READ_ONLY, D>
     mclasses(metadata_pr, MeasRef::MEASURE_CLASS_FID);
-  const MeasRef::NumValuesAccessor<READ_ONLY, D, true>
+  const MeasRef::NumValuesAccessor<READ_ONLY, D>
     numvals(metadata_pr, MeasRef::NUM_VALUES_FID);
 
   Point<D + 1> p1;
@@ -493,11 +498,11 @@ instantiate<1>(
     return instantiate_vm<1>(value_pr.value(), metadata_pr, metadata_domain);
   } else {
 
-    const MeasRef::RefTypeAccessor<READ_ONLY, 1, true>
+    const MeasRef::RefTypeAccessor<READ_ONLY, 1>
       rtypes(metadata_pr, MeasRef::REF_TYPE_FID);
-    const MeasRef::MeasureClassAccessor<READ_ONLY, 1, true>
+    const MeasRef::MeasureClassAccessor<READ_ONLY, 1>
       mclasses(metadata_pr, MeasRef::MEASURE_CLASS_FID);
-    const MeasRef::NumValuesAccessor<READ_ONLY, 1, true>
+    const MeasRef::NumValuesAccessor<READ_ONLY, 1>
       numvals(metadata_pr, MeasRef::NUM_VALUES_FID);
 
     Point<1> p;

@@ -218,7 +218,7 @@ Column::datatype(Context ctx, Runtime*rt) const {
   auto pr = rt->map_region(ctx, req);
   hyperion::TypeTag result = datatype(pr);
   rt->unmap_region(ctx, pr);
-  return result;  
+  return result;
 }
 
 hyperion::TypeTag
@@ -271,7 +271,7 @@ Column::partition_on_axes(
     std::all_of(
       parts.begin(),
       parts.end(),
-      [this, &auid](auto& p) { return p.axes_uid == auid; }));
+      [&auid](auto& p) { return p.axes_uid == auid; }));
 
   // All variations of partition_on_axes() in the Column class should ultimately
   // call this method, which takes care of the change in semantics of the "dim"

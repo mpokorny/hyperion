@@ -15,6 +15,7 @@ add_test(
   COMMAND ../TestRunner.py --compare-with utTestLog.expected
                            --compare-by line
                            ./utTestLog)
+set_property(TEST TestLogUnitTest PROPERTY DEPENDS TestRunner)
 
 add_executable(utTestRecorder utTestRecorder.cc)
 set_target_properties(utTestRecorder PROPERTIES
@@ -27,3 +28,4 @@ add_test(
   COMMAND ../TestRunner.py --compare-with utTestRecorder.expected
                            --compare-by line
                            ./utTestRecorder)
+set_property(TEST TestRecorderUnitTest PROPERTY DEPENDS TestRunner)

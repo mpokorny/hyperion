@@ -55,8 +55,8 @@ MeasRefContainer::create(
     req.add_field(OWNED_FID);
     req.add_field(MEAS_REF_FID);
     auto pr = rt->map_region(ctx, req);
-    const OwnedAccessor<WRITE_ONLY, true> o(pr, OWNED_FID);
-    const MeasRefAccessor<WRITE_ONLY, true> mr(pr, MEAS_REF_FID);
+    const OwnedAccessor<WRITE_ONLY> o(pr, OWNED_FID);
+    const MeasRefAccessor<WRITE_ONLY> mr(pr, MEAS_REF_FID);
     size_t i = 0;
     while  (i < owned.size()) {
       o[i] = true;

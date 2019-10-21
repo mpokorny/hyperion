@@ -4,6 +4,13 @@ set(SOVERSION 1)
 # hyperion testing library
 #------------------------------------------------------------------------------#
 
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TestRunner.py
+  COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/TestRunner.py ${CMAKE_CURRENT_BINARY_DIR}/TestRunner.py)
+add_custom_target(
+  TestRunner ALL
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/TestRunner.py)
+
 list(APPEND TESTING_SRC
   TestLog.h
   TestLog.cc
@@ -20,7 +27,7 @@ add_library(hyperion_testing SHARED ${TESTING_SRC})
 set_target_properties(hyperion_testing PROPERTIES
   CXX_STANDARD 17
   COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
-add_dependencies(hyperion_testing hyperion)
+add_dependencies(hyperion_testing hyperion TestRunner)
 target_include_directories(hyperion_testing
   PRIVATE ${Legion_INSTALL_DIR}/include
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}../..
@@ -34,16 +41,5 @@ target_link_libraries(hyperion_testing PUBLIC realm)
 target_link_libraries(hyperion_testing PUBLIC hyperion)
 set_target_properties(hyperion_testing PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(hyperion_testing PROPERTIES SOVERSION ${SOVERSION})
-
-macro(add_python_target tgt)
-  foreach(file ${ARGN})
-    set(OUT ${CMAKE_CURRENT_BINARY_DIR}/${file})
-    list(APPEND OUT_FILES ${OUT})
-    configure_file(${file} ${OUT} COPYONLY)
-  endforeach()
-  add_custom_target(${tgt} ALL DEPENDS ${OUT_FILES})
-endmacro()
-
-add_python_target(TestRunner TestRunner.py)
 
 add_subdirectory(tests)

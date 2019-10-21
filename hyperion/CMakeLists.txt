@@ -94,7 +94,11 @@ endif()
 #------------------------------------------------------------------------------#
 
 set(CMAKE_CXX_FLAGS
-  "${CMAKE_CXX_FLAGS} -Wall -fvisibility=hidden") # TODO: add -Werror
+  "${CMAKE_CXX_FLAGS} -Wall -fvisibility=hidden")
+# For clang, will need the following
+# set(CMAKE_CXX_FLAGS
+#   "${CMAKE_CXX_FLAGS} -Wall -fvisibility=hidden -frelaxed-template-template-args") 
+# TODO: add -Werror
 
 set(CMAKE_CXX_FLAGS_DEBUG
   "${CMAKE_CXX_FLAGS_DEBUG} -Og")

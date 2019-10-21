@@ -181,7 +181,7 @@ TestLogReference::ro_requirements(
       m_abort_state_handle,
       {0},
       {0},
-      {READ_ONLY},
+      READ_ONLY,
       ATOMIC,
       m_abort_state_handle);
 
@@ -272,7 +272,7 @@ TestLogReference::ro_requirements(
       m_abort_state_handle,
       {0},
       {0},
-      {READ_ONLY},
+      READ_ONLY,
       ATOMIC,
       m_abort_state_handle);
 

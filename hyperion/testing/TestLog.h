@@ -155,7 +155,7 @@ public:
       Legion::Point<1>,
       1,
       Legion::coord_t>,
-    true>;
+    false>;
 
   template <legion_privilege_mode_t MODE>
   using abort_accessor =
@@ -165,7 +165,7 @@ public:
     1,
     Legion::coord_t,
     Legion::AffineAccessor<bool, 1, Legion::coord_t>,
-    true>;
+    false>;
 
   template <legion_privilege_mode_t MODE>
   using name_accessor =
@@ -175,7 +175,7 @@ public:
     1,
     Legion::coord_t,
     Legion::AffineAccessor<std::string, 1, Legion::coord_t>,
-    true>;;
+    false>;
 
   template <legion_privilege_mode_t MODE>
   using fail_info_accessor =
@@ -185,7 +185,7 @@ public:
     1,
     Legion::coord_t,
     Legion::AffineAccessor<std::string, 1, Legion::coord_t>,
-    true>;
+    false>;
 
   template <legion_privilege_mode_t MODE>
   struct abort_state_accessor {};
@@ -196,7 +196,7 @@ public:
     1,
     Legion::coord_t,
     Legion::AffineAccessor<bool, 1, Legion::coord_t>,
-    true> abort_state_reduce_accessor;
+    false> abort_state_reduce_accessor;
 
   typedef Legion::FieldAccessor<
     READ_ONLY,
@@ -204,7 +204,7 @@ public:
     1,
     Legion::coord_t,
     Legion::AffineAccessor<bool, 1, Legion::coord_t>,
-    true> abort_state_read_accessor;
+    false> abort_state_read_accessor;
 
 private:
 

@@ -307,8 +307,10 @@ Table::destroy(Context ctx, Runtime* rt, bool destroy_columns) {
     req.add_field(COLUMNS_FID);
     PhysicalRegion pr = rt->map_region(ctx, req);
     const ColumnsAccessor<READ_WRITE> cols(pr, COLUMNS_FID);
-    DomainT<1> dom(rt->get_index_space_domain(columns_lr.get_index_space()));
-    for (PointInDomainIterator<1> pid(dom); pid(); pid++)
+    for (PointInDomainIterator<1>
+           pid(rt->get_index_space_domain(columns_lr.get_index_space()));
+         pid();
+         pid++)
       cols[*pid].destroy(ctx, rt);
     rt->unmap_region(ctx, pr);
   }
@@ -442,7 +444,10 @@ Table::with_columns_attached_prologue(
   std::unordered_set<std::string>,
   std::unordered_set<std::string>>& table_columns) {
 
-  auto& [table, read_only, read_write] = table_columns;
+  Table* table;
+  std::unordered_set<std::string> read_only;
+  std::unordered_set<std::string> read_write;
+  std::tie(table, read_only, read_write) = table_columns;
 
   std::unordered_set<std::string> only_read_only;
   std::copy_if(
@@ -660,7 +665,7 @@ public:
     switch (task->index_point.get_dim()) {
 #define ACC(D)                                                          \
       case (D): {                                                       \
-        const ROAccessor<T, D, true> acc(regions[0], Column::VALUE_FID); \
+        const ROAccessor<T, D> acc(regions[0], Column::VALUE_FID);      \
         Point<D, coord_t> pt(task->index_point);                        \
         result = acc_field_redop_rhs<T>{                                \
           {std::make_tuple(acc[pt],                                     \
@@ -759,8 +764,8 @@ index_column(
     result_req.add_field(IndexColumnTask::VALUE_FID);
     result_req.add_field(IndexColumnTask::ROWS_FID);
     PhysicalRegion result_pr = runtime->map_region(ctx, result_req);
-    const WOAccessor<T, 1, true> values(result_pr, IndexColumnTask::VALUE_FID);
-    const WOAccessor<std::vector<DomainPoint>, 1, true>
+    const WOAccessor<T, 1> values(result_pr, IndexColumnTask::VALUE_FID);
+    const WOAccessor<std::vector<DomainPoint>, 1>
       rns(result_pr, IndexColumnTask::ROWS_FID);
     for (size_t i = 0; i < acc.size(); ++i) {
       ::new (rns.ptr(i)) std::vector<DomainPoint>;
@@ -1996,7 +2001,7 @@ Table::iindex_by_value(
   std::for_each(
     axes.begin(),
     axes.end(),
-    [&ctx, rt, &cols, &axis_names, &result](auto a) {
+    [&ctx, rt, this, &cols, &axis_names, &result](auto a) {
       auto col = column(ctx, rt, cols, axis_names[a]);
       if (!col.is_empty()) {
         IndexColumnTask task(col);
@@ -2078,7 +2083,7 @@ public:
     Context context,
     Runtime *runtime) {
 
-    typedef const ROAccessor<std::vector<DomainPoint>, 1, true> rows_acc_t;
+    typedef const ROAccessor<std::vector<DomainPoint>, 1> rows_acc_t;
 
     auto ixdim = regions.size() - 2;
 
@@ -2220,19 +2225,19 @@ public:
 
     switch (args->row_dim * LEGION_MAX_DIM
             + task->regions[1].region.get_dim()) {
-#define COLOR_PARTS(ROW_DIM, COL_DIM)                                 \
-      case (ROW_DIM * LEGION_MAX_DIM + COL_DIM):  {                   \
-        static_assert(ROW_DIM <= COL_DIM);                            \
-        const ROAccessor<Point<COLOR_DIM>, ROW_DIM, true>             \
-          colors(regions[0], 0);                                      \
-        const WOAccessor<Point<COLOR_DIM>, COL_DIM, true>             \
-          parts(regions[1], PART_FID);                                \
-        Point<ROW_DIM> pt;                                            \
-        for (size_t i = 0; i < ROW_DIM; ++i)                          \
-          pt[i] = task->index_point[i];                               \
-        parts[task->index_point] = colors[pt];                        \
-        break;                                                        \
-    }
+#define COLOR_PARTS(ROW_DIM, COL_DIM)               \
+      case (ROW_DIM * LEGION_MAX_DIM + COL_DIM):  { \
+        static_assert(ROW_DIM <= COL_DIM);          \
+        const ROAccessor<Point<COLOR_DIM>, ROW_DIM> \
+          colors(regions[0], 0);                    \
+        const WOAccessor<Point<COLOR_DIM>, COL_DIM> \
+          parts(regions[1], PART_FID);              \
+        Point<ROW_DIM> pt;                          \
+        for (size_t i = 0; i < ROW_DIM; ++i)        \
+          pt[i] = task->index_point[i];             \
+        parts[task->index_point] = colors[pt];      \
+        break;                                      \
+      }
       HYPERION_FOREACH_MN(COLOR_PARTS);
 #undef COLOR_PARTS
     default:
@@ -2428,7 +2433,7 @@ Table::ipartition_by_value(
     std::all_of(
       axes.begin(),
       axes.end(),
-      [&ctx, rt, &cols, &axis_names](const auto& a) {
+      [&ctx, rt, this, &cols, &axis_names](const auto& a) {
         return !column(ctx, rt, cols, axis_names[a]).is_empty();
       }));
 
@@ -2463,7 +2468,7 @@ Table::ipartition_by_value(
     std::all_of(
       axes.begin(),
       axes.end(),
-      [&ctx, rt, &cols, &axis_names, &tbl_axes](const auto& a) {
+      [&ctx, rt, this, &cols, &axis_names, &tbl_axes](const auto& a) {
         return column(ctx, rt, cols, axis_names[a]).axes(ctx, rt) == tbl_axes;
       }));
 
