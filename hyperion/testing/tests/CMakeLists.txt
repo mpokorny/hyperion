@@ -12,9 +12,10 @@ configure_file(
   utTestLog.expected ${CMAKE_CURRENT_BINARY_DIR}/utTestLog.expected COPYONLY)
 add_test(
   NAME TestLogUnitTest
-  COMMAND ../TestRunner.py --compare-with utTestLog.expected
-                           --compare-by line
-                           ./utTestLog)
+  COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../TestRunner.py
+          --compare-with utTestLog.expected
+          --compare-by line
+          ./utTestLog)
 set_property(TEST TestLogUnitTest PROPERTY DEPENDS TestRunner)
 
 add_executable(utTestRecorder utTestRecorder.cc)
@@ -25,7 +26,8 @@ configure_file(
   utTestRecorder.expected ${CMAKE_CURRENT_BINARY_DIR}/utTestRecorder.expected COPYONLY)
 add_test(
   NAME TestRecorderUnitTest
-  COMMAND ../TestRunner.py --compare-with utTestRecorder.expected
-                           --compare-by line
-                           ./utTestRecorder)
+  COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../TestRunner.py
+          --compare-with utTestRecorder.expected
+          --compare-by line
+          ./utTestRecorder)
 set_property(TEST TestRecorderUnitTest PROPERTY DEPENDS TestRunner)

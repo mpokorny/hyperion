@@ -18,7 +18,8 @@ if(NOT hyperion_NO_REINDEX)
     COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME IndexColumnTaskUnitTest
-    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py ./utIndexColumnTask)
+    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+            ./utIndexColumnTask)
   set_property(TEST IndexColumnTaskUnitTest PROPERTY DEPENDS TestRunner)
 
   add_executable(utReindexColumnTask utReindexColumnTask.cc)
@@ -27,7 +28,8 @@ if(NOT hyperion_NO_REINDEX)
     COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME ReindexColumnTaskUnitTest
-    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py ./utReindexColumnTask)
+    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+            ./utReindexColumnTask)
   set_property(TEST ReindexColumnTaskUnitTest PROPERTY DEPENDS TestRunner)
 
   add_executable(utReindexed utReindexed.cc)
@@ -36,7 +38,8 @@ if(NOT hyperion_NO_REINDEX)
     COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME ReindexedUnitTest
-    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py ./utReindexed)
+    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+            ./utReindexed)
   set_property(TEST ReindexedUnitTest PROPERTY DEPENDS TestRunner)
 endif()
 
@@ -46,7 +49,8 @@ set_target_properties(utTable PROPERTIES
   COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
 add_test(
   NAME TableUnitTest
-  COMMAND ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py ./utTable)
+  COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+          ./utTable)
 set_property(TEST TableUnitTest PROPERTY DEPENDS TestRunner)
 
 if (USE_HDF5)
@@ -56,7 +60,8 @@ if (USE_HDF5)
     COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME Hdf5UnitTest
-    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py ./utHdf5)
+    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+            ./utHdf5)
   set_property(TEST Hdf5UnitTest PROPERTY DEPENDS TestRunner)
 endif()
 
@@ -67,7 +72,8 @@ if (USE_CASACORE)
     COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME MSUnitTest
-    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py ./utMS -ll:io 1)
+    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+            ./utMS -ll:io 1)
   set_property(TEST MSUnitTest PROPERTY DEPENDS TestRunner data/t0_unpack)
 
   add_executable(utMeasRef utMeasRef.cc)
@@ -76,7 +82,8 @@ if (USE_CASACORE)
     COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME MeasRefUnitTest
-    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py ./utMeasRef)
+    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+            ./utMeasRef)
   set_property(TEST MeasRefUnitTest PROPERTY DEPENDS TestRunner)
 
   add_executable(utMeasRefDict utMeasRefDict.cc)
@@ -85,7 +92,8 @@ if (USE_CASACORE)
     COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
     NAME MeasRefDictUnitTest
-    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py ./utMeasRefDict)
+    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+            ./utMeasRefDict)
   set_property(TEST MeasRefDictUnitTest PROPERTY DEPENDS TestRunner)
 endif()
 
