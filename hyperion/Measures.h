@@ -20,22 +20,19 @@
 #include <hyperion/utility.h>
 
 #pragma GCC visibility push(default)
-#include <memory>
-#pragma GCC visibility pop
+# include <memory>
 
-#ifdef HYPERION_USE_CASACORE
-#pragma GCC visibility push(default)
-#include <casacore/measures/Measures.h>
-#include <casacore/measures/Measures/MBaseline.h>
-#include <casacore/measures/Measures/MDirection.h>
-#include <casacore/measures/Measures/MDoppler.h>
-#include <casacore/measures/Measures/MEarthMagnetic.h>
-#include <casacore/measures/Measures/MEpoch.h>
-#include <casacore/measures/Measures/MFrequency.h>
-#include <casacore/measures/Measures/MPosition.h>
-#include <casacore/measures/Measures/MRadialVelocity.h>
-#include <casacore/measures/Measures/Muvw.h>
-#include <casacore/measures/Measures/MeasureHolder.h>
+# include <casacore/measures/Measures.h>
+# include <casacore/measures/Measures/MBaseline.h>
+# include <casacore/measures/Measures/MDirection.h>
+# include <casacore/measures/Measures/MDoppler.h>
+# include <casacore/measures/Measures/MEarthMagnetic.h>
+# include <casacore/measures/Measures/MEpoch.h>
+# include <casacore/measures/Measures/MFrequency.h>
+# include <casacore/measures/Measures/MPosition.h>
+# include <casacore/measures/Measures/MRadialVelocity.h>
+# include <casacore/measures/Measures/Muvw.h>
+# include <casacore/measures/Measures/MeasureHolder.h>
 #pragma GCC visibility pop
 
 namespace hyperion {
@@ -197,7 +194,6 @@ struct HYPERION_API MClassT<MClass::M_UVW> {
 
 } // end namespace hyperion
 
-#endif // HYPERION_USE_CASACORE
 #endif // HYPERION_MEASURES_H_
 
 // Local Variables:

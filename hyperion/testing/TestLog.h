@@ -16,15 +16,15 @@
 #ifndef HYPERION_TESTING_TEST_LOG_H_
 #define HYPERION_TESTING_TEST_LOG_H_
 
-#pragma GCC visibility push(default)
-#include <array>
-#include <memory>
-#include <optional>
-#include <tuple>
-#pragma GCC visibility pop
-
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
+
+#pragma GCC visibility push(default)
+# include <array>
+# include <memory>
+# include <optional>
+# include <tuple>
+#pragma GCC visibility pop
 
 namespace hyperion {
 namespace testing {

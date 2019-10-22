@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <iostream>
-
 #include <hyperion/testing/TestLog.h>
 #include <hyperion/testing/TestSuiteDriver.h>
+
+#include <iostream>
 
 using namespace hyperion;
 using namespace Legion;

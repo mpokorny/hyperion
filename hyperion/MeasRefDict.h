@@ -16,17 +16,15 @@
 #ifndef HYPERION_MEAS_REF_DICT_H_
 #define HYPERION_MEAS_REF_DICT_H_
 
-#include "hyperion.h"
-#include "utility.h"
-#include "MeasRef.h"
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
+#include <hyperion/MeasRef.h>
 
 #include <memory>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <variant>
-
-#ifdef HYPERION_USE_CASACORE
 
 namespace hyperion {
 
@@ -121,7 +119,6 @@ private:
 
 } // end namespace hyperion
 
-#endif // HYPERION_USE_CASACORE
 #endif // HYPERION_MEAS_REF_DICT_H_
 
 // Local Variables:

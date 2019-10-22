@@ -16,45 +16,35 @@
 #ifndef HYPERION_UTILITY_H_
 #define HYPERION_UTILITY_H_
 
-#pragma GCC visibility push(default)
-#include <algorithm>
-#include <array>
-#include <atomic>
-#include <cassert>
-#include <complex>
-#include <cstring>
-#include <limits>
-#include <memory>
-#include <numeric>
-#include <optional>
-#include <unordered_map>
-#pragma GCC visibility pop
-
 #include <hyperion/hyperion.h>
 #include <hyperion/IndexTree.h>
 #include <hyperion/utility_c.h>
 
 #pragma GCC visibility push(default)
-#ifdef HYPERION_USE_HDF5
-# include <hdf5.h>
-# if GCC_VERSION >= 90000
-#  include <filesystem>
-# else
-#  include <experimental/filesystem>
+# include <algorithm>
+# include <array>
+# include <atomic>
+# include <cassert>
+# include <complex>
+# include <cstring>
+# include <limits>
+# include <memory>
+# include <numeric>
+# include <optional>
+# include <unordered_map>
+
+# ifdef HYPERION_USE_HDF5
+#  include <hdf5.h>
+#  include CXX_FILESYSTEM_HEADER
 # endif
-#endif
 
-#ifdef HYPERION_USE_CASACORE
-# include <casacore/casa/aipstype.h>
-# include <casacore/casa/Arrays/IPosition.h>
-# include <casacore/casa/BasicSL/String.h>
-# include <casacore/casa/Utilities/DataType.h>
-#endif
+# ifdef HYPERION_USE_CASACORE
+#  include <casacore/casa/aipstype.h>
+#  include <casacore/casa/Arrays/IPosition.h>
+#  include <casacore/casa/BasicSL/String.h>
+#  include <casacore/casa/Utilities/DataType.h>
+# endif
 #pragma GCC visibility pop
-
-#define GCC_VERSION (__GNUC__ * 10000 \
-                     + __GNUC_MINOR * 100 \
-                     + __GNUC_PATCHLEVEL__)
 
 // The following reiterates a constant in Realm -- unfortunately there is no way
 // to either import or discover its value. Hopefully the impact is minor, as
@@ -820,7 +810,7 @@ public:
 
   static hid_t
   create(
-    const HYPERION_FS::path& path,
+    const CXX_FILESYSTEM_NAMESPACE::path& path,
     unsigned flags,
     hid_t fcpl_t = H5P_DEFAULT,
     hid_t fapl_t = H5P_DEFAULT);

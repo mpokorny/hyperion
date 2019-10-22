@@ -16,28 +16,27 @@
 #ifndef HYPERION_COLUMN_BUILDER_H_
 #define HYPERION_COLUMN_BUILDER_H_
 
-#ifdef HYPERION_USE_CASACORE
-
-#pragma GCC visibility push(default)
-#include <any>
-#include <cassert>
-#include <functional>
-#include <memory>
-#include <numeric>
-#include <optional>
-#include <vector>
-#pragma GCC visibility pop
-
 #include <hyperion/hyperion.h>
-#include <hyperion/utility.h>
-#include <hyperion/KeywordsBuilder.h>
-#include <hyperion/IndexTree.h>
-#include <hyperion/Column.h>
-#include <hyperion/MSTable.h>
+#ifdef HYPERION_USE_CASACORE
+# include <hyperion/utility.h>
+# include <hyperion/KeywordsBuilder.h>
+# include <hyperion/IndexTree.h>
+# include <hyperion/Column.h>
+# include <hyperion/MSTable.h>
 
-#include <casacore/casa/BasicSL/String.h>
-#include <casacore/casa/Containers/Record.h>
-#include <casacore/measures/Measures/MeasureHolder.h>
+# pragma GCC visibility push(default)
+#  include <any>
+#  include <cassert>
+#  include <functional>
+#  include <memory>
+#  include <numeric>
+#  include <optional>
+#  include <vector>
+# pragma GCC visibility pop
+
+# include <casacore/casa/BasicSL/String.h>
+# include <casacore/casa/Containers/Record.h>
+# include <casacore/measures/Measures/MeasureHolder.h>
 
 namespace hyperion {
 

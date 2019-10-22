@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma GCC visibility push(default)
-#include <algorithm>
-#pragma GCC visibility pop
-
 #include <hyperion/TableReadTask.h>
+
+#pragma GCC visibility push(default)
+# include <algorithm>
+#pragma GCC visibility pop
 
 using namespace hyperion;
 

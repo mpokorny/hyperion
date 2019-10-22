@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 #include <hyperion/hdf5.h>
-
-#pragma GCC visibility push(default)
-#include <algorithm>
-#include <cstring>
-#include <numeric>
-#include <optional>
-#include <sstream>
-#pragma GCC visibility pop
-
 #include <hyperion/tree_index_space.h>
 #include <hyperion/MSTable.h>
 #include <hyperion/Table.h>
 #include <hyperion/Column.h>
+
+#pragma GCC visibility push(default)
+# include <algorithm>
+# include <cstring>
+# include <numeric>
+# include <optional>
+# include <sstream>
+#pragma GCC visibility pop
 
 using namespace hyperion::hdf5;
 using namespace hyperion;
@@ -575,7 +574,7 @@ void
 hyperion::hdf5::write_column(
   Context ctx,
   Runtime* rt,
-  const HYPERION_FS::path& path,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
   hid_t table_id,
   const std::string& table_name,
   const Column& column,
@@ -754,7 +753,7 @@ void
 hyperion::hdf5::write_table(
   Context ctx,
   Runtime* rt,
-  const HYPERION_FS::path& path,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
   hid_t loc_id,
   const Table& table,
   const std::unordered_set<std::string>& excluded_columns,
@@ -1519,7 +1518,7 @@ Table
 hyperion::hdf5::init_table(
   Context context,
   Runtime* runtime,
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& column_names,
 #ifdef HYPERION_USE_CASACORE
@@ -1581,7 +1580,7 @@ acc_table_paths(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
 
 std::unordered_set<std::string>
 hyperion::hdf5::get_table_paths(
-  const HYPERION_FS::path& file_path) {
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path) {
 
   std::unordered_set<std::string> result;
   hid_t fid = H5Fopen(file_path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
@@ -1631,7 +1630,7 @@ acc_column_names(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
 
 std::unordered_set<std::string>
 hyperion::hdf5::get_column_names(
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& table_path) {
 
   std::unordered_set<std::string> result;
@@ -1703,7 +1702,7 @@ PhysicalRegion
 hyperion::hdf5::attach_keywords(
   Context ctx,
   Runtime* rt,
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& keywords_path,
   const Keywords& keywords,
   bool read_only) {
@@ -1729,7 +1728,7 @@ PhysicalRegion
 hyperion::hdf5::attach_column_values(
   Context ctx,
   Runtime* rt,
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& table_root,
   const Column& column,
   bool mapped,
@@ -1755,7 +1754,7 @@ PhysicalRegion
 hyperion::hdf5::attach_table_keywords(
   Context ctx,
   Runtime* rt,
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& root_path,
   const Table& table,
   bool read_only) {

@@ -13,10 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma GCC visibility push(default)
-#include<algorithm>
-#pragma GCC visibility pop
-
 #include <hyperion/utility.h>
 #include <hyperion/Column.h>
 #include <hyperion/Table.h>
@@ -31,6 +27,10 @@
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/Measures.h>
 #endif
+
+#pragma GCC visibility push(default)
+# include<algorithm>
+#pragma GCC visibility pop
 
 using namespace hyperion;
 using namespace Legion;
@@ -609,7 +609,7 @@ hyperion::H5DatatypeManager::commit_derived(
 
 hid_t
 hyperion::H5DatatypeManager::create(
-  const HYPERION_FS::path& path,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
   unsigned flags,
   hid_t fcpl_t,
   hid_t fapl_t) {

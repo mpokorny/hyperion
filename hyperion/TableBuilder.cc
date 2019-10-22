@@ -22,7 +22,7 @@ void
 hyperion::initialize_keywords_from_ms(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const HYPERION_FS::path& path,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
   Table& table) {
 
   if (!table.keywords.is_empty()) {

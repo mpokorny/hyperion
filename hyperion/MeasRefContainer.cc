@@ -18,8 +18,6 @@
 using namespace hyperion;
 using namespace Legion;
 
-#ifdef HYPERION_USE_CASACORE
-
 MeasRefContainer::MeasRefContainer() {}
 
 MeasRefContainer::MeasRefContainer(Legion::LogicalRegion meas_refs)
@@ -245,8 +243,6 @@ MeasRefContainer::with_measure_references_dictionary_epilogue(
   if (pr)
     rt->unmap_region(ctx, pr.value());
 }
-
-#endif // HYPERION_USE_CASACORE
 
 // Local Variables:
 // mode: c++

@@ -13,11 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma GCC visibility push(default)
-#include <algorithm>
-#pragma GCC visibility pop
-
 #include <hyperion/testing/TestLog.h>
+
+#include <algorithm>
 
 using namespace hyperion::testing;
 using namespace Legion;

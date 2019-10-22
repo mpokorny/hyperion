@@ -25,12 +25,6 @@
 #define HYPERION_API __attribute__((visibility("default")))
 #define HYPERION_LOCAL __attribute__((visibility("hidden")))
 
-#if GCC_VERSION >= 90000
-# define HYPERION_FS std::filesystem
-#else
-# define HYPERION_FS std::experimental::filesystem
-#endif
-
 #endif // HYPERION_HYPERION_H_
 
 // Local Variables:

@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <iostream>
-#include <stdexcept>
-
 #include <hyperion/testing/TestSuiteDriver.h>
 #include <hyperion/testing/TestRecorder.h>
 #include <hyperion/testing/TestExpression.h>
+
+#include <iostream>
+#include <stdexcept>
 
 using namespace hyperion;
 using namespace Legion;

@@ -15,10 +15,8 @@
  */
 #include <hyperion/testing/TestSuiteDriver.h>
 #include <hyperion/testing/TestRecorder.h>
-
 #include <hyperion/MeasRef.h>
 
-#ifdef HYPERION_USE_CASACORE
 #include <casacore/measures/Measures/MeasData.h>
 #include <casacore/measures/Measures/MCEpoch.h>
 
@@ -147,8 +145,6 @@ main(int argc, char* argv[]) {
 
   return driver.start(argc, argv);
 }
-
-#endif // HYPERION_USE_CASACORE
 
 // Local Variables:
 // mode: c++

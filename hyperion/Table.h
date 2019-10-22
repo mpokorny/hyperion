@@ -16,21 +16,6 @@
 #ifndef HYPERION_TABLE_H_
 #define HYPERION_TABLE_H_
 
-#pragma GCC visibility push(default)
-#include <algorithm>
-#include <cassert>
-#if GCC_VERSION >= 90000
-# include <filesystem>
-#else
-# include <experimental/filesystem>
-#endif
-#include <memory>
-#include <optional>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-#pragma GCC visibility pop
-
 #include <hyperion/hyperion.h>
 #include <hyperion/Table_c.h>
 #include <hyperion/utility.h>
@@ -48,6 +33,17 @@
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRefContainer.h>
 #endif
+
+#pragma GCC visibility push(default)
+# include <algorithm>
+# include <cassert>
+# include CXX_FILESYSTEM_HEADER
+# include <memory>
+# include <optional>
+# include <unordered_map>
+# include <unordered_set>
+# include <vector>
+#pragma GCC visibility pop
 
 namespace hyperion {
 
@@ -312,7 +308,7 @@ public:
   with_columns_attached(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const HYPERION_FS::path& file_path,
+    const CXX_FILESYSTEM_NAMESPACE::path& file_path,
     const std::string& root_path,
     const std::unordered_set<std::string> read_only,
     const std::unordered_set<std::string> read_write,
@@ -348,7 +344,7 @@ public:
   with_columns_attached(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const HYPERION_FS::path& file_path,
+    const CXX_FILESYSTEM_NAMESPACE::path& file_path,
     const std::string& root_path,
     const std::unordered_set<std::string> read_only,
     const std::unordered_set<std::string> read_write,
@@ -388,7 +384,7 @@ public:
   with_columns_attached(
     Legion::Context ctx,
     Legion::Runtime *rt,
-    const HYPERION_FS::path& file_path,
+    const CXX_FILESYSTEM_NAMESPACE::path& file_path,
     const std::string& root_path,
     const std::vector<
       std::tuple<
@@ -445,7 +441,7 @@ public:
   with_columns_attached(
     Legion::Context ctx,
     Legion::Runtime *rt,
-    const HYPERION_FS::path& file_path,
+    const CXX_FILESYSTEM_NAMESPACE::path& file_path,
     const std::string& root_path,
     const std::vector<
       std::tuple<
@@ -582,7 +578,7 @@ public:
   from_ms(
     Legion::Context ctx,
     Legion::Runtime* runtime,
-    const std::experimental::filesystem::path& path,
+    const CXX_FILESYSTEM_NAMESPACE::path& path,
     const std::unordered_set<std::string>& column_selections);
 #endif // HYPERION_USE_CASACORE
 
@@ -614,7 +610,7 @@ protected:
   with_columns_attached_prologue(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const HYPERION_FS::path& file_path,
+    const CXX_FILESYSTEM_NAMESPACE::path& file_path,
     const std::string& root_path,
     const std::tuple<
       Table*,

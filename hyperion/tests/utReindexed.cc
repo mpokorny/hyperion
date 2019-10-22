@@ -16,16 +16,14 @@
 #include <hyperion/testing/TestSuiteDriver.h>
 #include <hyperion/testing/TestRecorder.h>
 
-#include <algorithm>
-#include <memory>
-#include <ostream>
-#include <vector>
-
 #include <hyperion/utility.h>
 #include <hyperion/Table.h>
 #include <hyperion/Column.h>
 
-#ifndef NO_REINDEX
+#include <algorithm>
+#include <memory>
+#include <ostream>
+#include <vector>
 
 using namespace hyperion;
 using namespace Legion;
@@ -366,14 +364,6 @@ main(int argc, char* argv[]) {
 
   return driver.start(argc, argv);
 }
-
-#else
-
-int main(int argc, char* argv[]) {
-  return -1;
-}
-
-#endif // NO_REINDEX
 
 // Local Variables:
 // mode: c++

@@ -16,19 +16,17 @@
 #ifndef HYPERION_MEAS_REF_CONTAINER_H_
 #define HYPERION_MEAS_REF_CONTAINER_H_
 
-#pragma GCC visibility push(default)
-#include <array>
-#include <numeric>
-#include <optional>
-#include <tuple>
-#include <vector>
-#pragma GCC visibility pop
-
 #include <hyperion/hyperion.h>
-
-#ifdef HYPERION_USE_CASACORE
 #include <hyperion/MeasRef.h>
 #include <hyperion/MeasRefDict.h>
+
+#pragma GCC visibility push(default)
+# include <array>
+# include <numeric>
+# include <optional>
+# include <tuple>
+# include <vector>
+#pragma GCC visibility pop
 
 namespace hyperion {
 
@@ -192,7 +190,6 @@ private:
 
 } // end namespace hyperion
 
-#endif // HYPERION_USE_CASACORE
 #endif // HYPERION_MEAS_REF_CONTAINER_H_
 
 // Local Variables:

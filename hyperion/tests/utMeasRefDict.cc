@@ -15,10 +15,8 @@
  */
 #include <hyperion/testing/TestSuiteDriver.h>
 #include <hyperion/testing/TestRecorder.h>
-
 #include <hyperion/MeasRefDict.h>
 
-#ifdef HYPERION_USE_CASACORE
 #include <casacore/measures/Measures/MeasData.h>
 
 using namespace hyperion;
@@ -118,8 +116,6 @@ main(int argc, char* argv[]) {
 
   return driver.start(argc, argv);
 }
-
-#endif // HYPERION_USE_CASACORE
 
 // Local Variables:
 // mode: c++

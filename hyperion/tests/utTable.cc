@@ -16,12 +16,6 @@
 #include <hyperion/testing/TestSuiteDriver.h>
 #include <hyperion/testing/TestRecorder.h>
 
-#include <algorithm>
-#include <array>
-#include <memory>
-#include <ostream>
-#include <vector>
-
 #include <hyperion/utility.h>
 #include <hyperion/Table.h>
 #include <hyperion/Column.h>
@@ -29,6 +23,12 @@
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRefContainer.h>
 #endif
+
+#include <algorithm>
+#include <array>
+#include <memory>
+#include <ostream>
+#include <vector>
 
 using namespace hyperion;
 using namespace Legion;

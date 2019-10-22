@@ -16,13 +16,13 @@
 #ifndef HYPERION_TESTING_TEST_RECORDER_H_
 #define HYPERION_TESTING_TEST_RECORDER_H_
 
-#pragma GCC visibility push(default)
-#include <exception>
-#pragma GCC visibility pop
-
 #include <hyperion/hyperion.h>
 #include <hyperion/testing/TestLog.h>
 #include <hyperion/testing/TestExpression.h>
+
+#pragma GCC visibility push(default)
+# include <exception>
+#pragma GCC visibility pop
 
 namespace hyperion {
 namespace testing {

@@ -16,18 +16,6 @@
 #ifndef HYPERION_TABLE_BUILDER_H_
 #define HYPERION_TABLE_BUILDER_H_
 
-#ifdef HYPERION_USE_CASACORE
-
-#pragma GCC visibility push(default)
-#include <algorithm>
-#include <cassert>
-#include <functional>
-#include <memory>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-#pragma GCC visibility pop
-
 #include <hyperion/hyperion.h>
 #include <hyperion/KeywordsBuilder.h>
 #include <hyperion/ColumnBuilder.h>
@@ -38,9 +26,17 @@
 #include <hyperion/MeasRefContainer.h>
 
 #pragma GCC visibility push(default)
-#include <casacore/casa/aipstype.h>
-#include <casacore/casa/BasicSL/String.h>
-#include <casacore/tables/Tables.h>
+# include <algorithm>
+# include <cassert>
+# include <functional>
+# include <memory>
+# include <unordered_map>
+# include <unordered_set>
+# include <vector>
+
+# include <casacore/casa/aipstype.h>
+# include <casacore/casa/BasicSL/String.h>
+# include <casacore/tables/Tables.h>
 #pragma GCC visibility pop
 
 namespace hyperion {
@@ -265,7 +261,7 @@ public:
 
   static TableBuilderT
   from_casacore_table(
-    const HYPERION_FS::path& path,
+    const CXX_FILESYSTEM_NAMESPACE::path& path,
     const std::unordered_set<std::string>& column_selections,
     const std::unordered_map<std::string, std::vector<Axes>>& element_axes) {
 
@@ -374,7 +370,7 @@ struct HYPERION_API TableBuilder {
   template <MSTables T>
   static TableBuilderT<T>
   from_ms(
-    const HYPERION_FS::path& path,
+    const CXX_FILESYSTEM_NAMESPACE::path& path,
     const std::unordered_set<std::string>& column_selections) {
 
     return
@@ -391,7 +387,7 @@ void
 initialize_keywords_from_ms(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const HYPERION_FS::path& path,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
   Table& table);
 
 template <MSTables T>
@@ -399,12 +395,12 @@ Table
 from_ms(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const HYPERION_FS::path& path,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
   const std::unordered_set<std::string>& column_selections) {
 
   typedef typename MSTable<T>::Axes Axes;
 
-  const HYPERION_FS::path& table_path =
+  const CXX_FILESYSTEM_NAMESPACE::path& table_path =
     ((path.filename() == MSTable<T>::name)
      ? path
      : (path / MSTable<T>::name));
@@ -454,8 +450,6 @@ from_ms(
 }
 
 } // end namespace hyperion
-
-#endif // HYPERION_USE_CASACORE
 
 #endif // HYPERION_TABLE_BUILDER_H_
 

@@ -1,5 +1,7 @@
 set(SOVERSION 1)
 
+find_package(Filesystem REQUIRED COMPONENTS Final Experimental)
+
 #------------------------------------------------------------------------------#
 # Legion libraries
 #------------------------------------------------------------------------------#
@@ -215,7 +217,7 @@ if (USE_HDF5)
   target_include_directories(hyperion PUBLIC ${HDF5_INCLUDE_DIRS})
   target_link_libraries(hyperion PUBLIC ${HDF5_LIBRARIES})
 endif()
-target_link_libraries(hyperion PUBLIC stdc++fs)
+target_link_libraries(hyperion PUBLIC std::filesystem)
 target_link_libraries(hyperion PUBLIC legion)
 target_link_libraries(hyperion PUBLIC realm)
 set_target_properties(hyperion PROPERTIES POSITION_INDEPENDENT_CODE ON)

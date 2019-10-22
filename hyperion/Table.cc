@@ -13,26 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma GCC visibility push(default)
-#include <algorithm>
-#include <array>
-#include <limits>
-#include <numeric>
-#include <tuple>
-#include <vector>
-#pragma GCC visibility pop
-
-#include <legion/legion_c_util.h>
 #include <hyperion/hyperion.h>
 #include <hyperion/Column.h>
 #include <hyperion/Table.h>
 #include <hyperion/TableBuilder.h>
 
-#ifdef HYPERION_USE_HDF5
 #pragma GCC visibility push(default)
-# include <hdf5.h>
+# include <legion/legion_c_util.h>
+
+# include <algorithm>
+# include <array>
+# include <limits>
+# include <numeric>
+# include <tuple>
+# include <vector>
+
+# ifdef HYPERION_USE_HDF5
+#  include <hdf5.h>
+# endif
 #pragma GCC visibility pop
-#endif
 
 using namespace hyperion;
 using namespace Legion;
@@ -437,7 +436,7 @@ std::vector<PhysicalRegion>
 Table::with_columns_attached_prologue(
   Context ctx,
   Runtime* rt,
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& root_path,
   const std::tuple<
   Table*,
@@ -2597,7 +2596,7 @@ Table
 Table::from_ms(
   Context ctx,
   Runtime* runtime,
-  const HYPERION_FS::path& path,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
   const std::unordered_set<std::string>& column_selections) {
 
   std::string table_name = path.filename();

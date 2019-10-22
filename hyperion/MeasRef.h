@@ -21,14 +21,10 @@
 #include <hyperion/Measures.h>
 
 #pragma GCC visibility push(default)
-#include <array>
-#include <memory>
-#include <optional>
-#pragma GCC visibility pop
-
-#ifdef HYPERION_USE_CASACORE
-#pragma GCC visibility push(default)
-#include <casacore/measures/Measures.h>
+# include <array>
+# include <memory>
+# include <optional>
+# include <casacore/measures/Measures.h>
 #pragma GCC visibility pop
 
 namespace hyperion {
@@ -213,7 +209,6 @@ private:
 
 } // end namespace hyperion
 
-#endif // HYPERION_USE_CASACORE
 #endif // HYPERION_MEAS_REF_H_
 
 // Local Variables:

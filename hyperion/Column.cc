@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma GCC visibility push(default)
-#include <cassert>
-#include <legion/legion_c_util.h>
-#pragma GCC visibility pop
-
 #include <hyperion/hyperion.h>
 #include <hyperion/tree_index_space.h>
 #include <hyperion/Column.h>
 #include <hyperion/Table.h>
+
+#pragma GCC visibility push(default)
+# include <cassert>
+# include <legion/legion_c_util.h>
+#pragma GCC visibility pop
 
 using namespace hyperion;
 using namespace Legion;
@@ -380,7 +380,7 @@ PhysicalRegion
 Column::with_attached_prologue(
   Context ctx,
   Runtime* rt,
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& table_root,
   bool mapped,
   bool read_write) {

@@ -13,13 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "MeasRef.h"
-
-#ifdef HYPERION_USE_CASACORE
-
-#include "IndexTree.h"
-#include "tree_index_space.h"
-#include "utility.h"
+#include <hyperion/MeasRef.h>
+#include <hyperion/IndexTree.h>
+#include <hyperion/tree_index_space.h>
+#include <hyperion/utility.h>
 
 #include <cassert>
 #include <stack>
@@ -859,8 +856,6 @@ MeasRef::destroy(Context ctx, Runtime* rt) {
     }
   }
 }
-
-#endif // HYPERION_USE_CASACORE
 
 // Local Variables:
 // mode: c++

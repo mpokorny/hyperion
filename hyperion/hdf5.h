@@ -16,33 +16,27 @@
 #ifndef HYPERION_HDF_HDF5_H_
 #define HYPERION_HDF_HDF5_H_
 
-#pragma GCC visibility push(default)
-#include <cassert>
-#include <cstdint>
-#include <cstring>
-#include <exception>
-#if GCC_VERSION >= 90000
-# include <filesystem>
-#else
-# include <experimental/filesystem>
-#endif
-#include <optional>
-#include <string>
-#include <unordered_set>
-#include <vector>
-#pragma GCC visibility pop
-
 #include <hyperion/utility.h>
 #include <hyperion/IndexTree.h>
 #include <hyperion/Keywords.h>
 
-#pragma GCC visibility push(default)
-#include <hdf5.h>
-#pragma GCC visibility pop
-
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRefContainer.h>
 #endif
+
+#pragma GCC visibility push(default)
+# include <cassert>
+# include <cstdint>
+# include <cstring>
+# include <exception>
+# include CXX_FILESYSTEM_HEADER
+# include <optional>
+# include <string>
+# include <unordered_set>
+# include <vector>
+
+# include <hdf5.h>
+#pragma GCC visibility pop
 
 namespace hyperion {
 
@@ -288,7 +282,7 @@ HYPERION_API void
 write_column(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const HYPERION_FS::path& path,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
   hid_t table_id,
   const std::string& table_name,
   const Column& column,
@@ -299,7 +293,7 @@ HYPERION_API void
 write_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const HYPERION_FS::path& path,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
   hid_t loc_id,
   const Table& table,
   const std::unordered_set<std::string>& excluded_columns = {},
@@ -328,7 +322,7 @@ HYPERION_API hyperion::Table
 init_table(
   Legion::Context context,
   Legion::Runtime* runtime,
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& column_names,
 #ifdef HYPERION_USE_CASACORE
@@ -349,11 +343,11 @@ init_table(
   const std::string& name_prefix = "");
 
 HYPERION_API std::unordered_set<std::string>
-get_table_paths(const HYPERION_FS::path& file_path);
+get_table_paths(const CXX_FILESYSTEM_NAMESPACE::path& file_path);
 
 HYPERION_API std::unordered_set<std::string>
 get_column_names(
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& table_path);
 
 HYPERION_API std::unordered_map<std::string, std::string>
@@ -380,7 +374,7 @@ HYPERION_API Legion::PhysicalRegion
 attach_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& keywords_path,
   const Keywords& keywords,
   bool read_only = true);
@@ -389,7 +383,7 @@ HYPERION_API Legion::PhysicalRegion
 attach_column_values(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& table_root,
   const Column& column,
   bool mapped = true,
@@ -399,7 +393,7 @@ HYPERION_API Legion::PhysicalRegion
 attach_column_keywords(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& table_root,
   const Column& column,
   bool read_only = true);
@@ -408,7 +402,7 @@ HYPERION_API Legion::PhysicalRegion
 attach_table_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
-  const HYPERION_FS::path& file_path,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& root_path,
   const Table& table,
   bool read_only = true);

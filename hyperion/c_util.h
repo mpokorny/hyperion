@@ -20,8 +20,8 @@
 
 #ifdef __cplusplus
 #pragma GCC visibility push(default)
-#include <memory>
-#include <legion/legion_c_util.h>
+# include <memory>
+# include <legion/legion_c_util.h>
 #pragma GCC visibility pop
 
 namespace hyperion {

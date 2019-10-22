@@ -13,11 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <algorithm>
-#include <map>
-#include <memory>
-#include <vector>
-
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 #include <hyperion/IndexTree.h>
@@ -30,6 +25,11 @@
 #include <hyperion/testing/TestSuiteDriver.h>
 #include <hyperion/testing/TestRecorder.h>
 #include <hyperion/testing/TestExpression.h>
+
+#include <algorithm>
+#include <map>
+#include <memory>
+#include <vector>
 
 using namespace hyperion;
 using namespace Legion;

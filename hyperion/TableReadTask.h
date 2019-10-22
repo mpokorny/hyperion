@@ -15,27 +15,23 @@
  */
 #ifndef HYPERION_TABLE_READ_TASK_H_
 #define HYPERION_TABLE_READ_TASK_H_
-#pragma GCC visibility push(default)
-#include <array>
-#include <cstring>
-#include <memory>
-#include <new>
-#include <type_traits>
-#include <unordered_map>
-#pragma GCC visibility pop
 
 #include <hyperion/hyperion.h>
-
-#ifdef HYPERION_USE_CASACORE
-
 #include <hyperion/Table.h>
 #include <hyperion/utility.h>
 #include <hyperion/Column.h>
 
 #pragma GCC visibility push(default)
-#include <casacore/casa/aipstype.h>
-#include <casacore/casa/Arrays.h>
-#include <casacore/tables/Tables.h>
+# include <array>
+# include <cstring>
+# include <memory>
+# include <new>
+# include <type_traits>
+# include <unordered_map>
+
+# include <casacore/casa/aipstype.h>
+# include <casacore/casa/Arrays.h>
+# include <casacore/tables/Tables.h>
 #pragma GCC visibility pop
 
 namespace hyperion {
@@ -288,7 +284,6 @@ private:
 
 } // end namespace hyperion
 
-#endif // HYPERION_USE_CASACORE
 #endif // HYPERION_TABLE_READ_TASK_H_
 
 // Local Variables:

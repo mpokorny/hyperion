@@ -15,14 +15,10 @@
  */
 #include <hyperion/Measures.h>
 
-#ifdef HYPERION_USE_CASACORE
-
 #define MCLASS_NAME(M) \
   const std::string hyperion::MClassT<M>::name = hyperion::MClassT<M>::type::showMe();
 HYPERION_FOREACH_MCLASS(MCLASS_NAME)
 #undef MCLASS_NAME
-
-#endif // HYPERION_USE_CASACORE
 
 // Local Variables:
 // mode: c++

@@ -16,25 +16,22 @@
 #ifndef HYPERION_COLUMN_H_
 #define HYPERION_COLUMN_H_
 
-#pragma GCC visibility push(default)
-#include <cassert>
-#include <functional>
-#include <memory>
-#include <mutex>
-#include <tuple>
-#include <unordered_map>
-#pragma GCC visibility pop
-
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
-
 #include <hyperion/Column_c.h>
-
 #include <hyperion/Keywords.h>
 #include <hyperion/IndexTree.h>
 #include <hyperion/ColumnPartition.h>
-
 #include <hyperion/c_util.h>
+
+#pragma GCC visibility push(default)
+# include <cassert>
+# include <functional>
+# include <memory>
+# include <mutex>
+# include <tuple>
+# include <unordered_map>
+#pragma GCC visibility pop
 
 #ifdef HYPERION_USE_HDF5
 # include <hyperion/hdf5.h>
@@ -224,7 +221,7 @@ public:
   with_attached(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const HYPERION_FS::path& file_path,
+    const CXX_FILESYSTEM_NAMESPACE::path& file_path,
     const std::string& table_root,
     FN f,
     bool mapped = false,
@@ -256,7 +253,7 @@ public:
   with_attached(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const HYPERION_FS::path& file_path,
+    const CXX_FILESYSTEM_NAMESPACE::path& file_path,
     const std::string& table_root,
     FN f,
     bool mapped = false,
@@ -435,7 +432,7 @@ protected:
   with_attached_prologue(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const HYPERION_FS::path& file_path,
+    const CXX_FILESYSTEM_NAMESPACE::path& file_path,
     const std::string& table_root,
     bool mapped,
     bool read_write);

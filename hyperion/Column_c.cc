@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma GCC visibility push(default)
-#include <vector>
-#include <legion/legion_c_util.h>
-#pragma GCC visibility pop
-
 #include <hyperion/c_util.h>
 #include <hyperion/Column_c.h>
 #include <hyperion/Column.h>
+
+#pragma GCC visibility push(default)
+# include <vector>
+# include <legion/legion_c_util.h>
+#pragma GCC visibility pop
 
 using namespace hyperion;
 using namespace hyperion::CObjectWrapper;

@@ -13,35 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <algorithm>
-#include <cassert>
-#include <cstdlib>
-#if GCC_VERSION >= 90000
-# include <filesystem>
-#else
-# include <experimental/filesystem>
-#endif
-#include <unordered_set>
-
 #include <hyperion/hyperion.h>
 #include <hyperion/hdf5.h>
 #include <hyperion/Table.h>
 #include <hyperion/TableReadTask.h>
+
+#include <algorithm>
+#include <cassert>
+#include <cstdlib>
+#include CXX_FILESYSTEM_HEADER
+#include <unordered_set>
 
 using namespace hyperion;
 using namespace Legion;
 
 enum {
   TOP_LEVEL_TASK_ID,
-  TABLE_NAME_COLLECTOR_TASK_ID,  
+  TABLE_NAME_COLLECTOR_TASK_ID,
 };
 
 void
 get_args(
   const InputArgs& args,
-  HYPERION_FS::path& ms_path,
+  CXX_FILESYSTEM_NAMESPACE::path& ms_path,
   std::vector<std::string>& tables,
-  HYPERION_FS::path& h5_path) {
+  CXX_FILESYSTEM_NAMESPACE::path& h5_path) {
 
   ms_path.clear();
   tables.clear();
@@ -74,7 +70,7 @@ public:
   static const int NAME_FID = 0;
 
   TableNameCollectorTask(
-    const HYPERION_FS::path& ms,
+    const CXX_FILESYSTEM_NAMESPACE::path& ms,
     LogicalRegion table_names_lr)
     : m_ms(ms)
     , m_table_names_lr(table_names_lr) {}
@@ -103,7 +99,9 @@ public:
       runtime->create_index_space(context, Rect<1>(0, MAX_TABLES - 1));
     FieldSpace fs = runtime->create_field_space(context);
     FieldAllocator fa = runtime->create_field_allocator(context, fs);
-    fa.allocate_field(sizeof(DataType<HYPERION_TYPE_STRING>::ValueType), NAME_FID);
+    fa.allocate_field(
+      sizeof(DataType<HYPERION_TYPE_STRING>::ValueType),
+      NAME_FID);
     LogicalRegion result = runtime->create_logical_region(context, is, fs);
     return result;
   }
@@ -131,7 +129,7 @@ public:
       if (tb.nrow() > 0)
         names[i++] = hyperion::string("MAIN");
     }
-    for (auto& p : HYPERION_FS::directory_iterator(args.ms)) {
+    for (auto& p : CXX_FILESYSTEM_NAMESPACE::directory_iterator(args.ms)) {
       if (i < MAX_TABLES
           && casacore::Table::isReadable(casacore::String(p.path()))) {
         casacore::Table tb(
@@ -156,7 +154,7 @@ public:
 private:
 
   struct TaskArgs {
-    HYPERION_FS::path ms;
+    CXX_FILESYSTEM_NAMESPACE::path ms;
 
     size_t
     serialized_size() {
@@ -178,7 +176,7 @@ private:
     }
   };
 
-  HYPERION_FS::path m_ms;
+  CXX_FILESYSTEM_NAMESPACE::path m_ms;
 
   LogicalRegion m_table_names_lr;
 };
@@ -198,9 +196,9 @@ public:
   }
 
   static bool
-  args_ok(const HYPERION_FS::path& ms,
+  args_ok(const CXX_FILESYSTEM_NAMESPACE::path& ms,
           const std::vector<std::string>& table_args,
-          const HYPERION_FS::path& h5,
+          const CXX_FILESYSTEM_NAMESPACE::path& h5,
           Context context,
           Runtime* runtime) {
 
@@ -222,8 +220,8 @@ public:
       return false;
     }
 
-    auto ms_status = HYPERION_FS::status(ms);
-    if (!HYPERION_FS::is_directory(ms)) {
+    auto ms_status = CXX_FILESYSTEM_NAMESPACE::status(ms);
+    if (!CXX_FILESYSTEM_NAMESPACE::is_directory(ms)) {
       std::ostringstream oss;
       oss << "MS directory " << ms
           << " does not exist"
@@ -232,7 +230,7 @@ public:
       return false;
     }
 
-    if (HYPERION_FS::exists(h5)) {
+    if (CXX_FILESYSTEM_NAMESPACE::exists(h5)) {
       std::ostringstream oss;
       oss << "HDF5 file path " << h5
           << " exists and will not be overwritten"
@@ -253,8 +251,8 @@ public:
           std::back_inserter(T),
           [](unsigned char c) { return std::toupper(c); });
         if (T != "MAIN" && T != "." && T[0] != '~') {
-          auto stat = HYPERION_FS::status(ms / T);
-          if (!HYPERION_FS::is_directory(stat))
+          auto stat = CXX_FILESYSTEM_NAMESPACE::status(ms / T);
+          if (!CXX_FILESYSTEM_NAMESPACE::is_directory(stat))
             missing_tables.push_back(t);
         }
       });
@@ -286,9 +284,9 @@ public:
     hyperion::register_tasks(ctx, rt);
 
     const InputArgs& args = Runtime::get_input_args();
-    HYPERION_FS::path ms;
+    CXX_FILESYSTEM_NAMESPACE::path ms;
     std::vector<std::string> table_args;
-    HYPERION_FS::path h5;
+    CXX_FILESYSTEM_NAMESPACE::path h5;
     get_args(args, ms, table_args, h5);
 
     if (!args_ok(ms, table_args, h5, ctx, rt))
@@ -307,7 +305,7 @@ public:
 
     std::vector<Table> tables;
     for (auto& tn : table_names) {
-      HYPERION_FS::path path;
+      CXX_FILESYSTEM_NAMESPACE::path path;
       if (tn != "MAIN")
         path = ms / tn;
       else

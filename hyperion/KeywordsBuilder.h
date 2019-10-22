@@ -16,15 +16,15 @@
 #ifndef HYPERION_KEYWORDS_BUILDER_H_
 #define HYPERION_KEYWORDS_BUILDER_H_
 
-#pragma GCC visibility push(default)
-#include <string>
-#include <tuple>
-#include <vector>
-#pragma GCC visibility pop
-
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 #include <hyperion/Keywords.h>
+
+#pragma GCC visibility push(default)
+# include <string>
+# include <tuple>
+# include <vector>
+#pragma GCC visibility pop
 
 namespace hyperion {
 

@@ -17,8 +17,8 @@
 #include <hyperion/c_util.h>
 
 #pragma GCC visibility push(default)
-#include <mutex>
-#include <type_traits>
+# include <mutex>
+# include <type_traits>
 #pragma GCC visibility pop
 
 using namespace hyperion;

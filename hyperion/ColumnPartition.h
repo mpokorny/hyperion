@@ -16,16 +16,15 @@
 #ifndef HYPERION_COLUMN_PARTITION_H_
 #define HYPERION_COLUMN_PARTITION_H_
 
-#pragma GCC visibility push(default)
-#include <algorithm>
-#include <vector>
-#pragma GCC visibility pop
-
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 #include <hyperion/ColumnPartition_c.h>
-
 #include <hyperion/c_util.h>
+
+#pragma GCC visibility push(default)
+# include <algorithm>
+# include <vector>
+#pragma GCC visibility pop
 
 namespace hyperion {
 

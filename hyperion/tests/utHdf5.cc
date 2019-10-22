@@ -765,7 +765,7 @@ table_tests(
     tb0.destroy(ctx, rt);
   }
   if (!save_output_file)
-    HYPERION_FS::remove(fname);
+    CXX_FILESYSTEM_NAMESPACE::remove(fname);
 }
 
 void

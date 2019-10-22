@@ -19,27 +19,23 @@
 # error "MAX_DIM too small"
 #endif
 
+#include <hyperion/hdf5.h>
+#include <hyperion/Table.h>
+#include <hyperion/Column.h>
+#include <hyperion/MeasRefContainer.h>
+
 #include <algorithm>
 #include <array>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
-#if GCC_VERSION >= 90000
-# include <filesystem>
-#else
-# include <experimental/filesystem>
-#endif
+#include CXX_FILESYSTEM_HEADER
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-
-#include <hyperion/hdf5.h>
-#include <hyperion/Table.h>
-#include <hyperion/Column.h>
-#include <hyperion/MeasRefContainer.h>
 
 #define DEFAULT_ECHO_ARGS "false"
 #define DEFAULT_MAIN_TABLE_ROW_BLOCK_SIZE "100000"
@@ -172,7 +168,7 @@ struct GridderArgType<T, STRING_ARGS> {
 
 template <gridder_args_t G>
 struct GridderArgs {
-  typename GridderArgType<HYPERION_FS::path, G>::type h5;
+  typename GridderArgType<CXX_FILESYSTEM_NAMESPACE::path, G>::type h5;
   typename GridderArgType<std::optional<bool>, G>::type echo_args;
   typename GridderArgType<size_t, G>::type main_table_row_block_size;
   typename GridderArgType<PARALLACTIC_ANGLE_TYPE, G>::type pa_step;
@@ -309,7 +305,7 @@ Table
 init_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const HYPERION_FS::path& ms,
+  const CXX_FILESYSTEM_NAMESPACE::path& ms,
   const std::string& root,
   const MeasRefContainer& ms_meas_ref,
   MSTables mst) {
@@ -1259,10 +1255,10 @@ public:
     const GridderArgs<VALUE_ARGS>& val_args) {
 
     std::ostringstream errs;
-    std::optional<HYPERION_FS::path> h5_abs;
-    if (HYPERION_FS::exists(val_args.h5))
-      h5_abs = HYPERION_FS::canonical(val_args.h5);
-    if (!h5_abs || !HYPERION_FS::is_regular_file(h5_abs.value()))
+    std::optional<CXX_FILESYSTEM_NAMESPACE::path> h5_abs;
+    if (CXX_FILESYSTEM_NAMESPACE::exists(val_args.h5))
+      h5_abs = CXX_FILESYSTEM_NAMESPACE::canonical(val_args.h5);
+    if (!h5_abs || !CXX_FILESYSTEM_NAMESPACE::is_regular_file(h5_abs.value()))
       errs << "Path '" << str_args.h5
            << "' does not name a regular file" << std::endl;
 
