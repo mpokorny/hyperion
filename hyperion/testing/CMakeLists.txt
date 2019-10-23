@@ -6,7 +6,8 @@ set(SOVERSION 1)
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/TestRunner.py
-  COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/TestRunner.py ${CMAKE_CURRENT_BINARY_DIR}/TestRunner.py)
+  COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/TestRunner.py ${CMAKE_CURRENT_BINARY_DIR}/TestRunner.py
+  MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/TestRunner.py)
 add_custom_target(
   TestRunner ALL
   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/TestRunner.py)

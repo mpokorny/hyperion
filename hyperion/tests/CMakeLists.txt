@@ -20,7 +20,6 @@ if(NOT hyperion_NO_REINDEX)
     NAME IndexColumnTaskUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
             ./utIndexColumnTask)
-  set_property(TEST IndexColumnTaskUnitTest PROPERTY DEPENDS TestRunner)
 
   add_executable(utReindexColumnTask utReindexColumnTask.cc)
   set_target_properties(utReindexColumnTask PROPERTIES
@@ -30,7 +29,6 @@ if(NOT hyperion_NO_REINDEX)
     NAME ReindexColumnTaskUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
             ./utReindexColumnTask)
-  set_property(TEST ReindexColumnTaskUnitTest PROPERTY DEPENDS TestRunner)
 
   add_executable(utReindexed utReindexed.cc)
   set_target_properties(utReindexed PROPERTIES
@@ -40,7 +38,6 @@ if(NOT hyperion_NO_REINDEX)
     NAME ReindexedUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
             ./utReindexed)
-  set_property(TEST ReindexedUnitTest PROPERTY DEPENDS TestRunner)
 endif()
 
 add_executable(utTable utTable.cc)
@@ -51,7 +48,6 @@ add_test(
   NAME TableUnitTest
   COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
           ./utTable)
-set_property(TEST TableUnitTest PROPERTY DEPENDS TestRunner)
 
 if (USE_HDF5)
   add_executable(utHdf5 utHdf5.cc)
@@ -62,7 +58,6 @@ if (USE_HDF5)
     NAME Hdf5UnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
             ./utHdf5)
-  set_property(TEST Hdf5UnitTest PROPERTY DEPENDS TestRunner)
 endif()
 
 if (USE_CASACORE)
@@ -73,8 +68,10 @@ if (USE_CASACORE)
   add_test(
     NAME MSUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-            ./utMS -ll:io 1)
-  set_property(TEST MSUnitTest PROPERTY DEPENDS TestRunner data/t0_unpack)
+    ./utMS -ll:io 1)
+  set_tests_properties(
+    MSUnitTest PROPERTIES
+    FIXTURES_REQUIRED T0MS)
 
   add_executable(utMeasRef utMeasRef.cc)
   set_target_properties(utMeasRef PROPERTIES
@@ -84,7 +81,6 @@ if (USE_CASACORE)
     NAME MeasRefUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
             ./utMeasRef)
-  set_property(TEST MeasRefUnitTest PROPERTY DEPENDS TestRunner)
 
   add_executable(utMeasRefDict utMeasRefDict.cc)
   set_target_properties(utMeasRefDict PROPERTIES
@@ -94,7 +90,6 @@ if (USE_CASACORE)
     NAME MeasRefDictUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
             ./utMeasRefDict)
-  set_property(TEST MeasRefDictUnitTest PROPERTY DEPENDS TestRunner)
 endif()
 
 add_subdirectory(data)
