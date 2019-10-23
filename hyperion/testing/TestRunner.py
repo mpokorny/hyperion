@@ -16,6 +16,7 @@
 #
 import argparse
 import itertools
+import re
 import subprocess
 import sys
 import tempfile
@@ -40,7 +41,7 @@ def run_test(compare_with, compare_by, test, *args):
         log = [l for ln in out
                for l in [ln.strip()]
                if len(l) > 0
-               and l.find('WARNING: field destructors ignored') == -1]
+               and re.match("PASS|FAIL|SKIPPED", l) is not None]
         if compare_with is None:
             fails = map(lambda lg: lg[0:lg.find('\t')] == 'FAIL', log)
             sys.exit(1 if any(fails) else 0)

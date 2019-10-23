@@ -1,8 +1,7 @@
-add_custom_command(
-  OUTPUT t0.ms
+add_test(
+  NAME UnpackT0MS
   COMMAND ${CMAKE_COMMAND} -E tar Jxf ${CMAKE_CURRENT_SOURCE_DIR}/t0.ms.txz
-  MAIN_DEPENDENCY t0.ms.txz
-  VERBATIM)
-add_custom_target(
-  t0_unpack ALL
-  DEPENDS t0.ms)
+  REQUIRED_FILES t0.ms.txz)
+set_tests_properties(
+  UnpackT0MS PROPERTIES
+  FIXTURES_SETUP T0MS)
