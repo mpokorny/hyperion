@@ -163,6 +163,9 @@ if(USE_HDF5)
     hdf5.cc)
   set(HYPERION_USE_HDF5 ON)
 endif()
+if (USE_YAML)
+  set(HYPERION_USE_YAML ON)
+endif ()
 
 configure_file(hyperion_config.h.in hyperion_config.h)
 

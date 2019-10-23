@@ -20,6 +20,7 @@ Several dependencies are optional, and while the software will build without the
   * [HDF5®](https://www.hdfgroup.org/solutions/hdf5/), version 1.10.5 or later [auto-detected, or `USE_HDF5=ON`]
   * [LLVM](https://llvm.org/), any version acceptable to *Legion* [`Legion_USE_LLVM=ON`]
   * [GASNet](https://gasnet.lbl.gov/), any version acceptable to *Legion* [`Legion_USE_GASNET=ON`]
+  * [yaml-cpp](https://github.com/jbeder/yaml-cpp/), version 0.6.2 or later [auto-detected, or `USE_YAML=ON`]
   * [casacore](https://github.com/casacore/casacore) [auto-detected and `USE_CASACORE=ON`]
   * Required for internal *casacore* build [`USE_CASACORE=ON` and *casacore* auto-detection fails]
     * [GFortran](https://gcc.gnu.org/wiki/GFortran)
