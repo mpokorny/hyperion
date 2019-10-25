@@ -160,29 +160,246 @@ typedef enum {
   OPT_VALUE_ARGS,
   OPT_STRING_ARGS} gridder_args_t;
 
-template <typename T, const char* const* TAG, gridder_args_t G>
+template <gridder_args_t G>
+struct ArgsCompletion {
+  static const gridder_args_t val;
+};
+template <>
+struct ArgsCompletion<VALUE_ARGS> {
+  static const constexpr gridder_args_t val = VALUE_ARGS;
+};
+template <>
+struct ArgsCompletion<STRING_ARGS> {
+  static const constexpr gridder_args_t val = STRING_ARGS;
+};
+template <>
+struct ArgsCompletion<OPT_VALUE_ARGS> {
+  static const constexpr gridder_args_t val = VALUE_ARGS;
+};
+template <>
+struct ArgsCompletion<OPT_STRING_ARGS> {
+  static const constexpr gridder_args_t val = STRING_ARGS;
+};
+
+template <typename T, bool OPT, const char* const* TAG, gridder_args_t G>
 struct GridderArgType {
   static const constexpr char* tag = *TAG;
 };
 template <typename T, const char* const* TAG>
-struct GridderArgType<T, TAG, VALUE_ARGS> {
+struct GridderArgType<T, false, TAG, VALUE_ARGS> {
+  typedef T type;
+
   T val;
+
   static const constexpr char* tag = *TAG;
+
+  T
+  value() const {
+    return val;
+  }
+
+  void
+  operator=(const T& t) {
+    val = t;
+  }
+
+  operator bool() const {
+    return true;
+  }
 };
 template <typename T, const char* const* TAG>
-struct GridderArgType<T, TAG, STRING_ARGS> {
-  std::string val;
-  static const constexpr char* tag = *TAG;
-};
-template <typename T, const char* const* TAG>
-struct GridderArgType<T, TAG, OPT_VALUE_ARGS> {
+struct GridderArgType<T, true, TAG, VALUE_ARGS> {
+  typedef std::optional<T> type;
+
   std::optional<T> val;
+
   static const constexpr char* tag = *TAG;
+
+  T
+  value() const {
+    return val.value();
+  }
+
+  void
+  operator=(const T& t) {
+    val = t;
+  }
+
+  void
+  operator=(const std::optional<T>& ot) {
+    val = ot;
+  }
+
+  operator bool() const {
+    return val.has_value();
+  }
 };
 template <typename T, const char* const* TAG>
-struct GridderArgType<T, TAG, OPT_STRING_ARGS> {
-  std::optional<std::string> val;
+struct GridderArgType<T, false, TAG, STRING_ARGS> {
+  typedef std::string type;
+
+  std::string val;
+
   static const constexpr char* tag = *TAG;
+
+  std::string
+  value() const {
+    return val;
+  }
+
+  void
+  operator=(const std::string& str) {
+    val = str;
+  }
+
+  operator bool() const {
+    return true;
+  }
+};
+template <typename T, const char* const* TAG>
+struct GridderArgType<T, true, TAG, STRING_ARGS> {
+  typedef std::optional<std::string> type;
+
+  std::optional<std::string> val;
+
+  static const constexpr char* tag = *TAG;
+
+  std::string
+  value() const {
+    return val.value();
+  }
+
+  void
+  operator=(const std::string& str) {
+    val = str;
+  }
+
+  void
+  operator=(const std::optional<std::string>& ostr) {
+    val = ostr;
+  }
+
+  operator bool() const {
+    return val.has_value();
+  }
+};
+template <typename T, const char* const* TAG>
+struct GridderArgType<T, false, TAG, OPT_VALUE_ARGS> {
+  typedef std::optional<T> type;
+
+  std::optional<T> val;
+
+  static const constexpr char* tag = *TAG;
+
+  T
+  value() const {
+    return val;
+  }
+
+  void
+  operator=(const T& t) {
+    val = t;
+  }
+
+  void
+  operator=(const std::optional<T>& ot) {
+    val = ot;
+  }
+
+  operator bool() const {
+    return val.has_value();
+  }
+};
+template <typename T, const char* const* TAG>
+struct GridderArgType<T, true, TAG, OPT_VALUE_ARGS> {
+  typedef std::optional<std::optional<T>> type;
+
+  std::optional<std::optional<T>> val;
+
+  static const constexpr char* tag = *TAG;
+
+  T
+  value() const {
+    return val.value().value();
+  }
+
+  void
+  operator=(const T& t) {
+    val = std::make_optional<T>(t);
+  }
+
+  void
+  operator=(const std::optional<T>& ot) {
+    val = ot;
+  }
+
+  void
+  operator=(const std::optional<std::optional<T>>& oot) {
+    val = oot;
+  }
+
+  operator bool() const {
+    return val.has_value() && val.value().has_value();
+  }
+};
+template <typename T, const char* const* TAG>
+struct GridderArgType<T, false, TAG, OPT_STRING_ARGS> {
+  typedef std::optional<std::string> type;
+
+  std::optional<std::string> val;
+
+  static const constexpr char* tag = *TAG;
+
+  std::string
+  value() const {
+    return val.value();
+  }
+
+  void
+  operator=(const std::string& str) {
+    val = str;
+  }
+
+  void
+  operator=(const std::optional<std::string>& ostr) {
+    val = ostr;
+  }
+
+  operator bool() const {
+    return val.has_value();
+  }
+};
+template <typename T, const char* const* TAG>
+struct GridderArgType<T, true, TAG, OPT_STRING_ARGS> {
+  typedef std::optional<std::optional<std::string>> type;
+
+  std::optional<std::optional<std::string>> val;
+
+  static const constexpr char* tag = *TAG;
+
+  std::string
+  value() const {
+    return val.value().value();
+  }
+
+  void
+  operator=(const std::string& str) {
+    val = std::make_optional<std::string>(str);
+  }
+
+  void
+  operator=(const std::optional<std::string>& ostr) {
+    val = ostr;
+  }
+
+  void
+  operator=(const std::optional<std::optional<std::string>>& oostr) {
+    val = oostr;
+  }
+
+  operator bool() const {
+    return val.has_value() && val.value().has_value();
+  }
 };
 
 struct GridderArgsBase {
@@ -196,122 +413,109 @@ struct GridderArgsBase {
 
 template <gridder_args_t G>
 struct GridderArgs
-  : private GridderArgsBase {
+  : public GridderArgsBase {
 
-  GridderArgType<FS::path, &h5_path_tag, G> h5_path;
-  GridderArgType<std::optional<FS::path>, &config_path_tag, G> config_path;
-  GridderArgType<bool, &echo_tag, G> echo;
-  GridderArgType<size_t, &block_tag, G> block;
-  GridderArgType<PARALLACTIC_ANGLE_TYPE, &pa_step_tag, G> pa_step;
-  GridderArgType<int, &w_planes_tag, G> w_planes;
-};
+  GridderArgType<FS::path, false, &h5_path_tag, G> h5_path;
+  GridderArgType<FS::path, true, &config_path_tag, G> config_path;
+  GridderArgType<bool, false, &echo_tag, G> echo;
+  GridderArgType<size_t, false, &block_tag, G> block;
+  GridderArgType<PARALLACTIC_ANGLE_TYPE, false, &pa_step_tag, G> pa_step;
+  GridderArgType<int, false, &w_planes_tag, G> w_planes;
 
-template <>
-struct GridderArgs<VALUE_ARGS>
-  : private GridderArgsBase {
+  GridderArgs() {}
 
-  GridderArgType<FS::path, &h5_path_tag, VALUE_ARGS> h5_path;
-  GridderArgType<std::optional<FS::path>, &config_path_tag, VALUE_ARGS> config_path;
-  GridderArgType<bool, &echo_tag, VALUE_ARGS> echo;
-  GridderArgType<size_t, &block_tag, VALUE_ARGS> block;
-  GridderArgType<PARALLACTIC_ANGLE_TYPE, &pa_step_tag, VALUE_ARGS> pa_step;
-  GridderArgType<int, &w_planes_tag, VALUE_ARGS> w_planes;
+  GridderArgs(
+    const typename decltype(h5_path)::type& h5_path_,
+    const typename decltype(config_path)::type& config_path_,
+    const typename decltype(echo)::type& echo_,
+    const typename decltype(block)::type& block_,
+    const typename decltype(pa_step)::type& pa_step_,
+    const typename decltype(w_planes)::type& w_planes_) {
 
-  GridderArgs(YAML::Node&& node) {
-    h5_path.val = node[h5_path.tag].as<std::string>();
-    if (node[config_path.tag])
-      config_path.val = node[config_path.tag].as<std::string>();
-    echo.val = node[echo.tag].as<bool>();
-    block.val = node[block.tag].as<size_t>();
-    pa_step.val = node[pa_step.tag].as<PARALLACTIC_ANGLE_TYPE>();
-    w_planes.val = node[w_planes.tag].as<int>();
+    h5_path = h5_path_;
+    config_path = config_path_;
+    echo = echo_;
+    block = block_;
+    pa_step = pa_step_;
+    w_planes = w_planes_;
   }
-
-  YAML::Node
-  as_node() const {
-    YAML::Node result;
-    result[h5_path.tag] = h5_path.val.c_str();
-    if (config_path.val)
-      result[config_path.tag] = config_path.val.value().c_str();
-    result[echo.tag] = echo.val;
-    result[block.tag] = block.val;
-    result[pa_step.tag] = pa_step.val;
-    result[w_planes.tag] = w_planes.val;
-    return result;
-  }
-};
-
-template <>
-struct GridderArgs<STRING_ARGS>
-  : private GridderArgsBase {
-
-  GridderArgType<FS::path, &h5_path_tag, STRING_ARGS> h5_path;
-  GridderArgType<std::optional<FS::path>, &config_path_tag, STRING_ARGS> config_path;
-  GridderArgType<bool, &echo_tag, STRING_ARGS> echo;
-  GridderArgType<size_t, &block_tag, STRING_ARGS> block;
-  GridderArgType<PARALLACTIC_ANGLE_TYPE, &pa_step_tag, STRING_ARGS> pa_step;
-  GridderArgType<int, &w_planes_tag, STRING_ARGS> w_planes;
-
-  YAML::Node
-  as_node() const {
-    YAML::Node result;
-    result[h5_path.tag] = h5_path.val;
-    if (config_path.val != "")
-      result[config_path.tag] = config_path.val;
-    result[echo.tag] = echo.val;
-    result[block.tag] = block.val;
-    result[pa_step.tag] = pa_step.val;
-    result[w_planes.tag] = w_planes.val;
-    return result;
-  }
-};
-
-template <>
-struct GridderArgs<OPT_STRING_ARGS>
-  : private GridderArgsBase {
-
-  GridderArgType<FS::path, &h5_path_tag, OPT_STRING_ARGS> h5_path;
-  GridderArgType<std::optional<FS::path>, &config_path_tag, OPT_STRING_ARGS> config_path;
-  GridderArgType<bool, &echo_tag, OPT_STRING_ARGS> echo;
-  GridderArgType<size_t, &block_tag, OPT_STRING_ARGS> block;
-  GridderArgType<PARALLACTIC_ANGLE_TYPE, &pa_step_tag, OPT_STRING_ARGS> pa_step;
-  GridderArgType<int, &w_planes_tag, OPT_STRING_ARGS> w_planes;
 
   bool
   is_complete() const {
     return
-      h5_path.val
-      && echo.val
-      && block.val
-      && pa_step.val
-      && w_planes.val;
+      h5_path
+      && echo
+      && block
+      && pa_step
+      && w_planes;
   }
 
-  GridderArgs<STRING_ARGS>
+  std::optional<GridderArgs<ArgsCompletion<G>::val>>
   as_complete() const {
-    GridderArgs<STRING_ARGS> result;
-    result.h5_path.val = h5_path.val.value();
-    if (config_path.val)
-      result.config_path.val = config_path.val.value();
-    else
-      result.config_path.val = "";
-    result.echo.val = echo.val.value();
-    result.block.val = block.val.value();
-    result.pa_step.val = pa_step.val.value();
-    result.w_planes.val = w_planes.val.value();
+    std::optional<GridderArgs<ArgsCompletion<G>::val>> result;
+    if (is_complete())
+      result =
+        std::make_optional<GridderArgs<ArgsCompletion<G>::val>>(
+          h5_path.value(),
+          (config_path
+           ? config_path.value()
+           : std::optional<std::string>()),
+          echo.value(),
+          block.value(),
+          pa_step.value(),
+          w_planes.value());
+    return result;
+  }
+
+  YAML::Node
+  as_node() const {
+    YAML::Node result;
+    if (h5_path)
+      result[h5_path.tag] = h5_path.value().c_str();
+    if (config_path)
+      result[config_path.tag] = config_path.value().c_str();
+    if (echo)
+      result[echo.tag] = echo.value();
+    if (block)
+      result[block.tag] = block.value();
+    if (pa_step)
+      result[pa_step.tag] = pa_step.value();
+    if (w_planes)
+      result[w_planes.tag] = w_planes.value();
     return result;
   }
 };
+
+GridderArgs<VALUE_ARGS>
+as_args(YAML::Node&& node) {
+  FS::path h5_path = node[GridderArgsBase::h5_path_tag].as<std::string>();
+  std::optional<FS::path> config_path;
+  if (node[GridderArgsBase::config_path_tag])
+    config_path = node[GridderArgsBase::config_path_tag].as<std::string>();
+  bool echo = node[GridderArgsBase::echo_tag].as<bool>();
+  size_t block = node[GridderArgsBase::block_tag].as<size_t>();
+  PARALLACTIC_ANGLE_TYPE pa_step =
+    node[GridderArgsBase::pa_step_tag].as<PARALLACTIC_ANGLE_TYPE>();
+  int w_planes = node[GridderArgsBase::w_planes_tag].as<int>();
+  return
+    GridderArgs<VALUE_ARGS>(
+      h5_path,
+      config_path,
+      echo,
+      block,
+      pa_step,
+      w_planes);
+}
 
 static const GridderArgs<OPT_STRING_ARGS>&
 default_config() {
   static bool computed = false;
   static GridderArgs<OPT_STRING_ARGS> result;
   if (!computed) {
-    result.echo.val = "false";
-    result.block.val = "100000";
-    result.pa_step.val = "360.0";
-    result.w_planes.val = "1";
+    result.echo = std::string("false");
+    result.block = std::string("100000");
+    result.pa_step = std::string("360.0");
+    result.w_planes = std::string("1");
     computed = true;
   }
   return result;
@@ -913,7 +1117,7 @@ public:
       Table::with_columns_attached(
         ctx,
         rt,
-        gridder_args.h5_path.val,
+        gridder_args.h5_path.value(),
         ms_root,
         {{&tables[MS_DATA_DESCRIPTION],
           {COLUMN_NAME(MS_DATA_DESCRIPTION, SPECTRAL_WINDOW_ID),
@@ -938,7 +1142,7 @@ public:
               tables[MSTable<MS_POLARIZATION>::name]->column(
                 c, r, COLUMN_NAME(MS_POLARIZATION, NUM_CORR)),
               num_antenna_classes,
-              gridder_args.w_planes.val,
+              gridder_args.w_planes.value(),
               pa_intervals.num_steps(c, r));
         });
 
@@ -948,7 +1152,7 @@ public:
     Table::with_columns_attached(
       ctx,
       rt,
-      gridder_args.h5_path.val,
+      gridder_args.h5_path.value(),
       ms_root,
       {{&tables[MS_MAIN],
         {COLUMN_NAME(MS_MAIN, ANTENNA1),
@@ -985,7 +1189,7 @@ public:
         {
           // TODO: modify main_table_row_block_size for MAIN_ROW_DIM > 1
           ComputeRowAuxFieldsTask task(
-            Point<MAIN_ROW_DIM>(gridder_args.block.val),
+            Point<MAIN_ROW_DIM>(gridder_args.block.value()),
             row_is,
             antenna1,
             antenna2,
@@ -1368,15 +1572,15 @@ read_config(const YAML::Node& config) {
     auto key = it->first.as<std::string>();
     auto val = it->second.as<std::string>();
     if (key == args.h5_path.tag)
-      args.h5_path.val = val;
+      args.h5_path = val;
     else if (key == args.echo.tag)
-      args.echo.val = val;
+      args.echo = val;
     else if (key == args.block.tag)
-      args.block.val = val;
+      args.block = val;
     else if (key == args.pa_step.tag)
-      args.pa_step.val = val;
+      args.pa_step = val;
     else if (key == args.w_planes.tag)
-      args.w_planes.val = val;
+      args.w_planes = val;
     else
       invalid_tags.push_front(key);  
   }
@@ -1414,16 +1618,16 @@ load_config(
           result = oss.str();
         },
         [&gridder_args](GridderArgs<OPT_STRING_ARGS>& args) {
-          if (args.h5_path.val)
-            gridder_args.h5_path.val = args.h5_path.val.value();
-          if (args.echo.val)
-            gridder_args.echo.val = args.echo.val.value();
-          if (args.block.val)
-            gridder_args.block.val = args.block.val.value();
-          if (args.pa_step.val)
-            gridder_args.pa_step.val = args.pa_step.val.value();
-          if (args.w_planes.val)
-            gridder_args.w_planes.val = args.w_planes.val.value();
+          if (args.h5_path)
+            gridder_args.h5_path = args.h5_path.value();
+          if (args.echo)
+            gridder_args.echo = args.echo.value();
+          if (args.block)
+            gridder_args.block = args.block.value();
+          if (args.pa_step)
+            gridder_args.pa_step = args.pa_step.value();
+          if (args.w_planes)
+            gridder_args.w_planes = args.w_planes.value();
         }
       },
       read_result);
@@ -1497,7 +1701,7 @@ public:
       if (val) {
         arg_pairs.emplace_back(tag, val.value());
       } else {
-        std::cerr << "Failed command line tokenization at argument '"
+        std::cerr << "No value provided for argument '"
                   << tag << "'" << std::endl;
         return false;
       }
@@ -1528,15 +1732,15 @@ public:
     // apply other variables from the command line
     for (auto& [tag, val] : arg_pairs) {
       if (tag == gridder_args.h5_path.tag)
-        gridder_args.h5_path.val = val;
+        gridder_args.h5_path = val;
       else if (tag == gridder_args.pa_step.tag)
-        gridder_args.pa_step.val = val;
+        gridder_args.pa_step = val;
       else if (tag == gridder_args.w_planes.tag)
-        gridder_args.w_planes.val = val;
+        gridder_args.w_planes = val;
       else if (tag == gridder_args.block.tag)
-        gridder_args.block.val = val;
+        gridder_args.block = val;
       else if (tag == gridder_args.echo.tag)
-        gridder_args.echo.val = val;
+        gridder_args.echo = val;
       else if (tag != gridder_args.config_path.tag) {
         std::cerr << "Unrecognized command line argument '"
                   << tag << "'" << std::endl;
@@ -1550,8 +1754,8 @@ public:
   template <typename T>
   static std::ostringstream&
   arg_error(std::ostringstream& oss, const T& arg, const std::string& reason) {
-    oss << "'" << arg.tag << "' value '" << arg.val
-        << "' " << reason << std::endl;
+    oss << "'" << arg.tag << "' value '" << arg.value()
+        << "': " << reason << std::endl;
     return oss;
   }
 
@@ -1559,37 +1763,37 @@ public:
   validate_args(const GridderArgs<VALUE_ARGS>& args) {
 
     std::ostringstream errs;
-    if (!FS::is_regular_file(args.h5_path.val))
-      arg_error(errs, args.h5_path, "does not name a regular file");
+    if (!FS::is_regular_file(args.h5_path.value()))
+      arg_error(errs, args.h5_path, "not a regular file");
 
-    switch (std::fpclassify(args.pa_step.val)) {
+    switch (std::fpclassify(args.pa_step.value())) {
     case FP_NORMAL:
-      if (std::abs(args.pa_step.val) > PARALLACTIC_360)
-        arg_error(errs, args.pa_step, "is not in valid range [-360, 360]");
+      if (std::abs(args.pa_step.value()) > PARALLACTIC_360)
+        arg_error(errs, args.pa_step, "not in valid range [-360, 360]");
       break;
     case FP_ZERO:
     case FP_SUBNORMAL:
-      arg_error(errs, args.pa_step, "is too small");
+      arg_error(errs, args.pa_step, "too small");
       break;
     default:
-      arg_error(errs, args.pa_step, "is invalid");
+      arg_error(errs, args.pa_step, "invalid");
       break;
     }
 
-    if (args.w_planes.val <= INVALID_W_PROJ_PLANES_VALUE)
+    if (args.w_planes.value() <= INVALID_W_PROJ_PLANES_VALUE)
       arg_error(
         errs,
         args.w_planes,
-        std::string("is less than the minimum valid value of ")
+        std::string("less than the minimum valid value of ")
         + std::to_string(INVALID_W_PROJ_PLANES_VALUE + 1));
-    else if (args.w_planes.val == AUTO_W_PROJ_PLANES_VALUE)
+    else if (args.w_planes.value() == AUTO_W_PROJ_PLANES_VALUE)
       arg_error(
         errs,
         args.w_planes,
-        "Automatic computation of the number of W-projection "
+        "automatic computation of the number of W-projection "
         "planes is unimplemented");
 
-    if (args.block.val == INVALID_MAIN_TABLE_ROW_BLOCK_SIZE_VALUE)
+    if (args.block.value() == INVALID_MAIN_TABLE_ROW_BLOCK_SIZE_VALUE)
       arg_error(
         errs,
         args.block,
@@ -1615,20 +1819,20 @@ public:
       const Legion::InputArgs& input_args = Legion::Runtime::get_input_args();
       GridderArgs<OPT_STRING_ARGS> some_str_args = default_config();
       if (get_args(input_args, some_str_args)) {
-        if (!some_str_args.h5_path.val) {
+        if (!some_str_args.h5_path) {
           std::cerr << "Path to HDF5 data [--"
                     << some_str_args.h5_path.tag
                     << " option] is required, but missing from arguments"
                     << std::endl;
           return;
         }
-        assert(some_str_args.is_complete());
-        GridderArgs<STRING_ARGS> str_args = some_str_args.as_complete();
+        std::optional<GridderArgs<STRING_ARGS>> str_args =
+          some_str_args.as_complete();
+        assert(str_args);
         try {
           // parse argument values as YAML values, so convert
           // GridderArgs<STRING_ARGS> to GridderArgs<VALUE_ARGS> via YAML
-          gridder_args =
-            std::make_optional<GridderArgs<VALUE_ARGS>>(str_args.as_node());
+          gridder_args = as_args(str_args.value().as_node());
         } catch (const YAML::Exception& e) {
           std::cerr << "Failed to parse some configuration values: " << std::endl
                     << e.what()
@@ -1645,12 +1849,11 @@ public:
     if (!gridder_args)
       return;
     GridderArgs<VALUE_ARGS>* g_args = &gridder_args.value();
-    g_args->pa_step.val = std::abs(g_args->pa_step.val);
+    g_args->pa_step = std::abs(g_args->pa_step.value());
 
-    if (g_args->echo.val)
+    if (g_args->echo.value())
       std::cout << "*Effective parameters*" << std::endl
                 << g_args->as_node() << std::endl;
-    return;
 
     // initialize Tables used by gridder from HDF5 file
     const std::string ms_root = "/";
@@ -1665,7 +1868,7 @@ public:
     MeasRefContainer ms_meas_ref; // FIXME
     for (auto& mst : mstables)
       tables[mst] =
-        init_table(ctx, rt, g_args->h5_path.val, ms_root, ms_meas_ref, mst);
+        init_table(ctx, rt, g_args->h5_path.value(), ms_root, ms_meas_ref, mst);
 
     // create region mapping antenna index to antenna class
     LogicalRegion antenna_classes;
@@ -1693,7 +1896,7 @@ public:
 
     // create vector of parallactic angle values
     PAIntervals pa_intervals =
-      PAIntervals::create(ctx, rt, tables, g_args->pa_step.val, 0.0f);
+      PAIntervals::create(ctx, rt, tables, g_args->pa_step.value(), 0.0f);
 
     // create convolution function map
     CFMap cf_map;
