@@ -726,27 +726,23 @@ public:
       rt->unmap_region(ctx, cols);
     }
     {
-      IndexPartition ip =
-        rt->create_partition_by_blockify(ctx, row_is, Point<1>(1));
-      LogicalPartition lp = rt->get_logical_partition(ctx, result, ip);
-      RegionRequirement req(lp, 0, WRITE_ONLY, EXCLUSIVE, result);
+      RegionRequirement req(result, WRITE_ONLY, EXCLUSIVE, result);
       req.add_field(antenna_class_fid);
       requirements.push_back(req);
-      rt->destroy_logical_partition(ctx, lp);
-      rt->destroy_index_partition(ctx, ip);
     }
-    IndexTaskLauncher
-      launcher(T::TASK_ID, row_is, TaskArgument(NULL, 0), ArgumentMap());
+    TaskLauncher launcher(T::TASK_ID, TaskArgument(NULL, 0));
     for (auto& req : requirements)
       launcher.add_region_requirement(req);
-    rt->execute_index_space(ctx, launcher);
+    rt->execute_task(ctx, launcher);
     return result;
   }
 
   static void
-  impl(
-    const Point<1>& pt,
-    const std::vector<Legion::PhysicalRegion>& regions) {
+  base_impl(
+    const Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context,
+    Legion::Runtime* rt) {
 
     const ROAccessor<hyperion::string, 1>
       names(regions[TableColumns<MS_ANTENNA>::NAME], Column::VALUE_FID);
@@ -761,23 +757,20 @@ public:
         regions[TableColumns<MS_ANTENNA>::DISH_DIAMETER],
         Column::VALUE_FID);
     const WOAccessor<unsigned, 1> antenna_classes(regions.back(), 0);
-    antenna_classes[pt] =
+
+    for (PointInRectIterator<1>
+           pir(
+             rt->get_index_space_domain(
+               task->regions.back().region.get_index_space()));
+         pir();
+         pir++)
+      antenna_classes[*pir] =
         T::classify(
-          names[pt].val,
-          stations[pt].val,
-          types[pt].val,
-          mounts[pt].val,
-          diameters[pt]);
-  }
-
-  static void
-  base_impl(
-    const Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context,
-    Legion::Runtime*) {
-
-    impl(task->index_point, regions);
+          names[*pir].val,
+          stations[*pir].val,
+          types[*pir].val,
+          mounts[*pir].val,
+          diameters[*pir]);
   }
 
 protected:
@@ -1865,34 +1858,32 @@ public:
       MS_SPECTRAL_WINDOW
     };
     std::unordered_map<MSTables,Table> tables;
-    MeasRefContainer ms_meas_ref; // FIXME
+    MeasRefContainer ms_meas_ref; // TODO: account for measures at top level
     for (auto& mst : mstables)
       tables[mst] =
         init_table(ctx, rt, g_args->h5_path.value(), ms_root, ms_meas_ref, mst);
 
     // create region mapping antenna index to antenna class
-    LogicalRegion antenna_classes;
-    {
-      // note that ClassifyAntennasTask uses an index space from the antenna
-      // table for the region it creates
+    //
+    // note that ClassifyAntennasTask uses an index space from the antenna
+    // table for the region it creates
+    LogicalRegion antenna_classes =
       tables[MS_ANTENNA]
-        .with_columns_attached(
-          ctx,
-          rt,
-          g_args->h5_path.val,
-          ms_root,
-          {COLUMN_NAME(MS_ANTENNA, NAME),
-           COLUMN_NAME(MS_ANTENNA, STATION),
-           COLUMN_NAME(MS_ANTENNA, TYPE),
-           COLUMN_NAME(MS_ANTENNA, MOUNT),
-           COLUMN_NAME(MS_ANTENNA, DISH_DIAMETER)},
-          {},
-          [&antenna_classes]
-          (Context ctx, Runtime* rt, const Table* tb) {
-            CLASSIFY_ANTENNAS_TASK task(*tb);
-            antenna_classes = task.dispatch(ctx, rt);
-          });
-    }
+      .with_columns_attached(
+        ctx,
+        rt,
+        g_args->h5_path.value(),
+        ms_root,
+        {COLUMN_NAME(MS_ANTENNA, NAME),
+         COLUMN_NAME(MS_ANTENNA, STATION),
+         COLUMN_NAME(MS_ANTENNA, TYPE),
+         COLUMN_NAME(MS_ANTENNA, MOUNT),
+         COLUMN_NAME(MS_ANTENNA, DISH_DIAMETER)},
+        {},
+        [](Context ctx, Runtime* rt, const Table* tb) {
+          CLASSIFY_ANTENNAS_TASK task(*tb);
+          return task.dispatch(ctx, rt);
+        });
 
     // create vector of parallactic angle values
     PAIntervals pa_intervals =
