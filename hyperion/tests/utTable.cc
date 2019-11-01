@@ -279,6 +279,7 @@ check_partition(
   return result;
 }
 
+#ifdef HYPERION_USE_CASACORE
 static bool
 verify_mr_names(
   Context ctx,
@@ -302,6 +303,7 @@ verify_mr_names(
   rt->unmap_region(ctx, pr);
   return names == expected;
 }
+#endif // HYPERION_USE_CASACORE
 
 void
 table_test_suite(
