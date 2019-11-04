@@ -16,7 +16,6 @@
 #include <hyperion/utility.h>
 #include <hyperion/Column.h>
 #include <hyperion/Table.h>
-#include <hyperion/TableReadTask.h>
 #include <hyperion/tree_index_space.h>
 #include <hyperion/MSTable.h>
 
@@ -25,6 +24,7 @@
 #endif // HYPERION_USE_HDF5
 
 #ifdef HYPERION_USE_CASACORE
+# include <hyperion/TableReadTask.h>
 # include <hyperion/Measures.h>
 #endif
 
