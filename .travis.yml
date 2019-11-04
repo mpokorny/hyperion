@@ -1,6 +1,3 @@
-branches:
-  only:
-    - travis
 dist: bionic
 language: cpp
 env:
