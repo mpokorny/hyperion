@@ -821,16 +821,31 @@ MeasRef::make(Context ctx, Runtime* rt) const {
   metadata_req.add_field(NUM_VALUES_FID);
   auto metadata_pr = rt->map_region(ctx, metadata_req);
 
+  auto result = make(rt, metadata_pr, value_pr);
+
+  rt->unmap_region(ctx, metadata_pr);
+  if (value_pr)
+    rt->unmap_region(ctx, value_pr.value());
+
+  return result;
+}
+
+std::unique_ptr<casacore::MRBase>
+MeasRef::make(
+  Legion::Runtime* rt,
+  Legion::PhysicalRegion metadata_pr,
+  std::optional<Legion::PhysicalRegion> value_pr) {
+
   std::unique_ptr<casacore::MRBase> result;
-  switch (metadata_region.get_dim()) {
-#define INST(D)                                   \
-    case D:                                       \
-      result =                                    \
-        instantiate<D>(                           \
-          value_pr,                               \
-          metadata_pr,                            \
-          rt->get_index_space_domain(             \
-            metadata_region.get_index_space()));  \
+  switch (metadata_pr.get_logical_region().get_dim()) {
+#define INST(D)                                                   \
+    case D:                                                       \
+      result =                                                    \
+        instantiate<D>(                                           \
+          value_pr,                                               \
+          metadata_pr,                                            \
+          rt->get_index_space_domain(                             \
+            metadata_pr.get_logical_region().get_index_space())); \
       break;
     HYPERION_FOREACH_N_LESS_MAX(INST);
 #undef INST
@@ -838,11 +853,6 @@ MeasRef::make(Context ctx, Runtime* rt) const {
     assert(false);
     break;
   }
-
-  rt->unmap_region(ctx, metadata_pr);
-  if (value_pr)
-    rt->unmap_region(ctx, value_pr.value());
-
   return result;
 }
 

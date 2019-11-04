@@ -193,6 +193,27 @@ public:
     return result;
   }
 
+  static std::unique_ptr<casacore::MRBase>
+  make(
+    Legion::Runtime* rt,
+    Legion::PhysicalRegion metadata_pr,
+    std::optional<Legion::PhysicalRegion> value_pr);
+
+  template <typename Ms>
+  static std::optional<std::shared_ptr<typename casacore::MeasRef<Ms>>>
+  make(
+    Legion::Runtime* rt,
+    Legion::PhysicalRegion metadata_pr,
+    std::optional<Legion::PhysicalRegion> value_pr) {
+
+    std::optional<std::shared_ptr<typename casacore::MeasRef<Ms>>> result;
+    std::shared_ptr<casacore::MRBase> mrb = make(rt, metadata_pr, value_pr);
+    auto mr = std::dynamic_pointer_cast<typename casacore::MeasRef<Ms>>(mrb);
+    if (mr)
+      result = mr;
+    return result;
+  }
+
   void
   destroy(Legion::Context ctx, Legion::Runtime* rt);
 
