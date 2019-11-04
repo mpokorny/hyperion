@@ -312,20 +312,20 @@ struct GridderArgType<T, false, TAG, OPT_VALUE_ARGS> {
 };
 template <typename T, const char* const* TAG>
 struct GridderArgType<T, true, TAG, OPT_VALUE_ARGS> {
-  typedef std::optional<std::optional<T>> type;
+  typedef std::optional<T> type;
 
-  std::optional<std::optional<T>> val;
+  std::optional<T> val;
 
   static const constexpr char* tag = *TAG;
 
   T
   value() const {
-    return val.value().value();
+    return val.value();
   }
 
   void
   operator=(const T& t) {
-    val = std::make_optional<T>(t);
+    val = t;
   }
 
   void
@@ -333,13 +333,8 @@ struct GridderArgType<T, true, TAG, OPT_VALUE_ARGS> {
     val = ot;
   }
 
-  void
-  operator=(const std::optional<std::optional<T>>& oot) {
-    val = oot;
-  }
-
   operator bool() const {
-    return val.has_value() && val.value().has_value();
+    return val.has_value();
   }
 };
 template <typename T, const char* const* TAG>
@@ -371,20 +366,20 @@ struct GridderArgType<T, false, TAG, OPT_STRING_ARGS> {
 };
 template <typename T, const char* const* TAG>
 struct GridderArgType<T, true, TAG, OPT_STRING_ARGS> {
-  typedef std::optional<std::optional<std::string>> type;
+  typedef std::optional<std::string> type;
 
-  std::optional<std::optional<std::string>> val;
+  std::optional<std::string> val;
 
   static const constexpr char* tag = *TAG;
 
   std::string
   value() const {
-    return val.value().value();
+    return val.value();
   }
 
   void
   operator=(const std::string& str) {
-    val = std::make_optional<std::string>(str);
+    val = str;
   }
 
   void
@@ -392,13 +387,8 @@ struct GridderArgType<T, true, TAG, OPT_STRING_ARGS> {
     val = ostr;
   }
 
-  void
-  operator=(const std::optional<std::optional<std::string>>& oostr) {
-    val = oostr;
-  }
-
   operator bool() const {
-    return val.has_value() && val.value().has_value();
+    return val.has_value();
   }
 };
 
