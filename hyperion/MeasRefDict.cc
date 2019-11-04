@@ -71,6 +71,14 @@ MeasRefDict::get(const std::string& name) const {
   return result;
 }
 
+std::optional<const MeasRef*>
+MeasRefDict::get_mr(const std::string& name) const {
+  std::optional<const MeasRef*> result;
+  if (m_meas_refs.count(name) > 0)
+    result = m_meas_refs.at(name);
+  return result;
+}
+
 void
 MeasRefDict::add_tags() {
   std::unordered_map<std::string, std::map<unsigned, const MeasRef*>> tag_refs;

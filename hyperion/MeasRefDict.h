@@ -84,6 +84,9 @@ public:
   std::optional<Ref>
   get(const std::string& name) const;
 
+  std::optional<const MeasRef*>
+  get_mr(const std::string& name) const;
+
   template <MClass M>
   static bool
   holds(const Ref& ref) {
