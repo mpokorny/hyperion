@@ -16,7 +16,9 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/Column.h>
 #include <hyperion/Table.h>
-#include <hyperion/TableBuilder.h>
+#ifdef HYPERION_USE_CASACORE
+# include <hyperion/TableBuilder.h>
+#endif
 
 #pragma GCC visibility push(default)
 # include <legion/legion_c_util.h>
