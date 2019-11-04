@@ -399,6 +399,19 @@ struct GridderArgsBase {
   static const constexpr char* block_tag = "block";
   static const constexpr char* pa_step_tag = "pa_step";
   static const constexpr char* w_planes_tag = "w_proj_planes";
+
+  static const std::vector<std::string>&
+  tags() {
+    static const std::vector<std::string> result{
+      h5_path_tag,
+      config_path_tag,
+      echo_tag,
+      block_tag,
+      pa_step_tag,
+      w_planes_tag
+    };
+    return result;
+  }
 };
 
 template <gridder_args_t G>
@@ -1639,12 +1652,12 @@ public:
 
     // first look for configuration file given by environment variable
     const char* env_config_pathname =
-      std::getenv("HYPERION_GRIDDER_CONFIGURATION");
+      std::getenv("HYPERION_GRIDDER_CONFIG");
     if (env_config_pathname != nullptr) {
       auto errs =
         load_config(
           env_config_pathname,
-          "HYPERION_GRIDDER_CONFIGURATION environment variable",
+          "HYPERION_GRIDDER_CONFIG environment variable",
           gridder_args);
       if (errs) {
         std::cerr << errs.value();
@@ -1714,19 +1727,35 @@ public:
     }
     // apply other variables from the command line
     for (auto& [tag, val] : arg_pairs) {
-      if (tag == gridder_args.h5_path.tag)
-        gridder_args.h5_path = val;
-      else if (tag == gridder_args.pa_step.tag)
-        gridder_args.pa_step = val;
-      else if (tag == gridder_args.w_planes.tag)
-        gridder_args.w_planes = val;
-      else if (tag == gridder_args.block.tag)
-        gridder_args.block = val;
-      else if (tag == gridder_args.echo.tag)
-        gridder_args.echo = val;
-      else if (tag != gridder_args.config_path.tag) {
-        std::cerr << "Unrecognized command line argument '"
-                  << tag << "'" << std::endl;
+      std::vector<std::string> matches;
+      for (auto& tg : gridder_args.tags())
+        if (tg.substr(0, tag.size()) == tag)
+          matches.push_back(tg);
+      if (matches.size() == 1) {
+        auto match = matches.front();
+        if (match == gridder_args.h5_path.tag)
+          gridder_args.h5_path = val;
+        else if (match == gridder_args.pa_step.tag)
+          gridder_args.pa_step = val;
+        else if (match == gridder_args.w_planes.tag)
+          gridder_args.w_planes = val;
+        else if (match == gridder_args.block.tag)
+          gridder_args.block = val;
+        else if (match == gridder_args.echo.tag)
+          gridder_args.echo = val;
+        else if (match == gridder_args.config_path.tag)
+          gridder_args.config_path = val;
+        else
+          assert(false);
+      }
+      else {
+        if (matches.size() == 0)
+          std::cerr << "Unrecognized command line argument '"
+                    << tag << "'" << std::endl;
+        else
+          std::cerr << "Command line argument '"
+                    << tag << "' is a prefix of a more than one option"
+                    << std::endl;
         return false;
       }
     }
