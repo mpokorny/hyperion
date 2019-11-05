@@ -155,17 +155,17 @@ struct HYPERION_API string {
   }
 
   bool
-  operator==(const string& other) {
+  operator==(const string& other) const {
     return std::strncmp(val, other.val, sizeof(val)) == 0;
   }
 
   bool
-  operator!=(const string& other) {
+  operator!=(const string& other) const {
     return std::strncmp(val, other.val, sizeof(val)) != 0;
   }
 
   bool
-  operator<(const string& other) {
+  operator<(const string& other) const {
     return std::strncmp(val, other.val, sizeof(val)) < 0;
   }
 };
