@@ -657,7 +657,7 @@ class HYPERION_API IndexColumnTask
 public:
 
   static Legion::TaskID TASK_ID;
-  static const char* TASK_NAME;
+  static const constexpr char* TASK_NAME = "IndexColumnTask";
   static constexpr Legion::FieldID VALUE_FID = Column::VALUE_FID;
   static constexpr Legion::FieldID ROWS_FID = Column::VALUE_FID + 10;
 
@@ -675,10 +675,6 @@ public:
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *runtime);
-
-private:
-
-  Legion::TaskLauncher m_launcher;
 };
 
 #ifndef NO_REINDEX

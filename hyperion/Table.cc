@@ -22,7 +22,7 @@
 
 #pragma GCC visibility push(default)
 # include <legion/legion_c_util.h>
-
+# include <mappers/default_mapper.h>
 # include <algorithm>
 # include <array>
 # include <limits>
@@ -614,28 +614,55 @@ public:
 
   static TaskID TASK_ID;
   static char TASK_NAME[40];
+  static const constexpr size_t min_block_size = 10000;
 
-  IndexAccumulateTask(const RegionRequirement& col_req) {
-
-    m_launcher =
-      IndexTaskLauncher(
-        TASK_ID,
-        col_req.region.get_index_space(),
-        TaskArgument(NULL, 0),
-        ArgumentMap());
-    m_launcher.add_region_requirement(
-      RegionRequirement(
-        col_req.region,
-        0,
-        READ_ONLY,
-        EXCLUSIVE,
-        col_req.region));
-    m_launcher.add_field(0, Column::VALUE_FID);
+  IndexAccumulateTask(const RegionRequirement& col_req)
+    : m_col_req(col_req) {
   }
 
   Future
-  dispatch(Context ctx, Runtime* runtime) {
-    return runtime->execute_index_space(ctx, m_launcher, DT::af_redop_id);
+  dispatch(Context ctx, Runtime* rt) {
+
+    unsigned num_subregions =
+      rt
+      ->select_tunable_value(
+        ctx,
+        Mapping::DefaultMapper::DefaultTunables::DEFAULT_TUNABLE_GLOBAL_CPUS,
+        0)
+      .get_result<size_t>();
+
+    auto dom = rt->get_index_space_domain(m_col_req.region.get_index_space());
+    // TODO: support column index space dim > 1?
+    assert(dom.get_dim() == 1);
+    size_t vol = dom.get_volume();
+    size_t block_size =
+      std::max(min_block_size, (vol + num_subregions - 1) / num_subregions);
+    num_subregions = (vol + block_size - 1) / block_size;
+    Rect<1> color_rect(0, num_subregions - 1);
+    IndexSpace color_is = rt->create_index_space(ctx, color_rect);
+    IndexPartition ip =
+      rt->create_equal_partition(
+        ctx,
+        m_col_req.region.get_index_space(),
+        color_is);
+    LogicalPartition col_lp =
+      rt->get_logical_partition(ctx, m_col_req.region, ip);
+
+    IndexTaskLauncher
+      launcher(TASK_ID, color_is, TaskArgument(NULL, 0), ArgumentMap());
+    launcher.add_region_requirement(
+      RegionRequirement(
+        col_lp,
+        0,
+        READ_ONLY,
+        EXCLUSIVE,
+        m_col_req.region));
+    launcher.add_field(0, Column::VALUE_FID);
+    auto result = rt->execute_index_space(ctx, launcher, DT::af_redop_id);
+    rt->destroy_logical_partition(ctx, col_lp);
+    rt->destroy_index_partition(ctx, ip);
+    rt->destroy_index_space(ctx, color_is);
+    return result;
   }
 
   static void
@@ -660,17 +687,22 @@ public:
     const Task* task,
     const std::vector<PhysicalRegion>& regions,
     Context,
-    Runtime*) {
+    Runtime* rt) {
 
-    acc_field_redop_rhs<T> result;
-    switch (task->index_point.get_dim()) {
+    std::map<T, std::vector<DomainPoint>> pts;
+    switch (task->regions[0].region.get_index_space().get_dim()) {
 #define ACC(D)                                                          \
       case (D): {                                                       \
         const ROAccessor<T, D> acc(regions[0], Column::VALUE_FID);      \
-        Point<D, coord_t> pt(task->index_point);                        \
-        result = acc_field_redop_rhs<T>{                                \
-          {std::make_tuple(acc[pt],                                     \
-                      std::vector<DomainPoint>{task->index_point})}};   \
+        for (PointInDomainIterator<D> pid(                              \
+               rt->get_index_space_domain(                              \
+                 task->regions[0].region.get_index_space()));           \
+             pid();                                                     \
+             pid++) {                                                   \
+          if (pts.count(acc[*pid]) == 0)                                \
+            pts[acc[*pid]] = std::vector<DomainPoint>();                \
+          pts[acc[*pid]].push_back(*pid);                               \
+        }                                                               \
         break;                                                          \
       }
       HYPERION_FOREACH_N(ACC);
@@ -679,12 +711,15 @@ public:
       assert(false);
       break;
     }
+    acc_field_redop_rhs<T> result;
+    result.v.reserve(pts.size());
+    std::copy(pts.begin(), pts.end(), std::back_inserter(result.v));
     return result;
   }
 
 private:
 
-  IndexTaskLauncher m_launcher;
+  RegionRequirement m_col_req;
 };
 
 template <typename T>
@@ -694,7 +729,6 @@ template <typename T>
 char IndexAccumulateTask<T>::TASK_NAME[40];
 
 TaskID IndexColumnTask::TASK_ID;
-const char* IndexColumnTask::TASK_NAME = "IndexColumnTask";
 
 IndexColumnTask::IndexColumnTask(const Column& column)
   : TaskLauncher(TASK_ID, TaskArgument(NULL, 0)) {
@@ -773,9 +807,6 @@ index_column(
       tie(values[i], rns[i]) = acc[i];
     }
     runtime->unmap_region(ctx, result_pr);
-    // TODO: keep?
-    //runtime->destroy_field_space(ctx, result_fs);
-    //runtime->destroy_index_space(ctx, result_is);
   }
   return result_lr;
 }
