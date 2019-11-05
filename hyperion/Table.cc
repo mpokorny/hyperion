@@ -2390,8 +2390,8 @@ public:
         lr,
         PART_FID,
         args->colors_is);
-    // runtime->destroy_logical_region(context, lr);
-    // runtime->destroy_field_space(context, fs);
+    runtime->destroy_logical_region(context, lr);
+    runtime->destroy_field_space(context, fs);
     return result;
   }
 
@@ -2573,11 +2573,6 @@ Table::ipartition_by_value(
       0,
       flags_cs);
   IndexSpace color_set_is = rt->get_index_subspace(color_flag_ip, 1);
-  // rt->destroy_index_space(ctx, cset_is);
-  // rt->destroy_index_partition(ctx, color_bounds_ip);
-  // rt->destroy_logical_partition(ctx, color_flag_lp);
-  // rt->destroy_index_partition(ctx, color_flag_ip);
-  // rt->destroy_index_space(ctx, flags_cs);
 
   std::unordered_map<std::string, Future> result;
   auto colnames = column_names(ctx, rt, cols);
@@ -2595,8 +2590,21 @@ Table::ipartition_by_value(
     result.emplace(nm, pt.dispatch(ctx, rt));
   }
 
-  // FIXME: clean up ixcols
-  // rt->destroy_logical_region(ctx, colors_lr); FIXME
+  // TODO: I'm not sure that destroying color_flag_ip is OK, as one of its
+  // sub-spaces is used by PartitionRowsTask, which would then be the color
+  // space of the row partition; alternatively might need caller to manage
+  // its deletion somehow
+  rt->destroy_index_partition(ctx, color_flag_ip);
+  rt->destroy_index_space(ctx, flags_cs);
+
+  rt->destroy_field_space(ctx, row_color_fs);
+  // don't destroy row_colors_lr.get_index_space() (== rows_is)
+  rt->destroy_logical_region(ctx, row_colors_lr);
+
+  rt->destroy_field_space(ctx, colors_fs);
+  rt->destroy_index_space(ctx, colors_is);
+  rt->destroy_logical_region(ctx, colors_lr);
+
   rt->unmap_region(ctx, cols);
   return result;
 }
