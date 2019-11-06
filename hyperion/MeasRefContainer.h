@@ -83,7 +83,11 @@ public:
   size_t
   size(Legion::Runtime* rt) const;
 
-  std::vector<Legion::RegionRequirement>
+  std::vector<
+    std::tuple<
+      Legion::RegionRequirement,
+      Legion::RegionRequirement,
+      std::optional<Legion::RegionRequirement>>>
   component_requirements(
     Legion::Context ctx,
     Legion::Runtime* rt,

@@ -133,13 +133,21 @@ MeasRefContainer::size(Legion::Runtime* rt) const {
       rt->get_index_space_domain(lr.get_index_space()).get_volume();
 }
 
-std::vector<RegionRequirement>
+std::vector<
+  std::tuple<
+    RegionRequirement,
+    RegionRequirement,
+    std::optional<RegionRequirement>>>
 MeasRefContainer::component_requirements(
   Context ctx,
   Runtime* rt,
   legion_privilege_mode_t mode) const {
 
-  std::vector<RegionRequirement> result;
+  std::vector<
+    std::tuple<
+      RegionRequirement,
+      RegionRequirement,
+      std::optional<RegionRequirement>>> result;
   if (lr != LogicalRegion::NO_REGION) {
     RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
     req.add_field(MEAS_REF_FID);
@@ -150,11 +158,15 @@ MeasRefContainer::component_requirements(
          pid();
          pid++) {
       const MeasRef& mr = mrs[*pid];
+      std::tuple<
+        RegionRequirement,
+        RegionRequirement,
+        std::optional<RegionRequirement>> reqs;
       {
         RegionRequirement
           req(mr.name_region, mode, EXCLUSIVE, mr.name_region);
         req.add_field(MeasRef::NAME_FID);
-        result.push_back(req);
+        std::get<0>(reqs) = req;
       }
       {
         RegionRequirement
@@ -162,14 +174,15 @@ MeasRefContainer::component_requirements(
         req.add_field(MeasRef::MEASURE_CLASS_FID);
         req.add_field(MeasRef::REF_TYPE_FID);
         req.add_field(MeasRef::NUM_VALUES_FID);
-        result.push_back(req);
+        std::get<1>(reqs) = req;
       }
       if (mr.value_region != LogicalRegion::NO_REGION) {
         RegionRequirement
           req(mr.value_region, mode, EXCLUSIVE, mr.value_region);
         req.add_field(0);
-        result.push_back(req);
+        std::get<2>(reqs) = req;
       }
+      result.push_back(reqs);
     }
     rt->unmap_region(ctx, pr);
   }

@@ -533,6 +533,7 @@ read_full_ms(
     } else {
       args.has_keywords = false;
     }
+    args.has_measures = false;
     if (col.meas_refs.size(rt) > 0) {
       args.has_measures = true;
       RegionRequirement
@@ -541,8 +542,12 @@ read_full_ms(
       req.add_field(MeasRefContainer::MEAS_REF_FID);
       verify_task.add_region_requirement(req);
       auto creqs = col.meas_refs.component_requirements(ctx, rt);
-      for (auto& r : creqs)
-        verify_task.add_region_requirement(r);
+      for (auto& [r0, r1, or2] : creqs) {
+        verify_task.add_region_requirement(r0);
+        verify_task.add_region_requirement(r1);
+        if (or2)
+          verify_task.add_region_requirement(or2.value());
+      }
     } else {
       args.has_measures = false;
     }
