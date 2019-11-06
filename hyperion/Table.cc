@@ -632,8 +632,6 @@ public:
       .get_result<size_t>();
 
     auto dom = rt->get_index_space_domain(m_col_req.region.get_index_space());
-    // TODO: support column index space dim > 1?
-    assert(dom.get_dim() == 1);
     size_t vol = dom.get_volume();
     size_t block_size =
       std::max(min_block_size, (vol + num_subregions - 1) / num_subregions);
