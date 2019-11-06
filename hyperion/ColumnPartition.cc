@@ -60,7 +60,13 @@ create_partition_on_axes(
 
   IndexSpaceT<PART_DIM> cs = rt->create_index_space(ctx, cs_rect);
   IndexPartitionT<IS_DIM> result =
-    rt->create_partition_by_restriction(ctx, is, cs, transform, extent);
+    rt->create_partition_by_restriction(
+      ctx,
+      is,
+      cs,
+      transform,
+      extent,
+      DISJOINT_COMPLETE_KIND);
   return result;
 }
 
@@ -71,7 +77,7 @@ ColumnPartition::ColumnPartition(
   : axes_uid_lr(axes_uid)
   , axes_lr(axes)
   , index_partition(index_partition_) {
-}  
+}
 
 ColumnPartition
 ColumnPartition::create(
