@@ -92,6 +92,15 @@ public:
     Legion::Runtime* rt,
     const std::vector<Legion::FieldID>& fids) const;
 
+  Keywords
+  clone(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  static Keywords
+  clone(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const pair<Legion::PhysicalRegion>& prs);
+
   template <template <typename> typename C>
   std::optional<pair<Legion::RegionRequirement>>
   requirements(

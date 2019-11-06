@@ -99,6 +99,76 @@ Keywords::value_types(
 }
 
 Keywords
+Keywords::clone(Legion::Context ctx, Legion::Runtime* rt) const {
+  Keywords result;
+  if (!is_empty()) {
+    std::vector<FieldID> fids;
+    auto fs = type_tags_lr.get_field_space();
+    rt->get_field_space_fields(fs, fids);
+    auto reqs = requirements(rt, fids, READ_ONLY).value();
+    auto prs =
+      reqs.map(
+        [&ctx, rt](const RegionRequirement& r){
+          return rt->map_region(ctx, r);
+        });
+    result = clone(ctx, rt, prs);
+    prs.map(
+      [&ctx, rt](const PhysicalRegion& p) {
+        rt->unmap_region(ctx, p);
+        return 0;
+      });
+  }
+  return result;
+}
+
+Keywords
+Keywords::clone(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const pair<Legion::PhysicalRegion>& prs) {
+
+  std::vector<FieldID> fids;
+  auto fs = prs.type_tags.get_logical_region().get_field_space();
+  rt->get_field_space_fields(fs, fids);
+  kw_desc_t kws;
+  for (auto fid : fids) {
+    const char* fname;
+    rt->retrieve_name(fs, fid, fname);
+    const TypeTagAccessor<READ_ONLY> type_tags(prs.type_tags, fid);
+    kws.emplace_back(fname, type_tags[0]);
+  }
+  Keywords result = create(ctx, rt, kws);
+  auto res_reqs = result.requirements(rt, fids, WRITE_ONLY).value();
+  auto res_prs =
+    res_reqs.map(
+      [&ctx, rt](const RegionRequirement& r){
+        return rt->map_region(ctx, r);
+      });
+  for (size_t i = 0; i < kws.size(); ++i) {
+    switch (std::get<1>(kws[i])) {
+#define CPY(DT)                                             \
+      case DT:                                              \
+        Keywords::write<WRITE_ONLY>(                        \
+          res_prs,                                          \
+          i,                                                \
+          Keywords::read<DataType<DT>::ValueType>(prs, i)   \
+          .value());                                        \
+        break;
+      HYPERION_FOREACH_DATATYPE(CPY);
+#undef CPY
+      default:
+        assert(false);
+    }
+  }
+  res_prs.map(
+    [&ctx, rt](const PhysicalRegion& p) {
+      rt->unmap_region(ctx, p);
+      return 0;
+    });
+  return result;
+}
+
+Keywords
 Keywords::create(
   Context ctx,
   Runtime* rt,
