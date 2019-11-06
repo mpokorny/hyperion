@@ -1352,6 +1352,8 @@ private:
 TaskID ComputeRectanglesTask::TASK_ID;
 const char* ComputeRectanglesTask::TASK_NAME = "ComputeRectanglesTask";
 
+#endif //!NO_REINDEX
+
 class HYPERION_LOCAL ReindexColumnCopyTask {
 public:
 
@@ -1391,27 +1393,37 @@ public:
 
   template <hyperion::TypeTag DT>
   static void
-  copy(const PhysicalRegion& src, const PhysicalRegion& dst) {
+  copy(
+    Runtime* rt,
+    const RegionRequirement& src_req,
+    const RegionRequirement& dst_req,
+    const PhysicalRegion& src,
+    const PhysicalRegion& dst) {
 
-#define CPY(SRCDIM, DSTDIM)                             \
-    case (SRCDIM * LEGION_MAX_DIM + DSTDIM): {          \
-      const SA<DT,SRCDIM> from(src, Column::VALUE_FID); \
-      const DA<DT,DSTDIM> to(dst, Column::VALUE_FID);   \
-      DomainT<SRCDIM,coord_t> src_bounds(src);          \
-      DomainT<DSTDIM,coord_t> dst_bounds(dst);          \
-      PointInDomainIterator<SRCDIM> s(src_bounds);      \
-      PointInDomainIterator<DSTDIM> d(dst_bounds);      \
-      while (s()) {                                     \
-        to[*d] = from[*s];                              \
-        d++; s++;                                       \
-      }                                                 \
-      break;                                            \
-    }
 
     int srcdim = src.get_logical_region().get_dim();
     int dstdim = dst.get_logical_region().get_dim();
     switch (srcdim * LEGION_MAX_DIM + dstdim) {
+#define CPY(SRCDIM, DSTDIM)                               \
+      case (SRCDIM * LEGION_MAX_DIM + DSTDIM): {          \
+        const SA<DT,SRCDIM> from(src, Column::VALUE_FID); \
+        const DA<DT,DSTDIM> to(dst, Column::VALUE_FID);   \
+        Domain src_bounds(                                \
+            rt->get_index_space_domain(                   \
+              src_req.region.get_index_space()));         \
+        Domain dst_bounds(                                \
+            rt->get_index_space_domain(                   \
+              dst_req.region.get_index_space()));         \
+        PointInDomainIterator<SRCDIM> s(src_bounds);      \
+        PointInDomainIterator<DSTDIM> d(dst_bounds);      \
+        while (s()) {                                     \
+          to[*d] = from[*s];                              \
+          d++; s++;                                       \
+        }                                                 \
+        break;                                            \
+      }
       HYPERION_FOREACH_MN(CPY)
+#undef CPY
     default:
         assert(false);
       break;
@@ -1444,8 +1456,10 @@ public:
     // we now have partitions over the same color space on both m_column and
     // m_new_col_lr
 
+    LogicalPartition col_lp =
+      runtime->get_logical_partition(ctx, m_column, m_row_partition);
     RegionRequirement src_req(
-      runtime->get_logical_partition(ctx, m_column, m_row_partition),
+      col_lp,
       0,
       READ_ONLY,
       EXCLUSIVE,
@@ -1481,20 +1495,26 @@ public:
     const Task* task,
     const std::vector<PhysicalRegion>& regions,
     Context,
-    Runtime*) {
+    Runtime* rt) {
 
     hyperion::TypeTag dt = *static_cast<hyperion::TypeTag*>(task->args);
 
-#define CPYDT(DT)                                       \
-    case (DT): copy<DT>(regions[0], regions[1]); break;
-
     switch (dt) {
+#define CPYDT(DT)                               \
+      case (DT):                                \
+        copy<DT>(                               \
+          rt,                                   \
+          task->regions[0],                     \
+          task->regions[1],                     \
+          regions[0],                           \
+          regions[1]);                          \
+        break;
       HYPERION_FOREACH_DATATYPE(CPYDT)
-    default:
+#undef CPYDT
+      default:
         assert(false);
       break;
     }
-#undef CPYDT
   }
 
   static void
@@ -1532,7 +1552,7 @@ ReindexColumnTask::TaskArgs::serialized_size() const {
     sizeof(allow_rows)
     + vector_serdez<int>::serialized_size(index_axes)
     + sizeof(row_partition)
-    + col.legion_buffer_size();
+    + sizeof(col);
 }
 
 size_t
@@ -1543,7 +1563,8 @@ ReindexColumnTask::TaskArgs::serialize(void* buffer) const {
   buff += vector_serdez<int>::serialize(index_axes, buff);
   *reinterpret_cast<decltype(row_partition)*>(buff) = row_partition;
   buff += sizeof(row_partition);
-  buff += col.legion_serialize(buff);
+  *reinterpret_cast<decltype(col)*>(buff) = col;
+  buff += sizeof(col);
   return buff - static_cast<char*>(buffer);
 }
 
@@ -1559,83 +1580,141 @@ ReindexColumnTask::TaskArgs::deserialize(
   val.row_partition =
     *reinterpret_cast<const decltype(val.row_partition)*>(buff);
   buff += sizeof(val.row_partition);
-  buff += val.col.legion_deserialize(buff);
+  val.col = *reinterpret_cast<const decltype(val.col)*>(buff);
+  buff += sizeof(val.col);
   return buff - static_cast<const char*>(buffer);
 }
 
 ReindexColumnTask::ReindexColumnTask(
-  const shared_ptr<Column>& col,
+  const Column& col,
+  const std::vector<int>& col_axes,
   ssize_t row_axis_offset,
-  const std::vector<shared_ptr<Column>>& ixcols,
-  bool allow_rows) {
+  const std::vector<std::tuple<int, LogicalRegion>>& ixcols,
+  bool allow_rows)
+  : m_col_axes(col_axes)
+  , m_row_axis_offset(row_axis_offset) {
 
-  // get column partition down to row axis
   assert(row_axis_offset >= 0);
-  std::vector<int> col_part_axes;
-  std::copy_n(
-    col->axes().begin(),
-    row_axis_offset + 1,
-    std::back_inserter(col_part_axes));
-  m_partition = col->partition_on_axes(col_part_axes);
 
-  std::vector<int> index_axes =
-    map(
-      ixcols,
-      [](const auto& ixc) {
-        assert(ixc->axes().size() == 1);
-        return ixc->axes()[0];
-      });
-  TaskArgs args {allow_rows, index_axes, m_partition->index_partition(),
-                 col->generator_args()};
-  m_args_buffer = make_unique<char[]>(args.serialized_size());
-  args.serialize(m_args_buffer.get());
-  m_launcher =
-    TaskLauncher(
-      TASK_ID,
-      TaskArgument(m_args_buffer.get(), args.serialized_size()));
-  RegionRequirement
-    col_req(
-      col->logical_region(),
-      READ_ONLY,
-      EXCLUSIVE,
-      col->logical_region());
-  col_req.add_field(Column::VALUE_FID);
-  m_launcher.add_region_requirement(col_req);
-  std::for_each(
-    ixcols.begin(),
-    ixcols.end(),
-    [this](auto& ixc) {
-      auto lr = ixc->logical_region();
-      assert(lr != LogicalRegion::NO_REGION);
-      RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
-      req.add_field(IndexColumnTask::ROWS_FID);
-      m_launcher.add_region_requirement(req);
-    });
+  m_args.allow_rows = allow_rows;
+  m_args.col = col;
+
+  for (auto& [ix, lr] : ixcols) {
+    m_args.index_axes.push_back(ix);
+    m_ixlrs.push_back(lr);
+  }
 }
 
+enum ReindexColumnRegionIndexes {
+  METADATA,
+  AXES,
+  VALUES,
+  INDEXES
+};
+
 Future
-ReindexColumnTask::dispatch(Context ctx, Runtime* runtime) {
-  return runtime->execute_task(ctx, m_launcher);
+ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
+
+  // get column partition down to row axis
+  std::vector<int> col_part_axes;
+  std::copy_n(
+    m_col_axes.begin(),
+    m_row_axis_offset + 1,
+    std::back_inserter(col_part_axes));
+  ColumnPartition partition = m_args.col.partition_on_axes(ctx, rt, col_part_axes);
+  m_args.row_partition = partition.index_partition;
+
+  std::unique_ptr<char[]>args_buffer =
+    std::make_unique<char[]>(m_args.serialized_size());
+  m_args.serialize(args_buffer.get());
+
+  TaskLauncher launcher(
+      TASK_ID,
+      TaskArgument(args_buffer.get(), m_args.serialized_size()));
+  {
+    RegionRequirement
+      req(m_args.col.metadata_lr, READ_ONLY, EXCLUSIVE, m_args.col.metadata_lr);
+    static_assert(ReindexColumnRegionIndexes::METADATA == 0);
+    req.add_field(Column::METADATA_NAME_FID);
+    req.add_field(Column::METADATA_AXES_UID_FID);
+    req.add_field(Column::METADATA_DATATYPE_FID);
+    launcher.add_region_requirement(req);
+  }
+  {
+    RegionRequirement
+      req(m_args.col.axes_lr, READ_ONLY, EXCLUSIVE, m_args.col.axes_lr);
+    static_assert(ReindexColumnRegionIndexes::AXES == 1);
+    req.add_field(Column::AXES_FID);
+    launcher.add_region_requirement(req);
+  }
+  {
+    RegionRequirement
+      req(m_args.col.values_lr, READ_ONLY, EXCLUSIVE, m_args.col.values_lr);
+    static_assert(ReindexColumnRegionIndexes::VALUES == 2);
+    req.add_field(Column::VALUE_FID);
+    launcher.add_region_requirement(req);
+  }
+  static_assert(ReindexColumnRegionIndexes::INDEXES == 3);
+  if (!m_args.col.keywords.is_empty()) {
+    auto kwsz = m_args.col.keywords.size(rt);
+    std::vector<FieldID> fids(kwsz);
+    std::iota(fids.begin(), fids.end(), 0);
+    auto reqs = m_args.col.keywords.requirements(rt, fids, READ_ONLY).value();
+    launcher.add_region_requirement(reqs.type_tags);
+    launcher.add_region_requirement(reqs.values);
+  }
+  for (auto& lr : m_ixlrs) {
+    assert(lr != LogicalRegion::NO_REGION);
+    RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+    req.add_field(IndexColumnTask::ROWS_FID);
+    launcher.add_region_requirement(req);
+  }
+  // auto mrc_reqs =
+  //   m_args.col.meas_refs.component_requirements(ctx, rt, READ_ONLY);
+  // if (mrc_reqs.size() > 0) {
+  //   for (auto& [r0, r1, or2] : mrc_reqs) {
+  //     launcher.add_region_requirement(r0);
+  //     launcher.add_region_requirement(r1);
+  //     if (or2)
+  //       launcher.add_region_requirement(or2.value());
+  //   }
+  // }
+  if (m_args.col.meas_refs.lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(
+      m_args.col.meas_refs.lr,
+      READ_ONLY,
+      EXCLUSIVE,
+      m_args.col.meas_refs.lr);
+    req.add_field(MeasRefContainer::OWNED_FID);
+    req.add_field(MeasRefContainer::MEAS_REF_FID);
+    launcher.add_region_requirement(req);
+  }
+  return rt->execute_task(ctx, launcher);
 }
 
 template <int OLDDIM, int NEWDIM>
-static ColumnGenArgs
+static Column
 reindex_column(
+  const Task* task,
   const ReindexColumnTask::TaskArgs& args,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
-  Runtime *runtime) {
+  Runtime *rt) {
 
   Rect<OLDDIM> col_domain =
-    runtime->get_index_space_domain(ctx, args.col.values.get_index_space());
+    rt->get_index_space_domain(
+      ctx,
+      task->regions[ReindexColumnRegionIndexes::VALUES]
+      .region
+      .get_index_space());
   // we use the name "rows_is" for the index space at or above the "ROW" axis
   IndexSpace rows_is =
-    runtime->get_index_partition_color_space_name(ctx, args.row_partition);
+    rt->get_index_partition_color_space_name(ctx, args.row_partition);
   // logical region over rows_is with a field for the rectangle in the new
   // column index space for each value in row_is
-  auto new_rects_fs = runtime->create_field_space(ctx);
+  auto new_rects_fs = rt->create_field_space(ctx);
   {
-    auto fa = runtime->create_field_allocator(ctx, new_rects_fs);
+    auto fa = rt->create_field_allocator(ctx, new_rects_fs);
     fa.allocate_field(sizeof(Rect<NEWDIM>), ReindexColumnTask::row_rects_fid);
 
     LayoutConstraintRegistrar lc(new_rects_fs);
@@ -1643,17 +1722,16 @@ reindex_column(
       .add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
     // TODO: free LayoutConstraintID returned from following call...maybe
     // generate field spaces and constraints once at startup
-    runtime->register_layout(lc);
+    rt->register_layout(lc);
   }
-  auto new_rects_lr =
-    runtime->create_logical_region(ctx, rows_is, new_rects_fs);
+  auto new_rects_lr = rt->create_logical_region(ctx, rows_is, new_rects_fs);
 
   // initialize new_rects_lr values to empty rectangles
   Rect<NEWDIM> empty;
   empty.lo[0] = 0;
   empty.hi[0] = -1;
   assert(empty.empty());
-  runtime->fill_field(
+  rt->fill_field(
     ctx,
     new_rects_lr,
     new_rects_lr,
@@ -1665,15 +1743,15 @@ reindex_column(
   //   new_rects_req(new_rects_lr, WRITE_DISCARD, SIMULTANEOUS, new_rects_lr);
   // cout << "new_rects_lr " << new_rects_lr << endl;
   // new_rects_req.add_field(ReindexColumnTask::row_rects_fid);
-  // PhysicalRegion new_rects_pr = runtime->map_region(ctx, new_rects_req);
+  // PhysicalRegion new_rects_pr = rt->map_region(ctx, new_rects_req);
 
+  bool col_has_keywords = !args.col.keywords.is_empty();
   std::vector<LogicalRegion> ix_lrs;
-  ix_lrs.reserve(regions.size() - 1);
-  std::transform(
-    regions.begin() + 1,
-    regions.end(),
-    std::back_inserter(ix_lrs),
-    [](const auto& rg) { return rg.get_logical_region(); });
+  ix_lrs.reserve(args.index_axes.size());
+  auto ixlr0 = ReindexColumnRegionIndexes::INDEXES + (col_has_keywords ? 2 : 0);
+  for (size_t i = 0; i < args.index_axes.size(); ++i)
+    ix_lrs[i] = regions[i + ixlr0].get_logical_region();
+  auto mr_idx = ixlr0 + args.index_axes.size();
 
   // task to compute new index space rectangle for each row in column
 #ifdef HIERARCHICAL_COMPUTE_RECTANGLES
@@ -1694,8 +1772,10 @@ reindex_column(
       ix_lrs,
       new_rects_lr);
 #endif
-  new_rects_task.dispatch(ctx, runtime);
+  new_rects_task.dispatch(ctx, rt);
 
+  const Column::AxesAccessor<READ_ONLY, true>
+    col_axes(regions[ReindexColumnRegionIndexes::AXES], Column::AXES_FID);
   // create the new index space via create_partition_by_image_range based on
   // rows_rect_lr; for this, we need the bounding index space first
   Rect<NEWDIM> new_bounds;
@@ -1708,13 +1788,13 @@ reindex_column(
     while (i < d) {
       new_bounds.lo[i] = col_domain.lo[j];
       new_bounds.hi[i] = col_domain.hi[j];
-      new_axes[i] = args.col.axes[j];
+      new_axes[i] = col_axes[j];
       ++i; ++j;
     }
     // append new index axes
     for (size_t k = 0; k < ix_lrs.size(); ++k) {
       Rect<1> ix_domain =
-        runtime->get_index_space_domain(ix_lrs[k].get_index_space());
+        rt->get_index_space_domain(ix_lrs[k].get_index_space());
       new_bounds.lo[i] = ix_domain.lo[0];
       new_bounds.hi[i] = ix_domain.hi[0];
       new_axes[i] = args.index_axes[k];
@@ -1724,7 +1804,7 @@ reindex_column(
     if (args.allow_rows) {
       new_bounds.lo[i] = col_domain.lo[j];
       new_bounds.hi[i] = col_domain.hi[j];
-      assert(args.col.axes[j] == 0);
+      assert(col_axes[j] == 0);
       new_axes[i] = 0;
       ++i;
     }
@@ -1734,17 +1814,17 @@ reindex_column(
       assert(j < OLDDIM);
       new_bounds.lo[i] = col_domain.lo[j];
       new_bounds.hi[i] = col_domain.hi[j];
-      new_axes[i] = args.col.axes[j];
+      new_axes[i] = col_axes[j];
       ++i; ++j;
     }
   }
-  auto new_bounds_is = runtime->create_index_space(ctx, new_bounds);
+  auto new_bounds_is = rt->create_index_space(ctx, new_bounds);
 
 #ifdef WORKAROUND
   {
     RegionRequirement req(new_rects_lr, READ_ONLY, EXCLUSIVE, new_rects_lr);
     req.add_field(ReindexColumnTask::row_rects_fid);
-    PhysicalRegion pr = runtime->map_region(ctx, req);
+    PhysicalRegion pr = rt->map_region(ctx, req);
 
 #define PRINTIT(N)     \
     case (N): { \
@@ -1755,8 +1835,8 @@ reindex_column(
         coord_t,\
         AffineAccessor<Rect<NEWDIM>, N, coord_t>, \
         true> rr(pr, ReindexColumnTask::row_rects_fid);\
-      for (PointInDomainIterator<N> \
-             pid(runtime->get_index_space_domain(ctx, rows_is));        \
+      for (PointInDomainIterator<N>                                     \
+             pid(rt->get_index_space_domain(ctx, rows_is));             \
            pid();                                                       \
            pid++)                                                       \
         cout << *pid << ": " << rr[*pid] << endl;                       \
@@ -1770,89 +1850,131 @@ reindex_column(
     }
 #undef PRINTIT
   }
-  return ColumnGenArgs();
+  return Column();
 #endif
   // to do this, we need a logical partition of new_rects_lr, which will
   // comprise a single index subspace
-  IndexSpaceT<1> unitary_cs = runtime->create_index_space(ctx, Rect<1>(0, 0));
+  IndexSpaceT<1> unitary_cs = rt->create_index_space(ctx, Rect<1>(0, 0));
   // auto row_rects_ip =
-  //   runtime->create_pending_partition(ctx, bounds_is, row_rects_cs);
-  // runtime->create_index_space_union(
+  //   rt->create_pending_partition(ctx, bounds_is, row_rects_cs);
+  // rt->create_index_space_union(
   //   ctx,
   //   row_rects_ip,
   //   Point<1>(0),
   //   {rows_is});
   auto unitary_rows_ip =
-    runtime->create_equal_partition(ctx, rows_is, unitary_cs);
+    rt->create_equal_partition(ctx, rows_is, unitary_cs);
   auto unitary_new_rects_lp =
-    runtime->get_logical_partition(ctx, new_rects_lr, unitary_rows_ip);
+    rt->get_logical_partition(ctx, new_rects_lr, unitary_rows_ip);
   IndexPartitionT<NEWDIM> new_bounds_ip(
-    runtime->create_partition_by_image_range(
+    rt->create_partition_by_image_range(
       ctx,
       new_bounds_is,
       unitary_new_rects_lp,
       new_rects_lr,
       ReindexColumnTask::row_rects_fid,
       unitary_cs));
-  IndexSpaceT<NEWDIM> new_col_is(
-    runtime->get_index_subspace(new_bounds_ip, 0));
+  IndexSpaceT<NEWDIM> new_col_is(rt->get_index_subspace(new_bounds_ip, 0));
 
-  ColumnGenArgs
-    result {
-    args.col.name,
-    args.col.axes_uid,
-    args.col.datatype,
-    new_axes,
-    LogicalRegion::NO_REGION,
-    args.col.keywords,
-    args.col.keyword_datatypes};
+  LogicalRegion new_col_lr;
 
+  const Column::DatatypeAccessor<READ_ONLY> col_datatype(
+    regions[ReindexColumnRegionIndexes::METADATA],
+    Column::METADATA_DATATYPE_FID);
   // if reindexing failed, new_col_is should be empty
-  if (!runtime->get_index_space_domain(ctx, new_col_is).empty()) {
+  if (!rt->get_index_space_domain(ctx, new_col_is).empty()) {
     // finally, we create the new column logical region
-    auto new_col_fs = runtime->create_field_space(ctx);
+    auto new_col_fs = rt->create_field_space(ctx);
     {
-      auto fa = runtime->create_field_allocator(ctx, new_col_fs);
-      add_field(args.col.datatype, fa, Column::VALUE_FID);
+      auto fa = rt->create_field_allocator(ctx, new_col_fs);
+      add_field(col_datatype[0], fa, Column::VALUE_FID);
     }
-    auto new_col_lr =
-      runtime->create_logical_region(ctx, new_col_is, new_col_fs);
+    new_col_lr = rt->create_logical_region(ctx, new_col_is, new_col_fs);
 
     // copy values from the column logical region to new_col_lr
     ReindexColumnCopyTask
       copy_task(
-        args.col.values,
-        args.col.datatype,
+        args.col.values_lr,
+        col_datatype[0],
         args.row_partition,
         new_rects_lr,
         new_col_lr);
-    copy_task.dispatch(ctx, runtime);
-
-    result.values = new_col_lr;
-
-    // TODO: is the following OK? does new_col_lr retain needed reference?
-    //runtime->destroy_field_space(ctx, new_col_fs);
+    copy_task.dispatch(ctx, rt);
   }
 
-  //runtime->destroy_field_space(ctx, new_rects_fs);
+  //rt->destroy_field_space(ctx, new_rects_fs);
 
-  // runtime->destroy_index_space(ctx, unitary_cs);
-  // runtime->destroy_index_partition(ctx, unitary_rows_ip);
+  // rt->destroy_index_space(ctx, unitary_cs);
+  // rt->destroy_index_partition(ctx, unitary_rows_ip);
 
   // TODO: are the following OK? does new_col_lr retain needed references?
-  // runtime->destroy_index_space(ctx, new_bounds_is);
-  // runtime->destroy_index_partition(ctx, new_bounds_ip);
-  // runtime->destroy_index_space(ctx, new_col_is);
+  // rt->destroy_index_space(ctx, new_bounds_is);
+  // rt->destroy_index_partition(ctx, new_bounds_ip);
+  // rt->destroy_index_space(ctx, new_col_is);
 
-  return result;
+  auto mrs =
+    MeasRefContainer::with_measure_references_dictionary(
+      ctx,
+      rt,
+      regions[mr_idx],
+      false,
+      [](Context c, Runtime* r, MeasRefDict* dict) {
+        std::vector<MeasRef> result;
+        for (auto& nm : dict->names()) {
+          auto ref = dict->get(nm).value();
+          if (false) assert(false);
+#define ADD_REF(M)                                                \
+          else if (MeasRefDict::holds<M>(ref))                    \
+            result.push_back(                                     \
+              MeasRef::create(c, r, nm, *MeasRefDict::get<M>(ref)));
+          HYPERION_FOREACH_MCLASS(ADD_REF)
+#undef ADD_REF
+          else
+            assert(false);
+        }
+        return result;
+      });
+
+  Keywords kws;
+  if (col_has_keywords)
+    kws = Keywords::clone(
+      ctx,
+      rt,
+      Keywords::pair<PhysicalRegion>{
+        regions[ReindexColumnRegionIndexes::INDEXES],
+        regions[ReindexColumnRegionIndexes::INDEXES + 1]});
+
+  const Column::NameAccessor<READ_ONLY> col_name(
+    regions[ReindexColumnRegionIndexes::METADATA],
+    Column::METADATA_NAME_FID);
+  const Column::AxesUidAccessor<READ_ONLY> col_axes_uid(
+    regions[ReindexColumnRegionIndexes::METADATA],
+    Column::METADATA_AXES_UID_FID);
+  auto num_col_axes =
+    rt->get_index_space_domain(
+      task->regions[ReindexColumnRegionIndexes::AXES]
+      .region
+      .get_index_space())
+    .get_volume();
+  return Column::create(
+    ctx,
+    rt,
+    col_name[0],
+    col_axes_uid[0],
+    col_axes.ptr(0),
+    num_col_axes,
+    col_datatype[0],
+    new_col_lr,
+    MeasRefContainer::create(ctx, rt, mrs),
+    kws);
 }
 
-ColumnGenArgs
+Column
 ReindexColumnTask::base_impl(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
-  Runtime *runtime) {
+  Runtime *rt) {
 
   TaskArgs args;
   ReindexColumnTask::TaskArgs::deserialize(args, task->args);
@@ -1860,7 +1982,7 @@ ReindexColumnTask::base_impl(
   auto olddim = args.row_partition.get_dim();
   auto eltdim =
     olddim
-    - runtime->get_index_partition_color_space(ctx, args.row_partition)
+    - rt->get_index_partition_color_space(ctx, args.row_partition)
     .get_dim();
   auto newdim = (regions.size() - 1) + eltdim + (args.allow_rows ? 1 : 0);
 
@@ -1868,10 +1990,11 @@ ReindexColumnTask::base_impl(
   case (OLDDIM * LEGION_MAX_DIM + NEWDIM): {    \
     return                                      \
       reindex_column<OLDDIM, NEWDIM>(           \
+        task,                                   \
         args,                                   \
         regions,                                \
         ctx,                                    \
-        runtime);                               \
+        rt);                                    \
     break;                                      \
   }
 
@@ -1879,7 +2002,7 @@ ReindexColumnTask::base_impl(
     HYPERION_FOREACH_MN(REINDEX_COLUMN);
   default:
     assert(false);
-    return ColumnGenArgs {}; // keep compiler happy
+    return Column(); // keep compiler happy
     break;
   }
 }
@@ -1889,16 +2012,19 @@ ReindexColumnTask::preregister_task() {
   TASK_ID = Runtime::generate_static_task_id();
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-  registrar.set_inner();
   registrar.set_idempotent();
   // registrar.set_replicable();
-  Runtime::preregister_task_variant<ColumnGenArgs,base_impl>(
+  Runtime::preregister_task_variant<Column,base_impl>(
     registrar,
     TASK_NAME);
 }
 
+#ifndef NO_REINDEX
+
 Future/*Table*/
 Table::ireindexed(
+  Context ctx,
+  Runtime* rt,
   const std::vector<std::string>& axis_names,
   const std::vector<int>& axes,
   bool allow_rows) const {
@@ -1917,95 +2043,85 @@ Table::ireindexed(
   // name
   //
   // TODO: add support for index columns that already exist in the table
-  if ((index_axes().size() > 1) || (index_axes().back() != 0)) {
-    TableGenArgs empty;
-    empty.name = name();
-    empty.axes_uid = axes_uid();
-    return Future::from_value(runtime(), empty);
+  std::vector<int> ixax = index_axes(ctx, rt);
+  if ((ixax.size() > 1) || (ixax.back() != 0)) {
+    Table empty;
+    return Future::from_value(rt, empty);
+  }
+
+  // map columns_lr
+  RegionRequirementf cols_req(columns_lr, READ_ONLY, EXCLUSIVE, columns_lr);
+  cols_req.add_field(Table::COLUMNS_FID);
+  auto cols_pr = rt->map_region(ctx, columns_req);
+
+  auto col_names = Table::column_names(ctx, rt, cols_pr);
+  std::unordered_map<std::string, Column> cols;
+  std::unordered_map<std::string, std::vector<int>> col_axes;
+  for (auto& nm : col_names) {
+    cols[nm] = Table::column(ctx, rt, columns_pr, nm);
+    col_axes[nm] = cols[nm].axes(ctx, rt);
   }
 
   // for every column in table, determine which axes need indexing
   std::unordered_map<std::string, std::vector<int>> col_reindex_axes;
-  std::transform(
-    column_names().begin(),
-    column_names().end(),
-    std::inserter(col_reindex_axes, col_reindex_axes.end()),
-    [this, &axis_names, &axes](auto& nm) {
-      std::vector<int> ax;
-      auto col_axes = column(nm)->axes();
-      // skip the column if it does not have a "row" axis
-      if (col_axes.back() == 0) {
-        // if column is a reindexing axis, reindexing depends only on itself
-        auto myaxis = column_is_axis(axis_names, nm, axes);
-        if (myaxis) {
-          ax.push_back(myaxis.value());
-        } else {
-          // select those axes in "axes" that are not already an axis of the
-          // column
-          std::for_each(
-            axes.begin(),
-            axes.end(),
-            [&col_axes, &ax](auto& d) {
-              if (find(col_axes.begin(), col_axes.end(), d) == col_axes.end())
-                ax.push_back(d);
-            });
-        }
+  for (auto& nm : col_names) {
+    std::vector<int> ax;
+    auto cax = col_axes[nm];
+    // skip the column if it does not have a "row" axis
+    if (cax.back() == 0) {
+      // if column is a reindexing axis, reindexing depends only on itself
+      auto myaxis = column_is_axis(axis_names, nm, axes);
+      if (myaxis) {
+        ax.push_back(myaxis.value());
+      } else {
+        // select those axes in "axes" that are not already an axis of the
+        // column
+        for (auto& d : axes)
+          if (std::find(cax.begin(), cax.end(), d) == cax.end())
+            ax.push_back(d);
       }
-      return make_pair(nm, move(ax));
-    });
+      col_reindex_axes[nm] = std::move(ax);
+    }
+  }
 
-  // index associated columns; the Future in "index_cols" below contains a
-  // ColumnGenArgs of a LogicalRegion with two fields: at Column::VALUE_FID, the
-  // column values (sorted in ascending order); and at
-  // IndexColumnTask::rows_fid, a sorted vector of DomainPoints in the original
-  // column.
+  // the returned Futures contain a LogicalRegion with two fields: at
+  // IndexColumnTask::VALUE_FID, the column values (sorted in ascending order);
+  // and at IndexColumnTask::ROWS_FID, a sorted vector of DomainPoints in the
+  // original column. The LogicalRegions, along with their IndexSpaces and
+  // FieldSpaces, should eventually be reclaimed.
   std::unordered_map<int, Future> index_cols;
-  std::for_each(
-    col_reindex_axes.begin(),
-    col_reindex_axes.end(),
-    [this, &axis_names, &index_cols](auto& nm_ds) {
-      const std::vector<int>& ds = get<1>(nm_ds);
-      std::for_each(
-        ds.begin(),
-        ds.end(),
-        [this, &axis_names, &index_cols](auto& d) {
-          if (index_cols.count(d) == 0) {
-            auto col = column(axis_names[d]);
-            IndexColumnTask task(col, d);
-            index_cols[d] = task.dispatch(context(), runtime());
-          }
-        });
-    });
+  for (auto& [nm, ds] : col_reindex_axes)
+    for (auto& d : ds)
+      if (index_cols.count(d) == 0) {
+        auto col = cols[axis_names[d]];
+        IndexColumnTask task(col, d);
+        index_cols[d] = task.dispatch(ctx, rt);
+      }
 
   // do reindexing of columns
   std::vector<Future> reindexed;
-  std::transform(
-    col_reindex_axes.begin(),
-    col_reindex_axes.end(),
-    std::back_inserter(reindexed),
-    [this, &index_cols, &allow_rows](auto& nm_ds) {
-      auto& [nm, ds] = nm_ds;
-      // if this column is an index column, we've already launched a task to
-      // create its logical region, so we can use that
-      if (ds.size() == 1 && index_cols.count(ds[0]) > 0)
-        return index_cols.at(ds[0]);
+  for (auto& [nm, ds] : col_reindex_axes) {
+    // if this column is an index column, we've already launched a task to
+    // create its logical region, so we can use that
+    if (ds.size() == 1 && index_cols.count(ds[0]) > 0)
+      return index_cols.at(ds[0]);
 
-      // create reindexing task launcher
-      // TODO: start intermediary task dependent on Futures of index columns
-      std::vector<shared_ptr<Column>> ixcols;
-      for (auto d : ds) {
-        ixcols.push_back(
-          index_cols.at(d)
-          .template get_result<ColumnGenArgs>()
-          .operator()(context(), runtime()));
-      }
-      auto col = column(nm);
-      auto col_axes = col->axes();
-      auto row_axis_offset =
-        distance(col_axes.begin(), find(col_axes.begin(), col_axes.end(), 0));
-      ReindexColumnTask task(col, row_axis_offset, ixcols, allow_rows);
-      return task.dispatch(context(), runtime());
-    });
+    // create reindexing task launcher
+    // TODO: start intermediary task dependent on Futures of index columns
+    std::vector<std::tuple<int, LogicalRegion>> ixcols;
+    for (auto d : ds)
+      ixcols.emplace_back(
+        d,
+        index_cols.at(d).template get_result<LogicalRegion>());
+    auto cax = col_axes[nm];
+    auto row_axis_offset =
+      std::distance(cax.begin(), std::find(cax.begin(), cax.end(), 0));
+    ReindexColumnTask
+      task(cols[nm], cax, row_axis_offset, ixcols, allow_rows);
+    reindexed.push_back(task.dispatch(ctx, rt));
+  }
+
+  rt->unmap_region(ctx, columns_pr);
 
   // launch task that creates the reindexed table
   std::vector<int> iaxes = axes;
@@ -2013,9 +2129,10 @@ Table::ireindexed(
     iaxes.push_back(0);
   ReindexedTableTask
     task(name(), axes_uid(), iaxes, keywords_region(), reindexed);
+
   return task.dispatch(context(), runtime());
 }
-#endif // !NO_REINDEX
+#endif // NO_REINDEX
 
 std::unordered_map<int, Future>
 Table::iindex_by_value(

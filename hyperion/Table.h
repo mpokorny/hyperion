@@ -481,13 +481,23 @@ public:
 #ifndef NO_REINDEX
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
   Legion::Future/* Table */
-  reindexed(const std::vector<D>& axes, bool allow_rows = true) const {
+  reindexed(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<D>& axes,
+    bool allow_rows = true) const {
+
     assert(Axes<D>::uid == m_axes_uid);
-    return ireindexed(Axes<D>::names, map_to_int(axes), allow_rows);
+    return ireindexed(ctx, rt, Axes<D>::names, map_to_int(axes), allow_rows);
   }
 
   Legion::Future/* Table */
-  reindexed(const std::vector<int>& axes, bool allow_rows = true) const {
+  reindexed(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<int>& axes,
+    bool allow_rows = true) const {
+
     auto axs = AxesRegistrar::axes(axes_uid()).value();
     assert(
       std::all_of(
@@ -496,7 +506,7 @@ public:
         [m=axs.names.size()](auto& a) {
           return 0 <= a && static_cast<unsigned>(a) < m;
         }));
-    return ireindexed(axs.names, axes, allow_rows);
+    return ireindexed(ctx, rt, axs.names, axes, allow_rows);
   }
 #endif // !NO_REINDEX
 
@@ -627,6 +637,8 @@ protected:
 #ifndef NO_REINDEX
   Legion::Future/* Table */
   ireindexed(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
     const std::vector<std::string>& axis_names,
     const std::vector<int>& axes,
     bool allow_rows = true) const;
@@ -677,7 +689,6 @@ public:
     Legion::Runtime *runtime);
 };
 
-#ifndef NO_REINDEX
 class HYPERION_API ReindexColumnTask {
 public:
 
@@ -685,9 +696,10 @@ public:
   static const char* TASK_NAME;
 
   ReindexColumnTask(
-    const std::shared_ptr<Column>& col,
+    const Column& col,
+    const std::vector<int>& col_axes,
     ssize_t row_axis_offset,
-    const std::vector<std::shared_ptr<Column>>& ixcols,
+    const std::vector<std::tuple<int, Legion::LogicalRegion>>& ixcols,
     bool allow_rows);
 
   static void
@@ -723,13 +735,16 @@ private:
     deserialize(TaskArgs& val, const void* buffer);
   };
 
-  std::unique_ptr<char[]> m_args_buffer;
+  std::vector<int> m_col_axes;
 
-  std::unique_ptr<ColumnPartition> m_partition;
+  ssize_t m_row_axis_offset;
 
-  Legion::TaskLauncher m_launcher;
+  std::vector<Legion::LogicalRegion> m_ixlrs;
+
+  TaskArgs m_args;
 };
 
+#ifndef NO_REINDEX
 class HYPERION_API ReindexedTableTask {
 public:
 
