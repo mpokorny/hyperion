@@ -162,6 +162,90 @@ Column::create(
       Keywords::create(ctx, rt, kws, component_name_prefix));
 }
 
+Column
+Column::create(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const std::string& name,
+  const std::string& axes_uid,
+  const int* axes,
+  unsigned num_axes,
+  hyperion::TypeTag datatype,
+  const Legion::LogicalRegion& values,
+#ifdef HYPERION_USE_CASACORE
+  const MeasRefContainer& meas_refs,
+#endif
+  const Keywords& kws) {
+
+  std::string component_name_prefix = name;
+
+  LogicalRegion metadata;
+  {
+    IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
+    FieldSpace fs = rt->create_field_space(ctx);
+    FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+    fa.allocate_field(sizeof(hyperion::string), METADATA_NAME_FID);
+    rt->attach_name(fs, METADATA_NAME_FID, "name");
+    fa.allocate_field(sizeof(hyperion::string), METADATA_AXES_UID_FID);
+    rt->attach_name(fs, METADATA_AXES_UID_FID, "axes_uid");
+    fa.allocate_field(sizeof(hyperion::TypeTag), METADATA_DATATYPE_FID);
+    rt->attach_name(fs, METADATA_DATATYPE_FID, "datatype");
+    metadata = rt->create_logical_region(ctx, is, fs);
+    {
+      std::string metadata_name = component_name_prefix + "/metadata";
+      rt->attach_name(metadata, metadata_name.c_str());
+    }
+    {
+      RegionRequirement req(metadata, WRITE_ONLY, EXCLUSIVE, metadata);
+      req.add_field(METADATA_NAME_FID);
+      req.add_field(METADATA_AXES_UID_FID);
+      req.add_field(METADATA_DATATYPE_FID);
+      PhysicalRegion pr = rt->map_region(ctx, req);
+      const NameAccessor<WRITE_ONLY> nm(pr, METADATA_NAME_FID);
+      const AxesUidAccessor<WRITE_ONLY> au(pr, METADATA_AXES_UID_FID);
+      const DatatypeAccessor<WRITE_ONLY> dt(pr, METADATA_DATATYPE_FID);
+      nm[0] = name;
+      au[0] = axes_uid;
+      dt[0] = datatype;
+      rt->unmap_region(ctx, pr);
+    }
+  }
+  LogicalRegion axs;
+  if (num_axes) {
+    Rect<1> rect(0, num_axes - 1);
+    IndexSpace is = rt->create_index_space(ctx, rect);
+    FieldSpace fs = rt->create_field_space(ctx);
+    FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+    fa.allocate_field(sizeof(int), AXES_FID);
+    axs = rt->create_logical_region(ctx, is, fs);
+    {
+      std::string axs_name = component_name_prefix + "/axes";
+      rt->attach_name(axs, axs_name.c_str());
+    }
+    {
+      RegionRequirement req(axs, WRITE_ONLY, EXCLUSIVE, axs);
+      req.add_field(AXES_FID);
+      PhysicalRegion pr = rt->map_region(ctx, req);
+      const AxesAccessor<WRITE_ONLY> ax(pr, AXES_FID);
+      for (PointInRectIterator<1> pir(rect); pir(); pir++)
+        ax[*pir] = axes[pir[0]];
+      rt->unmap_region(ctx, pr);
+    }
+  }
+#ifdef HYPERION_USE_CASACORE
+  meas_refs.add_prefix_to_owned(ctx, rt, component_name_prefix);
+#endif
+  return
+    Column(
+      metadata,
+      axs,
+      values,
+#ifdef HYPERION_USE_CASACORE
+      meas_refs,
+#endif
+      kws);
+}
+
 void
 Column::destroy(Context ctx, Runtime* rt) {
   std::vector<LogicalRegion*> lrs{&metadata_lr, &axes_lr, &values_lr};

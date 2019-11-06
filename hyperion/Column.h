@@ -147,6 +147,21 @@ public:
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
 
+  static Column
+  create(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::string& name,
+    const std::string& axes_uid,
+    const int* axes,
+    unsigned num_axes,
+    hyperion::TypeTag datatype,
+    const Legion::LogicalRegion& values,
+#ifdef HYPERION_USE_CASACORE
+    const MeasRefContainer& meas_refs,
+#endif
+    const Keywords& kws);
+
   void
   destroy(Legion::Context ctx, Legion::Runtime* rt);
 
