@@ -181,7 +181,7 @@ index_column_task_test_suite(
         table0_col("X"),
           table0_col("Y")}
 #ifdef HYPERION_USE_CASACORE
-      , MeasRefContainer() // FIXME
+      , MeasRefContainer()
 #endif
       );
   auto col_x =
@@ -197,7 +197,7 @@ index_column_task_test_suite(
     auto cx = fx.get_result<LogicalRegion>();
     recorder.assert_false(
       "IndexColumnTask X result is not empty",
-      TE(cx != LogicalRegion::NO_REGION));
+      TE(cx == LogicalRegion::NO_REGION));
     recorder.assert_true(
       "IndexColumnTask X result has one-dimensional IndexSpace",
       TE(cx.get_index_space().get_dim()) == 1);
