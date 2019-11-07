@@ -168,8 +168,7 @@ Column::create(
   Legion::Runtime* rt,
   const std::string& name,
   const std::string& axes_uid,
-  const int* axes,
-  unsigned num_axes,
+  const std::vector<int>& axes,
   hyperion::TypeTag datatype,
   const Legion::LogicalRegion& values,
 #ifdef HYPERION_USE_CASACORE
@@ -211,8 +210,8 @@ Column::create(
     }
   }
   LogicalRegion axs;
-  if (num_axes) {
-    Rect<1> rect(0, num_axes - 1);
+  if (axes.size()) {
+    Rect<1> rect(0, axes.size() - 1);
     IndexSpace is = rt->create_index_space(ctx, rect);
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);

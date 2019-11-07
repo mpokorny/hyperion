@@ -1567,7 +1567,9 @@ ReindexColumnTask::TaskArgs::serialized_size() const {
     sizeof(allow_rows)
     + vector_serdez<int>::serialized_size(index_axes)
     + sizeof(row_partition)
-    + sizeof(col);
+    + sizeof(col)
+    + sizeof(ix0_region_offset)
+    + sizeof(mrc_region_offset);
 }
 
 size_t
@@ -1580,6 +1582,10 @@ ReindexColumnTask::TaskArgs::serialize(void* buffer) const {
   buff += sizeof(row_partition);
   *reinterpret_cast<decltype(col)*>(buff) = col;
   buff += sizeof(col);
+  *reinterpret_cast<decltype(ix0_region_offset)*>(buff) = ix0_region_offset;
+  buff += sizeof(ix0_region_offset);
+  *reinterpret_cast<decltype(mrc_region_offset)*>(buff) = mrc_region_offset;
+  buff += sizeof(mrc_region_offset);
   return buff - static_cast<char*>(buffer);
 }
 
@@ -1597,6 +1603,12 @@ ReindexColumnTask::TaskArgs::deserialize(
   buff += sizeof(val.row_partition);
   val.col = *reinterpret_cast<const decltype(val.col)*>(buff);
   buff += sizeof(val.col);
+  val.ix0_region_offset =
+    *reinterpret_cast<const decltype(val.ix0_region_offset)*>(buff);
+  buff += sizeof(val.ix0_region_offset);
+  val.mrc_region_offset =
+    *reinterpret_cast<const decltype(val.mrc_region_offset)*>(buff);
+  buff += sizeof(val.mrc_region_offset);
   return buff - static_cast<const char*>(buffer);
 }
 
@@ -1624,7 +1636,7 @@ enum ReindexColumnRegionIndexes {
   METADATA,
   AXES,
   VALUES,
-  INDEXES
+  REMAINDER
 };
 
 Future
@@ -1639,13 +1651,7 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
   ColumnPartition partition = m_args.col.partition_on_axes(ctx, rt, col_part_axes);
   m_args.row_partition = partition.index_partition;
 
-  std::unique_ptr<char[]>args_buffer =
-    std::make_unique<char[]>(m_args.serialized_size());
-  m_args.serialize(args_buffer.get());
-
-  TaskLauncher launcher(
-      TASK_ID,
-      TaskArgument(args_buffer.get(), m_args.serialized_size()));
+  std::vector<RegionRequirement> reqs;
   {
     RegionRequirement
       req(m_args.col.metadata_lr, READ_ONLY, EXCLUSIVE, m_args.col.metadata_lr);
@@ -1653,47 +1659,39 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
     req.add_field(Column::METADATA_NAME_FID);
     req.add_field(Column::METADATA_AXES_UID_FID);
     req.add_field(Column::METADATA_DATATYPE_FID);
-    launcher.add_region_requirement(req);
+    reqs.push_back(req);
   }
   {
     RegionRequirement
       req(m_args.col.axes_lr, READ_ONLY, EXCLUSIVE, m_args.col.axes_lr);
     static_assert(ReindexColumnRegionIndexes::AXES == 1);
     req.add_field(Column::AXES_FID);
-    launcher.add_region_requirement(req);
+    reqs.push_back(req);
   }
   {
     RegionRequirement
       req(m_args.col.values_lr, READ_ONLY, EXCLUSIVE, m_args.col.values_lr);
     static_assert(ReindexColumnRegionIndexes::VALUES == 2);
     req.add_field(Column::VALUE_FID);
-    launcher.add_region_requirement(req);
+    reqs.push_back(req);
   }
-  static_assert(ReindexColumnRegionIndexes::INDEXES == 3);
+  static_assert(ReindexColumnRegionIndexes::REMAINDER == 3);
   if (!m_args.col.keywords.is_empty()) {
     auto kwsz = m_args.col.keywords.size(rt);
     std::vector<FieldID> fids(kwsz);
     std::iota(fids.begin(), fids.end(), 0);
-    auto reqs = m_args.col.keywords.requirements(rt, fids, READ_ONLY).value();
-    launcher.add_region_requirement(reqs.type_tags);
-    launcher.add_region_requirement(reqs.values);
+    auto kwreqs = m_args.col.keywords.requirements(rt, fids, READ_ONLY).value();
+    reqs.push_back(kwreqs.type_tags);
+    reqs.push_back(kwreqs.values);
   }
+  m_args.ix0_region_offset = reqs.size();
   for (auto& lr : m_ixlrs) {
     assert(lr != LogicalRegion::NO_REGION);
     RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
     req.add_field(IndexColumnTask::ROWS_FID);
-    launcher.add_region_requirement(req);
+    reqs.push_back(req);
   }
-  // auto mrc_reqs =
-  //   m_args.col.meas_refs.component_requirements(ctx, rt, READ_ONLY);
-  // if (mrc_reqs.size() > 0) {
-  //   for (auto& [r0, r1, or2] : mrc_reqs) {
-  //     launcher.add_region_requirement(r0);
-  //     launcher.add_region_requirement(r1);
-  //     if (or2)
-  //       launcher.add_region_requirement(or2.value());
-  //   }
-  // }
+  m_args.mrc_region_offset = reqs.size();
   if (m_args.col.meas_refs.lr != LogicalRegion::NO_REGION) {
     RegionRequirement req(
       m_args.col.meas_refs.lr,
@@ -1702,8 +1700,27 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
       m_args.col.meas_refs.lr);
     req.add_field(MeasRefContainer::OWNED_FID);
     req.add_field(MeasRefContainer::MEAS_REF_FID);
-    launcher.add_region_requirement(req);
+    reqs.push_back(req);
+    auto mr_reqs =
+      m_args.col.meas_refs.component_requirements(ctx, rt, READ_ONLY);
+    if (mr_reqs.size() > 0) {
+      for (auto& [r0, r1, or2] : mr_reqs) {
+        reqs.push_back(r0);
+        reqs.push_back(r1);
+        if (or2)
+          reqs.push_back(or2.value());
+      }
+    }
   }
+  std::unique_ptr<char[]>args_buffer =
+    std::make_unique<char[]>(m_args.serialized_size());
+  m_args.serialize(args_buffer.get());
+
+  TaskLauncher launcher(
+    TASK_ID,
+    TaskArgument(args_buffer.get(), m_args.serialized_size()));
+  for (auto& req : reqs)
+    launcher.add_region_requirement(req);
   return rt->execute_task(ctx, launcher);
 }
 
@@ -1765,13 +1782,10 @@ reindex_column(
   bool col_has_keywords = !args.col.keywords.is_empty();
   std::vector<LogicalRegion> ix_lrs;
   ix_lrs.reserve(args.index_axes.size());
-  auto ixlr0 = ReindexColumnRegionIndexes::INDEXES + (col_has_keywords ? 2 : 0);
   for (size_t i = 0; i < args.index_axes.size(); ++i)
-    ix_lrs[i] = regions[i + ixlr0].get_logical_region();
-  auto mr_idx = ixlr0 + args.index_axes.size();
+    ix_lrs.push_back(regions[i + args.ix0_region_offset].get_logical_region());
 
   // task to compute new index space rectangle for each row in column
-#ifdef LKJLKJLK
 #ifdef HIERARCHICAL_COMPUTE_RECTANGLES
   ComputeRectanglesTask
     new_rects_task(
@@ -1791,7 +1805,6 @@ reindex_column(
       new_rects_lr);
 #endif
   new_rects_task.dispatch(ctx, rt);
-#endif // LKJLKJLK
 
   const Column::AxesAccessor<READ_ONLY, true>
     col_axes(regions[ReindexColumnRegionIndexes::AXES], Column::AXES_FID);
@@ -1826,9 +1839,8 @@ reindex_column(
       new_bounds.hi[i] = col_domain.hi[j];
       assert(col_axes[j] == 0);
       new_axes[i] = 0;
-      ++i;
+      ++i; ++j;
     }
-    ++j;
     // append remaining (ctds element-level) axes
     while (i < NEWDIM) {
       assert(j < OLDDIM);
@@ -1933,7 +1945,7 @@ reindex_column(
     MeasRefContainer::with_measure_references_dictionary(
       ctx,
       rt,
-      regions[mr_idx],
+      regions[args.mrc_region_offset],
       false,
       [](Context c, Runtime* r, MeasRefDict* dict) {
         std::vector<MeasRef> result;
@@ -1958,8 +1970,8 @@ reindex_column(
       ctx,
       rt,
       Keywords::pair<PhysicalRegion>{
-        regions[ReindexColumnRegionIndexes::INDEXES],
-        regions[ReindexColumnRegionIndexes::INDEXES + 1]});
+        regions[ReindexColumnRegionIndexes::REMAINDER],
+        regions[ReindexColumnRegionIndexes::REMAINDER + 1]});
 
   const Column::NameAccessor<READ_ONLY> col_name(
     regions[ReindexColumnRegionIndexes::METADATA],
@@ -1978,8 +1990,7 @@ reindex_column(
     rt,
     col_name[0],
     col_axes_uid[0],
-    col_axes.ptr(0),
-    num_col_axes,
+    new_axes,
     col_datatype[0],
     new_col_lr,
     MeasRefContainer::create(ctx, rt, mrs),
@@ -2001,7 +2012,9 @@ ReindexColumnTask::base_impl(
     olddim
     - rt->get_index_partition_color_space(ctx, args.row_partition)
     .get_dim();
-  auto newdim = (regions.size() - 1) + eltdim + (args.allow_rows ? 1 : 0);
+  auto newdim =
+    args.mrc_region_offset - args.ix0_region_offset
+    + eltdim + (args.allow_rows ? 1 : 0);
 
 #define REINDEX_COLUMN(OLDDIM, NEWDIM)          \
   case (OLDDIM * LEGION_MAX_DIM + NEWDIM): {    \

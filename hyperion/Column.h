@@ -153,8 +153,7 @@ public:
     Legion::Runtime* rt,
     const std::string& name,
     const std::string& axes_uid,
-    const int* axes,
-    unsigned num_axes,
+    const std::vector<int>& axes,
     hyperion::TypeTag datatype,
     const Legion::LogicalRegion& values,
 #ifdef HYPERION_USE_CASACORE

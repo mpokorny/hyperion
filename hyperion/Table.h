@@ -724,6 +724,8 @@ private:
     std::vector<int> index_axes;
     Legion::IndexPartition row_partition;
     Column col;
+    unsigned ix0_region_offset;
+    unsigned mrc_region_offset;
 
     size_t
     serialized_size() const;
