@@ -125,6 +125,12 @@ fstrcpy(char(& dest)[N], const char* src) {
   return &dest[0];
 }
 
+unsigned
+min_divisor(
+  size_t numerator,
+  size_t min_quotient,
+  unsigned max_divisor);
+
 IndexTreeL
 index_space_as_tree(Legion::Runtime* rt, Legion::IndexSpace is);
 
@@ -1442,7 +1448,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
 #if LEGION_MAX_DIM == 1
 
 #define HYPERION_FOREACH_N(__func__)               \
-  __func__(1) 
+  __func__(1)
 #define HYPERION_FOREACH_NN(__func__)              \
   __func__(1,1)
 #define HYPERION_FOREACH_MN(__func__)              \

@@ -633,9 +633,7 @@ public:
 
     auto dom = rt->get_index_space_domain(m_col_req.region.get_index_space());
     size_t vol = dom.get_volume();
-    size_t block_size =
-      std::max(min_block_size, (vol + num_subregions - 1) / num_subregions);
-    num_subregions = (vol + block_size - 1) / block_size;
+    num_subregions = min_divisor(vol, min_block_size, num_subregions);
     Rect<1> color_rect(0, num_subregions - 1);
     IndexSpace color_is = rt->create_index_space(ctx, color_rect);
     IndexPartition ip =

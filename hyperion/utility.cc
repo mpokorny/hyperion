@@ -35,6 +35,17 @@
 using namespace hyperion;
 using namespace Legion;
 
+unsigned
+hyperion::min_divisor(
+  size_t numerator,
+  size_t min_quotient,
+  unsigned max_divisor) {
+
+  size_t quotient =
+    std::max(min_quotient, (numerator + max_divisor - 1) / max_divisor);
+  return (numerator + quotient - 1) / quotient;
+}
+
 std::optional<int>
 hyperion::column_is_axis(
   const std::vector<std::string>& axis_names,
