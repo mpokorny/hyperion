@@ -11,15 +11,16 @@ if (USE_HDF5)
 endif (USE_HDF5)
 link_libraries(hyperion_testing)
 
+add_executable(utIndexColumnTask utIndexColumnTask.cc)
+set_target_properties(utIndexColumnTask PROPERTIES
+  CXX_STANDARD 17
+  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+add_test(
+  NAME IndexColumnTaskUnitTest
+  COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+  ./utIndexColumnTask)
+
 if(NOT hyperion_NO_REINDEX)
-  add_executable(utIndexColumnTask utIndexColumnTask.cc)
-  set_target_properties(utIndexColumnTask PROPERTIES
-    CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
-  add_test(
-    NAME IndexColumnTaskUnitTest
-    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-            ./utIndexColumnTask)
 
   add_executable(utReindexColumnTask utReindexColumnTask.cc)
   set_target_properties(utReindexColumnTask PROPERTIES
