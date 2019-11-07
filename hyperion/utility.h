@@ -1447,38 +1447,45 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 #if LEGION_MAX_DIM == 1
 
-#define HYPERION_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)            \
   __func__(1)
-#define HYPERION_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)           \
   __func__(1,1)
-#define HYPERION_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)           \
   __func__(1,1)
+#define HYPERION_FOREACH_LMN(__func__)          \
+  __func__(1,1,1)
 #define HYPERION_FOREACH_LESS_MAX_N(__func__)
 
 #elif LEGION_MAX_DIM == 2
 
-#define HYPERION_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)            \
   __func__(1)                                   \
   __func__(2)
-#define HYPERION_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(2,1)                                 \
   __func__(2,2)
-#define HYPERION_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(2,2)
-#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_LMN(__func__)          \
+  __func__(1,1,1)                               \
+  __func__(1,1,2)                               \
+  __func__(1,2,2)                               \
+  __func__(2,2,2)
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)   \
   __func__(1)
 
 #elif LEGION_MAX_DIM == 3
 
-#define HYPERION_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)            \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)
-#define HYPERION_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1488,25 +1495,36 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(3,1)                                 \
   __func__(3,2)                                 \
   __func__(3,3)
-#define HYPERION_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
   __func__(2,2)                                 \
   __func__(2,3)                                 \
   __func__(3,3)
-#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_LMN(__func__)          \
+  __func__(1,1,1)                               \
+  __func__(1,1,2)                               \
+  __func__(1,1,3)                               \
+  __func__(1,2,2)                               \
+  __func__(2,2,2)                               \
+  __func__(1,2,3)                               \
+  __func__(2,2,3)                               \
+  __func__(1,3,3)                               \
+  __func__(2,3,3)                               \
+  __func__(3,3,3)
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)   \
   __func__(1)                                   \
   __func__(2)
 
 #elif LEGION_MAX_DIM == 4
 
-#define HYPERION_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)            \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
   __func__(4)
-#define HYPERION_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1523,7 +1541,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(4,2)                                 \
   __func__(4,3)                                 \
   __func__(4,4)
-#define HYPERION_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1533,21 +1551,42 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(2,4)                                 \
   __func__(3,3)                                 \
   __func__(3,4)                                 \
-  __func__(4,4)
-#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
+    __func__(4,4)
+#define HYPERION_FOREACH_LMN(__func__)          \
+  __func__(1,1,1)                               \
+  __func__(1,1,2)                               \
+  __func__(1,1,3)                               \
+  __func__(1,1,4)                               \
+  __func__(1,2,2)                               \
+  __func__(2,2,2)                               \
+  __func__(1,2,3)                               \
+  __func__(2,2,3)                               \
+  __func__(1,2,4)                               \
+  __func__(2,2,4)                               \
+  __func__(1,3,3)                               \
+  __func__(2,3,3)                               \
+  __func__(3,3,3)                               \
+  __func__(1,3,4)                               \
+  __func__(2,3,4)                               \
+  __func__(3,3,4)                               \
+  __func__(1,4,4)                               \
+  __func__(2,4,4)                               \
+  __func__(3,4,4)                               \
+  __func__(4,4,4)
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)   \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)
 
 #elif LEGION_MAX_DIM == 5
 
-#define HYPERION_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)            \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
   __func__(4)                                   \
   __func__(5)
-#define HYPERION_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1573,7 +1612,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(5,3)                                 \
   __func__(5,4)                                 \
   __func__(5,5)
-#define HYPERION_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1589,7 +1628,43 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(4,4)                                 \
   __func__(4,5)                                 \
   __func__(5,5)
-#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_LMN(__func__)          \
+  __func__(1,1,1)                               \
+  __func__(1,1,2)                               \
+  __func__(1,1,3)                               \
+  __func__(1,1,4)                               \
+  __func__(1,1,5)                               \
+  __func__(1,2,2)                               \
+  __func__(2,2,2)                               \
+  __func__(1,2,3)                               \
+  __func__(2,2,3)                               \
+  __func__(1,2,4)                               \
+  __func__(2,2,4)                               \
+  __func__(1,2,5)                               \
+  __func__(2,2,5)                               \
+  __func__(1,3,3)                               \
+  __func__(2,3,3)                               \
+  __func__(3,3,3)                               \
+  __func__(1,3,4)                               \
+  __func__(2,3,4)                               \
+  __func__(3,3,4)                               \
+  __func__(1,3,5)                               \
+  __func__(2,3,5)                               \
+  __func__(3,3,5)                               \
+  __func__(1,4,4)                               \
+  __func__(2,4,4)                               \
+  __func__(3,4,4)                               \
+  __func__(4,4,4)                               \
+  __func__(1,4,5)                               \
+  __func__(2,4,5)                               \
+  __func__(3,4,5)                               \
+  __func__(4,4,5)                               \
+  __func__(1,5,5)                               \
+  __func__(2,5,5)                               \
+  __func__(3,5,5)                               \
+  __func__(4,5,5)                               \
+  __func__(5,5,5)
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)   \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1597,14 +1672,14 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 #elif LEGION_MAX_DIM == 6
 
-#define HYPERION_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)            \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
   __func__(4)                                   \
   __func__(5)                                   \
   __func__(6)
-#define HYPERION_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1641,7 +1716,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(6,4)                                 \
   __func__(6,5)                                 \
   __func__(6,6)
-#define HYPERION_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1663,7 +1738,57 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(5,5)                                 \
   __func__(5,6)                                 \
   __func__(6,6)
-#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_LMN(__func__)          \
+  __func__(1,1,1)                               \
+  __func__(1,1,2)                               \
+  __func__(1,1,3)                               \
+  __func__(1,1,4)                               \
+  __func__(1,1,5)                               \
+  __func__(1,1,6)                               \
+  __func__(1,2,2)                               \
+  __func__(2,2,2)                               \
+  __func__(1,2,3)                               \
+  __func__(2,2,3)                               \
+  __func__(1,2,4)                               \
+  __func__(2,2,4)                               \
+  __func__(1,2,5)                               \
+  __func__(2,2,5)                               \
+  __func__(1,2,6)                               \
+  __func__(2,2,6)                               \
+  __func__(1,3,3)                               \
+  __func__(2,3,3)                               \
+  __func__(3,3,3)                               \
+  __func__(1,3,4)                               \
+  __func__(2,3,4)                               \
+  __func__(3,3,4)                               \
+  __func__(1,3,5)                               \
+  __func__(2,3,5)                               \
+  __func__(3,3,5)                               \
+  __func__(1,3,6)                               \
+  __func__(2,3,6)                               \
+  __func__(3,3,6)                               \
+  __func__(1,4,4)                               \
+  __func__(2,4,4)                               \
+  __func__(3,4,4)                               \
+  __func__(4,4,4)                               \
+  __func__(1,4,5)                               \
+  __func__(2,4,5)                               \
+  __func__(3,4,5)                               \
+  __func__(4,4,5)                               \
+  __func__(4,4,6)                               \
+  __func__(1,5,5)                               \
+  __func__(2,5,5)                               \
+  __func__(3,5,5)                               \
+  __func__(4,5,5)                               \
+  __func__(5,5,5)                               \
+  __func__(5,5,6)                               \
+  __func__(1,6,6)                               \
+  __func__(2,6,6)                               \
+  __func__(3,6,6)                               \
+  __func__(4,6,6)                               \
+  __func__(5,6,6)                               \
+  __func__(6,6,6)
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)   \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1672,7 +1797,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 #elif LEGION_MAX_DIM == 7
 
-#define HYPERION_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)            \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1680,7 +1805,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(5)                                   \
   __func__(6)                                   \
   __func__(7)
-#define HYPERION_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1730,7 +1855,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(7,5)                                 \
   __func__(7,6)                                 \
   __func__(7,7)
-#define HYPERION_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1759,7 +1884,92 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(6,6)                                 \
   __func__(6,7)                                 \
   __func__(7,7)
-#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_LMN(__func__)          \
+  __func__(1,1,1)                               \
+  __func__(1,1,2)                               \
+  __func__(1,1,3)                               \
+  __func__(1,1,4)                               \
+  __func__(1,1,5)                               \
+  __func__(1,1,6)                               \
+  __func__(1,1,7)                               \
+  __func__(1,2,2)                               \
+  __func__(2,2,2)                               \
+  __func__(1,2,3)                               \
+  __func__(2,2,3)                               \
+  __func__(1,2,4)                               \
+  __func__(2,2,4)                               \
+  __func__(1,2,5)                               \
+  __func__(2,2,5)                               \
+  __func__(1,2,6)                               \
+  __func__(2,2,6)                               \
+  __func__(1,2,7)                               \
+  __func__(2,2,7)                               \
+  __func__(1,3,3)                               \
+  __func__(2,3,3)                               \
+  __func__(3,3,3)                               \
+  __func__(1,3,4)                               \
+  __func__(2,3,4)                               \
+  __func__(3,3,4)                               \
+  __func__(1,3,5)                               \
+  __func__(2,3,5)                               \
+  __func__(3,3,5)                               \
+  __func__(1,3,6)                               \
+  __func__(2,3,6)                               \
+  __func__(3,3,6)                               \
+  __func__(1,3,7)                               \
+  __func__(2,3,7)                               \
+  __func__(3,3,7)                               \
+  __func__(1,4,4)                               \
+  __func__(2,4,4)                               \
+  __func__(3,4,4)                               \
+  __func__(4,4,4)                               \
+  __func__(1,4,5)                               \
+  __func__(2,4,5)                               \
+  __func__(3,4,5)                               \
+  __func__(4,4,5)                               \
+  __func__(1,4,6)                               \
+  __func__(2,4,6)                               \
+  __func__(3,4,6)                               \
+  __func__(4,4,6)                               \
+  __func__(1,4,7)                               \
+  __func__(2,4,7)                               \
+  __func__(3,4,7)                               \
+  __func__(4,4,7)                               \
+  __func__(1,5,5)                               \
+  __func__(2,5,5)                               \
+  __func__(3,5,5)                               \
+  __func__(4,5,5)                               \
+  __func__(5,5,5)                               \
+  __func__(1,5,6)                               \
+  __func__(2,5,6)                               \
+  __func__(3,5,6)                               \
+  __func__(4,5,6)                               \
+  __func__(5,5,6)                               \
+  __func__(1,5,7)                               \
+  __func__(2,5,7)                               \
+  __func__(3,5,7)                               \
+  __func__(4,5,7)                               \
+  __func__(5,5,7)                               \
+  __func__(1,6,6)                               \
+  __func__(2,6,6)                               \
+  __func__(3,6,6)                               \
+  __func__(4,6,6)                               \
+  __func__(5,6,6)                               \
+  __func__(6,6,6)                               \
+  __func__(1,6,7)                               \
+  __func__(2,6,7)                               \
+  __func__(3,6,7)                               \
+  __func__(4,6,7)                               \
+  __func__(5,6,7)                               \
+  __func__(6,6,7)                               \
+  __func__(1,7,7)                               \
+  __func__(2,7,7)                               \
+  __func__(3,7,7)                               \
+  __func__(4,7,7)                               \
+  __func__(5,7,7)                               \
+  __func__(6,7,7)                               \
+  __func__(7,7,7)
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)   \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1769,7 +1979,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 #elif LEGION_MAX_DIM == 8
 
-#define HYPERION_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)            \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1778,7 +1988,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(6)                                   \
   __func__(7)                                   \
   __func__(8)
-#define HYPERION_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1843,7 +2053,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(8,6)                                 \
   __func__(8,7)                                 \
   __func__(8,8)
-#define HYPERION_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1880,7 +2090,128 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(7,7)                                 \
   __func__(7,8)                                 \
   __func__(8,8)
-#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_LMN(__func__)          \
+  __func__(1,1,1)                               \
+  __func__(1,1,2)                               \
+  __func__(1,1,3)                               \
+  __func__(1,1,4)                               \
+  __func__(1,1,5)                               \
+  __func__(1,1,6)                               \
+  __func__(1,1,7)                               \
+  __func__(1,1,8)                               \
+  __func__(1,2,2)                               \
+  __func__(2,2,2)                               \
+  __func__(1,2,3)                               \
+  __func__(2,2,3)                               \
+  __func__(1,2,4)                               \
+  __func__(2,2,4)                               \
+  __func__(1,2,5)                               \
+  __func__(2,2,5)                               \
+  __func__(1,2,6)                               \
+  __func__(2,2,6)                               \
+  __func__(1,2,7)                               \
+  __func__(2,2,7)                               \
+  __func__(1,2,8)                               \
+  __func__(2,2,8)                               \
+  __func__(1,3,3)                               \
+  __func__(2,3,3)                               \
+  __func__(3,3,3)                               \
+  __func__(1,3,4)                               \
+  __func__(2,3,4)                               \
+  __func__(3,3,4)                               \
+  __func__(1,3,5)                               \
+  __func__(2,3,5)                               \
+  __func__(3,3,5)                               \
+  __func__(1,3,6)                               \
+  __func__(2,3,6)                               \
+  __func__(3,3,6)                               \
+  __func__(1,3,7)                               \
+  __func__(2,3,7)                               \
+  __func__(3,3,7)                               \
+  __func__(1,3,8)                               \
+  __func__(2,3,8)                               \
+  __func__(3,3,8)                               \
+  __func__(1,4,4)                               \
+  __func__(2,4,4)                               \
+  __func__(3,4,4)                               \
+  __func__(4,4,4)                               \
+  __func__(1,4,5)                               \
+  __func__(2,4,5)                               \
+  __func__(3,4,5)                               \
+  __func__(4,4,5)                               \
+  __func__(1,4,6)                               \
+  __func__(2,4,6)                               \
+  __func__(3,4,6)                               \
+  __func__(4,4,6)                               \
+  __func__(1,4,7)                               \
+  __func__(2,4,7)                               \
+  __func__(3,4,7)                               \
+  __func__(4,4,7)                               \
+  __func__(1,4,8)                               \
+  __func__(2,4,8)                               \
+  __func__(3,4,8)                               \
+  __func__(4,4,8)                               \
+  __func__(1,5,5)                               \
+  __func__(2,5,5)                               \
+  __func__(3,5,5)                               \
+  __func__(4,5,5)                               \
+  __func__(5,5,5)                               \
+  __func__(1,5,6)                               \
+  __func__(2,5,6)                               \
+  __func__(3,5,6)                               \
+  __func__(4,5,6)                               \
+  __func__(5,5,6)                               \
+  __func__(1,5,7)                               \
+  __func__(2,5,7)                               \
+  __func__(3,5,7)                               \
+  __func__(4,5,7)                               \
+  __func__(5,5,7)                               \
+  __func__(1,5,8)                               \
+  __func__(2,5,8)                               \
+  __func__(3,5,8)                               \
+  __func__(4,5,8)                               \
+  __func__(5,5,8)                               \
+  __func__(1,6,6)                               \
+  __func__(2,6,6)                               \
+  __func__(3,6,6)                               \
+  __func__(4,6,6)                               \
+  __func__(5,6,6)                               \
+  __func__(6,6,6)                               \
+  __func__(1,6,7)                               \
+  __func__(2,6,7)                               \
+  __func__(3,6,7)                               \
+  __func__(4,6,7)                               \
+  __func__(5,6,7)                               \
+  __func__(6,6,7)                               \
+  __func__(1,6,8)                               \
+  __func__(2,6,8)                               \
+  __func__(3,6,8)                               \
+  __func__(4,6,8)                               \
+  __func__(5,6,8)                               \
+  __func__(6,6,8)                               \
+  __func__(1,7,7)                               \
+  __func__(2,7,7)                               \
+  __func__(3,7,7)                               \
+  __func__(4,7,7)                               \
+  __func__(5,7,7)                               \
+  __func__(6,7,7)                               \
+  __func__(7,7,7)                               \
+  __func__(1,7,8)                               \
+  __func__(2,7,8)                               \
+  __func__(3,7,8)                               \
+  __func__(4,7,8)                               \
+  __func__(5,7,8)                               \
+  __func__(6,7,8)                               \
+  __func__(7,7,8)                               \
+  __func__(1,8,8)                               \
+  __func__(2,8,8)                               \
+  __func__(3,8,8)                               \
+  __func__(4,8,8)                               \
+  __func__(5,8,8)                               \
+  __func__(6,8,8)                               \
+  __func__(7,8,8)                               \
+  __func__(8,8,8)
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)   \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1891,7 +2222,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 #elif LEGION_MAX_DIM == 9
 
-#define HYPERION_FOREACH_N(__func__)               \
+#define HYPERION_FOREACH_N(__func__)            \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
@@ -1901,7 +2232,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(7)                                   \
   __func__(8)                                   \
   __func__(9)
-#define HYPERION_FOREACH_NN(__func__)              \
+#define HYPERION_FOREACH_NN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -1983,7 +2314,7 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(9,7)                                 \
   __func__(9,8)                                 \
   __func__(9,9)
-#define HYPERION_FOREACH_MN(__func__)              \
+#define HYPERION_FOREACH_MN(__func__)           \
   __func__(1,1)                                 \
   __func__(1,2)                                 \
   __func__(1,3)                                 \
@@ -2029,7 +2360,173 @@ register_tasks(Legion::Context context, Legion::Runtime* runtime);
   __func__(8,8)                                 \
   __func__(8,9)                                 \
   __func__(9,9)
-#define HYPERION_FOREACH_N_LESS_MAX(__func__)      \
+#define HYPERION_FOREACH_LMN(__func__)          \
+  __func__(1,1,1)                               \
+  __func__(1,1,2)                               \
+  __func__(1,1,3)                               \
+  __func__(1,1,4)                               \
+  __func__(1,1,5)                               \
+  __func__(1,1,6)                               \
+  __func__(1,1,7)                               \
+  __func__(1,1,8)                               \
+  __func__(1,1,9)                               \
+  __func__(1,2,2)                               \
+  __func__(2,2,2)                               \
+  __func__(1,2,3)                               \
+  __func__(2,2,3)                               \
+  __func__(1,2,4)                               \
+  __func__(2,2,4)                               \
+  __func__(1,2,5)                               \
+  __func__(2,2,5)                               \
+  __func__(1,2,6)                               \
+  __func__(2,2,6)                               \
+  __func__(1,2,7)                               \
+  __func__(2,2,7)                               \
+  __func__(1,2,8)                               \
+  __func__(2,2,8)                               \
+  __func__(1,2,9)                               \
+  __func__(2,2,9)                               \
+  __func__(1,3,3)                               \
+  __func__(2,3,3)                               \
+  __func__(3,3,3)                               \
+  __func__(1,3,4)                               \
+  __func__(2,3,4)                               \
+  __func__(3,3,4)                               \
+  __func__(1,3,5)                               \
+  __func__(2,3,5)                               \
+  __func__(3,3,5)                               \
+  __func__(1,3,6)                               \
+  __func__(2,3,6)                               \
+  __func__(3,3,6)                               \
+  __func__(1,3,7)                               \
+  __func__(2,3,7)                               \
+  __func__(3,3,7)                               \
+  __func__(1,3,8)                               \
+  __func__(2,3,8)                               \
+  __func__(3,3,8)                               \
+  __func__(1,3,9)                               \
+  __func__(2,3,9)                               \
+  __func__(3,3,9)                               \
+  __func__(1,4,4)                               \
+  __func__(2,4,4)                               \
+  __func__(3,4,4)                               \
+  __func__(4,4,4)                               \
+  __func__(1,4,5)                               \
+  __func__(2,4,5)                               \
+  __func__(3,4,5)                               \
+  __func__(4,4,5)                               \
+  __func__(1,4,6)                               \
+  __func__(2,4,6)                               \
+  __func__(3,4,6)                               \
+  __func__(4,4,6)                               \
+  __func__(1,4,7)                               \
+  __func__(2,4,7)                               \
+  __func__(3,4,7)                               \
+  __func__(4,4,7)                               \
+  __func__(1,4,8)                               \
+  __func__(2,4,8)                               \
+  __func__(3,4,8)                               \
+  __func__(4,4,8)                               \
+  __func__(1,4,9)                               \
+  __func__(2,4,9)                               \
+  __func__(3,4,9)                               \
+  __func__(4,4,9)                               \
+  __func__(1,5,5)                               \
+  __func__(2,5,5)                               \
+  __func__(3,5,5)                               \
+  __func__(4,5,5)                               \
+  __func__(5,5,5)                               \
+  __func__(1,5,6)                               \
+  __func__(2,5,6)                               \
+  __func__(3,5,6)                               \
+  __func__(4,5,6)                               \
+  __func__(5,5,6)                               \
+  __func__(1,5,7)                               \
+  __func__(2,5,7)                               \
+  __func__(3,5,7)                               \
+  __func__(4,5,7)                               \
+  __func__(5,5,7)                               \
+  __func__(1,5,8)                               \
+  __func__(2,5,8)                               \
+  __func__(3,5,8)                               \
+  __func__(4,5,8)                               \
+  __func__(5,5,8)                               \
+  __func__(1,5,9)                               \
+  __func__(2,5,9)                               \
+  __func__(3,5,9)                               \
+  __func__(4,5,9)                               \
+  __func__(5,5,9)                               \
+  __func__(1,6,6)                               \
+  __func__(2,6,6)                               \
+  __func__(3,6,6)                               \
+  __func__(4,6,6)                               \
+  __func__(5,6,6)                               \
+  __func__(6,6,6)                               \
+  __func__(1,6,7)                               \
+  __func__(2,6,7)                               \
+  __func__(3,6,7)                               \
+  __func__(4,6,7)                               \
+  __func__(5,6,7)                               \
+  __func__(6,6,7)                               \
+  __func__(1,6,8)                               \
+  __func__(2,6,8)                               \
+  __func__(3,6,8)                               \
+  __func__(4,6,8)                               \
+  __func__(5,6,8)                               \
+  __func__(6,6,8)                               \
+  __func__(1,6,9)                               \
+  __func__(2,6,9)                               \
+  __func__(3,6,9)                               \
+  __func__(4,6,9)                               \
+  __func__(5,6,9)                               \
+  __func__(6,6,9)                               \
+  __func__(1,7,7)                               \
+  __func__(2,7,7)                               \
+  __func__(3,7,7)                               \
+  __func__(4,7,7)                               \
+  __func__(5,7,7)                               \
+  __func__(6,7,7)                               \
+  __func__(7,7,7)                               \
+  __func__(1,7,8)                               \
+  __func__(2,7,8)                               \
+  __func__(3,7,8)                               \
+  __func__(4,7,8)                               \
+  __func__(5,7,8)                               \
+  __func__(6,7,8)                               \
+  __func__(7,7,8)                               \
+  __func__(1,7,9)                               \
+  __func__(2,7,9)                               \
+  __func__(3,7,9)                               \
+  __func__(4,7,9)                               \
+  __func__(5,7,9)                               \
+  __func__(6,7,9)                               \
+  __func__(7,7,9)                               \
+  __func__(1,8,8)                               \
+  __func__(2,8,8)                               \
+  __func__(3,8,8)                               \
+  __func__(4,8,8)                               \
+  __func__(5,8,8)                               \
+  __func__(6,8,8)                               \
+  __func__(7,8,8)                               \
+  __func__(8,8,8)                               \
+  __func__(1,8,9)                               \
+  __func__(2,8,9)                               \
+  __func__(3,8,9)                               \
+  __func__(4,8,9)                               \
+  __func__(5,8,9)                               \
+  __func__(6,8,9)                               \
+  __func__(7,8,9)                               \
+  __func__(8,8,9)                               \
+  __func__(1,9,9)                               \
+  __func__(2,9,9)                               \
+  __func__(3,9,9)                               \
+  __func__(4,9,9)                               \
+  __func__(5,9,9)                               \
+  __func__(6,9,9)                               \
+  __func__(7,9,9)                               \
+  __func__(8,9,9)                               \
+  __func__(9,9,9)
+#define HYPERION_FOREACH_N_LESS_MAX(__func__)   \
   __func__(1)                                   \
   __func__(2)                                   \
   __func__(3)                                   \
