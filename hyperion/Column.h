@@ -89,19 +89,6 @@ public:
     Legion::AffineAccessor<hyperion::TypeTag, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
-#ifdef HYPERION_USE_CASACORE
-  typedef std::function<
-    Column(
-      Legion::Context,
-      Legion::Runtime*,
-      const std::string&,
-      const MeasRefContainer&)>
-    Generator;
-#else
-  typedef std::function<
-    Column(Legion::Context, Legion::Runtime*, const std::string&)> Generator;
-#endif
-
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxesAccessor =
     Legion::FieldAccessor<
@@ -111,6 +98,19 @@ public:
     Legion::coord_t,
     Legion::AffineAccessor<int, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
+
+#ifdef HYPERION_USE_CASACORE
+  typedef std::function<
+    Column(
+    Legion::Context,
+    Legion::Runtime*,
+    const std::string&,
+    const MeasRefContainer&)>
+  Generator;
+#else
+  typedef std::function<
+    Column(Legion::Context, Legion::Runtime*, const std::string&)> Generator;
+#endif
 
   Column();
 
