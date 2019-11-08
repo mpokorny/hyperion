@@ -838,7 +838,6 @@ IndexColumnTask::base_impl(
   return result;
 }
 
-#ifndef NO_REINDEX
 #ifdef HIERARCHICAL_COMPUTE_RECTANGLES
 
 class HYPERION_LOCAL ComputeRectanglesTask {
@@ -907,7 +906,7 @@ public:
       WRITE_DISCARD,
       SIMULTANEOUS,
       (has_parent ? parent_regions.back().get_logical_region() : new_rects));
-    req.add_field(ReindexColumnTask::row_rects_fid);
+    req.add_field(ReindexColumnTask::ROW_RECTS_FID);
     m_launcher.add_region_requirement(req);
   };
 
@@ -973,7 +972,7 @@ public:
               ROWDIM, \
               coord_t, \
               AffineAccessor<Rect<RECTDIM>, ROWDIM, coord_t>, \
-              false> rects(regions.back(), ReindexColumnTask::row_rects_fid); \
+              false> rects(regions.back(), ReindexColumnTask::ROW_RECTS_FID); \
                                                                         \
             for (size_t i = 0; i < args.rows.size(); ++i) {             \
               Domain row_d =                                            \
@@ -1126,12 +1125,12 @@ public:
     IndexTaskLauncher launcher;
     std::unique_ptr<char[]> args_buffer;
     TaskArgs args{m_allow_rows, m_row_partition};
-    args_buffer = make_unique<char[]>(args.serialized_size());
+    args_buffer = std::make_unique<char[]>(args.serialized_size());
     args.serialize(args_buffer.get());
 
     //LogicalRegion new_rects_lr = m_new_rects.get_logical_region();
     // AcquireLauncher acquire(new_rects_lr, new_rects_lr, m_new_rects);
-    // acquire.add_field(ReindexColumnTask::row_rects_fid);
+    // acquire.add_field(ReindexColumnTask::ROW_RECTS_FID);
     // PhaseBarrier acquired = rt->create_phase_barrier(ctx, 1);
     // acquire.add_arrival_barrier(acquired);
     // rt->issue_acquire(ctx, acquire);
@@ -1174,20 +1173,20 @@ public:
       m_ix_columns.end(),
       [&launcher](auto& lr) {
         RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
-        req.add_field(IndexColumnTask::rows_fid);
+        req.add_field(IndexColumnTask::ROWS_FID);
         launcher.add_region_requirement(req);
       });
 
     RegionRequirement
       req(m_new_rects_lr, WRITE_DISCARD, SIMULTANEOUS, m_new_rects_lr);
-    req.add_field(ReindexColumnTask::row_rects_fid);
+    req.add_field(ReindexColumnTask::ROW_RECTS_FID);
     launcher.add_region_requirement(req);
 
     rt->execute_index_space(ctx, launcher);
 
     // PhaseBarrier complete = rt->advance_phase_barrier(ctx, released);
     // ReleaseLauncher release(new_rects_lr, new_rects_lr, m_new_rects);
-    // release.add_field(ReindexColumnTask::row_rects_fid);
+    // release.add_field(ReindexColumnTask::ROW_RECTS_FID);
     // release.add_wait_barrier(complete);
     // rt->issue_release(ctx, release);
   }
@@ -1214,11 +1213,11 @@ public:
 
     std::vector<DomainPoint> common_rows;
     {
-      rows_acc_t rows(regions[0], IndexColumnTask::rows_fid);
+      rows_acc_t rows(regions[0], IndexColumnTask::ROWS_FID);
       common_rows = rows[task->index_point[0]];
     }
     for (size_t i = 1; i < ixdim; ++i) {
-      rows_acc_t rows(regions[i], IndexColumnTask::rows_fid);
+      rows_acc_t rows(regions[i], IndexColumnTask::ROWS_FID);
       common_rows = intersection(common_rows, rows[task->index_point[i]]);
     }
 
@@ -1234,7 +1233,7 @@ public:
           const FieldAccessor<                                          \
             WRITE_DISCARD, \
             Rect<RECTDIM>, \
-            ROWDIM> rects(regions.back(), ReindexColumnTask::row_rects_fid); \
+            ROWDIM> rects(regions.back(), ReindexColumnTask::ROW_RECTS_FID); \
                                                                         \
           for (size_t i = 0; i < common_rows.size(); ++i) {             \
             Domain row_d =                                              \
@@ -1345,8 +1344,6 @@ private:
 
 TaskID ComputeRectanglesTask::TASK_ID;
 const char* ComputeRectanglesTask::TASK_NAME = "ComputeRectanglesTask";
-
-#endif //!NO_REINDEX
 
 class HYPERION_LOCAL ReindexColumnCopyTask {
 public:
@@ -1472,7 +1469,7 @@ public:
         m_new_col_lr.get_index_space(),
         new_rects_lp,
         m_new_rects_lr,
-        ReindexColumnTask::row_rects_fid,
+        ReindexColumnTask::ROW_RECTS_FID,
         cs,
         DISJOINT_COMPLETE_KIND);
 
@@ -1495,7 +1492,7 @@ public:
     {
       RegionRequirement
         req(new_rects_lp, 0, READ_ONLY, EXCLUSIVE, m_new_rects_lr);
-      req.add_field(ReindexColumnTask::row_rects_fid);
+      req.add_field(ReindexColumnTask::ROW_RECTS_FID);
       copier.add_region_requirement(req);
     }
     {
@@ -1733,7 +1730,7 @@ reindex_column(
   auto new_rects_fs = rt->create_field_space(ctx);
   {
     auto fa = rt->create_field_allocator(ctx, new_rects_fs);
-    fa.allocate_field(sizeof(Rect<NEWDIM>), ReindexColumnTask::row_rects_fid);
+    fa.allocate_field(sizeof(Rect<NEWDIM>), ReindexColumnTask::ROW_RECTS_FID);
 
     LayoutConstraintRegistrar lc(new_rects_fs);
     add_row_major_order_constraint(lc, rows_is.get_dim())
@@ -1755,14 +1752,14 @@ reindex_column(
     ctx,
     new_rects_lr,
     new_rects_lr,
-    ReindexColumnTask::row_rects_fid,
+    ReindexColumnTask::ROW_RECTS_FID,
     empty);
 
   // Set RegionRequirements for this task and its children
   // RegionRequirement
   //   new_rects_req(new_rects_lr, WRITE_DISCARD, SIMULTANEOUS, new_rects_lr);
   // cout << "new_rects_lr " << new_rects_lr << endl;
-  // new_rects_req.add_field(ReindexColumnTask::row_rects_fid);
+  // new_rects_req.add_field(ReindexColumnTask::ROW_RECTS_FID);
   // PhysicalRegion new_rects_pr = rt->map_region(ctx, new_rects_req);
 
   bool col_has_keywords = !args.col.keywords.is_empty();
@@ -1846,7 +1843,7 @@ reindex_column(
 #ifdef WORKAROUND
   {
     RegionRequirement req(new_rects_lr, READ_ONLY, EXCLUSIVE, new_rects_lr);
-    req.add_field(ReindexColumnTask::row_rects_fid);
+    req.add_field(ReindexColumnTask::ROW_RECTS_FID);
     PhysicalRegion pr = rt->map_region(ctx, req);
 
 #define PRINTIT(N)     \
@@ -1857,7 +1854,7 @@ reindex_column(
         N,\
         coord_t,\
         AffineAccessor<Rect<NEWDIM>, N, coord_t>, \
-        true> rr(pr, ReindexColumnTask::row_rects_fid);\
+        true> rr(pr, ReindexColumnTask::ROW_RECTS_FID);\
       for (PointInDomainIterator<N>                                     \
              pid(rt->get_index_space_domain(ctx, rows_is));             \
            pid();                                                       \
@@ -1891,7 +1888,7 @@ reindex_column(
       new_bounds_is,
       unitary_new_rects_lp,
       new_rects_lr,
-      ReindexColumnTask::row_rects_fid,
+      ReindexColumnTask::ROW_RECTS_FID,
       unitary_cs));
   // new_col_is is the exact index space of the reindexed column
   IndexSpaceT<NEWDIM> new_col_is(rt->get_index_subspace(new_bounds_ip, 0));
@@ -2758,10 +2755,10 @@ Table::preregister_tasks() {
 #undef PREREG_IDX_ACCUMULATE
   IndexColumnTask::preregister_task();
   InitColorsTask::preregister_task();
-#ifndef NO_REINDEX
   ComputeRectanglesTask::preregister_task();
   ReindexColumnTask::preregister_task();
   ReindexColumnCopyTask::preregister_task();
+#ifndef NO_REINDEX
   ReindexedTableTask::preregister_task();
 #endif // !NO_REINDEX
 }

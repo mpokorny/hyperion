@@ -715,7 +715,7 @@ public:
     Legion::Context ctx,
     Legion::Runtime *runtime);
 
-  static constexpr const Legion::FieldID row_rects_fid = 0;
+  static constexpr const Legion::FieldID ROW_RECTS_FID = 0;
 
 private:
 
