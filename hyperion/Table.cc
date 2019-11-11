@@ -1979,12 +1979,6 @@ reindex_column(
   const Column::AxesUidAccessor<READ_ONLY> col_axes_uid(
     regions[ReindexColumnRegionIndexes::METADATA],
     Column::METADATA_AXES_UID_FID);
-  auto num_col_axes =
-    rt->get_index_space_domain(
-      task->regions[ReindexColumnRegionIndexes::AXES]
-      .region
-      .get_index_space())
-    .get_volume();
   return Column::create(
     ctx,
     rt,
