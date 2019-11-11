@@ -171,6 +171,12 @@ public:
     return;
   }
 
+  static std::vector<MeasRef>
+  clone_meas_refs(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    Legion::PhysicalRegion pr);
+
   void
   destroy(Legion::Context ctx, Legion::Runtime* rt);
 
