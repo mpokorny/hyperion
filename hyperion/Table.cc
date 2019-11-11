@@ -39,7 +39,6 @@ using namespace hyperion;
 using namespace Legion;
 
 #undef HIERARCHICAL_COMPUTE_RECTANGLES
-#undef WORKAROUND
 
 #undef SAVE_LAYOUT_CONSTRAINT_IDS
 
@@ -1772,13 +1771,6 @@ reindex_column(
     ReindexColumnTask::ROW_RECTS_FID,
     empty);
 
-  // Set RegionRequirements for this task and its children
-  // RegionRequirement
-  //   new_rects_req(new_rects_lr, WRITE_DISCARD, SIMULTANEOUS, new_rects_lr);
-  // cout << "new_rects_lr " << new_rects_lr << endl;
-  // new_rects_req.add_field(ReindexColumnTask::ROW_RECTS_FID);
-  // PhysicalRegion new_rects_pr = rt->map_region(ctx, new_rects_req);
-
   bool col_has_keywords = !args.col.keywords.is_empty();
   std::vector<LogicalRegion> ix_lrs;
   ix_lrs.reserve(args.index_axes.size());
@@ -1852,56 +1844,29 @@ reindex_column(
   }
   auto new_bounds_is = rt->create_index_space(ctx, new_bounds);
 
-#ifdef WORKAROUND
-  {
-    RegionRequirement req(new_rects_lr, READ_ONLY, EXCLUSIVE, new_rects_lr);
-    req.add_field(ReindexColumnTask::ROW_RECTS_FID);
-    PhysicalRegion pr = rt->map_region(ctx, req);
-
-#define PRINTIT(N)     \
-    case (N): { \
-      const FieldAccessor< \
-        READ_ONLY,\
-        Rect<NEWDIM>,\
-        N,\
-        coord_t,\
-        AffineAccessor<Rect<NEWDIM>, N, coord_t>, \
-        true> rr(pr, ReindexColumnTask::ROW_RECTS_FID);\
-      for (PointInDomainIterator<N>                                     \
-             pid(rt->get_index_space_domain(ctx, rows_is));             \
-           pid();                                                       \
-           pid++)                                                       \
-        cout << *pid << ": " << rr[*pid] << endl;                       \
-      break;                                                            \
-    }
-    switch (rows_is.get_dim()) {
-      HYPERION_FOREACH_N(PRINTIT)
-    default:
-      assert(false);
-      break;
-    }
-#undef PRINTIT
-  }
-  return Column();
-#endif
   // now reduce the bounding index space to the exact, possibly sparse index
   // space of the reindexed column
 
   // to do this, we need a logical partition of new_rects_lr, which will
   // comprise a single index subspace
-  IndexSpaceT<1> unitary_cs = rt->create_index_space(ctx, Rect<1>(0, 0));
-  auto unitary_rows_ip =
-    rt->create_equal_partition(ctx, rows_is, unitary_cs);
-  auto unitary_new_rects_lp =
-    rt->get_logical_partition(ctx, new_rects_lr, unitary_rows_ip);
+  IndexSpaceT<1> all_rows_cs = rt->create_index_space(ctx, Rect<1>(0, 0));
+  auto all_rows_ip =
+    rt->create_equal_partition(ctx, rows_is, all_rows_cs);
+  auto all_rows_new_rects_lp =
+    rt->get_logical_partition(ctx, new_rects_lr, all_rows_ip);
+  // those rows in rows_is that are mapped to an empty rectangle correspond to
+  // indexes in rows_is that are not present in the exact cross-product index
+  // space, and the create_partition_by_image_range function will leave those
+  // indexes out of the resulting partition, leaving the index space we're
+  // looking for
   IndexPartitionT<NEWDIM> new_bounds_ip(
     rt->create_partition_by_image_range(
       ctx,
       new_bounds_is,
-      unitary_new_rects_lp,
+      all_rows_new_rects_lp,
       new_rects_lr,
       ReindexColumnTask::ROW_RECTS_FID,
-      unitary_cs));
+      all_rows_cs));
   // new_col_is is the exact index space of the reindexed column
   IndexSpaceT<NEWDIM> new_col_is(rt->get_index_subspace(new_bounds_ip, 0));
 
@@ -1931,15 +1896,14 @@ reindex_column(
     copy_task.dispatch(ctx, rt);
   }
 
-  //rt->destroy_field_space(ctx, new_rects_fs);
+  rt->destroy_field_space(ctx, new_rects_fs);
+  rt->destroy_logical_region(ctx, new_rects_lr);
 
-  // rt->destroy_index_space(ctx, unitary_cs);
-  // rt->destroy_index_partition(ctx, unitary_rows_ip);
+  rt->destroy_index_space(ctx, all_rows_cs);
+  rt->destroy_index_partition(ctx, all_rows_ip);
 
-  // TODO: are the following OK? does new_col_lr retain needed references?
-  // rt->destroy_index_space(ctx, new_bounds_is);
-  // rt->destroy_index_partition(ctx, new_bounds_ip);
-  // rt->destroy_index_space(ctx, new_col_is);
+  rt->destroy_index_space(ctx, new_bounds_is);
+  rt->destroy_index_partition(ctx, new_bounds_ip);
 
   auto mrs =
     MeasRefContainer::with_measure_references_dictionary(
