@@ -721,20 +721,15 @@ private:
 
   struct TaskArgs {
     bool allow_rows;
-    std::vector<int> index_axes;
+    unsigned num_index_axes;
+    int index_axes[LEGION_MAX_DIM]; // lazy, but LEGION_MAX_DIM is certainly an
+                                    // upper bound
     Legion::IndexPartition row_partition;
     Column col;
     unsigned ix0_region_offset;
+#ifdef HYPERION_USE_CASACORE
     unsigned mrc_region_offset;
-
-    size_t
-    serialized_size() const;
-
-    size_t
-    serialize(void* buffer) const;
-
-    static size_t
-    deserialize(TaskArgs& val, const void* buffer);
+#endif // HYPERION_USE_CASACORE
   };
 
   std::vector<int> m_col_axes;

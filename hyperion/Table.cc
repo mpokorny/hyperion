@@ -1560,57 +1560,6 @@ const char* ReindexColumnCopyTask::TASK_NAME = "ReindexColumnCopyTask";
 TaskID ReindexColumnTask::TASK_ID;
 const char* ReindexColumnTask::TASK_NAME = "ReindexColumnTask";
 
-size_t
-ReindexColumnTask::TaskArgs::serialized_size() const {
-  return
-    sizeof(allow_rows)
-    + vector_serdez<int>::serialized_size(index_axes)
-    + sizeof(row_partition)
-    + sizeof(col)
-    + sizeof(ix0_region_offset)
-    + sizeof(mrc_region_offset);
-}
-
-size_t
-ReindexColumnTask::TaskArgs::serialize(void* buffer) const {
-  char* buff = static_cast<char*>(buffer);
-  memcpy(buff, &allow_rows, sizeof(allow_rows));
-  buff += sizeof(allow_rows);
-  buff += vector_serdez<int>::serialize(index_axes, buff);
-  *reinterpret_cast<decltype(row_partition)*>(buff) = row_partition;
-  buff += sizeof(row_partition);
-  *reinterpret_cast<decltype(col)*>(buff) = col;
-  buff += sizeof(col);
-  *reinterpret_cast<decltype(ix0_region_offset)*>(buff) = ix0_region_offset;
-  buff += sizeof(ix0_region_offset);
-  *reinterpret_cast<decltype(mrc_region_offset)*>(buff) = mrc_region_offset;
-  buff += sizeof(mrc_region_offset);
-  return buff - static_cast<char*>(buffer);
-}
-
-size_t
-ReindexColumnTask::TaskArgs::deserialize(
-  ReindexColumnTask::TaskArgs& val,
-  const void* buffer) {
-
-  const char* buff = static_cast<const char*>(buffer);
-  val.allow_rows = *reinterpret_cast<const decltype(val.allow_rows)*>(buff);
-  buff += sizeof(val.allow_rows);
-  buff += vector_serdez<int>::deserialize(val.index_axes, buff);
-  val.row_partition =
-    *reinterpret_cast<const decltype(val.row_partition)*>(buff);
-  buff += sizeof(val.row_partition);
-  val.col = *reinterpret_cast<const decltype(val.col)*>(buff);
-  buff += sizeof(val.col);
-  val.ix0_region_offset =
-    *reinterpret_cast<const decltype(val.ix0_region_offset)*>(buff);
-  buff += sizeof(val.ix0_region_offset);
-  val.mrc_region_offset =
-    *reinterpret_cast<const decltype(val.mrc_region_offset)*>(buff);
-  buff += sizeof(val.mrc_region_offset);
-  return buff - static_cast<const char*>(buffer);
-}
-
 ReindexColumnTask::ReindexColumnTask(
   const Column& col,
   const std::vector<int>& col_axes,
@@ -1625,10 +1574,12 @@ ReindexColumnTask::ReindexColumnTask(
   m_args.allow_rows = allow_rows;
   m_args.col = col;
 
+  unsigned i = 0;
   for (auto& [ix, lr] : ixcols) {
-    m_args.index_axes.push_back(ix);
+    m_args.index_axes[i++] = ix;
     m_ixlrs.push_back(lr);
   }
+  m_args.num_index_axes = i;
 }
 
 enum ReindexColumnRegionIndexes {
@@ -1690,6 +1641,7 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
     req.add_field(IndexColumnTask::ROWS_FID);
     reqs.push_back(req);
   }
+#ifdef HYPERION_USE_CASACORE
   m_args.mrc_region_offset = reqs.size();
   if (m_args.col.meas_refs.lr != LogicalRegion::NO_REGION) {
     RegionRequirement req(
@@ -1711,13 +1663,9 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
       }
     }
   }
-  std::unique_ptr<char[]>args_buffer =
-    std::make_unique<char[]>(m_args.serialized_size());
-  m_args.serialize(args_buffer.get());
+#endif
 
-  TaskLauncher launcher(
-    TASK_ID,
-    TaskArgument(args_buffer.get(), m_args.serialized_size()));
+  TaskLauncher launcher(TASK_ID, TaskArgument(&m_args, sizeof(m_args)));
   for (auto& req : reqs)
     launcher.add_region_requirement(req);
   return rt->execute_task(ctx, launcher);
@@ -1773,8 +1721,8 @@ reindex_column(
 
   bool col_has_keywords = !args.col.keywords.is_empty();
   std::vector<LogicalRegion> ix_lrs;
-  ix_lrs.reserve(args.index_axes.size());
-  for (size_t i = 0; i < args.index_axes.size(); ++i)
+  ix_lrs.reserve(args.num_index_axes);
+  for (size_t i = 0; i < args.num_index_axes; ++i)
     ix_lrs.push_back(regions[i + args.ix0_region_offset].get_logical_region());
 
   // task to compute new index space rectangle for each row in column
@@ -1905,28 +1853,13 @@ reindex_column(
   rt->destroy_index_space(ctx, new_bounds_is);
   rt->destroy_index_partition(ctx, new_bounds_ip);
 
+#ifdef HYPERION_USE_CASACORE
   auto mrs =
-    MeasRefContainer::with_measure_references_dictionary(
+    MeasRefContainer::clone_meas_refs(
       ctx,
       rt,
-      regions[args.mrc_region_offset],
-      false,
-      [](Context c, Runtime* r, MeasRefDict* dict) {
-        std::vector<MeasRef> result;
-        for (auto& nm : dict->names()) {
-          auto ref = dict->get(nm).value();
-          if (false) assert(false);
-#define ADD_REF(M)                                                \
-          else if (MeasRefDict::holds<M>(ref))                    \
-            result.push_back(                                     \
-              MeasRef::create(c, r, nm, *MeasRefDict::get<M>(ref)));
-          HYPERION_FOREACH_MCLASS(ADD_REF)
-#undef ADD_REF
-          else
-            assert(false);
-        }
-        return result;
-      });
+      regions[args.mrc_region_offset]);
+#endif
 
   Keywords kws;
   if (col_has_keywords)
@@ -1951,7 +1884,9 @@ reindex_column(
     new_axes,
     col_datatype[0],
     new_col_lr,
+#ifdef HYPERION_USE_CASACORE
     MeasRefContainer::create(ctx, rt, mrs),
+#endif
     kws);
 }
 
@@ -1962,24 +1897,29 @@ ReindexColumnTask::base_impl(
   Context ctx,
   Runtime *rt) {
 
-  TaskArgs args;
-  ReindexColumnTask::TaskArgs::deserialize(args, task->args);
+  const TaskArgs* args = static_cast<const TaskArgs*>(task->args);
 
-  auto olddim = args.row_partition.get_dim();
+  auto olddim = args->row_partition.get_dim();
   auto eltdim =
     olddim
-    - rt->get_index_partition_color_space(ctx, args.row_partition)
+    - rt->get_index_partition_color_space(ctx, args->row_partition)
     .get_dim();
+#ifdef HYPERION_USE_CASACORE
   auto newdim =
-    args.mrc_region_offset - args.ix0_region_offset
-    + eltdim + (args.allow_rows ? 1 : 0);
+    args->mrc_region_offset - args->ix0_region_offset
+    + eltdim + (args->allow_rows ? 1 : 0);
+#else
+  auto newdim =
+    regions.size() - args->ix0_region_offset
+    + eltdim + (args->allow_rows ? 1 : 0);
+#endif
 
 #define REINDEX_COLUMN(OLDDIM, NEWDIM)          \
   case (OLDDIM * LEGION_MAX_DIM + NEWDIM): {    \
     return                                      \
       reindex_column<OLDDIM, NEWDIM>(           \
         task,                                   \
-        args,                                   \
+        *args,                                  \
         regions,                                \
         ctx,                                    \
         rt);                                    \
