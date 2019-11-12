@@ -89,7 +89,7 @@ struct MSTableAxis {
 // indexing)
 
 template <>
-struct MSTable<MS_MAIN> {
+struct HYPERION_API MSTable<MS_MAIN> {
   static const constexpr char *name = "MAIN";
 
   typedef ::ms_main_axes_t Axes;
@@ -130,7 +130,7 @@ MS_AXIS_NAME(MAIN, OBSERVATION_ID);
 MS_AXIS_NAME(MAIN, STATE_ID);
 
 template <>
-struct MSTable<MS_ANTENNA> {
+struct HYPERION_API MSTable<MS_ANTENNA> {
   static const constexpr char* name = "ANTENNA";
 
   typedef ::ms_antenna_axes_t Axes;
@@ -153,7 +153,7 @@ MS_AXIS_NAME(ANTENNA, OFFSET);
 MS_AXIS_NAME(ANTENNA, MEAN_ORBIT);
 
 template <>
-struct MSTable<MS_DATA_DESCRIPTION> {
+struct HYPERION_API MSTable<MS_DATA_DESCRIPTION> {
   static const constexpr char* name = "DATA_DESCRIPTION";
 
   typedef ::ms_data_description_axes_t Axes;
@@ -173,7 +173,7 @@ struct MSTable<MS_DATA_DESCRIPTION> {
 MS_AXIS_NAME(DATA_DESCRIPTION, ROW);
 
 template <>
-struct MSTable<MS_DOPPLER> {
+struct HYPERION_API MSTable<MS_DOPPLER> {
   static const constexpr char *name = "DOPPLER";
 
   typedef ::ms_doppler_axes_t Axes;
@@ -196,7 +196,7 @@ MS_AXIS_NAME(DOPPLER, SOURCE_ID);
 MS_AXIS_NAME(DOPPLER, TRANSITION_ID);
 
 template <>
-struct MSTable<MS_FEED> {
+struct HYPERION_API MSTable<MS_FEED> {
   static const constexpr char *name = "FEED";
 
   typedef ::ms_feed_axes_t Axes;
@@ -225,7 +225,7 @@ MS_AXIS_NAME(FEED, TIME);
 MS_AXIS_NAME(FEED, INTERVAL);
 
 template <>
-struct MSTable<MS_FIELD> {
+struct HYPERION_API MSTable<MS_FIELD> {
   static const constexpr char* name = "FIELD";
 
   typedef ::ms_field_axes_t Axes;
@@ -249,7 +249,7 @@ MS_AXIS_NAME(FIELD, SOURCE_ID);
 MS_AXIS_NAME(FIELD, EPHEMERIS_ID);
 
 template <>
-struct MSTable<MS_FLAG_CMD> {
+struct HYPERION_API MSTable<MS_FLAG_CMD> {
   static const constexpr char *name = "FLAG_CMD";
 
   typedef ::ms_flag_cmd_axes_t Axes;
@@ -271,7 +271,7 @@ MS_AXIS_NAME(FLAG_CMD, TIME);
 MS_AXIS_NAME(FLAG_CMD, INTERVAL);
 
 template <>
-struct MSTable<MS_FREQ_OFFSET> {
+struct HYPERION_API MSTable<MS_FREQ_OFFSET> {
   static const constexpr char* name = "FREQ_OFFSET";
 
   typedef ::ms_freq_offset_axes_t Axes;
@@ -297,7 +297,7 @@ MS_AXIS_NAME(FREQ_OFFSET, TIME);
 MS_AXIS_NAME(FREQ_OFFSET, INTERVAL);
 
 template <>
-struct MSTable<MS_HISTORY> {
+struct HYPERION_API MSTable<MS_HISTORY> {
   static const constexpr char* name = "HISTORY";
 
   typedef ::ms_history_axes_t Axes;
@@ -321,7 +321,7 @@ MS_AXIS_NAME(HISTORY, TIME);
 MS_AXIS_NAME(HISTORY, OBSERVATION_ID);
 
 template <>
-struct MSTable<MS_OBSERVATION> {
+struct HYPERION_API MSTable<MS_OBSERVATION> {
   static const constexpr char* name = "OBSERVATION";
 
   typedef ::ms_observation_axes_t Axes;
@@ -344,7 +344,7 @@ MS_AXIS_NAME(OBSERVATION, LOG);
 MS_AXIS_NAME(OBSERVATION, SCHEDULE);
 
 template <>
-struct MSTable<MS_POINTING> {
+struct HYPERION_API MSTable<MS_POINTING> {
   static const constexpr char* name = "POINTING";
 
   typedef ::ms_pointing_axes_t Axes;
@@ -369,7 +369,7 @@ MS_AXIS_NAME(POINTING, TIME);
 MS_AXIS_NAME(POINTING, INTERVAL);
 
 template <>
-struct MSTable<MS_POLARIZATION> {
+struct HYPERION_API MSTable<MS_POLARIZATION> {
   static const constexpr char* name = "POLARIZATION";
 
   typedef ::ms_polarization_axes_t Axes;
@@ -391,7 +391,7 @@ MS_AXIS_NAME(POLARIZATION, CORRELATION);
 MS_AXIS_NAME(POLARIZATION, PRODUCT);
 
 template <>
-struct MSTable<MS_PROCESSOR> {
+struct HYPERION_API MSTable<MS_PROCESSOR> {
   static const constexpr char* name = "PROCESSOR";
 
   typedef ::ms_processor_axes_t Axes;
@@ -411,7 +411,7 @@ struct MSTable<MS_PROCESSOR> {
 MS_AXIS_NAME(PROCESSOR, ROW);
 
 template <>
-struct MSTable<MS_SOURCE> {
+struct HYPERION_API MSTable<MS_SOURCE> {
   static const constexpr char* name = "SOURCE";
 
   typedef ::ms_source_axes_t Axes;
@@ -440,7 +440,7 @@ MS_AXIS_NAME(SOURCE, SPECTRAL_WINDOW_ID);
 MS_AXIS_NAME(SOURCE, PULSAR_ID);
 
 template <>
-struct MSTable<MS_SPECTRAL_WINDOW> {
+struct HYPERION_API MSTable<MS_SPECTRAL_WINDOW> {
   static const constexpr char* name = "SPECTRAL_WINDOW";
 
   typedef ::ms_spectral_window_axes_t Axes;
@@ -462,7 +462,7 @@ MS_AXIS_NAME(SPECTRAL_WINDOW, CHANNEL);
 MS_AXIS_NAME(SPECTRAL_WINDOW, ASSOC_SPW);
 
 template <>
-struct MSTable<MS_STATE> {
+struct HYPERION_API MSTable<MS_STATE> {
   static const constexpr char* name = "STATE";
 
   typedef ::ms_state_axes_t Axes;
@@ -482,7 +482,7 @@ struct MSTable<MS_STATE> {
 MS_AXIS_NAME(STATE, ROW);
 
 template <>
-struct MSTable<MS_SYSCAL> {
+struct HYPERION_API MSTable<MS_SYSCAL> {
   static const constexpr char* name = "SYSCAL";
 
   typedef ::ms_syscal_axes_t Axes;
@@ -509,7 +509,7 @@ MS_AXIS_NAME(SYSCAL, TIME);
 MS_AXIS_NAME(SYSCAL, INTERVAL);
 
 template <>
-struct MSTable<MS_WEATHER> {
+struct HYPERION_API MSTable<MS_WEATHER> {
   static const constexpr char* name = "WEATHER";
 
   typedef ::ms_weather_axes_t Axes;
@@ -534,21 +534,21 @@ MS_AXIS_NAME(WEATHER, INTERVAL);
 #undef MS_AXIS_NAME
 
 #ifdef HYPERION_USE_HDF5
-#define MSAXES(T)                                                       \
-  template <>                                                           \
-  struct Axes<typename MSTable<MS_##T>::Axes> {                         \
-    static constexpr const char *uid = "hyperion::" #T;                    \
-    static const std::vector<std::string> names;                        \
-    static const unsigned num_axes = MSTable<MS_##T>::num_axes;         \
-    static const hid_t h5_datatype;                                     \
+#define MSAXES(T)                                               \
+  template <>                                                   \
+  struct HYPERION_API Axes<typename MSTable<MS_##T>::Axes> {    \
+    static constexpr const char *uid = "hyperion::" #T;         \
+    static const std::vector<std::string> names;                \
+    static const unsigned num_axes = MSTable<MS_##T>::num_axes; \
+    static const hid_t h5_datatype;                             \
   };
 #else
-#define MSAXES(T)                                                     \
-  template <>                                                         \
-  struct Axes<typename MSTable<MS_##T>::Axes> {                       \
-    static constexpr const char *uid = "hyperion::" #T;                  \
-    static const std::vector<std::string> names;                      \
-    static const unsigned num_axes = MSTable<MS_##T>::num_axes;       \
+#define MSAXES(T)                                               \
+  template <>                                                   \
+  struct HYPERION_API Axes<typename MSTable<MS_##T>::Axes> {    \
+    static constexpr const char *uid = "hyperion::" #T;         \
+    static const std::vector<std::string> names;                \
+    static const unsigned num_axes = MSTable<MS_##T>::num_axes; \
   };
 #endif
 
