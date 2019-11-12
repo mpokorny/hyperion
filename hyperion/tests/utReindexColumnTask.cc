@@ -245,7 +245,7 @@ reindex_column_task_test_suite(
   };
 
   auto cz = table0.column(ctx, rt, "Z");
-  ReindexColumnTask rcz_task(cz, cz.axes(ctx, rt), 0, ics, false);
+  ReindexColumnTask rcz_task(cz, false, cz.axes(ctx, rt), 0, ics, false);
   Future fcz = rcz_task.dispatch(ctx, rt);
   auto rcz = fcz.get_result<Column>();
   recorder.assert_true(

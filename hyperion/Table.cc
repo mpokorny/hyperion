@@ -196,6 +196,64 @@ Table::create(
   const std::string& name,
   const std::string& axes_uid,
   const std::vector<int>& index_axes,
+  const std::vector<Column>& columns_,
+#ifdef HYPERION_USE_CASACORE
+  const MeasRefContainer& meas_refs,
+#endif
+  const Keywords& keywords) {
+
+  std::string component_name_prefix = name;
+
+  Legion::LogicalRegion metadata =
+    create_metadata(ctx, rt, name, axes_uid, component_name_prefix);
+  Legion::LogicalRegion axes =
+    create_axes(ctx, rt, index_axes, component_name_prefix);
+  Legion::LogicalRegion columns;
+  {
+    Legion::Rect<1> rect(0, columns_.size() - 1);
+    Legion::IndexSpace is = rt->create_index_space(ctx, rect);
+    Legion::FieldSpace fs = rt->create_field_space(ctx);
+    Legion::FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+    fa.allocate_field(sizeof(Column), COLUMNS_FID);
+    columns = rt->create_logical_region(ctx, is, fs);
+    {
+      std::string columns_name = component_name_prefix + "/columns";
+      rt->attach_name(columns, columns_name.c_str());
+    }
+    Legion::RegionRequirement req(columns, WRITE_ONLY, EXCLUSIVE, columns);
+    req.add_field(COLUMNS_FID);
+    Legion::PhysicalRegion pr = rt->map_region(ctx, req);
+    const ColumnsAccessor<WRITE_ONLY> cols(pr, COLUMNS_FID);
+    Legion::PointInRectIterator<1> pir(rect);
+    for (auto& col : columns_) {
+      assert(pir());
+      cols[*pir] = col;
+      pir++;
+    }
+    assert(!pir());
+    rt->unmap_region(ctx, pr);
+  }
+#ifdef HYPERION_USE_CASACORE
+  meas_refs.add_prefix_to_owned(ctx, rt, component_name_prefix);
+#endif
+  return
+    Table(
+      metadata,
+      axes,
+      columns,
+#ifdef HYPERION_USE_CASACORE
+      meas_refs,
+#endif //HYPERION_USE_CASACORE
+      keywords);
+}
+
+Table
+Table::create(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const std::string& name,
+  const std::string& axes_uid,
+  const std::vector<int>& index_axes,
   const std::vector<Column::Generator>& column_generators,
 #ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& meas_refs,
@@ -505,35 +563,23 @@ Table::with_columns_attached_epilogue(
 }
 #endif // HYPERION_USE_HDF5
 
-#ifndef NO_REINDEX
 TaskID ReindexedTableTask::TASK_ID;
 const char* ReindexedTableTask::TASK_NAME = "ReindexedTableTask";
 
 ReindexedTableTask::ReindexedTableTask(
-  const std::string& name,
-  const std::string& axes_uid,
+  const Table& table,
   const std::vector<int>& index_axes,
-  LogicalRegion keywords_region,
-  const std::vector<Future>& reindexed) {
+  const std::vector<Future>& reindexed)
+  : m_table(table)
+  , m_reindexed(reindexed) {
 
-  // reuse TableGenArgsSerializer to pass task arguments
-  TableGenArgs args;
-  args.name = name;
-  args.axes_uid = axes_uid;
-  args.index_axes = index_axes;
-  args.keywords = keywords_region;
-
-  size_t buffsz = args.legion_buffer_size();
-  m_args = make_unique<char[]>(buffsz);
-  args.legion_serialize(m_args.get());
-  m_launcher =
-    TaskLauncher(
-      ReindexedTableTask::TASK_ID,
-      TaskArgument(m_args.get(), buffsz));
-  std::for_each(
-    reindexed.begin(),
-    reindexed.end(),
-    [this](auto& f) { m_launcher.add_future(f); });
+  m_args.num_index_axes = index_axes.size();
+  for (size_t i = 0; i < m_args.num_index_axes; ++i)
+    m_args.index_axes[i] = index_axes[i];
+  m_args.kws_region_offset = -1;
+#ifdef HYPERION_USE_CASACORE
+  m_args.mrc_region_offset = -1;
+#endif
 }
 
 void
@@ -541,39 +587,123 @@ ReindexedTableTask::preregister_task() {
   TASK_ID = Runtime::generate_static_task_id();
   TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-  registrar.set_leaf();
-  // registrar.set_idempotent();
+  registrar.set_idempotent();
   // registrar.set_replicable();
-  Runtime::preregister_task_variant<Table,base_impl>(
-    registrar,
-    TASK_NAME);
+  Runtime::preregister_task_variant<Table,base_impl>(registrar, TASK_NAME);
 }
 
 Future
-ReindexedTableTask::dispatch(Context ctx, Runtime* runtime) {
-  return runtime->execute_task(ctx, m_launcher);
+ReindexedTableTask::dispatch(Context ctx, Runtime* rt) {
+
+  std::vector<RegionRequirement> reqs;
+  {
+    RegionRequirement
+      req(m_table.metadata_lr, READ_ONLY, EXCLUSIVE, m_table.metadata_lr);
+    req.add_field(Table::METADATA_NAME_FID);
+    req.add_field(Table::METADATA_AXES_UID_FID);
+    reqs.push_back(req);
+  }
+  if (!m_table.keywords.is_empty()) {
+    m_args.kws_region_offset = reqs.size();
+    auto kwsz = m_table.keywords.size(rt);
+    std::vector<FieldID> fids(kwsz);
+    std::iota(fids.begin(), fids.end(), 0);
+    auto kwreqs = m_table.keywords.requirements(rt, fids, READ_ONLY).value();
+    reqs.push_back(kwreqs.type_tags);
+    reqs.push_back(kwreqs.values);
+  }
+#ifdef HYPERION_USE_CASACORE
+  if (m_table.meas_refs.lr != LogicalRegion::NO_REGION) {
+    m_args.mrc_region_offset = reqs.size();
+    RegionRequirement req(
+      m_table.meas_refs.lr,
+      READ_ONLY,
+      EXCLUSIVE,
+      m_table.meas_refs.lr);
+    req.add_field(MeasRefContainer::OWNED_FID);
+    req.add_field(MeasRefContainer::MEAS_REF_FID);
+    reqs.push_back(req);
+    auto mr_reqs =
+      m_table.meas_refs.component_requirements(ctx, rt, READ_ONLY);
+    if (mr_reqs.size() > 0) {
+      for (auto& [r0, r1, or2] : mr_reqs) {
+        reqs.push_back(r0);
+        reqs.push_back(r1);
+        if (or2)
+          reqs.push_back(or2.value());
+      }
+    }
+  }
+#endif
+
+  TaskLauncher
+    launcher(
+      ReindexedTableTask::TASK_ID,
+      TaskArgument(&m_args, sizeof(m_args)));
+  for (auto& r : reqs)
+    launcher.add_region_requirement(r);
+  for (auto& f : m_reindexed)
+    launcher.add_future(f);
+
+  return rt->execute_task(ctx, launcher);
 }
 
 Table
 ReindexedTableTask::base_impl(
   const Task* task,
-  const std::vector<PhysicalRegion>&,
-  Context,
-  Runtime *) {
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime *rt) {
 
-  TableGenArgs result;
-  result.legion_deserialize(task->args);
+  const TaskArgs* args = static_cast<TaskArgs*>(task->args);
 
+#ifdef HYPERION_USE_CASACORE
+  std::vector<MeasRef> meas_refs;
+  if (args->mrc_region_offset != -1)
+    meas_refs =
+      MeasRefContainer::clone_meas_refs(
+        ctx,
+        rt,
+        regions[args->mrc_region_offset]);
+#endif
+
+  Keywords kws;
+  if (args->kws_region_offset != -1)
+    kws = Keywords::clone(
+      ctx,
+      rt,
+      Keywords::pair<PhysicalRegion>{
+        regions[args->kws_region_offset],
+        regions[args->kws_region_offset + 1]});
+
+  std::vector<int> index_axes;
+  std::copy(
+    args->index_axes,
+    args->index_axes + args->num_index_axes,
+    std::back_inserter(index_axes));
+
+  std::vector<Column> cols;
   std::transform(
     task->futures.begin(),
     task->futures.end(),
-    std::inserter(result.col_genargs, result.col_genargs.end()),
+    std::back_inserter(cols),
     [](auto& f) {
-      return f.template get_result<ColumnGenArgs>();
+      return f.template get_result<Column>();
     });
-  return result;
+
+  return
+    Table::create(
+      ctx,
+      rt,
+      Table::name(regions[0]),
+      Table::axes_uid(regions[0]),
+      index_axes,
+      cols,
+#ifdef HYPERION_USE_CASACORE
+      MeasRefContainer::create(ctx, rt, meas_refs),
+#endif
+      kws);
 }
-#endif // !NO_REINDEX
 
 template <typename T, int DIM, bool CHECK_BOUNDS=false>
 using ROAccessor =
@@ -1562,14 +1692,17 @@ const char* ReindexColumnTask::TASK_NAME = "ReindexColumnTask";
 
 ReindexColumnTask::ReindexColumnTask(
   const Column& col,
+  bool is_index,
   const std::vector<int>& col_axes,
   ssize_t row_axis_offset,
   const std::vector<std::tuple<int, LogicalRegion>>& ixcols,
   bool allow_rows)
-  : m_col_axes(col_axes)
+  : m_is_index(is_index)
+  , m_col_axes(col_axes)
   , m_row_axis_offset(row_axis_offset) {
 
   assert(row_axis_offset >= 0);
+  assert(!m_is_index || ixcols.size() == 1);
 
   m_args.allow_rows = allow_rows;
   m_args.col = col;
@@ -1580,13 +1713,17 @@ ReindexColumnTask::ReindexColumnTask(
     m_ixlrs.push_back(lr);
   }
   m_args.num_index_axes = i;
+  m_args.values_region_offset = -1;
+  m_args.kws_region_offset = -1;
+#ifdef HYPERION_USE_CASACORE
+  m_args.mrc_region_offset = -1;
+#endif
 }
 
 enum ReindexColumnRegionIndexes {
   METADATA,
   AXES,
-  VALUES,
-  REMAINDER
+  INDEX_COLS
 };
 
 Future
@@ -1618,15 +1755,24 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
     req.add_field(Column::AXES_FID);
     reqs.push_back(req);
   }
-  {
-    RegionRequirement
-      req(m_args.col.values_lr, READ_ONLY, EXCLUSIVE, m_args.col.values_lr);
-    static_assert(ReindexColumnRegionIndexes::VALUES == 2);
-    req.add_field(Column::VALUE_FID);
+  static_assert(ReindexColumnRegionIndexes::INDEX_COLS == 2);
+  FieldID ix_fid =
+    m_is_index ? IndexColumnTask::VALUE_FID : IndexColumnTask::ROWS_FID;
+  for (auto& lr : m_ixlrs) {
+    assert(lr != LogicalRegion::NO_REGION);
+    RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+    req.add_field(ix_fid);
     reqs.push_back(req);
   }
-  static_assert(ReindexColumnRegionIndexes::REMAINDER == 3);
+  if (!m_is_index) {
+    m_args.values_region_offset = reqs.size();
+    RegionRequirement
+      req(m_args.col.values_lr, READ_ONLY, EXCLUSIVE, m_args.col.values_lr);
+    req.add_field(Column::VALUE_FID);
+    reqs.push_back(req);  
+  }
   if (!m_args.col.keywords.is_empty()) {
+    m_args.kws_region_offset = reqs.size();
     auto kwsz = m_args.col.keywords.size(rt);
     std::vector<FieldID> fids(kwsz);
     std::iota(fids.begin(), fids.end(), 0);
@@ -1634,16 +1780,9 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
     reqs.push_back(kwreqs.type_tags);
     reqs.push_back(kwreqs.values);
   }
-  m_args.ix0_region_offset = reqs.size();
-  for (auto& lr : m_ixlrs) {
-    assert(lr != LogicalRegion::NO_REGION);
-    RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
-    req.add_field(IndexColumnTask::ROWS_FID);
-    reqs.push_back(req);
-  }
 #ifdef HYPERION_USE_CASACORE
-  m_args.mrc_region_offset = reqs.size();
   if (m_args.col.meas_refs.lr != LogicalRegion::NO_REGION) {
+    m_args.mrc_region_offset = reqs.size();
     RegionRequirement req(
       m_args.col.meas_refs.lr,
       READ_ONLY,
@@ -1683,9 +1822,7 @@ reindex_column(
   Rect<OLDDIM> col_domain =
     rt->get_index_space_domain(
       ctx,
-      task->regions[ReindexColumnRegionIndexes::VALUES]
-      .region
-      .get_index_space());
+      task->regions[args.values_region_offset].region.get_index_space());
   // we use the name "rows_is" for the index space at or above the "ROW" axis
   IndexSpace rows_is =
     rt->get_index_partition_color_space_name(ctx, args.row_partition);
@@ -1719,11 +1856,11 @@ reindex_column(
     ReindexColumnTask::ROW_RECTS_FID,
     empty);
 
-  bool col_has_keywords = !args.col.keywords.is_empty();
   std::vector<LogicalRegion> ix_lrs;
   ix_lrs.reserve(args.num_index_axes);
   for (size_t i = 0; i < args.num_index_axes; ++i)
-    ix_lrs.push_back(regions[i + args.ix0_region_offset].get_logical_region());
+    ix_lrs.push_back(
+      regions[i + ReindexColumnRegionIndexes::INDEX_COLS].get_logical_region());
 
   // task to compute new index space rectangle for each row in column
 #ifdef HIERARCHICAL_COMPUTE_RECTANGLES
@@ -1862,13 +1999,13 @@ reindex_column(
 #endif
 
   Keywords kws;
-  if (col_has_keywords)
+  if (args.kws_region_offset != -1)
     kws = Keywords::clone(
       ctx,
       rt,
       Keywords::pair<PhysicalRegion>{
-        regions[ReindexColumnRegionIndexes::REMAINDER],
-        regions[ReindexColumnRegionIndexes::REMAINDER + 1]});
+        regions[args.kws_region_offset],
+        regions[args.kws_region_offset + 1]});
 
   const Column::NameAccessor<READ_ONLY> col_name(
     regions[ReindexColumnRegionIndexes::METADATA],
@@ -1898,40 +2035,108 @@ ReindexColumnTask::base_impl(
   Runtime *rt) {
 
   const TaskArgs* args = static_cast<const TaskArgs*>(task->args);
+  
+  if (args->values_region_offset != -1) {
+    // reindex this column using index column values
+    auto olddim = args->row_partition.get_dim();
+    auto eltdim =
+      olddim
+      - rt->get_index_partition_color_space(ctx, args->row_partition)
+      .get_dim();
+    auto newdim =
+      args->num_index_axes + eltdim + (args->allow_rows ? 1 : 0);
+    switch (olddim * LEGION_MAX_DIM + newdim) {
+#define REINDEX_COLUMN(OLDDIM, NEWDIM)            \
+      case (OLDDIM * LEGION_MAX_DIM + NEWDIM): {  \
+        return                                    \
+          reindex_column<OLDDIM, NEWDIM>(         \
+            task,                                 \
+            *args,                                \
+            regions,                              \
+            ctx,                                  \
+            rt);                                  \
+        break;                                    \
+      }
+      HYPERION_FOREACH_MN(REINDEX_COLUMN);
+#undef REINDEX_COLUMN
+      default:
+        assert(false);
+        return Column(); // keep compiler happy
+        break;
+    }
+  } else {
+    // this column is an index column, copy values out of provided index column
+    // into a new logical region from which to construct a Column
+    LogicalRegion new_col_lr;
+    {
+      auto ixlr = task->regions[ReindexColumnRegionIndexes::INDEX_COLS].region;
+      auto sz = rt->get_index_space_domain(ixlr.get_index_space()).get_volume();
+      IndexSpace is = rt->create_index_space<1>(ctx, Rect<1>(0, sz - 1));
+      FieldSpace fs = rt->create_field_space(ctx);
+      {
+        FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+        // NB: the following only works for fields without serdez, which ought
+        // to be the case
+        fa.allocate_field(
+          rt->get_field_size(
+            ixlr.get_field_space(),
+            IndexColumnTask::VALUE_FID),
+          Column::VALUE_FID);
+      }
+      new_col_lr = rt->create_logical_region(ctx, is, fs);
+      {
+        CopyLauncher copier;
+        RegionRequirement
+          src_req(ixlr, READ_ONLY, EXCLUSIVE, ixlr);
+        RegionRequirement
+          dst_req(new_col_lr, WRITE_ONLY, EXCLUSIVE, new_col_lr);
+        copier.add_copy_requirements(src_req, dst_req);
+        copier.add_src_field(0, IndexColumnTask::VALUE_FID);
+        copier.add_dst_field(0, Column::VALUE_FID);
+        rt->issue_copy_operation(ctx, copier);
+      }
+    }
 
-  auto olddim = args->row_partition.get_dim();
-  auto eltdim =
-    olddim
-    - rt->get_index_partition_color_space(ctx, args->row_partition)
-    .get_dim();
 #ifdef HYPERION_USE_CASACORE
-  auto newdim =
-    args->mrc_region_offset - args->ix0_region_offset
-    + eltdim + (args->allow_rows ? 1 : 0);
-#else
-  auto newdim =
-    regions.size() - args->ix0_region_offset
-    + eltdim + (args->allow_rows ? 1 : 0);
+    auto mrs =
+      MeasRefContainer::clone_meas_refs(
+        ctx,
+        rt,
+        regions[args->mrc_region_offset]);
 #endif
+    Keywords kws;
+    if (args->kws_region_offset != -1)
+      kws = Keywords::clone(
+        ctx,
+        rt,
+        Keywords::pair<PhysicalRegion>{
+          regions[args->kws_region_offset],
+          regions[args->kws_region_offset + 1]});
 
-#define REINDEX_COLUMN(OLDDIM, NEWDIM)          \
-  case (OLDDIM * LEGION_MAX_DIM + NEWDIM): {    \
-    return                                      \
-      reindex_column<OLDDIM, NEWDIM>(           \
-        task,                                   \
-        *args,                                  \
-        regions,                                \
-        ctx,                                    \
-        rt);                                    \
-    break;                                      \
-  }
+    std::vector<int> new_axes{args->index_axes[0]};
 
-  switch (olddim * LEGION_MAX_DIM + newdim) {
-    HYPERION_FOREACH_MN(REINDEX_COLUMN);
-  default:
-    assert(false);
-    return Column(); // keep compiler happy
-    break;
+    const Column::DatatypeAccessor<READ_ONLY> col_datatype(
+      regions[ReindexColumnRegionIndexes::METADATA],
+      Column::METADATA_DATATYPE_FID);
+    const Column::NameAccessor<READ_ONLY> col_name(
+      regions[ReindexColumnRegionIndexes::METADATA],
+      Column::METADATA_NAME_FID);
+    const Column::AxesUidAccessor<READ_ONLY> col_axes_uid(
+      regions[ReindexColumnRegionIndexes::METADATA],
+      Column::METADATA_AXES_UID_FID);
+
+    return Column::create(
+      ctx,
+      rt,
+      col_name[0],
+      col_axes_uid[0],
+      new_axes,
+      col_datatype[0],
+      new_col_lr,
+#ifdef HYPERION_USE_CASACORE
+      MeasRefContainer::create(ctx, rt, mrs),
+#endif
+      kws);
   }
 }
 
@@ -1946,8 +2151,6 @@ ReindexColumnTask::preregister_task() {
     registrar,
     TASK_NAME);
 }
-
-#ifndef NO_REINDEX
 
 Future/*Table*/
 Table::ireindexed(
@@ -1978,15 +2181,15 @@ Table::ireindexed(
   }
 
   // map columns_lr
-  RegionRequirementf cols_req(columns_lr, READ_ONLY, EXCLUSIVE, columns_lr);
+  RegionRequirement cols_req(columns_lr, READ_ONLY, EXCLUSIVE, columns_lr);
   cols_req.add_field(Table::COLUMNS_FID);
-  auto cols_pr = rt->map_region(ctx, columns_req);
+  auto cols_pr = rt->map_region(ctx, cols_req);
 
   auto col_names = Table::column_names(ctx, rt, cols_pr);
   std::unordered_map<std::string, Column> cols;
   std::unordered_map<std::string, std::vector<int>> col_axes;
   for (auto& nm : col_names) {
-    cols[nm] = Table::column(ctx, rt, columns_pr, nm);
+    cols[nm] = Table::column(ctx, rt, cols_pr, nm);
     col_axes[nm] = cols[nm].axes(ctx, rt);
   }
 
@@ -2021,8 +2224,7 @@ Table::ireindexed(
   for (auto& [nm, ds] : col_reindex_axes)
     for (auto& d : ds)
       if (index_cols.count(d) == 0) {
-        auto col = cols[axis_names[d]];
-        IndexColumnTask task(col, d);
+        IndexColumnTask task(cols[axis_names[d]]);
         index_cols[d] = task.dispatch(ctx, rt);
       }
 
@@ -2031,9 +2233,7 @@ Table::ireindexed(
   for (auto& [nm, ds] : col_reindex_axes) {
     // if this column is an index column, we've already launched a task to
     // create its logical region, so we can use that
-    if (ds.size() == 1 && index_cols.count(ds[0]) > 0)
-      return index_cols.at(ds[0]);
-
+    bool col_is_index = ds.size() == 1 && index_cols.count(ds[0]) > 0;
     // create reindexing task launcher
     // TODO: start intermediary task dependent on Futures of index columns
     std::vector<std::tuple<int, LogicalRegion>> ixcols;
@@ -2045,22 +2245,27 @@ Table::ireindexed(
     auto row_axis_offset =
       std::distance(cax.begin(), std::find(cax.begin(), cax.end(), 0));
     ReindexColumnTask
-      task(cols[nm], cax, row_axis_offset, ixcols, allow_rows);
+      task(cols[nm], col_is_index, cax, row_axis_offset, ixcols, allow_rows);
     reindexed.push_back(task.dispatch(ctx, rt));
   }
 
-  rt->unmap_region(ctx, columns_pr);
+  rt->unmap_region(ctx, cols_pr);
 
   // launch task that creates the reindexed table
   std::vector<int> iaxes = axes;
   if (allow_rows)
     iaxes.push_back(0);
-  ReindexedTableTask
-    task(name(), axes_uid(), iaxes, keywords_region(), reindexed);
+  ReindexedTableTask task(*this, iaxes, reindexed);
 
-  return task.dispatch(context(), runtime());
+  // free logical regions in index_cols (the call to get_result should not cause
+  // any delay since the Futures were already waited upon, above)
+  for (auto& [d, f] : index_cols) {
+    auto lr = f.template get_result<LogicalRegion>();
+    rt->destroy_field_space(ctx, lr.get_field_space());
+    rt->destroy_index_space(ctx, lr.get_index_space());
+  }
+  return task.dispatch(ctx, rt);
 }
-#endif // NO_REINDEX
 
 std::unordered_map<int, Future>
 Table::iindex_by_value(
@@ -2669,9 +2874,7 @@ Table::preregister_tasks() {
   ComputeRectanglesTask::preregister_task();
   ReindexColumnTask::preregister_task();
   ReindexColumnCopyTask::preregister_task();
-#ifndef NO_REINDEX
   ReindexedTableTask::preregister_task();
-#endif // !NO_REINDEX
 }
 
 #ifdef HYPERION_USE_CASACORE

@@ -179,15 +179,6 @@ if(USE_HDF5)
     hyperion_COMPILE_DEFINITIONS "H5_NO_DEPRECATED_SYMBOLS")
 endif()
 
-# table/column reindexing was broken by earlier changes, but it's something we
-# want working again sometime, and we retain the code and its unit tests, but
-# disable them with the following definitions
-set(hyperion_NO_REINDEX ON)
-if(hyperion_NO_REINDEX)
-  list(APPEND
-    hyperion_COMPILE_DEFINITIONS "NO_REINDEX")
-endif()
-
 list(APPEND
   hyperion_COMPILE_DEFINITIONS "LEGION_MAX_DIM=${MAX_DIM}")
 list(APPEND

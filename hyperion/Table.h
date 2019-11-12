@@ -151,6 +151,19 @@ public:
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
 
+  static Table
+  create(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::string& name,
+    const std::string& axes_uid,
+    const std::vector<int>& index_axes,
+    const std::vector<Column>& columns_,
+#ifdef HYPERION_USE_CASACORE
+    const MeasRefContainer& meas_refs,
+#endif
+    const Keywords& keywords);
+
   template <
     typename D,
     std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
@@ -478,7 +491,6 @@ public:
 
 #endif // HYPERION_USE_HDF5
 
-#ifndef NO_REINDEX
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
   Legion::Future/* Table */
   reindexed(
@@ -487,7 +499,7 @@ public:
     const std::vector<D>& axes,
     bool allow_rows = true) const {
 
-    assert(Axes<D>::uid == m_axes_uid);
+    assert(Axes<D>::uid == axes_uid(ctx, rt));
     return ireindexed(ctx, rt, Axes<D>::names, map_to_int(axes), allow_rows);
   }
 
@@ -498,7 +510,7 @@ public:
     const std::vector<int>& axes,
     bool allow_rows = true) const {
 
-    auto axs = AxesRegistrar::axes(axes_uid()).value();
+    auto axs = AxesRegistrar::axes(axes_uid(ctx, rt)).value();
     assert(
       std::all_of(
         axes.begin(),
@@ -508,7 +520,6 @@ public:
         }));
     return ireindexed(ctx, rt, axs.names, axes, allow_rows);
   }
-#endif // !NO_REINDEX
 
   // the returned Futures contain a LogicalRegion with two fields: at
   // IndexColumnTask::VALUE_FID, the column values (sorted in ascending order);
@@ -634,7 +645,6 @@ protected:
     std::vector<Legion::PhysicalRegion>& prs);
 #endif // HYPERION_USE_HDF5
 
-#ifndef NO_REINDEX
   Legion::Future/* Table */
   ireindexed(
     Legion::Context ctx,
@@ -642,7 +652,6 @@ protected:
     const std::vector<std::string>& axis_names,
     const std::vector<int>& axes,
     bool allow_rows = true) const;
-#endif // !NO_REINDEX
 
   // the returned Futures contain a LogicalRegion with two fields: at
   // IndexColumnTask::VALUE_FID, the column values (sorted in ascending order);
@@ -697,6 +706,7 @@ public:
 
   ReindexColumnTask(
     const Column& col,
+    bool is_index,
     const std::vector<int>& col_axes,
     ssize_t row_axis_offset,
     const std::vector<std::tuple<int, Legion::LogicalRegion>>& ixcols,
@@ -726,11 +736,14 @@ private:
                                     // upper bound
     Legion::IndexPartition row_partition;
     Column col;
-    unsigned ix0_region_offset;
+    int kws_region_offset;
+    int values_region_offset;
 #ifdef HYPERION_USE_CASACORE
-    unsigned mrc_region_offset;
+    int mrc_region_offset;
 #endif // HYPERION_USE_CASACORE
   };
+
+  bool m_is_index;
 
   std::vector<int> m_col_axes;
 
@@ -741,7 +754,6 @@ private:
   TaskArgs m_args;
 };
 
-#ifndef NO_REINDEX
 class HYPERION_API ReindexedTableTask {
 public:
 
@@ -749,32 +761,41 @@ public:
   static const char* TASK_NAME;
 
   ReindexedTableTask(
-    const std::string& name,
-    const std::string& axes_uid,
+    const Table& table,
     const std::vector<int>& index_axes,
-    Legion::LogicalRegion keywords_region,
     const std::vector<Legion::Future>& reindexed);
 
   static void
   preregister_task();
 
   Legion::Future
-  dispatch(Legion::Context ctx, Legion::Runtime* runtime);
+  dispatch(Legion::Context ctx, Legion::Runtime* rt);
 
   static Table
   base_impl(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
-    Legion::Runtime *runtime);
+    Legion::Runtime *rt);
 
 private:
 
-  Legion::TaskLauncher m_launcher;
+  struct TaskArgs {
+    unsigned num_index_axes;
+    int index_axes[LEGION_MAX_DIM]; // lazy, but LEGION_MAX_DIM is certainly an
+                                    // upper bound
+    int kws_region_offset;
+#ifdef HYPERION_USE_CASACORE
+    int mrc_region_offset;
+#endif // HYPERION_USE_CASACORE
+  };
 
-  std::unique_ptr<char[]> m_args;
+  const Table m_table;
+
+  const std::vector<Legion::Future> m_reindexed;
+
+  TaskArgs m_args;
 };
-#endif // !NO_REINDEX
 
 template <>
 struct CObjectWrapper::Wrapper<Table> {

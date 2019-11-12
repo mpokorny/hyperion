@@ -29,17 +29,14 @@ add_test(
   COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
   ./utReindexColumnTask)
 
-if(NOT hyperion_NO_REINDEX)
-
-  add_executable(utReindexed utReindexed.cc)
-  set_target_properties(utReindexed PROPERTIES
-    CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
-  add_test(
-    NAME ReindexedUnitTest
-    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-            ./utReindexed)
-endif()
+add_executable(utReindexed utReindexed.cc)
+set_target_properties(utReindexed PROPERTIES
+  CXX_STANDARD 17
+  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+add_test(
+  NAME ReindexedUnitTest
+  COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+  ./utReindexed)
 
 add_executable(utTable utTable.cc)
 set_target_properties(utTable PROPERTIES
