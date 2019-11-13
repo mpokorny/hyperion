@@ -2180,7 +2180,7 @@ Table::ireindexed(
     std::vector<int> ax;
     auto cax = col_axes[nm];
     // skip the column if it does not have a "row" axis
-    if (cax.back() == 0) {
+    if (cax.front() == 0) { // TODO: needs adjustment if row dimension > 1
       // if column is a reindexing axis, reindexing depends only on itself
       auto myaxis = column_is_axis(axis_names, nm, axes);
       if (myaxis) {
