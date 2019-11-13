@@ -131,6 +131,15 @@ min_divisor(
   size_t min_quotient,
   unsigned max_divisor);
 
+// this returns an IndexPartition with a new IndexSpace as a color space, which
+// the caller must eventually destroy
+Legion::IndexPartition
+partition_over_all_cpus(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  Legion::IndexSpace is,
+  unsigned min_block_size);
+
 IndexTreeL
 index_space_as_tree(Legion::Runtime* rt, Legion::IndexSpace is);
 

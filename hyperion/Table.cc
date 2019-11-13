@@ -22,7 +22,6 @@
 
 #pragma GCC visibility push(default)
 # include <legion/legion_c_util.h>
-# include <mappers/default_mapper.h>
 # include <algorithm>
 # include <array>
 # include <limits>
@@ -752,29 +751,18 @@ public:
   Future
   dispatch(Context ctx, Runtime* rt) {
 
-    unsigned num_subregions =
-      rt
-      ->select_tunable_value(
-        ctx,
-        Mapping::DefaultMapper::DefaultTunables::DEFAULT_TUNABLE_GLOBAL_CPUS,
-        0)
-      .get_result<size_t>();
-
-    auto dom = rt->get_index_space_domain(m_col_req.region.get_index_space());
-    num_subregions =
-      min_divisor(dom.get_volume(), min_block_size, num_subregions);
-    Rect<1> color_rect(0, num_subregions - 1);
-    IndexSpace color_is = rt->create_index_space(ctx, color_rect);
     IndexPartition ip =
-      rt->create_equal_partition(
+      partition_over_all_cpus(
         ctx,
+        rt,
         m_col_req.region.get_index_space(),
-        color_is);
+        min_block_size);
+    IndexSpace cs = rt->get_index_partition_color_space_name(ctx, ip);
     LogicalPartition col_lp =
       rt->get_logical_partition(ctx, m_col_req.region, ip);
 
     IndexTaskLauncher
-      launcher(TASK_ID, color_is, TaskArgument(NULL, 0), ArgumentMap());
+      launcher(TASK_ID, cs, TaskArgument(NULL, 0), ArgumentMap());
     launcher.add_region_requirement(
       RegionRequirement(
         col_lp,
@@ -785,8 +773,8 @@ public:
     launcher.add_field(0, Column::VALUE_FID);
     auto result = rt->execute_index_space(ctx, launcher, DT::af_redop_id);
     rt->destroy_logical_partition(ctx, col_lp);
+    rt->destroy_index_space(ctx, cs);
     rt->destroy_index_partition(ctx, ip);
-    rt->destroy_index_space(ctx, color_is);
     return result;
   }
 
@@ -1574,21 +1562,10 @@ public:
     // use partition of m_new_rects_lr by m_row_partition to get partition of
     // m_new_col_lr index space
 
-    unsigned num_subregions =
-      rt
-      ->select_tunable_value(
-        ctx,
-        Mapping::DefaultMapper::DefaultTunables::DEFAULT_TUNABLE_GLOBAL_CPUS,
-        0)
-      .get_result<size_t>();
-
     IndexSpace new_rects_is = m_new_rects_lr.get_index_space();
-    auto dom = rt->get_index_space_domain(new_rects_is);
-    num_subregions =
-      min_divisor(dom.get_volume(), min_block_size, num_subregions);
-    IndexSpace cs = rt->create_index_space(ctx, Rect<1>(0, num_subregions - 1));
     IndexPartition new_rects_ip =
-      rt->create_equal_partition(ctx, new_rects_is, cs);
+      partition_over_all_cpus(ctx, rt, new_rects_is, min_block_size);
+    IndexSpace cs = rt->get_index_partition_color_space_name(ctx, new_rects_ip);
     LogicalPartition new_rects_lp =
       rt->get_logical_partition(ctx, m_new_rects_lr, new_rects_ip);
 

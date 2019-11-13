@@ -30,6 +30,8 @@
 
 #pragma GCC visibility push(default)
 # include<algorithm>
+
+# include <mappers/default_mapper.h>
 #pragma GCC visibility pop
 
 using namespace hyperion;
@@ -44,6 +46,29 @@ hyperion::min_divisor(
   size_t quotient =
     std::max(min_quotient, (numerator + max_divisor - 1) / max_divisor);
   return (numerator + quotient - 1) / quotient;
+}
+
+IndexPartition
+hyperion::partition_over_all_cpus(
+  Context ctx,
+  Runtime* rt,
+  IndexSpace is,
+  unsigned min_block_size) {
+
+  unsigned num_subregions =
+    rt
+    ->select_tunable_value(
+      ctx,
+      Mapping::DefaultMapper::DefaultTunables::DEFAULT_TUNABLE_GLOBAL_CPUS,
+      0)
+    .get_result<size_t>();
+
+  auto dom = rt->get_index_space_domain(is);
+  num_subregions =
+    min_divisor(dom.get_volume(), min_block_size, num_subregions);
+  Rect<1> color_rect(0, num_subregions - 1);
+  IndexSpace color_is = rt->create_index_space(ctx, color_rect);
+  return rt->create_equal_partition(ctx, is, color_is);
 }
 
 std::optional<int>
