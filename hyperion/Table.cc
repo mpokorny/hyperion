@@ -2260,6 +2260,7 @@ Table::ireindexed(
   if (allow_rows)
     iaxes.push_back(0);
   ReindexedTableTask task(*this, iaxes, reindexed);
+  auto result = task.dispatch(ctx, rt);
 
   // free logical regions in index_cols (the call to get_result should not cause
   // any delay since the Futures were already waited upon, above)
@@ -2268,7 +2269,7 @@ Table::ireindexed(
     rt->destroy_field_space(ctx, lr.get_field_space());
     rt->destroy_index_space(ctx, lr.get_index_space());
   }
-  return task.dispatch(ctx, rt);
+  return result;
 }
 
 std::unordered_map<int, Future>
