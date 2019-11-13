@@ -1669,8 +1669,8 @@ public:
     std::vector<std::pair<std::string, std::string>> arg_pairs;
     for (int i = 1; i < args.argc;) {
       std::string tag = args.argv[i++];
-      std::optional<std::string> val;
       if (tag.substr(0, 2) == "--") {
+        std::optional<std::string> val;
         tag = tag.substr(2);
         auto eq = tag.find('=');
         if (eq == std::string::npos) {
@@ -1693,13 +1693,13 @@ public:
               val.reset();
           }
         }
-      }
-      if (val) {
-        arg_pairs.emplace_back(tag, val.value());
-      } else {
-        std::cerr << "No value provided for argument '"
-                  << tag << "'" << std::endl;
-        return false;
+        if (val) {
+          arg_pairs.emplace_back(tag, val.value());
+        } else {
+          std::cerr << "No value provided for argument '"
+                    << tag << "'" << std::endl;
+          return false;
+        }
       }
     }
 
