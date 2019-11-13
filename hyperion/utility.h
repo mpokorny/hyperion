@@ -133,7 +133,7 @@ min_divisor(
 
 // this returns an IndexPartition with a new IndexSpace as a color space, which
 // the caller must eventually destroy
-Legion::IndexPartition
+HYPERION_API Legion::IndexPartition
 partition_over_all_cpus(
   Legion::Context ctx,
   Legion::Runtime* rt,
