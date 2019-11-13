@@ -46,7 +46,7 @@
 
 #define AUTO_W_PROJ_PLANES_VALUE -1
 #define INVALID_W_PROJ_PLANES_VALUE -2
-#define INVALID_MAIN_TABLE_ROW_BLOCK_SIZE_VALUE 0
+#define INVALID_MIN_BLOCK_SIZE_VALUE 0
 
 #define FS CXX_FILESYSTEM_NAMESPACE
 
@@ -396,7 +396,7 @@ struct GridderArgsBase {
   static const constexpr char* h5_path_tag = "h5";
   static const constexpr char* config_path_tag = "configuration";
   static const constexpr char* echo_tag = "echo";
-  static const constexpr char* block_tag = "block";
+  static const constexpr char* min_block_tag = "min_block";
   static const constexpr char* pa_step_tag = "pa_step";
   static const constexpr char* w_planes_tag = "w_proj_planes";
 
@@ -406,7 +406,7 @@ struct GridderArgsBase {
       h5_path_tag,
       config_path_tag,
       echo_tag,
-      block_tag,
+      min_block_tag,
       pa_step_tag,
       w_planes_tag
     };
@@ -421,7 +421,7 @@ struct GridderArgs
   GridderArgType<FS::path, false, &h5_path_tag, G> h5_path;
   GridderArgType<FS::path, true, &config_path_tag, G> config_path;
   GridderArgType<bool, false, &echo_tag, G> echo;
-  GridderArgType<size_t, false, &block_tag, G> block;
+  GridderArgType<size_t, false, &min_block_tag, G> min_block;
   GridderArgType<PARALLACTIC_ANGLE_TYPE, false, &pa_step_tag, G> pa_step;
   GridderArgType<int, false, &w_planes_tag, G> w_planes;
 
@@ -431,14 +431,14 @@ struct GridderArgs
     const typename decltype(h5_path)::type& h5_path_,
     const typename decltype(config_path)::type& config_path_,
     const typename decltype(echo)::type& echo_,
-    const typename decltype(block)::type& block_,
+    const typename decltype(min_block)::type& min_block_,
     const typename decltype(pa_step)::type& pa_step_,
     const typename decltype(w_planes)::type& w_planes_) {
 
     h5_path = h5_path_;
     config_path = config_path_;
     echo = echo_;
-    block = block_;
+    min_block = min_block_;
     pa_step = pa_step_;
     w_planes = w_planes_;
   }
@@ -448,7 +448,7 @@ struct GridderArgs
     return
       h5_path
       && echo
-      && block
+      && min_block
       && pa_step
       && w_planes;
   }
@@ -464,7 +464,7 @@ struct GridderArgs
            ? config_path.value()
            : std::optional<std::string>()),
           echo.value(),
-          block.value(),
+          min_block.value(),
           pa_step.value(),
           w_planes.value());
     return result;
@@ -479,8 +479,8 @@ struct GridderArgs
       result[config_path.tag] = config_path.value().c_str();
     if (echo)
       result[echo.tag] = echo.value();
-    if (block)
-      result[block.tag] = block.value();
+    if (min_block)
+      result[min_block.tag] = min_block.value();
     if (pa_step)
       result[pa_step.tag] = pa_step.value();
     if (w_planes)
@@ -496,7 +496,7 @@ as_args(YAML::Node&& node) {
   if (node[GridderArgsBase::config_path_tag])
     config_path = node[GridderArgsBase::config_path_tag].as<std::string>();
   bool echo = node[GridderArgsBase::echo_tag].as<bool>();
-  size_t block = node[GridderArgsBase::block_tag].as<size_t>();
+  size_t min_block = node[GridderArgsBase::min_block_tag].as<size_t>();
   PARALLACTIC_ANGLE_TYPE pa_step =
     node[GridderArgsBase::pa_step_tag].as<PARALLACTIC_ANGLE_TYPE>();
   int w_planes = node[GridderArgsBase::w_planes_tag].as<int>();
@@ -505,7 +505,7 @@ as_args(YAML::Node&& node) {
       h5_path,
       config_path,
       echo,
-      block,
+      min_block,
       pa_step,
       w_planes);
 }
@@ -516,7 +516,7 @@ default_config() {
   static GridderArgs<OPT_STRING_ARGS> result;
   if (!computed) {
     result.echo = std::string("false");
-    result.block = std::string("100000");
+    result.min_block = std::string("100000");
     result.pa_step = std::string("360.0");
     result.w_planes = std::string("1");
     computed = true;
@@ -1571,8 +1571,8 @@ read_config(const YAML::Node& config) {
       args.h5_path = val;
     else if (key == args.echo.tag)
       args.echo = val;
-    else if (key == args.block.tag)
-      args.block = val;
+    else if (key == args.min_block.tag)
+      args.min_block = val;
     else if (key == args.pa_step.tag)
       args.pa_step = val;
     else if (key == args.w_planes.tag)
@@ -1618,8 +1618,8 @@ load_config(
             gridder_args.h5_path = args.h5_path.value();
           if (args.echo)
             gridder_args.echo = args.echo.value();
-          if (args.block)
-            gridder_args.block = args.block.value();
+          if (args.min_block)
+            gridder_args.min_block = args.min_block.value();
           if (args.pa_step)
             gridder_args.pa_step = args.pa_step.value();
           if (args.w_planes)
@@ -1739,8 +1739,8 @@ public:
           gridder_args.pa_step = val;
         else if (match == gridder_args.w_planes.tag)
           gridder_args.w_planes = val;
-        else if (match == gridder_args.block.tag)
-          gridder_args.block = val;
+        else if (match == gridder_args.min_block.tag)
+          gridder_args.min_block = val;
         else if (match == gridder_args.echo.tag)
           gridder_args.echo = val;
         else if (match == gridder_args.config_path.tag)
@@ -1805,11 +1805,11 @@ public:
         "automatic computation of the number of W-projection "
         "planes is unimplemented");
 
-    if (args.block.value() == INVALID_MAIN_TABLE_ROW_BLOCK_SIZE_VALUE)
+    if (args.min_block.value() == INVALID_MIN_BLOCK_SIZE_VALUE)
       arg_error(
         errs,
-        args.block,
-        "FIXME: this configuration parameter should go away");
+        args.min_block,
+        "invalid, value must be at least one");
 
     if (errs.str().size() > 0)
       return errs.str();
