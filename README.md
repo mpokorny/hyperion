@@ -1,5 +1,7 @@
 # Hyperion
 
+[![Build Status](https://travis-ci.com/mpokorny/hyperion.svg?branch=master)](https://travis-ci.com/mpokorny/hyperion)
+
 A prototype high performance radio astronomy data calibration, imaging and analysis project. This project provides a basis for conducting an exploration of the suitability and performance of various modern high-performance computing oriented methods, libraries, frameworks and hardware architectures for radio astronomy data imaging and analysis.
 
 An initial implementation of [MeasurementSet](https://casa.nrao.edu/Memos/229.html) data access using the [Legion programming system](https://legion.stanford.edu/) is underway. A major short-term goal is to implement an application for the gridding of visibility data, in order to gain an understanding of the performance, flexibility, and complexity of a *Legion*-based solution for some of the significant computational challenges faced by next-generation radio telescope arrays, such as the [ngVLA](https://ngvla.nrao.edu/).
