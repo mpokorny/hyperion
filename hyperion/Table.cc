@@ -1991,11 +1991,13 @@ reindex_column(
   rt->destroy_index_partition(ctx, new_bounds_ip);
 
 #ifdef HYPERION_USE_CASACORE
-  auto mrs =
-    MeasRefContainer::clone_meas_refs(
-      ctx,
-      rt,
-      regions[args.mrc_region_offset]);
+  std::vector<MeasRef> mrs;
+  if (args.mrc_region_offset != -1)
+    mrs =
+      MeasRefContainer::clone_meas_refs(
+        ctx,
+        rt,
+        regions[args.mrc_region_offset]);
 #endif
 
   Keywords kws;
@@ -2098,11 +2100,13 @@ ReindexColumnTask::base_impl(
     }
 
 #ifdef HYPERION_USE_CASACORE
-    auto mrs =
-      MeasRefContainer::clone_meas_refs(
-        ctx,
-        rt,
-        regions[args->mrc_region_offset]);
+    std::vector<MeasRef> mrs;
+    if (args->mrc_region_offset != -1)
+      mrs =
+        MeasRefContainer::clone_meas_refs(
+          ctx,
+          rt,
+          regions[args->mrc_region_offset]);
 #endif
     Keywords kws;
     if (args->kws_region_offset != -1)
