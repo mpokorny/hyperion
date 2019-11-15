@@ -1077,7 +1077,6 @@ public:
             r->destroy_logical_partition(c, lp);
             cp.destroy(c, r);
           }
-          unsigned feed_table_offset = reqs.size();
           for (auto& nm : TableColumns<MS_FEED>::column_names) {
             auto col = m_tbl_feed.column(c, r, nm);
             RegionRequirement
@@ -1095,7 +1094,7 @@ public:
           IndexTaskLauncher init_task(
             COMPUTE_ROW_AUX_FIELDS_TASK_ID + row_is.get_dim() - 1,
             cs,
-            TaskArgument(&feed_table_offset, sizeof(feed_table_offset)),
+            TaskArgument(NULL, 0),
             ArgumentMap());
           for (auto& req : reqs)
             init_task.add_region_requirement(req);
@@ -1128,8 +1127,6 @@ public:
     Context,
     Runtime *rt) {
 
-    const unsigned* feed_idx =
-      static_cast<const unsigned*>(task->args);
 
     const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
       antenna1(regions[0], Column::VALUE_FID);
@@ -1143,12 +1140,14 @@ public:
       feed2(regions[4], Column::VALUE_FID);
     const ROAccessor<DataType<HYPERION_TYPE_DOUBLE>::ValueType, ROW_DIM>
       time(regions[5], Column::VALUE_FID);
-#define FEED_COL(var, typ, col)                                     \
-    const ROAccessor<DataType<HYPERION_TYPE_##typ>::ValueType,\
-                     TableColumns<MS_FEED>::index_axes.size()\
-                     + TableColumns<MS_FEED>::element_rank[\
-                       TableColumns<MS_FEED>::col]> \
-      var(regions[*feed_idx + TableColumns<MS_FEED>::col], Column::VALUE_FID)
+    const ROAccessor<DataType<HYPERION_TYPE_DOUBLE>::ValueType, ROW_DIM + 1>
+      uvw(regions[6], Column::VALUE_FID);
+#define FEED_COL(var, typ, col)                                       \
+    const ROAccessor<DataType<HYPERION_TYPE_##typ>::ValueType,        \
+                     TableColumns<MS_FEED>::index_axes.size()         \
+                     + TableColumns<MS_FEED>::element_rank[           \
+                       TableColumns<MS_FEED>::col]>                   \
+      var(regions[7 + TableColumns<MS_FEED>::col], Column::VALUE_FID)
 
     FEED_COL(feed_beam_offset, DOUBLE, BEAM_OFFSET);
     FEED_COL(feed_pol_response, COMPLEX, POL_RESPONSE);
@@ -1188,14 +1187,16 @@ public:
         registrar,                                        \
         tname.c_str());                                   \
     }
-    HYPERION_FOREACH_N(REG_TASK);
+    HYPERION_FOREACH_N_LESS_MAX(REG_TASK);
 #undef REG_TASK
   }
 
 private:
 
   GridderArgs<VALUE_ARGS> m_args;
+
   Table m_tbl_main;
+
   Table m_tbl_feed;
 };
 
