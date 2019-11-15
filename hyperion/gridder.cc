@@ -1040,17 +1040,19 @@ public:
             antenna1.partition_on_axes(c, r, tbl_main->index_axes(c, r));
           IndexSpace row_is =
             r->get_index_partition_color_space_name(row_part.index_partition);
-          // partition the low index space
+          // partition the row index space
           IndexPartition ip =
             partition_over_all_cpus(c, r, row_is, m_args.min_block.value());
           IndexSpace cs = r->get_index_partition_color_space_name(c, ip);
 
           // create the result logical region
           FieldSpace fs = r->create_field_space(c);
-          FieldAllocator fa = r->create_field_allocator(c, fs);
-          fa.allocate_field(
-            sizeof(PARALLACTIC_ANGLE_TYPE),
-            PARALLACTIC_ANGLE_FID);
+          {
+            FieldAllocator fa = r->create_field_allocator(c, fs);
+            fa.allocate_field(
+              sizeof(PARALLACTIC_ANGLE_TYPE),
+              PARALLACTIC_ANGLE_FID);
+          }
           r->attach_name(fs, PARALLACTIC_ANGLE_FID, "parallactic_angle");
           LogicalRegion result = r->create_logical_region(c, row_is, fs);
           r->attach_name(result, "row_aux_fields");
