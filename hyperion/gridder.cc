@@ -104,6 +104,8 @@ enum {
   LAST_POINT_REDOP=100, // reserve HYPERION_MAX_DIM ids from here
 };
 
+static const char ms_root[] = "/";
+
 template <int DIM>
 struct LastPointRedop {
   typedef Point<DIM> LHS;
@@ -560,14 +562,14 @@ struct TableColumns<MS_ANTENNA>
     DISH_DIAMETER,
     NUM_COLUMNS
   } col;
-  static constexpr const std::array<const char*,NUM_COLUMNS> column_names = {
+  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
     "NAME",
     "STATION",
     "TYPE",
     "MOUNT",
     "DISH_DIAMETER"
   };
-  static constexpr const char* table_name = MSTable<MS_ANTENNA>::name;
+  static const constexpr char* table_name = MSTable<MS_ANTENNA>::name;
 };
 
 template <>
@@ -578,11 +580,61 @@ struct TableColumns<MS_DATA_DESCRIPTION>
     POLARIZATION_ID,
     NUM_COLUMNS
   } col;
-  static constexpr const std::array<const char*,NUM_COLUMNS> column_names = {
+  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
     "SPECTRAL_WINDOW_ID",
     "POLARIZATION_ID"
   };
-  static constexpr const char* table_name = MSTable<MS_DATA_DESCRIPTION>::name;
+  static const constexpr char* table_name = MSTable<MS_DATA_DESCRIPTION>::name;
+};
+
+template <>
+struct TableColumns<MS_FEED>
+  : public WithColumnLookup<TableColumns<MS_FEED>> {
+  typedef enum {
+    ANTENNA_ID,
+    FEED_ID,
+    SPECTRAL_WINDOW_ID,
+    TIME,
+    INTERVAL,
+    BEAM_ID,
+    BEAM_OFFSET,
+    POL_RESPONSE,
+    POSITION,
+    RECEPTOR_ANGLE,
+    NUM_COLUMNS
+  } col;
+  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
+    "ANTENNA_ID",
+    "FEED_ID",
+    "SPECTRAL_WINDOW_ID",
+    "TIME",
+    "INTERVAL",
+    "BEAM_ID",
+    "BEAM_OFFSET",
+    "POL_RESPONSE",
+    "POSITION",
+    "RECEPTOR_ANGLE"
+  };
+  static const constexpr std::array<unsigned,NUM_COLUMNS> element_rank = {
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    2,
+    1,
+    1
+  };
+  // don't index on TIME and INTERVAL axes, as we don't expect feed
+  // columns to vary with time
+  static constexpr const std::array<MSTable<MS_FEED>::Axes,3> index_axes = {
+    FEED_ANTENNA_ID,
+    FEED_FEED_ID,
+    FEED_SPECTRAL_WINDOW_ID
+  };
+  static const constexpr char* table_name = MSTable<MS_FEED>::name;
 };
 
 template <>
@@ -601,7 +653,7 @@ struct TableColumns<MS_MAIN>
     FLAG,
     NUM_COLUMNS
   } col;
-  static constexpr const std::array<const char*,NUM_COLUMNS> column_names = {
+  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
     "TIME",
     "ANTENNA1",
     "ANTENNA2",
@@ -613,7 +665,7 @@ struct TableColumns<MS_MAIN>
     "SIGMA",
     "FLAG"
   };
-  static constexpr const char* table_name = MSTable<MS_MAIN>::name;
+  static const constexpr char* table_name = MSTable<MS_MAIN>::name;
 };
 
 template <>
@@ -623,10 +675,10 @@ struct TableColumns<MS_POLARIZATION>
     NUM_CORR,
     NUM_COLUMNS
   } col;
-  static constexpr const std::array<const char*,NUM_COLUMNS> column_names = {
+  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
     "NUM_CORR",
   };
-  static constexpr const char* table_name = MSTable<MS_POLARIZATION>::name;
+  static const constexpr char* table_name = MSTable<MS_POLARIZATION>::name;
 };
 
 template <>
@@ -639,13 +691,13 @@ struct TableColumns<MS_SPECTRAL_WINDOW>
     CHAN_WIDTH,
     NUM_COLUMNS
   } col;
-  static constexpr const std::array<const char*,NUM_COLUMNS> column_names = {
+  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
     "NUM_CHAN",
     "REF_FREQUENCY",
     "CHAN_FREQ",
     "CHAN_WIDTH"
   };
-  static constexpr const char* table_name = MSTable<MS_SPECTRAL_WINDOW>::name;
+  static const constexpr char* table_name = MSTable<MS_SPECTRAL_WINDOW>::name;
 };
 
 #define COLUMN_NAME(T, C) TableColumns<T>::column_names[TableColumns<T>::C]
@@ -834,7 +886,6 @@ public:
   create(
     Context ctx,
     Runtime* rt,
-    const std::unordered_map<MSTables,Table>&,
     PARALLACTIC_ANGLE_TYPE pa_step,
     PARALLACTIC_ANGLE_TYPE pa_origin) {
 
@@ -940,67 +991,119 @@ public:
   static const constexpr FieldID PARALLACTIC_ANGLE_FID = 0;
 
   ComputeRowAuxFieldsTask(
-    DomainPoint row_block,
-    IndexSpace row_is,
-    const Column& antenna1,
-    const Column& antenna2,
-    const Column& data_desc,
-    const Column& feed1,
-    const Column& feed2,
-    const Column& time)
-    : m_row_block(row_block)
-    , m_row_is(row_is)
-    , m_antenna1(antenna1)
-    , m_antenna2(antenna2)
-    , m_data_desc(data_desc)
-    , m_feed1(feed1)
-    , m_feed2(feed2)
-    , m_time(time) {
+    const GridderArgs<VALUE_ARGS>& args,
+    Table& tbl_main,
+    Table& tbl_feed)
+    : m_args(args)
+    , m_tbl_main(tbl_main)
+    , m_tbl_feed(tbl_feed) {
   }
 
   LogicalRegion
   dispatch(Context ctx, Runtime* rt) {
-    FieldSpace fs = rt->create_field_space(ctx);
-    FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    fa.allocate_field(
-      sizeof(PARALLACTIC_ANGLE_TYPE),
-      PARALLACTIC_ANGLE_FID);
-    rt->attach_name(fs, PARALLACTIC_ANGLE_FID, "parallactic_angle");
-    LogicalRegion result = rt->create_logical_region(ctx, m_row_is, fs);
-    rt->attach_name(result, "row_aux_fields");
+    return
+      m_tbl_main
+      .with_columns_attached(
+        ctx,
+        rt,
+        m_args.h5_path.value(),
+        ms_root,
+        {COLUMN_NAME(MS_MAIN, ANTENNA1),
+         COLUMN_NAME(MS_MAIN, ANTENNA2),
+         COLUMN_NAME(MS_MAIN, DATA_DESC_ID),
+         COLUMN_NAME(MS_MAIN, FEED1),
+         COLUMN_NAME(MS_MAIN, FEED2),
+         COLUMN_NAME(MS_MAIN, TIME),
+         COLUMN_NAME(MS_MAIN, UVW)},
+        {},
+        [this](Context c, Runtime *r, Table* tbl_main) {
 
-    IndexPartition ip =
-      rt->create_partition_by_blockify(ctx, m_row_is, m_row_block);
-    IndexTaskLauncher init_task(
-      COMPUTE_ROW_AUX_FIELDS_TASK_ID + m_row_is.get_dim() - 1,
-      rt->get_index_partition_color_space(ctx, ip),
-      TaskArgument(NULL, 0),
-      ArgumentMap());
-    for (auto& col :
-           {m_antenna1, m_antenna2, m_data_desc, m_feed1, m_feed2, m_time}) {
-      IndexPartition ip =
-        rt->create_partition_by_blockify(
-          ctx,
-          col.values_lr.get_index_space(),
-          m_row_block);
-      LogicalPartition lp = rt->get_logical_partition(ctx, col.values_lr, ip);
-      RegionRequirement req(lp, 0, READ_ONLY, EXCLUSIVE, col.values_lr);
-      req.add_field(Column::VALUE_FID);
-      init_task.add_region_requirement(req);
-      rt->destroy_logical_partition(ctx, lp);
-      rt->destroy_index_partition(ctx, ip);
-    }
-    {
-      LogicalPartition lp = rt->get_logical_partition(ctx, result, ip);
-      RegionRequirement req(lp, 0, WRITE_ONLY, EXCLUSIVE, result);
-      req.add_field(PARALLACTIC_ANGLE_FID);
-      init_task.add_region_requirement(req);
-      rt->destroy_logical_partition(ctx, lp);
-    }
-    rt->execute_index_space(ctx, init_task);
-    rt->destroy_index_space(ctx, rt->get_index_partition_color_space_name(ip));
-    rt->destroy_index_partition(ctx, ip);
-    return result;
+          auto antenna1 =
+            tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, ANTENNA1));
+          auto antenna2 =
+            tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, ANTENNA2));
+          auto data_desc =
+            tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, DATA_DESC_ID));
+          auto feed1 =
+            tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, FEED1));
+          auto feed2 =
+            tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, FEED2));
+          auto time =
+            tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, TIME));
+          auto uvw =
+            tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, UVW));
+
+          // using partition_on_axes() to get the index space of the table index
+          // axes (a.k.a. row index space), but this also provides the logical
+          // regions needed to describe further partitions on those axes
+          auto row_part =
+            antenna1.partition_on_axes(c, r, tbl_main->index_axes(c, r));
+          IndexSpace row_is =
+            r->get_index_partition_color_space_name(row_part.index_partition);
+          // partition the low index space
+          IndexPartition ip =
+            partition_over_all_cpus(c, r, row_is, m_args.min_block.value());
+          IndexSpace cs = r->get_index_partition_color_space_name(c, ip);
+
+          // create the result logical region
+          FieldSpace fs = r->create_field_space(c);
+          FieldAllocator fa = r->create_field_allocator(c, fs);
+          fa.allocate_field(
+            sizeof(PARALLACTIC_ANGLE_TYPE),
+            PARALLACTIC_ANGLE_FID);
+          r->attach_name(fs, PARALLACTIC_ANGLE_FID, "parallactic_angle");
+          LogicalRegion result = r->create_logical_region(c, row_is, fs);
+          r->attach_name(result, "row_aux_fields");
+
+          // use an index task launched over the partition of the main table
+          // rows
+          std::vector<RegionRequirement> reqs;
+          // use the logical regions containing the table axes uid and row axes
+          // that were provided by the above call to partition_on_axes to create
+          // a ColumnPartition based on the table row partition.
+          auto col_part = // don't call col_part.destroy()!
+            ColumnPartition(row_part.axes_uid_lr, row_part.axes_lr, ip);
+          for (auto& col :
+                 {antenna1, antenna2, data_desc, feed1, feed2, time, uvw}) {
+            // project the row partition onto the entire set of column axes
+            auto cp = col.projected_column_partition(c, r, col_part);
+            auto lp =
+              r->get_logical_partition(c, col.values_lr, cp.index_partition);
+            RegionRequirement req(lp, 0, READ_ONLY, EXCLUSIVE, col.values_lr);
+            req.add_field(Column::VALUE_FID);
+            reqs.push_back(req);
+            r->destroy_logical_partition(c, lp);
+            cp.destroy(c, r);
+          }
+          unsigned feed_table_offset = reqs.size();
+          for (auto& nm : TableColumns<MS_FEED>::column_names) {
+            auto col = m_tbl_feed.column(c, r, nm);
+            RegionRequirement
+              req(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
+            req.add_field(Column::VALUE_FID);
+            reqs.push_back(req);
+          }
+          {
+            LogicalPartition lp = r->get_logical_partition(c, result, ip);
+            RegionRequirement req(lp, 0, WRITE_ONLY, EXCLUSIVE, result);
+            req.add_field(PARALLACTIC_ANGLE_FID);
+            reqs.push_back(req);
+            r->destroy_logical_partition(c, lp);
+          }
+          IndexTaskLauncher init_task(
+            COMPUTE_ROW_AUX_FIELDS_TASK_ID + row_is.get_dim() - 1,
+            cs,
+            TaskArgument(&feed_table_offset, sizeof(feed_table_offset)),
+            ArgumentMap());
+          for (auto& req : reqs)
+            init_task.add_region_requirement(req);
+          r->execute_index_space(c, init_task);
+
+          r->destroy_index_space(c, cs);
+          r->destroy_index_partition(c, ip);
+          row_part.destroy(c, r, true);
+          return result;
+        });
   }
 
   static PARALLACTIC_ANGLE_TYPE
@@ -1023,6 +1126,9 @@ public:
     Context,
     Runtime *rt) {
 
+    const unsigned* feed_idx =
+      static_cast<const unsigned*>(task->args);
+
     const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
       antenna1(regions[0], Column::VALUE_FID);
     const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
@@ -1035,12 +1141,24 @@ public:
       feed2(regions[4], Column::VALUE_FID);
     const ROAccessor<DataType<HYPERION_TYPE_DOUBLE>::ValueType, ROW_DIM>
       time(regions[5], Column::VALUE_FID);
+#define FEED_COL(var, typ, col)                                     \
+    const ROAccessor<DataType<HYPERION_TYPE_##typ>::ValueType,\
+                     TableColumns<MS_FEED>::index_axes.size()\
+                     + TableColumns<MS_FEED>::element_rank[\
+                       TableColumns<MS_FEED>::col]> \
+      var(regions[*feed_idx + TableColumns<MS_FEED>::col], Column::VALUE_FID)
+
+    FEED_COL(feed_beam_offset, DOUBLE, BEAM_OFFSET);
+    FEED_COL(feed_pol_response, COMPLEX, POL_RESPONSE);
+    FEED_COL(feed_position, DOUBLE, POSITION);
+    FEED_COL(feed_receptor_angle, DOUBLE, RECEPTOR_ANGLE);
+#undef FEED_COL
     const WOAccessor<PARALLACTIC_ANGLE_TYPE, ROW_DIM>
-      pa(regions[6], PARALLACTIC_ANGLE_FID);
+      pa(regions.back(), PARALLACTIC_ANGLE_FID);
     for (PointInDomainIterator<ROW_DIM>
            pid(
              rt->get_index_space_domain(
-                 task->regions[6].region.get_index_space()));
+               task->regions.back().region.get_index_space()));
          pid();
          pid++)
       pa[*pid] =
@@ -1074,490 +1192,9 @@ public:
 
 private:
 
-  DomainPoint m_row_block;
-  IndexSpace m_row_is;
-  Column m_antenna1;
-  Column m_antenna2;
-  Column m_data_desc;
-  Column m_feed1;
-  Column m_feed2;
-  Column m_time;
-};
-
-class CFMap {
-public:
-
-  CFMap() {
-  };
-
-  CFMap(IndexSpace bounds, LogicalRegion cfs, FieldSpace cf_fs)
-    : m_bounds(bounds)
-    , m_cfs(cfs)
-    , m_cf_fs(cf_fs) {
-  }
-
-  template <int MAIN_ROW_DIM>
-  static CFMap
-  create(
-    Context ctx,
-    Runtime* rt,
-    const GridderArgs<VALUE_ARGS>& gridder_args,
-    const std::string& ms_root,
-    std::unordered_map<MSTables,Table>& tables,
-    unsigned num_antenna_classes,
-    LogicalRegion antenna_classes,
-    const PAIntervals& pa_intervals) {
-
-    // compute the map index space bounds
-    IndexSpace bounds =
-      Table::with_columns_attached(
-        ctx,
-        rt,
-        gridder_args.h5_path.value(),
-        ms_root,
-        {{&tables[MS_DATA_DESCRIPTION],
-          {COLUMN_NAME(MS_DATA_DESCRIPTION, SPECTRAL_WINDOW_ID),
-           COLUMN_NAME(MS_DATA_DESCRIPTION, POLARIZATION_ID)},
-          {}},
-         {&tables[MS_SPECTRAL_WINDOW],
-          {COLUMN_NAME(MS_SPECTRAL_WINDOW, NUM_CHAN)},
-          {}},
-         {&tables[MS_POLARIZATION],
-          {COLUMN_NAME(MS_POLARIZATION, NUM_CORR)},
-          {}}},
-        [num_antenna_classes, &gridder_args, &pa_intervals]
-        (Context c, Runtime* r,
-         std::unordered_map<std::string, Table*>& tables) {
-          return
-            CFMap::bounding_index_space(
-              c,
-              r,
-              *tables[MSTable<MS_DATA_DESCRIPTION>::name],
-              tables[MSTable<MS_SPECTRAL_WINDOW>::name]->column(
-                c, r, COLUMN_NAME(MS_SPECTRAL_WINDOW, NUM_CHAN)),
-              tables[MSTable<MS_POLARIZATION>::name]->column(
-                c, r, COLUMN_NAME(MS_POLARIZATION, NUM_CORR)),
-              num_antenna_classes,
-              gridder_args.w_planes.value(),
-              pa_intervals.num_steps(c, r));
-        });
-
-    // compute convolution functions
-    LogicalRegion cfs;
-    FieldSpace cf_fs;
-    Table::with_columns_attached(
-      ctx,
-      rt,
-      gridder_args.h5_path.value(),
-      ms_root,
-      {{&tables[MS_MAIN],
-        {COLUMN_NAME(MS_MAIN, ANTENNA1),
-         COLUMN_NAME(MS_MAIN, ANTENNA2),
-         COLUMN_NAME(MS_MAIN, DATA_DESC_ID),
-         COLUMN_NAME(MS_MAIN, FEED1),
-         COLUMN_NAME(MS_MAIN, FEED2),
-         COLUMN_NAME(MS_MAIN, TIME),
-         COLUMN_NAME(MS_MAIN, UVW)},
-        {}}},
-      [&gridder_args, &pa_intervals, &bounds, &cfs, &cf_fs]
-      (Context c, Runtime* r, std::unordered_map<std::string,Table*>& tables) {
-        // get some columns that we'll be using
-        auto main_table = tables[MSTable<MS_MAIN>::name];
-        auto row_is =
-          main_table->min_rank_column(c, r).values_lr.get_index_space();
-        auto antenna1 =
-          main_table->column(c, r, COLUMN_NAME(MS_MAIN, ANTENNA1));
-        auto antenna2 =
-          main_table->column(c, r, COLUMN_NAME(MS_MAIN, ANTENNA2));
-        auto data_desc =
-          main_table->column(c, r, COLUMN_NAME(MS_MAIN, DATA_DESC_ID));
-        auto feed1 =
-          main_table->column(c, r, COLUMN_NAME(MS_MAIN, FEED1));
-        auto feed2 =
-          main_table->column(c, r, COLUMN_NAME(MS_MAIN, FEED2));
-        auto time =
-          main_table->column(c, r, COLUMN_NAME(MS_MAIN, TIME));
-        auto uvw =
-          main_table->column(c, r, COLUMN_NAME(MS_MAIN, UVW));
-
-        // compute auxiliary row-wise data
-        LogicalRegion row_aux;
-        {
-          // TODO: modify main_table_row_block_size for MAIN_ROW_DIM > 1
-          ComputeRowAuxFieldsTask task(
-            Point<MAIN_ROW_DIM>(gridder_args.block.value()),
-            row_is,
-            antenna1,
-            antenna2,
-            data_desc,
-            feed1,
-            feed2,
-            time);
-          row_aux = task.dispatch(c, r);
-          {
-            RegionRequirement req(row_aux, READ_ONLY, EXCLUSIVE, row_aux);
-            req.add_field(ComputeRowAuxFieldsTask::PARALLACTIC_ANGLE_FID);
-            auto pr = r->map_region(c, req);
-            const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1>
-              pa(pr, ComputeRowAuxFieldsTask::PARALLACTIC_ANGLE_FID);
-            for (PointInDomainIterator<1>
-                   pid(r->get_index_space_domain(row_is));
-                 pid();
-                 pid++)
-              std::cout << *pid << ": " << pa[*pid] << std::endl;
-          }
-        }
-        // create and initialize preimage, which records, for every point in
-        // bounds, a row number that maps to that point
-#define PREIMAGE_ROW_FID 0
-#define PREIMAGE_FLAG_FID 1
-#define ASSIGNED_FLAG_TYPE int16_t
-#define ASSIGNED_FLAG_TRUE (ASSIGNED_FLAG_TYPE)1
-#define ASSIGNED_FLAG_FALSE (ASSIGNED_FLAG_TYPE)0
-        // LogicalRegion preimage;
-        // {
-        //   FieldSpace fs = r->create_field_space(c);
-        //   FieldAllocator fa = r->create_field_allocator(c, fs);
-        //   fa.allocate_field(sizeof(Point<MAIN_ROW_DIM>), PREIMAGE_ROW_FID);
-        //   fa.allocate_field(sizeof(ASSIGNED_FLAG_TYPE), PREIMAGE_FLAG_FID);
-        //   preimage = r->create_logical_region(c, bounds, fs);
-        //   r->fill_field(
-        //     c,
-        //     preimage,
-        //     preimage,
-        //     PREIMAGE_ROW_FID,
-        //     Point<MAIN_ROW_DIM>(-1));
-        //   r->fill_field(
-        //     c,
-        //     preimage,
-        //     preimage,
-        //     PREIMAGE_FLAG_FID,
-        //     ASSIGNED_FLAG_FALSE);
-        //   // launch index space task over visibilities to write row
-        //   // numbers and flags to preimage via reductions
-        //   IndexTaskLauncher
-        //     preimage_task(FIXME, row_is, TaskArgument(NULL, 0), ArgumentMap());
-        //   for (auto& col : {antenna1, antenna2, data_desc}) {
-        //     RegionRequirement
-        //       req(col.values_lr, 0, READ_ONLY, EXCLUSIVE, col.values_lr);
-        //     req.add_field(Column::VALUE_FID);
-        //     preimage_task.add_region_requirement(req);
-        //   }
-        //   {
-        //     RegionRequirement
-        //       req(uvw_lp, 0, READ_ONLY, EXCLUSIVE, uvw.values_lr);
-        //     req.add_field(Column::VALUE_FID);
-        //     preimage_task.add_region_requirement(req);
-        //   }
-        //   {
-        //     RegionRequirement req(row_aux, 0, READ_ONLY, EXCLUSIVE, row_aux);
-        //     req.add_field(ComputeRowAuxFieldsTask::PARALLACTIC_ANGLE_FID);
-        //     preimage_task.add_region_requirement(req);
-        //   }
-        //   {
-        //     auto params = pa_intervals.parameters;
-        //     RegionRequirement req(params, READ_ONLY, EXCLUSIVE, params);
-        //     req.add_field(PAIntervals::PA_ORIGIN_FID);
-        //     req.add_field(PAIntervals::PA_STEP_FID);
-        //     req.add_field(PAIntervals::PA_NUM_STEP_FID);
-        //     preimage_task.add_region_requirement(req);
-        //   }
-        //   {
-        //     RegionRequirement req(preimage, LAST_POINT_REDOP, ATOMIC, preimage);
-        //     req.add_field(PREIMAGE_ROW_FID);
-        //     preimage_task.add_region_requirement(req);
-        //   }
-        //   {
-        //     RegionRequirement
-        //       req(preimage, LEGION_REDOP_MAX_INT16, ATOMIC, preimage);
-        //     req.add_field(PREIMAGE_FLAG_FID);
-        //     preimage_task.add_region_requirement(req);
-        //   }
-        //   // TODO: preimage_task tasks will compute index components ant1_class,
-        //   // ant2_class, pa, dd, and w_plane, and will write values into all
-        //   // elements of preimage with the computed index prefix (i.e, for all
-        //   // channel and correlation index components)
-        //   preimage_task.dispatch(c, r);
-        // }
-
-        // create partition, the partition of bounds by "assigned" flag of
-        // preimage
-        // IndexPartition partition;
-        // {
-        //   IndexSpace flag_values = r->create_index_space(c, Rect<1>(0, 1));
-        //   partition =
-        //     r->create_partition_by_field(
-        //       c,
-        //       preimage,
-        //       preimage,
-        //       PREIMAGE_FLAG_FID,
-        //       flag_values);
-        //   r->destroy_index_space(c, flag_values);
-        // }
-
-        // create cfs, the region of cfs, using as index space the sub-space of
-        // partition with an "assigned" flag value of 1
-#define CFS_REGION_FID 0
-        // {
-        //   FieldSpace fs = r->create_field_space(c);
-        //   {
-        //     FieldAllocator fa = r->create_field_allocator(c, fs);
-        //     fa.allocate_field(sizeof(LogicalRegion), CFS_REGION_FID);
-        //   }
-        //   cfs =
-        //     r->create_logical_region(
-        //       c,
-        //       r->get_index_subspace(c, partition, Point<1>(ASSIGNED_FLAG_TRUE)),
-        //       fs);
-        // }
-        // r->destroy_index_partition(c, partition); // TODO: OK?
-
-        // create common field space of every cf
-#define CF_VALUE_FID 0
-        // cf_fs = r->create_field_space(c);
-        // {
-        //   FieldAllocator fa = r->create_field_allocator(c, cf_fs);
-        //   fa.allocate_field(sizeof(std::complex<float>), CF_VALUE_FID);
-        // }
-
-        // launch index space task on cfs to create and initialize its values,
-        // using "preimage" to select the row used for initialization
-        // {
-        //   // we always want to map columns in the main table in pieces (by
-        //   // partitions or by index task launches); in this case, since each
-        //   // point in the cfs index space only needs to read the columns at the
-        //   // row stored in preimage, we first partition cfs completely, and then
-        //   // use partition_by_image to derive partitions for the main table
-        //   // columns
-        //   IndexPartition cfs_ip =
-        //     r->create_equal_partition(
-        //       c,
-        //       cfs.get_index_space(),
-        //       cfs.get_index_space());
-        //   LogicalPartition preimage_lp =
-        //     r->get_logical_partition(c, preimage, cfs_ip);
-        //   IndexPartition preimage_ip =
-        //     r->create_partition_by_image(
-        //       c,
-        //       row_is,
-        //       preimage_lp,
-        //       preimage,
-        //       PREIMAGE_ROW_FID,
-        //       cfs.get_index_space());
-
-        //   IndexTaskLauncher
-        //     cfs_task(
-        //       FIXME,
-        //       cfs.get_index_space(),
-        //       TaskArgument(&cf_fs, sizeof(cf_fs)),
-        //       ArgumentMap());
-        //   for (auto& col : {antenna1, antenna2, data_desc, uvw}) {
-        //     RegionRequirement
-        //       req(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
-        //     req.add_field(Column::VALUE_FID);
-        //     cfs_task.add_region_requirement(req);
-        //   }
-        //   {
-        //     RegionRequirement req(row_aux, 0, READ_ONLY, EXCLUSIVE, row_aux);
-        //     req.add_field(PARALLACTIC_ANGLE_FID);
-        //     preimage_task.add_region_requirement(req);
-        //   }
-        //   {
-        //     auto params = pa_intervals.parameters;
-        //     RegionRequirement req(params, READ_ONLY, EXCLUSIVE, params);
-        //     req.add_field(PAIntervals::PA_ORIGIN_FID);
-        //     req.add_field(PAIntervals::PA_STEP_FID);
-        //     req.add_field(PAIntervals::PA_NUM_STEP_FID);
-        //     preimage_task.add_region_requirement(req);
-        //   }
-        //   {
-        //     RegionRequirement req(preimage, READ_ONLY, EXCLUSIVE, preimage);
-        //     req.add_field(PREIMAGE_ROW_FID);
-        //     cfs_task.add_region_requirement(req);
-        //   }
-        //   {
-        //     RegionRequirement req(cfs, WRITE_ONLY, EXCLUSIVE, cfs);
-        //     req.add_field(CFS_REGION_FID);
-        //     cfs_task.add_region_requirement(req);
-        //   }
-        //   cfs_task.dispatch(c, r);
-        // }
-
-        r->destroy_field_space(c, row_aux.get_field_space());
-        r->destroy_logical_region(c, row_aux);
-        // r->destroy_field_space(c, preimage.get_field_space());
-        // r->destroy_logical_region(c, preimage);
-      });
-
-    return CFMap(bounds, cfs, cf_fs);
-  }
-
-  struct Key {
-    unsigned ant1_class;
-    unsigned ant2_class;
-    unsigned pa;
-    unsigned dd;
-    unsigned channel;
-    unsigned w_plane;
-    unsigned correlation;
-
-    operator Point<7>() const {
-      coord_t
-        vals[7]{ant1_class, ant2_class, pa, dd, channel, w_plane, correlation};
-      return Point<7>(vals);
-    }
-  };
-
-  LogicalRegion
-  lookup(Context ctx, Runtime* rt, const Key& key) {
-    RegionRequirement req(m_cfs, READ_ONLY, EXCLUSIVE, m_cfs);
-    req.add_field(0);
-    auto pr = rt->map_region(ctx, req);
-    auto result = lookup(pr, key);
-    rt->unmap_region(ctx, pr);
-    return result;
-  }
-
-  static LogicalRegion
-  lookup(PhysicalRegion pr, const Key& key) {
-    const ROAccessor<LogicalRegion, 7> lrs(pr, 0);
-    return lrs[key];
-  }
-
-  void
-  destroy(Context ctx, Runtime* rt, bool destroy_cfs = true) {
-    if (m_cfs != LogicalRegion::NO_REGION) {
-      if (destroy_cfs) {
-        RegionRequirement req(m_cfs, READ_ONLY, EXCLUSIVE, m_cfs);
-        req.add_field(0);
-        auto pr = rt->map_region(ctx, req);
-        const ROAccessor<LogicalRegion, 7> cfs(pr, 0);
-        for (PointInDomainIterator<7>
-               pid(rt->get_index_space_domain(m_cfs.get_index_space()));
-             pid();
-             pid++) {
-          LogicalRegion cf = cfs[*pid];
-          if (cf != LogicalRegion::NO_REGION) {
-            rt->destroy_index_space(ctx, cf.get_index_space());
-            // DON'T destroy the field space of cf, as cfs share a common field
-            // space! TODO: can they share a common index space?
-            rt->destroy_logical_region(ctx, cf);
-          }
-        }
-        rt->unmap_region(ctx, pr);
-        destroy_common_field_space(ctx, rt);
-      }
-      rt->destroy_field_space(ctx, m_cfs.get_field_space());
-      rt->destroy_logical_region(ctx, m_cfs);
-      m_cfs = LogicalRegion::NO_REGION;
-    }
-    if (m_bounds != IndexSpace::NO_SPACE)
-      rt->destroy_index_space(ctx, m_bounds);
-  }
-
-  void
-  destroy_common_field_space(Context ctx, Runtime* rt) {
-    // call this after destroy() has been called with "destroy_cfs" set to
-    // "false"; it is nevertheless safe but unnecessary to call after destroy()
-    // was called with a "true" value
-    if (m_cf_fs != FieldSpace::NO_SPACE){
-      rt->destroy_field_space(ctx, m_cf_fs);
-      m_cf_fs = FieldSpace::NO_SPACE;
-    }
-  }
-
-  static IndexSpace
-  bounding_index_space(
-    Context ctx,
-    Runtime* rt,
-    const Table& data_description_tbl,
-    const Column& num_chan_col,
-    const Column& num_corr_col,
-    unsigned num_antenna_classes,
-    int w_planes,
-    coord_t num_pa_steps) {
-
-    coord_t num_dd;
-    PhysicalRegion spw_id_pr;
-    {
-      const Column& col =
-        data_description_tbl.column(
-          ctx,
-          rt,
-          COLUMN_NAME(MS_DATA_DESCRIPTION, SPECTRAL_WINDOW_ID));
-      Rect<1> rows(
-        rt->get_index_space_domain(col.values_lr.get_index_space()));
-      num_dd = rows.hi[0] + 1;
-      RegionRequirement req(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
-      req.add_field(Column::VALUE_FID);
-      spw_id_pr = rt->map_region(ctx, req);
-    }
-    const ROAccessor<int, 1> spw_ids(spw_id_pr, Column::VALUE_FID);
-
-    PhysicalRegion pol_id_pr;
-    {
-      const Column& col =
-        data_description_tbl.column(
-          ctx,
-          rt,
-          COLUMN_NAME(MS_DATA_DESCRIPTION, POLARIZATION_ID));
-      RegionRequirement req(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
-      req.add_field(Column::VALUE_FID);
-      pol_id_pr = rt->map_region(ctx, req);
-    }
-    const ROAccessor<int, 1> pol_ids(pol_id_pr, Column::VALUE_FID);
-
-    PhysicalRegion num_chan_pr;
-    {
-      RegionRequirement
-        req(
-          num_chan_col.values_lr,
-          READ_ONLY,
-          EXCLUSIVE,
-          num_chan_col.values_lr);
-      req.add_field(Column::VALUE_FID);
-      num_chan_pr = rt->map_region(ctx, req);
-    }
-    const ROAccessor<int, 1> num_chan(num_chan_pr, Column::VALUE_FID);
-
-    PhysicalRegion num_corr_pr;
-    {
-      RegionRequirement
-        req(
-          num_corr_col.values_lr,
-          READ_ONLY,
-          EXCLUSIVE,
-          num_corr_col.values_lr);
-      req.add_field(Column::VALUE_FID);
-      num_corr_pr = rt->map_region(ctx, req);
-    }
-    const ROAccessor<int, 1> num_corr(num_corr_pr, Column::VALUE_FID);
-
-    std::vector<IndexSpace> is_pieces;
-    for (coord_t ant0 = 0; ant0 < num_antenna_classes; ++ant0)
-      for (coord_t ant1 = ant0; ant1 < num_antenna_classes; ++ant1)
-        for (coord_t pa = 0; pa < num_pa_steps; ++pa)
-          for (coord_t dd = 0; dd < num_dd; ++dd) {
-            coord_t lo[7]{ant0, ant1, pa, dd, 0, 0, 0};
-            coord_t hi[7]{ant0, ant1, pa, dd, num_chan[spw_ids[dd]] - 1,
-                w_planes - 1, num_corr[pol_ids[dd]] - 1};
-            is_pieces.push_back(
-              rt->create_index_space(ctx, Rect<7>(Point<7>(lo), Point<7>(hi))));
-          }
-    rt->unmap_region(ctx, pol_id_pr);
-    rt->unmap_region(ctx, spw_id_pr);
-    rt->unmap_region(ctx, num_chan_pr);
-    rt->unmap_region(ctx, num_corr_pr);
-    return rt->union_index_spaces(ctx, is_pieces);
-  }
-
-private:
-
-  IndexSpace m_bounds;
-
-  LogicalRegion m_cfs;
-
-  FieldSpace m_cf_fs;
+  GridderArgs<VALUE_ARGS> m_args;
+  Table m_tbl_main;
+  Table m_tbl_feed;
 };
 
 std::variant<std::forward_list<std::string>, GridderArgs<OPT_STRING_ARGS>>
@@ -1643,7 +1280,7 @@ template <typename CLASSIFY_ANTENNAS_TASK>
 class TopLevelTask {
 public:
 
-  static constexpr const char* TASK_NAME = "TopLevelTask";
+  static const constexpr char* TASK_NAME = "TopLevelTask";
 
   static bool
   get_args(
@@ -1868,19 +1505,46 @@ public:
                 << g_args->as_node() << std::endl;
 
     // initialize Tables used by gridder from HDF5 file
-    const std::string ms_root = "/";
     MSTables mstables[] = {
       MS_ANTENNA,
       MS_DATA_DESCRIPTION,
+      MS_FEED,
       MS_MAIN,
       MS_POLARIZATION,
       MS_SPECTRAL_WINDOW
     };
-    std::unordered_map<MSTables,Table> tables;
+    std::unordered_map<MSTables, Table> tables;
     MeasRefContainer ms_meas_ref; // TODO: account for measures at top level
     for (auto& mst : mstables)
       tables[mst] =
         init_table(ctx, rt, g_args->h5_path.value(), ms_root, ms_meas_ref, mst);
+
+    // re-index some tables
+    std::unordered_map<MSTables, Table> itables;
+    {
+      std::unordered_map<MSTables, Future> fs;
+      fs[MS_FEED] =
+        tables[MS_FEED]
+        .with_columns_attached(
+          ctx,
+          rt,
+          g_args->h5_path.value(),
+          ms_root,
+          std::unordered_set<std::string>(
+            TableColumns<MS_FEED>::column_names.begin(),
+            TableColumns<MS_FEED>::column_names.end()),
+          {},
+          [](Context c, Runtime* r, const Table* tb) {
+            std::vector<MSTable<MS_FEED>::Axes> iaxes(
+              TableColumns<MS_FEED>::index_axes.begin(),
+              TableColumns<MS_FEED>::index_axes.end());
+            return tb->reindexed(c, r, iaxes, false);
+          });
+      // for convenience, just wait for all reindexing to finish; may want to
+      // change this and use the futures directly
+      for (auto& [nm, f] : fs)
+        itables[nm] = f.template get_result<Table>();
+    }
 
     // create region mapping antenna index to antenna class
     //
@@ -1899,42 +1563,40 @@ public:
          COLUMN_NAME(MS_ANTENNA, MOUNT),
          COLUMN_NAME(MS_ANTENNA, DISH_DIAMETER)},
         {},
-        [](Context ctx, Runtime* rt, const Table* tb) {
+        [](Context c, Runtime* r, const Table* tb) {
           CLASSIFY_ANTENNAS_TASK task(*tb);
-          return task.dispatch(ctx, rt);
+          return task.dispatch(c, r);
         });
 
     // create vector of parallactic angle values
     PAIntervals pa_intervals =
-      PAIntervals::create(ctx, rt, tables, g_args->pa_step.value(), 0.0f);
+      PAIntervals::create(ctx, rt, g_args->pa_step.value(), 0.0f);
 
-    // create convolution function map
-    CFMap cf_map;
-    switch (tables[MS_MAIN].index_axes(ctx, rt).size()) {
-#define MAKE_CFMAP(DIM) \
-      case DIM:                                 \
-        cf_map = CFMap::create<DIM>(            \
-          ctx,                                  \
-          rt,                                   \
-          *g_args,                              \
-          ms_root,                              \
-          tables,                               \
-          CLASSIFY_ANTENNAS_TASK::num_classes,  \
-          antenna_classes,                      \
-          pa_intervals);                        \
-        break;
-      MAKE_CFMAP(1);
-#undef MAKE_CFMAP
-    default:
-        // for now, we only support 1-d rows (TODO: specialize LastPointRedop
-        // for DIM > 1)
-        assert(false);
+    // compute auxiliary row-wise data
+    LogicalRegion row_aux;
+    {
+      ComputeRowAuxFieldsTask task(
+        *g_args,
+        tables[MS_MAIN],
+        itables[MS_FEED]);
+      row_aux = task.dispatch(ctx, rt);
+    }
+    {
+      RegionRequirement req(row_aux, READ_ONLY, EXCLUSIVE, row_aux);
+      req.add_field(ComputeRowAuxFieldsTask::PARALLACTIC_ANGLE_FID);
+      auto pr = rt->map_region(ctx, req);
+      const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1>
+        pa(pr, ComputeRowAuxFieldsTask::PARALLACTIC_ANGLE_FID);
+      for (PointInDomainIterator<1>
+             pid(rt->get_index_space_domain(row_aux.get_index_space()));
+           pid();
+           pid++)
+        std::cout << *pid << ": " << pa[*pid] << std::endl;
     }
 
     // TODO: the rest goes here
 
     // clean up
-    cf_map.destroy(ctx, rt);
     pa_intervals.destroy(ctx, rt);
     // don't destroy index space of antenna_classes, as it is shared with an
     // index space in the antenna table
