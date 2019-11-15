@@ -725,7 +725,7 @@ public:
     Legion::Context ctx,
     Legion::Runtime *runtime);
 
-  static constexpr const Legion::FieldID ROW_RECTS_FID = 0;
+  static constexpr const Legion::FieldID ROW_RECTS_FID = 21;
 
 private:
 
@@ -734,8 +734,8 @@ private:
     unsigned num_index_axes;
     int index_axes[LEGION_MAX_DIM]; // lazy, but LEGION_MAX_DIM is certainly an
                                     // upper bound
-    Legion::IndexPartition row_partition;
     Column col;
+    ColumnPartition row_partition;
     int kws_region_offset;
     int values_region_offset;
 #ifdef HYPERION_USE_CASACORE

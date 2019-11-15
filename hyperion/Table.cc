@@ -1342,8 +1342,8 @@ public:
         && (args.allow_rows || common_rows.size() == 1)) {
       auto rowdim = common_rows[0].get_dim();
       auto rectdim =
-        ixdim + args.row_partition.get_dim()
-        - rowdim + (args.allow_rows ? 1 : 0);
+        ixdim + (args.allow_rows ? 1 : 0)
+        + args.row_partition.get_dim() - rowdim;
       switch (rowdim * LEGION_MAX_DIM + rectdim) {
 #define WRITE_RECTS(ROWDIM, RECTDIM)                                    \
         case (ROWDIM * LEGION_MAX_DIM + RECTDIM): {                     \
@@ -1371,9 +1371,10 @@ public:
               row_rect.hi[j] = i;                                       \
               ++j;                                                      \
             }                                                           \
+            size_t k = j;                                               \
             for (; j < RECTDIM; ++j) {                                  \
-              row_rect.lo[j] = row_d.lo()[j - (RECTDIM - ROWDIM)];      \
-              row_rect.hi[j] = row_d.hi()[j - (RECTDIM - ROWDIM)];      \
+              row_rect.lo[j] = row_d.lo()[j - k + ROWDIM];              \
+              row_rect.hi[j] = row_d.hi()[j - k + ROWDIM];              \
             }                                                           \
             rects[common_rows[i]] = row_rect;                           \
           }                                                             \
@@ -1470,9 +1471,9 @@ public:
   static const unsigned min_block_size = 10000;
 
   ReindexColumnCopyTask(
-    LogicalRegion column,
+    const Column& column,
     hyperion::TypeTag column_dt,
-    IndexPartition row_partition,
+    ColumnPartition row_partition,
     LogicalRegion new_rects_lr,
     LogicalRegion new_col_lr)
     : m_column(column)
@@ -1512,41 +1513,41 @@ public:
   template <hyperion::TypeTag DT>
   static void
   copy(
-    Runtime* rt,
-    const RegionRequirement& src_req,
-    const RegionRequirement& rect_req,
-    const RegionRequirement& dst_req,
-    const PhysicalRegion& src,
-    const PhysicalRegion& rect,
-    const PhysicalRegion& dst) {
+    const Task* task,
+    const std::vector<PhysicalRegion>& regions,
+    Runtime* rt) {
 
+    const RegionRequirement& rect_req = task->regions[1];
+    const PhysicalRegion& src = regions[0];
+    const PhysicalRegion& rect = regions[1];
+    const PhysicalRegion& dst = regions[2];
     int rowdim = rect.get_logical_region().get_dim();
     int srcdim = src.get_logical_region().get_dim();
     int dstdim = dst.get_logical_region().get_dim();
+
     switch ((rowdim * LEGION_MAX_DIM + srcdim) * LEGION_MAX_DIM + dstdim) {
-#define CPY(ROWDIM,SRCDIM,DSTDIM)                                    \
+#define CPY(ROWDIM,SRCDIM,DSTDIM)                                       \
       case ((ROWDIM * LEGION_MAX_DIM + SRCDIM) * LEGION_MAX_DIM + DSTDIM): { \
-        const SA<DT,SRCDIM> from(src, Column::VALUE_FID);             \
-        const RA<DSTDIM,ROWDIM> rct(rect, Column::VALUE_FID);         \
-        const DA<DT,DSTDIM> to(dst, Column::VALUE_FID);               \
-        Domain row_bounds(                                            \
-          rt->get_index_space_domain(                                 \
-            rect_req.region.get_index_space()));                      \
-        for(PointInDomainIterator<ROWDIM> r(row_bounds);              \
-            r();                                                      \
-            ++r) {                                                    \
-          Point<SRCDIM> ps;                                           \
-          for (size_t i = 0; i < ROWDIM; ++i)                         \
-            ps[i] = r[i];                                             \
-          for (PointInDomainIterator<DSTDIM> d(rct[*r]); d(); ++d) {  \
-            size_t j = SRCDIM - 1;                                    \
-            size_t k = DSTDIM - 1;                                    \
-            while (j > SRCDIM - ROWDIM)                               \
-              ps[j--] = d[k--];                                       \
-            to[*d] = from[ps];                                        \
-          }                                                           \
-        }                                                             \
-        break;                                                        \
+        const SA<DT,SRCDIM> from(src, Column::VALUE_FID);               \
+        const RA<DSTDIM,ROWDIM> rct(rect, ReindexColumnTask::ROW_RECTS_FID); \
+        const DA<DT,DSTDIM> to(dst, Column::VALUE_FID);                 \
+        for (PointInDomainIterator<ROWDIM> row(                         \
+               rt->get_index_space_domain(rect_req.region.get_index_space()), \
+               false);                                                  \
+             row();                                                     \
+             ++row) {                                                   \
+          Point<SRCDIM> ps;                                             \
+          for (size_t i = 0; i < ROWDIM; ++i)                           \
+            ps[i] = row[i];                                             \
+          for (PointInRectIterator<DSTDIM> pd(rct[*row], false); pd(); pd++) { \
+            size_t i = SRCDIM - 1;                                      \
+            size_t j = DSTDIM - 1;                                      \
+            while (i >= ROWDIM)                                         \
+              ps[i--] = pd[j--];                                        \
+            to[*pd] = from[ps];                                         \
+          }                                                             \
+        }                                                               \
+        break;                                                          \
       }
       HYPERION_FOREACH_LMN(CPY)
 #undef CPY
@@ -1562,25 +1563,12 @@ public:
     // use partition of m_new_rects_lr by m_row_partition to get partition of
     // m_new_col_lr index space
 
-    IndexSpace new_rects_is = m_new_rects_lr.get_index_space();
-    IndexPartition new_rects_ip =
-      partition_over_all_cpus(ctx, rt, new_rects_is, min_block_size);
-    IndexSpace cs = rt->get_index_partition_color_space_name(ctx, new_rects_ip);
+    IndexSpace old_rows_is = m_new_rects_lr.get_index_space();
+    IndexPartition old_rows_ip =
+      partition_over_all_cpus(ctx, rt, old_rows_is, min_block_size);
+    IndexSpace cs = rt->get_index_partition_color_space_name(ctx, old_rows_ip);
     LogicalPartition new_rects_lp =
-      rt->get_logical_partition(ctx, m_new_rects_lr, new_rects_ip);
-
-    IndexPartition new_col_ip =
-      rt->create_partition_by_image_range(
-        ctx,
-        m_new_col_lr.get_index_space(),
-        new_rects_lp,
-        m_new_rects_lr,
-        ReindexColumnTask::ROW_RECTS_FID,
-        cs,
-        DISJOINT_COMPLETE_KIND);
-
-    LogicalPartition new_col_lp =
-      rt->get_logical_partition(ctx, m_new_col_lr, new_col_ip);
+      rt->get_logical_partition(ctx, m_new_rects_lr, old_rows_ip);
 
     // we now have partitions over the same color space on both m_new_rects_lr
     // and m_new_col_lr
@@ -1591,9 +1579,20 @@ public:
         TaskArgument(&m_column_dt, sizeof(m_column_dt)),
         ArgumentMap());
     {
-      RegionRequirement req(m_column, READ_ONLY, EXCLUSIVE, m_column);
+      auto cp =
+        m_column.projected_column_partition(
+          ctx,
+          rt,
+          ColumnPartition(
+            m_row_partition.axes_uid_lr,
+            m_row_partition.axes_lr,
+            old_rows_ip));
+      LogicalPartition lp =
+        rt->get_logical_partition(ctx, m_column.values_lr, cp.index_partition);
+      RegionRequirement req(lp, 0, READ_ONLY, EXCLUSIVE, m_column.values_lr);
       req.add_field(Column::VALUE_FID);
       copier.add_region_requirement(req);
+      // FIXME: clean up cp, lp
     }
     {
       RegionRequirement
@@ -1602,10 +1601,23 @@ public:
       copier.add_region_requirement(req);
     }
     {
-      RegionRequirement req(new_col_lp, 0, WRITE_ONLY, EXCLUSIVE, m_new_col_lr);
+      IndexPartition ip =
+        rt->create_partition_by_image_range(
+          ctx,
+          m_new_col_lr.get_index_space(),
+          new_rects_lp,
+          m_new_rects_lr,
+          ReindexColumnTask::ROW_RECTS_FID,
+          cs,
+          DISJOINT_COMPLETE_KIND);
+      LogicalPartition lp =
+        rt->get_logical_partition(ctx, m_new_col_lr, ip);
+      RegionRequirement req(lp, 0, WRITE_ONLY, EXCLUSIVE, m_new_col_lr);
       req.add_field(Column::VALUE_FID);
       copier.add_region_requirement(req);
+      // FIXME: clean up ip, lp
     }
+    // FIXME: clean up
     rt->execute_index_space(ctx, copier);
   }
 
@@ -1621,14 +1633,7 @@ public:
     switch (dt) {
 #define CPYDT(DT)                               \
       case DT:                                  \
-        copy<DT>(                               \
-          rt,                                   \
-          task->regions[0],                     \
-          task->regions[1],                     \
-          task->regions[2],                     \
-          regions[0],                           \
-          regions[1],                           \
-          regions[2]);                          \
+        copy<DT>(task, regions, rt);            \
         break;
       HYPERION_FOREACH_DATATYPE(CPYDT)
 #undef CPYDT
@@ -1650,11 +1655,11 @@ public:
 
 private:
 
-  LogicalRegion m_column;
+  Column m_column;
 
   hyperion::TypeTag m_column_dt;
 
-  IndexPartition m_row_partition;
+  ColumnPartition m_row_partition;
 
   LogicalRegion m_new_rects_lr;
 
@@ -1700,6 +1705,8 @@ ReindexColumnTask::ReindexColumnTask(
 enum ReindexColumnRegionIndexes {
   METADATA,
   AXES,
+  PART_AXES,
+  PART_AUID,
   INDEX_COLS
 };
 
@@ -1712,27 +1719,46 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
     m_col_axes.begin(),
     m_row_axis_offset + 1,
     std::back_inserter(col_part_axes));
-  ColumnPartition partition = m_args.col.partition_on_axes(ctx, rt, col_part_axes);
-  m_args.row_partition = partition.index_partition;
+  m_args.row_partition = m_args.col.partition_on_axes(ctx, rt, col_part_axes);
 
   std::vector<RegionRequirement> reqs;
   {
+    static_assert(ReindexColumnRegionIndexes::METADATA == 0);
     RegionRequirement
       req(m_args.col.metadata_lr, READ_ONLY, EXCLUSIVE, m_args.col.metadata_lr);
-    static_assert(ReindexColumnRegionIndexes::METADATA == 0);
     req.add_field(Column::METADATA_NAME_FID);
     req.add_field(Column::METADATA_AXES_UID_FID);
     req.add_field(Column::METADATA_DATATYPE_FID);
     reqs.push_back(req);
   }
   {
+    static_assert(ReindexColumnRegionIndexes::AXES == 1);
     RegionRequirement
       req(m_args.col.axes_lr, READ_ONLY, EXCLUSIVE, m_args.col.axes_lr);
-    static_assert(ReindexColumnRegionIndexes::AXES == 1);
     req.add_field(Column::AXES_FID);
     reqs.push_back(req);
   }
-  static_assert(ReindexColumnRegionIndexes::INDEX_COLS == 2);
+  {
+    static_assert(ReindexColumnRegionIndexes::PART_AXES == 2);
+    RegionRequirement
+      req(m_args.row_partition.axes_lr,
+          READ_ONLY,
+          EXCLUSIVE,
+          m_args.row_partition.axes_lr);
+    req.add_field(ColumnPartition::AXES_FID);
+    reqs.push_back(req);
+  }
+  {
+    static_assert(ReindexColumnRegionIndexes::PART_AUID == 3);
+    RegionRequirement
+      req(m_args.row_partition.axes_uid_lr,
+          READ_ONLY,
+          EXCLUSIVE,
+          m_args.row_partition.axes_uid_lr);
+    req.add_field(ColumnPartition::AXES_UID_FID);
+    reqs.push_back(req);
+  }
+  static_assert(ReindexColumnRegionIndexes::INDEX_COLS == 4);
   FieldID ix_fid =
     m_is_index ? IndexColumnTask::VALUE_FID : IndexColumnTask::ROWS_FID;
   for (auto& lr : m_ixlrs) {
@@ -1802,7 +1828,9 @@ reindex_column(
       task->regions[args.values_region_offset].region.get_index_space());
   // we use the name "rows_is" for the index space at or above the "ROW" axis
   IndexSpace rows_is =
-    rt->get_index_partition_color_space_name(ctx, args.row_partition);
+    rt->get_index_partition_color_space_name(
+      ctx,
+      args.row_partition.index_partition);
   // logical region over rows_is with a field for the rectangle in the new
   // column index space for each value in row_is
   auto new_rects_fs = rt->create_field_space(ctx);
@@ -1844,7 +1872,7 @@ reindex_column(
   ComputeRectanglesTask
     new_rects_task(
       args.allow_rows,
-      args.row_partition,
+      args.row_partition.index_partition,
       ix_lrs,
       new_rects_lr,
       {},
@@ -1854,7 +1882,7 @@ reindex_column(
   ComputeRectanglesTask
     new_rects_task(
       args.allow_rows,
-      args.row_partition,
+      args.row_partition.index_partition,
       ix_lrs,
       new_rects_lr);
 #endif
@@ -1869,9 +1897,13 @@ reindex_column(
   std::vector<int> new_axes(NEWDIM);
   {
     // start with axes above original row axis
-    auto d = args.row_partition.get_dim() - 1;
+    auto d =
+      rt
+      ->get_index_partition_color_space(args.row_partition.index_partition)
+      .get_dim()
+      - 1;
     int i = 0; // index in new_bounds
-    int j = 0; // index in col arrays
+    int j = 1; // index in col arrays
     while (i < d) {
       new_bounds.lo[i] = col_domain.lo[j];
       new_bounds.hi[i] = col_domain.hi[j];
@@ -1950,7 +1982,7 @@ reindex_column(
     // copy values from the column logical region to new_col_lr
     ReindexColumnCopyTask
       copy_task(
-        args.col.values_lr,
+        args.col,
         col_datatype[0],
         args.row_partition,
         new_rects_lr,
@@ -2014,14 +2046,14 @@ ReindexColumnTask::base_impl(
   Runtime *rt) {
 
   const TaskArgs* args = static_cast<const TaskArgs*>(task->args);
-  
+
   if (args->values_region_offset != -1) {
     // reindex this column using index column values
-    auto olddim = args->row_partition.get_dim();
+    auto ip = args->row_partition.index_partition;
+    auto olddim = ip.get_dim();
     auto eltdim =
       olddim
-      - rt->get_index_partition_color_space(ctx, args->row_partition)
-      .get_dim();
+      - rt->get_index_partition_color_space(ctx, ip).get_dim();
     auto newdim =
       args->num_index_axes + eltdim + (args->allow_rows ? 1 : 0);
     switch (olddim * LEGION_MAX_DIM + newdim) {
