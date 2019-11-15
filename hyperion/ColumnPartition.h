@@ -57,6 +57,8 @@ public:
     Legion::AffineAccessor<int, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
+  ColumnPartition() {}
+
   ColumnPartition(
     Legion::LogicalRegion axes_uid,
     Legion::LogicalRegion axes,
