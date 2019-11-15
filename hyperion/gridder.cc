@@ -1084,6 +1084,29 @@ public:
             req.add_field(Column::VALUE_FID);
             reqs.push_back(req);
           }
+          for (auto& nm :
+                 {COLUMN_NAME(MS_FEED, TIME),
+                     COLUMN_NAME(MS_FEED, BEAM_OFFSET),
+                     COLUMN_NAME(MS_FEED, POSITION)}){
+            auto col = m_tbl_feed.column(c, r, nm);
+            if (col.meas_refs.lr != LogicalRegion::NO_REGION) {
+              RegionRequirement
+                req(col.meas_refs.lr, READ_ONLY, EXCLUSIVE, col.meas_refs.lr);
+              req.add_field(MeasRefContainer::OWNED_FID);
+              req.add_field(MeasRefContainer::MEAS_REF_FID);
+              reqs.push_back(req);
+              auto mr_reqs =
+                col.meas_refs.component_requirements(c, r, READ_ONLY);
+              if (mr_reqs.size() > 0) {
+                for (auto& [r0, r1, or2] : mr_reqs) {
+                  reqs.push_back(r0);
+                  reqs.push_back(r1);
+                  if (or2)
+                    reqs.push_back(or2.value());
+                }
+              }
+            }
+          }
           {
             LogicalPartition lp = r->get_logical_partition(c, result, ip);
             RegionRequirement req(lp, 0, WRITE_ONLY, EXCLUSIVE, result);
@@ -1124,9 +1147,8 @@ public:
   base_impl(
     const Task* task,
     const std::vector<PhysicalRegion>& regions,
-    Context,
+    Context ctx,
     Runtime *rt) {
-
 
     const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
       antenna1(regions[0], Column::VALUE_FID);
@@ -1154,22 +1176,31 @@ public:
     FEED_COL(feed_position, DOUBLE, POSITION);
     FEED_COL(feed_receptor_angle, DOUBLE, RECEPTOR_ANGLE);
 #undef FEED_COL
+
     const WOAccessor<PARALLACTIC_ANGLE_TYPE, ROW_DIM>
       pa(regions.back(), PARALLACTIC_ANGLE_FID);
-    for (PointInDomainIterator<ROW_DIM>
-           pid(
-             rt->get_index_space_domain(
-               task->regions.back().region.get_index_space()));
-         pid();
-         pid++)
-      pa[*pid] =
-        parallactic_angle(
-          antenna1[*pid],
-          antenna2[*pid],
-          data_desc[*pid],
-          feed1[*pid],
-          feed2[*pid],
-          time[*pid]);
+
+    MeasRefContainer::with_measure_references_dictionary(
+      ctx,
+      rt,
+      regions[7 + TableColumns<MS_FEED>::NUM_COLUMNS],
+      false,
+      [&](Context, Runtime* r, MeasRefDict* mrs) {
+        for (PointInDomainIterator<ROW_DIM>
+               pid(
+                 rt->get_index_space_domain(
+                   task->regions.back().region.get_index_space()));
+             pid();
+             pid++)
+          pa[*pid] =
+            parallactic_angle(
+              antenna1[*pid],
+              antenna2[*pid],
+              data_desc[*pid],
+              feed1[*pid],
+              feed2[*pid],
+              time[*pid]);
+      });
   }
 
   static void

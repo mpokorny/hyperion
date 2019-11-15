@@ -180,6 +180,13 @@ public:
   void
   destroy(Legion::Context ctx, Legion::Runtime* rt);
 
+  static MeasRefDict
+  make_dict(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<Legion::PhysicalRegion>::iterator& begin_pr,
+    const std::vector<Legion::PhysicalRegion>::iterator& end_pr);
+
 private:
 
   static std::vector<const MeasRef*>

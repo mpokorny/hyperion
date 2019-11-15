@@ -50,7 +50,8 @@ public:
     Legion::Runtime* rt,
     const C<const MeasRef*>& refs)
     : m_ctx(ctx)
-    , m_rt(rt) {
+    , m_rt(rt)
+    , m_has_physical_regions(false) {
 
     for (auto& mr : refs)
       m_meas_refs[mr->name(ctx, rt)] = mr;
@@ -64,7 +65,8 @@ public:
     MRIter begin,
     MRIter end)
     : m_ctx(ctx)
-    , m_rt(rt) {
+    , m_rt(rt)
+    , m_has_physical_regions(false) {
 
     std::for_each(
       begin,
@@ -103,6 +105,26 @@ public:
         ref);
   }
 
+protected:
+
+  friend class MeasRefContainer;
+
+  MeasRefDict(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<
+      std::tuple<
+      std::string,
+      Legion::PhysicalRegion,
+      std::optional<Legion::PhysicalRegion>>>& named_prs)
+  : m_ctx(ctx)
+  , m_rt(rt)
+  , m_has_physical_regions(true) {
+
+    for (auto& [nm, md, ov] : named_prs)
+      m_meas_refs[nm] = std::make_tuple(md, ov);
+  }
+
 private:
 
   void
@@ -112,10 +134,18 @@ private:
 
   Legion::Runtime* m_rt;
 
+  bool m_has_physical_regions;
+
   // use pointers to MeasRef, rather than MeasRef values, even though values
   // would be cheap to copy, to emphasize that MeasRefDict instances depend on
   // the context in which they are created
-  std::unordered_map<std::string, const MeasRef*> m_meas_refs;
+  std::unordered_map<
+    std::string,
+    std::variant<
+      const MeasRef*,
+      std::tuple<
+        Legion::PhysicalRegion,
+        std::optional<Legion::PhysicalRegion>>>> m_meas_refs;
 
   mutable std::unordered_map<std::string, Ref> m_refs;
 };

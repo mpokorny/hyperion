@@ -17,6 +17,7 @@
 #include <algorithm>
 
 using namespace hyperion;
+using namespace Legion;
 
 std::unordered_set<std::string>
 MeasRefDict::names() const {
@@ -49,22 +50,41 @@ MeasRefDict::get(const std::string& name) const {
   std::optional<Ref> result;
   if (m_meas_refs.count(name) > 0) {
     if (m_refs.count(name) == 0) {
-      const auto& mr = m_meas_refs.at(name);
-      switch (mr->mclass(m_ctx, m_rt)) {
-#define MK(M)                                           \
-        case M:                                         \
-          m_refs.insert(                                \
-            std::make_pair(                             \
-              name,                                     \
-              mr->make<MClassT<M>::type>(m_ctx, m_rt)   \
-              .value()));                               \
-          break;
-        HYPERION_FOREACH_MCLASS(MK)
+      Ref ref =
+        std::visit(overloaded {
+            [this](const MeasRef* mr) -> Ref {
+              switch (mr->mclass(m_ctx, m_rt)) {
+#define MK(M)                                                           \
+                case M:                                                 \
+                  return mr->make<MClassT<M>::type>(m_ctx, m_rt).value(); \
+                  break;
+                HYPERION_FOREACH_MCLASS(MK)
 #undef MK
-      default:
-          assert(false);
-        break;
-      }
+                default:
+                  assert(false);
+                  break;
+              }
+            },
+            [this](const std::tuple<
+                     PhysicalRegion,
+                     std::optional<PhysicalRegion>>& prs) -> Ref {
+              auto& [md, ov] = prs;
+              switch (MeasRef::mclass(md)) {
+#define MK(M)                                                           \
+                case M:                                                 \
+                  return                                                \
+                    MeasRef::make<MClassT<M>::type>(m_rt, md, ov).value(); \
+                  break;
+                HYPERION_FOREACH_MCLASS(MK)
+#undef MK
+                default:
+                  assert(false);
+                  break;
+              }
+            }
+          },
+          m_meas_refs.at(name));
+      m_refs.insert(std::make_pair(name, ref));
     }
     result = m_refs.at(name);
   }
@@ -74,18 +94,22 @@ MeasRefDict::get(const std::string& name) const {
 std::optional<const MeasRef*>
 MeasRefDict::get_mr(const std::string& name) const {
   std::optional<const MeasRef*> result;
-  if (m_meas_refs.count(name) > 0)
-    result = m_meas_refs.at(name);
+  if (!m_has_physical_regions
+      && m_meas_refs.count(name) > 0)
+    result = std::get<const MeasRef*>(m_meas_refs.at(name));
   return result;
 }
 
 void
 MeasRefDict::add_tags() {
-  std::unordered_map<std::string, std::map<unsigned, const MeasRef*>> tag_refs;
+  std::unordered_map<
+    std::string,
+    std::map<unsigned, decltype(m_meas_refs)::mapped_type>>
+    tag_refs;
   for (auto& [nm, mr] : m_meas_refs) {
     auto tg = nm.substr(MeasRef::find_tag(nm));
     if (tag_refs.count(tg) == 0)
-      tag_refs[tg] = std::map<unsigned, const MeasRef*>();
+      tag_refs[tg] = decltype(tag_refs)::mapped_type();
     tag_refs[tg][std::count(nm.begin(), nm.end(), '/')] = mr;
   }
   for (auto& [tg, refs] : tag_refs)

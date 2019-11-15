@@ -211,6 +211,41 @@ MeasRefContainer::destroy(Context ctx, Runtime* rt) {
   }
 }
 
+MeasRefDict
+MeasRefContainer::make_dict(
+  Context ctx,
+  Runtime* rt,
+  const std::vector<PhysicalRegion>::iterator& begin_pr,
+  const std::vector<PhysicalRegion>::iterator& end_pr) {
+
+  std::vector<
+    std::tuple<
+      std::string,
+      PhysicalRegion,
+      std::optional<PhysicalRegion>>> mr_prs;
+
+  std::vector<PhysicalRegion>::iterator pr = begin_pr;
+  const MeasRefContainer::MeasRefAccessor<READ_ONLY>
+    mrs(*pr, MeasRefContainer::MEAS_REF_FID);
+  for (PointInRectIterator<1> pir(
+         rt->get_index_space_domain(
+           pr->get_logical_region().get_index_space()));
+       pir();
+       pir++) {
+    ++pr;
+    assert(pr != end_pr);
+    const MeasRef::NameAccessor<READ_ONLY> names(*pr, MeasRef::NAME_FID);
+    std::string name = names[0];
+    ++pr;
+    std::optional<PhysicalRegion> value_pr;
+    if (mrs[*pir].value_region != LogicalRegion::NO_REGION)
+      value_pr = *pr++;
+    mr_prs.push_back(std::make_tuple(name, *pr, value_pr));
+  }
+  assert(++pr == end_pr);
+  return MeasRefDict(ctx, rt, mr_prs);
+}
+
 std::vector<const MeasRef*>
 MeasRefContainer::get_mr_ptrs(
   Legion::Runtime* rt,
