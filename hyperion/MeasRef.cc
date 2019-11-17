@@ -548,7 +548,7 @@ show_index_space(Runtime* rt, IndexSpaceT<DIM> is) {
 
 std::string
 MeasRef::name(Legion::Context ctx, Legion::Runtime* rt) const {
-  RegionRequirement req(name_region, READ_ONLY, EXCLUSIVE, name_region);
+  RegionRequirement req(name_lr, READ_ONLY, EXCLUSIVE, name_lr);
   req.add_field(NAME_FID);
   auto pr = rt->map_region(ctx, req);
   std::string result = name(pr);
@@ -563,7 +563,7 @@ MeasRef::find_tag(const std::string& name) {
 
 MClass
 MeasRef::mclass(Legion::Context ctx, Legion::Runtime* rt) const {
-  RegionRequirement req(metadata_region, READ_ONLY, EXCLUSIVE, metadata_region);
+  RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
   req.add_field(MEASURE_CLASS_FID);
   auto pr = rt->map_region(ctx, req);
   auto result = mclass(pr);
@@ -592,39 +592,39 @@ MeasRef::mclass(Legion::PhysicalRegion pr) {
 
 bool
 MeasRef::equiv(Context ctx, Runtime* rt, const MeasRef& other) const {
-  if (metadata_region == other.metadata_region &&
-      value_region == other.value_region)
+  if (metadata_lr == other.metadata_lr &&
+      values_lr == other.values_lr)
     return true;
-  assert(metadata_region != other.metadata_region);
-  assert((value_region != other.value_region)
-         || (value_region == LogicalRegion::NO_REGION
-             && other.value_region == LogicalRegion::NO_REGION));
+  assert(metadata_lr != other.metadata_lr);
+  assert((values_lr != other.values_lr)
+         || (values_lr == LogicalRegion::NO_REGION
+             && other.values_lr == LogicalRegion::NO_REGION));
   std::tuple<PhysicalRegion, std::optional<PhysicalRegion>> pr_x;
   {
     RegionRequirement
-      req(metadata_region, READ_ONLY, EXCLUSIVE, metadata_region);
+      req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
     req.add_field(MEASURE_CLASS_FID);
     req.add_field(REF_TYPE_FID);
     req.add_field(NUM_VALUES_FID);
     std::get<0>(pr_x) = rt->map_region(ctx, req);
   }
-  if (value_region != LogicalRegion::NO_REGION) {
-    RegionRequirement req(value_region, READ_ONLY, EXCLUSIVE, value_region);
+  if (values_lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(values_lr, READ_ONLY, EXCLUSIVE, values_lr);
     req.add_field(0);
     std::get<1>(pr_x) = rt->map_region(ctx, req);
   }
   std::tuple<PhysicalRegion, std::optional<PhysicalRegion>> pr_y;
   {
     RegionRequirement
-      req(other.metadata_region, READ_ONLY, EXCLUSIVE, other.metadata_region);
+      req(other.metadata_lr, READ_ONLY, EXCLUSIVE, other.metadata_lr);
     req.add_field(MEASURE_CLASS_FID);
     req.add_field(REF_TYPE_FID);
     req.add_field(NUM_VALUES_FID);
     std::get<0>(pr_y) = rt->map_region(ctx, req);
   }
-  if (other.value_region != LogicalRegion::NO_REGION) {
+  if (other.values_lr != LogicalRegion::NO_REGION) {
     RegionRequirement
-      req(other.value_region, READ_ONLY, EXCLUSIVE, other.value_region);
+      req(other.values_lr, READ_ONLY, EXCLUSIVE, other.values_lr);
     req.add_field(0);
     std::get<1>(pr_y) = rt->map_region(ctx, req);
   }
@@ -699,15 +699,15 @@ MeasRef::create_regions(
   const IndexTreeL& metadata_tree,
   const std::optional<IndexTreeL>& value_tree) {
 
-  LogicalRegion name_region;
+  LogicalRegion name_lr;
   {
     IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(NAME_TYPE), NAME_FID);
-    name_region = rt->create_logical_region(ctx, is, fs);
+    name_lr = rt->create_logical_region(ctx, is, fs);
 
-    RegionRequirement req(name_region, WRITE_ONLY, EXCLUSIVE, name_region);
+    RegionRequirement req(name_lr, WRITE_ONLY, EXCLUSIVE, name_lr);
     req.add_field(NAME_FID);
     auto pr = rt->map_region(ctx, req);
     const NameAccessor<WRITE_ONLY> nm(pr, NAME_FID);
@@ -715,7 +715,7 @@ MeasRef::create_regions(
     rt->unmap_region(ctx, pr);
   }
 
-  LogicalRegion metadata_region;
+  LogicalRegion metadata_lr;
   {
     IndexSpace is = tree_index_space(metadata_tree, ctx, rt);
     FieldSpace fs = rt->create_field_space(ctx);
@@ -723,19 +723,19 @@ MeasRef::create_regions(
     fa.allocate_field(sizeof(MEASURE_CLASS_TYPE), MEASURE_CLASS_FID);
     fa.allocate_field(sizeof(REF_TYPE_TYPE), REF_TYPE_FID);
     fa.allocate_field(sizeof(NUM_VALUES_TYPE), NUM_VALUES_FID);
-    metadata_region = rt->create_logical_region(ctx, is, fs);
+    metadata_lr = rt->create_logical_region(ctx, is, fs);
   }
 
-  LogicalRegion value_region;
+  LogicalRegion values_lr;
   if (value_tree) {
     IndexSpace is = tree_index_space(value_tree.value(), ctx, rt);
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(VALUE_TYPE), 0);
-    value_region = rt->create_logical_region(ctx, is, fs);
+    values_lr = rt->create_logical_region(ctx, is, fs);
   }
 
-  return {name_region, metadata_region, value_region};
+  return {name_lr, metadata_lr, values_lr};
 }
 
 MeasRef
@@ -755,11 +755,11 @@ MeasRef::create(
       index_trees.metadata_tree.value(),
       index_trees.value_tree);
 
-  LogicalRegion name_region = regions[0];
-  LogicalRegion metadata_region = regions[1];
-  LogicalRegion value_region = regions[2];
+  LogicalRegion name_lr = regions[0];
+  LogicalRegion metadata_lr = regions[1];
+  LogicalRegion values_lr = regions[2];
   {
-    RegionRequirement req(name_region, WRITE_ONLY, EXCLUSIVE, name_region);
+    RegionRequirement req(name_lr, WRITE_ONLY, EXCLUSIVE, name_lr);
     req.add_field(NAME_FID);
     auto pr = rt->map_region(ctx, req);
     const NameAccessor<WRITE_ONLY> nm(pr, NAME_FID);
@@ -768,21 +768,21 @@ MeasRef::create(
   }
   {
     std::optional<PhysicalRegion> value_pr;
-    if (value_region != LogicalRegion::NO_REGION) {
+    if (values_lr != LogicalRegion::NO_REGION) {
       RegionRequirement
-        value_req(value_region, WRITE_ONLY, EXCLUSIVE, value_region);
+        value_req(values_lr, WRITE_ONLY, EXCLUSIVE, values_lr);
       value_req.add_field(0);
       value_pr = rt->map_region(ctx, value_req);
     }
 
     RegionRequirement
-      metadata_req(metadata_region, WRITE_ONLY, EXCLUSIVE, metadata_region);
+      metadata_req(metadata_lr, WRITE_ONLY, EXCLUSIVE, metadata_lr);
     metadata_req.add_field(MEASURE_CLASS_FID);
     metadata_req.add_field(REF_TYPE_FID);
     metadata_req.add_field(NUM_VALUES_FID);
     auto metadata_pr = rt->map_region(ctx, metadata_req);
 
-    switch (metadata_region.get_dim()) {
+    switch (metadata_lr.get_dim()) {
 #define INIT(D)                                   \
       case D: {                                   \
         auto km = std::make_tuple(klass, mr);     \
@@ -801,21 +801,21 @@ MeasRef::create(
       rt->unmap_region(ctx, value_pr.value());
   }
 
-  return MeasRef(name_region, value_region, metadata_region);
+  return MeasRef(name_lr, values_lr, metadata_lr);
 }
 
 std::unique_ptr<casacore::MRBase>
 MeasRef::make(Context ctx, Runtime* rt) const {
 
   std::optional<PhysicalRegion> value_pr;
-  if (value_region != LogicalRegion::NO_REGION) {
+  if (values_lr != LogicalRegion::NO_REGION) {
     RegionRequirement
-      value_req(value_region, READ_ONLY, EXCLUSIVE, value_region);
+      value_req(values_lr, READ_ONLY, EXCLUSIVE, values_lr);
     value_req.add_field(0);
     value_pr = rt->map_region(ctx, value_req);
   }
   RegionRequirement
-    metadata_req(metadata_region, READ_ONLY, EXCLUSIVE, metadata_region);
+    metadata_req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
   metadata_req.add_field(MEASURE_CLASS_FID);
   metadata_req.add_field(REF_TYPE_FID);
   metadata_req.add_field(NUM_VALUES_FID);
@@ -858,7 +858,7 @@ MeasRef::make(
 
 void
 MeasRef::destroy(Context ctx, Runtime* rt) {
-  for (auto&lr : {&name_region, &metadata_region, &value_region}) {
+  for (auto&lr : {&name_lr, &metadata_lr, &values_lr}) {
     if (*lr != LogicalRegion::NO_REGION) {
       rt->destroy_field_space(ctx, lr->get_field_space());
       rt->destroy_index_space(ctx, lr->get_index_space());

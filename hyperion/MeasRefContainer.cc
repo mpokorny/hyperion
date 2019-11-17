@@ -112,7 +112,7 @@ MeasRefContainer::add_prefix_to_owned(
       if (owned[*pid]) {
         auto& mr = mrefs[*pid];
         RegionRequirement
-          r(mr.name_region, READ_WRITE, EXCLUSIVE, mr.name_region);
+          r(mr.name_lr, READ_WRITE, EXCLUSIVE, mr.name_lr);
         r.add_field(MeasRef::NAME_FID);
         auto nm_pr = rt->map_region(ctx, r);
         const MeasRef::NameAccessor<READ_WRITE> nm(nm_pr, MeasRef::NAME_FID);
@@ -164,21 +164,21 @@ MeasRefContainer::component_requirements(
         std::optional<RegionRequirement>> reqs;
       {
         RegionRequirement
-          req(mr.name_region, mode, EXCLUSIVE, mr.name_region);
+          req(mr.name_lr, mode, EXCLUSIVE, mr.name_lr);
         req.add_field(MeasRef::NAME_FID);
         std::get<0>(reqs) = req;
       }
       {
         RegionRequirement
-          req(mr.metadata_region, mode, EXCLUSIVE, mr.metadata_region);
+          req(mr.metadata_lr, mode, EXCLUSIVE, mr.metadata_lr);
         req.add_field(MeasRef::MEASURE_CLASS_FID);
         req.add_field(MeasRef::REF_TYPE_FID);
         req.add_field(MeasRef::NUM_VALUES_FID);
         std::get<1>(reqs) = req;
       }
-      if (mr.value_region != LogicalRegion::NO_REGION) {
+      if (mr.values_lr != LogicalRegion::NO_REGION) {
         RegionRequirement
-          req(mr.value_region, mode, EXCLUSIVE, mr.value_region);
+          req(mr.values_lr, mode, EXCLUSIVE, mr.values_lr);
         req.add_field(0);
         std::get<2>(reqs) = req;
       }
@@ -238,7 +238,7 @@ MeasRefContainer::make_dict(
     std::string name = names[0];
     ++pr;
     std::optional<PhysicalRegion> value_pr;
-    if (mrs[*pir].value_region != LogicalRegion::NO_REGION)
+    if (mrs[*pir].values_lr != LogicalRegion::NO_REGION)
       value_pr = *pr++;
     mr_prs.push_back(std::make_tuple(name, *pr, value_pr));
   }

@@ -421,7 +421,7 @@ verify_mr_values(
        pir++) {
     auto& mr = mrs[*pir];
     RegionRequirement
-      nmreq(mr.name_region, READ_ONLY, EXCLUSIVE, mr.name_region);
+      nmreq(mr.name_lr, READ_ONLY, EXCLUSIVE, mr.name_lr);
     nmreq.add_field(MeasRef::NAME_FID);
     auto nmpr = rt->map_region(ctx, nmreq);
     const MeasRef::NameAccessor<READ_ONLY> nm(nmpr, MeasRef::NAME_FID);

@@ -57,9 +57,9 @@ public:
 
   static const constexpr Legion::FieldID NAME_FID = 0;
 
-  Legion::LogicalRegion name_region;
-  Legion::LogicalRegion value_region;
-  Legion::LogicalRegion metadata_region;
+  Legion::LogicalRegion name_lr;
+  Legion::LogicalRegion values_lr;
+  Legion::LogicalRegion metadata_lr;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using NameAccessor =
@@ -114,14 +114,14 @@ public:
   MeasRef() {}
 
   MeasRef(
-    Legion::LogicalRegion name_region_,
-    Legion::LogicalRegion value_region_,
-    Legion::LogicalRegion metadata_region_)
-    : name_region(name_region_)
-    , value_region(value_region_)
-    , metadata_region(metadata_region_) {
-    assert(name_region != Legion::LogicalRegion::NO_REGION);
-    assert(metadata_region != Legion::LogicalRegion::NO_REGION);
+    Legion::LogicalRegion name_lr_,
+    Legion::LogicalRegion values_lr_,
+    Legion::LogicalRegion metadata_lr_)
+    : name_lr(name_lr_)
+    , values_lr(values_lr_)
+    , metadata_lr(metadata_lr_) {
+    assert(name_lr != Legion::LogicalRegion::NO_REGION);
+    assert(metadata_lr != Legion::LogicalRegion::NO_REGION);
   }
 
   std::string

@@ -307,12 +307,12 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
 
   std::vector<hsize_t> dims, dims1;
   hid_t sp, sp1 = -1;
-  switch (mr.metadata_region.get_index_space().get_dim()) {
+  switch (mr.metadata_lr.get_index_space().get_dim()) {
 #define SP(D)                                                           \
     case D:                                                             \
     {                                                                   \
       Rect<D> bounds =                                                  \
-        rt->get_index_space_domain(mr.metadata_region.get_index_space()); \
+        rt->get_index_space_domain(mr.metadata_lr.get_index_space());   \
       dims.resize(D);                                                   \
       for (size_t i = 0; i < D; ++i)                                    \
         dims[i] = bounds.hi[i] + 1;                                     \
@@ -320,9 +320,9 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
       assert(sp >= 0);                                                  \
     }                                                                   \
                                                                         \
-    if (mr.value_region != LogicalRegion::NO_REGION) {                  \
+    if (mr.values_lr != LogicalRegion::NO_REGION) {                     \
       Rect<D+1> bounds =                                                \
-        rt->get_index_space_domain(mr.value_region.get_index_space());  \
+        rt->get_index_space_domain(mr.values_lr.get_index_space());     \
       dims1.resize(D + 1);                                              \
       for (size_t i = 0; i < D + 1; ++i)                                \
         dims1[i] = bounds.hi[i] + 1;                                    \
@@ -362,7 +362,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
               ds,                                                       \
               H5DatatypeManager::datatypes()[                           \
                 H5DatatypeManager::MEASURE_CLASS_H5T],                  \
-              mr.metadata_region,                                       \
+              mr.metadata_lr,                                           \
               MeasRef::MEASURE_CLASS_FID);                              \
           break;
         HYPERION_FOREACH_N_LESS_MAX(W_MCLASS);
@@ -397,7 +397,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
               ds,                                                       \
               H5DatatypeManager::datatype<                              \
                 ValueType<MeasRef::REF_TYPE_TYPE>::DataType>(),           \
-              mr.metadata_region,                                       \
+              mr.metadata_lr,                                           \
               MeasRef::REF_TYPE_FID);                                   \
           break;
         HYPERION_FOREACH_N_LESS_MAX(W_RTYPE);
@@ -432,7 +432,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
               ds,                                                       \
               H5DatatypeManager::datatype<                              \
                 ValueType<MeasRef::NUM_VALUES_TYPE>::DataType>(),         \
-              mr.metadata_region,                                       \
+              mr.metadata_lr,                                           \
               MeasRef::NUM_VALUES_FID);                                 \
           break;
         HYPERION_FOREACH_N_LESS_MAX(W_NVAL);
@@ -467,7 +467,7 @@ write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
             ds,                                                         \
             H5DatatypeManager::datatype<                                \
               ValueType<MeasRef::VALUE_TYPE>::DataType>(),                \
-            mr.value_region,                                            \
+            mr.values_lr,                                               \
             0);                                                         \
         break;
       HYPERION_FOREACH_N_LESS_MAX(W_VALUES);
@@ -516,7 +516,7 @@ hyperion::hdf5::write_measures(
       std::string name;
       {
         RegionRequirement
-          nreq(mr.name_region, READ_ONLY, EXCLUSIVE, mr.name_region);
+          nreq(mr.name_lr, READ_ONLY, EXCLUSIVE, mr.name_lr);
         nreq.add_field(MeasRef::NAME_FID);
         auto nm_pr = rt->map_region(ctx, nreq);
         const MeasRef::NameAccessor<READ_ONLY> nm(nm_pr, MeasRef::NAME_FID);
@@ -542,15 +542,15 @@ hyperion::hdf5::write_measures(
         assert(mr_id > 0);
         write_meas_ref(ctx, rt, mr_id, mr);
         IndexTreeL metadata_tree =
-          index_space_as_tree(rt, mr.metadata_region.get_index_space());
+          index_space_as_tree(rt, mr.metadata_lr.get_index_space());
         write_index_tree_to_attr<binary_index_tree_serdez>(
           metadata_tree,
           measures_id,
           tag.c_str(),
           "metadata_index_tree");
-        if (mr.value_region != LogicalRegion::NO_REGION) {
+        if (mr.values_lr != LogicalRegion::NO_REGION) {
           IndexTreeL value_tree =
-            index_space_as_tree(rt, mr.value_region.get_index_space());
+            index_space_as_tree(rt, mr.values_lr.get_index_space());
           write_index_tree_to_attr<binary_index_tree_serdez>(
             value_tree,
             measures_id,
@@ -1025,9 +1025,9 @@ init_meas_ref(
 
   std::array<LogicalRegion, 3> regions =
     MeasRef::create_regions(ctx, rt, name, metadata_tree, value_tree);
-  LogicalRegion name_region = regions[0];
-  LogicalRegion metadata_region = regions[1];
-  LogicalRegion value_region = regions[2];
+  LogicalRegion name_lr = regions[0];
+  LogicalRegion metadata_lr = regions[1];
+  LogicalRegion values_lr = regions[2];
 
   {
     // Read the datasets for the MeasRef values directly.
@@ -1035,7 +1035,7 @@ init_meas_ref(
       hid_t ds = H5Dopen(loc_id, HYPERION_MEAS_REF_MCLASS_DS, H5P_DEFAULT);
       assert(ds >= 0);
 
-      switch (metadata_region.get_index_space().get_dim()) {
+      switch (metadata_lr.get_index_space().get_dim()) {
 #define W_MCLASS(D)                                                     \
         case D:                                                         \
           read_mr_region<                                               \
@@ -1045,7 +1045,7 @@ init_meas_ref(
               ctx,                                                      \
               rt,                                                       \
               ds,                                                       \
-              metadata_region,                                          \
+              metadata_lr,                                              \
               MeasRef::MEASURE_CLASS_FID);                              \
           break;
         HYPERION_FOREACH_N_LESS_MAX(W_MCLASS);
@@ -1061,7 +1061,7 @@ init_meas_ref(
       hid_t ds = H5Dopen(loc_id, HYPERION_MEAS_REF_RTYPE_DS, H5P_DEFAULT);
       assert(ds >= 0);
 
-      switch (metadata_region.get_index_space().get_dim()) {
+      switch (metadata_lr.get_index_space().get_dim()) {
 #define W_RTYPE(D)                                                      \
         case D:                                                         \
           read_mr_region<                                               \
@@ -1071,7 +1071,7 @@ init_meas_ref(
               ctx,                                                      \
               rt,                                                       \
               ds,                                                       \
-              metadata_region,                                          \
+              metadata_lr,                                              \
               MeasRef::REF_TYPE_FID);                                   \
           break;
         HYPERION_FOREACH_N_LESS_MAX(W_RTYPE);
@@ -1087,7 +1087,7 @@ init_meas_ref(
       hid_t ds = H5Dopen(loc_id, HYPERION_MEAS_REF_NVAL_DS, H5P_DEFAULT);
       assert(ds >= 0);
 
-      switch (metadata_region.get_index_space().get_dim()) {
+      switch (metadata_lr.get_index_space().get_dim()) {
 #define W_NVAL(D)                                                       \
         case D:                                                         \
           read_mr_region<                                               \
@@ -1097,7 +1097,7 @@ init_meas_ref(
               ctx,                                                      \
               rt,                                                       \
               ds,                                                       \
-              metadata_region,                                          \
+              metadata_lr,                                              \
               MeasRef::NUM_VALUES_FID);                                 \
           break;
         HYPERION_FOREACH_N_LESS_MAX(W_NVAL);
@@ -1110,11 +1110,11 @@ init_meas_ref(
       assert(err >= 0);
     }
   }
-  if (value_region != LogicalRegion::NO_REGION) {
+  if (values_lr != LogicalRegion::NO_REGION) {
     hid_t ds = H5Dopen(loc_id, HYPERION_MEAS_REF_VALUES_DS, H5P_DEFAULT);
     assert(ds >= 0);
 
-    switch (value_region.get_index_space().get_dim()) {
+    switch (values_lr.get_index_space().get_dim()) {
 #define W_VALUES(D)                                                     \
       case D:                                                           \
         read_mr_region<                                                 \
@@ -1124,7 +1124,7 @@ init_meas_ref(
             ctx,                                                        \
             rt,                                                         \
             ds,                                                         \
-            value_region,                                               \
+            values_lr,                                                  \
             0);                                                         \
         break;
       HYPERION_FOREACH_N(W_VALUES);
@@ -1136,7 +1136,7 @@ init_meas_ref(
     herr_t err = H5Dclose(ds);
     assert(err >= 0);
   }
-  return MeasRef(name_region, value_region, metadata_region);
+  return MeasRef(name_lr, values_lr, metadata_lr);
 }
 
 struct acc_meas_ref_ctx {
