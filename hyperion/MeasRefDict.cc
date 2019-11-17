@@ -65,15 +65,12 @@ MeasRefDict::get(const std::string& name) const {
                   break;
               }
             },
-            [this](const std::tuple<
-                     PhysicalRegion,
-                     std::optional<PhysicalRegion>>& prs) -> Ref {
-              auto& [md, ov] = prs;
-              switch (MeasRef::mclass(md)) {
+            [this](const MeasRef::DataRegions& prs) -> Ref {
+              switch (MeasRef::mclass(prs.metadata)) {
 #define MK(M)                                                           \
                 case M:                                                 \
                   return                                                \
-                    MeasRef::make<MClassT<M>::type>(m_rt, md, ov).value(); \
+                    MeasRef::make<MClassT<M>::type>(m_rt, prs).value(); \
                   break;
                 HYPERION_FOREACH_MCLASS(MK)
 #undef MK

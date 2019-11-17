@@ -113,16 +113,13 @@ protected:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::vector<
-      std::tuple<
-      std::string,
-      Legion::PhysicalRegion,
-      std::optional<Legion::PhysicalRegion>>>& named_prs)
+      std::tuple<std::string, MeasRef::DataRegions>>& named_prs)
   : m_ctx(ctx)
   , m_rt(rt)
   , m_has_physical_regions(true) {
 
-    for (auto& [nm, md, ov] : named_prs)
-      m_meas_refs[nm] = std::make_tuple(md, ov);
+    for (auto& [nm, prs] : named_prs)
+      m_meas_refs[nm] = prs;
   }
 
 private:
@@ -141,11 +138,7 @@ private:
   // the context in which they are created
   std::unordered_map<
     std::string,
-    std::variant<
-      const MeasRef*,
-      std::tuple<
-        Legion::PhysicalRegion,
-        std::optional<Legion::PhysicalRegion>>>> m_meas_refs;
+    std::variant<const MeasRef*, MeasRef::DataRegions>> m_meas_refs;
 
   mutable std::unordered_map<std::string, Ref> m_refs;
 };

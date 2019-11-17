@@ -259,22 +259,20 @@ initialize_vm(
 template <int D>
 static void
 initialize(
-  std::optional<PhysicalRegion> value_pr,
-  PhysicalRegion metadata_pr,
+  MeasRef::DataRegions prs,
   const std::tuple<MClass, casacore::MRBase*>& mrb) {
 
-  initialize_vm<D>(value_pr.value(), metadata_pr, mrb);
+  initialize_vm<D>(prs.values.value(), prs.metadata, mrb);
 }
 
 template <>
 void
 initialize<1>(
-  std::optional<PhysicalRegion> value_pr,
-  PhysicalRegion metadata_pr,
+  MeasRef::DataRegions prs,
   const std::tuple<MClass, casacore::MRBase*>& mrb) {
 
-  if (value_pr) {
-    initialize_vm<1>(value_pr.value(), metadata_pr, mrb);
+  if (prs.values) {
+    initialize_vm<1>(prs.values.value(), prs.metadata, mrb);
   } else {
 
     Point<1> p;
@@ -286,11 +284,11 @@ initialize<1>(
       switch (c) {
       case MeasRef::ArrayComponent::VALUE: {
         const MeasRef::RefTypeAccessor<WRITE_ONLY, 1>
-          rtypes(metadata_pr, MeasRef::REF_TYPE_FID);
+          rtypes(prs.metadata, MeasRef::REF_TYPE_FID);
         const MeasRef::MeasureClassAccessor<WRITE_ONLY, 1>
-          mclasses(metadata_pr, MeasRef::MEASURE_CLASS_FID);
+          mclasses(prs.metadata, MeasRef::MEASURE_CLASS_FID);
         const MeasRef::NumValuesAccessor<WRITE_ONLY, 1>
-          numvals(metadata_pr, MeasRef::NUM_VALUES_FID);
+          numvals(prs.metadata, MeasRef::NUM_VALUES_FID);
 
         mclasses[p] = mclass;
         numvals[p] = 0;
@@ -477,30 +475,28 @@ instantiate_vm(
 template <int D>
 static std::unique_ptr<casacore::MRBase>
 instantiate(
-  std::optional<PhysicalRegion> value_pr,
-  PhysicalRegion metadata_pr,
+  MeasRef::DataRegions prs,
   Domain metadata_domain) {
 
-  return instantiate_vm<D>(value_pr.value(), metadata_pr, metadata_domain);
+  return instantiate_vm<D>(prs.values.value(), prs.metadata, metadata_domain);
 }
 
 template <>
 std::unique_ptr<casacore::MRBase>
 instantiate<1>(
-  std::optional<PhysicalRegion> value_pr,
-  PhysicalRegion metadata_pr,
+  MeasRef::DataRegions prs,
   Domain metadata_domain) {
 
-  if (value_pr) {
-    return instantiate_vm<1>(value_pr.value(), metadata_pr, metadata_domain);
+  if (prs.values) {
+    return instantiate_vm<1>(prs.values.value(), prs.metadata, metadata_domain);
   } else {
 
     const MeasRef::RefTypeAccessor<READ_ONLY, 1>
-      rtypes(metadata_pr, MeasRef::REF_TYPE_FID);
+      rtypes(prs.metadata, MeasRef::REF_TYPE_FID);
     const MeasRef::MeasureClassAccessor<READ_ONLY, 1>
-      mclasses(metadata_pr, MeasRef::MEASURE_CLASS_FID);
+      mclasses(prs.metadata, MeasRef::MEASURE_CLASS_FID);
     const MeasRef::NumValuesAccessor<READ_ONLY, 1>
-      numvals(metadata_pr, MeasRef::NUM_VALUES_FID);
+      numvals(prs.metadata, MeasRef::NUM_VALUES_FID);
 
     Point<1> p;
 
@@ -599,69 +595,68 @@ MeasRef::equiv(Context ctx, Runtime* rt, const MeasRef& other) const {
   assert((values_lr != other.values_lr)
          || (values_lr == LogicalRegion::NO_REGION
              && other.values_lr == LogicalRegion::NO_REGION));
-  std::tuple<PhysicalRegion, std::optional<PhysicalRegion>> pr_x;
+  DataRegions pr_x;
   {
     RegionRequirement
       req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
     req.add_field(MEASURE_CLASS_FID);
     req.add_field(REF_TYPE_FID);
     req.add_field(NUM_VALUES_FID);
-    std::get<0>(pr_x) = rt->map_region(ctx, req);
+    pr_x.metadata = rt->map_region(ctx, req);
   }
   if (values_lr != LogicalRegion::NO_REGION) {
     RegionRequirement req(values_lr, READ_ONLY, EXCLUSIVE, values_lr);
     req.add_field(0);
-    std::get<1>(pr_x) = rt->map_region(ctx, req);
+    pr_x.values = rt->map_region(ctx, req);
   }
-  std::tuple<PhysicalRegion, std::optional<PhysicalRegion>> pr_y;
+  DataRegions pr_y;
   {
     RegionRequirement
       req(other.metadata_lr, READ_ONLY, EXCLUSIVE, other.metadata_lr);
     req.add_field(MEASURE_CLASS_FID);
     req.add_field(REF_TYPE_FID);
     req.add_field(NUM_VALUES_FID);
-    std::get<0>(pr_y) = rt->map_region(ctx, req);
+    pr_y.metadata = rt->map_region(ctx, req);
   }
   if (other.values_lr != LogicalRegion::NO_REGION) {
     RegionRequirement
       req(other.values_lr, READ_ONLY, EXCLUSIVE, other.values_lr);
     req.add_field(0);
-    std::get<1>(pr_y) = rt->map_region(ctx, req);
+    pr_y.values = rt->map_region(ctx, req);
   }
 
   bool result = equiv(rt, pr_x, pr_y);
 
-  rt->unmap_region(ctx, std::get<0>(pr_x));
-  if (std::get<1>(pr_x))
-    rt->unmap_region(ctx, std::get<1>(pr_x).value());
-  rt->unmap_region(ctx, std::get<0>(pr_y));
-  if (std::get<1>(pr_y))
-    rt->unmap_region(ctx, std::get<1>(pr_y).value());
+  rt->unmap_region(ctx, pr_x.metadata);
+  if (pr_x.values)
+    rt->unmap_region(ctx, pr_x.values.value());
+  rt->unmap_region(ctx, pr_y.metadata);
+  if (pr_y.values)
+    rt->unmap_region(ctx, pr_y.values.value());
   return result;
 }
 
 bool
-MeasRef::equiv(
-  Runtime* rt,
-  const std::tuple<PhysicalRegion, std::optional<PhysicalRegion>>& x,
-  const std::tuple<PhysicalRegion, std::optional<PhysicalRegion>>& y) {
+MeasRef::equiv(Runtime* rt, const DataRegions& x, const DataRegions& y) {
 
-  auto& [m_x, v_x] = x;
-  auto& [m_y, v_y] = y;
-  bool result = v_x.has_value() == v_y.has_value();
+  bool result = x.values.has_value() == y.values.has_value();
   if (result) {
-    IndexSpace is = m_x.get_logical_region().get_index_space();
+    IndexSpace is = x.metadata.get_logical_region().get_index_space();
     switch (is.get_dim()) {
 #define CMP(D)                                                          \
       case D: {                                                         \
         const MeasureClassAccessor<READ_ONLY, D>                        \
-          mclass_x(m_x, MEASURE_CLASS_FID);                             \
+          mclass_x(x.metadata, MEASURE_CLASS_FID);                      \
         const MeasureClassAccessor<READ_ONLY, D>                        \
-          mclass_y(m_y, MEASURE_CLASS_FID);                             \
-        const RefTypeAccessor<READ_ONLY, D> rtype_x(m_x, REF_TYPE_FID); \
-        const RefTypeAccessor<READ_ONLY, D> rtype_y(m_y, REF_TYPE_FID); \
-        const NumValuesAccessor<READ_ONLY, D> nvals_x(m_x, NUM_VALUES_FID); \
-        const NumValuesAccessor<READ_ONLY, D> nvals_y(m_y, NUM_VALUES_FID); \
+          mclass_y(y.metadata, MEASURE_CLASS_FID);                      \
+        const RefTypeAccessor<READ_ONLY, D>                             \
+          rtype_x(x.metadata, REF_TYPE_FID);                            \
+        const RefTypeAccessor<READ_ONLY, D>                             \
+          rtype_y(y.metadata, REF_TYPE_FID);                            \
+        const NumValuesAccessor<READ_ONLY, D>                           \
+          nvals_x(x.metadata, NUM_VALUES_FID);                          \
+        const NumValuesAccessor<READ_ONLY, D>                           \
+          nvals_y(y.metadata, NUM_VALUES_FID);                          \
         for (PointInDomainIterator<D> pid(rt->get_index_space_domain(is)); \
              result && pid();                                           \
              pid++)                                                     \
@@ -669,9 +664,9 @@ MeasRef::equiv(
             mclass_x[*pid] == mclass_y[*pid]                            \
             && rtype_x[*pid] == rtype_y[*pid]                           \
             && nvals_x[*pid] == nvals_y[*pid];                          \
-        if (std::get<1>(x).has_value()) {                               \
-          auto pvx = v_x.value();                                       \
-          auto pvy = v_y.value();                                       \
+        if (x.values) {                                                 \
+          auto pvx = x.values.value();                                  \
+          auto pvy = y.values.value();                                  \
           const ValueAccessor<READ_ONLY, D + 1> values_x(pvx, 0);       \
           const ValueAccessor<READ_ONLY, D + 1> values_y(pvy, 0);       \
           for (PointInDomainIterator<D + 1>                             \
@@ -767,12 +762,12 @@ MeasRef::create(
     rt->unmap_region(ctx, pr);
   }
   {
-    std::optional<PhysicalRegion> value_pr;
+    std::optional<PhysicalRegion> values_pr;
     if (values_lr != LogicalRegion::NO_REGION) {
       RegionRequirement
-        value_req(values_lr, WRITE_ONLY, EXCLUSIVE, values_lr);
-      value_req.add_field(0);
-      value_pr = rt->map_region(ctx, value_req);
+        values_req(values_lr, WRITE_ONLY, EXCLUSIVE, values_lr);
+      values_req.add_field(0);
+      values_pr = rt->map_region(ctx, values_req);
     }
 
     RegionRequirement
@@ -783,11 +778,11 @@ MeasRef::create(
     auto metadata_pr = rt->map_region(ctx, metadata_req);
 
     switch (metadata_lr.get_dim()) {
-#define INIT(D)                                   \
-      case D: {                                   \
-        auto km = std::make_tuple(klass, mr);     \
-        initialize<D>(value_pr, metadata_pr, km); \
-        break;                                    \
+#define INIT(D)                                                 \
+      case D: {                                                 \
+        auto km = std::make_tuple(klass, mr);                   \
+        initialize<D>(DataRegions{metadata_pr, values_pr}, km); \
+        break;                                                  \
       }
       HYPERION_FOREACH_N_LESS_MAX(INIT);
 #undef INIT
@@ -797,8 +792,8 @@ MeasRef::create(
     }
 
     rt->unmap_region(ctx, metadata_pr);
-    if (value_pr)
-      rt->unmap_region(ctx, value_pr.value());
+    if (values_pr)
+      rt->unmap_region(ctx, values_pr.value());
   }
 
   return MeasRef(name_lr, values_lr, metadata_lr);
@@ -807,12 +802,12 @@ MeasRef::create(
 std::unique_ptr<casacore::MRBase>
 MeasRef::make(Context ctx, Runtime* rt) const {
 
-  std::optional<PhysicalRegion> value_pr;
+  std::optional<PhysicalRegion> values_pr;
   if (values_lr != LogicalRegion::NO_REGION) {
     RegionRequirement
-      value_req(values_lr, READ_ONLY, EXCLUSIVE, values_lr);
-    value_req.add_field(0);
-    value_pr = rt->map_region(ctx, value_req);
+      values_req(values_lr, READ_ONLY, EXCLUSIVE, values_lr);
+    values_req.add_field(0);
+    values_pr = rt->map_region(ctx, values_req);
   }
   RegionRequirement
     metadata_req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
@@ -821,31 +816,27 @@ MeasRef::make(Context ctx, Runtime* rt) const {
   metadata_req.add_field(NUM_VALUES_FID);
   auto metadata_pr = rt->map_region(ctx, metadata_req);
 
-  auto result = make(rt, metadata_pr, value_pr);
+  auto result = make(rt, DataRegions{metadata_pr, values_pr});
 
   rt->unmap_region(ctx, metadata_pr);
-  if (value_pr)
-    rt->unmap_region(ctx, value_pr.value());
+  if (values_pr)
+    rt->unmap_region(ctx, values_pr.value());
 
   return result;
 }
 
 std::unique_ptr<casacore::MRBase>
-MeasRef::make(
-  Legion::Runtime* rt,
-  Legion::PhysicalRegion metadata_pr,
-  std::optional<Legion::PhysicalRegion> value_pr) {
+MeasRef::make(Legion::Runtime* rt, DataRegions prs) {
 
   std::unique_ptr<casacore::MRBase> result;
-  switch (metadata_pr.get_logical_region().get_dim()) {
-#define INST(D)                                                   \
-    case D:                                                       \
-      result =                                                    \
-        instantiate<D>(                                           \
-          value_pr,                                               \
-          metadata_pr,                                            \
-          rt->get_index_space_domain(                             \
-            metadata_pr.get_logical_region().get_index_space())); \
+  switch (prs.metadata.get_logical_region().get_dim()) {
+#define INST(D)                                                    \
+    case D:                                                        \
+      result =                                                     \
+        instantiate<D>(                                            \
+          prs,                                                     \
+          rt->get_index_space_domain(                              \
+            prs.metadata.get_logical_region().get_index_space())); \
       break;
     HYPERION_FOREACH_N_LESS_MAX(INST);
 #undef INST

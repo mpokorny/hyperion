@@ -218,11 +218,7 @@ MeasRefContainer::make_dict(
   const std::vector<PhysicalRegion>::iterator& begin_pr,
   const std::vector<PhysicalRegion>::iterator& end_pr) {
 
-  std::vector<
-    std::tuple<
-      std::string,
-      PhysicalRegion,
-      std::optional<PhysicalRegion>>> mr_prs;
+  std::vector<std::tuple<std::string, MeasRef::DataRegions>> mr_prs;
 
   std::vector<PhysicalRegion>::iterator pr = begin_pr;
   const MeasRefContainer::MeasRefAccessor<READ_ONLY>
@@ -237,10 +233,10 @@ MeasRefContainer::make_dict(
     const MeasRef::NameAccessor<READ_ONLY> names(*pr, MeasRef::NAME_FID);
     std::string name = names[0];
     ++pr;
-    std::optional<PhysicalRegion> value_pr;
+    std::optional<PhysicalRegion> values_pr;
     if (mrs[*pir].values_lr != LogicalRegion::NO_REGION)
-      value_pr = *pr++;
-    mr_prs.push_back(std::make_tuple(name, *pr, value_pr));
+      values_pr = *pr++;
+    mr_prs.emplace_back(name, MeasRef::DataRegions{*pr, values_pr});
   }
   assert(++pr == end_pr);
   return MeasRefDict(ctx, rt, mr_prs);

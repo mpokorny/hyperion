@@ -61,6 +61,11 @@ public:
   Legion::LogicalRegion values_lr;
   Legion::LogicalRegion metadata_lr;
 
+  struct DataRegions {
+    Legion::PhysicalRegion metadata;
+    std::optional<Legion::PhysicalRegion> values;
+  };
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using NameAccessor =
     Legion::FieldAccessor<
@@ -146,14 +151,7 @@ public:
   equiv(Legion::Context ctx, Legion::Runtime* rt, const MeasRef& other) const;
 
   static bool
-  equiv(
-    Legion::Runtime* rt,
-    const std::tuple<
-      Legion::PhysicalRegion,
-      std::optional<Legion::PhysicalRegion>>& x,
-    const std::tuple<
-      Legion::PhysicalRegion,
-      std::optional<Legion::PhysicalRegion>>& y);
+  equiv(Legion::Runtime* rt, const DataRegions& x, const DataRegions& y);
 
   template <typename Ms>
   static MeasRef
@@ -194,20 +192,14 @@ public:
   }
 
   static std::unique_ptr<casacore::MRBase>
-  make(
-    Legion::Runtime* rt,
-    Legion::PhysicalRegion metadata_pr,
-    std::optional<Legion::PhysicalRegion> value_pr);
+  make(Legion::Runtime* rt, DataRegions prs);
 
   template <typename Ms>
   static std::optional<std::shared_ptr<typename casacore::MeasRef<Ms>>>
-  make(
-    Legion::Runtime* rt,
-    Legion::PhysicalRegion metadata_pr,
-    std::optional<Legion::PhysicalRegion> value_pr) {
+  make(Legion::Runtime* rt, DataRegions prs) {
 
     std::optional<std::shared_ptr<typename casacore::MeasRef<Ms>>> result;
-    std::shared_ptr<casacore::MRBase> mrb = make(rt, metadata_pr, value_pr);
+    std::shared_ptr<casacore::MRBase> mrb = make(rt, prs);
     auto mr = std::dynamic_pointer_cast<typename casacore::MeasRef<Ms>>(mrb);
     if (mr)
       result = mr;
