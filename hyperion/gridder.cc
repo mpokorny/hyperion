@@ -1084,10 +1084,12 @@ public:
             req.add_field(Column::VALUE_FID);
             reqs.push_back(req);
           }
+          std::vector<unsigned> mr_indexes;
           for (auto& nm :
                  {COLUMN_NAME(MS_FEED, TIME),
                      COLUMN_NAME(MS_FEED, BEAM_OFFSET),
-                     COLUMN_NAME(MS_FEED, POSITION)}){
+                     COLUMN_NAME(MS_FEED, POSITION)}) {
+            mr_indexes.push_back(reqs.size());
             auto col = m_tbl_feed.column(c, r, nm);
             if (col.meas_refs.lr != LogicalRegion::NO_REGION) {
               RegionRequirement
@@ -1107,6 +1109,10 @@ public:
               }
             }
           }
+          TaskArgs args;
+          args.mr_feed_time_index = mr_indexes[0];
+          args.mr_feed_beam_offset_index = mr_indexes[1];
+          args.mr_feed_position_index = mr_indexes[2];
           {
             LogicalPartition lp = r->get_logical_partition(c, result, ip);
             RegionRequirement req(lp, 0, WRITE_ONLY, EXCLUSIVE, result);
@@ -1117,7 +1123,7 @@ public:
           IndexTaskLauncher init_task(
             COMPUTE_ROW_AUX_FIELDS_TASK_ID + row_is.get_dim() - 1,
             cs,
-            TaskArgument(NULL, 0),
+            TaskArgument(&args, sizeof(args)),
             ArgumentMap());
           for (auto& req : reqs)
             init_task.add_region_requirement(req);
@@ -1150,6 +1156,8 @@ public:
     Context ctx,
     Runtime *rt) {
 
+    const TaskArgs* args = static_cast<const TaskArgs*>(task->args);
+
     const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
       antenna1(regions[0], Column::VALUE_FID);
     const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
@@ -1177,30 +1185,48 @@ public:
     FEED_COL(feed_receptor_angle, DOUBLE, RECEPTOR_ANGLE);
 #undef FEED_COL
 
+    auto time_mr =
+      MeasRefDict::get<M_EPOCH>(
+        MeasRefContainer::make_dict(
+          ctx,
+          rt,
+          regions.begin() + args->mr_feed_time_index,
+          regions.begin() + args->mr_feed_beam_offset_index)
+        .get("Epoch").value());
+    auto beam_offset_mr =
+      MeasRefDict::get<M_DIRECTION>(
+        MeasRefContainer::make_dict(
+          ctx,
+          rt,
+          regions.begin() + args->mr_feed_beam_offset_index,
+          regions.begin() + args->mr_feed_position_index)
+        .get("Direction").value());
+    auto position_mr =
+      MeasRefDict::get<M_POSITION>(
+        MeasRefContainer::make_dict(
+          ctx,
+          rt,
+          regions.begin() + args->mr_feed_position_index,
+          regions.end() - 1)
+        .get("Position").value());
+
     const WOAccessor<PARALLACTIC_ANGLE_TYPE, ROW_DIM>
       pa(regions.back(), PARALLACTIC_ANGLE_FID);
 
-    MeasRefContainer::with_measure_references_dictionary(
-      ctx,
-      rt,
-      regions[7 + TableColumns<MS_FEED>::NUM_COLUMNS],
-      false,
-      [&](Context, Runtime* r, MeasRefDict* mrs) {
-        for (PointInDomainIterator<ROW_DIM>
-               pid(
-                 rt->get_index_space_domain(
-                   task->regions.back().region.get_index_space()));
-             pid();
-             pid++)
-          pa[*pid] =
-            parallactic_angle(
-              antenna1[*pid],
-              antenna2[*pid],
-              data_desc[*pid],
-              feed1[*pid],
-              feed2[*pid],
-              time[*pid]);
-      });
+    for (PointInDomainIterator<ROW_DIM>
+           pid(
+             rt->get_index_space_domain(
+               task->regions.back().region.get_index_space()));
+         pid();
+         pid++)
+      pa[*pid] =
+        parallactic_angle(
+          antenna1[*pid],
+          antenna2[*pid],
+          data_desc[*pid],
+          feed1[*pid],
+          feed2[*pid],
+          time[*pid]);
   }
 
   static void
@@ -1229,6 +1255,12 @@ private:
   Table m_tbl_main;
 
   Table m_tbl_feed;
+
+  struct TaskArgs {
+    unsigned mr_feed_position_index;
+    unsigned mr_feed_beam_offset_index;
+    unsigned mr_feed_time_index;
+  };
 };
 
 std::variant<std::forward_list<std::string>, GridderArgs<OPT_STRING_ARGS>>
