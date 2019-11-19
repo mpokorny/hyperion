@@ -663,7 +663,8 @@ ReindexedTableTask::base_impl(
       MeasRefContainer::clone_meas_refs(
         ctx,
         rt,
-        regions[args->mrc_region_offset]);
+        regions.begin() + args->mrc_region_offset,
+        regions.end());
 #endif
 
   Keywords kws;
@@ -2010,7 +2011,8 @@ reindex_column(
       MeasRefContainer::clone_meas_refs(
         ctx,
         rt,
-        regions[args.mrc_region_offset]);
+        regions.begin() + args.mrc_region_offset,
+        regions.end());
 #endif
 
   Keywords kws;
@@ -2119,7 +2121,8 @@ ReindexColumnTask::base_impl(
         MeasRefContainer::clone_meas_refs(
           ctx,
           rt,
-          regions[args->mrc_region_offset]);
+          regions.begin() + args->mrc_region_offset,
+          regions.end());
 #endif
     Keywords kws;
     if (args->kws_region_offset != -1)

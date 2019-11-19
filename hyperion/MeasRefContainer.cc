@@ -292,29 +292,24 @@ std::vector<MeasRef>
 MeasRefContainer::clone_meas_refs(
   Context ctx,
   Runtime* rt,
-  PhysicalRegion pr) {
-  return
-    with_measure_references_dictionary(
-      ctx,
-      rt,
-      pr,
-      false,
-      [](Context c, Runtime* r, MeasRefDict* dict) {
-        std::vector<MeasRef> result;
-        for (auto& nm : dict->names()) {
-          auto ref = dict->get(nm).value();
-          if (false) assert(false);
-#define ADD_REF(M)                                                    \
-          else if (MeasRefDict::holds<M>(ref))                        \
-            result.push_back(                                         \
-              MeasRef::create(c, r, nm, *MeasRefDict::get<M>(ref)));
-          HYPERION_FOREACH_MCLASS(ADD_REF)
+  const std::vector<Legion::PhysicalRegion>::const_iterator& begin_pr,
+  const std::vector<Legion::PhysicalRegion>::const_iterator& end_pr) {
+
+  auto dict = make_dict(ctx, rt, begin_pr, end_pr);
+  std::vector<MeasRef> result;
+  for (auto& nm : dict.names()) {
+    auto ref = dict.get(nm).value();
+    if (false) assert(false);
+#define ADD_REF(M)                                              \
+    else if (MeasRefDict::holds<M>(ref))                        \
+      result.push_back(                                         \
+        MeasRef::create(ctx, rt, nm, *MeasRefDict::get<M>(ref)));
+    HYPERION_FOREACH_MCLASS(ADD_REF)
 #undef ADD_REF
-          else
-            assert(false);
-        }
-        return result;
-      });
+    else
+      assert(false);
+  }
+  return result;
 }
 
 
