@@ -143,6 +143,7 @@ public:
     const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
+    bool add_own_mr_prefix,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
@@ -158,6 +159,7 @@ public:
     const Legion::LogicalRegion& values,
 #ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
+    bool add_own_mr_prefix,
 #endif
     const Keywords& kws);
 
@@ -175,6 +177,7 @@ public:
     const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
     const MeasRefContainer& meas_refs,
+    bool add_own_mr_prefix,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "") {
@@ -189,6 +192,7 @@ public:
         index_tree,
 #ifdef HYPERION_USE_CASACORE
         meas_refs,
+        add_own_mr_prefix,
 #endif
         kws,
         name_prefix);

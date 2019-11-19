@@ -1316,6 +1316,7 @@ hyperion::hdf5::init_column(
             it,
 #ifdef HYPERION_USE_CASACORE
             column_meas_ref,
+            true,
 #endif
             keywords,
             name_prefix);

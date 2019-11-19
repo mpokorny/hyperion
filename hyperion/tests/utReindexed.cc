@@ -141,6 +141,7 @@ table0_col(
           IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
           MeasRefContainer::create(ctx, rt, measures, table_mr),
+          true,
 #endif
           {},
           name_prefix);

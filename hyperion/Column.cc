@@ -73,6 +73,7 @@ Column::create(
   const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& meas_refs,
+  bool add_own_mr_prefix,
 #endif
   const Keywords::kw_desc_t& kws,
   const std::string& name_prefix) {
@@ -149,7 +150,8 @@ Column::create(
     }
   }
 #ifdef HYPERION_USE_CASACORE
-  meas_refs.add_prefix_to_owned(ctx, rt, component_name_prefix);
+  if (add_own_mr_prefix)
+    meas_refs.add_prefix_to_owned(ctx, rt, component_name_prefix);
 #endif
   return
     Column(
@@ -173,6 +175,7 @@ Column::create(
   const Legion::LogicalRegion& values,
 #ifdef HYPERION_USE_CASACORE
   const MeasRefContainer& meas_refs,
+  bool add_own_mr_prefix,
 #endif
   const Keywords& kws) {
 
@@ -232,7 +235,8 @@ Column::create(
     }
   }
 #ifdef HYPERION_USE_CASACORE
-  meas_refs.add_prefix_to_owned(ctx, rt, component_name_prefix);
+  if (add_own_mr_prefix)
+    meas_refs.add_prefix_to_owned(ctx, rt, component_name_prefix);
 #endif
   return
     Column(

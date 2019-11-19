@@ -152,6 +152,7 @@ public:
         itree,
 #ifdef HYPERION_USE_CASACORE
         MeasRefContainer::create(ctx, rt, meas_refs, inherited_meas_ref),
+        true, // TODO: is this always the correct value?
 #endif
         keywords(),
         name_prefix);

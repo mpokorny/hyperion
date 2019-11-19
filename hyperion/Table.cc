@@ -2040,6 +2040,7 @@ reindex_column(
     new_col_lr,
 #ifdef HYPERION_USE_CASACORE
     MeasRefContainer::create(ctx, rt, mrs),
+    false,
 #endif
     kws);
 }
@@ -2155,6 +2156,7 @@ ReindexColumnTask::base_impl(
       new_col_lr,
 #ifdef HYPERION_USE_CASACORE
       MeasRefContainer::create(ctx, rt, mrs),
+      false,
 #endif
       kws);
   }

@@ -167,6 +167,7 @@ table0_col(
             IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
             MeasRefContainer::create(ctx, rt, measures, table_mr),
+            true,
 #endif
             {},
             name_prefix);
@@ -189,6 +190,7 @@ table0_col(
             IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
             MeasRefContainer::create(ctx, rt, measures, table_mr),
+            true,
 #endif
             Keywords::kw_desc_t{{"perfect", ValueType<short>::DataType}},
             name_prefix);
@@ -211,6 +213,7 @@ table0_col(
             IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}),
 #ifdef HYPERION_USE_CASACORE
             MeasRefContainer::create(ctx, rt, measures, table_mr),
+            true,
 #endif
             {},
             name_prefix);
