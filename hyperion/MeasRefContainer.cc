@@ -215,12 +215,12 @@ MeasRefDict
 MeasRefContainer::make_dict(
   Context ctx,
   Runtime* rt,
-  const std::vector<PhysicalRegion>::iterator& begin_pr,
-  const std::vector<PhysicalRegion>::iterator& end_pr) {
+  const std::vector<PhysicalRegion>::const_iterator& begin_pr,
+  const std::vector<PhysicalRegion>::const_iterator& end_pr) {
 
   std::vector<std::tuple<std::string, MeasRef::DataRegions>> mr_prs;
 
-  std::vector<PhysicalRegion>::iterator pr = begin_pr;
+  std::vector<PhysicalRegion>::const_iterator pr = begin_pr;
   const MeasRefContainer::MeasRefAccessor<READ_ONLY>
     mrs(*pr, MeasRefContainer::MEAS_REF_FID);
   for (PointInRectIterator<1> pir(

@@ -184,8 +184,8 @@ public:
   make_dict(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<Legion::PhysicalRegion>::iterator& begin_pr,
-    const std::vector<Legion::PhysicalRegion>::iterator& end_pr);
+    const std::vector<Legion::PhysicalRegion>::const_iterator& begin_pr,
+    const std::vector<Legion::PhysicalRegion>::const_iterator& end_pr);
 
 private:
 
