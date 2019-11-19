@@ -120,6 +120,7 @@ protected:
 
     for (auto& [nm, prs] : named_prs)
       m_meas_refs[nm] = prs;
+    add_tags();
   }
 
 private:
