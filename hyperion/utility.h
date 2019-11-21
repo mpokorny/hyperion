@@ -703,13 +703,8 @@ struct DataType {
 class HYPERION_API OpsManager {
 public:
 
-  static void
-  preregister_ops();
-
-  // FIXME: the following constants are an irritant to application code that
-  // needs to register its own serdez or redop ids
   enum {
-    INDEX_TREE_SID = 1,
+    INDEX_TREE_SID = 0,
 
     V_DOMAIN_POINT_SID,
 
@@ -727,10 +722,12 @@ public:
     ACC_FIELD_DOUBLE_SID,
     ACC_FIELD_COMPLEX_SID,
     ACC_FIELD_DCOMPLEX_SID,
+
+    NUM_SIDS
   };
 
   enum {
-    BOOL_OR_REDOP = 1,
+    BOOL_OR_REDOP = 0,
 
     COORD_BOR_REDOP,
 
@@ -751,9 +748,28 @@ public:
     POINT_ADD_REDOP_BASE
   };
 
+  static void
+  register_ops(Legion::Runtime* rt);
+
+  static Legion::CustomSerdezID
+  serdez_id_base;
+
   static inline int
   POINT_ADD_REDOP(int dim) {
     return POINT_ADD_REDOP_BASE + dim - 1;
+  }
+
+  static Legion::CustomSerdezID
+  serdez_id(int sid) {
+    return serdez_id_base + sid;
+  }
+
+  static Legion::ReductionOpID
+  reduction_id_base;
+
+  static Legion::ReductionOpID
+  reduction_id(int redop) {
+    return reduction_id_base + redop;
   }
 };
 
@@ -1451,6 +1467,7 @@ add_row_major_order_constraint(
 HYPERION_API void
 preregister_all();
 
+// FIXME: rename this function
 HYPERION_API void
 register_tasks(Legion::Context context, Legion::Runtime* runtime);
 

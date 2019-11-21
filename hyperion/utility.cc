@@ -99,125 +99,142 @@ operator<<(std::ostream& stream, const hyperion::string& str) {
 HYPERION_FOREACH_N(POINT_ADD_REDOP_IDENTITY);
 #undef POINT_ADD_REDOP_IDENTITY
 
+Legion::CustomSerdezID hyperion::OpsManager::serdez_id_base;
+Legion::ReductionOpID hyperion::OpsManager::reduction_id_base;
+
 void
-hyperion::OpsManager::preregister_ops() {
+hyperion::OpsManager::register_ops(Runtime* rt) {
+  static bool registered = false;
+  if (registered)
+    return;
+  registered = true;
+
+  serdez_id_base = rt->generate_library_serdez_ids("hyperion", NUM_SIDS);
+
+  reduction_id_base =
+    rt->generate_library_reduction_ids(
+      "hyperion",
+      POINT_ADD_REDOP_BASE + LEGION_MAX_DIM);
+
   Runtime::register_custom_serdez_op<index_tree_serdez>(
-    INDEX_TREE_SID);
+    serdez_id(INDEX_TREE_SID));
 
   Runtime::register_custom_serdez_op<
-    vector_serdez<DomainPoint>>(V_DOMAIN_POINT_SID);
+    vector_serdez<DomainPoint>>(serdez_id(V_DOMAIN_POINT_SID));
   Runtime::register_custom_serdez_op<
-    string_serdez<std::string>>(STD_STRING_SID);
+    string_serdez<std::string>>(serdez_id(STD_STRING_SID));
 
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_STRING>::ValueType>>(
-      ACC_FIELD_STRING_SID);
+      serdez_id(ACC_FIELD_STRING_SID));
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_BOOL>::ValueType>>(
-      ACC_FIELD_BOOL_SID);
+      serdez_id(ACC_FIELD_BOOL_SID));
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_CHAR>::ValueType>>(
-      ACC_FIELD_CHAR_SID);
+      serdez_id(ACC_FIELD_CHAR_SID));
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_UCHAR>::ValueType>>(
-      ACC_FIELD_UCHAR_SID);
+      serdez_id(ACC_FIELD_UCHAR_SID));
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_SHORT>::ValueType>>(
-      ACC_FIELD_SHORT_SID);
+      serdez_id(ACC_FIELD_SHORT_SID));
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_USHORT>::ValueType>>(
-      ACC_FIELD_USHORT_SID);
+      serdez_id(ACC_FIELD_USHORT_SID));
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_INT>::ValueType>>(
-      ACC_FIELD_INT_SID);
+      serdez_id(ACC_FIELD_INT_SID));
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_UINT>::ValueType>>(
-      ACC_FIELD_UINT_SID);
+      serdez_id(ACC_FIELD_UINT_SID));
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_FLOAT>::ValueType>>(
-      ACC_FIELD_FLOAT_SID);
+      serdez_id(ACC_FIELD_FLOAT_SID));
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_DOUBLE>::ValueType>>(
-      ACC_FIELD_DOUBLE_SID);
+      serdez_id(ACC_FIELD_DOUBLE_SID));
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_COMPLEX>::ValueType>>(
-      ACC_FIELD_COMPLEX_SID);
+      serdez_id(ACC_FIELD_COMPLEX_SID));
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>>(
-      ACC_FIELD_DCOMPLEX_SID);
+      serdez_id(ACC_FIELD_DCOMPLEX_SID));
 
-  Runtime::register_reduction_op<bool_or_redop>(BOOL_OR_REDOP);
-  Runtime::register_reduction_op<coord_bor_redop>(COORD_BOR_REDOP);
+  Runtime::register_reduction_op<bool_or_redop>(
+    reduction_id(BOOL_OR_REDOP));
+  Runtime::register_reduction_op<coord_bor_redop>(
+    reduction_id(COORD_BOR_REDOP));
 
 #ifdef WITH_ACC_FIELD_REDOP_SERDEZ
   Runtime::register_reduction_op(
-    ACC_FIELD_STRING_REDOP,
+    reduction_id(ACC_FIELD_STRING_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_STRING>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_STRING>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_STRING>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
-    ACC_FIELD_BOOL_REDOP,
+    reduction_id(ACC_FIELD_BOOL_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_BOOL>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_BOOL>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_BOOL>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
-    ACC_FIELD_CHAR_REDOP,
+    reduction_id(ACC_FIELD_CHAR_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_CHAR>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_CHAR>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_CHAR>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
-    ACC_FIELD_UCHAR_REDOP,
+    reduction_id(ACC_FIELD_UCHAR_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_UCHAR>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_UCHAR>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_UCHAR>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
-    ACC_FIELD_SHORT_REDOP,
+    reduction_id(ACC_FIELD_SHORT_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_SHORT>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_SHORT>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_SHORT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
-    ACC_FIELD_USHORT_REDOP,
+    reduction_id(ACC_FIELD_USHORT_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_USHORT>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_USHORT>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_USHORT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
-    ACC_FIELD_INT_REDOP,
+    reduction_id(ACC_FIELD_INT_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_INT>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_INT>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_INT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
-    ACC_FIELD_UINT_REDOP,
+    reduction_id(ACC_FIELD_UINT_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_UINT>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_UINT>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_UINT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
-    ACC_FIELD_FLOAT_REDOP,
+    reduction_id(ACC_FIELD_FLOAT_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_FLOAT>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_FLOAT>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_FLOAT>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
-    ACC_FIELD_DOUBLE_REDOP,
+    reduction_id(ACC_FIELD_DOUBLE_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_DOUBLE>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_DOUBLE>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_DOUBLE>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
-    ACC_FIELD_COMPLEX_REDOP,
+    reduction_id(ACC_FIELD_COMPLEX_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_COMPLEX>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_COMPLEX>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_COMPLEX>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
-    ACC_FIELD_DCOMPLEX_REDOP,
+    reduction_id(ACC_FIELD_DCOMPLEX_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>::init_fn,
@@ -225,44 +242,45 @@ hyperion::OpsManager::preregister_ops() {
 #else
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_STRING>::ValueType>>(
-    ACC_FIELD_STRING_REDOP);
+      reduction_id(ACC_FIELD_STRING_REDOP));
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_BOOL>::ValueType>>(
-    ACC_FIELD_BOOL_REDOP);
+      reduction_id(ACC_FIELD_BOOL_REDOP));
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_CHAR>::ValueType>>(
-    ACC_FIELD_CHAR_REDOP);
+      reduction_id(ACC_FIELD_CHAR_REDOP));
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_UCHAR>::ValueType>>(
-    ACC_FIELD_UCHAR_REDOP);
+      reduction_id(ACC_FIELD_UCHAR_REDOP));
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_SHORT>::ValueType>>(
-    ACC_FIELD_SHORT_REDOP);
+      reduction_id(ACC_FIELD_SHORT_REDOP));
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_USHORT>::ValueType>>(
-    ACC_FIELD_USHORT_REDOP);
+      reduction_id(ACC_FIELD_USHORT_REDOP));
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_INT>::ValueType>>(
-    ACC_FIELD_INT_REDOP);
+      reduction_id(ACC_FIELD_INT_REDOP));
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_UINT>::ValueType>>(
-    ACC_FIELD_UINT_REDOP);
+      reduction_id(ACC_FIELD_UINT_REDOP));
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_FLOAT>::ValueType>>(
-    ACC_FIELD_FLOAT_REDOP);
+      reduction_id(ACC_FIELD_FLOAT_REDOP));
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_DOUBLE>::ValueType>>(
-    ACC_FIELD_DOUBLE_REDOP);
+      reduction_id(ACC_FIELD_DOUBLE_REDOP));
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_COMPLEX>::ValueType>>(
-    ACC_FIELD_COMPLEX_REDOP);
+      reduction_id(ACC_FIELD_COMPLEX_REDOP));
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>>(
-    ACC_FIELD_DCOMPLEX_REDOP);
+      reduction_id(ACC_FIELD_DCOMPLEX_REDOP));
 #endif // WITH_ACC_FIELD_REDOP_SERDEZ
 
 #define REGISTER_POINT_ADD_REDOP(DIM)                   \
-  Runtime::register_reduction_op<point_add_redop<DIM>>(POINT_ADD_REDOP(DIM));
+  Runtime::register_reduction_op<point_add_redop<DIM>>( \
+    reduction_id(POINT_ADD_REDOP(DIM)));
   HYPERION_FOREACH_N(REGISTER_POINT_ADD_REDOP);
 #undef REGISTER_POINT_ADD_REDOP
 }
@@ -437,7 +455,6 @@ hyperion::add_row_major_order_constraint(
 
 void
 hyperion::preregister_all() {
-  OpsManager::preregister_ops();
 #ifdef HYPERION_USE_HDF5
   H5DatatypeManager::preregister_datatypes();
 #endif
@@ -458,6 +475,7 @@ hyperion::preregister_all() {
 
 void
 hyperion::register_tasks(Context context, Runtime* runtime) {
+  OpsManager::register_ops(runtime);
   Table::register_tasks(context, runtime);
 }
 

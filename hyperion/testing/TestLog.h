@@ -587,7 +587,7 @@ public:
       TestLogReference::abort_state_accessor<READ_WRITE>::t(
         *abort_state_region,
         0,
-        OpsManager::BOOL_OR_REDOP)) {
+        OpsManager::reduction_id(OpsManager::BOOL_OR_REDOP))) {
   }
 
   TestLogIterator(const TestLogIterator& other)
@@ -741,7 +741,7 @@ public:
       TestLogReference::abort_state_accessor<WRITE_DISCARD>::t(
         *abort_state_region,
         0,
-        OpsManager::BOOL_OR_REDOP)) {
+        OpsManager::reduction_id(OpsManager::BOOL_OR_REDOP))) {
   }
 
   TestLogIterator(const TestLogIterator& other)
@@ -1072,7 +1072,10 @@ public:
     , m_abort_state_pr(&abort_state_pr)
     , m_context(context)
     , m_runtime(runtime)
-    , m_abort_state(abort_state_pr, 0, OpsManager::BOOL_OR_REDOP) {
+    , m_abort_state(
+      abort_state_pr,
+      0,
+      OpsManager::reduction_id(OpsManager::BOOL_OR_REDOP)) {
   }
 
   TestLog(
@@ -1102,7 +1105,7 @@ public:
       TestLogReference::abort_state_accessor<READ_WRITE>::t(
         *m_abort_state_pr,
         0,
-        OpsManager::BOOL_OR_REDOP);
+        OpsManager::reduction_id(OpsManager::BOOL_OR_REDOP));
   }
 
   TestLog(const TestLog& other)
@@ -1266,7 +1269,10 @@ public:
     , m_abort_state_pr(&abort_state_pr)
     , m_context(context)
     , m_runtime(runtime)
-    , m_abort_state(abort_state_pr, 0, OpsManager::BOOL_OR_REDOP) {
+    , m_abort_state(
+      abort_state_pr,
+      0,
+      OpsManager::reduction_id(OpsManager::BOOL_OR_REDOP)) {
   }
 
   TestLog(
@@ -1296,7 +1302,7 @@ public:
       TestLogReference::abort_state_accessor<WRITE_DISCARD>::t(
         *m_abort_state_pr,
         0,
-        OpsManager::BOOL_OR_REDOP);
+        OpsManager::reduction_id(OpsManager::BOOL_OR_REDOP));
   }
 
   TestLog(const TestLog& other)

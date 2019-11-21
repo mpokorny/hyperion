@@ -37,11 +37,11 @@ TestLogReference::TestLogReference(
     fa.allocate_field(
       sizeof(std::string),
       NAME_FID,
-      OpsManager::STD_STRING_SID);
+      OpsManager::serdez_id(OpsManager::STD_STRING_SID));
     fa.allocate_field(
       sizeof(std::string),
       FAIL_INFO_FID,
-      OpsManager::STD_STRING_SID);
+      OpsManager::serdez_id(OpsManager::STD_STRING_SID));
 
     IndexSpaceT<1> is =
       runtime->create_index_space(context, Rect<1>(0, length - 1));
@@ -150,7 +150,7 @@ TestLogReference::rw_requirements(
       m_abort_state_handle,
       {0},
       {0},
-      OpsManager::BOOL_OR_REDOP,
+      OpsManager::reduction_id(OpsManager::BOOL_OR_REDOP),
       ATOMIC,
       m_abort_state_handle);
 
@@ -208,7 +208,7 @@ TestLogReference::wd_requirements(
       m_abort_state_handle,
       {0},
       {0},
-      OpsManager::BOOL_OR_REDOP,
+      OpsManager::reduction_id(OpsManager::BOOL_OR_REDOP),
       ATOMIC,
       m_abort_state_handle);
 
@@ -239,7 +239,7 @@ TestLogReference::rw_requirements(
       m_abort_state_handle,
       {0},
       {0},
-      OpsManager::BOOL_OR_REDOP,
+      OpsManager::reduction_id(OpsManager::BOOL_OR_REDOP),
       ATOMIC,
       m_abort_state_handle);
 
@@ -301,7 +301,7 @@ TestLogReference::wd_requirements(
       m_abort_state_handle,
       {0},
       {0},
-      OpsManager::BOOL_OR_REDOP,
+      OpsManager::reduction_id(OpsManager::BOOL_OR_REDOP),
       ATOMIC,
       m_abort_state_handle);
 

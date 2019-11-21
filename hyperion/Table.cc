@@ -771,7 +771,11 @@ public:
         EXCLUSIVE,
         m_col_req.region));
     launcher.add_field(0, Column::VALUE_FID);
-    auto result = rt->execute_index_space(ctx, launcher, DT::af_redop_id);
+    auto result =
+      rt->execute_index_space(
+        ctx,
+        launcher,
+        OpsManager::reduction_id(DT::af_redop_id));
     rt->destroy_logical_partition(ctx, col_lp);
     rt->destroy_index_space(ctx, cs);
     rt->destroy_index_partition(ctx, ip);
@@ -901,7 +905,7 @@ index_column(
       fa.allocate_field(
         sizeof(std::vector<DomainPoint>),
         IndexColumnTask::ROWS_FID,
-        OpsManager::V_DOMAIN_POINT_SID);
+        OpsManager::serdez_id(OpsManager::V_DOMAIN_POINT_SID));
     }
     IndexSpaceT<1> result_is =
       runtime->create_index_space(ctx, Rect<1>(0, acc.size() - 1));
@@ -2355,7 +2359,7 @@ public:
       RegionRequirement
         req(
           m_row_colors,
-          OpsManager::POINT_ADD_REDOP(ixdim),
+          OpsManager::reduction_id(OpsManager::POINT_ADD_REDOP(ixdim)),
           ATOMIC,
           m_row_colors);
       req.add_field(0);
@@ -2363,7 +2367,11 @@ public:
     }
     {
       RegionRequirement
-        req(m_colors, OpsManager::COORD_BOR_REDOP, ATOMIC, m_colors);
+        req(
+          m_colors,
+          OpsManager::reduction_id(OpsManager::COORD_BOR_REDOP),
+          ATOMIC,
+          m_colors);
       req.add_field(0);
       launcher.add_region_requirement(req);
     }
@@ -2396,10 +2404,27 @@ public:
       switch (rowdim * LEGION_MAX_DIM + ixdim) {
 #define WRITE_COLORS(ROWDIM, COLORDIM)                                  \
         case (ROWDIM * LEGION_MAX_DIM + COLORDIM): {                    \
-          const ReductionAccessor<point_add_redop<COLORDIM>, true, ROWDIM, coord_t, AffineAccessor<Point<COLORDIM>,ROWDIM,coord_t>> \
-            colors(regions[COLORDIM], 0, OpsManager::POINT_ADD_REDOP(ixdim)); \
-          const ReductionAccessor<coord_bor_redop, true, COLORDIM, coord_t, AffineAccessor<coord_t,COLORDIM,coord_t>> \
-            flags(regions[COLORDIM + 1], 0, OpsManager::COORD_BOR_REDOP); \
+          const ReductionAccessor<                                      \
+            point_add_redop<COLORDIM>, \
+            true, \
+            ROWDIM, \
+            coord_t, \
+            AffineAccessor<Point<COLORDIM>,ROWDIM,coord_t>> \
+            colors(                                                     \
+              regions[COLORDIM],                                        \
+              0,                                                        \
+              OpsManager::reduction_id(                                 \
+                OpsManager::POINT_ADD_REDOP(ixdim)));                   \
+          const ReductionAccessor<                                      \
+            coord_bor_redop, \
+            true, \
+            COLORDIM, \
+            coord_t, \
+            AffineAccessor<coord_t,COLORDIM,coord_t>> \
+            flags(                                                      \
+              regions[COLORDIM + 1],                                    \
+              0,                                                        \
+              OpsManager::reduction_id(OpsManager::COORD_BOR_REDOP));   \
           Point<COLORDIM,coord_t> color(task->index_point);             \
           flags[color] <<= 1;                                           \
           for (size_t i = 0; i < common_rows.size(); ++i) {             \

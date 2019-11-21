@@ -36,6 +36,8 @@ TestSuiteDriver::impl(
   Runtime* runtime,
   const TestSuiteDriver::TaskArgs& args) {
 
+  OpsManager::register_ops(runtime);
+
   // initialize the test log
   TestLogReference logref(args.log_length, context, runtime);
 
