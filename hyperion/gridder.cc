@@ -100,7 +100,6 @@ enum {
 };
 
 enum {
-  // TODO: fix OpsManager to avoid using an offset here
   LAST_POINT_REDOP=100, // reserve HYPERION_MAX_DIM ids from here
 };
 
@@ -1091,28 +1090,13 @@ public:
                      COLUMN_NAME(MS_FEED, POSITION)}) {
             mr_indexes.push_back(reqs.size());
             auto col = m_tbl_feed.column(c, r, nm);
-            if (col.meas_refs.lr != LogicalRegion::NO_REGION) {
-              RegionRequirement
-                req(col.meas_refs.lr, READ_ONLY, EXCLUSIVE, col.meas_refs.lr);
-              req.add_field(MeasRefContainer::OWNED_FID);
-              req.add_field(MeasRefContainer::MEAS_REF_FID);
-              reqs.push_back(req);
-              auto mr_reqs =
-                col.meas_refs.component_requirements(c, r, READ_ONLY);
-              if (mr_reqs.size() > 0) {
-                for (auto& [r0, r1, or2] : mr_reqs) {
-                  reqs.push_back(r0);
-                  reqs.push_back(r1);
-                  if (or2)
-                    reqs.push_back(or2.value());
-                }
-              }
-            }
+            auto col_reqs = col.meas_refs.requirements(c, r, READ_ONLY);
+            std::copy(col_reqs.begin(), col_reqs.end(), std::back_inserter(col_reqs));
           }
           TaskArgs args;
-          args.mr_feed_time_index = mr_indexes[0];
-          args.mr_feed_beam_offset_index = mr_indexes[1];
-          args.mr_feed_position_index = mr_indexes[2];
+          args.feed_time_mr_index = mr_indexes[0];
+          args.feed_beam_offset_mr_index = mr_indexes[1];
+          args.feed_position_mr_index = mr_indexes[2];
           {
             LogicalPartition lp = r->get_logical_partition(c, result, ip);
             RegionRequirement req(lp, 0, WRITE_ONLY, EXCLUSIVE, result);
@@ -1143,7 +1127,10 @@ public:
     const DataType<HYPERION_TYPE_INT>::ValueType& data_desc,
     const DataType<HYPERION_TYPE_INT>::ValueType& feed1,
     const DataType<HYPERION_TYPE_INT>::ValueType& feed2,
-    const DataType<HYPERION_TYPE_DOUBLE>::ValueType& time) {
+    const DataType<HYPERION_TYPE_DOUBLE>::ValueType& time,
+    const casacore::MeasRef<casacore::MEpoch>& feed_time_mr,
+    const casacore::MeasRef<casacore::MDirection>& feed_beam_offset_mr,
+    const casacore::MeasRef<casacore::MPosition>& feed_position_mr) {
 
     return time * (antenna1 + antenna2 + data_desc + feed1 + feed2);
   }
@@ -1190,23 +1177,23 @@ public:
         MeasRefContainer::make_dict(
           ctx,
           rt,
-          regions.begin() + args->mr_feed_time_index,
-          regions.begin() + args->mr_feed_beam_offset_index)
+          regions.begin() + args->feed_time_mr_index,
+          regions.begin() + args->feed_beam_offset_mr_index)
         .get("Epoch").value());
     auto beam_offset_mr =
       MeasRefDict::get<M_DIRECTION>(
         MeasRefContainer::make_dict(
           ctx,
           rt,
-          regions.begin() + args->mr_feed_beam_offset_index,
-          regions.begin() + args->mr_feed_position_index)
+          regions.begin() + args->feed_beam_offset_mr_index,
+          regions.begin() + args->feed_position_mr_index)
         .get("Direction").value());
     auto position_mr =
       MeasRefDict::get<M_POSITION>(
         MeasRefContainer::make_dict(
           ctx,
           rt,
-          regions.begin() + args->mr_feed_position_index,
+          regions.begin() + args->feed_position_mr_index,
           regions.end() - 1)
         .get("Position").value());
 
@@ -1226,7 +1213,10 @@ public:
           data_desc[*pid],
           feed1[*pid],
           feed2[*pid],
-          time[*pid]);
+          time[*pid],
+          *time_mr,
+          *beam_offset_mr,
+          *position_mr);
   }
 
   static void
@@ -1257,9 +1247,9 @@ private:
   Table m_tbl_feed;
 
   struct TaskArgs {
-    unsigned mr_feed_position_index;
-    unsigned mr_feed_beam_offset_index;
-    unsigned mr_feed_time_index;
+    unsigned feed_position_mr_index;
+    unsigned feed_beam_offset_mr_index;
+    unsigned feed_time_mr_index;
   };
 };
 

@@ -189,6 +189,31 @@ MeasRefContainer::component_requirements(
   return result;
 }
 
+std::vector<RegionRequirement>
+MeasRefContainer::requirements(
+  Context ctx,
+  Runtime* rt,
+  legion_privilege_mode_t mode) const {
+
+  std::vector<RegionRequirement> result;
+  if (lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(lr, mode, EXCLUSIVE, lr);
+    req.add_field(MeasRefContainer::OWNED_FID);
+    req.add_field(MeasRefContainer::MEAS_REF_FID);
+    result.push_back(req);
+    auto mr_reqs = component_requirements(ctx, rt, READ_ONLY);
+    if (mr_reqs.size() > 0) {
+      for (auto& [r0, r1, or2] : mr_reqs) {
+        result.push_back(r0);
+        result.push_back(r1);
+        if (or2)
+          result.push_back(or2.value());
+      }
+    }
+  }
+  return result;
+}
+
 void
 MeasRefContainer::destroy(Context ctx, Runtime* rt) {
   if (lr != LogicalRegion::NO_REGION) {

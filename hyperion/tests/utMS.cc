@@ -536,18 +536,9 @@ read_full_ms(
     args.has_measures = false;
     if (col.meas_refs.size(rt) > 0) {
       args.has_measures = true;
-      RegionRequirement
-        req(col.meas_refs.lr, READ_ONLY, EXCLUSIVE, col.meas_refs.lr);
-      req.add_field(MeasRefContainer::OWNED_FID);
-      req.add_field(MeasRefContainer::MEAS_REF_FID);
-      verify_task.add_region_requirement(req);
-      auto creqs = col.meas_refs.component_requirements(ctx, rt);
-      for (auto& [r0, r1, or2] : creqs) {
-        verify_task.add_region_requirement(r0);
-        verify_task.add_region_requirement(r1);
-        if (or2)
-          verify_task.add_region_requirement(or2.value());
-      }
+      auto mr_reqs = col.meas_refs.requirements(ctx, rt, READ_ONLY);
+      for (auto& r : mr_reqs)
+        verify_task.add_region_requirement(r);
     } else {
       args.has_measures = false;
     }

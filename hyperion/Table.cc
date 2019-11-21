@@ -614,24 +614,8 @@ ReindexedTableTask::dispatch(Context ctx, Runtime* rt) {
 #ifdef HYPERION_USE_CASACORE
   if (m_table.meas_refs.lr != LogicalRegion::NO_REGION) {
     m_args.mrc_region_offset = reqs.size();
-    RegionRequirement req(
-      m_table.meas_refs.lr,
-      READ_ONLY,
-      EXCLUSIVE,
-      m_table.meas_refs.lr);
-    req.add_field(MeasRefContainer::OWNED_FID);
-    req.add_field(MeasRefContainer::MEAS_REF_FID);
-    reqs.push_back(req);
-    auto mr_reqs =
-      m_table.meas_refs.component_requirements(ctx, rt, READ_ONLY);
-    if (mr_reqs.size() > 0) {
-      for (auto& [r0, r1, or2] : mr_reqs) {
-        reqs.push_back(r0);
-        reqs.push_back(r1);
-        if (or2)
-          reqs.push_back(or2.value());
-      }
-    }
+    auto mr_reqs = m_table.meas_refs.requirements(ctx, rt, READ_ONLY);
+    std::copy(mr_reqs.begin(), mr_reqs.end(), std::back_inserter(reqs));
   }
 #endif
 
@@ -1791,24 +1775,8 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
 #ifdef HYPERION_USE_CASACORE
   if (m_args.col.meas_refs.lr != LogicalRegion::NO_REGION) {
     m_args.mrc_region_offset = reqs.size();
-    RegionRequirement req(
-      m_args.col.meas_refs.lr,
-      READ_ONLY,
-      EXCLUSIVE,
-      m_args.col.meas_refs.lr);
-    req.add_field(MeasRefContainer::OWNED_FID);
-    req.add_field(MeasRefContainer::MEAS_REF_FID);
-    reqs.push_back(req);
-    auto mr_reqs =
-      m_args.col.meas_refs.component_requirements(ctx, rt, READ_ONLY);
-    if (mr_reqs.size() > 0) {
-      for (auto& [r0, r1, or2] : mr_reqs) {
-        reqs.push_back(r0);
-        reqs.push_back(r1);
-        if (or2)
-          reqs.push_back(or2.value());
-      }
-    }
+    auto mr_reqs = m_args.col.meas_refs.requirements(ctx, rt, READ_ONLY);
+    std::copy(mr_reqs.begin(), mr_reqs.end(), std::back_inserter(reqs));
   }
 #endif
 

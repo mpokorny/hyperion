@@ -93,6 +93,12 @@ public:
     Legion::Runtime* rt,
     legion_privilege_mode_t mode = READ_ONLY) const;
 
+  std::vector<Legion::RegionRequirement>
+  requirements(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    legion_privilege_mode_t mode) const;
+
   template <
     typename FN,
     std::enable_if_t<
