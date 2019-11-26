@@ -394,6 +394,42 @@ protected:
 
 public:
 
+  static const constexpr std::array<TableColumns<MS_ANTENNA>::col, 5> columns{
+    TableColumns<MS_ANTENNA>::NAME,
+    TableColumns<MS_ANTENNA>::STATION,
+    TableColumns<MS_ANTENNA>::TYPE,
+    TableColumns<MS_ANTENNA>::MOUNT,
+    TableColumns<MS_ANTENNA>::DISH_DIAMETER
+  };
+
+  static constexpr int
+  column_offset(TableColumns<MS_ANTENNA>::col c) {
+    switch (c) {
+    case TableColumns<MS_ANTENNA>::NAME:
+      return 0;
+    case TableColumns<MS_ANTENNA>::STATION:
+      return 1;
+    case TableColumns<MS_ANTENNA>::TYPE:
+      return 2;
+    case TableColumns<MS_ANTENNA>::MOUNT:
+      return 3;
+    case TableColumns<MS_ANTENNA>::DISH_DIAMETER:
+      return 4;
+    default:
+      return -1;
+    }
+  }
+
+  static const std::array<std::string, columns.size()>&
+  column_names() {
+    static std::array<std::string, columns.size()> result;
+    if (result[0].empty()) {
+      for (size_t i = 0; i < columns.size(); ++i)
+        result[i] = TableColumns<MS_ANTENNA>::column_names[columns[i]];
+    }
+    return result;
+  }
+
   // caller must only free returned LogicalRegion and associated FieldSpace, but
   // not the associated IndexSpace
   Legion::LogicalRegion
@@ -418,7 +454,7 @@ public:
           m_table.columns_lr);
       cols_req.add_field(Table::COLUMNS_FID);
       auto cols = rt->map_region(ctx, cols_req);
-      for (auto& cn : TableColumns<MS_ANTENNA>::column_names) {
+      for (auto& cn : column_names()) {
         auto col = m_table.column(ctx, rt, cols, cn);
         RegionRequirement
           vreq(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
@@ -447,16 +483,24 @@ public:
     Legion::Runtime* rt) {
 
     const ROAccessor<hyperion::string, 1>
-      names(regions[TableColumns<MS_ANTENNA>::NAME], Column::VALUE_FID);
+      names(
+        regions[column_offset(TableColumns<MS_ANTENNA>::NAME)],
+        Column::VALUE_FID);
     const ROAccessor<hyperion::string, 1>
-      stations(regions[TableColumns<MS_ANTENNA>::STATION], Column::VALUE_FID);
+      stations(
+        regions[column_offset(TableColumns<MS_ANTENNA>::STATION)],
+        Column::VALUE_FID);
     const ROAccessor<hyperion::string, 1>
-      types(regions[TableColumns<MS_ANTENNA>::TYPE], Column::VALUE_FID);
+      types(
+        regions[column_offset(TableColumns<MS_ANTENNA>::TYPE)],
+        Column::VALUE_FID);
     const ROAccessor<hyperion::string, 1>
-      mounts(regions[TableColumns<MS_ANTENNA>::MOUNT], Column::VALUE_FID);
+      mounts(
+        regions[column_offset(TableColumns<MS_ANTENNA>::MOUNT)],
+        Column::VALUE_FID);
     const ROAccessor<double, 1>
       diameters(
-        regions[TableColumns<MS_ANTENNA>::DISH_DIAMETER],
+        regions[column_offset(TableColumns<MS_ANTENNA>::DISH_DIAMETER)],
         Column::VALUE_FID);
     const WOAccessor<unsigned, 1> antenna_classes(regions.back(), 0);
 
@@ -1178,11 +1222,9 @@ public:
         rt,
         g_args->h5_path.value(),
         ms_root,
-        {COLUMN_NAME(MS_ANTENNA, NAME),
-         COLUMN_NAME(MS_ANTENNA, STATION),
-         COLUMN_NAME(MS_ANTENNA, TYPE),
-         COLUMN_NAME(MS_ANTENNA, MOUNT),
-         COLUMN_NAME(MS_ANTENNA, DISH_DIAMETER)},
+        std::unordered_set(
+          CLASSIFY_ANTENNAS_TASK::column_names().begin(),
+          CLASSIFY_ANTENNAS_TASK::column_names().end()),
         {},
         [](Context c, Runtime* r, const Table* tb) {
           CLASSIFY_ANTENNAS_TASK task(*tb);
