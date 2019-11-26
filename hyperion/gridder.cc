@@ -53,6 +53,8 @@
 using namespace hyperion;
 using namespace Legion;
 
+namespace cc = casacore;
+
 template <typename FT, int N, bool CHECK_BOUNDS=false>
 using ROAccessor =
   FieldAccessor<
@@ -559,6 +561,7 @@ struct TableColumns<MS_ANTENNA>
     TYPE,
     MOUNT,
     DISH_DIAMETER,
+    POSITION,
     NUM_COLUMNS
   } col;
   static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
@@ -566,7 +569,8 @@ struct TableColumns<MS_ANTENNA>
     "STATION",
     "TYPE",
     "MOUNT",
-    "DISH_DIAMETER"
+    "DISH_DIAMETER",
+    "POSITION"
   };
   static const constexpr char* table_name = MSTable<MS_ANTENNA>::name;
 };
@@ -595,6 +599,7 @@ struct TableColumns<MS_FEED>
     SPECTRAL_WINDOW_ID,
     TIME,
     INTERVAL,
+    NUM_RECEPTORS,
     BEAM_ID,
     BEAM_OFFSET,
     POL_RESPONSE,
@@ -608,6 +613,7 @@ struct TableColumns<MS_FEED>
     "SPECTRAL_WINDOW_ID",
     "TIME",
     "INTERVAL",
+    "NUM_RECEPTORS",
     "BEAM_ID",
     "BEAM_OFFSET",
     "POL_RESPONSE",
@@ -615,6 +621,7 @@ struct TableColumns<MS_FEED>
     "RECEPTOR_ANGLE"
   };
   static const constexpr std::array<unsigned,NUM_COLUMNS> element_rank = {
+    0,
     0,
     0,
     0,
@@ -983,6 +990,35 @@ public:
   }
 };
 
+struct AntennaHelper {
+  typedef enum {
+    ALT_AZ,
+    EQUATORIAL,
+    XY,
+    ORBITING,
+    NASMYTH_R,
+    NASMYTH_L,
+    OTHER
+  } MountCode;
+
+  static const std::unordered_map<std::string, MountCode> mount_codes = {
+    {"alt-az", ALT_AZ},
+    {"", ALT_AZ},
+    {"alt-az+rotator", ALT_AZ},
+    {"equatorial", EQUATORIAL},
+    {"x-y", XY},
+    {"orbiting", ORBITING},
+    {"alt-az+nasmyth-r", NASMYTH_R},
+    {"alt-az+nasmyth-l", NASMYTH_L}};
+
+  static MountCode
+  mount_code(const std::string& str) {
+    if (mount_codes.count(str) > 0)
+      return mount_codes[str];
+    return OTHER;
+  }
+}
+
 class ComputeRowAuxFieldsTask {
 public:
 
@@ -992,45 +1028,64 @@ public:
   ComputeRowAuxFieldsTask(
     const GridderArgs<VALUE_ARGS>& args,
     Table& tbl_main,
+    Table& tbl_data_description,
+    Table& tbl_antenna,
     Table& tbl_feed)
     : m_args(args)
     , m_tbl_main(tbl_main)
+    , m_tbl_data_description(tbl_data_description)
+    , m_tbl_antenna(tbl_antenna),
     , m_tbl_feed(tbl_feed) {
   }
 
   LogicalRegion
   dispatch(Context ctx, Runtime* rt) {
     return
-      m_tbl_main
-      .with_columns_attached(
+      Table::with_columns_attached(
         ctx,
         rt,
         m_args.h5_path.value(),
         ms_root,
-        {COLUMN_NAME(MS_MAIN, ANTENNA1),
-         COLUMN_NAME(MS_MAIN, ANTENNA2),
-         COLUMN_NAME(MS_MAIN, DATA_DESC_ID),
-         COLUMN_NAME(MS_MAIN, FEED1),
-         COLUMN_NAME(MS_MAIN, FEED2),
-         COLUMN_NAME(MS_MAIN, TIME),
-         COLUMN_NAME(MS_MAIN, UVW)},
-        {},
-        [this](Context c, Runtime *r, Table* tbl_main) {
+        {{&m_tbl_main,
+         {COLUMN_NAME(MS_MAIN, ANTENNA1),
+          COLUMN_NAME(MS_MAIN, DATA_DESC_ID),
+          COLUMN_NAME(MS_MAIN, FEED1),
+          COLUMN_NAME(MS_MAIN, TIME),
+          COLUMN_NAME(MS_MAIN, UVW)},
+          {}},
+         {&m_tbl_data_description,
+          {COLUMN_NAME(MS_DATA_DESCRIPTION, SPECTRAL_WINDOW_ID)},
+          {}},
+         {&m_tbl_antenna,
+          {COLUMN_NAME(MS_ANTENNA, MOUNT),
+           COLUMN_NAME(MS_ANTENNA, POSITION)},
+          {}}},
+        [this](Context c, Runtime *r, std::unordered_map<std::string, Table*>& tbls) {
+          Table* tbl_main = tbls[MSTable<MS_MAIN>::name];
+          Table* tbl_data_description = tbls[MSTable<MS_DATA_DESCRIPTION>::name];
+          Table* tbl_antenna = tbls[MSTable<MS_ANTENNA>::name];
 
           auto antenna1 =
             tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, ANTENNA1));
-          auto antenna2 =
-            tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, ANTENNA2));
           auto data_desc =
             tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, DATA_DESC_ID));
           auto feed1 =
             tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, FEED1));
-          auto feed2 =
-            tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, FEED2));
           auto time =
             tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, TIME));
           auto uvw =
             tbl_main->column(c, r, COLUMN_NAME(MS_MAIN, UVW));
+
+          auto spw =
+            tbl_data_description->column(
+              c,
+              r,
+              COLUMN_NAME(MS_DATA_DESCRIPTION, SPECTRAL_WINDOW_ID));
+
+          auto mount =
+            tbl_antenna->column(c, r, COLUMN_NAME(MS_ANTENNA, MOUNT));
+          auto position =
+            tbl_antenna->column(c, r, COLUMN_NAME(MS_ANTENNA, POSITION));
 
           // using partition_on_axes() to get the index space of the table index
           // axes (a.k.a. row index space), but this also provides the logical
@@ -1064,8 +1119,7 @@ public:
           // a ColumnPartition based on the table row partition.
           auto col_part = // don't call col_part.destroy()!
             ColumnPartition(row_part.axes_uid_lr, row_part.axes_lr, ip);
-          for (auto& col :
-                 {antenna1, antenna2, data_desc, feed1, feed2, time, uvw}) {
+          for (auto& col : {antenna1, data_desc, feed1, time, uvw}) {
             // project the row partition onto the entire set of column axes
             auto cp = col.projected_column_partition(c, r, col_part);
             auto lp =
@@ -1075,6 +1129,12 @@ public:
             reqs.push_back(req);
             r->destroy_logical_partition(c, lp);
             cp.destroy(c, r);
+          }
+          for (auto& col : {spw, mount, position}) {
+            RegionRequirement
+              req(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
+            req.add_field(Column::VALUE_FID);
+            reqs.push_back(erq);
           }
           for (auto& nm : TableColumns<MS_FEED>::column_names) {
             auto col = m_tbl_feed.column(c, r, nm);
@@ -1091,12 +1151,24 @@ public:
             mr_indexes.push_back(reqs.size());
             auto col = m_tbl_feed.column(c, r, nm);
             auto col_reqs = col.meas_refs.requirements(c, r, READ_ONLY);
-            std::copy(col_reqs.begin(), col_reqs.end(), std::back_inserter(col_reqs));
+            std::copy(
+              col_reqs.begin(),
+              col_reqs.end(),
+              std::back_inserter(col_reqs));
+          }
+          {
+            mr_indexes.push_back(reqs.size());
+            auto pos_reqs = position.meas_refs.requirements(c, r, READ_ONLY);
+            std::copy(
+              pos_reqs.begin(),
+              pos_reqs.end(),
+              std::back_inserter(pos_reqs));
           }
           TaskArgs args;
           args.feed_time_mr_index = mr_indexes[0];
           args.feed_beam_offset_mr_index = mr_indexes[1];
           args.feed_position_mr_index = mr_indexes[2];
+          args.antenna_position_mr_index = mr_indexes[3];
           {
             LogicalPartition lp = r->get_logical_partition(c, result, ip);
             RegionRequirement req(lp, 0, WRITE_ONLY, EXCLUSIVE, result);
@@ -1123,16 +1195,36 @@ public:
   static PARALLACTIC_ANGLE_TYPE
   parallactic_angle(
     const DataType<HYPERION_TYPE_INT>::ValueType& antenna1,
-    const DataType<HYPERION_TYPE_INT>::ValueType& antenna2,
     const DataType<HYPERION_TYPE_INT>::ValueType& data_desc,
     const DataType<HYPERION_TYPE_INT>::ValueType& feed1,
-    const DataType<HYPERION_TYPE_INT>::ValueType& feed2,
     const DataType<HYPERION_TYPE_DOUBLE>::ValueType& time,
-    const casacore::MeasRef<casacore::MEpoch>& feed_time_mr,
-    const casacore::MeasRef<casacore::MDirection>& feed_beam_offset_mr,
-    const casacore::MeasRef<casacore::MPosition>& feed_position_mr) {
+    const AntennaHelper::MountCode& antenna_mount,
+    const std::array<MPosition, 3>& antenna_position,
+    const DataType<HYPERION_TYPE_INT>::ValueType& feed_beam_num_receptors,
+    // feed_beam_offset dimensions: (feed_beam_num_receptors, 2);
+    const DataType<HYPERION_TYPE_DOUBLE>::ValueType* feed_beam_offset,
+    // feed_receptor_angle dimensions: (feed_beam_num_receptors)
+    const DataType<HYPERION_TYPE_DOUBLE>::ValueType* feed_receptor_angle,
+    const cc::MeasRef<cc::MEpoch>& feed_time_mr,
+    const cc::MeasRef<cc::MDirection>& feed_beam_offset_mr,
+    const cc::MeasRef<cc::MPosition>& feed_position_mr) {
 
-    return time * (antenna1 + antenna2 + data_desc + feed1 + feed2);
+    PARALLACTIC_ANGLE_TYPE result;
+    switch (antenna_mount) {
+    case AntennaHelper::EQUATORIAL:
+      result = 0.0;
+      break;
+    case AntennaHelper::ALT_AZ:
+      break;
+    case AntennaHelper::NASMYTH_L:
+      break;
+    case AntennaHelper::NASMYTH_R:
+      break;
+    default:
+      assert(false);
+      break;
+    }
+    return result;
   }
 
   template <int ROW_DIM>
@@ -1148,31 +1240,34 @@ public:
     const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
       antenna1(regions[0], Column::VALUE_FID);
     const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
-      antenna2(regions[1], Column::VALUE_FID);
+      data_desc(regions[1], Column::VALUE_FID);
     const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
-      data_desc(regions[2], Column::VALUE_FID);
-    const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
-      feed1(regions[3], Column::VALUE_FID);
-    const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, ROW_DIM>
-      feed2(regions[4], Column::VALUE_FID);
+      feed1(regions[2], Column::VALUE_FID);
     const ROAccessor<DataType<HYPERION_TYPE_DOUBLE>::ValueType, ROW_DIM>
-      time(regions[5], Column::VALUE_FID);
+      time(regions[3], Column::VALUE_FID);
     const ROAccessor<DataType<HYPERION_TYPE_DOUBLE>::ValueType, ROW_DIM + 1>
-      uvw(regions[6], Column::VALUE_FID);
+      uvw(regions[4], Column::VALUE_FID);
+    const ROAccessor<DataType<HYPERION_TYPE_INT>::ValueType, 1>
+      spw(regions[5], Column::VALUE_FID);
+    const ROAccessor<DataType<HYPERION_TYPE_STRING>::ValueType, 1>
+      antenna_mount(regions[6], Column::VALUE_FID);
+    const ROAccessor<DataType<HYPERION_TYPE_DOUBLE>::ValueType, 2>
+      antenna_position(regions[7], Column::VALUE_FID);
 #define FEED_COL(var, typ, col)                                       \
     const ROAccessor<DataType<HYPERION_TYPE_##typ>::ValueType,        \
                      TableColumns<MS_FEED>::index_axes.size()         \
                      + TableColumns<MS_FEED>::element_rank[           \
                        TableColumns<MS_FEED>::col]>                   \
-      var(regions[7 + TableColumns<MS_FEED>::col], Column::VALUE_FID)
+      var(regions[8 + TableColumns<MS_FEED>::col], Column::VALUE_FID)
 
+    FEED_COL(feed_num_receptors, INT, NUM_RECEPTORS);
     FEED_COL(feed_beam_offset, DOUBLE, BEAM_OFFSET);
     FEED_COL(feed_pol_response, COMPLEX, POL_RESPONSE);
     FEED_COL(feed_position, DOUBLE, POSITION);
     FEED_COL(feed_receptor_angle, DOUBLE, RECEPTOR_ANGLE);
 #undef FEED_COL
 
-    auto time_mr =
+    auto feed_time_mr =
       MeasRefDict::get<M_EPOCH>(
         MeasRefContainer::make_dict(
           ctx,
@@ -1180,7 +1275,7 @@ public:
           regions.begin() + args->feed_time_mr_index,
           regions.begin() + args->feed_beam_offset_mr_index)
         .get("Epoch").value());
-    auto beam_offset_mr =
+    auto feed_beam_offset_mr =
       MeasRefDict::get<M_DIRECTION>(
         MeasRefContainer::make_dict(
           ctx,
@@ -1188,35 +1283,104 @@ public:
           regions.begin() + args->feed_beam_offset_mr_index,
           regions.begin() + args->feed_position_mr_index)
         .get("Direction").value());
-    auto position_mr =
+    auto feed_position_mr =
       MeasRefDict::get<M_POSITION>(
         MeasRefContainer::make_dict(
           ctx,
           rt,
           regions.begin() + args->feed_position_mr_index,
+          regions.begin() + args->antenna_position_mr_index)
+        .get("Position").value());
+
+    auto antenna_position_mr =
+      MeasRefDict::get<M_POSITION>(
+        MeasRefContainer::make_dict(
+          ctx,
+          rt,
+          regions.begin() + args->antenna_position_mr,
           regions.end() - 1)
         .get("Position").value());
 
     const WOAccessor<PARALLACTIC_ANGLE_TYPE, ROW_DIM>
       pa(regions.back(), PARALLACTIC_ANGLE_FID);
 
+    cc::MeasFrame antFrame; // !
+    // Set up the frame for epoch and antenna position. We will
+    // adjust this to effect the coordinate transformations
+    antFrame.set(cc::MEpoch(), cc::MPosition(), cc::MDirection());
+    cc::MDirection::Ref haDecRef(cc::MDirection::HADEC, antFrame);
+    // Make the HADec pole as expressed in HADec. The pole is the default.
+    cc::MDirection haDecPole;
+    haDecPole.set(haDecRef);
+    // Set up the machines to convert to AzEl, HADec and LAST
+    cc::MDirection::Convert cRADecToAzEl;
+    cRADecToAzEl.set(
+      cc::MDirection(), 
+      cc::MDirection::Ref(cc::MDirection::AZEL, antFrame));
+    cc::MDirection::Convert cHADecToAzEl;
+    cHADecToAzEl.set(
+      haDecPole,
+      cc::MDirection::Ref(cc::MDirection::AZEL, antFrame));
+    cc::MDirection::Convert cRADecToHADec;
+    cRADecToHADec.set(cc::MDirection(), haDecRef);
+    cc::MEpoch::Convert cUTCToLAST; // !
+    cUTCToLAST.set(cc::MEpoch(), cc::MEpoch::Ref(cc::MEpoch::LAST, antFrame));
+    // set up the velocity conversion with zero velocity in the TOPO/antenna 
+    // frame. We'll use this to compute the observatory velocity in another
+    // frame (often LSR).
+    MRadialVelocity::Convert cTOPOToLSR;
+    cTOPOToLSR.set(
+      cc::MRadialVelocity(
+        cc::MVRadialVelocity(0.0),
+        cc::MRadialVelocity::Ref(cc::MRadialVelocity::TOPO, antFrame)),
+      cc::MRadialVelocity::Ref(cc::MRadialVelocity::LSRK));
+    radialVelocityType = cc::MRadialVelocity::LSRK;
+    frqref = cc::MFrequency::Ref(cc::MFrequency::LSRK);
+    velref = cc::MDoppler::Ref(cc::MDoppler::RADIO);
+    restFreq = cc::Quantity(0.0, "Hz");
+
     for (PointInDomainIterator<ROW_DIM>
            pid(
              rt->get_index_space_domain(
                task->regions.back().region.get_index_space()));
          pid();
-         pid++)
+         pid++) {
+      coord_t feed_row_index[3] =
+        {antenna1[*pid], feed1[*pid], spw[data_desc[*pid]]};
+      const coord_t feed_beam_offset_index[5] =
+        {feed_row_index[0], feed_row_index[1], feed_row_index[2], 0, 0};
+      const coord_t feed_receptor_angle_index[4] =
+        {feed_row_index[0], feed_row_index[1], feed_row_index[2], 0};
+      coord_t antenna_row_index[1] = {antenna1[*pid]};
+      std::array<MPosition, 3> antenna_mposition{
+        cc::MPosition(
+          cc::Quantity(
+            antenna_position[Point<2>({antenna_row_index[0], 0})], "m"),
+          *antenna_position_mr),
+        cc::MPosition(
+          cc::Quantity(
+            antenna_position[Point<2>({antenna_row_index[0], 1})], "m"),
+          *antenna_position_mr),
+        cc::MPosition(
+          cc::Quantity(
+            antenna_position[Point<2>({antenna_row_index[0], 2})], "m"),
+          *antenna_position_mr)
+      };
       pa[*pid] =
         parallactic_angle(
           antenna1[*pid],
-          antenna2[*pid],
           data_desc[*pid],
           feed1[*pid],
-          feed2[*pid],
           time[*pid],
-          *time_mr,
-          *beam_offset_mr,
-          *position_mr);
+          AntennaHelper::mount_code(antenna_mount[Point<1>(antenna_row_index)]),
+          antenna_mposition,
+          feed_num_receptors[Point<3>(feed_row_index)],
+          feed_beam_offset.ptr(Point<5>(feed_beam_offset_index)),
+          feed_receptor_angle.ptr(Point<4>(feed_receptor_angle_index)),
+          *feed_time_mr,
+          *feed_beam_offset_mr,
+          *feed_position_mr);
+    }
   }
 
   static void
@@ -1244,12 +1408,17 @@ private:
 
   Table m_tbl_main;
 
+  Table m_tbl_data_description;
+
+  Table m_tbl_antenna;
+
   Table m_tbl_feed;
 
   struct TaskArgs {
     unsigned feed_position_mr_index;
     unsigned feed_beam_offset_mr_index;
     unsigned feed_time_mr_index;
+    unsigned antenna_position_mr_index;
   };
 };
 
@@ -1634,6 +1803,8 @@ public:
       ComputeRowAuxFieldsTask task(
         *g_args,
         tables[MS_MAIN],
+        tables[MS_DATA_DESCRIPTION],
+        tables[MS_ANTENNA],
         itables[MS_FEED]);
       row_aux = task.dispatch(ctx, rt);
     }
