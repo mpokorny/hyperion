@@ -23,6 +23,8 @@
 #include <hyperion/Table.h>
 #include <hyperion/Column.h>
 #include <hyperion/MeasRefContainer.h>
+#include <hyperion/gridder/gridder.h>
+#include <hyperion/gridder/args.h>
 
 #include <algorithm>
 #include <array>
@@ -41,14 +43,9 @@
 
 #include <yaml-cpp/yaml.h>
 
-#define PARALLACTIC_ANGLE_TYPE float
-#define PARALLACTIC_360 ((PARALLACTIC_ANGLE_TYPE)360.0)
-
-#define AUTO_W_PROJ_PLANES_VALUE -1
-#define INVALID_W_PROJ_PLANES_VALUE -2
-#define INVALID_MIN_BLOCK_SIZE_VALUE 0
-
-#define FS CXX_FILESYSTEM_NAMESPACE
+#include <casacore/measures/Measures/MCDirection.h>
+#include <casacore/measures/Measures/MCEpoch.h>
+#include <casacore/measures/Measures/MCRadialVelocity.h>
 
 using namespace hyperion;
 using namespace Legion;
@@ -107,6 +104,20 @@ enum {
 
 static const char ms_root[] = "/";
 
+static const gridder::Args<gridder::OPT_STRING_ARGS>&
+default_config() {
+  static bool computed = false;
+  static gridder::Args<gridder::OPT_STRING_ARGS> result;
+  if (!computed) {
+    result.echo = std::string("false");
+    result.min_block = std::string("100000");
+    result.pa_step = std::string("360.0");
+    result.w_planes = std::string("1");
+    computed = true;
+  }
+  return result;
+}
+
 template <int DIM>
 struct LastPointRedop {
   typedef Point<DIM> LHS;
@@ -155,376 +166,6 @@ inline void
 LastPointRedop<1>::fold<false>(Point<1>& lhs, Point<1> rhs) {
   if (rhs != -1)
     __atomic_store_n(&lhs.x, rhs.x, __ATOMIC_RELEASE);
-}
-
-typedef enum {
-  VALUE_ARGS,
-  STRING_ARGS,
-  OPT_VALUE_ARGS,
-  OPT_STRING_ARGS} gridder_args_t;
-
-template <gridder_args_t G>
-struct ArgsCompletion {
-  static const gridder_args_t val;
-};
-template <>
-struct ArgsCompletion<VALUE_ARGS> {
-  static const constexpr gridder_args_t val = VALUE_ARGS;
-};
-template <>
-struct ArgsCompletion<STRING_ARGS> {
-  static const constexpr gridder_args_t val = STRING_ARGS;
-};
-template <>
-struct ArgsCompletion<OPT_VALUE_ARGS> {
-  static const constexpr gridder_args_t val = VALUE_ARGS;
-};
-template <>
-struct ArgsCompletion<OPT_STRING_ARGS> {
-  static const constexpr gridder_args_t val = STRING_ARGS;
-};
-
-template <typename T, bool OPT, const char* const* TAG, gridder_args_t G>
-struct GridderArgType {
-  static const constexpr char* tag = *TAG;
-};
-template <typename T, const char* const* TAG>
-struct GridderArgType<T, false, TAG, VALUE_ARGS> {
-  typedef T type;
-
-  T val;
-
-  static const constexpr char* tag = *TAG;
-
-  T
-  value() const {
-    return val;
-  }
-
-  void
-  operator=(const T& t) {
-    val = t;
-  }
-
-  operator bool() const {
-    return true;
-  }
-};
-template <typename T, const char* const* TAG>
-struct GridderArgType<T, true, TAG, VALUE_ARGS> {
-  typedef std::optional<T> type;
-
-  std::optional<T> val;
-
-  static const constexpr char* tag = *TAG;
-
-  T
-  value() const {
-    return val.value();
-  }
-
-  void
-  operator=(const T& t) {
-    val = t;
-  }
-
-  void
-  operator=(const std::optional<T>& ot) {
-    val = ot;
-  }
-
-  operator bool() const {
-    return val.has_value();
-  }
-};
-template <typename T, const char* const* TAG>
-struct GridderArgType<T, false, TAG, STRING_ARGS> {
-  typedef std::string type;
-
-  std::string val;
-
-  static const constexpr char* tag = *TAG;
-
-  std::string
-  value() const {
-    return val;
-  }
-
-  void
-  operator=(const std::string& str) {
-    val = str;
-  }
-
-  operator bool() const {
-    return true;
-  }
-};
-template <typename T, const char* const* TAG>
-struct GridderArgType<T, true, TAG, STRING_ARGS> {
-  typedef std::optional<std::string> type;
-
-  std::optional<std::string> val;
-
-  static const constexpr char* tag = *TAG;
-
-  std::string
-  value() const {
-    return val.value();
-  }
-
-  void
-  operator=(const std::string& str) {
-    val = str;
-  }
-
-  void
-  operator=(const std::optional<std::string>& ostr) {
-    val = ostr;
-  }
-
-  operator bool() const {
-    return val.has_value();
-  }
-};
-template <typename T, const char* const* TAG>
-struct GridderArgType<T, false, TAG, OPT_VALUE_ARGS> {
-  typedef std::optional<T> type;
-
-  std::optional<T> val;
-
-  static const constexpr char* tag = *TAG;
-
-  T
-  value() const {
-    return val;
-  }
-
-  void
-  operator=(const T& t) {
-    val = t;
-  }
-
-  void
-  operator=(const std::optional<T>& ot) {
-    val = ot;
-  }
-
-  operator bool() const {
-    return val.has_value();
-  }
-};
-template <typename T, const char* const* TAG>
-struct GridderArgType<T, true, TAG, OPT_VALUE_ARGS> {
-  typedef std::optional<T> type;
-
-  std::optional<T> val;
-
-  static const constexpr char* tag = *TAG;
-
-  T
-  value() const {
-    return val.value();
-  }
-
-  void
-  operator=(const T& t) {
-    val = t;
-  }
-
-  void
-  operator=(const std::optional<T>& ot) {
-    val = ot;
-  }
-
-  operator bool() const {
-    return val.has_value();
-  }
-};
-template <typename T, const char* const* TAG>
-struct GridderArgType<T, false, TAG, OPT_STRING_ARGS> {
-  typedef std::optional<std::string> type;
-
-  std::optional<std::string> val;
-
-  static const constexpr char* tag = *TAG;
-
-  std::string
-  value() const {
-    return val.value();
-  }
-
-  void
-  operator=(const std::string& str) {
-    val = str;
-  }
-
-  void
-  operator=(const std::optional<std::string>& ostr) {
-    val = ostr;
-  }
-
-  operator bool() const {
-    return val.has_value();
-  }
-};
-template <typename T, const char* const* TAG>
-struct GridderArgType<T, true, TAG, OPT_STRING_ARGS> {
-  typedef std::optional<std::string> type;
-
-  std::optional<std::string> val;
-
-  static const constexpr char* tag = *TAG;
-
-  std::string
-  value() const {
-    return val.value();
-  }
-
-  void
-  operator=(const std::string& str) {
-    val = str;
-  }
-
-  void
-  operator=(const std::optional<std::string>& ostr) {
-    val = ostr;
-  }
-
-  operator bool() const {
-    return val.has_value();
-  }
-};
-
-struct GridderArgsBase {
-  static const constexpr char* h5_path_tag = "h5";
-  static const constexpr char* config_path_tag = "configuration";
-  static const constexpr char* echo_tag = "echo";
-  static const constexpr char* min_block_tag = "min_block";
-  static const constexpr char* pa_step_tag = "pa_step";
-  static const constexpr char* w_planes_tag = "w_proj_planes";
-
-  static const std::vector<std::string>&
-  tags() {
-    static const std::vector<std::string> result{
-      h5_path_tag,
-      config_path_tag,
-      echo_tag,
-      min_block_tag,
-      pa_step_tag,
-      w_planes_tag
-    };
-    return result;
-  }
-};
-
-template <gridder_args_t G>
-struct GridderArgs
-  : public GridderArgsBase {
-
-  GridderArgType<FS::path, false, &h5_path_tag, G> h5_path;
-  GridderArgType<FS::path, true, &config_path_tag, G> config_path;
-  GridderArgType<bool, false, &echo_tag, G> echo;
-  GridderArgType<size_t, false, &min_block_tag, G> min_block;
-  GridderArgType<PARALLACTIC_ANGLE_TYPE, false, &pa_step_tag, G> pa_step;
-  GridderArgType<int, false, &w_planes_tag, G> w_planes;
-
-  GridderArgs() {}
-
-  GridderArgs(
-    const typename decltype(h5_path)::type& h5_path_,
-    const typename decltype(config_path)::type& config_path_,
-    const typename decltype(echo)::type& echo_,
-    const typename decltype(min_block)::type& min_block_,
-    const typename decltype(pa_step)::type& pa_step_,
-    const typename decltype(w_planes)::type& w_planes_) {
-
-    h5_path = h5_path_;
-    config_path = config_path_;
-    echo = echo_;
-    min_block = min_block_;
-    pa_step = pa_step_;
-    w_planes = w_planes_;
-  }
-
-  bool
-  is_complete() const {
-    return
-      h5_path
-      && echo
-      && min_block
-      && pa_step
-      && w_planes;
-  }
-
-  std::optional<GridderArgs<ArgsCompletion<G>::val>>
-  as_complete() const {
-    std::optional<GridderArgs<ArgsCompletion<G>::val>> result;
-    if (is_complete())
-      result =
-        std::make_optional<GridderArgs<ArgsCompletion<G>::val>>(
-          h5_path.value(),
-          (config_path
-           ? config_path.value()
-           : std::optional<std::string>()),
-          echo.value(),
-          min_block.value(),
-          pa_step.value(),
-          w_planes.value());
-    return result;
-  }
-
-  YAML::Node
-  as_node() const {
-    YAML::Node result;
-    if (h5_path)
-      result[h5_path.tag] = h5_path.value().c_str();
-    if (config_path)
-      result[config_path.tag] = config_path.value().c_str();
-    if (echo)
-      result[echo.tag] = echo.value();
-    if (min_block)
-      result[min_block.tag] = min_block.value();
-    if (pa_step)
-      result[pa_step.tag] = pa_step.value();
-    if (w_planes)
-      result[w_planes.tag] = w_planes.value();
-    return result;
-  }
-};
-
-GridderArgs<VALUE_ARGS>
-as_args(YAML::Node&& node) {
-  FS::path h5_path = node[GridderArgsBase::h5_path_tag].as<std::string>();
-  std::optional<FS::path> config_path;
-  if (node[GridderArgsBase::config_path_tag])
-    config_path = node[GridderArgsBase::config_path_tag].as<std::string>();
-  bool echo = node[GridderArgsBase::echo_tag].as<bool>();
-  size_t min_block = node[GridderArgsBase::min_block_tag].as<size_t>();
-  PARALLACTIC_ANGLE_TYPE pa_step =
-    node[GridderArgsBase::pa_step_tag].as<PARALLACTIC_ANGLE_TYPE>();
-  int w_planes = node[GridderArgsBase::w_planes_tag].as<int>();
-  return
-    GridderArgs<VALUE_ARGS>(
-      h5_path,
-      config_path,
-      echo,
-      min_block,
-      pa_step,
-      w_planes);
-}
-
-static const GridderArgs<OPT_STRING_ARGS>&
-default_config() {
-  static bool computed = false;
-  static GridderArgs<OPT_STRING_ARGS> result;
-  if (!computed) {
-    result.echo = std::string("false");
-    result.min_block = std::string("100000");
-    result.pa_step = std::string("360.0");
-    result.w_planes = std::string("1");
-    computed = true;
-  }
-  return result;
 }
 
 template <MSTables T>
@@ -1001,23 +642,27 @@ struct AntennaHelper {
     OTHER
   } MountCode;
 
-  static const std::unordered_map<std::string, MountCode> mount_codes = {
-    {"alt-az", ALT_AZ},
-    {"", ALT_AZ},
-    {"alt-az+rotator", ALT_AZ},
-    {"equatorial", EQUATORIAL},
-    {"x-y", XY},
-    {"orbiting", ORBITING},
-    {"alt-az+nasmyth-r", NASMYTH_R},
-    {"alt-az+nasmyth-l", NASMYTH_L}};
-
   static MountCode
   mount_code(const std::string& str) {
     if (mount_codes.count(str) > 0)
       return mount_codes[str];
     return OTHER;
   }
-}
+
+private:
+  static std::unordered_map<std::string, MountCode> mount_codes;
+};
+
+std::unordered_map<std::string, AntennaHelper::MountCode>
+AntennaHelper::mount_codes = {
+  {"alt-az", ALT_AZ},
+  {"", ALT_AZ},
+  {"alt-az+rotator", ALT_AZ},
+  {"equatorial", EQUATORIAL},
+  {"x-y", XY},
+  {"orbiting", ORBITING},
+  {"alt-az+nasmyth-r", NASMYTH_R},
+  {"alt-az+nasmyth-l", NASMYTH_L}};
 
 class ComputeRowAuxFieldsTask {
 public:
@@ -1026,7 +671,7 @@ public:
   static const constexpr FieldID PARALLACTIC_ANGLE_FID = 0;
 
   ComputeRowAuxFieldsTask(
-    const GridderArgs<VALUE_ARGS>& args,
+    const gridder::Args<gridder::VALUE_ARGS>& args,
     Table& tbl_main,
     Table& tbl_data_description,
     Table& tbl_antenna,
@@ -1034,7 +679,7 @@ public:
     : m_args(args)
     , m_tbl_main(tbl_main)
     , m_tbl_data_description(tbl_data_description)
-    , m_tbl_antenna(tbl_antenna),
+    , m_tbl_antenna(tbl_antenna)
     , m_tbl_feed(tbl_feed) {
   }
 
@@ -1134,7 +779,7 @@ public:
             RegionRequirement
               req(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
             req.add_field(Column::VALUE_FID);
-            reqs.push_back(erq);
+            reqs.push_back(req);
           }
           for (auto& nm : TableColumns<MS_FEED>::column_names) {
             auto col = m_tbl_feed.column(c, r, nm);
@@ -1199,7 +844,7 @@ public:
     const DataType<HYPERION_TYPE_INT>::ValueType& feed1,
     const DataType<HYPERION_TYPE_DOUBLE>::ValueType& time,
     const AntennaHelper::MountCode& antenna_mount,
-    const std::array<MPosition, 3>& antenna_position,
+    const std::array<cc::MPosition, 3>& antenna_position,
     const DataType<HYPERION_TYPE_INT>::ValueType& feed_beam_num_receptors,
     // feed_beam_offset dimensions: (feed_beam_num_receptors, 2);
     const DataType<HYPERION_TYPE_DOUBLE>::ValueType* feed_beam_offset,
@@ -1297,7 +942,7 @@ public:
         MeasRefContainer::make_dict(
           ctx,
           rt,
-          regions.begin() + args->antenna_position_mr,
+          regions.begin() + args->antenna_position_mr_index,
           regions.end() - 1)
         .get("Position").value());
 
@@ -1328,16 +973,16 @@ public:
     // set up the velocity conversion with zero velocity in the TOPO/antenna 
     // frame. We'll use this to compute the observatory velocity in another
     // frame (often LSR).
-    MRadialVelocity::Convert cTOPOToLSR;
+    cc::MRadialVelocity::Convert cTOPOToLSR;
     cTOPOToLSR.set(
       cc::MRadialVelocity(
         cc::MVRadialVelocity(0.0),
         cc::MRadialVelocity::Ref(cc::MRadialVelocity::TOPO, antFrame)),
       cc::MRadialVelocity::Ref(cc::MRadialVelocity::LSRK));
-    radialVelocityType = cc::MRadialVelocity::LSRK;
-    frqref = cc::MFrequency::Ref(cc::MFrequency::LSRK);
-    velref = cc::MDoppler::Ref(cc::MDoppler::RADIO);
-    restFreq = cc::Quantity(0.0, "Hz");
+    // radialVelocityType = cc::MRadialVelocity::LSRK;
+    // frqref = cc::MFrequency::Ref(cc::MFrequency::LSRK);
+    // velref = cc::MDoppler::Ref(cc::MDoppler::RADIO);
+    // restFreq = cc::Quantity(0.0, "Hz");
 
     for (PointInDomainIterator<ROW_DIM>
            pid(
@@ -1351,19 +996,19 @@ public:
         {feed_row_index[0], feed_row_index[1], feed_row_index[2], 0, 0};
       const coord_t feed_receptor_angle_index[4] =
         {feed_row_index[0], feed_row_index[1], feed_row_index[2], 0};
-      coord_t antenna_row_index[1] = {antenna1[*pid]};
-      std::array<MPosition, 3> antenna_mposition{
+      coord_t antenna_row_index = antenna1[*pid];
+      std::array<cc::MPosition, 3> antenna_mposition{
         cc::MPosition(
           cc::Quantity(
-            antenna_position[Point<2>({antenna_row_index[0], 0})], "m"),
+            antenna_position[Point<2>({antenna_row_index, 0})], "m"),
           *antenna_position_mr),
         cc::MPosition(
           cc::Quantity(
-            antenna_position[Point<2>({antenna_row_index[0], 1})], "m"),
+            antenna_position[Point<2>({antenna_row_index, 1})], "m"),
           *antenna_position_mr),
         cc::MPosition(
           cc::Quantity(
-            antenna_position[Point<2>({antenna_row_index[0], 2})], "m"),
+            antenna_position[Point<2>({antenna_row_index, 2})], "m"),
           *antenna_position_mr)
       };
       pa[*pid] =
@@ -1404,7 +1049,7 @@ public:
 
 private:
 
-  GridderArgs<VALUE_ARGS> m_args;
+  gridder::Args<gridder::VALUE_ARGS> m_args;
 
   Table m_tbl_main;
 
@@ -1422,261 +1067,11 @@ private:
   };
 };
 
-std::variant<std::forward_list<std::string>, GridderArgs<OPT_STRING_ARGS>>
-read_config(const YAML::Node& config) {
-  std::forward_list<std::string> invalid_tags;
-  GridderArgs<OPT_STRING_ARGS> args;
-  for (auto it = config.begin(); it != config.end(); ++it) {
-    auto key = it->first.as<std::string>();
-    auto val = it->second.as<std::string>();
-    if (key == args.h5_path.tag)
-      args.h5_path = val;
-    else if (key == args.echo.tag)
-      args.echo = val;
-    else if (key == args.min_block.tag)
-      args.min_block = val;
-    else if (key == args.pa_step.tag)
-      args.pa_step = val;
-    else if (key == args.w_planes.tag)
-      args.w_planes = val;
-    else
-      invalid_tags.push_front(key);  
-  }
-  if (invalid_tags.empty())
-    return args;
-  else
-    return invalid_tags;
-}
-
-std::optional<std::string>
-load_config(
-  const FS::path& path,
-  const std::string& config_provenance,
-  GridderArgs<OPT_STRING_ARGS>& gridder_args) {
-
-  std::optional<std::string> result;
-  try {
-    auto node = YAML::LoadFile(path);
-    auto read_result = read_config(node);
-    std::visit(
-      overloaded {
-        [&path, &config_provenance, &result]
-        (std::forward_list<std::string>& invalid_tags) {
-          std::ostringstream oss;
-          oss << "Invalid configuration variable tags in file named by "
-              << config_provenance << std::endl
-              << " at '" << path << "': " << std::endl
-              << invalid_tags.front();
-          invalid_tags.pop_front();
-          std::for_each(
-            invalid_tags.begin(),
-            invalid_tags.end(),
-            [&oss](auto tg) { oss << ", " << tg; });
-          oss << std::endl;
-          result = oss.str();
-        },
-        [&gridder_args](GridderArgs<OPT_STRING_ARGS>& args) {
-          if (args.h5_path)
-            gridder_args.h5_path = args.h5_path.value();
-          if (args.echo)
-            gridder_args.echo = args.echo.value();
-          if (args.min_block)
-            gridder_args.min_block = args.min_block.value();
-          if (args.pa_step)
-            gridder_args.pa_step = args.pa_step.value();
-          if (args.w_planes)
-            gridder_args.w_planes = args.w_planes.value();
-        }
-      },
-      read_result);
-  } catch (const YAML::Exception& e) {
-    std::ostringstream oss;
-    oss << "Failed to parse configuration file named by "
-        << config_provenance << std::endl
-        << " at '" << path << "':" << std::endl
-        << e.what()
-        << std::endl;
-    result = oss.str();
-  }
-  return result;
-}
-
 template <typename CLASSIFY_ANTENNAS_TASK>
 class TopLevelTask {
 public:
 
   static const constexpr char* TASK_NAME = "TopLevelTask";
-
-  static bool
-  get_args(
-    const Legion::InputArgs& args,
-    GridderArgs<OPT_STRING_ARGS>& gridder_args) {
-
-    // first look for configuration file given by environment variable
-    const char* env_config_pathname =
-      std::getenv("HYPERION_GRIDDER_CONFIG");
-    if (env_config_pathname != nullptr) {
-      auto errs =
-        load_config(
-          env_config_pathname,
-          "HYPERION_GRIDDER_CONFIG environment variable",
-          gridder_args);
-      if (errs) {
-        std::cerr << errs.value();
-        return false;
-      }
-    }
-
-    // tokenize command line arguments
-    std::vector<std::pair<std::string, std::string>> arg_pairs;
-    for (int i = 1; i < args.argc;) {
-      std::string tag = args.argv[i++];
-      if (tag.substr(0, 2) == "--") {
-        std::optional<std::string> val;
-        tag = tag.substr(2);
-        auto eq = tag.find('=');
-        if (eq == std::string::npos) {
-          if (i < args.argc) {
-            val = args.argv[i++];
-            if (val.value() == "=") {
-              if (i < args.argc)
-                val = args.argv[i++];
-              else
-                val.reset();
-            }
-          }
-        } else {
-          val = tag.substr(eq + 1);
-          tag = tag.substr(0, eq);
-          if (val.value().size() == 0) {
-            if (i < args.argc)
-              val = args.argv[i++];
-            else
-              val.reset();
-          }
-        }
-        if (val) {
-          arg_pairs.emplace_back(tag, val.value());
-        } else {
-          std::cerr << "No value provided for argument '"
-                    << tag << "'" << std::endl;
-          return false;
-        }
-      }
-    }
-
-    // apply variables from config file before the rest of the command line
-    {
-      auto config =
-        std::find_if(
-          arg_pairs.begin(),
-          arg_pairs.end(),
-          [&gridder_args](auto& kv) {
-            return kv.first == gridder_args.config_path.tag;
-          });
-      if (config != arg_pairs.end()) {
-        auto errs =
-          load_config(
-            config->second,
-            (std::string("command line argument '")
-             + gridder_args.config_path.tag + "' value"),
-            gridder_args);
-        if (errs) {
-          std::cerr << errs.value();
-          return false;
-        }
-      }
-    }
-    // apply other variables from the command line
-    for (auto& [tag, val] : arg_pairs) {
-      std::vector<std::string> matches;
-      for (auto& tg : gridder_args.tags())
-        if (tg.substr(0, tag.size()) == tag)
-          matches.push_back(tg);
-      if (matches.size() == 1) {
-        auto match = matches.front();
-        if (match == gridder_args.h5_path.tag)
-          gridder_args.h5_path = val;
-        else if (match == gridder_args.pa_step.tag)
-          gridder_args.pa_step = val;
-        else if (match == gridder_args.w_planes.tag)
-          gridder_args.w_planes = val;
-        else if (match == gridder_args.min_block.tag)
-          gridder_args.min_block = val;
-        else if (match == gridder_args.echo.tag)
-          gridder_args.echo = val;
-        else if (match == gridder_args.config_path.tag)
-          gridder_args.config_path = val;
-        else
-          assert(false);
-      }
-      else {
-        if (matches.size() == 0)
-          std::cerr << "Unrecognized command line argument '"
-                    << tag << "'" << std::endl;
-        else
-          std::cerr << "Command line argument '"
-                    << tag << "' is a prefix of a more than one option"
-                    << std::endl;
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  template <typename T>
-  static std::ostringstream&
-  arg_error(std::ostringstream& oss, const T& arg, const std::string& reason) {
-    oss << "'" << arg.tag << "' value '" << arg.value()
-        << "': " << reason << std::endl;
-    return oss;
-  }
-
-  static std::optional<std::string>
-  validate_args(const GridderArgs<VALUE_ARGS>& args) {
-
-    std::ostringstream errs;
-    if (!FS::is_regular_file(args.h5_path.value()))
-      arg_error(errs, args.h5_path, "not a regular file");
-
-    switch (std::fpclassify(args.pa_step.value())) {
-    case FP_NORMAL:
-      if (std::abs(args.pa_step.value()) > PARALLACTIC_360)
-        arg_error(errs, args.pa_step, "not in valid range [-360, 360]");
-      break;
-    case FP_ZERO:
-    case FP_SUBNORMAL:
-      arg_error(errs, args.pa_step, "too small");
-      break;
-    default:
-      arg_error(errs, args.pa_step, "invalid");
-      break;
-    }
-
-    if (args.w_planes.value() <= INVALID_W_PROJ_PLANES_VALUE)
-      arg_error(
-        errs,
-        args.w_planes,
-        std::string("less than the minimum valid value of ")
-        + std::to_string(INVALID_W_PROJ_PLANES_VALUE + 1));
-    else if (args.w_planes.value() == AUTO_W_PROJ_PLANES_VALUE)
-      arg_error(
-        errs,
-        args.w_planes,
-        "automatic computation of the number of W-projection "
-        "planes is unimplemented");
-
-    if (args.min_block.value() == INVALID_MIN_BLOCK_SIZE_VALUE)
-      arg_error(
-        errs,
-        args.min_block,
-        "invalid, value must be at least one");
-
-    if (errs.str().size() > 0)
-      return errs.str();
-    return std::nullopt;
-  }
 
   static void
   base_impl(
@@ -1688,11 +1083,11 @@ public:
     hyperion::register_tasks(ctx, rt);
 
     // process command line arguments
-    std::optional<GridderArgs<VALUE_ARGS>> gridder_args;
+    std::optional<gridder::Args<gridder::VALUE_ARGS>> gridder_args;
     {
       const Legion::InputArgs& input_args = Legion::Runtime::get_input_args();
-      GridderArgs<OPT_STRING_ARGS> some_str_args = default_config();
-      if (get_args(input_args, some_str_args)) {
+      gridder::Args<gridder::OPT_STRING_ARGS> some_str_args = default_config();
+      if (gridder::get_args(input_args, some_str_args)) {
         if (!some_str_args.h5_path) {
           std::cerr << "Path to HDF5 data [--"
                     << some_str_args.h5_path.tag
@@ -1700,20 +1095,21 @@ public:
                     << std::endl;
           return;
         }
-        std::optional<GridderArgs<STRING_ARGS>> str_args =
+        std::optional<gridder::Args<gridder::STRING_ARGS>> str_args =
           some_str_args.as_complete();
         assert(str_args);
         try {
           // parse argument values as YAML values, so convert
-          // GridderArgs<STRING_ARGS> to GridderArgs<VALUE_ARGS> via YAML
-          gridder_args = as_args(str_args.value().as_node());
+          // gridder::Args<gridder::STRING_ARGS> to
+          // gridder::Args<gridder::VALUE_ARGS> via YAML
+          gridder_args = gridder::as_args(str_args.value().as_node());
         } catch (const YAML::Exception& e) {
           std::cerr << "Failed to parse some configuration values: " << std::endl
                     << e.what()
                     << std::endl;
           return;
         }
-        auto errstr = validate_args(gridder_args.value());
+        auto errstr = gridder::validate_args(gridder_args.value());
         if (errstr) {
           std::cerr << errstr.value() << std::endl;
           return;
@@ -1722,7 +1118,7 @@ public:
     }
     if (!gridder_args)
       return;
-    GridderArgs<VALUE_ARGS>* g_args = &gridder_args.value();
+    gridder::Args<gridder::VALUE_ARGS>* g_args = &gridder_args.value();
     g_args->pa_step = std::abs(g_args->pa_step.value());
 
     if (g_args->echo.value())

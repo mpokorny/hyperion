@@ -1,0 +1,32 @@
+/*
+ * Copyright 2019 Associated Universities, Inc. Washington DC, USA.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#include <hyperion/hyperion.h>
+
+#define FS CXX_FILESYSTEM_NAMESPACE
+
+#define PARALLACTIC_ANGLE_TYPE float
+#define PARALLACTIC_360 ((PARALLACTIC_ANGLE_TYPE)360.0)
+
+#define AUTO_W_PROJ_PLANES_VALUE -1
+#define INVALID_W_PROJ_PLANES_VALUE -2
+#define INVALID_MIN_BLOCK_SIZE_VALUE 0
+
+// Local Variables:
+// mode: c++
+// c-basic-offset: 2
+// fill-column: 80
+// indent-tabs-mode: nil
+// End:
