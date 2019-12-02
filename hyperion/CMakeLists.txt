@@ -139,7 +139,9 @@ list(APPEND HYPERION_SRC
   Table.h
   Table_c.cc
   Table_c.h
-  KeywordsBuilder.h)
+  KeywordsBuilder.h
+  MSFieldColumns.h
+  MSFieldColumns.cc)
 
 if(USE_CASACORE)
   list(APPEND HYPERION_SRC
