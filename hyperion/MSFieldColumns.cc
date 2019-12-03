@@ -64,7 +64,7 @@ MSFieldColumns::MSFieldColumns(
 
 #ifdef HYPERION_USE_CASACORE
   if (time_epoch_regions.size() > 0)
-    m_time_epoch =
+    m_time_ref =
       MeasRefDict::get<M_EPOCH>(
         MeasRefContainer::make_dict(
           ctx,
@@ -74,7 +74,7 @@ MSFieldColumns::MSFieldColumns(
         .get("Epoch").value());
 
   if (delay_dir_direction_regions.size() > 0)
-    m_delay_dir_direction =
+    m_delay_dir_ref =
       MeasRefDict::get<M_DIRECTION>(
         MeasRefContainer::make_dict(
           ctx,
@@ -84,7 +84,7 @@ MSFieldColumns::MSFieldColumns(
         .get("Direction").value());
 
   if (phase_dir_direction_regions.size() > 0)
-    m_phase_dir_direction =
+    m_phase_dir_ref =
       MeasRefDict::get<M_DIRECTION>(
         MeasRefContainer::make_dict(
           ctx,
@@ -94,7 +94,7 @@ MSFieldColumns::MSFieldColumns(
         .get("Direction").value());
 
   if (reference_dir_direction_regions.size() > 0)
-    m_reference_dir_direction =
+    m_reference_dir_ref =
       MeasRefDict::get<M_DIRECTION>(
         MeasRefContainer::make_dict(
           ctx,
@@ -105,8 +105,8 @@ MSFieldColumns::MSFieldColumns(
 #endif // HYPERION_USE_CASACORE
 }
 
-static cc::MDirection
-interpolateDirMeas(
+cc::MDirection
+MSFieldColumns::interpolateDirMeas(
   const std::vector<cc::MDirection>& dir_poly,
   double interTime,
   double timeOrigin) {
@@ -127,79 +127,6 @@ interpolateDirMeas(
     }
     return cc::MDirection(cc::MVDirection(dir), dir_poly[0].getRef());
   }
-}
-
-template <typename MF>
-static cc::MDirection
-dirMeas(
-  const DataType<HYPERION_TYPE_DOUBLE>::ValueType* dd,
-  const DataType<HYPERION_TYPE_INT>::ValueType& np,
-  const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t,
-  double interTime,
-  MF mf) {
-
-  // TODO: support ephemerides as in cc::MSFieldColumns
-  std::vector<cc::MDirection> dir_poly;
-  dir_poly.reserve(np + 1);
-  for (int i = 0; i < np + 1; ++i) {
-    dir_poly.push_back(mf(dd));
-    dd += 2;
-  }
-  return interpolateDirMeas(dir_poly, interTime, t);
-}
-
-cc::MDirection
-MSFieldColumns::delayDirMeas(
-  const DataType<HYPERION_TYPE_DOUBLE>::ValueType* dd,
-  const DataType<HYPERION_TYPE_INT>::ValueType& np,
-  const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t,
-  double interTime) const {
-
-  return
-    dirMeas(
-      dd,
-      np,
-      t,
-      interTime,
-      [this](const DataType<HYPERION_TYPE_DOUBLE>::ValueType* d) {
-        return delayDirMeas(d);
-      });
-}
-
-cc::MDirection
-MSFieldColumns::phaseDirMeas(
-  const DataType<HYPERION_TYPE_DOUBLE>::ValueType* dd,
-  const DataType<HYPERION_TYPE_INT>::ValueType& np,
-  const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t,
-  double interTime) const {
-
-  return
-    dirMeas(
-      dd,
-      np,
-      t,
-      interTime,
-      [this](const DataType<HYPERION_TYPE_DOUBLE>::ValueType* d) {
-        return phaseDirMeas(d);
-      });
-}
-
-cc::MDirection
-MSFieldColumns::referenceDirMeas(
-  const DataType<HYPERION_TYPE_DOUBLE>::ValueType* dd,
-  const DataType<HYPERION_TYPE_INT>::ValueType& np,
-  const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t,
-  double interTime) const {
-  
-  return
-    dirMeas(
-      dd,
-      np,
-      t,
-      interTime,
-      [this](const DataType<HYPERION_TYPE_DOUBLE>::ValueType* d) {
-        return referenceDirMeas(d);
-      });
 }
 
 // Local Variables:

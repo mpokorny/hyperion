@@ -20,6 +20,11 @@
 #include <hyperion/Column.h>
 
 #pragma GCC visibility push(default)
+# include <casacore/measures/Measures/MDirection.h>
+# include <casacore/measures/Measures/MCDirection.h>
+# include <casacore/measures/Measures/MEpoch.h>
+# include <casacore/measures/Measures/MCEpoch.h>
+# include <memory>
 # include <optional>
 # include <vector>
 #pragma GCC visibility pop
@@ -96,7 +101,7 @@ public:
     return m_name_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   NameAccessor<MODE, CHECK_BOUNDS>
   name() const {
     return
@@ -117,7 +122,7 @@ public:
     return m_code_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   CodeAccessor<MODE, CHECK_BOUNDS>
   code() const {
     return
@@ -138,7 +143,7 @@ public:
     return m_time_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   TimeAccessor<MODE, CHECK_BOUNDS>
   time() const {
     return
@@ -150,15 +155,99 @@ public:
   // TODO: timeQuant()?
 
 #ifdef HYPERION_USE_CASACORE
+  template <typename T>
+  class TimeMeasWriterMixin
+    : public T {
+  public:
+    using T::T;
+
+    void
+    write(
+      const Legion::Point<1, Legion::coord_t>& pt,
+      const casacore::MEpoch& val) {
+
+      auto t = T::m_convert(val);
+      T::m_time[pt] = t.get(MSFieldColumns::time_units).getValue();
+    }
+  };
+
+  template <typename T>
+  class TimeMeasReaderMixin
+    : public T {
+  public:
+    using T::T;
+
+    casacore::MEpoch
+    read(const Legion::Point<1,Legion::coord_t>& pt) const {
+      const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t = T::m_time[pt];
+      return
+        casacore::MEpoch(
+          casacore::Quantity(t, MSFieldColumns::time_units),
+          *T::m_ref);
+    }
+  };
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  class TimeMeasAccessorBase {
+  public:
+    TimeMeasAccessorBase(
+      const Legion::PhysicalRegion& region,
+      const std::shared_ptr<casacore::MeasRef<casacore::MEpoch>>& ref)
+      : m_time(region, Column::VALUE_FID)
+      , m_ref(ref) {
+      m_convert.setOut(*m_ref);
+    }
+
+  protected:
+
+    TimeAccessor<MODE, CHECK_BOUNDS> m_time;
+
+    std::shared_ptr<casacore::MeasRef<casacore::MEpoch>> m_ref;
+
+    casacore::MEpoch::Convert m_convert;
+  };
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  class TimeMeasAccessor
+    : public TimeMeasWriterMixin<TimeMeasAccessorBase<MODE, CHECK_BOUNDS>> {
+    // this implementation supports MODE=WRITE_ONLY and MODE=WRITE_DISCARD
+    typedef TimeMeasWriterMixin<TimeMeasAccessorBase<MODE, CHECK_BOUNDS>> T;
+  public:
+    using T::T;
+  };
+
+  template <bool CHECK_BOUNDS>
+  class TimeMeasAccessor<READ_ONLY, CHECK_BOUNDS>
+    : public TimeMeasReaderMixin<
+        TimeMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> {
+    typedef TimeMeasReaderMixin<
+      TimeMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> T;
+  public:
+    using T::T;
+  };
+
+  template <bool CHECK_BOUNDS>
+  class TimeMeasAccessor<READ_WRITE, CHECK_BOUNDS>
+    : public TimeMeasReaderMixin<
+        TimeMeasWriterMixin<
+          TimeMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> {
+    typedef TimeMeasReaderMixin<
+      TimeMeasWriterMixin<
+        TimeMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> T;
+  public:
+    using T::T;
+  };
+
   bool
   has_timeMeas() const {
-    return has_time() && m_time_epoch;
+    return has_time() && m_time_ref;
   }
 
-  casacore::MEpoch
-  timeMeas(const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t) const {
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  TimeMeasAccessor<MODE, CHECK_BOUNDS>
+  timeMeas() const {
     return
-      casacore::MEpoch(casacore::Quantity(t, time_units), *m_time_epoch);
+      TimeMeasAccessor<MODE, CHECK_BOUNDS>(m_time_region.value(), m_time_ref);
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -174,7 +263,7 @@ public:
     return m_num_poly_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   NumPolyAccessor<MODE, CHECK_BOUNDS>
   numPoly() const {
     return
@@ -195,7 +284,7 @@ public:
     return m_delay_dir_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   DelayDirAccessor<MODE, CHECK_BOUNDS>
   delayDir() const {
     return
@@ -205,46 +294,166 @@ public:
   }
 
 #ifdef HYPERION_USE_CASACORE
+  template <typename T>
+  class DelayDirWriterMixin
+    : public T {
+  public:
+    using T::T;
+
+    void
+    write(
+      const Legion::Point<1, Legion::coord_t>& pt,
+      std::vector<casacore::MDirection>& val) {
+
+      // until either the num_poly index space is writable or there's some
+      // convention to interpret a difference in polynomial order, the following
+      // precondition is intended to avoid unexpected results
+      auto np = T::num_poly[pt];
+      assert(val.size() == static_cast<unsigned>(np) + 1);
+
+      for (int i = 0; i < np + 1; ++i) {
+        auto d = T::m_convert(val[i]);
+        auto vs = d.getAngle(T::m_units).getValue();
+        T::m_delay_dir[Legion::Point<3>(pt[0], i, 0)] = vs[0];
+        T::m_delay_dir[Legion::Point<3>(pt[0], i, 1)] = vs[1];
+      }
+    }
+  };
+
+  template <typename T>
+  class DelayDirReaderMixin
+    : public T {
+  public:
+    using T::T;
+
+    casacore::MDirection
+    read(
+      const Legion::Point<1, Legion::coord_t>& pt,
+      double time=0.0) const {
+
+      const DataType<HYPERION_TYPE_DOUBLE>::ValueType* ds =
+        T::m_delay_dir.ptr(Legion::Point<3>(pt[0], 0, 0));
+
+      if (time == 0.0)
+        return to_mdirection(ds);
+
+      // TODO: support ephemerides as in casacore::MSFieldColumns
+      std::vector<casacore::MDirection> dir_poly;
+      auto np = T::m_num_poly[pt];
+      dir_poly.reserve(np + 1);
+      for (int i = 0; i < np + 1; ++i) {
+        dir_poly.push_back(to_mdirection(ds));
+        ds += 2;
+      }
+      return interpolateDirMeas(dir_poly, time, T::m_time[pt]);
+    }
+
+  private:
+
+    casacore::MDirection
+    to_mdirection(const DataType<HYPERION_TYPE_DOUBLE>::ValueType* ds) const {
+      return
+        casacore::MDirection(
+          casacore::Quantity(ds[0], T::m_units),
+          casacore::Quantity(ds[1], T::m_units),
+          *T::m_ref);
+    };
+  };
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  class DelayDirMeasAccessorBase {
+  public:
+    DelayDirMeasAccessorBase(
+      const char* units,
+      const Legion::PhysicalRegion& delay_dir_region,
+      const Legion::PhysicalRegion& num_poly_region,
+      const Legion::PhysicalRegion& time_region,
+      const std::shared_ptr<casacore::MeasRef<casacore::MDirection>>& ref)
+      : m_units(units)
+      , m_delay_dir(delay_dir_region, Column::VALUE_FID)
+      , m_num_poly(num_poly_region, Column::VALUE_FID)
+      , m_time(time_region, Column::VALUE_FID) {
+      m_convert.setOut(*ref);
+    }
+
+  private:
+
+    const char* m_units;
+
+    DelayDirAccessor<MODE, CHECK_BOUNDS> m_delay_dir;
+
+    NumPolyAccessor<READ_ONLY, CHECK_BOUNDS> m_num_poly;
+
+    TimeAccessor<READ_ONLY, CHECK_BOUNDS> m_time;
+
+    casacore::MDirection::Convert m_convert;
+
+  };
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  class DelayDirMeasAccessor
+    : public DelayDirWriterMixin<
+        DelayDirMeasAccessorBase<MODE, CHECK_BOUNDS>> {
+    // this implementation supports MODE=WRITE_ONLY and MODE=WRITE_DISCARD
+    typedef DelayDirWriterMixin<
+      DelayDirMeasAccessorBase<MODE, CHECK_BOUNDS>> T;
+  public:
+    using T::T;
+  };
+
+  template <bool CHECK_BOUNDS>
+  class DelayDirMeasAccessor<READ_ONLY, CHECK_BOUNDS>
+    : public DelayDirReaderMixin<
+        DelayDirMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> {
+    typedef DelayDirReaderMixin<
+      DelayDirMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> T;
+  public:
+    using T::T;
+  };
+
+  template <bool CHECK_BOUNDS>
+  class DelayDirMeasAccessor<READ_WRITE, CHECK_BOUNDS>
+    : public DelayDirReaderMixin<
+        DelayDirWriterMixin<
+          DelayDirMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> {
+    typedef DelayDirReaderMixin<
+      DelayDirWriterMixin<
+        DelayDirMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> T;
+  public:
+    using T::T;
+  };
+
   bool
   has_delayDirMeas() const {
-    return has_delayDir() && m_delay_dir_direction;
+    return has_delayDir() && m_delay_dir_ref
+      && has_numPoly() && has_time();
   }
 
-  casacore::MDirection
-  delayDirMeas(const DataType<HYPERION_TYPE_DOUBLE>::ValueType* dd) const {
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  DelayDirMeasAccessor<MODE, CHECK_BOUNDS>
+  delayDirMeas() const {
     return
-      casacore::MDirection(
-        casacore::Quantity(dd[0], delay_dir_units),
-        casacore::Quantity(dd[1], delay_dir_units),
-        *m_delay_dir_direction);
+      DelayDirMeasAccessor<MODE, CHECK_BOUNDS>(
+        delay_dir_units,
+        m_delay_dir_region.value(),
+        m_num_poly_region.value(),
+        m_time_region.value(),
+        m_delay_dir_ref);
   }
-
-  // Values dd, np, and t must be from the same row.
-  //
-  // TODO: Some alternatives are possible, but the ones I can think of require
-  // accessor arguments (with many privilege parameter variants), or creating a
-  // new logical region, neither of which I particularly like.
-  casacore::MDirection
-  delayDirMeas(
-    const DataType<HYPERION_TYPE_DOUBLE>::ValueType* dd,
-    const DataType<HYPERION_TYPE_INT>::ValueType& np,
-    const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t,
-    double interTime) const;
 #endif // HYPERION_USE_CASACORE
 
   //
   // PHASE_DIR
   //
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using PhaseDirAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 3, MODE, CHECK_BOUNDS>;
+  using PhaseDirAccessor = DelayDirAccessor<MODE, CHECK_BOUNDS>;
 
   bool
   has_phaseDir() const {
     return m_phase_dir_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   PhaseDirAccessor<MODE, CHECK_BOUNDS>
   phaseDir() const {
     return
@@ -254,42 +463,40 @@ public:
   }
 
 #ifdef HYPERION_USE_CASACORE
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  using PhaseDirMeasAccessor = DelayDirMeasAccessor<MODE, CHECK_BOUNDS>;
+
   bool
   has_phaseDirMeas() const {
-    return has_phaseDir() && m_phase_dir_direction;
+    return has_phaseDir() && m_phase_dir_ref
+      && has_numPoly() && has_time();
   }
 
-  casacore::MDirection
-  phaseDirMeas(const DataType<HYPERION_TYPE_DOUBLE>::ValueType* dd) const {
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  PhaseDirMeasAccessor<MODE, CHECK_BOUNDS>
+  phaseDirMeas() const {
     return
-      casacore::MDirection(
-        casacore::Quantity(dd[0], phase_dir_units),
-        casacore::Quantity(dd[1], phase_dir_units),
-        *m_phase_dir_direction);
+      PhaseDirMeasAccessor<MODE, CHECK_BOUNDS>(
+        phase_dir_units,
+        m_phase_dir_region.value(),
+        m_num_poly_region.value(),
+        m_time_region.value(),
+        m_phase_dir_ref);
   }
-
-  // Values dd, np, and t must be from the same row.
-  casacore::MDirection
-  phaseDirMeas(
-    const DataType<HYPERION_TYPE_DOUBLE>::ValueType* dd,
-    const DataType<HYPERION_TYPE_INT>::ValueType& np,
-    const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t,
-    double interTime) const;
 #endif // HYPERION_USE_CASACORE
 
   //
   // REFERENCE_DIR
   //
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using ReferenceDirAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 3, MODE, CHECK_BOUNDS>;
+  using ReferenceDirAccessor = DelayDirAccessor<MODE, CHECK_BOUNDS>;
 
   bool
   has_referenceDir() const {
     return m_reference_dir_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   ReferenceDirAccessor<MODE, CHECK_BOUNDS>
   referenceDir() const {
     return
@@ -299,27 +506,26 @@ public:
   }
 
 #ifdef HYPERION_USE_CASACORE
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  using ReferenceDirMeasAccessor = DelayDirMeasAccessor<MODE, CHECK_BOUNDS>;
+
   bool
   has_referenceDirMeas() const {
-    return has_referenceDir() && m_reference_dir_direction;
+    return has_referenceDir() && m_reference_dir_ref
+      && has_numPoly() && has_time();
   }
 
-  casacore::MDirection
-  referenceDirMeas(const DataType<HYPERION_TYPE_DOUBLE>::ValueType* dd) const {
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  ReferenceDirMeasAccessor<MODE, CHECK_BOUNDS>
+  referenceDirMeas() const {
     return
-      casacore::MDirection(
-        casacore::Quantity(dd[0], reference_dir_units),
-        casacore::Quantity(dd[1], reference_dir_units),
-        *m_reference_dir_direction);
+      ReferenceDirMeasAccessor<MODE, CHECK_BOUNDS>(
+        reference_dir_units,
+        m_reference_dir_region.value(),
+        m_num_poly_region.value(),
+        m_time_region.value(),
+        m_reference_dir_ref);
   }
-
-  // Values dd, np, and t must be from the same row.
-  casacore::MDirection
-  referenceDirMeas(
-    const DataType<HYPERION_TYPE_DOUBLE>::ValueType* dd,
-    const DataType<HYPERION_TYPE_INT>::ValueType& np,
-    const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t,
-    double interTime) const;
 #endif // HYPERION_USE_CASACORE
 
   //
@@ -334,7 +540,7 @@ public:
     return m_source_id_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   SourceIdAccessor<MODE, CHECK_BOUNDS>
   sourceId() const {
     return SourceIdAccessor<MODE, CHECK_BOUNDS>(
@@ -354,7 +560,7 @@ public:
     return m_ephemeris_id_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   EphemerisIdAccessor<MODE, CHECK_BOUNDS>
   ephemerisId() const {
     return EphemerisIdAccessor<MODE, CHECK_BOUNDS>(
@@ -374,7 +580,7 @@ public:
     return m_flag_row_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   FlagRowAccessor<MODE, CHECK_BOUNDS>
   flagRow() const {
     return
@@ -407,20 +613,21 @@ private:
   std::optional<Legion::PhysicalRegion> m_flag_row_region;
 
 #ifdef HYPERION_USE_CASACORE
-  std::shared_ptr<casacore::MeasRef<casacore::MEpoch>> m_time_epoch;
-#endif
-#ifdef HYPERION_USE_CASACORE
+  std::shared_ptr<casacore::MeasRef<casacore::MEpoch>> m_time_ref;
   std::shared_ptr<casacore::MeasRef<casacore::MDirection>>
-  m_delay_dir_direction;
-#endif
-#ifdef HYPERION_USE_CASACORE
+  m_delay_dir_ref;
   std::shared_ptr<casacore::MeasRef<casacore::MDirection>>
-  m_phase_dir_direction;
-#endif
-#ifdef HYPERION_USE_CASACORE
+  m_phase_dir_ref;
   std::shared_ptr<casacore::MeasRef<casacore::MDirection>>
-  m_reference_dir_direction;
+  m_reference_dir_ref;
 #endif
+
+  static casacore::MDirection
+  interpolateDirMeas(
+    const std::vector<casacore::MDirection>& dir_poly,
+    double interTime,
+    double timeOrigin);
+
 };
 
 } // end namespace hyperion

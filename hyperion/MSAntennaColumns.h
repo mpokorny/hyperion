@@ -20,13 +20,16 @@
 #include <hyperion/Column.h>
 
 #pragma GCC visibility push(default)
+# include <casacore/measures/Measures/MPosition.h>
+# include <casacore/measures/Measures/MCPosition.h>
+# include <memory>
 # include <optional>
 # include <vector>
 #pragma GCC visibility pop
 
 namespace hyperion {
 
-class MSAntennaColumns {
+class HYPERION_API MSAntennaColumns {
 public:
 
   MSAntennaColumns(
@@ -89,7 +92,7 @@ public:
     return m_name_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   NameAccessor<MODE, CHECK_BOUNDS>
   name() const {
     return
@@ -110,7 +113,7 @@ public:
     return m_station_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   StationAccessor<MODE, CHECK_BOUNDS>
   station() const {
     return
@@ -131,7 +134,7 @@ public:
     return m_type_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   TypeAccessor<MODE, CHECK_BOUNDS>
   type() const {
     return
@@ -152,7 +155,7 @@ public:
     return m_mount_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   MountAccessor<MODE, CHECK_BOUNDS>
   mount() const {
     return
@@ -173,7 +176,7 @@ public:
     return m_position_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE_ONLY, bool CHECK_BOUNDS=false>
   PositionAccessor<MODE, CHECK_BOUNDS>
   position() const {
     return
@@ -183,19 +186,115 @@ public:
   }
 
 #ifdef HYPERION_USE_CASACORE
+
+  template <typename T>
+  class PositionMeasWriterMixin
+    : public T {
+  public:
+    using T::T;
+
+    void
+    write(
+      const Legion::Point<1, Legion::coord_t>& pt,
+      const casacore::MPosition& val) {
+
+      auto p = T::m_convert(val);
+      auto vs = p.get(*T::m_units).getValue();
+      T::m_position[Legion::Point<2>(pt[0], 0)] = vs[0];
+      T::m_position[Legion::Point<2>(pt[0], 1)] = vs[1];
+      T::m_position[Legion::Point<2>(pt[0], 2)] = vs[2];
+    }
+  };
+
+  template <typename T>
+  class PositionMeasReaderMixin
+    : public T {
+  public:
+    using T::T;
+
+    casacore::MPosition
+    read(const Legion::Point<1,Legion::coord_t>& pt) const {
+
+      const DataType<HYPERION_TYPE_DOUBLE>::ValueType* mp =
+        T::m_position.ptr(Legion::Point<2>(pt[0], 0));
+      return
+        casacore::MPosition(
+          casacore::Quantity(mp[0], *T::m_units),
+          casacore::Quantity(mp[1], *T::m_units),
+          casacore::Quantity(mp[2], *T::m_units),
+          *T::m_ref);
+    }
+  };
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  class PositionMeasAccessorBase {
+  public:
+    PositionMeasAccessorBase(
+      const char* units,
+      const Legion::PhysicalRegion& region,
+      const std::shared_ptr<casacore::MeasRef<casacore::MPosition>>& ref)
+      : m_units(units)
+      , m_position(region, Column::VALUE_FID)
+      , m_ref(ref) {
+      m_convert.setOut(*m_ref);
+    }
+
+  protected:
+
+    const char* m_units;
+
+    PositionAccessor<MODE, CHECK_BOUNDS> m_position;
+
+    std::shared_ptr<casacore::MeasRef<casacore::MPosition>> m_ref;
+
+    casacore::MPosition::Convert m_convert;
+  };
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  class PositionMeasAccessor:
+    public PositionMeasWriterMixin<
+      PositionMeasAccessorBase<MODE, CHECK_BOUNDS>> {
+    typedef PositionMeasWriterMixin<
+      PositionMeasAccessorBase<MODE, CHECK_BOUNDS>> T;
+  public:
+    using T::T;
+  };
+
+  template <bool CHECK_BOUNDS>
+  class PositionMeasAccessor<READ_ONLY, CHECK_BOUNDS>
+    : public PositionMeasReaderMixin<
+        PositionMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> {
+    typedef PositionMeasReaderMixin<
+      PositionMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> T;
+  public:
+    using T::T;
+  };
+
+  template <bool CHECK_BOUNDS>
+  class PositionMeasAccessor<READ_WRITE, CHECK_BOUNDS>
+    : public PositionMeasReaderMixin<
+        PositionMeasWriterMixin<
+          PositionMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> {
+    typedef PositionMeasReaderMixin<
+      PositionMeasWriterMixin<
+        PositionMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> T;
+  public:
+    using T::T;
+  };
+
   bool
   has_positionMeas() const {
-    return has_position() && m_position_position;
+    return has_position() && m_position_ref;
   }
 
-  casacore::MPosition
-  positionMeas(const DataType<HYPERION_TYPE_DOUBLE>::ValueType* dd) const {
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  PositionMeasAccessor<MODE, CHECK_BOUNDS>
+  positionMeas() const {
     return
-      casacore::MPosition(
-        casacore::Quantity(dd[0], position_units),
-        casacore::Quantity(dd[1], position_units),
-        casacore::Quantity(dd[2], position_units),
-        *m_position_position);
+      PositionMeasAccessor<MODE, CHECK_BOUNDS>(
+        position_units,
+        m_position_region.value(),
+        m_position_ref);
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -203,15 +302,14 @@ public:
   // OFFSET
   //
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using OffsetAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 2, MODE, CHECK_BOUNDS>;
+  using OffsetAccessor = PositionAccessor<MODE, CHECK_BOUNDS>;
 
   bool
   has_offset() const {
     return m_offset_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   OffsetAccessor<MODE, CHECK_BOUNDS>
   offset() const {
     return
@@ -221,19 +319,22 @@ public:
   }
 
 #ifdef HYPERION_USE_CASACORE
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  using OffsetMeasAccessor = PositionMeasAccessor<MODE, CHECK_BOUNDS>;
+
   bool
   has_offsetMeas() const {
-    return has_offset() && m_offset_position;
+    return has_offset() && m_offset_ref;
   }
 
-  casacore::MPosition
-  offsetMeas(const DataType<HYPERION_TYPE_DOUBLE>::ValueType* dd) const {
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  OffsetMeasAccessor<MODE, CHECK_BOUNDS>
+  offsetMeas() const {
     return
-      casacore::MPosition(
-        casacore::Quantity(dd[0], offset_units),
-        casacore::Quantity(dd[1], offset_units),
-        casacore::Quantity(dd[2], offset_units),
-        *m_offset_position);
+      OffsetMeasAccessor<MODE, CHECK_BOUNDS>(
+        offset_units,
+        m_offset_region.value(),
+        m_offset_ref);
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -249,7 +350,7 @@ public:
     return m_dish_diameter_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   DishDiameterAccessor<MODE, CHECK_BOUNDS>
   dishDiameter() const {
     return
@@ -270,7 +371,7 @@ public:
     return m_orbit_id_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   OrbitIdAccessor<MODE, CHECK_BOUNDS>
   orbitId() const {
     return
@@ -291,7 +392,7 @@ public:
     return m_mean_orbit_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   MeanOrbitAccessor<MODE, CHECK_BOUNDS>
   meanOrbit() const {
     return
@@ -312,7 +413,7 @@ public:
     return m_phased_array_id_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   PhasedArrayIdAccessor<MODE, CHECK_BOUNDS>
   phasedArrayId() const {
     return
@@ -333,7 +434,7 @@ public:
     return m_flag_row_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE=READ_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   FlagRowAccessor<MODE, CHECK_BOUNDS>
   flagRow() const {
     return
@@ -366,11 +467,9 @@ private:
 
 #ifdef HYPERION_USE_CASACORE
   std::shared_ptr<casacore::MeasRef<casacore::MPosition>>
-  m_position_position;
-#endif
-#ifdef HYPERION_USE_CASACORE
+  m_position_ref;
   std::shared_ptr<casacore::MeasRef<casacore::MPosition>>
-  m_offset_position;
+  m_offset_ref;
 #endif
 };
 

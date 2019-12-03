@@ -55,7 +55,7 @@ MSAntennaColumns::MSAntennaColumns(
 
 #ifdef HYPERION_USE_CASACORE
   if (position_position_regions.size() > 0)
-    m_position_position =
+    m_position_ref =
       MeasRefDict::get<M_POSITION>(
         MeasRefContainer::make_dict(
           ctx,
@@ -65,7 +65,7 @@ MSAntennaColumns::MSAntennaColumns(
         .get("Position").value());
 
   if (offset_position_regions.size() > 0)
-    m_offset_position =
+    m_offset_ref =
       MeasRefDict::get<M_POSITION>(
         MeasRefContainer::make_dict(
           ctx,
