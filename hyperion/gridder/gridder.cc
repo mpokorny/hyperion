@@ -172,30 +172,13 @@ template <MSTables T>
 struct TableColumns {
   //typedef ColEnums;
   static const std::array<const char*, 0> column_names;
-  static const char* table_name;
 };
 
 template <MSTables T>
 const std::array<const char*, 0> TableColumns<T>::column_names;
 
-template <MSTables T>
-const char* TableColumns<T>::table_name = "";
-
-template <typename T>
-struct WithColumnLookup {
-  static unsigned
-  column_offset(const std::string& name) {
-    auto p = std::find(T::column_names.begin(), T::column_names.end(), name);
-    if (p == T::column_names.end())
-      throw std::domain_error(
-        "column '" + name + "' not present in table '" + T::table_name + "'");
-    return std::distance(T::column_names.begin(), p);
-  }
-};
-
 template <>
-struct TableColumns<MS_ANTENNA>
-  : public WithColumnLookup<TableColumns<MS_ANTENNA>> {
+struct TableColumns<MS_ANTENNA> {
   typedef enum {
     NAME,
     STATION,
@@ -213,12 +196,10 @@ struct TableColumns<MS_ANTENNA>
     "DISH_DIAMETER",
     "POSITION"
   };
-  static const constexpr char* table_name = MSTable<MS_ANTENNA>::name;
 };
 
 template <>
-struct TableColumns<MS_DATA_DESCRIPTION>
-  : public WithColumnLookup<TableColumns<MS_DATA_DESCRIPTION>> {
+struct TableColumns<MS_DATA_DESCRIPTION> {
   typedef enum {
     SPECTRAL_WINDOW_ID,
     POLARIZATION_ID,
@@ -228,12 +209,10 @@ struct TableColumns<MS_DATA_DESCRIPTION>
     "SPECTRAL_WINDOW_ID",
     "POLARIZATION_ID"
   };
-  static const constexpr char* table_name = MSTable<MS_DATA_DESCRIPTION>::name;
 };
 
 template <>
-struct TableColumns<MS_FEED>
-  : public WithColumnLookup<TableColumns<MS_FEED>> {
+struct TableColumns<MS_FEED> {
   typedef enum {
     ANTENNA_ID,
     FEED_ID,
@@ -281,12 +260,31 @@ struct TableColumns<MS_FEED>
     FEED_FEED_ID,
     FEED_SPECTRAL_WINDOW_ID
   };
-  static const constexpr char* table_name = MSTable<MS_FEED>::name;
 };
 
 template <>
-struct TableColumns<MS_MAIN>
-  : public WithColumnLookup<TableColumns<MS_MAIN>> {
+struct TableColumns<MS_FIELD> {
+  typedef enum {
+    TIME,
+    NUM_POLY,
+    DELAY_DIR,
+    PHASE_DIR,
+    REFERENCE_DIR,
+    SOURCE_ID,
+    NUM_COLUMNS
+  } col;
+  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
+    "TIME",
+    "NUM_POLY",
+    "DELAY_DIR",
+    "PHASE_DIR",
+    "REFERENCE_DIR",
+    "SORUCE_ID"
+  };
+};
+
+template <>
+struct TableColumns<MS_MAIN> {
   typedef enum {
     TIME,
     ANTENNA1,
@@ -312,12 +310,10 @@ struct TableColumns<MS_MAIN>
     "SIGMA",
     "FLAG"
   };
-  static const constexpr char* table_name = MSTable<MS_MAIN>::name;
 };
 
 template <>
-struct TableColumns<MS_POLARIZATION>
-  : public WithColumnLookup<TableColumns<MS_POLARIZATION>> {
+struct TableColumns<MS_POLARIZATION> {
   typedef enum {
     NUM_CORR,
     NUM_COLUMNS
@@ -325,12 +321,10 @@ struct TableColumns<MS_POLARIZATION>
   static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
     "NUM_CORR",
   };
-  static const constexpr char* table_name = MSTable<MS_POLARIZATION>::name;
 };
 
 template <>
-struct TableColumns<MS_SPECTRAL_WINDOW>
-  : public WithColumnLookup<TableColumns<MS_SPECTRAL_WINDOW>> {
+struct TableColumns<MS_SPECTRAL_WINDOW> {
   typedef enum {
     NUM_CHAN,
     REF_FREQUENCY,
@@ -344,7 +338,6 @@ struct TableColumns<MS_SPECTRAL_WINDOW>
     "CHAN_FREQ",
     "CHAN_WIDTH"
   };
-  static const constexpr char* table_name = MSTable<MS_SPECTRAL_WINDOW>::name;
 };
 
 #define COLUMN_NAME(T, C) TableColumns<T>::column_names[TableColumns<T>::C]
