@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <hyperion/MSFieldColumns.h>
+#include <hyperion/MSTableColumns.h>
 #include <hyperion/MeasRefContainer.h>
 #include <hyperion/MeasRefDict.h>
 
@@ -24,84 +25,73 @@ using namespace Legion;
 
 namespace cc = casacore;
 
+#define COL(C) HYPERION_COLUMN_NAME(FIELD, C)
+
 MSFieldColumns::MSFieldColumns(
   Context ctx,
   Runtime* rt,
   const RegionRequirement& rows_requirement,
-  const std::optional<PhysicalRegion>& name_region,
-  const std::optional<PhysicalRegion>& code_region,
-  const std::optional<PhysicalRegion>& time_region,
-#ifdef HYPERION_USE_CASACORE
-  const std::vector<PhysicalRegion>& time_epoch_regions,
-#endif
-  const std::optional<PhysicalRegion>& num_poly_region,
-  const std::optional<PhysicalRegion>& delay_dir_region,
-#ifdef HYPERION_USE_CASACORE
-  const std::vector<PhysicalRegion>& delay_dir_direction_regions,
-#endif
-  const std::optional<PhysicalRegion>& phase_dir_region,
-#ifdef HYPERION_USE_CASACORE
-  const std::vector<PhysicalRegion>& phase_dir_direction_regions,
-#endif
-  const std::optional<PhysicalRegion>& reference_dir_region,
-#ifdef HYPERION_USE_CASACORE
-  const std::vector<PhysicalRegion>& reference_dir_direction_regions,
-#endif
-  const std::optional<PhysicalRegion>& source_id_region,
-  const std::optional<PhysicalRegion>& ephemeris_id_region,
-  const std::optional<PhysicalRegion>& flag_row_region)
-  : m_rows_requirement(rows_requirement)
-  , m_name_region(name_region)
-  , m_code_region(code_region)
-  , m_time_region(time_region)
-  , m_num_poly_region(num_poly_region)
-  , m_delay_dir_region(delay_dir_region)
-  , m_phase_dir_region(phase_dir_region)
-  , m_reference_dir_region(reference_dir_region)
-  , m_source_id_region(source_id_region)
-  , m_ephemeris_id_region(ephemeris_id_region)
-  , m_flag_row_region(flag_row_region) {
+  const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&
+  regions)
+  : m_rows_requirement(rows_requirement) {
+
+  if (regions.count(COL(NAME)) > 0)
+    m_name_region = regions.at(COL(NAME))[0];
+  if (regions.count(COL(CODE)) > 0)
+    m_code_region = regions.at(COL(CODE))[0];
+  if (regions.count(COL(TIME)) > 0)
+    m_time_region = regions.at(COL(TIME))[0];
+  if (regions.count(COL(NUM_POLY)) > 0)
+    m_num_poly_region = regions.at(COL(NUM_POLY))[0];
+  if (regions.count(COL(DELAY_DIR)) > 0)
+    m_delay_dir_region = regions.at(COL(DELAY_DIR))[0];
+  if (regions.count(COL(PHASE_DIR)) > 0)
+    m_phase_dir_region = regions.at(COL(PHASE_DIR))[0];
+  if (regions.count(COL(REFERENCE_DIR)) > 0)
+    m_reference_dir_region = regions.at(COL(REFERENCE_DIR))[0];
+  if (regions.count(COL(SOURCE_ID)) > 0)
+    m_source_id_region = regions.at(COL(SOURCE_ID))[0];
+  if (regions.count(COL(EPHEMERIS_ID)) > 0)
+    m_ephemeris_id_region = regions.at(COL(EPHEMERIS_ID))[0];
+  if (regions.count(COL(FLAG_ROW)) > 0)
+    m_flag_row_region = regions.at(COL(FLAG_ROW))[0];
 
 #ifdef HYPERION_USE_CASACORE
-  if (time_epoch_regions.size() > 0)
-    m_time_ref =
-      MeasRefDict::get<M_EPOCH>(
-        MeasRefContainer::make_dict(
-          ctx,
-          rt,
-          time_epoch_regions.begin(),
-          time_epoch_regions.end())
-        .get("Epoch").value());
+  if (regions.count("TIME_MEAS_REF") > 0) {
+    auto prs = regions.at("TIME_MEAS_REF");
+    if (prs.size() > 0)
+      m_time_mr =
+        MeasRefDict::get<M_EPOCH>(
+          MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+          .get("Epoch").value());
+  }
 
-  if (delay_dir_direction_regions.size() > 0)
-    m_delay_dir_ref =
-      MeasRefDict::get<M_DIRECTION>(
-        MeasRefContainer::make_dict(
-          ctx,
-          rt,
-          delay_dir_direction_regions.begin(),
-          delay_dir_direction_regions.end())
-        .get("Direction").value());
+  if (regions.count("DELAY_DIR_MEAS_REF") > 0) {
+    auto prs = regions.at("DELAY_DIR_MEAS_REF");
+    if (prs.size() > 0)
+      m_delay_dir_mr =
+        MeasRefDict::get<M_DIRECTION>(
+          MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+          .get("Direction").value());
+  }
 
-  if (phase_dir_direction_regions.size() > 0)
-    m_phase_dir_ref =
-      MeasRefDict::get<M_DIRECTION>(
-        MeasRefContainer::make_dict(
-          ctx,
-          rt,
-          phase_dir_direction_regions.begin(),
-          phase_dir_direction_regions.end())
-        .get("Direction").value());
+  if (regions.count("PHASE_DIR_MEAS_REF") > 0) {
+    auto prs = regions.at("PHASE_DIR_MEAS_REF");
+    if (prs.size() > 0)
+      m_phase_dir_mr =
+        MeasRefDict::get<M_DIRECTION>(
+          MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+          .get("Direction").value());
+  }
 
-  if (reference_dir_direction_regions.size() > 0)
-    m_reference_dir_ref =
-      MeasRefDict::get<M_DIRECTION>(
-        MeasRefContainer::make_dict(
-          ctx,
-          rt,
-          reference_dir_direction_regions.begin(),
-          reference_dir_direction_regions.end())
-        .get("Direction").value());
+  if (regions.count("REFERENCE_DIR_MEAS_REF") > 0) {
+    auto prs = regions.at("REFERENCE_DIR_MEAS_REF");
+    if (prs.size() > 0)
+      m_reference_dir_mr =
+        MeasRefDict::get<M_DIRECTION>(
+          MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+          .get("Direction").value());
+  }
 #endif // HYPERION_USE_CASACORE
 }
 

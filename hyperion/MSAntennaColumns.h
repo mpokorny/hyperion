@@ -24,6 +24,7 @@
 # include <casacore/measures/Measures/MCPosition.h>
 # include <memory>
 # include <optional>
+# include <unordered_map>
 # include <vector>
 #pragma GCC visibility pop
 
@@ -36,25 +37,8 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const Legion::RegionRequirement& rows_requirement,
-    const std::optional<Legion::PhysicalRegion>& name_region,
-    const std::optional<Legion::PhysicalRegion>& station_region,
-    const std::optional<Legion::PhysicalRegion>& type_region,
-    const std::optional<Legion::PhysicalRegion>& mount_region,
-    const std::optional<Legion::PhysicalRegion>& position_region,
-#ifdef HYPERION_USE_CASACORE
-    const std::vector<Legion::PhysicalRegion>&
-    position_position_regions,
-#endif
-    const std::optional<Legion::PhysicalRegion>& offset_region,
-#ifdef HYPERION_USE_CASACORE
-    const std::vector<Legion::PhysicalRegion>&
-    offset_position_regions,
-#endif
-    const std::optional<Legion::PhysicalRegion>& dish_diameter_region,
-    const std::optional<Legion::PhysicalRegion>& orbit_id_region,
-    const std::optional<Legion::PhysicalRegion>& mean_orbit_region,
-    const std::optional<Legion::PhysicalRegion>& phased_array_id_region,
-    const std::optional<Legion::PhysicalRegion>& flag_row_region);
+    const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&
+    regions);
 
 private:
 
@@ -176,7 +160,7 @@ public:
     return m_position_region.has_value();
   }
 
-  template <legion_privilege_mode_t MODE_ONLY, bool CHECK_BOUNDS=false>
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   PositionAccessor<MODE, CHECK_BOUNDS>
   position() const {
     return
@@ -222,7 +206,7 @@ public:
           casacore::Quantity(mp[0], *T::m_units),
           casacore::Quantity(mp[1], *T::m_units),
           casacore::Quantity(mp[2], *T::m_units),
-          *T::m_ref);
+          *T::m_mr);
     }
   };
 
@@ -232,11 +216,11 @@ public:
     PositionMeasAccessorBase(
       const char* units,
       const Legion::PhysicalRegion& region,
-      const std::shared_ptr<casacore::MeasRef<casacore::MPosition>>& ref)
+      const std::shared_ptr<casacore::MeasRef<casacore::MPosition>>& mr)
       : m_units(units)
       , m_position(region, Column::VALUE_FID)
-      , m_ref(ref) {
-      m_convert.setOut(*m_ref);
+      , m_mr(mr) {
+      m_convert.setOut(*m_mr);
     }
 
   protected:
@@ -245,7 +229,7 @@ public:
 
     PositionAccessor<MODE, CHECK_BOUNDS> m_position;
 
-    std::shared_ptr<casacore::MeasRef<casacore::MPosition>> m_ref;
+    std::shared_ptr<casacore::MeasRef<casacore::MPosition>> m_mr;
 
     casacore::MPosition::Convert m_convert;
   };
@@ -284,7 +268,7 @@ public:
 
   bool
   has_positionMeas() const {
-    return has_position() && m_position_ref;
+    return has_position() && m_position_mr;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -294,7 +278,7 @@ public:
       PositionMeasAccessor<MODE, CHECK_BOUNDS>(
         position_units,
         m_position_region.value(),
-        m_position_ref);
+        m_position_mr);
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -324,7 +308,7 @@ public:
 
   bool
   has_offsetMeas() const {
-    return has_offset() && m_offset_ref;
+    return has_offset() && m_offset_mr;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -334,7 +318,7 @@ public:
       OffsetMeasAccessor<MODE, CHECK_BOUNDS>(
         offset_units,
         m_offset_region.value(),
-        m_offset_ref);
+        m_offset_mr);
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -466,10 +450,8 @@ private:
   std::optional<Legion::PhysicalRegion> m_flag_row_region;
 
 #ifdef HYPERION_USE_CASACORE
-  std::shared_ptr<casacore::MeasRef<casacore::MPosition>>
-  m_position_ref;
-  std::shared_ptr<casacore::MeasRef<casacore::MPosition>>
-  m_offset_ref;
+  std::shared_ptr<casacore::MeasRef<casacore::MPosition>> m_position_mr;
+  std::shared_ptr<casacore::MeasRef<casacore::MPosition>> m_offset_mr;
 #endif
 };
 

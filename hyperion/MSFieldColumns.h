@@ -26,6 +26,7 @@
 # include <casacore/measures/Measures/MCEpoch.h>
 # include <memory>
 # include <optional>
+# include <unordered_map>
 # include <vector>
 #pragma GCC visibility pop
 
@@ -38,32 +39,8 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const Legion::RegionRequirement& rows_requirement,
-    const std::optional<Legion::PhysicalRegion>& name_region,
-    const std::optional<Legion::PhysicalRegion>& code_region,
-    const std::optional<Legion::PhysicalRegion>& time_region,
-#ifdef HYPERION_USE_CASACORE
-    const std::vector<Legion::PhysicalRegion>&
-      time_epoch_regions,
-#endif
-    const std::optional<Legion::PhysicalRegion>& num_poly_region,
-    const std::optional<Legion::PhysicalRegion>& delay_dir_region,
-#ifdef HYPERION_USE_CASACORE
-    const std::vector<Legion::PhysicalRegion>&
-      delay_dir_direction_regions,
-#endif
-    const std::optional<Legion::PhysicalRegion>& phase_dir_region,
-#ifdef HYPERION_USE_CASACORE
-    const std::vector<Legion::PhysicalRegion>&
-      phase_dir_direction_regions,
-#endif
-    const std::optional<Legion::PhysicalRegion>& reference_dir_region,
-#ifdef HYPERION_USE_CASACORE
-    const std::vector<Legion::PhysicalRegion>&
-      reference_dir_direction_regions,
-#endif
-    const std::optional<Legion::PhysicalRegion>& source_id_region,
-    const std::optional<Legion::PhysicalRegion>& ephemeris_id_region,
-    const std::optional<Legion::PhysicalRegion>& flag_row_region);
+    const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&
+    regions);
 
 private:
 
@@ -183,7 +160,7 @@ public:
       return
         casacore::MEpoch(
           casacore::Quantity(t, MSFieldColumns::time_units),
-          *T::m_ref);
+          *T::m_mr);
     }
   };
 
@@ -192,17 +169,17 @@ public:
   public:
     TimeMeasAccessorBase(
       const Legion::PhysicalRegion& region,
-      const std::shared_ptr<casacore::MeasRef<casacore::MEpoch>>& ref)
+      const std::shared_ptr<casacore::MeasRef<casacore::MEpoch>>& mr)
       : m_time(region, Column::VALUE_FID)
-      , m_ref(ref) {
-      m_convert.setOut(*m_ref);
+      , m_mr(mr) {
+      m_convert.setOut(*m_mr);
     }
 
   protected:
 
     TimeAccessor<MODE, CHECK_BOUNDS> m_time;
 
-    std::shared_ptr<casacore::MeasRef<casacore::MEpoch>> m_ref;
+    std::shared_ptr<casacore::MeasRef<casacore::MEpoch>> m_mr;
 
     casacore::MEpoch::Convert m_convert;
   };
@@ -240,14 +217,14 @@ public:
 
   bool
   has_timeMeas() const {
-    return has_time() && m_time_ref;
+    return has_time() && m_time_mr;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   TimeMeasAccessor<MODE, CHECK_BOUNDS>
   timeMeas() const {
     return
-      TimeMeasAccessor<MODE, CHECK_BOUNDS>(m_time_region.value(), m_time_ref);
+      TimeMeasAccessor<MODE, CHECK_BOUNDS>(m_time_region.value(), m_time_mr);
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -356,7 +333,7 @@ public:
         casacore::MDirection(
           casacore::Quantity(ds[0], T::m_units),
           casacore::Quantity(ds[1], T::m_units),
-          *T::m_ref);
+          *T::m_mr);
     };
   };
 
@@ -368,12 +345,12 @@ public:
       const Legion::PhysicalRegion& delay_dir_region,
       const Legion::PhysicalRegion& num_poly_region,
       const Legion::PhysicalRegion& time_region,
-      const std::shared_ptr<casacore::MeasRef<casacore::MDirection>>& ref)
+      const std::shared_ptr<casacore::MeasRef<casacore::MDirection>>& mr)
       : m_units(units)
       , m_delay_dir(delay_dir_region, Column::VALUE_FID)
       , m_num_poly(num_poly_region, Column::VALUE_FID)
       , m_time(time_region, Column::VALUE_FID) {
-      m_convert.setOut(*ref);
+      m_convert.setOut(*mr);
     }
 
   private:
@@ -425,7 +402,7 @@ public:
 
   bool
   has_delayDirMeas() const {
-    return has_delayDir() && m_delay_dir_ref
+    return has_delayDir() && m_delay_dir_mr
       && has_numPoly() && has_time();
   }
 
@@ -438,7 +415,7 @@ public:
         m_delay_dir_region.value(),
         m_num_poly_region.value(),
         m_time_region.value(),
-        m_delay_dir_ref);
+        m_delay_dir_mr);
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -468,7 +445,7 @@ public:
 
   bool
   has_phaseDirMeas() const {
-    return has_phaseDir() && m_phase_dir_ref
+    return has_phaseDir() && m_phase_dir_mr
       && has_numPoly() && has_time();
   }
 
@@ -481,7 +458,7 @@ public:
         m_phase_dir_region.value(),
         m_num_poly_region.value(),
         m_time_region.value(),
-        m_phase_dir_ref);
+        m_phase_dir_mr);
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -511,7 +488,7 @@ public:
 
   bool
   has_referenceDirMeas() const {
-    return has_referenceDir() && m_reference_dir_ref
+    return has_referenceDir() && m_reference_dir_mr
       && has_numPoly() && has_time();
   }
 
@@ -524,7 +501,7 @@ public:
         m_reference_dir_region.value(),
         m_num_poly_region.value(),
         m_time_region.value(),
-        m_reference_dir_ref);
+        m_reference_dir_mr);
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -613,13 +590,10 @@ private:
   std::optional<Legion::PhysicalRegion> m_flag_row_region;
 
 #ifdef HYPERION_USE_CASACORE
-  std::shared_ptr<casacore::MeasRef<casacore::MEpoch>> m_time_ref;
-  std::shared_ptr<casacore::MeasRef<casacore::MDirection>>
-  m_delay_dir_ref;
-  std::shared_ptr<casacore::MeasRef<casacore::MDirection>>
-  m_phase_dir_ref;
-  std::shared_ptr<casacore::MeasRef<casacore::MDirection>>
-  m_reference_dir_ref;
+  std::shared_ptr<casacore::MeasRef<casacore::MEpoch>> m_time_mr;
+  std::shared_ptr<casacore::MeasRef<casacore::MDirection>> m_delay_dir_mr;
+  std::shared_ptr<casacore::MeasRef<casacore::MDirection>> m_phase_dir_mr;
+  std::shared_ptr<casacore::MeasRef<casacore::MDirection>> m_reference_dir_mr;
 #endif
 
   static casacore::MDirection
