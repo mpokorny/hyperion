@@ -83,7 +83,7 @@ using namespace hyperion;
     return static_cast<unsigned>(MSTable<MS_##T>::LAST_AXIS) + 1;       \
   }
 
-FOREACH_MS_TABLE_Tt(TABLE_FUNCTION_DEFNS);
+HYPERION_FOREACH_MS_TABLE_Tt(TABLE_FUNCTION_DEFNS);
 
 // Local Variables:
 // mode: c++

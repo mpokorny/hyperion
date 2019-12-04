@@ -2934,7 +2934,7 @@ Table::from_ms(
         hyperion:: template from_ms<MS_##N>(ctx, runtime, path, column_selections); \
   } while (0);
 
-  HYPERION_FOREACH_MSTABLE(FROM_MS_TABLE);
+  HYPERION_FOREACH_MS_TABLE(FROM_MS_TABLE);
 
   // try to read as main table
   return

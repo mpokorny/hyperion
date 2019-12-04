@@ -34,26 +34,6 @@ namespace hyperion {
 
 typedef ::ms_tables_t MSTables;
 
-#define HYPERION_FOREACH_MSTABLE(FUNC) \
-  FUNC(MAIN)              \
-  FUNC(ANTENNA) \
-  FUNC(DATA_DESCRIPTION) \
-  FUNC(DOPPLER) \
-  FUNC(FEED) \
-  FUNC(FIELD) \
-  FUNC(FLAG_CMD) \
-  FUNC(FREQ_OFFSET) \
-  FUNC(HISTORY) \
-  FUNC(OBSERVATION) \
-  FUNC(POINTING) \
-  FUNC(POLARIZATION) \
-  FUNC(PROCESSOR) \
-  FUNC(SOURCE) \
-  FUNC(SPECTRAL_WINDOW) \
-  FUNC(STATE) \
-  FUNC(SYSCAL) \
-  FUNC(WEATHER)
-
 template <MSTables T>
 struct MSTable {
   static const char* name;
@@ -552,7 +532,7 @@ MS_AXIS_NAME(WEATHER, INTERVAL);
   };
 #endif
 
-HYPERION_FOREACH_MSTABLE(MSAXES);
+HYPERION_FOREACH_MS_TABLE(MSAXES);
 
 #undef MSAXES
 

@@ -383,7 +383,7 @@ hyperion::MSTable<MS_WEATHER>::element_axes = {
   {"WIND_SPEED_FLAG", {}}
 };
 
-HYPERION_FOREACH_MSTABLE(AXIS_NAMES);
+HYPERION_FOREACH_MS_TABLE(AXIS_NAMES);
 
 #ifdef HYPERION_USE_HDF5
 template <typename T>
@@ -411,7 +411,7 @@ h5_axes_dt()  {
   hyperion::Axes<typename MSTable<MS_##T>::Axes>::names = MSTable<MS_##T>::axis_names();
 #endif
 
-HYPERION_FOREACH_MSTABLE(MSAXES);
+HYPERION_FOREACH_MS_TABLE(MSAXES);
 
 #undef MSAXES
 

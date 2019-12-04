@@ -723,7 +723,7 @@ init_table(
       table_name = MSTable<MS_##TBL>::name;             \
       break;                                            \
     }
-    HYPERION_FOREACH_MSTABLE(INIT);
+    HYPERION_FOREACH_MS_TABLE(INIT);
   }
   return
     hyperion::hdf5::init_table(

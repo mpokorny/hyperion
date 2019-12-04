@@ -462,7 +462,7 @@ hyperion::preregister_all() {
 #define REG_AXES(T) \
   AxesRegistrar::register_axes<typename MSTable<MS_##T>::Axes>();
 
-  HYPERION_FOREACH_MSTABLE(REG_AXES);
+  HYPERION_FOREACH_MS_TABLE(REG_AXES);
 #undef REG_AXES
 
   TreeIndexSpaceTask::preregister_task();

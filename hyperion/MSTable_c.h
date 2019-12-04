@@ -307,6 +307,66 @@ typedef enum ms_weather_axes_t {
   WEATHER_last = WEATHER_INTERVAL
 } ms_weather_axes_t;
 
+#define HYPERION_FOREACH_MS_TABLE(__func__)     \
+  __func__(MAIN)                                \
+  __func__(ANTENNA)                             \
+  __func__(DATA_DESCRIPTION)                    \
+  __func__(DOPPLER)                             \
+  __func__(FEED)                                \
+  __func__(FIELD)                               \
+  __func__(FLAG_CMD)                            \
+  __func__(FREQ_OFFSET)                         \
+  __func__(HISTORY)                             \
+  __func__(OBSERVATION)                         \
+  __func__(POINTING)                            \
+  __func__(POLARIZATION)                        \
+  __func__(PROCESSOR)                           \
+  __func__(SOURCE)                              \
+  __func__(SPECTRAL_WINDOW)                     \
+  __func__(STATE)                               \
+  __func__(SYSCAL)                              \
+  __func__(WEATHER)
+
+#define HYPERION_FOREACH_MS_TABLE_Tt(__func__)  \
+  __func__(MAIN, main)                          \
+  __func__(ANTENNA, antenna)                    \
+  __func__(DATA_DESCRIPTION, data_description)  \
+  __func__(DOPPLER, doppler)                    \
+  __func__(FEED, feed)                          \
+  __func__(FIELD, field)                        \
+  __func__(FLAG_CMD, flag_cmd)                  \
+  __func__(FREQ_OFFSET, freq_offset)            \
+  __func__(HISTORY, history)                    \
+  __func__(OBSERVATION, observation)            \
+  __func__(POINTING, pointing)                  \
+  __func__(POLARIZATION, polarization)          \
+  __func__(PROCESSOR, processor)                \
+  __func__(SOURCE, source)                      \
+  __func__(SPECTRAL_WINDOW, spectral_window)    \
+  __func__(STATE, state)                        \
+  __func__(SYSCAL, syscal)                      \
+  __func__(WEATHER, weather)
+
+#define HYPERION_FOREACH_MS_TABLE_t(__func__)   \
+  __func__(main)                                \
+  __func__(antenna)                             \
+  __func__(data_description)                    \
+  __func__(doppler)                             \
+  __func__(feed)                                \
+  __func__(field)                               \
+  __func__(flag_cmd)                            \
+  __func__(freq_offset)                         \
+  __func__(history)                             \
+  __func__(observation)                         \
+  __func__(pointing)                            \
+  __func__(polarization)                        \
+  __func__(processor)                           \
+  __func__(source)                              \
+  __func__(spectral_window)                     \
+  __func__(state)                               \
+  __func__(syscal)                              \
+  __func__(weather)
+
 #define TABLE_FUNCTION_DECLS(t)                 \
   typedef struct ms_##t##_column_axes_t {       \
     const char* column;                         \
@@ -329,7 +389,7 @@ typedef enum ms_weather_axes_t {
   HYPERION_API unsigned                            \
   t##_table_num_axes();
 
-FOREACH_MS_TABLE_t(TABLE_FUNCTION_DECLS);
+HYPERION_FOREACH_MS_TABLE_t(TABLE_FUNCTION_DECLS);
 
 #if 0
 // In case the Terra compiler doesn't expand the above macro...
