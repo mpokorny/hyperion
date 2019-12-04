@@ -42,6 +42,10 @@ const std::array<const char*, 0> MSTableColumns<T>::column_names;
 
 HYPERION_FOREACH_MS_TABLE_Tt(MSTC);
 
+#define HYPERION_COLUMN_NAME(T, C)                    \
+  MSTableColumns<MS_##T>::column_names[               \
+    MSTableColumns<MS_##T>::col_t::MS_##T##_COL_##C]
+
 } // end namespace hyperion
 
 #endif // HYPERION_MS_TABLE_COLUMNS_H_
