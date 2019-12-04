@@ -17,7 +17,7 @@
 #define HYPERION_MS_TABLE_COLUMNS_H_
 
 #include <hyperion/MSTableColumns_c.h>
-#include <hyperion/MSTables.h>
+#include <hyperion/MSTable.h>
 
 namespace hyperion {
 
