@@ -389,7 +389,7 @@ typedef enum ms_history_col_t {
   MS_HISTORY_COL_APPLICATION,
   MS_HISTORY_COL_CLI_COMMAND,
   MS_HISTORY_COL_APP_PARAMS,
-  MS_HISTORY_COL_NUM_COLS
+  MS_HISTORY_NUM_COLS
 } ms_history_col_t;
 
 #define MS_HISTORY_COL_NAMES {                  \
