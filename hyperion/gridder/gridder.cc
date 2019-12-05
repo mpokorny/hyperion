@@ -23,6 +23,9 @@
 #include <hyperion/Table.h>
 #include <hyperion/Column.h>
 #include <hyperion/MeasRefContainer.h>
+#include <hyperion/MSTableColumns.h>
+#include <hyperion/MSAntennaColumns.h>
+#include <hyperion/MSFieldColumns.h>
 #include <hyperion/gridder/gridder.h>
 #include <hyperion/gridder/args.h>
 
@@ -385,43 +388,30 @@ protected:
     : m_table(table) {
   }
 
+  typedef enum {
+    ANTENNA_NAME,
+    ANTENNA_STATION,
+    ANTENNA_TYPE,
+    ANTENNA_MOUNT,
+    ANTENNA_DISH_DIAMETER,
+    ANTENNA_CLASS,
+    NUM_REGIONS
+  } region_t;
+
 public:
 
-  static const constexpr std::array<TableColumns<MS_ANTENNA>::col, 5> columns{
-    TableColumns<MS_ANTENNA>::NAME,
-    TableColumns<MS_ANTENNA>::STATION,
-    TableColumns<MS_ANTENNA>::TYPE,
-    TableColumns<MS_ANTENNA>::MOUNT,
-    TableColumns<MS_ANTENNA>::DISH_DIAMETER
+  static const constexpr std::array<const char*, 5> column_names = {
+    MSAntennaColumns::C::column_names[
+      MSAntennaColumns::C::col_t::MS_ANTENNA_COL_NAME],
+    MSAntennaColumns::C::column_names[
+      MSAntennaColumns::C::col_t::MS_ANTENNA_COL_STATION],
+    MSAntennaColumns::C::column_names[
+      MSAntennaColumns::C::col_t::MS_ANTENNA_COL_TYPE],
+    MSAntennaColumns::C::column_names[
+      MSAntennaColumns::C::col_t::MS_ANTENNA_COL_MOUNT],
+    MSAntennaColumns::C::column_names[
+      MSAntennaColumns::C::col_t::MS_ANTENNA_COL_DISH_DIAMETER]
   };
-
-  static constexpr int
-  column_offset(TableColumns<MS_ANTENNA>::col c) {
-    switch (c) {
-    case TableColumns<MS_ANTENNA>::NAME:
-      return 0;
-    case TableColumns<MS_ANTENNA>::STATION:
-      return 1;
-    case TableColumns<MS_ANTENNA>::TYPE:
-      return 2;
-    case TableColumns<MS_ANTENNA>::MOUNT:
-      return 3;
-    case TableColumns<MS_ANTENNA>::DISH_DIAMETER:
-      return 4;
-    default:
-      return -1;
-    }
-  }
-
-  static const std::array<std::string, columns.size()>&
-  column_names() {
-    static std::array<std::string, columns.size()> result;
-    if (result[0].empty()) {
-      for (size_t i = 0; i < columns.size(); ++i)
-        result[i] = TableColumns<MS_ANTENNA>::column_names[columns[i]];
-    }
-    return result;
-  }
 
   // caller must only free returned LogicalRegion and associated FieldSpace, but
   // not the associated IndexSpace
@@ -437,6 +427,7 @@ public:
     rt->attach_name(result, "antenna_classes");
     assert(result.get_dim() == 1);
 
+    TaskArgs args;
     std::vector<RegionRequirement> requirements;
     {
       RegionRequirement
@@ -447,21 +438,35 @@ public:
           m_table.columns_lr);
       cols_req.add_field(Table::COLUMNS_FID);
       auto cols = rt->map_region(ctx, cols_req);
-      for (auto& cn : column_names()) {
-        auto col = m_table.column(ctx, rt, cols, cn);
-        RegionRequirement
-          vreq(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr);
-        vreq.add_field(Column::VALUE_FID);
-        requirements.push_back(vreq);
-      }
+#define ADD_COL_REQ(NM) do {                                        \
+        auto col =                                                  \
+          m_table.column(                                           \
+            ctx,                                                    \
+            rt,                                                     \
+            cols,                                                   \
+            MSAntennaColumns::C::column_names[                      \
+              MSAntennaColumns::C::col_t::MS_ANTENNA_COL_##NM]);    \
+        RegionRequirement                                           \
+          vreq(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr); \
+        vreq.add_field(Column::VALUE_FID);                          \
+        args.ridx[ANTENNA_##NM] = requirements.size();              \
+        requirements.push_back(vreq);                               \
+      } while (0)
+      ADD_COL_REQ(NAME);
+      ADD_COL_REQ(STATION);
+      ADD_COL_REQ(TYPE);
+      ADD_COL_REQ(MOUNT);
+      ADD_COL_REQ(DISH_DIAMETER);
+#undef ADD_COL_REQ
       rt->unmap_region(ctx, cols);
     }
     {
       RegionRequirement req(result, WRITE_ONLY, EXCLUSIVE, result);
       req.add_field(antenna_class_fid);
+      args.ridx[ANTENNA_CLASS] = requirements.size();
       requirements.push_back(req);
     }
-    TaskLauncher launcher(T::TASK_ID, TaskArgument(NULL, 0));
+    TaskLauncher launcher(T::TASK_ID, TaskArgument(&args, sizeof(args)));
     for (auto& req : requirements)
       launcher.add_region_requirement(req);
     rt->execute_task(ctx, launcher);
@@ -472,47 +477,50 @@ public:
   base_impl(
     const Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context,
+    Legion::Context ctx,
     Legion::Runtime* rt) {
 
-    const ROAccessor<hyperion::string, 1>
-      names(
-        regions[column_offset(TableColumns<MS_ANTENNA>::NAME)],
-        Column::VALUE_FID);
-    const ROAccessor<hyperion::string, 1>
-      stations(
-        regions[column_offset(TableColumns<MS_ANTENNA>::STATION)],
-        Column::VALUE_FID);
-    const ROAccessor<hyperion::string, 1>
-      types(
-        regions[column_offset(TableColumns<MS_ANTENNA>::TYPE)],
-        Column::VALUE_FID);
-    const ROAccessor<hyperion::string, 1>
-      mounts(
-        regions[column_offset(TableColumns<MS_ANTENNA>::MOUNT)],
-        Column::VALUE_FID);
-    const ROAccessor<double, 1>
-      diameters(
-        regions[column_offset(TableColumns<MS_ANTENNA>::DISH_DIAMETER)],
-        Column::VALUE_FID);
-    const WOAccessor<unsigned, 1> antenna_classes(regions.back(), 0);
+    const TaskArgs* args = static_cast<const TaskArgs*>(task->args);
 
-    for (PointInRectIterator<1>
-           pir(
-             rt->get_index_space_domain(
-               task->regions.back().region.get_index_space()));
-         pir();
-         pir++)
-      antenna_classes[*pir] =
+#define NM_REGION(NM)                                         \
+    {std::string(                                             \
+        MSAntennaColumns::C::column_names[                    \
+          MSAntennaColumns::C::col_t::MS_ANTENNA_COL_##NM]),  \
+      {regions[args->ridx[ANTENNA_##NM]]}}
+
+    MSAntennaColumns ac(
+      ctx,
+      rt,
+      task->regions[args->ridx[ANTENNA_NAME]],
+      std::unordered_map<std::string, std::vector<PhysicalRegion>>(
+        {NM_REGION(NAME),
+         NM_REGION(STATION),
+         NM_REGION(TYPE),
+         NM_REGION(MOUNT),
+         NM_REGION(DISH_DIAMETER)}));
+    auto names = ac.name<READ_ONLY>();
+    auto stations = ac.station<READ_ONLY>();
+    auto types = ac.type<READ_ONLY>();
+    auto mounts = ac.mount<READ_ONLY>();
+    auto diameters = ac.dishDiameter<READ_ONLY>();
+    const WOAccessor<unsigned, 1>
+      antenna_classes(regions[args->ridx[ANTENNA_CLASS]], 0);
+
+    for (PointInDomainIterator<1> pid(ac.rows(rt)); pid(); pid++)
+      antenna_classes[*pid] =
         T::classify(
-          names[*pir].val,
-          stations[*pir].val,
-          types[*pir].val,
-          mounts[*pir].val,
-          diameters[*pir]);
+          names[*pid].val,
+          stations[*pid].val,
+          types[*pid].val,
+          mounts[*pid].val,
+          diameters[*pid]);
   }
 
 protected:
+
+  struct TaskArgs {
+    std::array<unsigned, NUM_REGIONS> ridx;
+  };
 
   Table m_table;
 };
@@ -1215,9 +1223,9 @@ public:
         rt,
         g_args->h5_path.value(),
         ms_root,
-        std::unordered_set(
-          CLASSIFY_ANTENNAS_TASK::column_names().begin(),
-          CLASSIFY_ANTENNAS_TASK::column_names().end()),
+        std::unordered_set<std::string>(
+          CLASSIFY_ANTENNAS_TASK::column_names.begin(),
+          CLASSIFY_ANTENNAS_TASK::column_names.end()),
         {},
         [](Context c, Runtime* r, const Table* tb) {
           CLASSIFY_ANTENNAS_TASK task(*tb);
