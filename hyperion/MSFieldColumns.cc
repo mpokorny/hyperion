@@ -33,37 +33,45 @@ MSFieldColumns::MSFieldColumns(
   : m_rows_requirement(rows_requirement) {
 
   for (auto& [nm, prs] : regions) {
-    auto col = C::lookup_col(nm);
-    if (col) {
-      m_regions[col.value()] = prs[0];
-    }
+    if (prs.size() > 0) {
+      auto col = C::lookup_col(nm);
+      if (col) {
+        m_regions[col.value()] = prs[0];
+      } else {
 #ifdef HYPERION_USE_CASACORE
-    else if (nm == "TIME_MEAS_REF") {
-      if (prs.size() > 0)
-        m_time_mr =
-          MeasRefDict::get<M_EPOCH>(
-            MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-            .get("Epoch").value());
-    } else if (nm == "DELAY_DIR_MEAS_REF") {
-      if (prs.size() > 0)
-        m_delay_dir_mr =
-          MeasRefDict::get<M_DIRECTION>(
-            MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-            .get("Direction").value());
-    } else if (nm == "PHASE_DIR_MEAS_REF") {
-      if (prs.size() > 0)
-        m_phase_dir_mr =
-          MeasRefDict::get<M_DIRECTION>(
-            MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-            .get("Direction").value());
-    } else if (nm == "REFERENCE_DIR_MEAS_REF") {
-      if (prs.size() > 0)
-        m_reference_dir_mr =
-          MeasRefDict::get<M_DIRECTION>(
-            MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-            .get("Direction").value());
-    }
+        auto col = C::lookup_measure_col(nm);
+        if (col) {
+          switch (col.value()) {
+          case C::col_t::MS_FIELD_COL_TIME:
+            m_time_mr =
+              MeasRefDict::get<M_EPOCH>(
+                MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+                .get("Epoch").value());
+            break;
+          case C::col_t::MS_FIELD_COL_DELAY_DIR:
+            m_delay_dir_mr =
+              MeasRefDict::get<M_DIRECTION>(
+                MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+                .get("Direction").value());
+            break;
+          case C::col_t::MS_FIELD_COL_PHASE_DIR:
+            MeasRefDict::get<M_DIRECTION>(
+              MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+              .get("Direction").value());
+            break;
+          case C::col_t::MS_FIELD_COL_REFERENCE_DIR:
+            m_reference_dir_mr =
+              MeasRefDict::get<M_DIRECTION>(
+                MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+                .get("Direction").value());
+            break;
+          default:
+            break;
+          }
+        }
 #endif //HYPERION_USE_CASACORE
+      }
+    }
   }
 }
 

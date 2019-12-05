@@ -30,25 +30,34 @@ MSAntennaColumns::MSAntennaColumns(
   : m_rows_requirement(rows_requirement) {
 
   for (auto& [nm, prs] : regions) {
-    auto col = C::lookup_col(nm);
-    if (col) {
-      m_regions[col.value()] = prs[0];
-    }
+    if (prs.size() > 0) {
+      auto col = C::lookup_col(nm);
+      if (col) {
+        m_regions[col.value()] = prs[0];
+      } else {
 #ifdef HYPERION_USE_CASACORE
-    else if (nm == "POSITION_MEAS_REF") {
-      if (prs.size() > 0)
-        m_position_mr =
-          MeasRefDict::get<M_POSITION>(
-            MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-            .get("Position").value());
-    } else if (nm == "OFFSET_MEAS_REF") {
-      if (prs.size() > 0)
-        m_offset_mr =
-          MeasRefDict::get<M_POSITION>(
-            MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-            .get("Position").value());
-    }
+        auto col = C::lookup_measure_col(nm);
+        if (col) {
+          switch (col.value()) {
+          case C::col_t::MS_ANTENNA_COL_POSITION:
+            m_position_mr =
+              MeasRefDict::get<M_POSITION>(
+                MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+                .get("Position").value());
+            break;
+          case C::col_t::MS_ANTENNA_COL_OFFSET:
+            m_offset_mr =
+              MeasRefDict::get<M_POSITION>(
+                MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+                .get("Position").value());
+            break;
+          default:
+            break;
+          }
+        }
 #endif // HYPERION_USE_CASACORE
+      }
+    }
   }
 }
 

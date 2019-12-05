@@ -17,11 +17,13 @@
 
 using namespace hyperion;
 
-#define UNITS(T)                                                         \
-    const std::unordered_map<MSTableColumns<MS_##T>::col_t, const char*> \
-    MSTableColumns<MS_##T>::units = MS_##T##_COL_UNITS;
+#define DEFS(T)                                                         \
+  const std::unordered_map<MSTableColumns<MS_##T>::col_t, const char*>  \
+  MSTableColumns<MS_##T>::units = MS_##T##_COL_UNITS;                   \
+  const std::map<MSTableColumns<MS_##T>::col_t, const char*>            \
+  MSTableColumns<MS_##T>::measure_names = MS_##T##_COL_MEASURE_NAMES;
 
-HYPERION_FOREACH_MS_TABLE(UNITS);
+HYPERION_FOREACH_MS_TABLE(DEFS);
 
 // Local Variables:
 // mode: c++
