@@ -19,6 +19,13 @@
 #include <hyperion/MSTableColumns_c.h>
 #include <hyperion/MSTable.h>
 
+#pragma GCC visibility push(default)
+# include <algorithm>
+# include <array>
+# include <iterator>
+# include <optional>
+#pragma GCC visibility pop
+
 namespace hyperion {
 
 template <MSTables T>
@@ -30,14 +37,29 @@ struct MSTableColumns {
 template <MSTables T>
 const std::array<const char*, 0> MSTableColumns<T>::column_names;
 
-#define MSTC(T, t)                                                    \
-  template <>                                                         \
-  struct MSTableColumns<MS_##T> {                                     \
-    typedef ms_##t##_col_t col_t;                                     \
-    static const constexpr std::array<const char*, MS_##T##_NUM_COLS> \
-    column_names = MS_##T##_COL_NAMES;                                \
-    static const constexpr std::array<unsigned, MS_##T##_NUM_COLS>    \
-    element_ranks = MS_##T##_COL_ELEMENT_RANKS;                       \
+#define MSTC(T, t)                                                      \
+  template <>                                                           \
+  struct HYPERION_API MSTableColumns<MS_##T> {                          \
+    typedef ms_##t##_col_t col_t;                                       \
+    static const constexpr std::array<const char*, MS_##T##_NUM_COLS>   \
+    column_names = MS_##T##_COL_NAMES;                                  \
+    static const constexpr std::array<unsigned, MS_##T##_NUM_COLS>      \
+    element_ranks = MS_##T##_COL_ELEMENT_RANKS;                         \
+    static const std::unordered_map<col_t, const char*> units;          \
+    static std::optional<col_t>                                         \
+    lookup_col(const std::string& nm) {                                 \
+      auto col =                                                        \
+        std::find_if(                                                   \
+          column_names.begin(),                                         \
+          column_names.end(),                                           \
+          [&nm](std::string cn) {                                       \
+            return cn == nm;                                            \
+          });                                                           \
+      if (col != column_names.end())                                    \
+        return                                                          \
+          static_cast<col_t>(std::distance(column_names.begin(), col)); \
+      return std::nullopt;                                              \
+    }                                                                   \
   };
 
 HYPERION_FOREACH_MS_TABLE_Tt(MSTC);

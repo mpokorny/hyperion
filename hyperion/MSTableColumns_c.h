@@ -135,6 +135,16 @@ typedef enum ms_main_col_t {
       0                                         \
       }
 
+#define MS_MAIN_COL_UNITS { \
+    {MS_MAIN_COL_TIME, "s"}, \
+    {MS_MAIN_COL_TIME_EXTRA_PREC, "s"}, \
+    {MS_MAIN_COL_INTERVAL, "s"}, \
+    {MS_MAIN_COL_EXPOSURE, "s"}, \
+    {MS_MAIN_COL_TIME_CENTROID, "s"}, \
+    {MS_MAIN_COL_UVW, "m"},\
+    {MS_MAIN_COL_UVW2, "m"} \
+}
+
 typedef enum ms_antenna_col_t {
   MS_ANTENNA_COL_NAME,
   MS_ANTENNA_COL_STATION,
@@ -178,6 +188,12 @@ typedef enum ms_antenna_col_t {
       0                                         \
       }
 
+#define MS_ANTENNA_COL_UNITS { \
+  {MS_ANTENNA_COL_POSITION, "m"}, \
+  {MS_ANTENNA_COL_OFFSET, "m"}, \
+  {MS_ANTENNA_COL_DISH_DIAMETER, "m"} \
+}
+
 typedef enum ms_data_description_col_t {
   MS_DATA_DESCRIPTION_COL_SPECTRAL_WINDOW_ID,
   MS_DATA_DESCRIPTION_COL_POLARIZATION_ID,
@@ -200,6 +216,8 @@ typedef enum ms_data_description_col_t {
       0                                         \
       }
 
+#define MS_DATA_DESCRIPTION_COL_UNITS {}
+
 typedef enum ms_doppler_col_t  {
   MS_DOPPLER_COL_DOPPLER_ID,
   MS_DOPPLER_COL_SOURCE_ID,
@@ -221,6 +239,10 @@ typedef enum ms_doppler_col_t  {
       0,                                        \
       0                                         \
       }
+
+#define MS_DOPPLER_COL_UNITS {\
+  {MS_DOPPLER_COL_VELDEF, "m/s"}\
+}
 
 typedef enum ms_feed_col_t {
   MS_FEED_COL_ANTENNA_ID,
@@ -274,6 +296,15 @@ typedef enum ms_feed_col_t {
       1                                         \
       }
 
+#define MS_FEED_COL_UNITS {\
+  {MS_FEED_COL_TIME, "s"},\
+  {MS_FEED_COL_INTERVAL, "s"},\
+  {MS_FEED_COL_BEAM_OFFSET, "rad"},\
+  {MS_FEED_COL_FOCUS_LENGTH, "m"},\
+  {MS_FEED_COL_POSITION, "m"},\
+  {MS_FEED_COL_RECEPTOR_ANGLE, "rad"}\
+}
+
 typedef enum ms_field_col_t {
   MS_FIELD_COL_NAME,
   MS_FIELD_COL_CODE,
@@ -314,6 +345,13 @@ typedef enum ms_field_col_t {
       0                                         \
       }
 
+#define MS_FIELD_COL_UNITS {\
+  {MS_FIELD_COL_TIME, "s"},\
+  {MS_FIELD_COL_DELAY_DIR, "rad"},\
+  {MS_FIELD_COL_PHASE_DIR, "rad"},\
+  {MS_FIELD_COL_REFERENCE_DIR, "rad"}\
+}
+
 typedef enum ms_flag_cmd_col_t {
   MS_FLAG_CMD_COL_TIME,
   MS_FLAG_CMD_COL_INTERVAL,
@@ -348,6 +386,11 @@ typedef enum ms_flag_cmd_col_t {
       0                                         \
       }
 
+#define MS_FLAG_CMD_COL_UNITS {\
+  {MS_FLAG_CMD_COL_TIME, "s"},\
+  {MS_FLAG_CMD_COL_INTERVAL, "s"}\
+}
+
 typedef enum ms_freq_offset_col_t {
   MS_FREQ_OFFSET_COL_ANTENNA1,
   MS_FREQ_OFFSET_COL_ANTENNA2,
@@ -378,6 +421,12 @@ typedef enum ms_freq_offset_col_t {
       0,                                        \
       0                                         \
       }
+
+#define MS_FREQ_OFFSET_COL_UNITS {\
+  {MS_FREQ_OFFSET_COL_TIME, "s"},\
+  {MS_FREQ_OFFSET_COL_INTERVAL, "s"},\
+  {MS_FREQ_OFFSET_COL_OFFSET, "Hz"}\
+}
 
 typedef enum ms_history_col_t {
   MS_HISTORY_COL_TIME,
@@ -416,6 +465,10 @@ typedef enum ms_history_col_t {
       1                                         \
       }
 
+#define MS_HISTORY_COL_UNITS {\
+  {MS_HISTORY_COL_TIME, "s"}\
+}
+
 typedef enum ms_observation_col_t {
   MS_OBSERVATION_COL_TELESCOPE_NAME,
   MS_OBSERVATION_COL_TIME_RANGE,
@@ -452,6 +505,11 @@ typedef enum ms_observation_col_t {
       0,                                        \
       0                                         \
       }
+
+#define MS_OBSERVATION_COL_UNITS {\
+  {MS_OBSERVATION_COL_TIME_RANGE, "s"},\
+  {MS_OBSERVATION_COL_RELEASE_DATE, "s"}\
+}
 
 typedef enum ms_pointing_col_t {
   MS_POINTING_COL_ANTENNA_ID,
@@ -508,6 +566,17 @@ typedef enum ms_pointing_col_t {
       0                                         \
       }
 
+#define MS_POINTING_COL_UNITS {\
+  {MS_POINTING_COL_TIME, "s"},\
+  {MS_POINTING_COL_INTERVAL, "s"},\
+  {MS_POINTING_COL_TIME_ORIGIN, "s"},\
+  {MS_POINTING_COL_DIRECTION, "rad"},\
+  {MS_POINTING_COL_TARGET, "rad"},\
+  {MS_POINTING_COL_POINTING_OFFSET, "rad"},\
+  {MS_POINTING_COL_SOURCE_OFFSET, "rad"},\
+  {MS_POINTING_COL_ENCODER, "rad"}\
+}
+
 typedef enum ms_polarization_col_t {
   MS_POLARIZATION_COL_NUM_CORR,
   MS_POLARIZATION_COL_CORR_TYPE,
@@ -529,6 +598,8 @@ typedef enum ms_polarization_col_t {
       2,                                        \
       0                                         \
       }
+
+#define MS_POLARIZATION_COL_UNITS {}
 
 typedef enum ms_processor_col_t {
   MS_PROCESSOR_COL_TYPE,
@@ -557,6 +628,8 @@ typedef enum ms_processor_col_t {
       0,                                        \
       0                                         \
       }
+
+#define MS_PROCESSOR_COL_UNITS {}
 
 typedef enum ms_source_col_t {
   MS_SOURCE_COL_SOURCE_ID,
@@ -615,6 +688,16 @@ typedef enum ms_source_col_t {
       0,                                        \
       0                                         \
       }
+
+#define MS_SOURCE_COL_UNITS {\
+  {MS_SOURCE_COL_TIME, "s"} ,\
+  {MS_SOURCE_COL_INTERVAL, "s"},\
+  {MS_SOURCE_COL_DIRECTION, "rad"},\
+  {MS_SOURCE_COL_POSITION, "m"},\
+  {MS_SOURCE_COL_PROPER_MOTION, "rad/s"},\
+  {MS_SOURCE_COL_REST_FREQUENCY, "Hz"},\
+  {MS_SOURCE_COL_SYSVEL, "m/s"}\
+}
 
 typedef enum ms_spectral_window_col_t {
   MS_SPECTRAL_WINDOW_COL_NUM_CHAN,
@@ -686,6 +769,15 @@ typedef enum ms_spectral_window_col_t {
       0                                         \
       }
 
+#define MS_SPECTRAL_WINDOW_COL_UNITS {\
+  {MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY, "Hz"},\
+  {MS_SPECTRAL_WINDOW_COL_CHAN_FREQ, "Hz"},\
+  {MS_SPECTRAL_WINDOW_COL_CHAN_WIDTH, "Hz"},\
+  {MS_SPECTRAL_WINDOW_COL_EFFECTIVE_BW, "Hz"},\
+  {MS_SPECTRAL_WINDOW_COL_RESOLUTION, "Hz"},\
+  {MS_SPECTRAL_WINDOW_COL_TOTAL_BANDWIDTH, "Hz"}\
+}
+
 typedef enum ms_state_col_t {
   MS_STATE_COL_SIG,
   MS_STATE_COL_REF,
@@ -716,6 +808,11 @@ typedef enum ms_state_col_t {
       0,                                        \
       0                                         \
       }
+
+#define MS_STATE_COL_UNITS {\
+  {MS_STATE_COL_CAL, "K"},\
+  {MS_STATE_COL_LOAD, "K"}\
+}
 
 typedef enum ms_syscal_col_t {
   MS_SYSCAL_COL_ANTENNA_ID,
@@ -802,6 +899,22 @@ typedef enum ms_syscal_col_t {
       0                                         \
       }
 
+#define MS_SYSCAL_COL_UNITS {\
+  {MS_SYSCAL_COL_TIME, "s"},\
+  {MS_SYSCAL_COL_INTERVAL, "s"},\
+  {MS_SYSCAL_COL_PHASE_DIFF, "rad"},\
+  {MS_SYSCAL_COL_TCAL, "K"},\
+  {MS_SYSCAL_COL_TRX, "K"},\
+  {MS_SYSCAL_COL_TSKY, "K"},\
+  {MS_SYSCAL_COL_TSYS, "K"},\
+  {MS_SYSCAL_COL_TANT, "K"},\
+  {MS_SYSCAL_COL_TCAL_SPECTRUM, "K"},\
+  {MS_SYSCAL_COL_TRX_SPECTRUM, "K"},\
+  {MS_SYSCAL_COL_TSKY_SPECTRUM, "K"},  \
+  {MS_SYSCAL_COL_TSYS_SPECTRUM, "K"}, \
+  {MS_SYSCAL_COL_TANT_SPECTRUM, "K"} \
+}
+
 typedef enum ms_weather_col_t {
   MS_WEATHER_COL_ANTENNA_ID,
   MS_WEATHER_COL_TIME,
@@ -868,6 +981,18 @@ typedef enum ms_weather_col_t {
       0,                                        \
       0                                         \
       }
+
+#define MS_WEATHER_COL_UNITS {\
+  {MS_WEATHER_COL_TIME, "s"},\
+  {MS_WEATHER_COL_INTERVAL, "s"},\
+  {MS_WEATHER_COL_H2O, "m-2"},\
+  {MS_WEATHER_COL_IONOS_ELECTRON, "m-2"},\
+  {MS_WEATHER_COL_PRESSURE, "hPa"},\
+  {MS_WEATHER_COL_TEMPERATURE, "K"},\
+  {MS_WEATHER_COL_DEW_POINT, "K"},\
+  {MS_WEATHER_COL_WIND_DIRECTION, "rad"},\
+  {MS_WEATHER_COL_WIND_SPEED, "m/s"}\
+}
 
 #ifdef __cplusplus
 }

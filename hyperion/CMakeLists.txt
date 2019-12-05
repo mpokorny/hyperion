@@ -135,6 +135,7 @@ list(APPEND HYPERION_SRC
   MSTable_c.h
   MSTableColumns_c.h
   MSTableColumns.h
+  MSTableColumns.cc
   Table.cc
   Table.h
   Table_c.cc
