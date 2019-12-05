@@ -188,25 +188,35 @@ hyperion::gridder::get_args(
     }
   }
 
-  // apply variables from config file before the rest of the command line
+  // apply variables from config file(s) before the rest of the command line
   {
-    auto config =
-      std::find_if(
-        arg_pairs.begin(),
-        arg_pairs.end(),
-        [&gridder_args](auto& kv) {
-          return kv.first == gridder_args.config_path.tag;
-        });
-    if (config != arg_pairs.end()) {
-      auto errs =
-        load_config(
-          config->second,
-          (std::string("command line argument '")
-           + gridder_args.config_path.tag + "' value"),
-          gridder_args);
-      if (errs) {
-        std::cerr << errs.value();
-        return false;
+    for (auto& [tag, val] : arg_pairs) {
+      std::vector<std::string> matches;
+      for (auto& tg : gridder_args.tags())
+        if (tg.substr(0, tag.size()) == tag)
+          matches.push_back(tg);
+      if (std::find(
+            matches.begin(),
+            matches.end(),
+            gridder_args.config_path.tag)
+          != matches.end()) {
+        if (matches.size() == 1) {
+          auto errs =
+            load_config(
+              val,
+              (std::string("command line argument '")
+               + gridder_args.config_path.tag + "' value"),
+              gridder_args);
+          if (errs) {
+            std::cerr << errs.value();
+            return false;
+          }
+        } else {
+          std::cerr << "Command line argument '"
+                    << tag << "' is a prefix of a more than one option"
+                    << std::endl;
+          return false;
+        }
       }
     }
   }
@@ -232,8 +242,7 @@ hyperion::gridder::get_args(
         gridder_args.config_path = val;
       else
         assert(false);
-    }
-    else {
+    } else {
       if (matches.size() == 0)
         std::cerr << "Unrecognized command line argument '"
                   << tag << "'" << std::endl;
