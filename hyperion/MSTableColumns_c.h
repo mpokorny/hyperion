@@ -59,7 +59,7 @@ typedef enum ms_main_col_t {
   MS_MAIN_NUM_COLS
 } ms_main_col_t;
 
-#define MS_MAIN_COL_NAMES {                     \
+#define MS_MAIN_COLUMN_NAMES {                  \
     "TIME",                                     \
       "TIME_EXTRA_PREC",                        \
       "ANTENNA1",                               \
@@ -97,7 +97,7 @@ typedef enum ms_main_col_t {
       "FLAG_ROW"                                \
       }
 
-#define MS_MAIN_COL_ELEMENT_RANKS {             \
+#define MS_MAIN_COLUMN_ELEMENT_RANKS {          \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -135,7 +135,7 @@ typedef enum ms_main_col_t {
       0                                         \
       }
 
-#define MS_MAIN_COL_UNITS { \
+#define MS_MAIN_COLUMN_UNITS { \
   {MS_MAIN_COL_TIME, "s"}, \
   {MS_MAIN_COL_TIME_EXTRA_PREC, "s"}, \
   {MS_MAIN_COL_INTERVAL, "s"}, \
@@ -145,7 +145,7 @@ typedef enum ms_main_col_t {
   {MS_MAIN_COL_UVW2, "m"} \
 }
 
-#define MS_MAIN_COL_MEASURE_NAMES {\
+#define MS_MAIN_COLUMN_MEASURE_NAMES {\
   {MS_MAIN_COL_TIME, "TIME_MEASURE_EPOCH"},\
   {MS_MAIN_COL_TIME_CENTROID, "TIME_CENTROID_MEASURE_EPOCH"},\
   {MS_MAIN_COL_UVW, "UVW_MEASURE_UVW"},\
@@ -167,7 +167,7 @@ typedef enum ms_antenna_col_t {
   MS_ANTENNA_NUM_COLS
 } ms_antenna_col_t;
 
-#define MS_ANTENNA_COL_NAMES {                  \
+#define MS_ANTENNA_COLUMN_NAMES {               \
     "NAME",                                     \
       "STATION",                                \
       "TYPE",                                   \
@@ -181,7 +181,7 @@ typedef enum ms_antenna_col_t {
       "FLAG_ROW"                                \
       }
 
-#define MS_ANTENNA_COL_ELEMENT_RANKS {          \
+#define MS_ANTENNA_COLUMN_ELEMENT_RANKS {       \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -195,13 +195,13 @@ typedef enum ms_antenna_col_t {
       0                                         \
       }
 
-#define MS_ANTENNA_COL_UNITS { \
+#define MS_ANTENNA_COLUMN_UNITS { \
   {MS_ANTENNA_COL_POSITION, "m"}, \
   {MS_ANTENNA_COL_OFFSET, "m"}, \
   {MS_ANTENNA_COL_DISH_DIAMETER, "m"} \
 }
 
-#define MS_ANTENNA_COL_MEASURE_NAMES {\
+#define MS_ANTENNA_COLUMN_MEASURE_NAMES {\
   {MS_ANTENNA_COL_POSITION, "POSITION_MEASURE_POSITION"},\
   {MS_ANTENNA_COL_OFFSET, "OFFSET_MEASURE_POSITION"}\
 }
@@ -214,23 +214,23 @@ typedef enum ms_data_description_col_t {
   MS_DATA_DESCRIPTION_NUM_COLS
 } ms_data_description_col_t;
 
-#define MS_DATA_DESCRIPTION_COL_NAMES {         \
+#define MS_DATA_DESCRIPTION_COLUMN_NAMES {      \
     "SPECTRAL_WINDOW_ID",                       \
       "POLARIZATION_ID",                        \
       "LAG_ID",                                 \
       "FLAG_ROW"                                \
       }
 
-#define MS_DATA_DESCRIPTION_COL_ELEMENT_RANKS { \
+#define MS_DATA_DESCRIPTION_COLUMN_ELEMENT_RANKS {  \
     0,                                          \
       0,                                        \
       0,                                        \
       0                                         \
       }
 
-#define MS_DATA_DESCRIPTION_COL_UNITS {}
+#define MS_DATA_DESCRIPTION_COLUMN_UNITS {}
 
-#define MS_DATA_DESCRIPTION_COL_MEASURE_NAMES {}
+#define MS_DATA_DESCRIPTION_COLUMN_MEASURE_NAMES {}
 
 typedef enum ms_doppler_col_t  {
   MS_DOPPLER_COL_DOPPLER_ID,
@@ -240,25 +240,25 @@ typedef enum ms_doppler_col_t  {
   MS_DOPPLER_NUM_COLS
 } ms_doppler_col_t;
 
-#define MS_DOPPLER_COL_NAMES {                  \
+#define MS_DOPPLER_COLUMN_NAMES {               \
     "SPECTRAL_WINDOW_ID",                       \
       "POLARIZATION_ID",                        \
       "LAG_ID",                                 \
       "FLAG_ROW"                                \
       }
 
-#define MS_DOPPLER_COL_ELEMENT_RANKS {          \
+#define MS_DOPPLER_COLUMN_ELEMENT_RANKS {       \
     0,                                          \
       0,                                        \
       0,                                        \
       0                                         \
       }
 
-#define MS_DOPPLER_COL_UNITS {\
+#define MS_DOPPLER_COLUMN_UNITS {\
   {MS_DOPPLER_COL_VELDEF, "m/s"}\
 }
 
-#define MS_DOPPLER_COL_MEASURE_NAMES {\
+#define MS_DOPPLER_COLUMN_MEASURE_NAMES {\
   {MS_DOPPLER_COL_VELDEF, "VELDEF_MEASURE_DOPPLER"}\
 }
 
@@ -280,7 +280,7 @@ typedef enum ms_feed_col_t {
   MS_FEED_NUM_COLS
 } ms_feed_col_t;
 
-#define MS_FEED_COL_NAMES {                     \
+#define MS_FEED_COLUMN_NAMES {                  \
     "ANTENNA_ID",                               \
       "FEED_ID",                                \
       "SPECTRAL_WINDOW_ID",                     \
@@ -297,7 +297,7 @@ typedef enum ms_feed_col_t {
       "RECEPTOR_ANGLE"                          \
       }
 
-#define MS_FEED_COL_ELEMENT_RANKS {             \
+#define MS_FEED_COLUMN_ELEMENT_RANKS {          \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -314,7 +314,7 @@ typedef enum ms_feed_col_t {
       1                                         \
       }
 
-#define MS_FEED_COL_UNITS {\
+#define MS_FEED_COLUMN_UNITS {\
   {MS_FEED_COL_TIME, "s"},\
   {MS_FEED_COL_INTERVAL, "s"},\
   {MS_FEED_COL_BEAM_OFFSET, "rad"},\
@@ -323,7 +323,7 @@ typedef enum ms_feed_col_t {
   {MS_FEED_COL_RECEPTOR_ANGLE, "rad"}\
 }
 
-#define MS_FEED_COL_MEASURE_NAMES {\
+#define MS_FEED_COLUMN_MEASURE_NAMES {\
   {MS_FEED_COL_TIME, "TIME_MEASURE_EPOCH"},\
   {MS_FEED_COL_BEAM_OFFSET, "BEAM_OFFSET_MEASURE_DIRECTION"},\
   {MS_FEED_COL_POSITION, "POSITION_MEASURE_POSITION"}\
@@ -343,7 +343,7 @@ typedef enum ms_field_col_t {
   MS_FIELD_NUM_COLS
 } ms_field_col_t;
 
-#define MS_FIELD_COL_NAMES {                    \
+#define MS_FIELD_COLUMN_NAMES {                 \
     "NAME",                                     \
       "CODE",                                   \
       "TIME",                                   \
@@ -356,7 +356,7 @@ typedef enum ms_field_col_t {
       "FLAG_ROW"                                \
       }
 
-#define MS_FIELD_COL_ELEMENT_RANKS {            \
+#define MS_FIELD_COLUMN_ELEMENT_RANKS {         \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -369,14 +369,14 @@ typedef enum ms_field_col_t {
       0                                         \
       }
 
-#define MS_FIELD_COL_UNITS {\
+#define MS_FIELD_COLUMN_UNITS {\
   {MS_FIELD_COL_TIME, "s"},\
   {MS_FIELD_COL_DELAY_DIR, "rad"},\
   {MS_FIELD_COL_PHASE_DIR, "rad"},\
   {MS_FIELD_COL_REFERENCE_DIR, "rad"}\
 }
 
-#define MS_FIELD_COL_MEASURE_NAMES {\
+#define MS_FIELD_COLUMN_MEASURE_NAMES {\
   {MS_FIELD_COL_TIME, "TIME_MEASURE_EPOCH"},\
   {MS_FIELD_COL_DELAY_DIR, "DELAY_DIR_MEASURE_DIRECTION"},\
   {MS_FIELD_COL_PHASE_DIR, "PHASE_DIR_MEASURE_DIRECTION"},\
@@ -395,7 +395,7 @@ typedef enum ms_flag_cmd_col_t {
   MS_FLAG_CMD_NUM_COLS
 } ms_flag_cmd_col_t;
 
-#define MS_FLAG_CMD_COL_NAMES {                 \
+#define MS_FLAG_CMD_COLUMN_NAMES {              \
     "TIME",                                     \
       "INTERVAL",                               \
       "TYPE",                                   \
@@ -406,7 +406,7 @@ typedef enum ms_flag_cmd_col_t {
       "COMMAND"                                 \
       }
 
-#define MS_FLAG_CMD_COL_ELEMENT_RANKS {         \
+#define MS_FLAG_CMD_COLUMN_ELEMENT_RANKS {      \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -417,12 +417,12 @@ typedef enum ms_flag_cmd_col_t {
       0                                         \
       }
 
-#define MS_FLAG_CMD_COL_UNITS {\
+#define MS_FLAG_CMD_COLUMN_UNITS {\
   {MS_FLAG_CMD_COL_TIME, "s"},\
   {MS_FLAG_CMD_COL_INTERVAL, "s"}\
 }
 
-#define MS_FLAG_CMD_COL_MEASURE_NAMES {\
+#define MS_FLAG_CMD_COLUMN_MEASURE_NAMES {\
   {MS_FLAG_CMD_COL_TIME, "TIME_MEASURE_EPOCH"}\
 }
 
@@ -437,7 +437,7 @@ typedef enum ms_freq_offset_col_t {
   MS_FREQ_OFFSET_NUM_COLS
 } ms_freq_offset_col_t;
 
-#define MS_FREQ_OFFSET_COL_NAMES {              \
+#define MS_FREQ_OFFSET_COLUMN_NAMES {           \
     "ANTENNA1",                                 \
       "ANTENNA2",                               \
       "FEED_ID",                                \
@@ -447,7 +447,7 @@ typedef enum ms_freq_offset_col_t {
       "OFFSET"                                  \
       }
 
-#define MS_FREQ_OFFSET_COL_ELEMENT_RANKS {      \
+#define MS_FREQ_OFFSET_COLUMN_ELEMENT_RANKS {   \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -457,13 +457,13 @@ typedef enum ms_freq_offset_col_t {
       0                                         \
       }
 
-#define MS_FREQ_OFFSET_COL_UNITS {\
+#define MS_FREQ_OFFSET_COLUMN_UNITS {\
   {MS_FREQ_OFFSET_COL_TIME, "s"},\
   {MS_FREQ_OFFSET_COL_INTERVAL, "s"},\
   {MS_FREQ_OFFSET_COL_OFFSET, "Hz"}\
 }
 
-#define MS_FREQ_OFFSET_COL_MEASURE_NAMES {\
+#define MS_FREQ_OFFSET_COLUMN_MEASURE_NAMES {\
   {MS_FREQ_OFFSET_COL_TIME, "TIME_MEASURE_EPOCH"}\
 }
 
@@ -480,7 +480,7 @@ typedef enum ms_history_col_t {
   MS_HISTORY_NUM_COLS
 } ms_history_col_t;
 
-#define MS_HISTORY_COL_NAMES {                  \
+#define MS_HISTORY_COLUMN_NAMES {               \
     "TIME",                                     \
       "OBSERVATION_ID",                         \
       "MESSAGE",                                \
@@ -492,7 +492,7 @@ typedef enum ms_history_col_t {
       "APP_PARAMS"                              \
       }
 
-#define MS_HISTORY_COL_ELEMENT_RANKS {          \
+#define MS_HISTORY_COLUMN_ELEMENT_RANKS {       \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -504,11 +504,11 @@ typedef enum ms_history_col_t {
       1                                         \
       }
 
-#define MS_HISTORY_COL_UNITS {\
+#define MS_HISTORY_COLUMN_UNITS {\
   {MS_HISTORY_COL_TIME, "s"}\
 }
 
-#define MS_HISTORY_COL_MEASURE_NAMES {\
+#define MS_HISTORY_COLUMN_MEASURE_NAMES {\
   {MS_HISTORY_COL_TIME, "TIME_MEASURE_EPOCH"}\
 }
 
@@ -525,7 +525,7 @@ typedef enum ms_observation_col_t {
   MS_OBSERVATION_NUM_COLS
 } ms_observation_col_t;
 
-#define MS_OBSERVATION_COL_NAMES {              \
+#define MS_OBSERVATION_COLUMN_NAMES {           \
     "TELESCOPE_NAME",                           \
       "TIME_RANGE",                             \
       "OBSERVER",                               \
@@ -537,7 +537,7 @@ typedef enum ms_observation_col_t {
       "FLAG_ROW"                                \
       }
 
-#define MS_OBSERVATION_COL_ELEMENT_RANKS {      \
+#define MS_OBSERVATION_COLUMN_ELEMENT_RANKS {   \
     0,                                          \
       1,                                        \
       0,                                        \
@@ -549,12 +549,12 @@ typedef enum ms_observation_col_t {
       0                                         \
       }
 
-#define MS_OBSERVATION_COL_UNITS {\
+#define MS_OBSERVATION_COLUMN_UNITS {\
   {MS_OBSERVATION_COL_TIME_RANGE, "s"},\
   {MS_OBSERVATION_COL_RELEASE_DATE, "s"}\
 }
 
-#define MS_OBSERVATION_COL_MEASURE_NAMES {\
+#define MS_OBSERVATION_COLUMN_MEASURE_NAMES {\
   {MS_OBSERVATION_COL_TIME_RANGE, "TIME_RANGE_MEASURE_EPOCH"},\
   {MS_OBSERVATION_COL_RELEASE_DATE, "RELEASE_DATE_MEASURE_EPOCH"}\
 }
@@ -578,7 +578,7 @@ typedef enum ms_pointing_col_t {
   MS_POINTING_NUM_COLS
 } ms_pointing_col_t;
 
-#define MS_POINTING_COL_NAMES {                 \
+#define MS_POINTING_COLUMN_NAMES {              \
     "ANTENNA_ID",                               \
       "TIME",                                   \
       "INTERVAL",                               \
@@ -596,7 +596,7 @@ typedef enum ms_pointing_col_t {
       "OVER_THE_TOP"                            \
       }
 
-#define MS_POINTING_COL_ELEMENT_RANKS {         \
+#define MS_POINTING_COLUMN_ELEMENT_RANKS {      \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -614,7 +614,7 @@ typedef enum ms_pointing_col_t {
       0                                         \
       }
 
-#define MS_POINTING_COL_UNITS {\
+#define MS_POINTING_COLUMN_UNITS {\
   {MS_POINTING_COL_TIME, "s"},\
   {MS_POINTING_COL_INTERVAL, "s"},\
   {MS_POINTING_COL_TIME_ORIGIN, "s"},\
@@ -625,7 +625,7 @@ typedef enum ms_pointing_col_t {
   {MS_POINTING_COL_ENCODER, "rad"}\
 }
 
-#define MS_POINTING_COL_MEASURE_NAMES {\
+#define MS_POINTING_COLUMN_MEASURE_NAMES {\
   {MS_POINTING_COL_TIME, "TIME_MEASURE_EPOCH"},\
   {MS_POINTING_COL_TIME_ORIGIN, "TIME_ORIGIN_MEASURE_EPOCH"},\
   {MS_POINTING_COL_DIRECTION, "DIRECTION_MEASURE_DIRECTION"},\
@@ -643,23 +643,23 @@ typedef enum ms_polarization_col_t {
   MS_POLARIZATION_NUM_COLS
 } ms_polarization_col_t;
 
-#define MS_POLARIZATION_COL_NAMES {             \
+#define MS_POLARIZATION_COLUMN_NAMES {          \
     "NUM_CORR",                                 \
       "CORR_TYPE",                              \
       "CORR_PRODUCT",                           \
       "FLAG_ROW"                                \
       }
 
-#define MS_POLARIZATION_COL_ELEMENT_RANKS {     \
+#define MS_POLARIZATION_COLUMN_ELEMENT_RANKS {  \
     0,                                          \
       1,                                        \
       2,                                        \
       0                                         \
       }
 
-#define MS_POLARIZATION_COL_UNITS {}
+#define MS_POLARIZATION_COLUMN_UNITS {}
 
-#define MS_POLARIZATION_COL_MEASURE_NAMES {}
+#define MS_POLARIZATION_COLUMN_MEASURE_NAMES {}
 
 typedef enum ms_processor_col_t {
   MS_PROCESSOR_COL_TYPE,
@@ -671,7 +671,7 @@ typedef enum ms_processor_col_t {
   MS_PROCESSOR_NUM_COLS
 } ms_processor_col_t;
 
-#define MS_PROCESSOR_COL_NAMES {                \
+#define MS_PROCESSOR_COLUMN_NAMES {             \
     "TYPE",                                     \
       "SUB_TYPE",                               \
       "TYPE_ID",                                \
@@ -680,7 +680,7 @@ typedef enum ms_processor_col_t {
       "FLAG_ROW"                                \
       }
 
-#define MS_PROCESSOR_COL_ELEMENT_RANKS {        \
+#define MS_PROCESSOR_COLUMN_ELEMENT_RANKS {     \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -689,9 +689,9 @@ typedef enum ms_processor_col_t {
       0                                         \
       }
 
-#define MS_PROCESSOR_COL_UNITS {}
+#define MS_PROCESSOR_COLUMN_UNITS {}
 
-#define MS_PROCESSOR_COL_MEASURE_NAMES {}
+#define MS_PROCESSOR_COLUMN_MEASURE_NAMES {}
 
 typedef enum ms_source_col_t {
   MS_SOURCE_COL_SOURCE_ID,
@@ -713,7 +713,7 @@ typedef enum ms_source_col_t {
   MS_SOURCE_NUM_COLS
 } ms_source_col_t;
 
-#define MS_SOURCE_COL_NAMES {                   \
+#define MS_SOURCE_COLUMN_NAMES {                \
     "SOURCE_ID",                                \
       "TIME",                                   \
       "INTERVAL",                               \
@@ -732,7 +732,7 @@ typedef enum ms_source_col_t {
       "PULSAR_ID",                              \
       }
 
-#define MS_SOURCE_COL_ELEMENT_RANKS {           \
+#define MS_SOURCE_COLUMN_ELEMENT_RANKS {        \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -751,7 +751,7 @@ typedef enum ms_source_col_t {
       0                                         \
       }
 
-#define MS_SOURCE_COL_UNITS {\
+#define MS_SOURCE_COLUMN_UNITS {\
   {MS_SOURCE_COL_TIME, "s"} ,\
   {MS_SOURCE_COL_INTERVAL, "s"},\
   {MS_SOURCE_COL_DIRECTION, "rad"},\
@@ -761,7 +761,7 @@ typedef enum ms_source_col_t {
   {MS_SOURCE_COL_SYSVEL, "m/s"}\
 }
 
-#define MS_SOURCE_COL_MEASURE_NAMES {\
+#define MS_SOURCE_COLUMN_MEASURE_NAMES {\
   {MS_SOURCE_COL_TIME, "TIME_MEASURE_EPOCH"},\
   {MS_SOURCE_COL_DIRECTION, "DIRECTION_MEASURE_DIRECTION"},\
   {MS_SOURCE_COL_POSITION, "POSITION_MEASURE_POSITION"},\
@@ -793,7 +793,7 @@ typedef enum ms_spectral_window_col_t {
   MS_SPECTRAL_WINDOW_NUM_COLS
 } ms_spectral_window_col_t;
 
-#define MS_SPECTRAL_WINDOW_COL_NAMES {          \
+#define MS_SPECTRAL_WINDOW_COLUMN_NAMES {       \
     "NUM_CHAN",                                 \
       "NAME",                                   \
       "REF_FREQUENCY",                          \
@@ -816,7 +816,7 @@ typedef enum ms_spectral_window_col_t {
       "FLAG_ROW"                                \
       }
 
-#define MS_SPECTRAL_WINDOW_COL_ELEMENT_RANKS {  \
+#define MS_SPECTRAL_WINDOW_COLUMN_ELEMENT_RANKS { \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -839,7 +839,7 @@ typedef enum ms_spectral_window_col_t {
       0                                         \
       }
 
-#define MS_SPECTRAL_WINDOW_COL_UNITS {\
+#define MS_SPECTRAL_WINDOW_COLUMN_UNITS {\
   {MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY, "Hz"},\
   {MS_SPECTRAL_WINDOW_COL_CHAN_FREQ, "Hz"},\
   {MS_SPECTRAL_WINDOW_COL_CHAN_WIDTH, "Hz"},\
@@ -848,7 +848,7 @@ typedef enum ms_spectral_window_col_t {
   {MS_SPECTRAL_WINDOW_COL_TOTAL_BANDWIDTH, "Hz"}\
 }
 
-#define MS_SPECTRAL_WINDOW_COL_MEASURE_NAMES {\
+#define MS_SPECTRAL_WINDOW_COLUMN_MEASURE_NAMES {\
   {MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY, "REF_FREQUENCY_MEASURE_FREQUENCY"},\
   {MS_SPECTRAL_WINDOW_COL_CHAN_FREQ, "CHAN_FREQ_MEASURE_FREQUENCY"}\
 }
@@ -864,7 +864,7 @@ typedef enum ms_state_col_t {
   MS_STATE_NUM_COLS
 } ms_state_col_t;
 
-#define MS_STATE_COL_NAMES {                    \
+#define MS_STATE_COLUMN_NAMES {                 \
     "SIG",                                      \
       "REF",                                    \
       "CAL",                                    \
@@ -874,7 +874,7 @@ typedef enum ms_state_col_t {
       "FLAG_ROW"                                \
       }
 
-#define MS_STATE_COL_ELEMENT_RANKS {            \
+#define MS_STATE_COLUMN_ELEMENT_RANKS {         \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -884,12 +884,12 @@ typedef enum ms_state_col_t {
       0                                         \
       }
 
-#define MS_STATE_COL_UNITS {\
+#define MS_STATE_COLUMN_UNITS {\
   {MS_STATE_COL_CAL, "K"},\
   {MS_STATE_COL_LOAD, "K"}\
 }
 
-#define MS_STATE_COL_MEASURE_NAMES {}
+#define MS_STATE_COLUMN_MEASURE_NAMES {}
 
 typedef enum ms_syscal_col_t {
   MS_SYSCAL_COL_ANTENNA_ID,
@@ -920,7 +920,7 @@ typedef enum ms_syscal_col_t {
   MS_SYSCAL_NUM_COLS
 } ms_syscal_col_t;
 
-#define MS_SYSCAL_COL_NAMES {                   \
+#define MS_SYSCAL_COLUMN_NAMES {                \
     "ANTENNA_ID",                               \
       "FEED_ID",                                \
       "SPECTRAL_WINDOW_ID",                     \
@@ -948,7 +948,7 @@ typedef enum ms_syscal_col_t {
       "TANT_TSYS_FLAG"                          \
       }
 
-#define MS_SYSCAL_COL_ELEMENT_RANKS {           \
+#define MS_SYSCAL_COLUMN_ELEMENT_RANKS {        \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -976,7 +976,7 @@ typedef enum ms_syscal_col_t {
       0                                         \
       }
 
-#define MS_SYSCAL_COL_UNITS {\
+#define MS_SYSCAL_COLUMN_UNITS {\
   {MS_SYSCAL_COL_TIME, "s"},\
   {MS_SYSCAL_COL_INTERVAL, "s"},\
   {MS_SYSCAL_COL_PHASE_DIFF, "rad"},\
@@ -992,7 +992,7 @@ typedef enum ms_syscal_col_t {
   {MS_SYSCAL_COL_TANT_SPECTRUM, "K"} \
 }
 
-#define MS_SYSCAL_COL_MEASURE_NAMES {\
+#define MS_SYSCAL_COLUMN_MEASURE_NAMES {\
   {MS_SYSCAL_COL_TIME, "TIME_MEASURE_EPOCH"}\
 }
 
@@ -1019,7 +1019,7 @@ typedef enum ms_weather_col_t {
   MS_WEATHER_NUM_COLS
 } ms_weather_col_t;
 
-#define MS_WEATHER_COL_NAMES {                  \
+#define MS_WEATHER_COLUMN_NAMES {               \
     "ANTENNA_ID",                               \
       "TIME",                                   \
       "INTERVAL",                               \
@@ -1041,7 +1041,7 @@ typedef enum ms_weather_col_t {
       "WIND_SPEED_FLAG"                         \
       }
 
-#define MS_WEATHER_COL_ELEMENT_RANKS {          \
+#define MS_WEATHER_COLUMN_ELEMENT_RANKS {       \
     0,                                          \
       0,                                        \
       0,                                        \
@@ -1063,7 +1063,7 @@ typedef enum ms_weather_col_t {
       0                                         \
       }
 
-#define MS_WEATHER_COL_UNITS {\
+#define MS_WEATHER_COLUMN_UNITS {\
   {MS_WEATHER_COL_TIME, "s"},\
   {MS_WEATHER_COL_INTERVAL, "s"},\
   {MS_WEATHER_COL_H2O, "m-2"},\
@@ -1075,7 +1075,7 @@ typedef enum ms_weather_col_t {
   {MS_WEATHER_COL_WIND_SPEED, "m/s"}\
 }
 
-#define MS_WEATHER_COL_MEASURE_NAMES {\
+#define MS_WEATHER_COLUMN_MEASURE_NAMES {\
   {MS_WEATHER_COL_TIME, "TIME_MEASURE_EPOCH"}\
 }
 

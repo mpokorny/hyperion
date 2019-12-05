@@ -42,9 +42,9 @@ const std::array<const char*, 0> MSTableColumns<T>::column_names;
   struct HYPERION_API MSTableColumns<MS_##T> {                          \
     typedef ms_##t##_col_t col_t;                                       \
     static const constexpr std::array<const char*, MS_##T##_NUM_COLS>   \
-      column_names = MS_##T##_COL_NAMES;                                \
+      column_names = MS_##T##_COLUMN_NAMES;                             \
     static const constexpr std::array<unsigned, MS_##T##_NUM_COLS>      \
-      element_ranks = MS_##T##_COL_ELEMENT_RANKS;                       \
+      element_ranks = MS_##T##_COLUMN_ELEMENT_RANKS;                    \
     static const std::unordered_map<col_t, const char*> units;          \
     static const std::map<col_t, const char*> measure_names;            \
     static std::optional<col_t>                                         \
