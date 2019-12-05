@@ -18,6 +18,7 @@
 
 #include <hyperion/hyperion.h>
 #include <hyperion/Column.h>
+#include <hyperion/MSTableColumns.h>
 
 #pragma GCC visibility push(default)
 # include <casacore/measures/Measures/MDirection.h>
@@ -34,6 +35,8 @@ namespace hyperion {
 
 class HYPERION_API MSFieldColumns {
 public:
+
+  typedef MSTableColumns<MS_FIELD> C;
 
   MSFieldColumns(
     Legion::Context ctx,
@@ -75,7 +78,7 @@ public:
 
   bool
   has_name() const {
-    return m_name_region.has_value();
+    return m_regions.count(C::col_t::MS_FIELD_COL_NAME) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -83,7 +86,7 @@ public:
   name() const {
     return
       NameAccessor<MODE, CHECK_BOUNDS>(
-        m_name_region.value(),
+        m_regions.at(C::col_t::MS_FIELD_COL_NAME),
         Column::VALUE_FID);
   }
 
@@ -96,7 +99,7 @@ public:
 
   bool
   has_code() const {
-    return m_code_region.has_value();
+    return m_regions.count(C::col_t::MS_FIELD_COL_CODE) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -104,7 +107,7 @@ public:
   code() const {
     return
       CodeAccessor<MODE, CHECK_BOUNDS>(
-        m_code_region.value(),
+        m_regions.at(C::col_t::MS_FIELD_COL_CODE),
         Column::VALUE_FID);
   }
 
@@ -117,7 +120,7 @@ public:
 
   bool
   has_time() const {
-    return m_time_region.has_value();
+    return m_regions.count(C::col_t::MS_FIELD_COL_TIME) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -125,7 +128,7 @@ public:
   time() const {
     return
       TimeAccessor<MODE, CHECK_BOUNDS>(
-        m_time_region.value(),
+        m_regions.at(C::col_t::MS_FIELD_COL_TIME),
         Column::VALUE_FID);
   }
 
@@ -144,7 +147,7 @@ public:
       const casacore::MEpoch& val) {
 
       auto t = T::m_convert(val);
-      T::m_time[pt] = t.get(MSFieldColumns::time_units).getValue();
+      T::m_time[pt] = t.get(T::m_units).getValue();
     }
   };
 
@@ -157,10 +160,7 @@ public:
     casacore::MEpoch
     read(const Legion::Point<1,Legion::coord_t>& pt) const {
       const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t = T::m_time[pt];
-      return
-        casacore::MEpoch(
-          casacore::Quantity(t, MSFieldColumns::time_units),
-          *T::m_mr);
+      return casacore::MEpoch(casacore::Quantity(t, T::m_units), *T::m_mr);
     }
   };
 
@@ -171,7 +171,8 @@ public:
       const Legion::PhysicalRegion& region,
       const std::shared_ptr<casacore::MeasRef<casacore::MEpoch>>& mr)
       : m_time(region, Column::VALUE_FID)
-      , m_mr(mr) {
+      , m_mr(mr)
+      , m_units(C::col_t::MS_FIELD_COL_TIME) {
       m_convert.setOut(*m_mr);
     }
 
@@ -180,6 +181,8 @@ public:
     TimeAccessor<MODE, CHECK_BOUNDS> m_time;
 
     std::shared_ptr<casacore::MeasRef<casacore::MEpoch>> m_mr;
+
+    const char *m_units;
 
     casacore::MEpoch::Convert m_convert;
   };
@@ -224,7 +227,9 @@ public:
   TimeMeasAccessor<MODE, CHECK_BOUNDS>
   timeMeas() const {
     return
-      TimeMeasAccessor<MODE, CHECK_BOUNDS>(m_time_region.value(), m_time_mr);
+      TimeMeasAccessor<MODE, CHECK_BOUNDS>(
+        m_regions.at(C::col_t::MS_FIELD_COL_TIME),
+        m_time_mr);
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -237,7 +242,7 @@ public:
 
   bool
   has_numPoly() const {
-    return m_num_poly_region.has_value();
+    return m_regions.count(C::col_t::MS_FIELD_COL_NUM_POLY) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -245,7 +250,7 @@ public:
   numPoly() const {
     return
       NumPolyAccessor<MODE, CHECK_BOUNDS>(
-        m_num_poly_region.value(),
+        m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
         Column::VALUE_FID);
   }
 
@@ -258,7 +263,7 @@ public:
 
   bool
   has_delayDir() const {
-    return m_delay_dir_region.has_value();
+    return m_regions.count(C::col_t::MS_FIELD_COL_DELAY_DIR) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -266,7 +271,7 @@ public:
   delayDir() const {
     return
       DelayDirAccessor<MODE, CHECK_BOUNDS>(
-        m_delay_dir_region.value(),
+        m_regions.at(C::col_t::MS_FIELD_COL_DELAY_DIR),
         Column::VALUE_FID);
   }
 
@@ -411,10 +416,10 @@ public:
   delayDirMeas() const {
     return
       DelayDirMeasAccessor<MODE, CHECK_BOUNDS>(
-        delay_dir_units,
-        m_delay_dir_region.value(),
-        m_num_poly_region.value(),
-        m_time_region.value(),
+        C::units.at(MS_FIELD_COL_DELAY_DIR),
+        m_regions.at(C::col_t::MS_FIELD_COL_DELAY_DIR),
+        m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
+        m_regions.at(C::col_t::MS_FIELD_COL_TIME),
         m_delay_dir_mr);
   }
 #endif // HYPERION_USE_CASACORE
@@ -427,7 +432,7 @@ public:
 
   bool
   has_phaseDir() const {
-    return m_phase_dir_region.has_value();
+    return m_regions.count(C::col_t::MS_FIELD_COL_PHASE_DIR) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -435,7 +440,7 @@ public:
   phaseDir() const {
     return
       PhaseDirAccessor<MODE, CHECK_BOUNDS>(
-        m_phase_dir_region.value(),
+        m_regions.at(C::col_t::MS_FIELD_COL_PHASE_DIR),
         Column::VALUE_FID);
   }
 
@@ -454,10 +459,10 @@ public:
   phaseDirMeas() const {
     return
       PhaseDirMeasAccessor<MODE, CHECK_BOUNDS>(
-        phase_dir_units,
-        m_phase_dir_region.value(),
-        m_num_poly_region.value(),
-        m_time_region.value(),
+        C::units.at(MS_FIELD_COL_PHASE_DIR),
+        m_regions.at(C::col_t::MS_FIELD_COL_PHASE_DIR),
+        m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
+        m_regions.at(C::col_t::MS_FIELD_COL_TIME),
         m_phase_dir_mr);
   }
 #endif // HYPERION_USE_CASACORE
@@ -470,7 +475,7 @@ public:
 
   bool
   has_referenceDir() const {
-    return m_reference_dir_region.has_value();
+    return m_regions.count(C::col_t::MS_FIELD_COL_REFERENCE_DIR) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -478,7 +483,7 @@ public:
   referenceDir() const {
     return
       ReferenceDirAccessor<MODE, CHECK_BOUNDS>(
-        m_reference_dir_region.value(),
+        m_regions.at(C::col_t::MS_FIELD_COL_REFERENCE_DIR),
         Column::VALUE_FID);
   }
 
@@ -497,10 +502,10 @@ public:
   referenceDirMeas() const {
     return
       ReferenceDirMeasAccessor<MODE, CHECK_BOUNDS>(
-        reference_dir_units,
-        m_reference_dir_region.value(),
-        m_num_poly_region.value(),
-        m_time_region.value(),
+        C::units.at(MS_FIELD_COL_REFERENCE_DIR),
+        m_regions.at(C::col_t::MS_FIELD_COL_REFERENCE_DIR),
+        m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
+        m_regions.at(C::col_t::MS_FIELD_COL_TIME),
         m_reference_dir_mr);
   }
 #endif // HYPERION_USE_CASACORE
@@ -514,14 +519,14 @@ public:
 
   bool
   has_sourceId() const {
-    return m_source_id_region.has_value();
+    return m_regions.count(C::col_t::MS_FIELD_COL_SOURCE_ID) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   SourceIdAccessor<MODE, CHECK_BOUNDS>
   sourceId() const {
     return SourceIdAccessor<MODE, CHECK_BOUNDS>(
-      m_source_id_region.value(),
+      m_regions.at(C::col_t::MS_FIELD_COL_SOURCE_ID),
       Column::VALUE_FID);
   }
 
@@ -534,14 +539,14 @@ public:
 
   bool
   has_ephemermis_id() const {
-    return m_ephemeris_id_region.has_value();
+    return m_regions.count(C::col_t::MS_FIELD_COL_EPHEMERIS_ID) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   EphemerisIdAccessor<MODE, CHECK_BOUNDS>
   ephemerisId() const {
     return EphemerisIdAccessor<MODE, CHECK_BOUNDS>(
-      m_ephemeris_id_region.value(),
+      m_regions.at(C::col_t::MS_FIELD_COL_EPHEMERIS_ID),
       Column::VALUE_FID);
   }
 
@@ -554,7 +559,7 @@ public:
 
   bool
   has_flagRow() const {
-    return m_flag_row_region.has_value();
+    return m_regions.count(C::col_t::MS_FIELD_COL_FLAG_ROW) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -562,32 +567,15 @@ public:
   flagRow() const {
     return
       FlagRowAccessor<MODE, CHECK_BOUNDS>(
-        m_flag_row_region.value(),
+        m_regions.at(C::col_t::MS_FIELD_COL_FLAG_ROW),
         Column::VALUE_FID);
   }
-
-  static const constexpr char* time_units = "s";
-
-  static const constexpr char* delay_dir_units = "rad";
-
-  static const constexpr char* phase_dir_units = "rad";
-
-  static const constexpr char* reference_dir_units = "rad";
 
 private:
 
   Legion::RegionRequirement m_rows_requirement;
 
-  std::optional<Legion::PhysicalRegion> m_name_region;
-  std::optional<Legion::PhysicalRegion> m_code_region;
-  std::optional<Legion::PhysicalRegion> m_time_region;
-  std::optional<Legion::PhysicalRegion> m_num_poly_region;
-  std::optional<Legion::PhysicalRegion> m_delay_dir_region;
-  std::optional<Legion::PhysicalRegion> m_phase_dir_region;
-  std::optional<Legion::PhysicalRegion> m_reference_dir_region;
-  std::optional<Legion::PhysicalRegion> m_source_id_region;
-  std::optional<Legion::PhysicalRegion> m_ephemeris_id_region;
-  std::optional<Legion::PhysicalRegion> m_flag_row_region;
+  std::unordered_map<C::col_t, Legion::PhysicalRegion> m_regions;
 
 #ifdef HYPERION_USE_CASACORE
   std::shared_ptr<casacore::MeasRef<casacore::MEpoch>> m_time_mr;

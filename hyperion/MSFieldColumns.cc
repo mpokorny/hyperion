@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include <hyperion/MSFieldColumns.h>
-#include <hyperion/MSTableColumns.h>
 #include <hyperion/MeasRefContainer.h>
 #include <hyperion/MeasRefDict.h>
 
@@ -25,8 +24,6 @@ using namespace Legion;
 
 namespace cc = casacore;
 
-#define COL(C) HYPERION_COLUMN_NAME(FIELD, C)
-
 MSFieldColumns::MSFieldColumns(
   Context ctx,
   Runtime* rt,
@@ -35,64 +32,39 @@ MSFieldColumns::MSFieldColumns(
   regions)
   : m_rows_requirement(rows_requirement) {
 
-  if (regions.count(COL(NAME)) > 0)
-    m_name_region = regions.at(COL(NAME))[0];
-  if (regions.count(COL(CODE)) > 0)
-    m_code_region = regions.at(COL(CODE))[0];
-  if (regions.count(COL(TIME)) > 0)
-    m_time_region = regions.at(COL(TIME))[0];
-  if (regions.count(COL(NUM_POLY)) > 0)
-    m_num_poly_region = regions.at(COL(NUM_POLY))[0];
-  if (regions.count(COL(DELAY_DIR)) > 0)
-    m_delay_dir_region = regions.at(COL(DELAY_DIR))[0];
-  if (regions.count(COL(PHASE_DIR)) > 0)
-    m_phase_dir_region = regions.at(COL(PHASE_DIR))[0];
-  if (regions.count(COL(REFERENCE_DIR)) > 0)
-    m_reference_dir_region = regions.at(COL(REFERENCE_DIR))[0];
-  if (regions.count(COL(SOURCE_ID)) > 0)
-    m_source_id_region = regions.at(COL(SOURCE_ID))[0];
-  if (regions.count(COL(EPHEMERIS_ID)) > 0)
-    m_ephemeris_id_region = regions.at(COL(EPHEMERIS_ID))[0];
-  if (regions.count(COL(FLAG_ROW)) > 0)
-    m_flag_row_region = regions.at(COL(FLAG_ROW))[0];
-
+  for (auto& [nm, prs] : regions) {
+    auto col = C::lookup_col(nm);
+    if (col) {
+      m_regions[col.value()] = prs[0];
+    }
 #ifdef HYPERION_USE_CASACORE
-  if (regions.count("TIME_MEAS_REF") > 0) {
-    auto prs = regions.at("TIME_MEAS_REF");
-    if (prs.size() > 0)
-      m_time_mr =
-        MeasRefDict::get<M_EPOCH>(
-          MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-          .get("Epoch").value());
+    else if (nm == "TIME_MEAS_REF") {
+      if (prs.size() > 0)
+        m_time_mr =
+          MeasRefDict::get<M_EPOCH>(
+            MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+            .get("Epoch").value());
+    } else if (nm == "DELAY_DIR_MEAS_REF") {
+      if (prs.size() > 0)
+        m_delay_dir_mr =
+          MeasRefDict::get<M_DIRECTION>(
+            MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+            .get("Direction").value());
+    } else if (nm == "PHASE_DIR_MEAS_REF") {
+      if (prs.size() > 0)
+        m_phase_dir_mr =
+          MeasRefDict::get<M_DIRECTION>(
+            MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+            .get("Direction").value());
+    } else if (nm == "REFERENCE_DIR_MEAS_REF") {
+      if (prs.size() > 0)
+        m_reference_dir_mr =
+          MeasRefDict::get<M_DIRECTION>(
+            MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
+            .get("Direction").value());
+    }
+#endif //HYPERION_USE_CASACORE
   }
-
-  if (regions.count("DELAY_DIR_MEAS_REF") > 0) {
-    auto prs = regions.at("DELAY_DIR_MEAS_REF");
-    if (prs.size() > 0)
-      m_delay_dir_mr =
-        MeasRefDict::get<M_DIRECTION>(
-          MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-          .get("Direction").value());
-  }
-
-  if (regions.count("PHASE_DIR_MEAS_REF") > 0) {
-    auto prs = regions.at("PHASE_DIR_MEAS_REF");
-    if (prs.size() > 0)
-      m_phase_dir_mr =
-        MeasRefDict::get<M_DIRECTION>(
-          MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-          .get("Direction").value());
-  }
-
-  if (regions.count("REFERENCE_DIR_MEAS_REF") > 0) {
-    auto prs = regions.at("REFERENCE_DIR_MEAS_REF");
-    if (prs.size() > 0)
-      m_reference_dir_mr =
-        MeasRefDict::get<M_DIRECTION>(
-          MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-          .get("Direction").value());
-  }
-#endif // HYPERION_USE_CASACORE
 }
 
 cc::MDirection

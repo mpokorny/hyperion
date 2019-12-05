@@ -18,6 +18,7 @@
 
 #include <hyperion/hyperion.h>
 #include <hyperion/Column.h>
+#include <hyperion/MSTableColumns.h>
 
 #pragma GCC visibility push(default)
 # include <casacore/measures/Measures/MPosition.h>
@@ -32,6 +33,8 @@ namespace hyperion {
 
 class HYPERION_API MSAntennaColumns {
 public:
+
+  typedef MSTableColumns<MS_ANTENNA> C;
 
   MSAntennaColumns(
     Legion::Context ctx,
@@ -73,7 +76,7 @@ public:
 
   bool
   has_name() const {
-    return m_name_region.has_value();
+    return m_regions.count(C::col_t::MS_ANTENNA_COL_NAME) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -81,7 +84,7 @@ public:
   name() const {
     return
       NameAccessor<MODE, CHECK_BOUNDS>(
-        m_name_region.value(),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_NAME),
         Column::VALUE_FID);
   }
 
@@ -94,7 +97,7 @@ public:
 
   bool
   has_station() const {
-    return m_station_region.has_value();
+    return m_regions.count(C::col_t::MS_ANTENNA_COL_STATION) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -102,7 +105,7 @@ public:
   station() const {
     return
       StationAccessor<MODE, CHECK_BOUNDS>(
-        m_station_region.value(),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_STATION),
         Column::VALUE_FID);
   }
 
@@ -115,7 +118,7 @@ public:
 
   bool
   has_type() const {
-    return m_type_region.has_value();
+    return m_regions.count(C::col_t::MS_ANTENNA_COL_TYPE) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -123,7 +126,7 @@ public:
   type() const {
     return
       TypeAccessor<MODE, CHECK_BOUNDS>(
-        m_type_region.value(),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_TYPE),
         Column::VALUE_FID);
   }
 
@@ -136,7 +139,7 @@ public:
 
   bool
   has_mount() const {
-    return m_mount_region.has_value();
+    return m_regions.count(C::col_t::MS_ANTENNA_COL_MOUNT) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -144,7 +147,7 @@ public:
   mount() const {
     return
       MountAccessor<MODE, CHECK_BOUNDS>(
-        m_mount_region.value(),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_MOUNT),
         Column::VALUE_FID);
   }
 
@@ -157,7 +160,7 @@ public:
 
   bool
   has_position() const {
-    return m_position_region.has_value();
+    return m_regions.count(C::col_t::MS_ANTENNA_COL_POSITION) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -165,7 +168,7 @@ public:
   position() const {
     return
       PositionAccessor<MODE, CHECK_BOUNDS>(
-        m_position_region.value(),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_POSITION),
         Column::VALUE_FID);
   }
 
@@ -276,8 +279,8 @@ public:
   positionMeas() const {
     return
       PositionMeasAccessor<MODE, CHECK_BOUNDS>(
-        position_units,
-        m_position_region.value(),
+        C::units.at(C::col_t::MS_ANTENNA_COL_POSITION),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_POSITION),
         m_position_mr);
   }
 #endif // HYPERION_USE_CASACORE
@@ -290,7 +293,7 @@ public:
 
   bool
   has_offset() const {
-    return m_offset_region.has_value();
+    return m_regions.count(C::col_t::MS_ANTENNA_COL_OFFSET) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -298,7 +301,7 @@ public:
   offset() const {
     return
       OffsetAccessor<MODE, CHECK_BOUNDS>(
-        m_offset_region.value(),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_OFFSET),
         Column::VALUE_FID);
   }
 
@@ -316,8 +319,8 @@ public:
   offsetMeas() const {
     return
       OffsetMeasAccessor<MODE, CHECK_BOUNDS>(
-        offset_units,
-        m_offset_region.value(),
+        C::units.at(C::col_t::MS_ANTENNA_COL_OFFSET),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_OFFSET),
         m_offset_mr);
   }
 #endif // HYPERION_USE_CASACORE
@@ -331,7 +334,7 @@ public:
 
   bool
   has_dishDiameter() const {
-    return m_dish_diameter_region.has_value();
+    return m_regions.count(C::col_t::MS_ANTENNA_COL_DISH_DIAMETER) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -339,7 +342,7 @@ public:
   dishDiameter() const {
     return
       DishDiameterAccessor<MODE, CHECK_BOUNDS>(
-        m_dish_diameter_region.value(),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_DISH_DIAMETER),
         Column::VALUE_FID);
   }
 
@@ -352,7 +355,7 @@ public:
 
   bool
   has_orbitId() const {
-    return m_orbit_id_region.has_value();
+    return m_regions.count(C::col_t::MS_ANTENNA_COL_ORBIT_ID) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -360,7 +363,7 @@ public:
   orbitId() const {
     return
       OrbitIdAccessor<MODE, CHECK_BOUNDS>(
-        m_orbit_id_region.value(),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_ORBIT_ID),
         Column::VALUE_FID);
   }
 
@@ -373,7 +376,7 @@ public:
 
   bool
   has_meanOrbit() const {
-    return m_mean_orbit_region.has_value();
+    return m_regions.count(C::col_t::MS_ANTENNA_COL_MEAN_ORBIT) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -381,7 +384,7 @@ public:
   meanOrbit() const {
     return
       MeanOrbitAccessor<MODE, CHECK_BOUNDS>(
-        m_mean_orbit_region.value(),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_MEAN_ORBIT),
         Column::VALUE_FID);
   }
 
@@ -394,7 +397,7 @@ public:
 
   bool
   has_phasedArrayId() const {
-    return m_phased_array_id_region.has_value();
+    return m_regions.count(C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -402,7 +405,7 @@ public:
   phasedArrayId() const {
     return
       PhasedArrayIdAccessor<MODE, CHECK_BOUNDS>(
-        m_phased_array_id_region.value(),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID),
         Column::VALUE_FID);
   }
 
@@ -415,7 +418,7 @@ public:
 
   bool
   has_flagRow() const {
-    return m_flag_row_region.has_value();
+    return m_regions.count(C::col_t::MS_ANTENNA_COL_FLAG_ROW) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -423,31 +426,15 @@ public:
   flagRow() const {
     return
       FlagRowAccessor<MODE, CHECK_BOUNDS>(
-        m_flag_row_region.value(),
+        m_regions.at(C::col_t::MS_ANTENNA_COL_FLAG_ROW),
         Column::VALUE_FID);
   }
-
-  static const constexpr char* position_units = "m";
-
-  static const constexpr char* offset_units = "m";
-
-  static const constexpr char* dish_diameter_units = "m";
 
 private:
 
   Legion::RegionRequirement m_rows_requirement;
 
-  std::optional<Legion::PhysicalRegion> m_name_region;
-  std::optional<Legion::PhysicalRegion> m_station_region;
-  std::optional<Legion::PhysicalRegion> m_type_region;
-  std::optional<Legion::PhysicalRegion> m_mount_region;
-  std::optional<Legion::PhysicalRegion> m_position_region;
-  std::optional<Legion::PhysicalRegion> m_offset_region;
-  std::optional<Legion::PhysicalRegion> m_dish_diameter_region;
-  std::optional<Legion::PhysicalRegion> m_orbit_id_region;
-  std::optional<Legion::PhysicalRegion> m_mean_orbit_region;
-  std::optional<Legion::PhysicalRegion> m_phased_array_id_region;
-  std::optional<Legion::PhysicalRegion> m_flag_row_region;
+  std::unordered_map<C::col_t, Legion::PhysicalRegion> m_regions;
 
 #ifdef HYPERION_USE_CASACORE
   std::shared_ptr<casacore::MeasRef<casacore::MPosition>> m_position_mr;
