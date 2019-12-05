@@ -60,7 +60,9 @@ private:
 
 public:
 
-  Legion::DomainT<1>
+  static const unsigned row_rank = 1;
+
+  Legion::DomainT<row_rank>
   rows(Legion::Runtime* rt) const {
     return
       rt->get_index_space_domain(
@@ -70,9 +72,12 @@ public:
   //
   // NAME
   //
+  static const constexpr unsigned name_rank =
+    row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_NAME];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using NameAccessor =
-    FieldAccessor<HYPERION_TYPE_STRING, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_STRING, name_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_name() const {
@@ -91,9 +96,12 @@ public:
   //
   // STATION
   //
+  static const constexpr unsigned station_rank =
+    row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_STATION];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using StationAccessor =
-    FieldAccessor<HYPERION_TYPE_STRING, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_STRING, station_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_station() const {
@@ -112,9 +120,12 @@ public:
   //
   // TYPE
   //
+  static const constexpr unsigned type_rank =
+    row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_TYPE];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using TypeAccessor =
-    FieldAccessor<HYPERION_TYPE_STRING, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_STRING, type_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_type() const {
@@ -133,9 +144,12 @@ public:
   //
   // MOUNT
   //
+  static const constexpr unsigned mount_rank =
+    row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_MOUNT];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using MountAccessor =
-    FieldAccessor<HYPERION_TYPE_STRING, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_STRING, mount_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_mount() const {
@@ -154,9 +168,12 @@ public:
   //
   // POSITION
   //
+  static const constexpr unsigned position_rank =
+    row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_POSITION];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using PositionAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 2, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, position_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_position() const {
@@ -182,14 +199,17 @@ public:
 
     void
     write(
-      const Legion::Point<1, Legion::coord_t>& pt,
+      const Legion::Point<row_rank, Legion::coord_t>& pt,
       const casacore::MPosition& val) {
+
+      static_assert(row_rank == 1);
+      static_assert(position_rank == 2);
 
       auto p = T::m_convert(val);
       auto vs = p.get(*T::m_units).getValue();
-      T::m_position[Legion::Point<2>(pt[0], 0)] = vs[0];
-      T::m_position[Legion::Point<2>(pt[0], 1)] = vs[1];
-      T::m_position[Legion::Point<2>(pt[0], 2)] = vs[2];
+      T::m_position[Legion::Point<position_rank>(pt[0], 0)] = vs[0];
+      T::m_position[Legion::Point<position_rank>(pt[0], 1)] = vs[1];
+      T::m_position[Legion::Point<position_rank>(pt[0], 2)] = vs[2];
     }
   };
 
@@ -200,10 +220,13 @@ public:
     using T::T;
 
     casacore::MPosition
-    read(const Legion::Point<1,Legion::coord_t>& pt) const {
+    read(const Legion::Point<row_rank,Legion::coord_t>& pt) const {
+
+      static_assert(row_rank == 1);
+      static_assert(position_rank == 2);
 
       const DataType<HYPERION_TYPE_DOUBLE>::ValueType* mp =
-        T::m_position.ptr(Legion::Point<2>(pt[0], 0));
+        T::m_position.ptr(Legion::Point<position_rank>(pt[0], 0));
       return
         casacore::MPosition(
           casacore::Quantity(mp[0], *T::m_units),
@@ -288,6 +311,11 @@ public:
   //
   // OFFSET
   //
+  static const constexpr unsigned offset_rank =
+    row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_OFFSET];
+
+  static_assert(offset_rank == position_rank);
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using OffsetAccessor = PositionAccessor<MODE, CHECK_BOUNDS>;
 
@@ -328,9 +356,12 @@ public:
   //
   // DISH_DIAMETER
   //
+  static const constexpr unsigned dishDiameter_rank =
+    row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_DISH_DIAMETER];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using DishDiameterAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, dishDiameter_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_dishDiameter() const {
@@ -349,9 +380,12 @@ public:
   //
   // ORBIT_ID
   //
+  static const constexpr unsigned orbitId_rank =
+    row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_ORBIT_ID];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using OrbitIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, orbitId_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_orbitId() const {
@@ -370,9 +404,12 @@ public:
   //
   // MEAN_ORBIT
   //
+  static const constexpr unsigned meanOrbit_rank =
+    row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_MEAN_ORBIT];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using MeanOrbitAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 2, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, meanOrbit_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_meanOrbit() const {
@@ -391,9 +428,12 @@ public:
   //
   // PHASED_ARRAY_ID
   //
+  static const constexpr unsigned phasedArrayId_rank =
+    row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using PhasedArrayIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, phasedArrayId_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_phasedArrayId() const {
@@ -412,9 +452,12 @@ public:
   //
   // FLAG_ROW
   //
+  static const constexpr unsigned flagRow_rank =
+    row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_FLAG_ROW];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using FlagRowAccessor =
-    FieldAccessor<HYPERION_TYPE_BOOL, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_BOOL, flagRow_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_flagRow() const {

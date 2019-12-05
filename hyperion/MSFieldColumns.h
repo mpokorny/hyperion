@@ -62,7 +62,9 @@ private:
 
 public:
 
-  Legion::DomainT<1>
+  static const constexpr unsigned row_rank = 1;
+
+  Legion::DomainT<row_rank>
   rows(Legion::Runtime* rt) const {
     return
       rt->get_index_space_domain(
@@ -72,9 +74,12 @@ public:
   //
   // NAME
   //
+  static const constexpr unsigned name_rank =
+    row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_NAME];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using NameAccessor =
-    FieldAccessor<HYPERION_TYPE_STRING, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_STRING, name_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_name() const {
@@ -93,9 +98,12 @@ public:
   //
   // CODE
   //
+  static const constexpr unsigned code_rank =
+    row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_CODE];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using CodeAccessor =
-    FieldAccessor<HYPERION_TYPE_SHORT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_SHORT, code_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_code() const {
@@ -114,9 +122,12 @@ public:
   //
   // TIME
   //
+  static const constexpr unsigned time_rank =
+    row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_TIME];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using TimeAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, time_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_time() const {
@@ -143,7 +154,7 @@ public:
 
     void
     write(
-      const Legion::Point<1, Legion::coord_t>& pt,
+      const Legion::Point<time_rank, Legion::coord_t>& pt,
       const casacore::MEpoch& val) {
 
       auto t = T::m_convert(val);
@@ -158,7 +169,7 @@ public:
     using T::T;
 
     casacore::MEpoch
-    read(const Legion::Point<1,Legion::coord_t>& pt) const {
+    read(const Legion::Point<time_rank, Legion::coord_t>& pt) const {
       const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t = T::m_time[pt];
       return casacore::MEpoch(casacore::Quantity(t, T::m_units), *T::m_mr);
     }
@@ -236,9 +247,12 @@ public:
   //
   // NUM_POLY
   //
+  static const constexpr unsigned numPoly_rank =
+    row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_NUM_POLY];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using NumPolyAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, numPoly_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_numPoly() const {
@@ -257,9 +271,12 @@ public:
   //
   // DELAY_DIR
   //
+  static const constexpr unsigned delayDir_rank =
+    row_rank + C::element_ranks[MS_FIELD_COL_DELAY_DIR];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using DelayDirAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 3, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, delayDir_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_delayDir() const {
@@ -284,8 +301,11 @@ public:
 
     void
     write(
-      const Legion::Point<1, Legion::coord_t>& pt,
+      const Legion::Point<row_rank, Legion::coord_t>& pt,
       std::vector<casacore::MDirection>& val) {
+
+      static_assert(row_rank == 1);
+      static_assert(delayDir_rank == 3);
 
       // until either the num_poly index space is writable or there's some
       // convention to interpret a difference in polynomial order, the following
@@ -296,8 +316,8 @@ public:
       for (int i = 0; i < np + 1; ++i) {
         auto d = T::m_convert(val[i]);
         auto vs = d.getAngle(T::m_units).getValue();
-        T::m_delay_dir[Legion::Point<3>(pt[0], i, 0)] = vs[0];
-        T::m_delay_dir[Legion::Point<3>(pt[0], i, 1)] = vs[1];
+        T::m_delay_dir[Legion::Point<delayDir_rank>(pt[0], i, 0)] = vs[0];
+        T::m_delay_dir[Legion::Point<delayDir_rank>(pt[0], i, 1)] = vs[1];
       }
     }
   };
@@ -310,11 +330,14 @@ public:
 
     casacore::MDirection
     read(
-      const Legion::Point<1, Legion::coord_t>& pt,
+      const Legion::Point<row_rank, Legion::coord_t>& pt,
       double time=0.0) const {
 
+      static_assert(row_rank == 1);
+      static_assert(delayDir_rank == 3);
+
       const DataType<HYPERION_TYPE_DOUBLE>::ValueType* ds =
-        T::m_delay_dir.ptr(Legion::Point<3>(pt[0], 0, 0));
+        T::m_delay_dir.ptr(Legion::Point<delayDir_rank>(pt[0], 0, 0));
 
       if (time == 0.0)
         return to_mdirection(ds);
@@ -427,6 +450,11 @@ public:
   //
   // PHASE_DIR
   //
+  static const constexpr unsigned phaseDir_rank =
+    row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_PHASE_DIR];
+
+  static_assert(phaseDir_rank == delayDir_rank);
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using PhaseDirAccessor = DelayDirAccessor<MODE, CHECK_BOUNDS>;
 
@@ -470,6 +498,11 @@ public:
   //
   // REFERENCE_DIR
   //
+  static const constexpr unsigned referenceDir_rank =
+    row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_REFERENCE_DIR];
+
+  static_assert(referenceDir_rank == delayDir_rank);
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using ReferenceDirAccessor = DelayDirAccessor<MODE, CHECK_BOUNDS>;
 
@@ -513,9 +546,12 @@ public:
   //
   // SOURCE_ID
   //
+  static const constexpr unsigned sourceId_rank =
+    row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_SOURCE_ID];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using SourceIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, sourceId_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_sourceId() const {
@@ -533,9 +569,12 @@ public:
   //
   // EPHEMERIS_ID
   //
+  static const constexpr unsigned ephemerisId_rank =
+    row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_EPHEMERIS_ID];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using EphemerisIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, ephemerisId_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_ephemermis_id() const {
@@ -553,9 +592,12 @@ public:
   //
   // FLAG_ROW
   //
+  static const constexpr unsigned flagRow_rank =
+    row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_FLAG_ROW];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using FlagRowAccessor =
-    FieldAccessor<HYPERION_TYPE_BOOL, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_BOOL, flagRow_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_flagRow() const {

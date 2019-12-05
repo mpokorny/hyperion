@@ -60,7 +60,9 @@ private:
 
 public:
 
-  Legion::DomainT<1>
+  static const constexpr unsigned row_rank = 1;
+
+  Legion::DomainT<row_rank>
   rows(Legion::Runtime* rt) const {
     return
       rt->get_index_space_domain(
@@ -70,9 +72,12 @@ public:
   //
   // NUM_CHAN
   //
+  static const constexpr unsigned numChan_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_NUM_CHAN];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using NumChanAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, numChan_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_numChan() const {
@@ -91,9 +96,12 @@ public:
   //
   // NAME
   //
+  static const constexpr unsigned name_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_NAME];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using NameAccessor =
-    FieldAccessor<HYPERION_TYPE_STRING, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_STRING, name_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_name() const {
@@ -112,9 +120,12 @@ public:
   //
   // REF_FREQUENCY
   //
+  static const constexpr unsigned refFrequency_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using RefFrequencyAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, refFrequency_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_refFrequency() const {
@@ -139,7 +150,7 @@ public:
 
     void
     write(
-      const Legion::Point<1, Legion::coord_t>& pt,
+      const Legion::Point<refFrequency_rank, Legion::coord_t>& pt,
       const casacore::MFrequency& val) {
 
       auto f = T::m_convert(val);
@@ -154,7 +165,7 @@ public:
     using T::T;
 
     casacore::MFrequency
-    read(const Legion::Point<1,Legion::coord_t>& pt) const {
+    read(const Legion::Point<refFrequency_rank, Legion::coord_t>& pt) const {
       const DataType<HYPERION_TYPE_DOUBLE>::ValueType& f =
         T::m_ref_frequency[pt];
       return
@@ -236,9 +247,12 @@ public:
   //
   // MEAS_FREQ_REF
   //
+  static const constexpr unsigned measFreqRef_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_MEAS_FREQ_REF];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using MeasFreqRefAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, measFreqRef_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_measFreqRef() const {
@@ -257,9 +271,12 @@ public:
   //
   // CHAN_FREQ
   //
+  static const constexpr unsigned chanFreq_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using ChanFreqAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 2, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, chanFreq_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_chanFreq() const {
@@ -284,7 +301,7 @@ public:
 
     void
     write(
-      const Legion::Point<2, Legion::coord_t>& pt,
+      const Legion::Point<chanFreq_rank, Legion::coord_t>& pt,
       const casacore::MFrequency& val) {
 
       auto m = 0; // FIXME: T::m_meas_freq_mr[pt[0]];
@@ -300,7 +317,7 @@ public:
     using T::T;
 
     casacore::MFrequency
-    read(const Legion::Point<2, Legion::coord_t>& pt) const {
+    read(const Legion::Point<chanFreq_rank, Legion::coord_t>& pt) const {
       const DataType<HYPERION_TYPE_DOUBLE>::ValueType& f =
         T::m_chan_freq[pt];
       auto m = 0; // FIXME: T::m_meas_freq_mr[pt[0]];
@@ -393,9 +410,12 @@ public:
   //
   // CHAN_WIDTH
   //
+  static const constexpr unsigned chanWidth_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_WIDTH];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using ChanWidthAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 2, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, chanWidth_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_chanWidth() const {
@@ -414,9 +434,12 @@ public:
   //
   // EFFECTIVE_BW
   //
+  static const constexpr unsigned effectiveBW_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_EFFECTIVE_BW];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using EffectiveBWAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 2, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, effectiveBW_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_effectiveBW() const {
@@ -435,9 +458,12 @@ public:
   //
   // RESOLUTION
   //
+  static const constexpr unsigned resolution_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_RESOLUTION];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using ResolutionAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 2, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, resolution_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_resolution() const {
@@ -456,9 +482,16 @@ public:
   //
   // TOTAL_BANDWIDTH
   //
+  static const constexpr unsigned totalBandwidth_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_TOTAL_BANDWIDTH];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using TotalBandwidthAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<
+      HYPERION_TYPE_DOUBLE,
+      totalBandwidth_rank,
+      MODE,
+      CHECK_BOUNDS>;
 
   bool
   has_totalBandwidth() const {
@@ -478,9 +511,12 @@ public:
   //
   // NET_SIDEBAND
   //
+  static const constexpr unsigned netSideband_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_NET_SIDEBAND];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using NetSidebandAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, netSideband_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_netSideband() const {
@@ -499,9 +535,12 @@ public:
   //
   // BBC_NO
   //
+  static const constexpr unsigned bbcNo_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_NO];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using BbcNoAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, bbcNo_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_bbcNo() const {
@@ -520,9 +559,12 @@ public:
   //
   // BBC_SIDEBAND
   //
+  static const constexpr unsigned bbcSideband_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_SIDEBAND];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using BbcSidebandAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, bbcSideband_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_bbcSideband() const {
@@ -541,9 +583,12 @@ public:
   //
   // IF_CONV_CHAIN
   //
+  static const constexpr unsigned ifConvChain_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_IF_CONV_CHAIN];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using IfConvChainAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, ifConvChain_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_ifConvChain() const {
@@ -562,9 +607,12 @@ public:
   //
   // RECEIVER_ID
   //
+  static const constexpr unsigned receiverId_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_RECEIVER_ID];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using ReceiverIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+   FieldAccessor<HYPERION_TYPE_INT, receiverId_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_receiverId() const {
@@ -583,9 +631,12 @@ public:
   //
   // FREQ_GROUP
   //
+  static const constexpr unsigned freqGroup_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using FreqGroupAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, freqGroup_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_freqGroup() const {
@@ -604,9 +655,13 @@ public:
   //
   // FREQ_GROUP_NAME
   //
+  static const constexpr unsigned freqGroupName_rank =
+    row_rank
+    + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP_NAME];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using FreqGroupNameAccessor =
-    FieldAccessor<HYPERION_TYPE_STRING, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_STRING, freqGroupName_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_freqGroupName() const {
@@ -626,9 +681,12 @@ public:
   //
   // DOPPLER_ID
   //
+  static const constexpr unsigned dopplerId_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_DOPPLER_ID];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using DopplerIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, dopplerId_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_dopplerId() const {
@@ -647,9 +705,12 @@ public:
   //
   // ASSOC_SPW_ID
   //
+  static const constexpr unsigned assocSpwId_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_SPW_ID];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using AssocSpwIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, 2, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, assocSpwId_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_assocSpwId() const {
@@ -668,9 +729,12 @@ public:
   //
   // ASSOC_NATURE
   //
+  static const constexpr unsigned assocNature_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_NATURE];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using AssocNatureAccessor =
-    FieldAccessor<HYPERION_TYPE_STRING, 2, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_STRING, assocNature_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_assocNature() const {
@@ -689,9 +753,12 @@ public:
   //
   // FLAG_ROW
   //
+  static const constexpr unsigned flagRow_rank =
+    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_FLAG_ROW];
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using FlagRowAccessor =
-    FieldAccessor<HYPERION_TYPE_BOOL, 1, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_BOOL, flagRow_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_flagRow() const {
