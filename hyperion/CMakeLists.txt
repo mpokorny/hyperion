@@ -144,7 +144,9 @@ list(APPEND HYPERION_SRC
   MSAntennaColumns.h
   MSAntennaColumns.cc
   MSFieldColumns.h
-  MSFieldColumns.cc)
+  MSFieldColumns.cc
+  MSSpWindowColumns.h
+  MSSpWindowColumns.cc)
 
 if(USE_CASACORE)
   list(APPEND HYPERION_SRC
