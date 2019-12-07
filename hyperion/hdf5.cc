@@ -45,7 +45,8 @@ hyperion::hdf5::read_index_tree_attr_metadata(
 
   std::optional<std::string> result;
 
-  std::string md_id_name = std::string(HYPERION_ATTRIBUTE_SID_PREFIX) + attr_name;
+  std::string md_id_name =
+    std::string(HYPERION_ATTRIBUTE_SID_PREFIX) + attr_name;
   if (H5Aexists(loc_id, md_id_name.c_str())) {
 
     hid_t attr_id = H5Aopen(loc_id, md_id_name.c_str(), H5P_DEFAULT);
@@ -302,183 +303,212 @@ write_mr_region(
   assert(err >= 0);
 }
 
-static void
-write_meas_ref(Context ctx, Runtime* rt, hid_t loc_id, const MeasRef& mr) {
+void
+hyperion::hdf5::write_measure(
+  Context ctx,
+  Runtime* rt,
+  hid_t loc_id,
+  const char* name,
+  bool owned,
+  const MeasRef& mr) {
 
-  std::vector<hsize_t> dims, dims1;
-  hid_t sp, sp1 = -1;
-  switch (mr.metadata_lr.get_index_space().get_dim()) {
+  hid_t mr_id = H5Gcreate(loc_id, name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  assert(mr_id > 0);
+
+  if (owned && !mr.is_empty()) {
+    std::vector<hsize_t> dims, dims1;
+    hid_t sp, sp1 = -1;
+    switch (mr.metadata_lr.get_index_space().get_dim()) {
 #define SP(D)                                                           \
-    case D:                                                             \
-    {                                                                   \
-      Rect<D> bounds =                                                  \
-        rt->get_index_space_domain(mr.metadata_lr.get_index_space());   \
-      dims.resize(D);                                                   \
-      for (size_t i = 0; i < D; ++i)                                    \
-        dims[i] = bounds.hi[i] + 1;                                     \
-      sp = H5Screate_simple(D, dims.data(), NULL);                      \
-      assert(sp >= 0);                                                  \
-    }                                                                   \
+      case D:                                                           \
+      {                                                                 \
+        Rect<D> bounds =                                                \
+          rt->get_index_space_domain(mr.metadata_lr.get_index_space()); \
+        dims.resize(D);                                                 \
+        for (size_t i = 0; i < D; ++i)                                  \
+          dims[i] = bounds.hi[i] + 1;                                   \
+        sp = H5Screate_simple(D, dims.data(), NULL);                    \
+        assert(sp >= 0);                                                \
+      }                                                                 \
                                                                         \
-    if (mr.values_lr != LogicalRegion::NO_REGION) {                     \
-      Rect<D+1> bounds =                                                \
-        rt->get_index_space_domain(mr.values_lr.get_index_space());     \
-      dims1.resize(D + 1);                                              \
-      for (size_t i = 0; i < D + 1; ++i)                                \
-        dims1[i] = bounds.hi[i] + 1;                                    \
-      sp1 = H5Screate_simple(D + 1, dims1.data(), NULL);                \
-      assert(sp1 >= 0);                                                 \
-    }                                                                   \
-    break;
-    HYPERION_FOREACH_N_LESS_MAX(SP)
+      if (mr.values_lr != LogicalRegion::NO_REGION) {                   \
+        Rect<D+1> bounds =                                              \
+          rt->get_index_space_domain(mr.values_lr.get_index_space());   \
+        dims1.resize(D + 1);                                            \
+        for (size_t i = 0; i < D + 1; ++i)                              \
+          dims1[i] = bounds.hi[i] + 1;                                  \
+        sp1 = H5Screate_simple(D + 1, dims1.data(), NULL);              \
+        assert(sp1 >= 0);                                               \
+      }                                                                 \
+      break;
+      HYPERION_FOREACH_N_LESS_MAX(SP)
 #undef SP
-  default:
-    assert(false);
-    break;
-  }
-  {
-    // Write the datasets for the MeasRef values directly, without going through
-    // the Legion HDF5 interface, as the dataset sizes are small. Not worrying
-    // too much about efficiency for this, in any case.
-    {
-      hid_t ds =
-        H5Dcreate(
-          loc_id,
-          HYPERION_MEAS_REF_MCLASS_DS,
-          H5DatatypeManager::datatypes()[H5DatatypeManager::MEASURE_CLASS_H5T],
-          sp,
-          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-      assert(ds >= 0);
-
-      switch (dims.size()) {
-#define W_MCLASS(D)                                                     \
-        case D:                                                         \
-          write_mr_region<                                              \
-            D, \
-            MeasRef::MeasureClassAccessor<READ_ONLY, D>, \
-            MeasRef::MEASURE_CLASS_TYPE>( \
-              ctx,                                                      \
-              rt,                                                       \
-              ds,                                                       \
-              H5DatatypeManager::datatypes()[                           \
-                H5DatatypeManager::MEASURE_CLASS_H5T],                  \
-              mr.metadata_lr,                                           \
-              MeasRef::MEASURE_CLASS_FID);                              \
-          break;
-        HYPERION_FOREACH_N_LESS_MAX(W_MCLASS);
-#undef W_MCLASS
-      default:
-        assert(false);
-        break;
-      }
-      herr_t err = H5Dclose(ds);
-      assert(err >= 0);
-    }
-    {
-      hid_t ds =
-        H5Dcreate(
-          loc_id,
-          HYPERION_MEAS_REF_RTYPE_DS,
-          H5DatatypeManager::datatype<
-            ValueType<MeasRef::REF_TYPE_TYPE>::DataType>(),
-          sp,
-          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-      assert(ds >= 0);
-
-      switch (dims.size()) {
-#define W_RTYPE(D)                                                      \
-        case D:                                                         \
-          write_mr_region<                                              \
-            D, \
-            MeasRef::RefTypeAccessor<READ_ONLY, D>, \
-            MeasRef::REF_TYPE_TYPE>( \
-              ctx,                                                      \
-              rt,                                                       \
-              ds,                                                       \
-              H5DatatypeManager::datatype<                              \
-                ValueType<MeasRef::REF_TYPE_TYPE>::DataType>(),           \
-              mr.metadata_lr,                                           \
-              MeasRef::REF_TYPE_FID);                                   \
-          break;
-        HYPERION_FOREACH_N_LESS_MAX(W_RTYPE);
-#undef W_RTYPE
-      default:
-        assert(false);
-        break;
-      }
-      herr_t err = H5Dclose(ds);
-      assert(err >= 0);
-    }
-    {
-      hid_t ds =
-        H5Dcreate(
-          loc_id,
-          HYPERION_MEAS_REF_NVAL_DS,
-          H5DatatypeManager::datatype<
-            ValueType<MeasRef::NUM_VALUES_TYPE>::DataType>(),
-          sp,
-          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-      assert(ds >= 0);
-
-      switch (dims.size()) {
-#define W_NVAL(D)                                                       \
-        case D:                                                         \
-          write_mr_region<                                              \
-            D, \
-            MeasRef::NumValuesAccessor<READ_ONLY, D>, \
-            MeasRef::NUM_VALUES_TYPE>( \
-              ctx,                                                      \
-              rt,                                                       \
-              ds,                                                       \
-              H5DatatypeManager::datatype<                              \
-                ValueType<MeasRef::NUM_VALUES_TYPE>::DataType>(),         \
-              mr.metadata_lr,                                           \
-              MeasRef::NUM_VALUES_FID);                                 \
-          break;
-        HYPERION_FOREACH_N_LESS_MAX(W_NVAL);
-#undef W_NVAL
-      default:
-        assert(false);
-        break;
-      }
-      herr_t err = H5Dclose(ds);
-      assert(err >= 0);
-    }
-  }
-  if (dims1.size() > 0) {
-    hid_t ds =
-      H5Dcreate(
-        loc_id,
-        HYPERION_MEAS_REF_VALUES_DS,
-        H5DatatypeManager::datatype<ValueType<MeasRef::VALUE_TYPE>::DataType>(),
-        sp1,
-        H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    assert(ds >= 0);
-
-    switch (dims1.size()) {
-#define W_VALUES(D)                                                     \
-      case D + 1:                                                       \
-        write_mr_region<                                                \
-          D + 1, \
-          MeasRef::ValueAccessor<READ_ONLY, D + 1>, \
-          MeasRef::VALUE_TYPE>( \
-            ctx,                                                        \
-            rt,                                                         \
-            ds,                                                         \
-            H5DatatypeManager::datatype<                                \
-              ValueType<MeasRef::VALUE_TYPE>::DataType>(),                \
-            mr.values_lr,                                               \
-            0);                                                         \
-        break;
-      HYPERION_FOREACH_N_LESS_MAX(W_VALUES);
-#undef W_VALUES
     default:
-      assert(false);
+        assert(false);
       break;
     }
-    herr_t err = H5Dclose(ds);
-    assert(err >= 0);
+    {
+      // Write the datasets for the MeasRef values directly, without going through
+      // the Legion HDF5 interface, as the dataset sizes are small. Not worrying
+      // too much about efficiency for this, in any case.
+      {
+        hid_t ds =
+          H5Dcreate(
+            mr_id,
+            HYPERION_MEAS_REF_MCLASS_DS,
+            H5DatatypeManager::datatypes()[H5DatatypeManager::MEASURE_CLASS_H5T],
+            sp,
+            H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        assert(ds >= 0);
+
+        switch (dims.size()) {
+#define W_MCLASS(D)                                                     \
+          case D:                                                       \
+            write_mr_region<                                            \
+              D, \
+              MeasRef::MeasureClassAccessor<READ_ONLY, D>, \
+              MeasRef::MEASURE_CLASS_TYPE>( \
+                ctx, \
+                rt, \
+                ds, \
+                H5DatatypeManager::datatypes()[ \
+                  H5DatatypeManager::MEASURE_CLASS_H5T], \
+                mr.metadata_lr, \
+                MeasRef::MEASURE_CLASS_FID); \
+            break;
+          HYPERION_FOREACH_N_LESS_MAX(W_MCLASS);
+#undef W_MCLASS
+        default:
+          assert(false);
+          break;
+        }
+        herr_t err = H5Dclose(ds);
+        assert(err >= 0);
+      }
+      {
+        hid_t ds =
+          H5Dcreate(
+            mr_id,
+            HYPERION_MEAS_REF_RTYPE_DS,
+            H5DatatypeManager::datatype<
+            ValueType<MeasRef::REF_TYPE_TYPE>::DataType>(),
+            sp,
+            H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        assert(ds >= 0);
+
+        switch (dims.size()) {
+#define W_RTYPE(D)                                                      \
+          case D:                                                       \
+            write_mr_region<                                            \
+              D, \
+              MeasRef::RefTypeAccessor<READ_ONLY, D>, \
+              MeasRef::REF_TYPE_TYPE>( \
+                ctx, \
+                rt, \
+                ds, \
+                H5DatatypeManager::datatype< \
+                  ValueType<MeasRef::REF_TYPE_TYPE>::DataType>(), \
+                mr.metadata_lr, \
+                MeasRef::REF_TYPE_FID); \
+            break;
+          HYPERION_FOREACH_N_LESS_MAX(W_RTYPE);
+#undef W_RTYPE
+        default:
+          assert(false);
+          break;
+        }
+        herr_t err = H5Dclose(ds);
+        assert(err >= 0);
+      }
+      {
+        hid_t ds =
+          H5Dcreate(
+            mr_id,
+            HYPERION_MEAS_REF_NVAL_DS,
+            H5DatatypeManager::datatype<
+            ValueType<MeasRef::NUM_VALUES_TYPE>::DataType>(),
+            sp,
+            H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        assert(ds >= 0);
+
+        switch (dims.size()) {
+#define W_NVAL(D)                                                       \
+          case D:                                                       \
+            write_mr_region<                                            \
+              D, \
+              MeasRef::NumValuesAccessor<READ_ONLY, D>, \
+              MeasRef::NUM_VALUES_TYPE>( \
+                ctx, \
+                rt, \
+                ds, \
+                H5DatatypeManager::datatype< \
+                  ValueType<MeasRef::NUM_VALUES_TYPE>::DataType>(), \
+                mr.metadata_lr, \
+                MeasRef::NUM_VALUES_FID); \
+            break;
+          HYPERION_FOREACH_N_LESS_MAX(W_NVAL);
+#undef W_NVAL
+        default:
+          assert(false);
+          break;
+        }
+        herr_t err = H5Dclose(ds);
+        assert(err >= 0);
+      }
+    }
+    if (dims1.size() > 0) {
+      hid_t ds =
+        H5Dcreate(
+          mr_id,
+          HYPERION_MEAS_REF_VALUES_DS,
+          H5DatatypeManager::datatype<ValueType<MeasRef::VALUE_TYPE>::DataType>(),
+          sp1,
+          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      assert(ds >= 0);
+
+      switch (dims1.size()) {
+#define W_VALUES(D)                                                     \
+        case D + 1:                                                     \
+          write_mr_region<                                              \
+            D + 1, \
+            MeasRef::ValueAccessor<READ_ONLY, D + 1>, \
+            MeasRef::VALUE_TYPE>( \
+              ctx, \
+              rt, \
+              ds, \
+              H5DatatypeManager::datatype< \
+                ValueType<MeasRef::VALUE_TYPE>::DataType>(), \
+              mr.values_lr, \
+              0); \
+          break;
+        HYPERION_FOREACH_N_LESS_MAX(W_VALUES);
+#undef W_VALUES
+      default:
+        assert(false);
+        break;
+      }
+      herr_t err = H5Dclose(ds);
+      assert(err >= 0);
+    }
   }
+  IndexTreeL metadata_tree =
+    index_space_as_tree(rt, mr.metadata_lr.get_index_space());
+  write_index_tree_to_attr<binary_index_tree_serdez>(
+    metadata_tree,
+    loc_id,
+    name,
+    "metadata_index_tree");
+  if (mr.values_lr != LogicalRegion::NO_REGION) {
+    IndexTreeL value_tree =
+      index_space_as_tree(rt, mr.values_lr.get_index_space());
+    write_index_tree_to_attr<binary_index_tree_serdez>(
+      value_tree,
+      loc_id,
+      name,
+      "value_index_tree");
+  }
+  herr_t err = H5Gclose(mr_id);
+  assert(err >= 0);
 }
 
 void
@@ -505,61 +535,28 @@ hyperion::hdf5::write_measures(
     std::string component_prefix = component_path;
     if (component_prefix.back() != '/')
       component_prefix.push_back('/');
-    auto prefix_sz = component_prefix.size();
     RegionRequirement req(meas_refs.lr, READ_ONLY, EXCLUSIVE, meas_refs.lr);
     req.add_field(MeasRefContainer::MEAS_REF_FID);
+    req.add_field(MeasRefContainer::OWNED_FID);
+    req.add_field(MeasRefContainer::NAME_FID);
     auto pr = rt->map_region(ctx, req);
     const MeasRefContainer::MeasRefAccessor<READ_ONLY>
       mrs(pr, MeasRefContainer::MEAS_REF_FID);
+    const MeasRefContainer::OwnedAccessor<READ_ONLY>
+      owned(pr, MeasRefContainer::OWNED_FID);
+    const MeasRefContainer::NameAccessor<READ_ONLY>
+      name(pr, MeasRefContainer::NAME_FID);
     for (size_t i = 0; i < num_meas_refs; ++i) {
-      MeasRef mr = mrs[i];
-      std::string name;
-      {
-        RegionRequirement
-          nreq(mr.name_lr, READ_ONLY, EXCLUSIVE, mr.name_lr);
-        nreq.add_field(MeasRef::NAME_FID);
-        auto nm_pr = rt->map_region(ctx, nreq);
-        const MeasRef::NameAccessor<READ_ONLY> nm(nm_pr, MeasRef::NAME_FID);
-        name = nm[0];
-        rt->unmap_region(ctx, nm_pr);
-      }
-      if (name.substr(0, prefix_sz) == component_prefix) {
-        // write value into new group
-        if (measures_id < 0) {
-          measures_id =
-            H5Gcreate(
-              loc_id,
-              HYPERION_MEASURES_GROUP,
-              H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-          assert(measures_id >= 0);
-        }
-        std::string tag = name.substr(MeasRef::find_tag(name));
-        hid_t mr_id =
+      // write value into new group
+      if (measures_id < 0) {
+        measures_id =
           H5Gcreate(
-            measures_id,
-            tag.c_str(),
+            loc_id,
+            HYPERION_MEASURES_GROUP,
             H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-        assert(mr_id > 0);
-        write_meas_ref(ctx, rt, mr_id, mr);
-        IndexTreeL metadata_tree =
-          index_space_as_tree(rt, mr.metadata_lr.get_index_space());
-        write_index_tree_to_attr<binary_index_tree_serdez>(
-          metadata_tree,
-          measures_id,
-          tag.c_str(),
-          "metadata_index_tree");
-        if (mr.values_lr != LogicalRegion::NO_REGION) {
-          IndexTreeL value_tree =
-            index_space_as_tree(rt, mr.values_lr.get_index_space());
-          write_index_tree_to_attr<binary_index_tree_serdez>(
-            value_tree,
-            measures_id,
-            tag.c_str(),
-            "value_index_tree");
-        }
-        herr_t err = H5Gclose(mr_id);
-        assert(err >= 0);
+        assert(measures_id >= 0);
       }
+      write_measure(ctx, rt, measures_id, name[i].val, owned[i], mrs[i]);
     }
     rt->unmap_region(ctx, pr);
   }
@@ -736,7 +733,42 @@ hyperion::hdf5::write_column(
   write_keywords(ctx, rt, col_group_id, column.keywords, with_data);
 
 #ifdef HYPERION_USE_CASACORE
-  write_measures(ctx, rt, col_group_id, column_path, column.meas_refs);
+  if (!column.meas_ref.is_empty()){
+    {
+      htri_t rc =
+        H5Lexists(col_group_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
+      if (rc > 0) {
+        herr_t err =
+          H5Ldelete(col_group_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
+        assert(err >= 0);
+      }
+    }
+    hid_t measures_id =
+      H5Gcreate(
+        col_group_id,
+        HYPERION_MEASURES_GROUP,
+        H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    assert(measures_id >= 0);
+    RegionRequirement
+      req(column.metadata_lr, READ_ONLY, EXCLUSIVE, column.metadata_lr);
+    req.add_field(Column::METADATA_OWN_MEAS_REF_FID);
+    req.add_field(Column::METADATA_MEAS_REF_NAME_FID);
+    auto pr = rt->map_region(ctx, req);
+    const Column::OwnMeasRefAccessor<READ_ONLY>
+      owned_mr(pr, Column::METADATA_OWN_MEAS_REF_FID);
+    const Column::MeasRefNameAccessor<READ_ONLY>
+      mr_nm(pr, Column::METADATA_MEAS_REF_NAME_FID);
+    write_measure(
+      ctx,
+      rt,
+      measures_id,
+      mr_nm[0].val,
+      owned_mr[0],
+      column.meas_ref);
+    rt->unmap_region(ctx, pr);
+    herr_t err = H5Gclose(measures_id);
+    assert(err >= 0);
+  }
 #endif
 
   herr_t err = H5Gclose(col_group_id);
@@ -1014,20 +1046,22 @@ read_mr_region(
   rt->unmap_region(ctx, pr);
 }
 
-static MeasRef
+static std::pair<std::string, MeasRef>
 init_meas_ref(
   Context ctx,
   Runtime* rt,
   hid_t loc_id,
   const std::string& name,
-  const IndexTreeL& metadata_tree,
+  const std::optional<IndexTreeL>& metadata_tree,
   const std::optional<IndexTreeL>& value_tree) {
 
-  std::array<LogicalRegion, 3> regions =
-    MeasRef::create_regions(ctx, rt, name, metadata_tree, value_tree);
-  LogicalRegion name_lr = regions[0];
-  LogicalRegion metadata_lr = regions[1];
-  LogicalRegion values_lr = regions[2];
+  if (!metadata_tree)
+    return std::make_pair(name, MeasRef());
+
+  std::array<LogicalRegion, 2> regions =
+    MeasRef::create_regions(ctx, rt, metadata_tree.value(), value_tree);
+  LogicalRegion metadata_lr = regions[0];
+  LogicalRegion values_lr = regions[1];
 
   {
     // Read the datasets for the MeasRef values directly.
@@ -1136,13 +1170,13 @@ init_meas_ref(
     herr_t err = H5Dclose(ds);
     assert(err >= 0);
   }
-  return MeasRef(name_lr, values_lr, metadata_lr);
+  return std::make_pair(name, MeasRef(metadata_lr, values_lr));
 }
 
 struct acc_meas_ref_ctx {
   Context ctx;
   Runtime* rt;
-  std::vector<MeasRef> acc;
+  std::unordered_map<std::string, MeasRef> acc;
 };
 
 static herr_t
@@ -1161,15 +1195,17 @@ acc_meas_ref(
   if (infobuf.type == H5O_TYPE_GROUP) {
     hid_t mr_id = H5Gopen(group, name, H5P_DEFAULT);
     assert(mr_id >= 0);
-    IndexTreeL metadata_tree;
+    std::optional<IndexTreeL> metadata_tree;
     {
-      std::string sid =
-        read_index_tree_attr_metadata(mr_id, "metadata_index_tree").value();
-      assert(sid == "hyperion::hdf5::binary_index_tree_serdez");
-      metadata_tree =
-        read_index_tree_from_attr<binary_index_tree_serdez>(
-          mr_id,
-          "metadata_index_tree").value();
+      std::optional<std::string> sid =
+        read_index_tree_attr_metadata(mr_id, "metadata_index_tree");
+      if (sid) {
+        assert(sid.value() == "hyperion::hdf5::binary_index_tree_serdez");
+        metadata_tree =
+          read_index_tree_from_attr<binary_index_tree_serdez>(
+            mr_id,
+            "metadata_index_tree").value();
+      }
     }
     std::optional<IndexTreeL> value_tree;
     {
@@ -1183,7 +1219,7 @@ acc_meas_ref(
             "value_index_tree");
       }
     }
-    args->acc.push_back(
+    args->acc.insert(
       init_meas_ref(
         args->ctx,
         args->rt,
@@ -1214,12 +1250,16 @@ hyperion::hdf5::init_column(
   Column result;
 
 #ifdef HYPERION_USE_CASACORE
-  std::vector<MeasRef> mrs;
+  MeasRef mr;
+  bool own_mr = false;
+  std::string mr_name;
   {
+    std::unordered_map<std::string, MeasRef> mrs;
     htri_t rc = H5Lexists(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
     assert(rc >= 0);
     if (rc > 0) {
-      hid_t measures_id = H5Gopen(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
+      hid_t measures_id =
+        H5Gopen(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
       assert(measures_id >= 0);
       hsize_t position = 0;
       struct acc_meas_ref_ctx acc_meas_ref_ctx{ctx, rt};
@@ -1236,9 +1276,19 @@ hyperion::hdf5::init_column(
       err = H5Gclose(measures_id);
       assert(err >= 0);
     }
+    assert(mrs.size() <= 1);
+    if (mrs.size() == 1) {
+      MeasRef mr0;
+      std::tie(mr_name, mr0) = *mrs.begin();
+      auto mrc =
+        MeasRefContainer::create(
+          ctx,
+          rt,
+          (mr0.is_empty() ? std::unordered_map<std::string, MeasRef>{} : mrs),
+          table_meas_ref);
+      std::tie(mr, own_mr) = mrc.lookup(ctx, rt, mr_name);
+    }
   }
-  auto column_meas_ref =
-    MeasRefContainer::create(ctx, rt, mrs, table_meas_ref);
 #endif
 
   hyperion::TypeTag datatype = ValueType<int>::DataType;
@@ -1315,8 +1365,9 @@ hyperion::hdf5::init_column(
             datatype,
             it,
 #ifdef HYPERION_USE_CASACORE
-            column_meas_ref,
-            true,
+            mr,
+            own_mr,
+            mr_name,
 #endif
             keywords,
             name_prefix);
@@ -1408,7 +1459,7 @@ hyperion::hdf5::init_table(
     return result;
 
 #ifdef HYPERION_USE_CASACORE
-  std::vector<MeasRef> mrs;
+  std::unordered_map<std::string, MeasRef> mrs;
   {
     htri_t rc = H5Lexists(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
     assert(rc >= 0);

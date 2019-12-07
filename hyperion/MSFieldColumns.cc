@@ -25,7 +25,6 @@ using namespace Legion;
 namespace cc = casacore;
 
 MSFieldColumns::MSFieldColumns(
-  Context ctx,
   Runtime* rt,
   const RegionRequirement& rows_requirement,
   const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&
@@ -41,29 +40,26 @@ MSFieldColumns::MSFieldColumns(
 #ifdef HYPERION_USE_CASACORE
         auto col = C::lookup_measure_col(nm);
         if (col) {
+          MeasRef::DataRegions drs;
+          drs.metadata = prs[0];
+          if (prs.size() > 1)
+            drs.values = prs[1];
           switch (col.value()) {
           case C::col_t::MS_FIELD_COL_TIME:
             m_time_mr =
-              MeasRefDict::get<M_EPOCH>(
-                MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-                .get("Epoch").value());
+              MeasRef::make<MClassT<M_EPOCH>::type>(rt, drs).value();
             break;
           case C::col_t::MS_FIELD_COL_DELAY_DIR:
             m_delay_dir_mr =
-              MeasRefDict::get<M_DIRECTION>(
-                MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-                .get("Direction").value());
+              MeasRef::make<MClassT<M_DIRECTION>::type>(rt, drs).value();
             break;
           case C::col_t::MS_FIELD_COL_PHASE_DIR:
-            MeasRefDict::get<M_DIRECTION>(
-              MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-              .get("Direction").value());
+            m_phase_dir_mr =
+              MeasRef::make<MClassT<M_DIRECTION>::type>(rt, drs).value();
             break;
           case C::col_t::MS_FIELD_COL_REFERENCE_DIR:
             m_reference_dir_mr =
-              MeasRefDict::get<M_DIRECTION>(
-                MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-                .get("Direction").value());
+              MeasRef::make<MClassT<M_DIRECTION>::type>(rt, drs).value();
             break;
           default:
             break;

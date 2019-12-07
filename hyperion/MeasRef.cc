@@ -542,19 +542,24 @@ show_index_space(Runtime* rt, IndexSpaceT<DIM> is) {
   std::cout << oss.str();
 }
 
-std::string
-MeasRef::name(Legion::Context ctx, Legion::Runtime* rt) const {
-  RegionRequirement req(name_lr, READ_ONLY, EXCLUSIVE, name_lr);
-  req.add_field(NAME_FID);
-  auto pr = rt->map_region(ctx, req);
-  std::string result = name(pr);
-  rt->unmap_region(ctx, pr);
-  return result;
-}
+std::tuple<RegionRequirement, std::optional<RegionRequirement>>
+MeasRef::requirements(legion_privilege_mode_t mode) const {
 
-std::string::size_type
-MeasRef::find_tag(const std::string& name) {
-  return name.rfind("/") + 1; // also OK if rfind returns npos (= -1)
+  RegionRequirement mreq(metadata_lr, mode, EXCLUSIVE, metadata_lr);
+  mreq.add_field(MEASURE_CLASS_FID);
+  mreq.add_field(REF_TYPE_FID);
+  mreq.add_field(NUM_VALUES_FID);
+  std::optional<RegionRequirement> vreq;
+  if (values_lr != LogicalRegion::NO_REGION)
+    vreq =
+      RegionRequirement(
+        values_lr,
+        {0},
+        {0},
+        mode,
+        EXCLUSIVE,
+        values_lr);
+  return std::make_tuple(mreq, vreq);
 }
 
 MClass
@@ -595,6 +600,9 @@ MeasRef::equiv(Context ctx, Runtime* rt, const MeasRef& other) const {
   assert((values_lr != other.values_lr)
          || (values_lr == LogicalRegion::NO_REGION
              && other.values_lr == LogicalRegion::NO_REGION));
+  if (metadata_lr == LogicalRegion::NO_REGION
+      || other.metadata_lr == LogicalRegion::NO_REGION)
+    return false;
   DataRegions pr_x;
   {
     RegionRequirement
@@ -641,6 +649,8 @@ MeasRef::equiv(Runtime* rt, const DataRegions& x, const DataRegions& y) {
 
   bool result = x.values.has_value() == y.values.has_value();
   if (result) {
+    if (!x.values)
+      return true;
     IndexSpace is = x.metadata.get_logical_region().get_index_space();
     switch (is.get_dim()) {
 #define CMP(D)                                                          \
@@ -686,29 +696,12 @@ MeasRef::equiv(Runtime* rt, const DataRegions& x, const DataRegions& y) {
   return result;
 }
 
-std::array<LogicalRegion, 3>
+std::array<LogicalRegion, 2>
 MeasRef::create_regions(
   Context ctx,
   Runtime* rt,
-  const std::string& name,
   const IndexTreeL& metadata_tree,
   const std::optional<IndexTreeL>& value_tree) {
-
-  LogicalRegion name_lr;
-  {
-    IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
-    FieldSpace fs = rt->create_field_space(ctx);
-    FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    fa.allocate_field(sizeof(NAME_TYPE), NAME_FID);
-    name_lr = rt->create_logical_region(ctx, is, fs);
-
-    RegionRequirement req(name_lr, WRITE_ONLY, EXCLUSIVE, name_lr);
-    req.add_field(NAME_FID);
-    auto pr = rt->map_region(ctx, req);
-    const NameAccessor<WRITE_ONLY> nm(pr, NAME_FID);
-    nm[0] = name;
-    rt->unmap_region(ctx, pr);
-  }
 
   LogicalRegion metadata_lr;
   {
@@ -730,37 +723,26 @@ MeasRef::create_regions(
     values_lr = rt->create_logical_region(ctx, is, fs);
   }
 
-  return {name_lr, metadata_lr, values_lr};
+  return {metadata_lr, values_lr};
 }
 
 MeasRef
 MeasRef::create(
   Context ctx,
   Runtime *rt,
-  const std::string& name,
   casacore::MRBase* mr,
   MClass klass) {
 
   auto index_trees = measure_index_trees(mr);
-  std::array<LogicalRegion, 3> regions =
+  std::array<LogicalRegion, 2> regions =
     create_regions(
       ctx,
       rt,
-      name,
       index_trees.metadata_tree.value(),
       index_trees.value_tree);
 
-  LogicalRegion name_lr = regions[0];
-  LogicalRegion metadata_lr = regions[1];
-  LogicalRegion values_lr = regions[2];
-  {
-    RegionRequirement req(name_lr, WRITE_ONLY, EXCLUSIVE, name_lr);
-    req.add_field(NAME_FID);
-    auto pr = rt->map_region(ctx, req);
-    const NameAccessor<WRITE_ONLY> nm(pr, NAME_FID);
-    nm[0] = name;
-    rt->unmap_region(ctx, pr);
-  }
+  LogicalRegion metadata_lr = regions[0];
+  LogicalRegion values_lr = regions[1];
   {
     std::optional<PhysicalRegion> values_pr;
     if (values_lr != LogicalRegion::NO_REGION) {
@@ -796,7 +778,7 @@ MeasRef::create(
       rt->unmap_region(ctx, values_pr.value());
   }
 
-  return MeasRef(name_lr, values_lr, metadata_lr);
+  return MeasRef(metadata_lr, values_lr);
 }
 
 std::unique_ptr<casacore::MRBase>
@@ -849,7 +831,7 @@ MeasRef::make(Legion::Runtime* rt, DataRegions prs) {
 
 void
 MeasRef::destroy(Context ctx, Runtime* rt) {
-  for (auto&lr : {&name_lr, &metadata_lr, &values_lr}) {
+  for (auto&lr : {&metadata_lr, &values_lr}) {
     if (*lr != LogicalRegion::NO_REGION) {
       rt->destroy_field_space(ctx, lr->get_field_space());
       rt->destroy_index_space(ctx, lr->get_index_space());

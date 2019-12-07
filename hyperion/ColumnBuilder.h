@@ -50,11 +50,13 @@ public:
   ColumnBuilder(
     const std::string& name,
     TypeTag datatype,
-    const std::vector<Axes>& axes)
+    const std::vector<Axes>& axes,
+    const std::optional<std::string>& measure_name)
     : KeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
     , m_axes(axes)
+    , m_measure_name(measure_name)
     , m_num_rows(0) {
 
     assert(axes[0] == MSTable<D>::ROW_AXIS);
@@ -111,13 +113,13 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::string& name_prefix,
-    const MeasRefContainer& inherited_meas_ref) const {
+    const MeasRefContainer& inherited_meas_refs) const {
 
     IndexTreeL itree;
     auto itrank = index_tree().rank();
     if (itrank && itrank.value() == rank())
       itree = index_tree();
-    std::vector<MeasRef> meas_refs;
+    std::unordered_map<std::string, MeasRef> meas_refs;
     std::for_each(
       m_meas_records.begin(),
       m_meas_records.end(),
@@ -130,11 +132,11 @@ public:
 #define MK_MR(MC)                                 \
           else if (MClassT<MC>::holds(mh)) {      \
             auto m = MClassT<MC>::get(mh);        \
-            meas_refs.push_back(                  \
+            meas_refs.emplace(                    \
+              toupper(MClassT<MC>::name),         \
               MeasRef::create<MClassT<MC>::type>( \
                 ctx,                              \
                 rt,                               \
-                MClassT<MC>::name,                \
                 m.getRef()));                     \
           }
           HYPERION_FOREACH_MCLASS(MK_MR)
@@ -142,6 +144,13 @@ public:
           else { assert(false); }
         }
       });
+    auto merged_meas_refs =
+      MeasRefContainer::create(ctx, rt, meas_refs, inherited_meas_refs);
+    MeasRef mr;
+    bool own_mr = false;
+    if (m_measure_name)
+      std::tie(mr, own_mr) =
+        merged_meas_refs.lookup(ctx, rt, m_measure_name.value());
     return
       Column::create(
         ctx,
@@ -151,8 +160,9 @@ public:
         datatype(),
         itree,
 #ifdef HYPERION_USE_CASACORE
-        MeasRefContainer::create(ctx, rt, meas_refs, inherited_meas_ref),
-        true, // TODO: is this always the correct value?
+        mr,
+        own_mr,
+        m_measure_name.value_or(""),
 #endif
         keywords(),
         name_prefix);
@@ -175,6 +185,8 @@ private:
 
   std::vector<Axes> m_axes;
 
+  std::optional<std::string> m_measure_name;
+
   size_t m_num_rows;
 
   IndexTreeL m_index_tree;
@@ -189,18 +201,23 @@ public:
 
   ScalarColumnBuilder(
     const std::string& name,
-    TypeTag datatype)
-    : ColumnBuilder<D>(name, datatype, {MSTable<D>::ROW_AXIS}) {
+    TypeTag datatype,
+    const std::optional<std::string>& measure_name)
+    : ColumnBuilder<D>(name, datatype, {MSTable<D>::ROW_AXIS}, measure_name) {
   }
 
   template <typename T>
   static auto
-  generator(const std::string& name) {
+  generator(
+    const std::string& name,
+    const std::optional<std::string>& measure_name) {
     return
       [=]() {
-        return std::make_unique<ScalarColumnBuilder<D>>(
-          name,
-          ValueType<T>::DataType);
+        return
+          std::make_unique<ScalarColumnBuilder<D>>(
+            name,
+            ValueType<T>::DataType,
+            measure_name);
       };
   }
 
@@ -223,8 +240,9 @@ public:
     const std::string& name,
     TypeTag datatype,
     const std::vector<Axes>& axes,
+    const std::optional<std::string>& measure_name,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)> element_shape)
-    : ColumnBuilder<D>(name, datatype, axes)
+    : ColumnBuilder<D>(name, datatype, axes, measure_name)
     , m_element_shape(element_shape) {
 
     assert(axes.size() > 0);
@@ -236,6 +254,7 @@ public:
   static auto
   generator(
     const std::string& name,
+    const std::optional<std::string>& measure_name,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)>
     element_shape) {
 
@@ -245,6 +264,7 @@ public:
           name,
           ValueType<T>::DataType,
           axes,
+          measure_name,
           element_shape);
       };
   }

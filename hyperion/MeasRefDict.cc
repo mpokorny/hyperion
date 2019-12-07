@@ -31,20 +31,6 @@ MeasRefDict::names() const {
   return result;
 }
 
-std::unordered_set<std::string>
-MeasRefDict::tags() const {
-
-  std::unordered_set<std::string> result;
-  std::for_each(
-    m_meas_refs.begin(),
-    m_meas_refs.end(),
-    [&result](auto& nm_r) {
-      auto& nm = std::get<0>(nm_r);
-      result.insert(nm.substr(MeasRef::find_tag(nm)));
-    });
-  return result;
-}
-
 std::optional<MeasRefDict::Ref>
 MeasRefDict::get(const std::string& name) const {
   std::optional<Ref> result;
@@ -95,22 +81,6 @@ MeasRefDict::get_mr(const std::string& name) const {
       && m_meas_refs.count(name) > 0)
     result = std::get<const MeasRef*>(m_meas_refs.at(name));
   return result;
-}
-
-void
-MeasRefDict::add_tags() {
-  std::unordered_map<
-    std::string,
-    std::map<unsigned, decltype(m_meas_refs)::mapped_type>>
-    tag_refs;
-  for (auto& [nm, mr] : m_meas_refs) {
-    auto tg = nm.substr(MeasRef::find_tag(nm));
-    if (tag_refs.count(tg) == 0)
-      tag_refs[tg] = decltype(tag_refs)::mapped_type();
-    tag_refs[tg][std::count(nm.begin(), nm.end(), '/')] = mr;
-  }
-  for (auto& [tg, refs] : tag_refs)
-    m_meas_refs[tg] = refs.rbegin()->second;
 }
 
 // Local Variables:

@@ -33,14 +33,14 @@ Column::Column(
   LogicalRegion axes,
   LogicalRegion values,
 #ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& meas_refs,
+  const MeasRef& meas_ref,
 #endif
   const Keywords& keywords)
   : metadata_lr(metadata)
   , axes_lr(axes)
   , values_lr(values)
 #ifdef HYPERION_USE_CASACORE
-  , meas_refs(meas_refs)
+  , meas_ref(meas_ref)
 #endif
   , keywords(keywords) {
 }
@@ -50,14 +50,14 @@ Column::Column(
   LogicalRegion axes,
   LogicalRegion values,
 #ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& meas_refs,
+  const MeasRef& meas_ref,
 #endif
   Keywords&& keywords)
   : metadata_lr(metadata)
   , axes_lr(axes)
   , values_lr(values)
 #ifdef HYPERION_USE_CASACORE
-  , meas_refs(meas_refs)
+  , meas_ref(meas_ref)
 #endif
   , keywords(std::move(keywords)) {
 }
@@ -72,8 +72,9 @@ Column::create(
   hyperion::TypeTag datatype,
   const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& meas_refs,
-  bool add_own_mr_prefix,
+  const MeasRef& meas_ref,
+  bool owned_meas_ref,
+  const std::string& meas_ref_name,
 #endif
   const Keywords::kw_desc_t& kws,
   const std::string& name_prefix) {
@@ -95,6 +96,12 @@ Column::create(
     rt->attach_name(fs, METADATA_AXES_UID_FID, "axes_uid");
     fa.allocate_field(sizeof(hyperion::TypeTag), METADATA_DATATYPE_FID);
     rt->attach_name(fs, METADATA_DATATYPE_FID, "datatype");
+#ifdef HYPERION_USE_CASACORE
+    fa.allocate_field(sizeof(bool), METADATA_OWN_MEAS_REF_FID);
+    rt->attach_name(fs, METADATA_OWN_MEAS_REF_FID, "own_mr");
+    fa.allocate_field(sizeof(hyperion::string), METADATA_MEAS_REF_NAME_FID);
+    rt->attach_name(fs, METADATA_MEAS_REF_NAME_FID, "mr_name");
+#endif
     metadata = rt->create_logical_region(ctx, is, fs);
     {
       std::string metadata_name = component_name_prefix + "/metadata";
@@ -105,10 +112,21 @@ Column::create(
       req.add_field(METADATA_NAME_FID);
       req.add_field(METADATA_AXES_UID_FID);
       req.add_field(METADATA_DATATYPE_FID);
+#ifdef HYPERION_USE_CASACORE
+      req.add_field(METADATA_OWN_MEAS_REF_FID);
+      req.add_field(METADATA_MEAS_REF_NAME_FID);
+#endif
       PhysicalRegion pr = rt->map_region(ctx, req);
       const NameAccessor<WRITE_ONLY> nm(pr, METADATA_NAME_FID);
       const AxesUidAccessor<WRITE_ONLY> au(pr, METADATA_AXES_UID_FID);
       const DatatypeAccessor<WRITE_ONLY> dt(pr, METADATA_DATATYPE_FID);
+#ifdef HYPERION_USE_CASACORE
+      const OwnMeasRefAccessor<WRITE_ONLY> omr(pr, METADATA_OWN_MEAS_REF_FID);
+      const MeasRefNameAccessor<WRITE_ONLY>
+        mr_nm(pr, METADATA_MEAS_REF_NAME_FID);
+      omr[0] = owned_meas_ref;
+      mr_nm[0] = meas_ref_name;
+#endif
       nm[0] = name;
       au[0] = axes_uid;
       dt[0] = datatype;
@@ -149,17 +167,13 @@ Column::create(
       rt->attach_name(values, values_name.c_str());
     }
   }
-#ifdef HYPERION_USE_CASACORE
-  if (add_own_mr_prefix)
-    meas_refs.add_prefix_to_owned(ctx, rt, component_name_prefix);
-#endif
   return
     Column(
       metadata,
       axs,
       values,
 #ifdef HYPERION_USE_CASACORE
-      meas_refs,
+      meas_ref,
 #endif
       Keywords::create(ctx, rt, kws, component_name_prefix));
 }
@@ -174,8 +188,9 @@ Column::create(
   hyperion::TypeTag datatype,
   const Legion::LogicalRegion& values,
 #ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& meas_refs,
-  bool add_own_mr_prefix,
+  const MeasRef& meas_ref,
+  bool owned_meas_ref,
+  const std::string& meas_ref_name,
 #endif
   const Keywords& kws) {
 
@@ -192,6 +207,12 @@ Column::create(
     rt->attach_name(fs, METADATA_AXES_UID_FID, "axes_uid");
     fa.allocate_field(sizeof(hyperion::TypeTag), METADATA_DATATYPE_FID);
     rt->attach_name(fs, METADATA_DATATYPE_FID, "datatype");
+#ifdef HYPERION_USE_CASACORE
+    fa.allocate_field(sizeof(bool), METADATA_OWN_MEAS_REF_FID);
+    rt->attach_name(fs, METADATA_OWN_MEAS_REF_FID, "own_mr");
+    fa.allocate_field(sizeof(hyperion::string), METADATA_MEAS_REF_NAME_FID);
+    rt->attach_name(fs, METADATA_MEAS_REF_NAME_FID, "mr_name");
+#endif
     metadata = rt->create_logical_region(ctx, is, fs);
     {
       std::string metadata_name = component_name_prefix + "/metadata";
@@ -202,10 +223,21 @@ Column::create(
       req.add_field(METADATA_NAME_FID);
       req.add_field(METADATA_AXES_UID_FID);
       req.add_field(METADATA_DATATYPE_FID);
+#ifdef HYPERION_USE_CASACORE
+      req.add_field(METADATA_OWN_MEAS_REF_FID);
+      req.add_field(METADATA_MEAS_REF_NAME_FID);
+#endif
       PhysicalRegion pr = rt->map_region(ctx, req);
       const NameAccessor<WRITE_ONLY> nm(pr, METADATA_NAME_FID);
       const AxesUidAccessor<WRITE_ONLY> au(pr, METADATA_AXES_UID_FID);
       const DatatypeAccessor<WRITE_ONLY> dt(pr, METADATA_DATATYPE_FID);
+#ifdef HYPERION_USE_CASACORE
+      const OwnMeasRefAccessor<WRITE_ONLY> omr(pr, METADATA_OWN_MEAS_REF_FID);
+      const MeasRefNameAccessor<WRITE_ONLY>
+        mr_nm(pr, METADATA_MEAS_REF_NAME_FID);
+      omr[0] = owned_meas_ref;
+      mr_nm[0] = meas_ref_name;
+#endif
       nm[0] = name;
       au[0] = axes_uid;
       dt[0] = datatype;
@@ -234,23 +266,33 @@ Column::create(
       rt->unmap_region(ctx, pr);
     }
   }
-#ifdef HYPERION_USE_CASACORE
-  if (add_own_mr_prefix)
-    meas_refs.add_prefix_to_owned(ctx, rt, component_name_prefix);
-#endif
   return
     Column(
       metadata,
       axs,
       values,
 #ifdef HYPERION_USE_CASACORE
-      meas_refs,
+      meas_ref,
 #endif
       kws);
 }
 
 void
 Column::destroy(Context ctx, Runtime* rt) {
+#ifdef HYPERION_USE_CASACORE
+  bool owned_meas_ref = false;
+  if (metadata_lr != LogicalRegion::NO_REGION && !meas_ref.is_empty()) {
+    RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
+    req.add_field(METADATA_OWN_MEAS_REF_FID);
+    auto pr = rt->map_region(ctx, req);
+    const OwnMeasRefAccessor<READ_ONLY> omr(pr, METADATA_OWN_MEAS_REF_FID);
+    owned_meas_ref = omr[0];
+    rt->unmap_region(ctx, pr);
+  }
+  if (owned_meas_ref)
+    meas_ref.destroy(ctx, rt);
+#endif
+
   std::vector<LogicalRegion*> lrs{&metadata_lr, &axes_lr, &values_lr};
   for (auto lr : lrs) {
     if (*lr != LogicalRegion::NO_REGION) {
@@ -261,9 +303,6 @@ Column::destroy(Context ctx, Runtime* rt) {
     }
   }
   keywords.destroy(ctx, rt);
-#ifdef HYPERION_USE_CASACORE
-  meas_refs.destroy(ctx, rt);
-#endif
 }
 
 std::string

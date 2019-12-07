@@ -50,7 +50,7 @@ struct VerifyColumnTaskArgs {
   char column[32];
   bool has_values;
   bool has_keywords;
-  bool has_measures;
+  bool has_measure;
 };
 
 void
@@ -59,16 +59,16 @@ verify_scalar_column(
   const VerifyColumnTaskArgs *targs,
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
-  Context context,
-  Runtime* runtime) {
+  Context ctx,
+  Runtime* rt) {
 
   testing::TestLog<READ_WRITE> log(
     task->regions[0].region,
     regions[0],
     task->regions[1].region,
     regions[1],
-    context,
-    runtime);
+    ctx,
+    rt);
   testing::TestRecorder<READ_WRITE> recorder(log);
 
   if (targs->has_values) {
@@ -120,16 +120,16 @@ verify_array_column(
   const VerifyColumnTaskArgs *targs,
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
-  Context context,
-  Runtime* runtime) {
+  Context ctx,
+  Runtime* rt) {
 
   testing::TestLog<READ_WRITE> log(
     task->regions[0].region,
     regions[0],
     task->regions[1].region,
     regions[1],
-    context,
-    runtime);
+    ctx,
+    rt);
   testing::TestRecorder<READ_WRITE> recorder(log);
 
   if (targs->has_values) {
@@ -227,8 +227,8 @@ void
 verify_column_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
-  Context context,
-  Runtime* runtime) {
+  Context ctx,
+  Runtime* rt) {
 
   const VerifyColumnTaskArgs *args =
     static_cast<const VerifyColumnTaskArgs*>(task->args);
@@ -239,11 +239,11 @@ verify_column_task(
 
   auto cdesc = tb.tableDesc()[casacore::String(args->column)];
   if (cdesc.isScalar()) {
-    verify_scalar_column(tb, args, task, regions, context, runtime);
+    verify_scalar_column(tb, args, task, regions, ctx, rt);
   } else {
 #define VERIFY_ARRAY(N)                                                 \
     case (N):                                                           \
-      verify_array_column<N>(tb, args, task, regions, context, runtime); \
+      verify_array_column<N>(tb, args, task, regions, ctx, rt); \
       break;
 
     switch (cdesc.ndim() + 1) {
@@ -257,8 +257,8 @@ verify_column_task(
     regions[0],
     task->regions[1].region,
     regions[1],
-    context,
-    runtime);
+    ctx,
+    rt);
   testing::TestRecorder<READ_WRITE> recorder(log);
 
   auto col = casacore::TableColumn(tb, args->column);
@@ -284,7 +284,7 @@ verify_column_task(
             kws.get(f, cv);                                             \
             DataType<DT>::ValueType v;                                  \
             DataType<DT>::from_casacore(v, cv);                         \
-            auto ofid = keywords.find_keyword(runtime, nm);             \
+            auto ofid = keywords.find_keyword(rt, nm);                  \
             all_ok = ofid.has_value();                                  \
             if (all_ok) {                                               \
               all_ok =                                                  \
@@ -344,41 +344,34 @@ verify_column_task(
     recorder.expect_true(
       std::string("column ") + args->column
       + " has measure only if MS column has a measure",
-      TE(args->has_measures == fmeas.has_value()));
-    if (args->has_measures) {
-      PhysicalRegion pr = regions[region_idx];
-      region_idx += 1;
-      std::optional<MeasRefDict::Ref> oref =
-        MeasRefContainer::with_measure_references_dictionary(
-          context,
-          runtime,
-          pr,
-          false,
-          [](Legion::Context c, Legion::Runtime* r, MeasRefDict* dict) {
-            auto tags = dict->tags();
-            return
-              ((tags.size() == 1) ? dict->get(*tags.begin()) : std::nullopt);
-          });
-      recorder.assert_true(
-        std::string("column ") + args->column
-        + " has exactly one tagged measure",
-        TE(oref.has_value()));
+      TE(args->has_measure == fmeas.has_value()));
+    if (args->has_measure) {
+      MeasRef::DataRegions prs;
+      prs.metadata = regions[region_idx++];
+      if (region_idx < regions.size())
+        prs.values = regions[region_idx++];
+      {
+        auto mrb = MeasRef::make(rt, prs);
+        recorder.assert_true(
+          std::string("column ") + args->column + " has a measure",
+          TE(bool(mrb)));
+      }
       recorder.expect_true(
         std::string("column ") + args->column
-        + " has expected tagged measure",
+        + " has expected measure",
         testing::TestEval(
-          [&kws, &fmeas, &oref]() {
+          [&kws, &fmeas, &prs, rt, args]() {
             bool result = false;
             casacore::MeasureHolder mh;
             casacore::String err;
             auto converted = mh.fromType(err, kws.asRecord(fmeas.value()));
             if (converted) {
-              auto ref = oref.value();
               // TODO: improve the test for comparing MeasRef values
               if (false) {}
 #define MATCH(MC)                                                       \
               else if (MClassT<MC>::holds(mh)) {                        \
-                result = MeasRefDict::holds<MC>(ref);                   \
+                auto mr = MeasRef::make<MClassT<MC>::type>(rt, prs);    \
+                result = mr.has_value();                                \
               }
               HYPERION_FOREACH_MCLASS(MATCH)
 #undef MATCH
@@ -533,14 +526,14 @@ read_full_ms(
     } else {
       args.has_keywords = false;
     }
-    args.has_measures = false;
-    if (col.meas_refs.size(rt) > 0) {
-      args.has_measures = true;
-      auto mr_reqs = col.meas_refs.requirements(ctx, rt, READ_ONLY);
-      for (auto& r : mr_reqs)
-        verify_task.add_region_requirement(r);
+    if (!col.meas_ref.is_empty()) {
+      auto [mr, ovr] = col.meas_ref.requirements(READ_ONLY);
+      verify_task.add_region_requirement(mr);
+      if (ovr)
+        verify_task.add_region_requirement(ovr.value());
+      args.has_measure = true;
     } else {
-      args.has_measures = false;
+      args.has_measure = false;
     }
     rt->execute_task(ctx, verify_task);
   }
@@ -554,20 +547,20 @@ void
 ms_test_suite(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
-  Context context,
-  Runtime* runtime) {
+  Context ctx,
+  Runtime* rt) {
 
-  register_tasks(context, runtime);
+  register_tasks(ctx, rt);
 
   testing::TestLog<READ_WRITE> log(
     task->regions[0].region,
     regions[0],
     task->regions[1].region,
     regions[1],
-    context,
-    runtime);
+    ctx,
+    rt);
 
-  read_full_ms(log, context, runtime);
+  read_full_ms(log, ctx, rt);
 }
 
 int

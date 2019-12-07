@@ -21,7 +21,6 @@ using namespace hyperion;
 using namespace Legion;
 
 MSSpWindowColumns::MSSpWindowColumns(
-  Legion::Context ctx,
   Legion::Runtime* rt,
   const Legion::RegionRequirement& rows_requirement,
   const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&
@@ -37,18 +36,18 @@ MSSpWindowColumns::MSSpWindowColumns(
 #ifdef HYPERION_USE_CASACORE
         auto col = C::lookup_measure_col(nm);
         if (col) {
+          MeasRef::DataRegions drs;
+          drs.metadata = prs[0];
+          if (prs.size() > 1)
+            drs.values = prs[1];
           switch (col.value()) {
           case C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY:
             m_ref_frequency_mr =
-              MeasRefDict::get<M_FREQUENCY>(
-                MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-                .get("Frequency").value());
+              MeasRef::make<MClassT<M_FREQUENCY>::type>(rt, drs).value();
             break;
           case C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ:
             m_chan_freq_mr.push_back(
-              MeasRefDict::get<M_FREQUENCY>(
-                MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-                .get("Frequency").value()));
+              MeasRef::make<MClassT<M_FREQUENCY>::type>(rt, drs).value());
             break;
           default:
             break;

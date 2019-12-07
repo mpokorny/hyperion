@@ -29,13 +29,35 @@
 #endif
 
 #pragma GCC visibility push(default)
-# include<algorithm>
+# include <algorithm>
+# include <cctype>
 
 # include <mappers/default_mapper.h>
 #pragma GCC visibility pop
 
 using namespace hyperion;
 using namespace Legion;
+
+void
+hyperion::toupper(std::string& s) {
+  std::transform(
+    s.begin(),
+    s.end(),
+    s.begin(),
+    [](unsigned char c){ return std::toupper(c); });
+}
+
+std::string
+hyperion::toupper(const std::string& s) {
+  std::string result;
+  result.reserve(s.size());
+  std::transform(
+    s.begin(),
+    s.end(),
+    std::back_inserter(result),
+    [](unsigned char c) { return std::toupper(c); });
+  return result;
+}
 
 unsigned
 hyperion::min_divisor(

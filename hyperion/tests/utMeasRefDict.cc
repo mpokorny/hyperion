@@ -69,19 +69,25 @@ meas_ref_dict_test_suite(
 
   {
     casacore::MEpoch::Ref ref_tai(casacore::MEpoch::TAI);
-    MeasRef mr_tai = MeasRef::create(ctx, rt, "EPOCH", ref_tai);
+    MeasRef mr_tai = MeasRef::create(ctx, rt, ref_tai);
     casacore::MDirection::Ref ref_j2000(casacore::MDirection::J2000);
-    MeasRef mr_j2000 = MeasRef::create(ctx, rt, "DIRECTION", ref_j2000);
+    MeasRef mr_j2000 = MeasRef::create(ctx, rt, ref_j2000);
     casacore::MPosition::Ref ref_wgs84(casacore::MPosition::WGS84);
-    MeasRef mr_wgs84 = MeasRef::create(ctx, rt, "POSITION", ref_wgs84);
+    MeasRef mr_wgs84 = MeasRef::create(ctx, rt, ref_wgs84);
     casacore::MFrequency::Ref ref_geo(casacore::MFrequency::GEO);
-    MeasRef mr_geo = MeasRef::create(ctx, rt, "FREQUENCY", ref_geo);
+    MeasRef mr_geo = MeasRef::create(ctx, rt, ref_geo);
     casacore::MRadialVelocity::Ref ref_topo(casacore::MRadialVelocity::TOPO);
-    MeasRef mr_topo = MeasRef::create(ctx, rt, "RADIAL_VELOCITY", ref_topo);
+    MeasRef mr_topo = MeasRef::create(ctx, rt, ref_topo);
     casacore::MDoppler::Ref ref_z(casacore::MDoppler::Z);
-    MeasRef mr_z = MeasRef::create(ctx, rt, "DOPPLER", ref_z);
-    std::vector<const MeasRef*>
-      mrs{&mr_tai, &mr_j2000, &mr_wgs84, &mr_geo, &mr_topo, &mr_z};
+    MeasRef mr_z = MeasRef::create(ctx, rt, ref_z);
+    std::unordered_map<std::string, const MeasRef*>
+      mrs{
+      {"EPOCH", &mr_tai},
+      {"DIRECTION", &mr_j2000},
+      {"POSITION", &mr_wgs84},
+      {"FREQUENCY", &mr_geo},
+      {"RADIAL_VELOCITY", &mr_topo},
+      {"DOPPLER", &mr_z}};
 
     {
       MeasRefDict dict(ctx, rt, mrs);
@@ -89,7 +95,7 @@ meas_ref_dict_test_suite(
         "Empty optional value returned for non-existent MeasRef name",
         TE(dict.get("FOOBAR").has_value()));
       for (auto& mr : mrs) {
-        auto name = mr->name(ctx, rt);
+        auto name = mr.first;
         auto ref = dict.get(name);
         recorder.assert_true(
           std::string("Non-empty optional value returned for MeasRef ") + name,
@@ -97,12 +103,12 @@ meas_ref_dict_test_suite(
         recorder.expect_true(
           std::string("Contained value for MeasRef ")
           + name + " has expected type",
-          TE(check_dict_value_type(ctx, rt, ref.value(), *mr)));
+          TE(check_dict_value_type(ctx, rt, ref.value(), *mr.second)));
       }
     }
 
     for (auto& mr : mrs)
-      const_cast<MeasRef*>(mr)->destroy(ctx, rt);
+      const_cast<MeasRef*>(mr.second)->destroy(ctx, rt);
   }
 }
 

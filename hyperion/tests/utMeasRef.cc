@@ -52,10 +52,7 @@ meas_ref_test_suite(
   casacore::Quantity mjd2000(casacore::MeasData::MJD2000, "d");
   casacore::Quantity mjdb1950(casacore::MeasData::MJDB1950, "d");
   {
-    MeasRef mr_tai = MeasRef::create(ctx, rt, "EPOCH", reftai);
-    recorder.expect_true(
-      "MEpoch::Ref region has expected name",
-      TE(mr_tai.name(ctx, rt) == "EPOCH"));
+    MeasRef mr_tai = MeasRef::create(ctx, rt, reftai);
     recorder.expect_true(
       "MEpoch::Ref region has expected measure class",
       TE(mr_tai.mclass(ctx, rt) == M_EPOCH));
@@ -110,7 +107,7 @@ meas_ref_test_suite(
         casacore::MeasData::MJD2000 - casacore::MeasData::MJDB1950,
         "d"));
     casacore::MEpoch e20_50(v20_50, ref1950);
-    MeasRef mr_1950 = MeasRef::create(ctx, rt, "EPOCH", ref1950);
+    MeasRef mr_1950 = MeasRef::create(ctx, rt, ref1950);
     auto ref = mr_1950.make<casacore::MEpoch>(ctx, rt);
     recorder.expect_true(
       "Instance of MEpoch::Ref with offset region has same MEpoch value as original",

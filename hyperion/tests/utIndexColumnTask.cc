@@ -109,7 +109,7 @@ table0_col(const std::string& name) {
   return
     [=](Context ctx, Runtime* rt, const std::string& name_prefix
 #ifdef HYPERION_USE_CASACORE
-        , const MeasRefContainer& table_mr
+        , const MeasRefContainer&
 #endif
       )
       {
@@ -122,8 +122,9 @@ table0_col(const std::string& name) {
           ValueType<unsigned>::DataType,
           IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
-          MeasRefContainer::create(ctx, rt, {}, table_mr), // FIXME
-          true,
+          MeasRef(),
+          false,
+          "",
 #endif
           {},
           name_prefix);
@@ -182,6 +183,7 @@ index_column_task_test_suite(
         table0_col("X"),
           table0_col("Y")}
 #ifdef HYPERION_USE_CASACORE
+      , {}
       , MeasRefContainer()
 #endif
       );

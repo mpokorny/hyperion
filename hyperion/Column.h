@@ -38,7 +38,7 @@
 #endif // HYPERION_USE_HDF5
 
 #ifdef HYPERION_USE_CASACORE
-# include <hyperion/MeasRefContainer.h>
+# include <hyperion/MeasRef.h>
 #endif
 
 namespace hyperion {
@@ -49,13 +49,17 @@ public:
   static const constexpr Legion::FieldID METADATA_NAME_FID = 0;
   static const constexpr Legion::FieldID METADATA_AXES_UID_FID = 1;
   static const constexpr Legion::FieldID METADATA_DATATYPE_FID = 2;
+#ifdef HYPERION_USE_CASACORE
+  static const constexpr Legion::FieldID METADATA_OWN_MEAS_REF_FID = 3;
+  static const constexpr Legion::FieldID METADATA_MEAS_REF_NAME_FID = 4;
+#endif
   Legion::LogicalRegion metadata_lr;
   static const constexpr Legion::FieldID AXES_FID = 0;
   Legion::LogicalRegion axes_lr;
   static const constexpr Legion::FieldID VALUE_FID = 0;
   Legion::LogicalRegion values_lr;
 #ifdef HYPERION_USE_CASACORE
-  MeasRefContainer meas_refs;
+  MeasRef meas_ref;
 #endif
   Keywords keywords;
 
@@ -89,6 +93,28 @@ public:
     Legion::AffineAccessor<hyperion::TypeTag, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
+#ifdef HYPERION_USE_CASACORE
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using OwnMeasRefAccessor =
+    Legion::FieldAccessor<
+    MODE,
+    bool,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<bool, 1, Legion::coord_t>,
+    CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using MeasRefNameAccessor =
+    Legion::FieldAccessor<
+    MODE,
+    hyperion::string,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<hyperion::string, 1, Legion::coord_t>,
+    CHECK_BOUNDS>;
+#endif
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxesAccessor =
     Legion::FieldAccessor<
@@ -119,7 +145,7 @@ public:
     Legion::LogicalRegion axes,
     Legion::LogicalRegion values,
 #ifdef HYPERION_USE_CASACORE
-    const MeasRefContainer& meas_refs,
+    const MeasRef& meas_ref,
 #endif
     const Keywords& keywords);
 
@@ -128,7 +154,7 @@ public:
     Legion::LogicalRegion axes,
     Legion::LogicalRegion values,
 #ifdef HYPERION_USE_CASACORE
-    const MeasRefContainer& meas_refs,
+    const MeasRef& meas_ref,
 #endif
     Keywords&& keywords);
 
@@ -142,8 +168,9 @@ public:
     hyperion::TypeTag datatype,
     const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
-    const MeasRefContainer& meas_refs,
-    bool add_own_mr_prefix,
+    const MeasRef& meas_ref,
+    bool owned_meas_ref,
+    const std::string& meas_ref_name,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
@@ -158,8 +185,9 @@ public:
     hyperion::TypeTag datatype,
     const Legion::LogicalRegion& values,
 #ifdef HYPERION_USE_CASACORE
-    const MeasRefContainer& meas_refs,
-    bool add_own_mr_prefix,
+    const MeasRef& meas_ref,
+    bool owned_meas_ref,
+    const std::string& meas_ref_name,
 #endif
     const Keywords& kws);
 
@@ -176,8 +204,9 @@ public:
     hyperion::TypeTag datatype,
     const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
-    const MeasRefContainer& meas_refs,
-    bool add_own_mr_prefix,
+    const MeasRef& meas_ref,
+    bool owned_meas_ref,
+    const std::string& meas_ref_name,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "") {
@@ -191,8 +220,9 @@ public:
         datatype,
         index_tree,
 #ifdef HYPERION_USE_CASACORE
-        meas_refs,
-        add_own_mr_prefix,
+        meas_ref,
+        owned_meas_ref,
+        meas_ref_name,
 #endif
         kws,
         name_prefix);
@@ -358,7 +388,7 @@ public:
     hyperion::TypeTag datatype,
     const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
-    const std::vector<MeasRef>& new_meas_refs,
+    const MeasRef& meas_ref,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
@@ -368,7 +398,7 @@ public:
        Legion::Runtime* rt,
        const std::string& name_prefix
 #ifdef HYPERION_USE_CASACORE
-       , const MeasRefContainer& inherited_meas_refs
+       , const MeasRef& inherited_meas_ref
 #endif
         ) {
         return
@@ -380,11 +410,8 @@ public:
             datatype,
             index_tree,
 #ifdef HYPERION_USE_CASACORE
-            MeasRefContainer::create(
-              ctx,
-              rt,
-              new_meas_refs,
-              inherited_meas_refs),
+            meas_ref.is_empty() ? inherited_meas_ref : meas_ref,
+            !meas_ref.is_empty(),
 #endif
             kws,
             name_prefix);
@@ -400,7 +427,7 @@ public:
     const IndexTreeL& row_index_pattern,
     unsigned num_rows,
 #ifdef HYPERION_USE_CASACORE
-    const std::vector<MeasRef>& new_meas_refs,
+    const MeasRef& meas_ref,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
@@ -411,7 +438,7 @@ public:
         datatype,
         IndexTreeL(row_index_pattern, num_rows),
 #ifdef HYPERION_USE_CASACORE
-        new_meas_refs,
+        meas_ref,
 #endif
         kws);
   }
@@ -426,7 +453,7 @@ public:
     const IndexTreeL& row_pattern,
     unsigned num_rows,
 #ifdef HYPERION_USE_CASACORE
-    const std::vector<MeasRef>& new_meas_refs,
+    const MeasRef& meas_ref,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
@@ -439,7 +466,7 @@ public:
           row_pattern,
           num_rows * row_pattern.size() / row_index_pattern.size()),
 #ifdef HYPERION_USE_CASACORE
-        new_meas_refs,
+        meas_ref,
 #endif
         kws);
   }
@@ -503,7 +530,7 @@ struct CObjectWrapper::Unwrapper<column_t> {
         Legion::CObjectWrapper::unwrap(c.axes),
         Legion::CObjectWrapper::unwrap(c.values),
 #ifdef HYPERION_USE_CASACORE
-        MeasRefContainer(), // FIXME
+        MeasRef(), // FIXME
 #endif
         Keywords(
           Keywords::pair<Legion::LogicalRegion>{

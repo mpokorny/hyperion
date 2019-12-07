@@ -39,7 +39,6 @@ public:
   typedef MSTableColumns<MS_FIELD> C;
 
   MSFieldColumns(
-    Legion::Context ctx,
     Legion::Runtime* rt,
     const Legion::RegionRequirement& rows_requirement,
     const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&

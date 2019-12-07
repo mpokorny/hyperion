@@ -22,7 +22,6 @@ using namespace hyperion;
 using namespace Legion;
 
 MSAntennaColumns::MSAntennaColumns(
-  Context ctx,
   Runtime* rt,
   const RegionRequirement& rows_requirement,
   const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&
@@ -38,18 +37,18 @@ MSAntennaColumns::MSAntennaColumns(
 #ifdef HYPERION_USE_CASACORE
         auto col = C::lookup_measure_col(nm);
         if (col) {
+          MeasRef::DataRegions drs;
+          drs.metadata = prs[0];
+          if (prs.size() > 1)
+            drs.values = prs[1];
           switch (col.value()) {
           case C::col_t::MS_ANTENNA_COL_POSITION:
             m_position_mr =
-              MeasRefDict::get<M_POSITION>(
-                MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-                .get("Position").value());
+              MeasRef::make<MClassT<M_POSITION>::type>(rt, drs).value();
             break;
           case C::col_t::MS_ANTENNA_COL_OFFSET:
             m_offset_mr =
-              MeasRefDict::get<M_POSITION>(
-                MeasRefContainer::make_dict(ctx, rt, prs.begin(), prs.end())
-                .get("Position").value());
+              MeasRef::make<MClassT<M_POSITION>::type>(rt, drs).value();
             break;
           default:
             break;

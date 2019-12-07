@@ -144,7 +144,8 @@ Column::Generator
 table0_col(
   const std::string& name
 #ifdef HYPERION_USE_CASACORE
-  , const std::vector<MeasRef>& measures
+  , const std::unordered_map<std::string, MeasRef>& measures
+  , const std::optional<std::string>& meas_name = std::nullopt
 #endif
   ) {
   return
@@ -154,6 +155,15 @@ table0_col(
      , const MeasRefContainer& table_mr
 #endif
       ) {
+#ifdef HYPERION_USE_CASACORE
+      MeasRef mr;
+      bool own_mr = false;
+      if (meas_name) {
+        auto mrs =
+          MeasRefContainer::create(ctx, rt, measures, table_mr);
+        std::tie(mr, own_mr) = mrs.lookup(ctx, rt, meas_name.value());
+      }
+#endif
       return
         Column::create(
           ctx,
@@ -163,8 +173,9 @@ table0_col(
           ValueType<unsigned>::DataType,
           IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
-          MeasRefContainer::create(ctx, rt, measures, table_mr),
-          true,
+          mr,
+          own_mr,
+          meas_name.value_or(""),
 #endif
           {},
           name_prefix);
@@ -282,26 +293,26 @@ check_partition(
 
 #ifdef HYPERION_USE_CASACORE
 static bool
-verify_mr_names(
+verify_mrc_names(
   Context ctx,
   Runtime* rt,
-  LogicalRegion mr_region,
+  const MeasRefContainer& mrc,
   std::set<std::string> expected) {
 
-  RegionRequirement req(mr_region, READ_ONLY, EXCLUSIVE, mr_region);
-  req.add_field(MeasRefContainer::MEAS_REF_FID);
-  auto pr = rt->map_region(ctx, req);
   std::set<std::string> names;
-  const MeasRefContainer::MeasRefAccessor<READ_ONLY>
-    mrs(pr, MeasRefContainer::MEAS_REF_FID);
-  for (PointInDomainIterator<1>
-         pid(rt->get_index_space_domain(mr_region.get_index_space()));
-       pid();
-       pid++) {
-    const MeasRef& mr = mrs[*pid];
-    names.insert(mr.name(ctx, rt));
+  if (mrc.lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(mrc.lr, READ_ONLY, EXCLUSIVE, mrc.lr);
+    req.add_field(MeasRefContainer::NAME_FID);
+    auto pr = rt->map_region(ctx, req);
+    const MeasRefContainer::NameAccessor<READ_ONLY>
+      nms(pr, MeasRefContainer::NAME_FID);
+    for (PointInDomainIterator<1>
+           pid(rt->get_index_space_domain(mrc.lr.get_index_space()));
+         pid();
+         pid++)
+      names.insert(nms[*pid]);
+    rt->unmap_region(ctx, pr);
   }
-  rt->unmap_region(ctx, pr);
   return names == expected;
 }
 #endif // HYPERION_USE_CASACORE
@@ -327,25 +338,22 @@ table_test_suite(
 #ifdef HYPERION_USE_CASACORE
   casacore::MeasRef<casacore::MEpoch> tai(casacore::MEpoch::TAI);
   casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
-  auto table0_meas_ref =
-    MeasRefContainer::create(
-      ctx,
-      rt,
-      {MeasRef::create(ctx, rt, "EPOCH", tai)});
+  auto table0_epoch = MeasRef::create(ctx, rt, tai);
 
   casacore::MeasRef<casacore::MDirection>
     direction(casacore::MDirection::J2000);
   casacore::MeasRef<casacore::MFrequency>
     frequency(casacore::MFrequency::GEO);
-  std::unordered_map<std::string, std::vector<MeasRef>> col_measures{
-    {"X", {MeasRef::create(ctx, rt, "DIRECTION", direction)}},
+  std::unordered_map<std::string, std::unordered_map<std::string, MeasRef>>
+    col_measures{
+    {"X", {{"DIRECTION", MeasRef::create(ctx, rt, direction)}}},    
     {"Y", {}},
-    {"Z", {MeasRef::create(ctx, rt, "EPOCH", utc)}}
+    {"Z", {{"EPOCH", MeasRef::create(ctx, rt, utc)}}}
   };
   std::vector<Column::Generator> column_generators{
-    table0_col("X", col_measures["X"]),
+    table0_col("X", col_measures["X"], "DIRECTION"),
     table0_col("Y", col_measures["Y"]),
-    table0_col("Z", col_measures["Z"])
+    table0_col("Z", col_measures["Z"], "EPOCH")
   };
 #else
   std::vector<Column::Generator> column_generators{
@@ -363,7 +371,8 @@ table_test_suite(
       std::vector<Table0Axes>{Table0Axes::ROW},
       column_generators
 #ifdef HYPERION_USE_CASACORE
-      , table0_meas_ref
+      , {{"EPOCH", table0_epoch}}
+      , MeasRefContainer()
 #endif
       );
 
@@ -373,61 +382,17 @@ table_test_suite(
     testing::TestEval(
       [&table0, &ctx, rt]() {
         return
-          verify_mr_names(ctx, rt, table0.meas_refs.lr, {"table0/EPOCH"});
+          verify_mrc_names(ctx, rt, table0.meas_refs, {"EPOCH"});
       }));
   recorder.expect_true(
-    "Create expected 'X' column measures using table/column name prefix",
-    testing::TestEval(
-      [col=table0.column(ctx, rt, "X"), &ctx, rt]() {
-        return
-          verify_mr_names(
-            ctx,
-            rt,
-            col.meas_refs.lr,
-            {"table0/EPOCH", "table0/X/DIRECTION"});
-      }));
+    "'X' column DIRECTION measure is that defined by the column",
+    TE(table0.column(ctx, rt, "X").meas_ref == col_measures["X"]["DIRECTION"]));
   recorder.expect_true(
-    "Create expected 'Y' column measures using table/column name prefix",
-    testing::TestEval(
-      [col=table0.column(ctx, rt, "Y"), &ctx, rt]() {
-        return
-          verify_mr_names(
-            ctx,
-            rt,
-            col.meas_refs.lr,
-            {"table0/EPOCH"});
-      }));
+    "'Y' column has no associated measure",
+    TE(table0.column(ctx, rt, "Y").meas_ref.is_empty()));
   recorder.expect_true(
-    "Create expected 'Z' column measures using table/column name prefix",
-    testing::TestEval(
-      [col=table0.column(ctx, rt, "Z"), &ctx, rt]() {
-        return
-          verify_mr_names(
-            ctx,
-            rt,
-            col.meas_refs.lr,
-            {"table0/EPOCH", "table0/Z/EPOCH"});
-      }));
-  recorder.expect_true(
-    "Tagged EPOCH measure is that defined by 'Z' column",
-    testing::TestEval(
-      [col=table0.column(ctx, rt, "Z"), &utc, &ctx, rt]() {
-        return
-          col.meas_refs.with_measure_references_dictionary(
-            ctx,
-            rt,
-            false,
-            [&utc](Context c, Runtime* r, MeasRefDict* dict) {
-              auto mr = dict->get("EPOCH");
-              if (mr)
-                return
-                  MeasRefDict::holds<MClass::M_EPOCH>(mr.value())
-                  && (MeasRefDict::get<MClass::M_EPOCH>(mr.value())->getType()
-                      == utc.getType());
-              else
-                return false;
-            });
-      }));
+    "'Z' column EPOCH measure is that defined by the column",
+    TE(table0.column(ctx, rt, "Z").meas_ref == col_measures["Z"]["EPOCH"]));
 #endif
 
   auto col_x =

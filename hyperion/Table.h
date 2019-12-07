@@ -204,7 +204,8 @@ public:
     const std::vector<int>& index_axes,
     const std::vector<Column::Generator>& column_generators,
 #ifdef HYPERION_USE_CASACORE
-    const MeasRefContainer& meas_refs,
+    const std::unordered_map<std::string, MeasRef>& meas_refs,
+    const MeasRefContainer& inherited_meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
@@ -218,7 +219,8 @@ public:
     const std::vector<D>& index_axes,
     const std::vector<Column::Generator>& column_generators,
 #ifdef HYPERION_USE_CASACORE
-    const MeasRefContainer& meas_refs,
+    const std::unordered_map<std::string, MeasRef>& meas_refs,
+    const MeasRefContainer& inherited_meas_refs,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "")  {
@@ -233,6 +235,7 @@ public:
         column_generators,
 #ifdef HYPERION_USE_CASACORE
         meas_refs,
+        inherited_meas_refs,
 #endif
         kws,
         name_prefix);
@@ -738,9 +741,6 @@ private:
     ColumnPartition row_partition;
     int kws_region_offset;
     int values_region_offset;
-#ifdef HYPERION_USE_CASACORE
-    int mrc_region_offset;
-#endif // HYPERION_USE_CASACORE
   };
 
   bool m_is_index;

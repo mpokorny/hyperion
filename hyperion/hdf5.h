@@ -270,6 +270,15 @@ write_keywords(
 
 #ifdef HYPERION_USE_CASACORE
 HYPERION_API void
+write_measure(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  hid_t loc_id,
+  const char* name,
+  bool owned,
+  const MeasRef& mr);
+
+HYPERION_API void
 write_measures(
   Legion::Context ctx,
   Legion::Runtime* rt,

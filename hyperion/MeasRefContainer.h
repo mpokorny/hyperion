@@ -25,6 +25,7 @@
 # include <numeric>
 # include <optional>
 # include <tuple>
+# include <unordered_map>
 # include <vector>
 #pragma GCC visibility pop
 
@@ -34,7 +35,8 @@ class HYPERION_API MeasRefContainer {
 public:
 
   static const constexpr Legion::FieldID OWNED_FID = 0;
-  static const constexpr Legion::FieldID MEAS_REF_FID = 1;
+  static const constexpr Legion::FieldID NAME_FID = 1;
+  static const constexpr Legion::FieldID MEAS_REF_FID = 2;
   Legion::LogicalRegion lr;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -45,6 +47,16 @@ public:
     1,
     Legion::coord_t,
     Legion::AffineAccessor<bool, 1, Legion::coord_t>,
+    CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using NameAccessor =
+    Legion::FieldAccessor<
+    MODE,
+    hyperion::string,
+    1,
+    Legion::coord_t,
+    Legion::AffineAccessor<hyperion::string, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -61,24 +73,34 @@ public:
 
   MeasRefContainer(Legion::LogicalRegion meas_refs);
 
+  std::tuple<MeasRef, bool>
+  lookup(Legion::Context ctx, Legion::Runtime* rt, const std::string& name);
+
+  static std::tuple<MeasRef, bool>
+  lookup(
+    Legion::Runtime* rt,
+    const std::string& name,
+    Legion::PhysicalRegion& pr);
+
   static MeasRefContainer
   create(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<MeasRef>& owned,
+    const std::unordered_map<std::string, MeasRef>& owned,
     const MeasRefContainer& borrowed);
 
   static MeasRefContainer
   create(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<MeasRef>& owned);
+    const std::unordered_map<std::string, MeasRef>& owned);
 
-  void
-  add_prefix_to_owned(
+  static MeasRefContainer
+  create(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::string& prefix) const;
+    const std::unordered_map<std::string, MeasRef>& owned,
+    const std::optional<Legion::PhysicalRegion>& borrowed_pr);
 
   size_t
   size(Legion::Runtime* rt) const;
@@ -86,14 +108,13 @@ public:
   std::vector<
     std::tuple<
       Legion::RegionRequirement,
-      Legion::RegionRequirement,
       std::optional<Legion::RegionRequirement>>>
   component_requirements(
     Legion::Context ctx,
     Legion::Runtime* rt,
     legion_privilege_mode_t mode = READ_ONLY) const;
 
-  std::vector<Legion::RegionRequirement>
+  std::optional<Legion::RegionRequirement>
   requirements(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -109,11 +130,9 @@ public:
   with_measure_references_dictionary(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    bool owned_only,
     FN fn) const {
 
-    auto [dict, pr] =
-      with_measure_references_dictionary_prologue(ctx, rt, owned_only);
+    auto [dict, pr] = with_measure_references_dictionary_prologue(ctx, rt);
     auto result = fn(ctx, rt, &dict);
     with_measure_references_dictionary_epilogue(ctx, rt, pr);
     return result;
@@ -129,11 +148,9 @@ public:
   with_measure_references_dictionary(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    bool owned_only,
     FN fn) const {
 
-    auto [dict, pr] =
-      with_measure_references_dictionary_prologue(ctx, rt, owned_only);
+    auto [dict, pr] = with_measure_references_dictionary_prologue(ctx, rt);
     fn(ctx, rt, &dict);
     with_measure_references_dictionary_epilogue(ctx, rt, pr);
   }
@@ -149,10 +166,9 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     Legion::PhysicalRegion pr,
-    bool owned_only,
     FN fn) {
 
-    auto mrs = get_mr_ptrs(rt, pr, owned_only);
+    auto mrs = get_mr_ptrs(rt, pr);
     auto dict = MeasRefDict(ctx, rt, mrs);
     return fn(ctx, rt, &dict);
   }
@@ -168,42 +184,26 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     Legion::PhysicalRegion pr,
-    bool owned_only,
     FN fn) {
 
-    auto mrs = get_mr_ptrs(rt, pr, owned_only);
+    auto mrs = get_mr_ptrs(rt, pr);
     auto dict = MeasRefDict(ctx, rt, mrs);
     fn(ctx, rt, &dict);
     return;
   }
 
-  static std::vector<MeasRef>
-  clone_meas_refs(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const std::vector<Legion::PhysicalRegion>::const_iterator& begin_pr,
-    const std::vector<Legion::PhysicalRegion>::const_iterator& end_pr);
-
   void
   destroy(Legion::Context ctx, Legion::Runtime* rt);
 
-  static MeasRefDict
-  make_dict(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const std::vector<Legion::PhysicalRegion>::const_iterator& begin_pr,
-    const std::vector<Legion::PhysicalRegion>::const_iterator& end_pr);
-
 private:
 
-  static std::vector<const MeasRef*>
-  get_mr_ptrs(Legion::Runtime* rt, Legion::PhysicalRegion pr, bool owned_only);
+  static std::unordered_map<std::string, const MeasRef*>
+  get_mr_ptrs(Legion::Runtime* rt, Legion::PhysicalRegion pr);
 
   std::tuple<MeasRefDict, std::optional<Legion::PhysicalRegion>>
   with_measure_references_dictionary_prologue(
     Legion::Context ctx,
-    Legion::Runtime* rt,
-    bool owned_only) const;
+    Legion::Runtime* rt) const;
 
   void
   with_measure_references_dictionary_epilogue(

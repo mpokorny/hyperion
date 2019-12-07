@@ -28,100 +28,93 @@ MeasRefContainer
 MeasRefContainer::create(
   Context ctx,
   Runtime* rt,
-  const std::vector<MeasRef>& owned,
+  const std::unordered_map<std::string, MeasRef>& owned,
   const MeasRefContainer& borrowed) {
 
-  size_t bn;
-  if (borrowed.lr == LogicalRegion::NO_REGION)
-    bn = 0;
-  else
-    bn = rt->get_index_space_domain(borrowed.lr.get_index_space()).get_volume();
+  MeasRefContainer result;
+  size_t bn =
+    (borrowed.lr != LogicalRegion::NO_REGION)
+    ? rt->get_index_space_domain(borrowed.lr.get_index_space()).get_volume()
+    : 0;
   size_t n = owned.size() + bn;
-  if (n == 0)
-    return MeasRefContainer();
-
-  IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, n - 1));
-  FieldSpace fs = rt->create_field_space(ctx);
-  {
-    FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    fa.allocate_field(sizeof(bool), OWNED_FID);
-    fa.allocate_field(sizeof(MeasRef), MEAS_REF_FID);
-  }
-  LogicalRegion lr = rt->create_logical_region(ctx, is, fs);
-  {
-    RegionRequirement req(lr, WRITE_ONLY, EXCLUSIVE, lr);
-    req.add_field(OWNED_FID);
-    req.add_field(MEAS_REF_FID);
-    auto pr = rt->map_region(ctx, req);
-    const OwnedAccessor<WRITE_ONLY> o(pr, OWNED_FID);
-    const MeasRefAccessor<WRITE_ONLY> mr(pr, MEAS_REF_FID);
-    size_t i = 0;
-    while  (i < owned.size()) {
-      o[i] = true;
-      mr[i] = owned[i];
-      ++i;
-    }
+  if (n > 0) {
+    std::optional<PhysicalRegion> pr;
     if (bn > 0) {
-      RegionRequirement
-        breq(borrowed.lr, READ_ONLY, EXCLUSIVE, borrowed.lr);
-      breq.add_field(MEAS_REF_FID);
-      auto bpr = rt->map_region(ctx, breq);
-      const MeasRefAccessor<READ_ONLY> bmr(bpr, MEAS_REF_FID);
-      for (size_t j = 0; j < bn; ++j) {
-        o[i] = false;
-        mr[i] = bmr[j];
-        ++i;
-      }
-      rt->unmap_region(ctx, bpr);
+      RegionRequirement req(borrowed.lr, READ_ONLY, EXCLUSIVE, borrowed.lr);
+      req.add_field(NAME_FID);
+      req.add_field(MEAS_REF_FID);
+      pr = rt->map_region(ctx, req);
     }
-    rt->unmap_region(ctx, pr);
+    result = create(ctx, rt, owned, pr);
+    if (pr)
+      rt->unmap_region(ctx, pr.value());
   }
-  return MeasRefContainer(lr);
-
+  return result;
 }
 
 MeasRefContainer
 MeasRefContainer::create(
   Context ctx,
   Runtime* rt,
-  const std::vector<MeasRef>& owned) {
+  const std::unordered_map<std::string, MeasRef>& owned) {
 
   return create(ctx, rt, owned, MeasRefContainer());
 }
 
-void
-MeasRefContainer::add_prefix_to_owned(
+MeasRefContainer
+MeasRefContainer::create(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const std::string& prefix) const {
+  const std::unordered_map<std::string, MeasRef>& owned,
+  const std::optional<Legion::PhysicalRegion>& borrowed_pr) {
 
-  if (lr != LogicalRegion::NO_REGION) {
-    std::string pre = prefix;
-    if (pre.back() != '/')
-      pre.push_back('/');
-    RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+  std::unordered_map<std::string, std::tuple<bool, MeasRef>> merged_mrs;
+  if (borrowed_pr) {
+    size_t bn =
+      rt->get_index_space_domain(
+        borrowed_pr.value().get_logical_region().get_index_space())
+      .get_volume();
+
+    const NameAccessor<READ_ONLY> nm(borrowed_pr.value(), NAME_FID);
+    const MeasRefAccessor<READ_ONLY> mr(borrowed_pr.value(), MEAS_REF_FID);
+    for (size_t i = 0; i < bn; ++i)
+      merged_mrs[nm[i]] = std::make_tuple(false, mr[i]);
+  }
+  for (auto& [nm, mr] : owned)
+    merged_mrs[nm] = std::make_tuple(true, mr);
+
+  assert(merged_mrs.size() > 0);
+  IndexSpace is =
+    rt->create_index_space(ctx, Rect<1>(0, merged_mrs.size() - 1));
+  FieldSpace fs = rt->create_field_space(ctx);
+  {
+    FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+    fa.allocate_field(sizeof(bool), OWNED_FID);
+    fa.allocate_field(sizeof(hyperion::string), NAME_FID);
+    fa.allocate_field(sizeof(MeasRef), MEAS_REF_FID);
+  }
+  LogicalRegion lr = rt->create_logical_region(ctx, is, fs);
+  {
+    RegionRequirement req(lr, WRITE_ONLY, EXCLUSIVE, lr);
     req.add_field(OWNED_FID);
+    req.add_field(NAME_FID);
     req.add_field(MEAS_REF_FID);
     auto pr = rt->map_region(ctx, req);
-    const OwnedAccessor<READ_ONLY> owned(pr, OWNED_FID);
-    const MeasRefAccessor<READ_ONLY> mrefs(pr, MEAS_REF_FID);
-    for (PointInDomainIterator<1> pid(
-           rt->get_index_space_domain(lr.get_index_space()));
-         pid();
-         pid++) {
-      if (owned[*pid]) {
-        auto& mr = mrefs[*pid];
-        RegionRequirement
-          r(mr.name_lr, READ_WRITE, EXCLUSIVE, mr.name_lr);
-        r.add_field(MeasRef::NAME_FID);
-        auto nm_pr = rt->map_region(ctx, r);
-        const MeasRef::NameAccessor<READ_WRITE> nm(nm_pr, MeasRef::NAME_FID);
-        nm[0] = pre + std::string(nm[0]);
-        rt->unmap_region(ctx, nm_pr);
-      }
+    const OwnedAccessor<WRITE_ONLY> os(pr, OWNED_FID);
+    const NameAccessor<WRITE_ONLY> nms(pr, NAME_FID);
+    const MeasRefAccessor<WRITE_ONLY> mrs(pr, MEAS_REF_FID);
+    size_t i = 0;
+    for (auto& [nm, omr] : merged_mrs) {
+      auto& [owned, mr] = omr;
+      os[i] = owned;
+      nms[i] = nm;
+      mrs[i] = mr;
+      ++i;
     }
     rt->unmap_region(ctx, pr);
   }
+  return MeasRefContainer(lr);
+
 }
 
 size_t
@@ -136,7 +129,6 @@ MeasRefContainer::size(Legion::Runtime* rt) const {
 std::vector<
   std::tuple<
     RegionRequirement,
-    RegionRequirement,
     std::optional<RegionRequirement>>>
 MeasRefContainer::component_requirements(
   Context ctx,
@@ -145,7 +137,6 @@ MeasRefContainer::component_requirements(
 
   std::vector<
     std::tuple<
-      RegionRequirement,
       RegionRequirement,
       std::optional<RegionRequirement>>> result;
   if (lr != LogicalRegion::NO_REGION) {
@@ -156,62 +147,65 @@ MeasRefContainer::component_requirements(
     for (PointInDomainIterator<1> pid(
            rt->get_index_space_domain(lr.get_index_space()));
          pid();
-         pid++) {
-      const MeasRef& mr = mrs[*pid];
-      std::tuple<
-        RegionRequirement,
-        RegionRequirement,
-        std::optional<RegionRequirement>> reqs;
-      {
-        RegionRequirement
-          req(mr.name_lr, mode, EXCLUSIVE, mr.name_lr);
-        req.add_field(MeasRef::NAME_FID);
-        std::get<0>(reqs) = req;
-      }
-      {
-        RegionRequirement
-          req(mr.metadata_lr, mode, EXCLUSIVE, mr.metadata_lr);
-        req.add_field(MeasRef::MEASURE_CLASS_FID);
-        req.add_field(MeasRef::REF_TYPE_FID);
-        req.add_field(MeasRef::NUM_VALUES_FID);
-        std::get<1>(reqs) = req;
-      }
-      if (mr.values_lr != LogicalRegion::NO_REGION) {
-        RegionRequirement
-          req(mr.values_lr, mode, EXCLUSIVE, mr.values_lr);
-        req.add_field(0);
-        std::get<2>(reqs) = req;
-      }
-      result.push_back(reqs);
-    }
+         pid++)
+      result.push_back(mrs[*pid].requirements(mode));
     rt->unmap_region(ctx, pr);
   }
   return result;
 }
 
-std::vector<RegionRequirement>
+std::optional<RegionRequirement>
 MeasRefContainer::requirements(
   Context ctx,
   Runtime* rt,
   legion_privilege_mode_t mode) const {
 
-  std::vector<RegionRequirement> result;
+  std::optional<RegionRequirement> result;
   if (lr != LogicalRegion::NO_REGION) {
     RegionRequirement req(lr, mode, EXCLUSIVE, lr);
     req.add_field(MeasRefContainer::OWNED_FID);
+    req.add_field(MeasRefContainer::NAME_FID);
     req.add_field(MeasRefContainer::MEAS_REF_FID);
-    result.push_back(req);
-    auto mr_reqs = component_requirements(ctx, rt, READ_ONLY);
-    if (mr_reqs.size() > 0) {
-      for (auto& [r0, r1, or2] : mr_reqs) {
-        result.push_back(r0);
-        result.push_back(r1);
-        if (or2)
-          result.push_back(or2.value());
-      }
-    }
+    result = req;
   }
   return result;
+}
+
+std::tuple<MeasRef, bool>
+MeasRefContainer::lookup(
+  Context ctx,
+  Runtime* rt,
+  const std::string& name) {
+
+  if (lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+    req.add_field(OWNED_FID);
+    req.add_field(NAME_FID);
+    req.add_field(MEAS_REF_FID);
+    auto pr = rt->map_region(ctx, req);
+    auto result = lookup(rt, name, pr);
+    rt->unmap_region(ctx, pr);
+    return result;
+  }
+  return std::make_tuple(MeasRef(), false);
+}
+
+std::tuple<MeasRef, bool>
+MeasRefContainer::lookup(
+  Legion::Runtime* rt,
+  const std::string& name,
+  Legion::PhysicalRegion& pr) {
+
+  const OwnedAccessor<READ_ONLY> o(pr, OWNED_FID);
+  const NameAccessor<READ_ONLY> nm(pr, NAME_FID);
+  const MeasRefAccessor<READ_ONLY> mr(pr, MEAS_REF_FID);
+  for (PointInDomainIterator<1> pid(
+         rt->get_index_space_domain(pr.get_logical_region().get_index_space()));
+       pid();
+       pid++)
+    if (nm[*pid] == name)
+      return std::make_tuple(mr[*pid], o[*pid]);
+  return std::make_tuple(MeasRef(), false);
 }
 
 void
@@ -221,7 +215,7 @@ MeasRefContainer::destroy(Context ctx, Runtime* rt) {
     req.add_field(OWNED_FID);
     req.add_field(MEAS_REF_FID);
     auto pr = rt->map_region(ctx, req);
-    const OwnedAccessor<READ_WRITE> o(pr, OWNED_FID);
+    const OwnedAccessor<READ_ONLY> o(pr, OWNED_FID);
     const MeasRefAccessor<READ_WRITE> mr(pr, MEAS_REF_FID);
     for (PointInDomainIterator<1> pid(
            rt->get_index_space_domain(lr.get_index_space()));
@@ -236,69 +230,35 @@ MeasRefContainer::destroy(Context ctx, Runtime* rt) {
   }
 }
 
-MeasRefDict
-MeasRefContainer::make_dict(
-  Context ctx,
-  Runtime* rt,
-  const std::vector<PhysicalRegion>::const_iterator& begin_pr,
-  const std::vector<PhysicalRegion>::const_iterator& end_pr) {
-
-  std::vector<std::tuple<std::string, MeasRef::DataRegions>> mr_prs;
-
-  std::vector<PhysicalRegion>::const_iterator pr = begin_pr;
-  const MeasRefContainer::MeasRefAccessor<READ_ONLY>
-    mrs(*pr, MeasRefContainer::MEAS_REF_FID);
-  for (PointInRectIterator<1> pir(
-         rt->get_index_space_domain(
-           pr->get_logical_region().get_index_space()));
-       pir();
-       pir++) {
-    ++pr;
-    assert(pr != end_pr);
-    const MeasRef::NameAccessor<READ_ONLY> names(*pr, MeasRef::NAME_FID);
-    std::string name = names[0];
-    ++pr;
-    std::optional<PhysicalRegion> values_pr;
-    if (mrs[*pir].values_lr != LogicalRegion::NO_REGION)
-      values_pr = *pr++;
-    mr_prs.emplace_back(name, MeasRef::DataRegions{*pr, values_pr});
-  }
-  assert(++pr == end_pr);
-  return MeasRefDict(ctx, rt, mr_prs);
-}
-
-std::vector<const MeasRef*>
+std::unordered_map<std::string, const MeasRef*>
 MeasRefContainer::get_mr_ptrs(
   Legion::Runtime* rt,
-  Legion::PhysicalRegion pr,
-  bool owned_only) {
+  Legion::PhysicalRegion pr) {
 
-  std::vector<const MeasRef*> result;
-  const OwnedAccessor<READ_ONLY> owned(pr, OWNED_FID);
+  std::unordered_map<std::string, const MeasRef*> result;
   const MeasRefAccessor<READ_ONLY> mr(pr, MEAS_REF_FID);
+  const NameAccessor<READ_ONLY> nm(pr, NAME_FID);
   for (PointInDomainIterator<1> pid(
          rt->get_index_space_domain(pr.get_logical_region().get_index_space()));
        pid();
        pid++)
-    if (!owned_only || owned[*pid])
-      result.push_back(mr.ptr(*pid));
+    result.emplace(nm[*pid], mr.ptr(*pid));
   return result;
 }
 
 std::tuple<MeasRefDict, std::optional<PhysicalRegion>>
 MeasRefContainer::with_measure_references_dictionary_prologue(
   Context ctx,
-  Runtime* rt,
-  bool owned_only) const {
+  Runtime* rt) const {
 
-  std::vector<const MeasRef*> refs;
+  std::unordered_map<std::string, const MeasRef*> refs;
   std::optional<PhysicalRegion> pr;
   if (lr != LogicalRegion::NO_REGION) {
     RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
-    req.add_field(OWNED_FID);
     req.add_field(MEAS_REF_FID);
+    req.add_field(NAME_FID);
     pr = rt->map_region(ctx, req);
-    refs = get_mr_ptrs(rt, pr.value(), owned_only);
+    refs = get_mr_ptrs(rt, pr.value());
   }
   return std::make_tuple(MeasRefDict(ctx, rt, refs), pr);
 }
@@ -312,31 +272,6 @@ MeasRefContainer::with_measure_references_dictionary_epilogue(
   if (pr)
     rt->unmap_region(ctx, pr.value());
 }
-
-std::vector<MeasRef>
-MeasRefContainer::clone_meas_refs(
-  Context ctx,
-  Runtime* rt,
-  const std::vector<Legion::PhysicalRegion>::const_iterator& begin_pr,
-  const std::vector<Legion::PhysicalRegion>::const_iterator& end_pr) {
-
-  auto dict = make_dict(ctx, rt, begin_pr, end_pr);
-  std::vector<MeasRef> result;
-  for (auto& nm : dict.names()) {
-    auto ref = dict.get(nm).value();
-    if (false) assert(false);
-#define ADD_REF(M)                                              \
-    else if (MeasRefDict::holds<M>(ref))                        \
-      result.push_back(                                         \
-        MeasRef::create(ctx, rt, nm, *MeasRefDict::get<M>(ref)));
-    HYPERION_FOREACH_MCLASS(ADD_REF)
-#undef ADD_REF
-    else
-      assert(false);
-  }
-  return result;
-}
-
 
 // Local Variables:
 // mode: c++

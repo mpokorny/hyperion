@@ -23,6 +23,7 @@
 #include <hyperion/Table.h>
 #include <hyperion/IndexTree.h>
 #include <hyperion/MSTable.h>
+#include <hyperion/MSTableColumns.h>
 #include <hyperion/MeasRefContainer.h>
 
 #pragma GCC visibility push(default)
@@ -66,8 +67,12 @@ public:
   void
   add_scalar_column(
     const casacore::Table& table,
-    const std::string& name) {
-    add_column(table, ScalarColumnBuilder<D>::template generator<T>(name)());
+    const std::string& name,
+    const std::optional<std::string>& measure_name) {
+
+    add_column(
+      table,
+      ScalarColumnBuilder<D>::template generator<T>(name, measure_name)());
   }
 
   template <typename T, int DIM>
@@ -76,7 +81,9 @@ public:
     const casacore::Table& table,
     const std::string& name,
     const std::vector<Axes>& element_axes,
+    const std::optional<std::string>& measure_name,
     std::function<std::array<size_t, DIM>(const std::any&)> element_shape) {
+
     std::vector<Axes> axes {MSTable<D>::ROW_AXIS};
     std::copy(
       element_axes.begin(),
@@ -84,8 +91,11 @@ public:
       std::back_inserter(axes));
     add_column(
       table,
-      ArrayColumnBuilder<D, DIM>::template generator<T>(name, element_shape)(
-        axes));
+      ArrayColumnBuilder<D, DIM>::template generator<T>(
+        name,
+        measure_name,
+        element_shape)(
+          axes));
   }
 
   void
@@ -186,23 +196,36 @@ protected:
 
     typedef typename hyperion::DataType<DT>::ValueType VT;
 
+    auto col = MSTableColumns<D>::lookup_col(nm).value();
+    std::optional<std::string> measure_name;
+    {
+      auto m = MSTableColumns<D>::measure_names.find(col);
+      if (m != MSTableColumns<D>::measure_names.end()) {
+        measure_name = m->second;
+        std::string msr = nm + "_MEASURE_";
+        auto pos = measure_name.value().find(msr);
+        assert(pos == 0);
+        pos += msr.size();
+        measure_name = measure_name.value().substr(pos);
+      }
+    }
     switch (element_axes.size()) {
     case 0:
-      add_scalar_column<VT>( table, nm);
+      add_scalar_column<VT>(table, nm, measure_name);
       break;
 
     case 1:
-      add_array_column<VT, 1>(table, nm, element_axes, size<1>);
+      add_array_column<VT, 1>(table, nm, element_axes, measure_name, size<1>);
       array_names.insert(nm);
       break;
 
     case 2:
-      add_array_column<VT, 2>(table, nm, element_axes, size<2>);
+      add_array_column<VT, 2>(table, nm, element_axes, measure_name, size<2>);
       array_names.insert(nm);
       break;
 
     case 3:
-      add_array_column<VT, 3>(table, nm, element_axes, size<3>);
+      add_array_column<VT, 3>(table, nm, element_axes, measure_name, size<3>);
       array_names.insert(nm);
       break;
 
@@ -407,7 +430,7 @@ from_ms(
 
   auto builder = TableBuilder::from_ms<T>(table_path, column_selections);
 
-  std::vector<MeasRef> meas_refs;
+  std::unordered_map<std::string, MeasRef> meas_refs;
   std::for_each(
     builder.meas_records().begin(),
     builder.meas_records().end(),
@@ -420,11 +443,11 @@ from_ms(
 #define MK_MR(MC)                               \
         else if (MClassT<MC>::holds(mh)) {      \
           auto m = MClassT<MC>::get(mh);        \
-          meas_refs.push_back(                  \
+          meas_refs.emplace(                    \
+            toupper(MClassT<MC>::name),         \
             MeasRef::create<MClassT<MC>::type>( \
               ctx,                              \
               rt,                               \
-              MClassT<MC>::name,                \
               m.getRef()));                     \
         }
         HYPERION_FOREACH_MCLASS(MK_MR)
@@ -440,7 +463,8 @@ from_ms(
       builder.name(),
       std::vector<Axes>{MSTable<T>::ROW_AXIS},
       builder.column_generators(),
-      MeasRefContainer::create(ctx, rt, meas_refs),
+      meas_refs,
+      MeasRefContainer(),
       builder.keywords(),
       "/");
 

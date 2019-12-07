@@ -49,32 +49,17 @@ public:
   typedef unsigned REF_TYPE_TYPE;
   typedef unsigned NUM_VALUES_TYPE;
 
-  typedef hyperion::string NAME_TYPE;
-
   static const constexpr Legion::FieldID MEASURE_CLASS_FID = 0;
   static const constexpr Legion::FieldID REF_TYPE_FID = 1;
   static const constexpr Legion::FieldID NUM_VALUES_FID = 2;
 
-  static const constexpr Legion::FieldID NAME_FID = 0;
-
-  Legion::LogicalRegion name_lr;
-  Legion::LogicalRegion values_lr;
   Legion::LogicalRegion metadata_lr;
+  Legion::LogicalRegion values_lr;
 
   struct DataRegions {
     Legion::PhysicalRegion metadata;
     std::optional<Legion::PhysicalRegion> values;
   };
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  using NameAccessor =
-    Legion::FieldAccessor<
-    MODE,
-    NAME_TYPE,
-    1,
-    Legion::coord_t,
-    Legion::AffineAccessor<NAME_TYPE, 1, Legion::coord_t>,
-    CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, int N, bool CHECK_BOUNDS=false>
   using ValueAccessor =
@@ -119,27 +104,40 @@ public:
   MeasRef() {}
 
   MeasRef(
-    Legion::LogicalRegion name_lr_,
-    Legion::LogicalRegion values_lr_,
-    Legion::LogicalRegion metadata_lr_)
-    : name_lr(name_lr_)
-    , values_lr(values_lr_)
-    , metadata_lr(metadata_lr_) {
-    assert(name_lr != Legion::LogicalRegion::NO_REGION);
+    Legion::LogicalRegion metadata_lr_,
+    Legion::LogicalRegion values_lr_)
+    : metadata_lr(metadata_lr_)
+    , values_lr(values_lr_) {
     assert(metadata_lr != Legion::LogicalRegion::NO_REGION);
   }
 
-  std::string
-  name(Legion::Context ctx, Legion::Runtime* rt) const;
-
-  static const NAME_TYPE&
-  name(Legion::PhysicalRegion pr) {
-    const NameAccessor<READ_ONLY> nm(pr, NAME_FID);
-    return nm[0];
+  MeasRef(
+    Legion::LogicalRegion metadata_lr_,
+    std::optional<Legion::LogicalRegion> values_lr_)
+    : MeasRef(
+        metadata_lr_,
+        values_lr_.value_or(Legion::LogicalRegion::NO_REGION)) {
   }
 
-  static std::string::size_type
-  find_tag(const std::string& name);
+  bool
+  operator==(const MeasRef& rhs) const {
+    return metadata_lr == rhs.metadata_lr && values_lr == rhs.values_lr;
+  }
+
+  bool
+  operator!=(const MeasRef& rhs) const {
+    return !operator==(rhs);
+  }
+
+  std::tuple<
+    Legion::RegionRequirement,
+    std::optional<Legion::RegionRequirement>>
+  requirements(legion_privilege_mode_t mode) const;
+
+  bool
+  is_empty() const {
+    return metadata_lr == Legion::LogicalRegion::NO_REGION;
+  }
 
   MClass
   mclass(Legion::Context ctx, Legion::Runtime* rt) const;
@@ -158,22 +156,20 @@ public:
   create(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::string& name,
     casacore::MeasRef<Ms> meas_ref) {
     if (false) assert(false);
 #define CREATE(M)                                                       \
     else if (typeid(MClassT<M>::type).hash_code() == typeid(Ms).hash_code()) \
-      return create(ctx, rt, name, &meas_ref, M);
+      return create(ctx, rt, &meas_ref, M);
     HYPERION_FOREACH_MCLASS(CREATE)
 #undef CM
     else assert(false);
   }
 
-  static std::array<Legion::LogicalRegion, 3>
+  static std::array<Legion::LogicalRegion, 2>
   create_regions(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::string& name,
     const IndexTreeL& metadata_tree,
     const std::optional<IndexTreeL>& value_tree);
 
@@ -215,7 +211,6 @@ private:
   create(
     Legion::Context ctx,
     Legion::Runtime *rt,
-    const std::string& name,
     casacore::MRBase* mr,
     MClass klass);
 };

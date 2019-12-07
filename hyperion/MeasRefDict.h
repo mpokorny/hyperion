@@ -44,44 +44,38 @@ public:
     std::shared_ptr<casacore::MeasRef<casacore::MRadialVelocity>>,
     std::shared_ptr<casacore::MeasRef<casacore::Muvw>>> Ref;
 
-  template <template <typename> typename C>
-  MeasRefDict(
+MeasRefDict(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const C<const MeasRef*>& refs)
+    const std::unordered_map<std::string, const MeasRef*>& refs)
     : m_ctx(ctx)
     , m_rt(rt)
     , m_has_physical_regions(false) {
 
-    for (auto& mr : refs)
-      m_meas_refs[mr->name(ctx, rt)] = mr;
-    add_tags();
+    for (auto& [nm, mr] : refs)
+      m_meas_refs[nm] = mr;
   }
 
-  template <typename MRIter>
-  MeasRefDict(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    MRIter begin,
-    MRIter end)
-    : m_ctx(ctx)
-    , m_rt(rt)
-    , m_has_physical_regions(false) {
+  // template <typename MRIter>
+  // MeasRefDict(
+  //   Legion::Context ctx,
+  //   Legion::Runtime* rt,
+  //   MRIter begin,
+  //   MRIter end)
+  //   : m_ctx(ctx)
+  //   , m_rt(rt)
+  //   , m_has_physical_regions(false) {
 
-    std::for_each(
-      begin,
-      end,
-      [this, &ctx, rt](const MeasRef* mr) {
-        m_meas_refs[mr->name(ctx, rt)] = mr;
-      });
-    add_tags();
-  }
+  //   std::for_each(
+  //     begin,
+  //     end,
+  //     [this, &ctx, rt](const MeasRef* mr) {
+  //       m_meas_refs[mr->name(ctx, rt)] = mr;
+  //     });
+  // }
 
   std::unordered_set<std::string>
   names() const;
-
-  std::unordered_set<std::string>
-  tags() const;
 
   std::optional<Ref>
   get(const std::string& name) const;
@@ -120,13 +114,9 @@ protected:
 
     for (auto& [nm, prs] : named_prs)
       m_meas_refs[nm] = prs;
-    add_tags();
   }
 
 private:
-
-  void
-  add_tags();
 
   Legion::Context m_ctx;
 

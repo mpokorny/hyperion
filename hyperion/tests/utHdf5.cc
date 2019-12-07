@@ -146,7 +146,8 @@ Column::Generator
 table0_col(
   const std::string& name
 #ifdef HYPERION_USE_CASACORE
-  , const std::vector<MeasRef>& measures
+  , const std::unordered_map<std::string, MeasRef>& measures
+  , const std::optional<std::string> &meas_name = std::nullopt
 #endif
   ) {
   if (name == "X") {
@@ -157,6 +158,15 @@ table0_col(
        , const MeasRefContainer& table_mr
 #endif
         ) {
+#ifdef HYPERION_USE_CASACORE
+        MeasRef mr;
+        bool own_mr = false;
+        if (meas_name) {
+          auto mrs =
+            MeasRefContainer::create(ctx, rt, measures, table_mr);
+          std::tie(mr, own_mr) = mrs.lookup(ctx, rt, meas_name.value());
+        }
+#endif
         return
           Column::create(
             ctx,
@@ -166,8 +176,9 @@ table0_col(
             ValueType<unsigned>::DataType,
             IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
-            MeasRefContainer::create(ctx, rt, measures, table_mr),
-            true,
+            mr,
+            own_mr,
+            meas_name.value_or(""),
 #endif
             {},
             name_prefix);
@@ -180,6 +191,15 @@ table0_col(
        , const MeasRefContainer& table_mr
 #endif
         ) {
+#ifdef HYPERION_USE_CASACORE
+        MeasRef mr;
+        bool own_mr = false;
+        if (meas_name) {
+          auto mrs =
+            MeasRefContainer::create(ctx, rt, measures, table_mr);
+          std::tie(mr, own_mr) = mrs.lookup(ctx, rt, meas_name.value());
+        }
+#endif
         return
           Column::create(
             ctx,
@@ -189,8 +209,9 @@ table0_col(
             ValueType<unsigned>::DataType,
             IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
-            MeasRefContainer::create(ctx, rt, measures, table_mr),
-            true,
+            mr,
+            own_mr,
+            meas_name.value_or(""),
 #endif
             Keywords::kw_desc_t{{"perfect", ValueType<short>::DataType}},
             name_prefix);
@@ -203,6 +224,15 @@ table0_col(
        , const MeasRefContainer& table_mr
 #endif
         ) {
+#ifdef HYPERION_USE_CASACORE
+        MeasRef mr;
+        bool own_mr = false;
+        if (meas_name) {
+          auto mrs =
+            MeasRefContainer::create(ctx, rt, measures, table_mr);
+          std::tie(mr, own_mr) = mrs.lookup(ctx, rt, meas_name.value());
+        }
+#endif
         return
           Column::create(
             ctx,
@@ -212,8 +242,9 @@ table0_col(
             ValueType<unsigned>::DataType,
             IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}),
 #ifdef HYPERION_USE_CASACORE
-            MeasRefContainer::create(ctx, rt, measures, table_mr),
-            true,
+            mr,
+            own_mr,
+            meas_name.value_or(""),
 #endif
             {},
             name_prefix);
@@ -405,34 +436,30 @@ verify_col(
 }
 
 static bool
-verify_mr_values(
+verify_mrc_values(
   Context ctx,
   Runtime* rt,
-  LogicalRegion mr_region,
-  const std::map<std::string, MeasRef>& expected) {
+  const MeasRefContainer& mrc,
+  const std::unordered_map<std::string, MeasRef>& expected) {
 
   std::vector<std::tuple<std::string, MeasRef>> actual;
 
-  RegionRequirement req(mr_region, READ_ONLY, EXCLUSIVE, mr_region);
-  req.add_field(MeasRefContainer::MEAS_REF_FID);
-  auto pr = rt->map_region(ctx, req);
-  const MeasRefContainer::MeasRefAccessor<READ_ONLY>
-    mrs(pr, MeasRefContainer::MEAS_REF_FID);
-  for (PointInRectIterator<1>
-         pir(rt->get_index_space_domain(mr_region.get_index_space()));
-       pir();
-       pir++) {
-    auto& mr = mrs[*pir];
-    RegionRequirement
-      nmreq(mr.name_lr, READ_ONLY, EXCLUSIVE, mr.name_lr);
-    nmreq.add_field(MeasRef::NAME_FID);
-    auto nmpr = rt->map_region(ctx, nmreq);
-    const MeasRef::NameAccessor<READ_ONLY> nm(nmpr, MeasRef::NAME_FID);
-    actual.emplace_back(nm[0], mr);
-    rt->unmap_region(ctx, nmpr);
+  if (mrc.lr != LogicalRegion::NO_REGION){
+    RegionRequirement req(mrc.lr, READ_ONLY, EXCLUSIVE, mrc.lr);
+    req.add_field(MeasRefContainer::MEAS_REF_FID);
+    req.add_field(MeasRefContainer::NAME_FID);
+    auto pr = rt->map_region(ctx, req);
+    const MeasRefContainer::MeasRefAccessor<READ_ONLY>
+      mrs(pr, MeasRefContainer::MEAS_REF_FID);
+    const MeasRefContainer::NameAccessor<READ_ONLY>
+      nms(pr, MeasRefContainer::NAME_FID);
+    for (PointInRectIterator<1>
+           pir(rt->get_index_space_domain(mrc.lr.get_index_space()));
+         pir();
+         pir++)
+      actual.emplace_back(nms[*pir], mrs[*pir]);
+    rt->unmap_region(ctx, pr);
   }
-  rt->unmap_region(ctx, pr);
-
   bool result = true;
   for (auto& [nm, mr] : expected) {
     auto f =
@@ -469,24 +496,24 @@ table_tests(
 #ifdef HYPERION_USE_CASACORE
   casacore::MeasRef<casacore::MEpoch> tai(casacore::MEpoch::TAI);
   casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
-  auto table0_epoch = MeasRef::create(ctx, rt, "EPOCH", tai);
-  auto table0_meas_ref = MeasRefContainer::create(ctx, rt, {table0_epoch});
+  auto table0_epoch = MeasRef::create(ctx, rt, tai);
 
   casacore::MeasRef<casacore::MDirection>
     direction(casacore::MDirection::J2000);
   casacore::MeasRef<casacore::MFrequency>
     frequency(casacore::MFrequency::GEO);
-  auto columnX_direction = MeasRef::create(ctx, rt, "DIRECTION", direction);
-  auto columnZ_epoch = MeasRef::create(ctx, rt, "EPOCH", utc);
-  std::unordered_map<std::string, std::vector<MeasRef>> col_measures{
-    {"X", {columnX_direction}},
+  auto columnX_direction = MeasRef::create(ctx, rt, direction);
+  auto columnZ_epoch = MeasRef::create(ctx, rt, utc);
+  std::unordered_map<std::string, std::unordered_map<std::string, MeasRef>>
+    col_measures{
+    {"X", {{"DIRECTION", columnX_direction}}},
     {"Y", {}},
-    {"Z", {columnZ_epoch}}
+    {"Z", {{"EPOCH", columnZ_epoch}}}
   };
   std::vector<Column::Generator> column_generators{
-    table0_col("X", col_measures["X"]),
+    table0_col("X", col_measures["X"], "DIRECTION"),
     table0_col("Y", col_measures["Y"]),
-    table0_col("Z", col_measures["Z"])
+    table0_col("Z", col_measures["Z"], "EPOCH")
   };
 #else
   std::vector<Column::Generator> column_generators{
@@ -505,7 +532,8 @@ table_tests(
         std::vector<Table0Axes>{Table0Axes::ROW},
         column_generators,
 #ifdef HYPERION_USE_CASACORE
-        table0_meas_ref,
+        {{"EPOCH", table0_epoch}},
+        MeasRefContainer(),
 #endif
         {{"MS_VERSION", ValueType<float>::DataType},
          {"NAME", ValueType<std::string>::DataType}},
@@ -621,11 +649,11 @@ table_tests(
         }));
     recorder.expect_true(
       "Table has expected measure",
-      TE(verify_mr_values(
+      TE(verify_mrc_values(
            ctx,
            rt,
-           tb0.meas_refs.lr,
-           {{"table0/EPOCH", table0_epoch}})));
+           tb0.meas_refs,
+           {{"EPOCH", table0_epoch}})));
     {
       auto cx = tb0.column(ctx, rt, "X");
       recorder.assert_true(
@@ -640,12 +668,7 @@ table_tests(
         TE(cx.index_tree(rt)) == IndexTreeL(TABLE0_NUM_ROWS));
       recorder.expect_true(
         "Column X has expected measures",
-        TE(verify_mr_values(
-             ctx,
-             rt,
-             cx.meas_refs.lr,
-             {{"table0/EPOCH", table0_epoch},
-              {"table0/X/DIRECTION", columnX_direction}})));
+        TE(cx.meas_ref.equiv(ctx, rt, columnX_direction)));
     }
     {
       auto cy = tb0.column(ctx, rt, "Y");
@@ -661,11 +684,7 @@ table_tests(
         TE(cy.index_tree(rt)) == IndexTreeL(TABLE0_NUM_ROWS));
       recorder.expect_true(
         "Column Y has expected measures",
-        TE(verify_mr_values(
-             ctx,
-             rt,
-             cy.meas_refs.lr,
-             {{"table0/EPOCH", table0_epoch}})));
+        TE(cy.meas_ref.is_empty()));
     }
     {
       auto cz = tb0.column(ctx, rt, "Z");
@@ -681,12 +700,7 @@ table_tests(
         TE(cz.index_tree(rt)) == IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
       recorder.expect_true(
         "Column Z has expected measures",
-        TE(verify_mr_values(
-             ctx,
-             rt,
-             cz.meas_refs.lr,
-             {{"table0/EPOCH", table0_epoch},
-              {"table0/Z/EPOCH", columnZ_epoch}})));
+        TE(cz.meas_ref.equiv(ctx, rt, table0_epoch)));
     }
 
     //attach to file, and read back keywords

@@ -37,7 +37,6 @@ public:
   typedef MSTableColumns<MS_SPECTRAL_WINDOW> C;
 
   MSSpWindowColumns(
-    Legion::Context ctx,
     Legion::Runtime* rt,
     const Legion::RegionRequirement& rows_requirement,
     const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&

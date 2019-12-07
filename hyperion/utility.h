@@ -92,6 +92,12 @@ flatMap(const std::optional<T>& ot, F f) {
   return ot ? f(ot.value()) : std::invoke_result_t<F, T>();
 }
 
+void
+toupper(std::string& s);
+
+std::string
+toupper(const std::string& s);
+
 template <typename D>
 struct Axes {
   static const char* uid;
