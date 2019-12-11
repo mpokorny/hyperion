@@ -489,7 +489,6 @@ public:
       {regions[args->ridx[ANTENNA_##NM]]}}
 
     MSAntennaColumns ac(
-      ctx,
       rt,
       task->regions[args->ridx[ANTENNA_NAME]],
       std::unordered_map<std::string, std::vector<PhysicalRegion>>(
@@ -840,19 +839,17 @@ public:
                      COLUMN_NAME(MS_FEED, POSITION)}) {
             mr_indexes.push_back(reqs.size());
             auto col = m_tbl_feed.column(c, r, nm);
-            auto col_reqs = col.meas_refs.requirements(c, r, READ_ONLY);
-            std::copy(
-              col_reqs.begin(),
-              col_reqs.end(),
-              std::back_inserter(col_reqs));
+            auto [mreq, ovreq] = col.meas_ref.requirements(READ_ONLY);
+            reqs.push_back(mreq);
+            if (ovreq)
+              reqs.push_back(ovreq.value());
           }
           {
             mr_indexes.push_back(reqs.size());
-            auto pos_reqs = position.meas_refs.requirements(c, r, READ_ONLY);
-            std::copy(
-              pos_reqs.begin(),
-              pos_reqs.end(),
-              std::back_inserter(pos_reqs));
+            auto [mreq, ovreq] = position.meas_ref.requirements(READ_ONLY);
+            reqs.push_back(mreq);
+            if (ovreq)
+              reqs.push_back(ovreq.value());
           }
           TaskArgs args;
           args.feed_time_mr_index = mr_indexes[0];
@@ -957,39 +954,30 @@ public:
     FEED_COL(feed_receptor_angle, DOUBLE, RECEPTOR_ANGLE);
 #undef FEED_COL
 
+    MeasRef::DataRegions drs;
+    drs.metadata = regions[args->feed_time_mr_index];
+    if (args->feed_beam_offset_mr_index > args->feed_time_mr_index + 1)
+      drs.values = regions[args->feed_time_mr_index + 1];
     auto feed_time_mr =
-      MeasRefDict::get<M_EPOCH>(
-        MeasRefContainer::make_dict(
-          ctx,
-          rt,
-          regions.begin() + args->feed_time_mr_index,
-          regions.begin() + args->feed_beam_offset_mr_index)
-        .get("Epoch").value());
-    auto feed_beam_offset_mr =
-      MeasRefDict::get<M_DIRECTION>(
-        MeasRefContainer::make_dict(
-          ctx,
-          rt,
-          regions.begin() + args->feed_beam_offset_mr_index,
-          regions.begin() + args->feed_position_mr_index)
-        .get("Direction").value());
-    auto feed_position_mr =
-      MeasRefDict::get<M_POSITION>(
-        MeasRefContainer::make_dict(
-          ctx,
-          rt,
-          regions.begin() + args->feed_position_mr_index,
-          regions.begin() + args->antenna_position_mr_index)
-        .get("Position").value());
+      MeasRef::make<casacore::MEpoch>(rt, drs).value();
 
+    drs.metadata = regions[args->feed_beam_offset_mr_index];
+    if (args->feed_position_mr_index > args->feed_beam_offset_mr_index + 1)
+      drs.values = regions[args->feed_beam_offset_mr_index + 1];
+    auto feed_beam_offset_mr =
+      MeasRef::make<casacore::MDirection>(rt, drs).value();
+
+    drs.metadata = regions[args->feed_position_mr_index];
+    if (args->antenna_position_mr_index > args->feed_position_mr_index + 1)
+      drs.values = regions[args->feed_position_mr_index + 1];
+    auto feed_position_mr =
+      MeasRef::make<casacore::MPosition>(rt, drs).value();
+
+    drs.metadata = regions[args->antenna_position_mr_index];
+    if (regions.size() > args->antenna_position_mr_index + 1)
+      drs.values = regions[args->antenna_position_mr_index + 1];
     auto antenna_position_mr =
-      MeasRefDict::get<M_POSITION>(
-        MeasRefContainer::make_dict(
-          ctx,
-          rt,
-          regions.begin() + args->antenna_position_mr_index,
-          regions.end() - 1)
-        .get("Position").value());
+      MeasRef::make<casacore::MPosition>(rt, drs).value();
 
     const WOAccessor<PARALLACTIC_ANGLE_TYPE, ROW_DIM>
       pa(regions.back(), PARALLACTIC_ANGLE_FID);
