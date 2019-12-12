@@ -139,395 +139,300 @@ measure_index_trees(
 
 template <int D>
 static void
-initialize_vm(
-  PhysicalRegion value_pr,
-  PhysicalRegion metadata_pr,
-  const std::tuple<MClass, casacore::MRBase*>& mrb) {
-
-  // TODO: remove bounds check on the following accessors
-  const MeasRef::ValueAccessor<WRITE_ONLY, D+1>
-    vals(value_pr, 0);
-  const MeasRef::RefTypeAccessor<WRITE_ONLY, D>
-    rtypes(metadata_pr, MeasRef::REF_TYPE_FID);
-  const MeasRef::MeasureClassAccessor<WRITE_ONLY, D>
-    mclasses(metadata_pr, MeasRef::MEASURE_CLASS_FID);
-  const MeasRef::NumValuesAccessor<WRITE_ONLY, D>
-    numvals(metadata_pr, MeasRef::NUM_VALUES_FID);
-
-  Point<D + 1> p1;
-  Point<D> p;
-
-  std::stack<
-    std::tuple<
-      std::variant<
-        const casacore::Measure*,
-        std::tuple<MClass, casacore::MRBase*>>,
-      MeasRef::ArrayComponent>> ms;
-  ms.push(std::make_tuple(mrb, MeasRef::ArrayComponent::VALUE));
-  while (!ms.empty()) {
-    auto& [m, c] = ms.top();
-
-    auto ms_size = ms.size();
-    auto level = ms_size - 1;
-    for (unsigned j = level + 1; j < D; ++j)
-      p[j] = p1[j] = 0;
-    p1[D] = 0;
-
-    casacore::MRBase* ref_base = nullptr;
-    if (c == MeasRef::ArrayComponent::VALUE) {
-      // the measure value itself
-      p[level] = p1[level] = MeasRef::ArrayComponent::VALUE;
-      std::visit(
-        overloaded {
-          [level, &p, &p1, &vals, &numvals, &mclasses, &ref_base, &m]
-          (const casacore::Measure* measure) {
-            auto mvals = measure->getData()->getVector();
-            for (unsigned j = 0; j < mvals.size(); ++j) {
-              p1[level + 1] = j;
-              vals[p1] = mvals[j];
-            }
-            numvals[p] = mvals.size();
-            std::string name = measure->tellMe();
-            if (name == "") assert(false);
-#define SET_MCLASS(M)                           \
-            else if (name == MClassT<M>::name)  \
-              mclasses[p] = M;
-            HYPERION_FOREACH_MCLASS(SET_MCLASS)
-#undef SET_MCLASS
-            else assert(false);
-            ref_base = measure->getRefPtr();
-            m = std::make_tuple(static_cast<MClass>(mclasses[p]), ref_base);
-          },
-          [&p, &numvals, &mclasses, &ref_base]
-          (std::tuple<MClass, casacore::MRBase*>& kr) {
-            auto& [k, r] = kr;
-            mclasses[p] = k;
-            numvals[p] = 0;
-            ref_base = r;
-          }
-        },
-        m);
-      assert(ref_base != nullptr);
-      rtypes[p] = ref_base->getType();
-      c = MeasRef::ArrayComponent::OFFSET;
-    } else {
-      ref_base =
-        std::get<1>(std::get<std::tuple<MClass, casacore::MRBase*>>(m));
-    }
-    assert(ref_base != nullptr);
-
-    {
-      auto frame = ref_base->getFrame();
-      while (ms_size == ms.size()
-             && c < MeasRef::ArrayComponent::NUM_COMPONENTS) {
-        const casacore::Measure* cm;
-        switch (c) {
-        case MeasRef::ArrayComponent::VALUE:
-          assert(false);
-          cm = nullptr;
-          break;
-        case MeasRef::ArrayComponent::OFFSET:
-          cm = ref_base->offset();
-          break;
-        case MeasRef::ArrayComponent::EPOCH:
-          cm = frame.epoch();
-          break;
-        case MeasRef::ArrayComponent::POSITION:
-          cm = frame.position();
-          break;
-        case MeasRef::ArrayComponent::DIRECTION:
-          cm = frame.direction();
-          break;
-        case MeasRef::ArrayComponent::RADIAL_VELOCITY:
-          cm = frame.radialVelocity();
-          break;
-        default:
-          assert(false);
-          break;
-        }
-        p[level] = p1[level] = c;
-        c = (MeasRef::ArrayComponent)((unsigned)c + 1);
-        if (cm != nullptr)
-          ms.push(std::make_tuple(cm, MeasRef::ArrayComponent::VALUE));
-      }
-    }
-    if (ms_size == ms.size())
-      ms.pop();
-  }
-}
-
-template <int D>
-static void
 initialize(
   MeasRef::DataRegions prs,
-  const std::tuple<MClass, casacore::MRBase*>& mrb) {
+  const std::vector<casacore::MRBase*>& mrbs,
+  MClass klass) {
 
-  initialize_vm<D>(prs.values.value(), prs.metadata, mrb);
+  // TODO: remove bounds check on the following accessors
+  const MeasRef::ValueAccessor<WRITE_ONLY, D + 1, true>
+    vals(prs.values, 0);
+  const MeasRef::RefTypeAccessor<WRITE_ONLY, D, true>
+    rtypes(prs.metadata, MeasRef::REF_TYPE_FID);
+  const MeasRef::MeasureClassAccessor<WRITE_ONLY, D, true>
+    mclasses(prs.metadata, MeasRef::MEASURE_CLASS_FID);
+  const MeasRef::NumValuesAccessor<WRITE_ONLY, D, true>
+    numvals(prs.metadata, MeasRef::NUM_VALUES_FID);
+
+  for (size_t i = 0; i < mrbs.size(); ++i) {
+    Point<D + 1> p1;
+    Point<D> p;
+    p[0] = p1[0] = i;
+
+    std::stack<
+      std::tuple<
+        std::variant<
+          const casacore::Measure*,
+          std::tuple<MClass, casacore::MRBase*>>,
+        MeasRef::ArrayComponent>> ms;
+    ms.emplace(std::make_tuple(klass, mrbs[i]), MeasRef::ArrayComponent::VALUE);
+    while (!ms.empty()) {
+      auto& [m, c] = ms.top();
+
+      const auto level = ms.size();
+      for (unsigned j = level + 1; j < D; ++j)
+        p[j] = p1[j] = 0;
+      p1[D] = 0;
+
+      casacore::MRBase* ref_base = nullptr;
+      if (c == MeasRef::ArrayComponent::VALUE) {
+        // the measure value itself
+        p[level] = p1[level] = MeasRef::ArrayComponent::VALUE;
+        std::visit(
+          overloaded {
+            [level, &p, &p1, &vals, &numvals, &mclasses, &ref_base, &m]
+            (const casacore::Measure* measure) {
+              auto mvals = measure->getData()->getVector();
+              for (unsigned j = 0; j < mvals.size(); ++j) {
+                p1[level + 1] = j;
+                vals[p1] = mvals[j];
+              }
+              numvals[p] = mvals.size();
+              std::string name = measure->tellMe();
+              if (name == "") assert(false);
+#define SET_MCLASS(M)                             \
+              else if (name == MClassT<M>::name)  \
+                mclasses[p] = M;
+              HYPERION_FOREACH_MCLASS(SET_MCLASS)
+#undef SET_MCLASS
+              else assert(false);
+              ref_base = measure->getRefPtr();
+              m = std::make_tuple(static_cast<MClass>(mclasses[p]), ref_base);
+            },
+            [&p, &numvals, &mclasses, &ref_base]
+            (std::tuple<MClass, casacore::MRBase*>& kr) {
+              auto& [k, r] = kr;
+              mclasses[p] = k;
+              numvals[p] = 0;
+              ref_base = r;
+            }
+          },
+          m);
+        assert(ref_base != nullptr);
+        rtypes[p] = ref_base->getType();
+        c = MeasRef::ArrayComponent::OFFSET;
+      } else {
+        ref_base =
+          std::get<1>(std::get<std::tuple<MClass, casacore::MRBase*>>(m));
+      }
+      assert(ref_base != nullptr);
+
+      {
+        auto frame = ref_base->getFrame();
+        while (ms.size() == level
+               && c < MeasRef::ArrayComponent::NUM_COMPONENTS) {
+          const casacore::Measure* cm;
+          switch (c) {
+          case MeasRef::ArrayComponent::VALUE:
+            assert(false);
+            cm = nullptr;
+            break;
+          case MeasRef::ArrayComponent::OFFSET:
+            cm = ref_base->offset();
+            break;
+          case MeasRef::ArrayComponent::EPOCH:
+            cm = frame.epoch();
+            break;
+          case MeasRef::ArrayComponent::POSITION:
+            cm = frame.position();
+            break;
+          case MeasRef::ArrayComponent::DIRECTION:
+            cm = frame.direction();
+            break;
+          case MeasRef::ArrayComponent::RADIAL_VELOCITY:
+            cm = frame.radialVelocity();
+            break;
+          default:
+            assert(false);
+            break;
+          }
+          p[level] = p1[level] = c;
+          c = (MeasRef::ArrayComponent)((unsigned)c + 1);
+          if (cm != nullptr)
+            ms.push(std::make_tuple(cm, MeasRef::ArrayComponent::VALUE));
+        }
+      }
+      if (ms.size() == level)
+        ms.pop();
+    }
+  }
 }
 
 template <>
 void
 initialize<1>(
   MeasRef::DataRegions prs,
-  const std::tuple<MClass, casacore::MRBase*>& mrb) {
-
-  if (prs.values) {
-    initialize_vm<1>(prs.values.value(), prs.metadata, mrb);
-  } else {
-
-    Point<1> p;
-
-    auto& [mclass, ref_base] = mrb;
-    MeasRef::ArrayComponent c = MeasRef::ArrayComponent::VALUE;
-    while (c < MeasRef::ArrayComponent::NUM_COMPONENTS) {
-      p[0] = c;
-      switch (c) {
-      case MeasRef::ArrayComponent::VALUE: {
-        const MeasRef::RefTypeAccessor<WRITE_ONLY, 1>
-          rtypes(prs.metadata, MeasRef::REF_TYPE_FID);
-        const MeasRef::MeasureClassAccessor<WRITE_ONLY, 1>
-          mclasses(prs.metadata, MeasRef::MEASURE_CLASS_FID);
-        const MeasRef::NumValuesAccessor<WRITE_ONLY, 1>
-          numvals(prs.metadata, MeasRef::NUM_VALUES_FID);
-
-        mclasses[p] = mclass;
-        numvals[p] = 0;
-        rtypes[p] = ref_base->getType();
-        break;
-      }
-      case MeasRef::ArrayComponent::OFFSET:
-        assert(ref_base->offset() == nullptr);
-        break;
-      case MeasRef::ArrayComponent::EPOCH:
-        assert(ref_base->getFrame().epoch() == nullptr);
-        break;
-      case MeasRef::ArrayComponent::POSITION:
-        assert(ref_base->getFrame().position() == nullptr);
-        break;
-      case MeasRef::ArrayComponent::DIRECTION:
-        assert(ref_base->getFrame().direction() == nullptr);
-        break;
-      case MeasRef::ArrayComponent::RADIAL_VELOCITY:
-        assert(ref_base->getFrame().radialVelocity() == nullptr);
-        break;
-      default:
-        assert(false);
-        break;
-      }
-      c = (MeasRef::ArrayComponent)((unsigned)c + 1);
-    }
-  }
+  const std::vector<casacore::MRBase*>& mrbs,
+  MClass klass) {
+  // TODO: this should never be called, it might be better to remove it from the
+  // macro expansion in the switch statement in create() that's used to select
+  // the call to initialize<D>()
+  assert(false);
 }
 
 template <int D>
-static std::unique_ptr<casacore::MRBase>
-instantiate_vm(
-  PhysicalRegion value_pr,
-  PhysicalRegion metadata_pr,
-  Domain metadata_domain) {
+static std::vector<std::unique_ptr<casacore::MRBase>>
+instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
 
   // TODO: remove bounds check on the following accessors
-  const MeasRef::ValueAccessor<READ_ONLY, D+1>
-    vals(value_pr, 0);
-  const MeasRef::RefTypeAccessor<READ_ONLY, D>
-    rtypes(metadata_pr, MeasRef::REF_TYPE_FID);
-  const MeasRef::MeasureClassAccessor<READ_ONLY, D>
-    mclasses(metadata_pr, MeasRef::MEASURE_CLASS_FID);
-  const MeasRef::NumValuesAccessor<READ_ONLY, D>
-    numvals(metadata_pr, MeasRef::NUM_VALUES_FID);
+  const MeasRef::ValueAccessor<READ_ONLY, D + 1, true>
+    vals(prs.values, 0);
+  const MeasRef::RefTypeAccessor<READ_ONLY, D, true>
+    rtypes(prs.metadata, MeasRef::REF_TYPE_FID);
+  const MeasRef::MeasureClassAccessor<READ_ONLY, D, true>
+    mclasses(prs.metadata, MeasRef::MEASURE_CLASS_FID);
+  const MeasRef::NumValuesAccessor<READ_ONLY, D, true>
+    numvals(prs.metadata, MeasRef::NUM_VALUES_FID);
 
-  Point<D + 1> p1;
-  Point<D> p;
+  size_t n = metadata_domain.hi()[0] + 1;
+  std::vector<std::unique_ptr<casacore::MRBase>> result(n);
+  for (size_t i = 0; i < n; ++i) {
 
-  std::variant<
-    std::unique_ptr<casacore::Measure>,
-    std::unique_ptr<casacore::MRBase>> result
-    = std::unique_ptr<casacore::Measure>();
-  std::stack<
-    std::tuple<
-      std::unique_ptr<casacore::MeasValue>,
-      std::unique_ptr<casacore::MRBase>,
-      MClass,
-      MeasRef::ArrayComponent>> ms;
+    Point<D + 1> p1;
+    Point<D> p;
+    p[0] = p1[0] = i;
+
+    std::variant<
+      std::unique_ptr<casacore::Measure>,
+      std::unique_ptr<casacore::MRBase>> vmrb
+      = std::unique_ptr<casacore::Measure>();
+    std::stack<
+      std::tuple<
+        std::unique_ptr<casacore::MeasValue>,
+        std::unique_ptr<casacore::MRBase>,
+        MClass,
+        MeasRef::ArrayComponent>> ms;
 #define PUSH_NEW(s) (s).push(                   \
-    std::make_tuple(                            \
-      std::unique_ptr<casacore::MeasValue>(),   \
-      std::unique_ptr<casacore::MRBase>(),      \
-      MClass::M_NONE,                           \
-      MeasRef::ArrayComponent::VALUE))
+      std::make_tuple(                          \
+        std::unique_ptr<casacore::MeasValue>(), \
+        std::unique_ptr<casacore::MRBase>(),    \
+        MClass::M_NONE,                         \
+        MeasRef::ArrayComponent::VALUE))
 
-  PUSH_NEW(ms);
-  while (!ms.empty()) {
-    auto& [v, r, k, c] = ms.top();
+    PUSH_NEW(ms);
+    while (!ms.empty()) {
+      auto& [v, r, k, c] = ms.top();
 
-    auto ms_size = ms.size();
-    auto level = ms_size - 1;
-    for (unsigned j = level + 1; j < D; ++j)
-      p[j] = p1[j] = 0;
-    p1[D] = 0;
+      const auto level = ms.size();
+      for (unsigned j = level + 1; j < D; ++j)
+        p[j] = p1[j] = 0;
+      p1[D] = 0;
 
-    if (c == MeasRef::ArrayComponent::VALUE) {
-      // the measure value itself
-      p[level] = p1[level] = MeasRef::ArrayComponent::VALUE;
-      k = (MClass)mclasses[p];
-      casacore::Vector<MeasRef::VALUE_TYPE> mvals(numvals[p]);
-      for (unsigned i = 0; i < mvals.size(); ++i) {
-        p1[level + 1] = i;
-        mvals[i] = vals[p1];
-      }
-      switch (k) {
-#define VR(M)                                                       \
-        case M:                                                     \
-          if (mvals.size() > 0)                                     \
-            v = std::make_unique<MClassT<M>::type::MVType>(mvals);  \
-          r = std::make_unique<MClassT<M>::type::Ref>(rtypes[p]);   \
-          break;
-        HYPERION_FOREACH_MCLASS(VR)
-#undef VR
-      default:
-        assert(false);
-        break;
-      }
-      c = MeasRef::ArrayComponent::OFFSET;
-      p[level] = p1[level] = c;
-      if (metadata_domain.contains(p))
-        PUSH_NEW(ms);
-    }
-
-    while (ms_size == ms.size()
-           && c < MeasRef::ArrayComponent::NUM_COMPONENTS) {
-      assert(
-        std::holds_alternative<std::unique_ptr<casacore::Measure>>(result));
-      std::unique_ptr<casacore::Measure> cm =
-        std::move(std::get<std::unique_ptr<casacore::Measure>>(result));
-      switch (c) {
-      case MeasRef::ArrayComponent::VALUE:
-        assert(false);
-        break;
-      case MeasRef::ArrayComponent::OFFSET:
-        if (cm) {
-          switch (k) {
-#define SET_OFFSET(M)                                               \
-            case M:                                                 \
-              dynamic_cast<MClassT<M>::type::Ref*>(r.get())         \
-                ->set(*dynamic_cast<MClassT<M>::type*>(cm.get()));  \
-              break;
-            HYPERION_FOREACH_MCLASS(SET_OFFSET)
-#undef SET_OFFSET
-          default:
-            assert(false);
-            break;
-          }
+      if (c == MeasRef::ArrayComponent::VALUE) {
+        // the measure value itself
+        p[level] = p1[level] = MeasRef::ArrayComponent::VALUE;
+        k = (MClass)mclasses[p];
+        casacore::Vector<MeasRef::VALUE_TYPE> mvals(numvals[p]);
+        for (unsigned i = 0; i < mvals.size(); ++i) {
+          p1[level + 1] = i;
+          mvals[i] = vals[p1];
         }
-        break;
-      case MeasRef::ArrayComponent::EPOCH:
-        if (cm)
-          r->getFrame().resetEpoch(*cm);
-        break;
-      case MeasRef::ArrayComponent::POSITION:
-        if (cm)
-          r->getFrame().resetPosition(*cm);
-        break;
-      case MeasRef::ArrayComponent::DIRECTION:
-        if (cm)
-          r->getFrame().resetDirection(*cm);
-        break;
-      case MeasRef::ArrayComponent::RADIAL_VELOCITY:
-        if (cm)
-          r->getFrame().resetRadialVelocity(*cm);
-        break;
-      default:
-        assert(false);
-        break;
-      }
-      c = (MeasRef::ArrayComponent)((unsigned)c + 1);
-      p[level] = p1[level] = c;
-      if (metadata_domain.contains(p))
-        PUSH_NEW(ms);
-    }
-
-    if (ms_size == ms.size()) {
-      switch (k) {
-#define SET_RESULT(M)                                               \
-        case M:                                                     \
-          if (v)                                                    \
-            result =                                                \
-              std::make_unique<MClassT<M>::type>(                   \
-                *dynamic_cast<MClassT<M>::type::MVType*>(v.get()),  \
-                *dynamic_cast<MClassT<M>::type::Ref*>(r.get()));    \
-          else                                                      \
-            result = std::move(r);                                  \
-          break;
-        HYPERION_FOREACH_MCLASS(SET_RESULT)
-#undef SET_RESULT
-      default:
-        assert(false);
-        break;
-      }
-      ms.pop();
-    }
-  }
-  assert(std::holds_alternative<std::unique_ptr<casacore::MRBase>>(result));
-  return std::move(std::get<std::unique_ptr<casacore::MRBase>>(result));
-#undef PUSH_NEW
-}
-
-template <int D>
-static std::unique_ptr<casacore::MRBase>
-instantiate(
-  MeasRef::DataRegions prs,
-  Domain metadata_domain) {
-
-  return instantiate_vm<D>(prs.values.value(), prs.metadata, metadata_domain);
-}
-
-template <>
-std::unique_ptr<casacore::MRBase>
-instantiate<1>(
-  MeasRef::DataRegions prs,
-  Domain metadata_domain) {
-
-  if (prs.values) {
-    return instantiate_vm<1>(prs.values.value(), prs.metadata, metadata_domain);
-  } else {
-
-    const MeasRef::RefTypeAccessor<READ_ONLY, 1>
-      rtypes(prs.metadata, MeasRef::REF_TYPE_FID);
-    const MeasRef::MeasureClassAccessor<READ_ONLY, 1>
-      mclasses(prs.metadata, MeasRef::MEASURE_CLASS_FID);
-    const MeasRef::NumValuesAccessor<READ_ONLY, 1>
-      numvals(prs.metadata, MeasRef::NUM_VALUES_FID);
-
-    Point<1> p;
-
-    std::unique_ptr<casacore::MRBase> result;
-    MeasRef::ArrayComponent c = MeasRef::ArrayComponent::VALUE;
-    while (c < MeasRef::ArrayComponent::NUM_COMPONENTS) {
-      p[0] = c;
-      switch (c) {
-      case MeasRef::ArrayComponent::VALUE:
-        assert(numvals[p] == 0);
-        switch ((MClass)mclasses[p]) {
-#define MRB(M)                                                    \
-          case M:                                                 \
-            result =                                              \
-              std::make_unique<MClassT<M>::type::Ref>(rtypes[p]); \
+        switch (k) {
+#define VR(M)                                                         \
+          case M:                                                     \
+            if (mvals.size() > 0)                                     \
+              v = std::make_unique<MClassT<M>::type::MVType>(mvals);  \
+            r = std::make_unique<MClassT<M>::type::Ref>(rtypes[p]);   \
             break;
-          HYPERION_FOREACH_MCLASS(MRB)
-#undef MRB
+          HYPERION_FOREACH_MCLASS(VR)
+#undef VR
+        default:
+            assert(false);
+          break;
+        }
+        c = MeasRef::ArrayComponent::OFFSET;
+        p[level] = p1[level] = c;
+        if (metadata_domain.contains(p))
+          PUSH_NEW(ms);
+      }
+
+      while (ms.size() == level
+             && c < MeasRef::ArrayComponent::NUM_COMPONENTS) {
+        assert(
+          std::holds_alternative<std::unique_ptr<casacore::Measure>>(vmrb));
+        std::unique_ptr<casacore::Measure> cm =
+          std::move(std::get<std::unique_ptr<casacore::Measure>>(vmrb));
+        switch (c) {
+        case MeasRef::ArrayComponent::VALUE:
+          assert(false);
+          break;
+        case MeasRef::ArrayComponent::OFFSET:
+          if (cm) {
+            switch (k) {
+#define SET_OFFSET(M)                                                 \
+              case M:                                                 \
+                dynamic_cast<MClassT<M>::type::Ref*>(r.get())         \
+                  ->set(*dynamic_cast<MClassT<M>::type*>(cm.get()));  \
+                break;
+              HYPERION_FOREACH_MCLASS(SET_OFFSET)
+#undef SET_OFFSET
+            default:
+                assert(false);
+              break;
+            }
+          }
+          break;
+        case MeasRef::ArrayComponent::EPOCH:
+          if (cm)
+            r->getFrame().resetEpoch(*cm);
+          break;
+        case MeasRef::ArrayComponent::POSITION:
+          if (cm)
+            r->getFrame().resetPosition(*cm);
+          break;
+        case MeasRef::ArrayComponent::DIRECTION:
+          if (cm)
+            r->getFrame().resetDirection(*cm);
+          break;
+        case MeasRef::ArrayComponent::RADIAL_VELOCITY:
+          if (cm)
+            r->getFrame().resetRadialVelocity(*cm);
+          break;
         default:
           assert(false);
           break;
         }
-        break;
-      default:
-        assert(!metadata_domain.contains(p));
-        break;
+        c = (MeasRef::ArrayComponent)((unsigned)c + 1);
+        p[level] = p1[level] = c;
+        if (metadata_domain.contains(p))
+          PUSH_NEW(ms);
       }
-      c = (MeasRef::ArrayComponent)((unsigned)c + 1);
+
+      if (ms.size() == level) {
+        switch (k) {
+#define SET_VMRB(M)                                                   \
+          case M:                                                     \
+            if (v)                                                    \
+              vmrb =                                                  \
+                std::make_unique<MClassT<M>::type>(                   \
+                  *dynamic_cast<MClassT<M>::type::MVType*>(v.get()),  \
+                  *dynamic_cast<MClassT<M>::type::Ref*>(r.get()));    \
+            else                                                      \
+              vmrb = std::move(r);                                    \
+            break;
+          HYPERION_FOREACH_MCLASS(SET_VMRB)
+#undef SET_VMRB
+        default:
+            assert(false);
+          break;
+        }
+        ms.pop();
+      }
     }
-    return result;
+    assert(std::holds_alternative<std::unique_ptr<casacore::MRBase>>(vmrb));
+    result[i] = std::move(std::get<std::unique_ptr<casacore::MRBase>>(vmrb));
+#undef PUSH_NEW
   }
+  return result;
+}
+
+template <>
+std::vector<std::unique_ptr<casacore::MRBase>>
+instantiate<1>(MeasRef::DataRegions prs, Domain metadata_domain) {
+  // TODO: this should never be called, it might be better to remove it from the
+  // macro expansion in the switch statement in make() that's used to select
+  // the call to instantiate<D>()
+  assert(false);
 }
 
 template <int DIM>
@@ -600,8 +505,7 @@ MeasRef::equiv(Context ctx, Runtime* rt, const MeasRef& other) const {
   assert((values_lr != other.values_lr)
          || (values_lr == LogicalRegion::NO_REGION
              && other.values_lr == LogicalRegion::NO_REGION));
-  if (metadata_lr == LogicalRegion::NO_REGION
-      || other.metadata_lr == LogicalRegion::NO_REGION)
+  if (is_empty() || other.is_empty())
     return false;
   DataRegions pr_x;
   {
@@ -612,7 +516,7 @@ MeasRef::equiv(Context ctx, Runtime* rt, const MeasRef& other) const {
     req.add_field(NUM_VALUES_FID);
     pr_x.metadata = rt->map_region(ctx, req);
   }
-  if (values_lr != LogicalRegion::NO_REGION) {
+  {
     RegionRequirement req(values_lr, READ_ONLY, EXCLUSIVE, values_lr);
     req.add_field(0);
     pr_x.values = rt->map_region(ctx, req);
@@ -626,7 +530,7 @@ MeasRef::equiv(Context ctx, Runtime* rt, const MeasRef& other) const {
     req.add_field(NUM_VALUES_FID);
     pr_y.metadata = rt->map_region(ctx, req);
   }
-  if (other.values_lr != LogicalRegion::NO_REGION) {
+  {
     RegionRequirement
       req(other.values_lr, READ_ONLY, EXCLUSIVE, other.values_lr);
     req.add_field(0);
@@ -636,62 +540,53 @@ MeasRef::equiv(Context ctx, Runtime* rt, const MeasRef& other) const {
   bool result = equiv(rt, pr_x, pr_y);
 
   rt->unmap_region(ctx, pr_x.metadata);
-  if (pr_x.values)
-    rt->unmap_region(ctx, pr_x.values.value());
+  rt->unmap_region(ctx, pr_x.values);
   rt->unmap_region(ctx, pr_y.metadata);
-  if (pr_y.values)
-    rt->unmap_region(ctx, pr_y.values.value());
+  rt->unmap_region(ctx, pr_y.values);
   return result;
 }
 
 bool
 MeasRef::equiv(Runtime* rt, const DataRegions& x, const DataRegions& y) {
 
-  bool result = x.values.has_value() == y.values.has_value();
-  if (result) {
-    if (!x.values)
-      return true;
-    IndexSpace is = x.metadata.get_logical_region().get_index_space();
-    switch (is.get_dim()) {
+  bool result = true;
+  IndexSpace is = x.metadata.get_logical_region().get_index_space();
+  switch (is.get_dim()) {
 #define CMP(D)                                                          \
-      case D: {                                                         \
-        const MeasureClassAccessor<READ_ONLY, D>                        \
-          mclass_x(x.metadata, MEASURE_CLASS_FID);                      \
-        const MeasureClassAccessor<READ_ONLY, D>                        \
-          mclass_y(y.metadata, MEASURE_CLASS_FID);                      \
-        const RefTypeAccessor<READ_ONLY, D>                             \
-          rtype_x(x.metadata, REF_TYPE_FID);                            \
-        const RefTypeAccessor<READ_ONLY, D>                             \
-          rtype_y(y.metadata, REF_TYPE_FID);                            \
-        const NumValuesAccessor<READ_ONLY, D>                           \
-          nvals_x(x.metadata, NUM_VALUES_FID);                          \
-        const NumValuesAccessor<READ_ONLY, D>                           \
-          nvals_y(y.metadata, NUM_VALUES_FID);                          \
-        for (PointInDomainIterator<D> pid(rt->get_index_space_domain(is)); \
-             result && pid();                                           \
-             pid++)                                                     \
-          result =                                                      \
-            mclass_x[*pid] == mclass_y[*pid]                            \
-            && rtype_x[*pid] == rtype_y[*pid]                           \
-            && nvals_x[*pid] == nvals_y[*pid];                          \
-        if (x.values) {                                                 \
-          auto pvx = x.values.value();                                  \
-          auto pvy = y.values.value();                                  \
-          const ValueAccessor<READ_ONLY, D + 1> values_x(pvx, 0);       \
-          const ValueAccessor<READ_ONLY, D + 1> values_y(pvy, 0);       \
-          for (PointInDomainIterator<D + 1>                             \
-                 pid(                                                   \
-                   rt->get_index_space_domain(                          \
-                     pvx.get_logical_region().get_index_space()));      \
-               result && pid();                                         \
-               pid++)                                                   \
-            result = values_x[*pid] == values_y[*pid];                  \
-        }                                                               \
-        break;                                                          \
-      }
-      HYPERION_FOREACH_N_LESS_MAX(CMP);
-#undef CMP
+    case D: {                                                           \
+      const MeasureClassAccessor<READ_ONLY, D>                          \
+        mclass_x(x.metadata, MEASURE_CLASS_FID);                        \
+      const MeasureClassAccessor<READ_ONLY, D>                          \
+        mclass_y(y.metadata, MEASURE_CLASS_FID);                        \
+      const RefTypeAccessor<READ_ONLY, D>                               \
+        rtype_x(x.metadata, REF_TYPE_FID);                              \
+      const RefTypeAccessor<READ_ONLY, D>                               \
+        rtype_y(y.metadata, REF_TYPE_FID);                              \
+      const NumValuesAccessor<READ_ONLY, D>                             \
+        nvals_x(x.metadata, NUM_VALUES_FID);                            \
+      const NumValuesAccessor<READ_ONLY, D>                             \
+        nvals_y(y.metadata, NUM_VALUES_FID);                            \
+      for (PointInDomainIterator<D> pid(rt->get_index_space_domain(is)); \
+           result && pid();                                             \
+           pid++)                                                       \
+        result =                                                        \
+          mclass_x[*pid] == mclass_y[*pid]                              \
+          && rtype_x[*pid] == rtype_y[*pid]                             \
+          && nvals_x[*pid] == nvals_y[*pid];                            \
+      const ValueAccessor<READ_ONLY, D + 1> values_x(x.values, 0);      \
+      const ValueAccessor<READ_ONLY, D + 1> values_y(y.values, 0);      \
+      for (PointInDomainIterator<D + 1>                                 \
+             pid(                                                       \
+               rt->get_index_space_domain(                              \
+                 x.values.get_logical_region().get_index_space()));     \
+           result && pid();                                             \
+           pid++)                                                       \
+        result = values_x[*pid] == values_y[*pid];                      \
+                                                                       \
+      break;                                                            \
     }
+    HYPERION_FOREACH_N_LESS_MAX(CMP);
+#undef CMP
   }
   return result;
 }
@@ -792,6 +687,10 @@ MeasRef::create(
     }
     index_trees.metadata_tree = IndexTreeL(md_v);
     index_trees.value_tree = IndexTreeL(val_v);
+    index_trees.value_tree =
+      extend_index_ranks(
+        IndexTreeL(val_v),//index_trees.value_tree,
+        index_trees.metadata_tree.value().rank().value() + 1);
   }
 
   std::array<LogicalRegion, 2> regions =
@@ -804,13 +703,10 @@ MeasRef::create(
   LogicalRegion metadata_lr = regions[0];
   LogicalRegion values_lr = regions[1];
   {
-    std::optional<PhysicalRegion> values_pr;
-    if (values_lr != LogicalRegion::NO_REGION) {
-      RegionRequirement
-        values_req(values_lr, WRITE_ONLY, EXCLUSIVE, values_lr);
-      values_req.add_field(0);
-      values_pr = rt->map_region(ctx, values_req);
-    }
+    RegionRequirement
+      values_req(values_lr, WRITE_ONLY, EXCLUSIVE, values_lr);
+    values_req.add_field(0);
+    auto values_pr = rt->map_region(ctx, values_req);
 
     RegionRequirement
       metadata_req(metadata_lr, WRITE_ONLY, EXCLUSIVE, metadata_lr);
@@ -820,12 +716,10 @@ MeasRef::create(
     auto metadata_pr = rt->map_region(ctx, metadata_req);
 
     switch (metadata_lr.get_dim()) {
-      // FIXME
-#define INIT(D)                                                 \
-      case D: {                                                 \
-        auto km = std::make_tuple(klass, mrbs[0]);              \
-        initialize<D>(DataRegions{metadata_pr, values_pr}, km); \
-        break;                                                  \
+#define INIT(D)                                                         \
+      case D: {                                                         \
+        initialize<D>(DataRegions{metadata_pr, values_pr}, mrbs, klass); \
+        break;                                                          \
       }
       HYPERION_FOREACH_N_LESS_MAX(INIT);
 #undef INIT
@@ -835,8 +729,7 @@ MeasRef::create(
     }
 
     rt->unmap_region(ctx, metadata_pr);
-    if (values_pr)
-      rt->unmap_region(ctx, values_pr.value());
+    rt->unmap_region(ctx, values_pr);
   }
 
   return MeasRef(metadata_lr, values_lr);
@@ -845,13 +738,11 @@ MeasRef::create(
 std::vector<std::unique_ptr<casacore::MRBase>>
 MeasRef::make(Context ctx, Runtime* rt) const {
 
-  std::optional<PhysicalRegion> values_pr;
-  if (values_lr != LogicalRegion::NO_REGION) {
-    RegionRequirement
-      values_req(values_lr, READ_ONLY, EXCLUSIVE, values_lr);
-    values_req.add_field(0);
-    values_pr = rt->map_region(ctx, values_req);
-  }
+  RegionRequirement
+    values_req(values_lr, READ_ONLY, EXCLUSIVE, values_lr);
+  values_req.add_field(0);
+  auto values_pr = rt->map_region(ctx, values_req);
+
   RegionRequirement
     metadata_req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
   metadata_req.add_field(MEASURE_CLASS_FID);
@@ -862,8 +753,7 @@ MeasRef::make(Context ctx, Runtime* rt) const {
   auto result = make(rt, DataRegions{metadata_pr, values_pr});
 
   rt->unmap_region(ctx, metadata_pr);
-  if (values_pr)
-    rt->unmap_region(ctx, values_pr.value());
+  rt->unmap_region(ctx, values_pr);
 
   return result;
 }
@@ -875,11 +765,11 @@ MeasRef::make(Legion::Runtime* rt, DataRegions prs) {
   switch (prs.metadata.get_logical_region().get_dim()) {
 #define INST(D)                                                    \
     case D:                                                        \
-      result.emplace_back(                                         \
+      result =                                                     \
         instantiate<D>(                                            \
           prs,                                                     \
           rt->get_index_space_domain(                              \
-            prs.metadata.get_logical_region().get_index_space()))); \
+            prs.metadata.get_logical_region().get_index_space())); \
       break;
     HYPERION_FOREACH_N_LESS_MAX(INST);
 #undef INST
