@@ -43,11 +43,11 @@ MSAntennaColumns::MSAntennaColumns(
           switch (col.value()) {
           case C::col_t::MS_ANTENNA_COL_POSITION:
             m_position_mr =
-              MeasRef::make<MClassT<M_POSITION>::type>(rt, drs).value();
+              MeasRef::make<MClassT<M_POSITION>::type>(rt, drs)[0];
             break;
           case C::col_t::MS_ANTENNA_COL_OFFSET:
             m_offset_mr =
-              MeasRef::make<MClassT<M_POSITION>::type>(rt, drs).value();
+              MeasRef::make<MClassT<M_POSITION>::type>(rt, drs)[0];
             break;
           default:
             break;

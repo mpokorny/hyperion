@@ -951,25 +951,25 @@ public:
     if (args->feed_beam_offset_mr_index > args->feed_time_mr_index + 1)
       drs.values = regions[args->feed_time_mr_index + 1];
     auto feed_time_mr =
-      MeasRef::make<casacore::MEpoch>(rt, drs).value();
+      MeasRef::make<casacore::MEpoch>(rt, drs)[0];
 
     drs.metadata = regions[args->feed_beam_offset_mr_index];
     if (args->feed_position_mr_index > args->feed_beam_offset_mr_index + 1)
       drs.values = regions[args->feed_beam_offset_mr_index + 1];
     auto feed_beam_offset_mr =
-      MeasRef::make<casacore::MDirection>(rt, drs).value();
+      MeasRef::make<casacore::MDirection>(rt, drs)[0];
 
     drs.metadata = regions[args->feed_position_mr_index];
     if (args->antenna_position_mr_index > args->feed_position_mr_index + 1)
       drs.values = regions[args->feed_position_mr_index + 1];
     auto feed_position_mr =
-      MeasRef::make<casacore::MPosition>(rt, drs).value();
+      MeasRef::make<casacore::MPosition>(rt, drs)[0];
 
     drs.metadata = regions[args->antenna_position_mr_index];
     if (regions.size() > args->antenna_position_mr_index + 1)
       drs.values = regions[args->antenna_position_mr_index + 1];
     auto antenna_position_mr =
-      MeasRef::make<casacore::MPosition>(rt, drs).value();
+      MeasRef::make<casacore::MPosition>(rt, drs)[0];
 
     const WOAccessor<PARALLACTIC_ANGLE_TYPE, ROW_DIM>
       pa(regions.back(), PARALLACTIC_ANGLE_FID);

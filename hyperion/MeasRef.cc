@@ -745,7 +745,7 @@ MeasRef::create_regions(
   Context ctx,
   Runtime* rt,
   const IndexTreeL& metadata_tree,
-  const std::optional<IndexTreeL>& value_tree) {
+  const IndexTreeL& value_tree) {
 
   LogicalRegion metadata_lr;
   {
@@ -759,8 +759,8 @@ MeasRef::create_regions(
   }
 
   LogicalRegion values_lr;
-  if (value_tree) {
-    IndexSpace is = tree_index_space(value_tree.value(), ctx, rt);
+  {
+    IndexSpace is = tree_index_space(value_tree, ctx, rt);
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(VALUE_TYPE), 0);
@@ -774,16 +774,32 @@ MeasRef
 MeasRef::create(
   Context ctx,
   Runtime *rt,
-  casacore::MRBase* mr,
+  const std::vector<casacore::MRBase*>& mrbs,
   MClass klass) {
 
-  auto index_trees = measure_index_trees(mr);
+  MeasureIndexTrees index_trees;
+  {
+    std::vector<MeasureIndexTrees> itrees;
+    for (auto& mrb : mrbs)
+      itrees.push_back(measure_index_trees(mrb));
+    std::vector<std::tuple<coord_t, IndexTreeL>> md_v;
+    std::vector<std::tuple<coord_t, IndexTreeL>> val_v;
+    for (auto& it : itrees) {
+      md_v.emplace_back(1, it.metadata_tree.value());
+      val_v.emplace_back(
+        1,
+        it.value_tree ? it.value_tree.value() : IndexTreeL());
+    }
+    index_trees.metadata_tree = IndexTreeL(md_v);
+    index_trees.value_tree = IndexTreeL(val_v);
+  }
+
   std::array<LogicalRegion, 2> regions =
     create_regions(
       ctx,
       rt,
       index_trees.metadata_tree.value(),
-      index_trees.value_tree);
+      index_trees.value_tree.value());
 
   LogicalRegion metadata_lr = regions[0];
   LogicalRegion values_lr = regions[1];
@@ -804,9 +820,10 @@ MeasRef::create(
     auto metadata_pr = rt->map_region(ctx, metadata_req);
 
     switch (metadata_lr.get_dim()) {
+      // FIXME
 #define INIT(D)                                                 \
       case D: {                                                 \
-        auto km = std::make_tuple(klass, mr);                   \
+        auto km = std::make_tuple(klass, mrbs[0]);              \
         initialize<D>(DataRegions{metadata_pr, values_pr}, km); \
         break;                                                  \
       }
@@ -825,7 +842,7 @@ MeasRef::create(
   return MeasRef(metadata_lr, values_lr);
 }
 
-std::unique_ptr<casacore::MRBase>
+std::vector<std::unique_ptr<casacore::MRBase>>
 MeasRef::make(Context ctx, Runtime* rt) const {
 
   std::optional<PhysicalRegion> values_pr;
@@ -851,18 +868,18 @@ MeasRef::make(Context ctx, Runtime* rt) const {
   return result;
 }
 
-std::unique_ptr<casacore::MRBase>
+std::vector<std::unique_ptr<casacore::MRBase>>
 MeasRef::make(Legion::Runtime* rt, DataRegions prs) {
 
-  std::unique_ptr<casacore::MRBase> result;
+  std::vector<std::unique_ptr<casacore::MRBase>> result;
   switch (prs.metadata.get_logical_region().get_dim()) {
 #define INST(D)                                                    \
     case D:                                                        \
-      result =                                                     \
+      result.emplace_back(                                         \
         instantiate<D>(                                            \
           prs,                                                     \
           rt->get_index_space_domain(                              \
-            prs.metadata.get_logical_region().get_index_space())); \
+            prs.metadata.get_logical_region().get_index_space()))); \
       break;
     HYPERION_FOREACH_N_LESS_MAX(INST);
 #undef INST

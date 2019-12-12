@@ -46,19 +46,19 @@ MSFieldColumns::MSFieldColumns(
           switch (col.value()) {
           case C::col_t::MS_FIELD_COL_TIME:
             m_time_mr =
-              MeasRef::make<MClassT<M_EPOCH>::type>(rt, drs).value();
+              MeasRef::make<MClassT<M_EPOCH>::type>(rt, drs)[0];
             break;
           case C::col_t::MS_FIELD_COL_DELAY_DIR:
             m_delay_dir_mr =
-              MeasRef::make<MClassT<M_DIRECTION>::type>(rt, drs).value();
+              MeasRef::make<MClassT<M_DIRECTION>::type>(rt, drs)[0];
             break;
           case C::col_t::MS_FIELD_COL_PHASE_DIR:
             m_phase_dir_mr =
-              MeasRef::make<MClassT<M_DIRECTION>::type>(rt, drs).value();
+              MeasRef::make<MClassT<M_DIRECTION>::type>(rt, drs)[0];
             break;
           case C::col_t::MS_FIELD_COL_REFERENCE_DIR:
             m_reference_dir_mr =
-              MeasRef::make<MClassT<M_DIRECTION>::type>(rt, drs).value();
+              MeasRef::make<MClassT<M_DIRECTION>::type>(rt, drs)[0];
             break;
           default:
             break;

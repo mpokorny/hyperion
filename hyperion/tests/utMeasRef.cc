@@ -61,7 +61,7 @@ meas_ref_test_suite(
       testing::TestEval(
         [&mr_tai, &ctx, rt](){
           auto r = mr_tai.make<casacore::MDirection>(ctx, rt);
-          return r.has_value();
+          return r.size() == 1;
         }));
     recorder.expect_true(
       "MeasRef equivalence relation is reflexive",
@@ -69,18 +69,18 @@ meas_ref_test_suite(
     auto ref = mr_tai.make<casacore::MEpoch>(ctx, rt);
     recorder.assert_true(
       "Instance of MEpoch::Ref region has expected class",
-      TE(ref.has_value()));
+      TE(ref.size() == 1));
     recorder.expect_true(
       "Instance of MEpoch::Ref region has expected MEpoch::Ref type",
-      TE(ref.value()->getType() == reftai.getType()));
+      TE(ref[0]->getType() == reftai.getType()));
     recorder.expect_true(
       "Instance of MEpoch::Ref region has expected offset",
-      TE(ref.value()->offset() == nullptr));
+      TE(ref[0]->offset() == nullptr));
     recorder.expect_true(
       "Instance of MEpoch::Ref region has expected frame",
       testing::TestEval(
         [&ref](){
-          auto frame = ref.value()->getFrame();
+          auto frame = ref[0]->getFrame();
           return
             frame.epoch() == nullptr && frame.position() == nullptr
             && frame.direction() == nullptr && frame.radialVelocity() == nullptr
@@ -92,7 +92,7 @@ meas_ref_test_suite(
 
     {
       casacore::MEpoch val_2000(mjd2000, reftai);
-      casacore::MEpoch val_ref(mjd2000, *ref.value());
+      casacore::MEpoch val_ref(mjd2000, *ref[0]);
       recorder.expect_true(
         "MEpoch value using MeasRef reference equals MEpoch value using original reference",
         val_2000.get("s") == val_ref.get("s"));
@@ -113,11 +113,11 @@ meas_ref_test_suite(
       "Instance of MEpoch::Ref with offset region has same MEpoch value as original",
       testing::TestEval(
         [&v20_50, &ref]() {
-          auto ep = casacore::MEpoch(v20_50, *ref.value());
+          auto ep = casacore::MEpoch(v20_50, *ref[0]);
           return ep.getValue() == v20_50;
         }));
 
-    casacore::MEpoch val_ref(v20_50, *ref.value());
+    casacore::MEpoch val_ref(v20_50, *ref[0]);
     recorder.expect_true(
       "MEpoch value using MeasRef reference with offset equals MEpoch value using original reference",
       e20_50.get("s") == val_ref.get("s"));

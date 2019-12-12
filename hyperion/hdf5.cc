@@ -986,7 +986,7 @@ init_meas_ref(
     return std::make_pair(name, MeasRef());
 
   std::array<LogicalRegion, 2> regions =
-    MeasRef::create_regions(ctx, rt, metadata_tree.value(), value_tree);
+    MeasRef::create_regions(ctx, rt, metadata_tree.value(), value_tree.value());
   LogicalRegion metadata_lr = regions[0];
   LogicalRegion values_lr = regions[1];
 

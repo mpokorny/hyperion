@@ -42,11 +42,11 @@ MSSpWindowColumns::MSSpWindowColumns(
           switch (col.value()) {
           case C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY:
             m_ref_frequency_mr =
-              MeasRef::make<MClassT<M_FREQUENCY>::type>(rt, drs).value();
+              MeasRef::make<MClassT<M_FREQUENCY>::type>(rt, drs)[0];
             break;
           case C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ:
-            m_chan_freq_mr.push_back(
-              MeasRef::make<MClassT<M_FREQUENCY>::type>(rt, drs).value());
+            m_chan_freq_mr =
+              MeasRef::make<MClassT<M_FREQUENCY>::type>(rt, drs);
             break;
           default:
             break;

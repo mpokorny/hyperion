@@ -24,6 +24,7 @@
 # include <array>
 # include <memory>
 # include <optional>
+# include <vector>
 # include <casacore/measures/Measures.h>
 #pragma GCC visibility pop
 
@@ -58,7 +59,7 @@ public:
 
   struct DataRegions {
     Legion::PhysicalRegion metadata;
-    std::optional<Legion::PhysicalRegion> values;
+    Legion::PhysicalRegion values;
   };
 
   template <legion_privilege_mode_t MODE, int N, bool CHECK_BOUNDS=false>
@@ -162,14 +163,32 @@ public:
   create(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    casacore::MeasRef<Ms> meas_ref) {
+    std::vector<casacore::MeasRef<Ms>>& meas_ref) {
     if (false) assert(false);
 #define CREATE(M)                                                       \
-    else if (typeid(MClassT<M>::type).hash_code() == typeid(Ms).hash_code()) \
-      return create(ctx, rt, &meas_ref, M);
+    else if (typeid(MClassT<M>::type).hash_code() == typeid(Ms).hash_code()) { \
+      std::vector<casacore::MRBase*> mrbs;                              \
+      mrbs.reserve(meas_ref.size());                                    \
+      std::transform(                                                   \
+        meas_ref.begin(),                                               \
+        meas_ref.end(),                                                 \
+        std::back_inserter(mrbs),                                       \
+        [](auto& mr) { return &mr; });                                  \
+      return create(ctx, rt, mrbs, M);                                  \
+    }
     HYPERION_FOREACH_MCLASS(CREATE)
 #undef CM
     else assert(false);
+  }
+
+  template <typename Ms>
+  static MeasRef
+  create(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const casacore::MeasRef<Ms>& meas_ref) {
+    std::vector<casacore::MeasRef<Ms>> mrs{meas_ref};
+    return create<Ms>(ctx, rt, mrs);
   }
 
   static std::array<Legion::LogicalRegion, 2>
@@ -177,34 +196,45 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const IndexTreeL& metadata_tree,
-    const std::optional<IndexTreeL>& value_tree);
+    const IndexTreeL& value_tree);
 
-  std::unique_ptr<casacore::MRBase>
+  std::vector<std::unique_ptr<casacore::MRBase>>
   make(Legion::Context ctx, Legion::Runtime* rt) const;
 
   template <typename Ms>
-  std::optional<std::shared_ptr<typename casacore::MeasRef<Ms>>>
+  std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>>
   make(Legion::Context ctx, Legion::Runtime* rt) const {
-    std::optional<std::shared_ptr<typename casacore::MeasRef<Ms>>> result;
-    std::shared_ptr<casacore::MRBase> mrb = make(ctx, rt);
-    auto mr = std::dynamic_pointer_cast<typename casacore::MeasRef<Ms>>(mrb);
-    if (mr)
-      result = mr;
+
+    std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>> result;
+    auto mrbs = make(ctx, rt);
+    result.reserve(mrbs.size());
+    for (auto&& mrb : mrbs) {
+      auto mr =
+        std::dynamic_pointer_cast<typename casacore::MeasRef<Ms>>(
+          std::shared_ptr<casacore::MRBase>(std::move(mrb)));
+      if (mr)
+        result.push_back(mr);
+    }
     return result;
   }
 
-  static std::unique_ptr<casacore::MRBase>
+  static std::vector<std::unique_ptr<casacore::MRBase>>
   make(Legion::Runtime* rt, DataRegions prs);
 
   template <typename Ms>
-  static std::optional<std::shared_ptr<typename casacore::MeasRef<Ms>>>
+  static std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>>
   make(Legion::Runtime* rt, DataRegions prs) {
 
-    std::optional<std::shared_ptr<typename casacore::MeasRef<Ms>>> result;
-    std::shared_ptr<casacore::MRBase> mrb = make(rt, prs);
-    auto mr = std::dynamic_pointer_cast<typename casacore::MeasRef<Ms>>(mrb);
-    if (mr)
-      result = mr;
+    std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>> result;
+    auto mrbs = make(rt, prs);
+    result.reserve(mrbs.size());
+    for (auto&& mrb : mrbs) {
+      auto mr =
+        std::dynamic_pointer_cast<typename casacore::MeasRef<Ms>>(
+          std::shared_ptr<casacore::MRBase>(std::move(mrb)));
+      if (mr)
+        result.push_back(mr);
+    }
     return result;
   }
 
@@ -217,7 +247,7 @@ private:
   create(
     Legion::Context ctx,
     Legion::Runtime *rt,
-    casacore::MRBase* mr,
+    const std::vector<casacore::MRBase*>& mrbs,
     MClass klass);
 };
 

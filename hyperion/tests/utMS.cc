@@ -354,13 +354,12 @@ verify_column_task(
     if (args->has_measure) {
       MeasRef::DataRegions prs;
       prs.metadata = regions[region_idx++];
-      if (region_idx < regions.size())
-        prs.values = regions[region_idx++];
+      prs.values = regions[region_idx++];
       {
-        auto mrb = MeasRef::make(rt, prs);
+        auto mrbs = MeasRef::make(rt, prs);
         recorder.assert_true(
           std::string("column ") + args->column + " has a measure",
-          TE(bool(mrb)));
+          TE(mrbs.size() == 1));
       }
       recorder.expect_true(
         std::string("column ") + args->column
@@ -376,8 +375,8 @@ verify_column_task(
               if (false) {}
 #define MATCH(MC)                                                       \
               else if (MClassT<MC>::holds(mh)) {                        \
-                auto mr = MeasRef::make<MClassT<MC>::type>(rt, prs);    \
-                result = mr.has_value();                                \
+                auto mrs = MeasRef::make<MClassT<MC>::type>(rt, prs);   \
+                result = mrs.size() == 1;                               \
               }
               HYPERION_FOREACH_MCLASS(MATCH)
 #undef MATCH

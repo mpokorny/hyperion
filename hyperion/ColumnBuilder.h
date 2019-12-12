@@ -122,13 +122,12 @@ public:
     auto converted = mh.fromType(err, m_meas_record);
     if (converted) {
       if (false) {}
-#define MK_MR(MC)                                 \
-      else if (MClassT<MC>::holds(mh)) {          \
-        auto m = MClassT<MC>::get(mh);            \
-        mr = MeasRef::create<MClassT<MC>::type>(  \
-          ctx,                                    \
-          rt,                                     \
-          m.getRef());                            \
+#define MK_MR(MC)                                               \
+      else if (MClassT<MC>::holds(mh)) {                        \
+        auto m = MClassT<MC>::get(mh);                          \
+        std::vector<casacore::MeasRef<MClassT<MC>::type>> mrs   \
+          {m.getRef()};                                         \
+        mr = MeasRef::create<MClassT<MC>::type>(ctx, rt, mrs);  \
       }
       HYPERION_FOREACH_MCLASS(MK_MR)
 #undef MK_MR
