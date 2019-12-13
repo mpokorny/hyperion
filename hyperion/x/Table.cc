@@ -1218,11 +1218,12 @@ Table::convert_task(
 #ifdef HYPERION_USE_CASACORE
     std::optional<hyperion::MeasRef::DataRegions> mr;
     if (args->mr_sz[i] > 0) {
-      assert(args->mr_sz[i] <= 2);
+      assert(args->mr_sz[i] <= 3);
       hyperion::MeasRef::DataRegions drs;
       drs.metadata = regions[rg++];
-      if (args->mr_sz[i] > 1)
-        drs.values = regions[rg++];
+      drs.values = regions[rg++];
+      if (args->mr_sz[i] > 2)
+        drs.index = regions[rg++];
       mr = drs;
     }
 #endif
@@ -1283,12 +1284,13 @@ Table::convert(
       reqs.emplace_back(col.axes_lr, READ_ONLY, EXCLUSIVE, col.axes_lr);
 #ifdef HYPERION_USE_CASACORE
       if (!col.meas_ref.is_empty()) {
-        auto [mreq, o_vreq] = col.meas_ref.requirements(READ_ONLY);
-        reqs.push_back(mreq);
-        args.mr_sz[args.num_cols] = 1;
-        if (o_vreq) {
-          reqs.push_back(o_vreq.value());
-          args.mr_sz[args.num_cols] = 2;
+        auto [mrq, vrq, oirq] = col.meas_ref.requirements(READ_ONLY);
+        reqs.push_back(mrq);
+        reqs.push_back(vrq);
+        args.mr_sz[args.num_cols] = 2;
+        if (oirq) {
+          reqs.push_back(oirq.value());
+          args.mr_sz[args.num_cols] = 3;
         }
       } else {
         args.mr_sz[args.num_cols] = 0;
@@ -1605,9 +1607,9 @@ Table::reindexed_task(
 #ifdef HYPERION_USE_CASACORE
       if (!tf.mr.is_empty()) {
         cr.mr_metadata = regions[rg++];
-        auto ovreq = std::get<1>(tf.mr.requirements(READ_ONLY));
-        if (ovreq)
-          cr.mr_values = regions[rg++];
+        cr.mr_values = regions[rg++];
+        if (std::get<2>(tf.mr.requirements(READ_ONLY)))
+          cr.mr_index = regions[rg++];
       }
 #endif
       if (!tf.kw.is_empty()) {
@@ -1679,10 +1681,11 @@ Table::reindexed(
             const TableField& tf = std::get<1>(nm_tf);
 #ifdef HYPERION_USE_CASACORE
             if (!tf.mr.is_empty()) {
-              auto [mreq, ovreq] = tf.mr.requirements(READ_ONLY);
-              reqs.push_back(mreq);
-              if (ovreq)
-                reqs.push_back(ovreq.value());
+              auto [mrq, vrq, oirq] = tf.mr.requirements(READ_ONLY);
+              reqs.push_back(mrq);
+              reqs.push_back(vrq);
+              if (oirq)
+                reqs.push_back(oirq.value());
             }
 #endif
             if (!tf.kw.is_empty()) {
@@ -1898,7 +1901,8 @@ Table::reindexed(
         if (crg.mr_metadata) {
           MeasRef::DataRegions drs;
           drs.metadata = crg.mr_metadata.value();
-          drs.values = crg.mr_values;
+          drs.values = crg.mr_values.value();
+          drs.index = crg.mr_index;
           odrs = drs;
         }
         std::optional<Keywords::pair<PhysicalRegion>> okwrs;

@@ -14,46 +14,31 @@
  * limitations under the License.
  */
 #include <hyperion/MSAntennaColumns.h>
-#include <hyperion/MSTableColumns.h>
-#include <hyperion/MeasRef.h>
 
 using namespace hyperion;
 using namespace Legion;
 
+namespace cc = casacore;
+
 MSAntennaColumns::MSAntennaColumns(
   Runtime* rt,
   const RegionRequirement& rows_requirement,
-  const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&
-  regions)
+  const std::unordered_map<std::string, Regions>& regions)
   : m_rows_requirement(rows_requirement) {
 
-  for (auto& [nm, prs] : regions) {
-    if (prs.size() > 0) {
-      auto col = C::lookup_col(nm);
-      if (col) {
-        m_regions[col.value()] = prs[0];
-      } else {
+  for (auto& [nm, rgs] : regions) {
+    auto col = C::lookup_col(nm);
+    if (col) {
+      m_regions[col.value()] = rgs.values;
+      switch (col.value()) {
+      case C::col_t::MS_ANTENNA_COL_POSITION:
+      case C::col_t::MS_ANTENNA_COL_OFFSET:
 #ifdef HYPERION_USE_CASACORE
-        auto col = C::lookup_measure_col(nm);
-        if (col) {
-          MeasRef::DataRegions drs;
-          drs.metadata = prs[0];
-          if (prs.size() > 1)
-            drs.values = prs[1];
-          switch (col.value()) {
-          case C::col_t::MS_ANTENNA_COL_POSITION:
-            m_position_mr =
-              MeasRef::make<MClassT<M_POSITION>::type>(rt, drs)[0];
-            break;
-          case C::col_t::MS_ANTENNA_COL_OFFSET:
-            m_offset_mr =
-              MeasRef::make<MClassT<M_POSITION>::type>(rt, drs)[0];
-            break;
-          default:
-            break;
-          }
-        }
-#endif // HYPERION_USE_CASACORE
+        m_mrs[col.value()] = create_mr<cc::MPosition>(rt, rgs);
+#endif
+        break;
+      default:
+        break;
       }
     }
   }

@@ -22,13 +22,156 @@
 #include <hyperion/Column.h>
 
 #pragma GCC visibility push(default)
+# ifdef HYPERION_USE_CASACORE
+#  include <casacore/measures/Measures/MeasRef.h>
+# endif
+
 # include <algorithm>
 # include <array>
 # include <iterator>
 # include <optional>
+# include <unordered_map>
+# include <variant>
+# include <vector>
 #pragma GCC visibility pop
 
 namespace hyperion {
+
+struct MSTableColumnsBase {
+
+  template <TypeTag T, int N, legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  using FieldAccessor =
+    Legion::FieldAccessor<
+      MODE,
+      typename DataType<T>::ValueType,
+      N,
+      Legion::coord_t,
+      Legion::AffineAccessor<
+        typename DataType<T>::ValueType,
+        N,
+        Legion::coord_t>,
+      CHECK_BOUNDS>;
+
+#ifdef HYPERION_USE_CASACORE
+  template <typename M>
+  using simple_mr_t = std::shared_ptr<casacore::MeasRef<M>>;
+
+  template <typename M>
+  using ref_mr_t = std::tuple<
+    std::vector<std::shared_ptr<casacore::MeasRef<M>>>,
+    std::unordered_map<unsigned, unsigned>,
+    Legion::PhysicalRegion>;
+
+  template <typename M>
+  using mr_t = std::variant<simple_mr_t<M>, ref_mr_t<M>>;
+#endif
+
+  struct Regions {
+    Legion::PhysicalRegion values;
+#ifdef HYPERION_USE_CASACORE
+    std::vector<Legion::PhysicalRegion> meas_refs;
+    std::optional<Legion::PhysicalRegion> ref_column;
+#endif // HYPERION_USE_CASACORE
+  };
+
+#ifdef HYPERION_USE_CASACORE
+  template <typename M>
+  static mr_t<M>
+  create_mr(Legion::Runtime* rt, const Regions& r) {
+    MeasRef::DataRegions drs;
+    drs.metadata = r.meas_refs[0];
+    drs.values = r.meas_refs[1];
+    if (r.meas_refs.size() > 2)
+      drs.index = r.meas_refs[2];
+    auto [mrs, index] = MeasRef::make<M>(rt, drs);
+    if (r.ref_column) {
+      assert(index.size() > 0);
+      return std::make_tuple(mrs, index, r.ref_column.value());
+    } else {
+      return mrs[0];
+    }
+  }
+#endif //HYPERION_USE_CASACORE
+};
+
+template <
+  typename M,
+  int ROW_RANK,
+  int COL_RANK,
+  legion_privilege_mode_t MODE=READ_ONLY,
+  bool CHECK_BOUNDS=false>
+class ColumnMeasure { // TODO: a better name
+public:
+
+  static_assert(ROW_RANK <= COL_RANK);
+
+  ColumnMeasure(const MSTableColumnsBase::mr_t<M>* mr) {
+    std::visit(overloaded {
+        [this](MSTableColumnsBase::simple_mr_t<M>& mr) {
+          m_mr = mr;
+          m_convert.setOut(*m_mr);
+        },
+        [this](MSTableColumnsBase::ref_mr_t<M>& mr) {
+          auto& [mrs, rmap, rcodes_pr] = mr;
+          m_mrv =
+            std::make_tuple(
+              mrs,
+              rmap,
+              MSTableColumnsBase::FieldAccessor<
+                HYPERION_TYPE_INT, // TODO: parameterize for string values
+                ROW_RANK,
+                MODE,
+                CHECK_BOUNDS>(
+                rcodes_pr, Column::VALUE_FID));
+        }
+      },
+      *mr);
+  }
+
+  typename M::convert&
+  convert_at(const Legion::Point<COL_RANK, Legion::coord_t>& pt) {
+    if (m_mrv) {
+      auto& [mrs, rmap, rcodes] = m_mrv.value();
+      m_convert.setOut(
+        *mrs[
+          rmap.at(
+            rcodes[
+              reinterpret_cast<Legion::Point<ROW_RANK, Legion::coord_t>&>(
+                pt)])]);
+    }
+    return m_convert;
+  }
+
+  casacore::MeasRef<M>&
+  meas_ref_at(const Legion::Point<COL_RANK, Legion::coord_t>& pt) const {
+    if (m_mrv) {
+      auto& [mrs, rmap, rcodes] = m_mrv.value();
+      m_mr =
+        mrs[
+          rmap.at(
+            rcodes[
+              reinterpret_cast<Legion::Point<ROW_RANK, Legion::coord_t>>(
+                pt)])];
+    }
+    return *m_mr;
+  }
+
+private:
+  std::shared_ptr<casacore::MeasRef<M>> m_mr;
+
+  std::optional<
+    std::tuple<
+      std::vector<std::shared_ptr<casacore::MeasRef<M>>>,
+      std::unordered_map<unsigned, unsigned>,
+      MSTableColumnsBase::FieldAccessor<
+        HYPERION_TYPE_INT,
+        ROW_RANK,
+        MODE,
+        CHECK_BOUNDS>>>
+  m_mrv;
+
+  typename M::Convert m_convert;
+};
 
 template <MSTables T>
 struct MSTableColumns {
@@ -92,7 +235,8 @@ HYPERION_FOREACH_MS_TABLE_Tt(MSTC);
   MSTableColumns<MS_##T>::column_names[               \
     MSTableColumns<MS_##T>::col_t::MS_##T##_COL_##C]
 
-} // end namespace hyperion
+}
+// end namespace hyperion
 
 #endif // HYPERION_MS_TABLE_COLUMNS_H_
 

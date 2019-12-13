@@ -803,7 +803,6 @@ typedef enum ms_spectral_window_col_t {
   MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY,
   MS_SPECTRAL_WINDOW_COL_CHAN_FREQ,
   MS_SPECTRAL_WINDOW_COL_CHAN_WIDTH,
-  MS_SPECTRAL_WINDOW_COL_MEAS_FREQ_REF,
   MS_SPECTRAL_WINDOW_COL_EFFECTIVE_BW,
   MS_SPECTRAL_WINDOW_COL_RESOLUTION,
   MS_SPECTRAL_WINDOW_COL_TOTAL_BANDWIDTH,
@@ -829,7 +828,6 @@ typedef enum ms_spectral_window_col_t {
       "REF_FREQUENCY",                          \
       "CHAN_FREQ",                              \
       "CHAN_WIDTH",                             \
-      "MEAS_FREQ_REF",                          \
       "EFFECTIVE_BW",                           \
       "RESOLUTION",                             \
       "TOTAL_BANDWIDTH",                        \
@@ -852,7 +850,6 @@ typedef enum ms_spectral_window_col_t {
       0,                                        \
       1,                                        \
       1,                                        \
-      0,                                        \
       1,                                        \
       1,                                        \
       0,                                        \
@@ -1114,6 +1111,8 @@ typedef enum ms_weather_col_t {
 #define MS_WEATHER_COLUMN_MEASURE_NAMES {\
   {MS_WEATHER_COL_TIME, "TIME_MEASURE_EPOCH"}\
 }
+
+#define MS_ROW_MEASURE_COLUMN_REF_SUFFIX "_REF"
 
 #ifdef __cplusplus
 }

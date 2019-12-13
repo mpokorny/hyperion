@@ -340,6 +340,7 @@ public:
     Legion::PhysicalRegion metadata;
     std::optional<Legion::PhysicalRegion> mr_metadata;
     std::optional<Legion::PhysicalRegion> mr_values;
+    std::optional<Legion::PhysicalRegion> mr_index;
     std::optional<Legion::PhysicalRegion> kw_type_tags;
     std::optional<Legion::PhysicalRegion> kw_values;
   };

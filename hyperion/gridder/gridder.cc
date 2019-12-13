@@ -483,12 +483,7 @@ public:
     MSAntennaColumns ac(
       rt,
       task->regions[args->ridx[ANTENNA_NAME]],
-      std::unordered_map<std::string, std::vector<PhysicalRegion>>(
-        {NM_REGION(NAME),
-         NM_REGION(STATION),
-         NM_REGION(TYPE),
-         NM_REGION(MOUNT),
-         NM_REGION(DISH_DIAMETER)}));
+      {/*FIXME*/});
     auto names = ac.name<READ_ONLY>();
     auto stations = ac.station<READ_ONLY>();
     auto types = ac.type<READ_ONLY>();
@@ -831,17 +826,19 @@ public:
                      COLUMN_NAME(MS_FEED, POSITION)}) {
             mr_indexes.push_back(reqs.size());
             auto col = m_tbl_feed.column(c, r, nm);
-            auto [mreq, ovreq] = col.meas_ref.requirements(READ_ONLY);
-            reqs.push_back(mreq);
-            if (ovreq)
-              reqs.push_back(ovreq.value());
+            auto [mrq, vrq, oirq] = col.meas_ref.requirements(READ_ONLY);
+            reqs.push_back(mrq);
+            reqs.push_back(vrq);
+            if (oirq)
+              reqs.push_back(oirq.value());
           }
           {
             mr_indexes.push_back(reqs.size());
-            auto [mreq, ovreq] = position.meas_ref.requirements(READ_ONLY);
-            reqs.push_back(mreq);
-            if (ovreq)
-              reqs.push_back(ovreq.value());
+            auto [mrq, vrq, oirq] = position.meas_ref.requirements(READ_ONLY);
+            reqs.push_back(mrq);
+            reqs.push_back(vrq);
+            if (oirq)
+              reqs.push_back(oirq.value());
           }
           TaskArgs args;
           args.feed_time_mr_index = mr_indexes[0];
@@ -948,28 +945,32 @@ public:
 
     MeasRef::DataRegions drs;
     drs.metadata = regions[args->feed_time_mr_index];
-    if (args->feed_beam_offset_mr_index > args->feed_time_mr_index + 1)
-      drs.values = regions[args->feed_time_mr_index + 1];
+    drs.values = regions[args->feed_time_mr_index + 1];
+    if (args->feed_beam_offset_mr_index > args->feed_time_mr_index + 2)
+      drs.index = regions[args->feed_time_mr_index + 2];
     auto feed_time_mr =
-      MeasRef::make<casacore::MEpoch>(rt, drs)[0];
+      std::get<0>(MeasRef::make<casacore::MEpoch>(rt, drs))[0];
 
     drs.metadata = regions[args->feed_beam_offset_mr_index];
-    if (args->feed_position_mr_index > args->feed_beam_offset_mr_index + 1)
-      drs.values = regions[args->feed_beam_offset_mr_index + 1];
+    drs.values = regions[args->feed_beam_offset_mr_index + 1];
+    if (args->feed_position_mr_index > args->feed_beam_offset_mr_index + 2)
+      drs.index = regions[args->feed_beam_offset_mr_index + 2];
     auto feed_beam_offset_mr =
-      MeasRef::make<casacore::MDirection>(rt, drs)[0];
+      std::get<0>(MeasRef::make<casacore::MDirection>(rt, drs))[0];
 
     drs.metadata = regions[args->feed_position_mr_index];
-    if (args->antenna_position_mr_index > args->feed_position_mr_index + 1)
-      drs.values = regions[args->feed_position_mr_index + 1];
+    drs.values = regions[args->feed_position_mr_index + 1];
+    if (args->antenna_position_mr_index > args->feed_position_mr_index + 2)
+      drs.index = regions[args->feed_position_mr_index + 2];
     auto feed_position_mr =
-      MeasRef::make<casacore::MPosition>(rt, drs)[0];
+      std::get<0>(MeasRef::make<casacore::MPosition>(rt, drs))[0];
 
     drs.metadata = regions[args->antenna_position_mr_index];
-    if (regions.size() > args->antenna_position_mr_index + 1)
-      drs.values = regions[args->antenna_position_mr_index + 1];
+    drs.values = regions[args->antenna_position_mr_index + 1];
+    if (regions.size() > args->antenna_position_mr_index + 2)
+      drs.index = regions[args->antenna_position_mr_index + 2];
     auto antenna_position_mr =
-      MeasRef::make<casacore::MPosition>(rt, drs)[0];
+      std::get<0>(MeasRef::make<casacore::MPosition>(rt, drs))[0];
 
     const WOAccessor<PARALLACTIC_ANGLE_TYPE, ROW_DIM>
       pa(regions.back(), PARALLACTIC_ANGLE_FID);

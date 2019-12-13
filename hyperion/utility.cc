@@ -63,6 +63,21 @@ hyperion::toupper(const std::string& s) {
   return result;
 }
 
+bool
+hyperion::has_suffix(const std::string& str, const std::string& suffix) {
+  typedef std::remove_reference_t<decltype(str)>::difference_type diff_t;
+  return
+    str.substr(std::max((diff_t)str.size() - (diff_t)suffix.size(), (diff_t)0))
+    == suffix;
+}
+
+std::string
+hyperion::add_name_prefix(const std::string& prefix, const std::string& str) {
+  return
+    ((prefix.size() > 0 && prefix.back() != '/') ? (prefix + "/") : prefix)
+    + str;
+}
+
 unsigned
 hyperion::min_divisor(
   size_t numerator,

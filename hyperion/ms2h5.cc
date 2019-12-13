@@ -393,10 +393,10 @@ public:
     std::unordered_set<std::string> result;
     coord_t i = 0;
     if (table_args.size() == 0) {
-      while (table_names[i].val[0] != '\0')
+      while (table_names[i].size() > 0)
         result.insert(table_names[i++].val);
     } else if (table_args.front()[0] != '~') {
-      while (table_names[i].val[0] != '\0') {
+      while (table_names[i].size() > 0) {
         if (std::find(
               table_args.begin(),
               table_args.end(),
@@ -405,7 +405,7 @@ public:
         ++i;
       }
     } else {
-      while (table_names[i].val[0] != '\0') {
+      while (table_names[i].size() > 0) {
         if (std::find(
               table_args.begin(),
               table_args.end(),

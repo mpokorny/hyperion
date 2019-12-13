@@ -1637,6 +1637,7 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
     req.add_field(Column::METADATA_NAME_FID);
     req.add_field(Column::METADATA_AXES_UID_FID);
     req.add_field(Column::METADATA_DATATYPE_FID);
+    req.add_field(Column::METADATA_REF_COL_FID);
     reqs.push_back(req);
   }
   {
@@ -1693,10 +1694,11 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
   }
   if (!m_args.col.meas_ref.is_empty()) {
     m_args.mr_region_offset = reqs.size();
-    auto [mrq, ovrq] = m_args.col.meas_ref.requirements(READ_ONLY);
+    auto [mrq, vrq, oirq] = m_args.col.meas_ref.requirements(READ_ONLY);
     reqs.push_back(mrq);
-    if (ovrq)
-      reqs.push_back(ovrq.value());
+    reqs.push_back(vrq);
+    if (oirq)
+      reqs.push_back(oirq.value());
   }
 
   TaskLauncher launcher(TASK_ID, TaskArgument(&m_args, sizeof(m_args)));
@@ -1903,8 +1905,9 @@ reindex_column(
   if (args.mr_region_offset != -1) {
     MeasRef::DataRegions dr;
     dr.metadata = regions[args.mr_region_offset];
-    if (args.mr_region_offset + 1 < (int)regions.size())
-      dr.values = regions[args.mr_region_offset + 1];
+    dr.values = regions[args.mr_region_offset + 1];
+    if (args.mr_region_offset + 2 < (int)regions.size())
+      dr.index = regions[args.mr_region_offset + 2];
     mr = MeasRef::clone(ctx, rt, dr);
   }
 
@@ -1914,18 +1917,25 @@ reindex_column(
   const Column::AxesUidAccessor<READ_ONLY> col_axes_uid(
     regions[ReindexColumnRegionIndexes::METADATA],
     Column::METADATA_AXES_UID_FID);
-  return Column::create(
-    ctx,
-    rt,
-    col_name[0],
-    col_axes_uid[0],
-    new_axes,
-    col_datatype[0],
-    new_col_lr,
+  const Column::RefColAccessor<READ_ONLY> ref_col(
+    regions[ReindexColumnRegionIndexes::METADATA],
+    Column::METADATA_REF_COL_FID);
+  return
+    Column::create(
+      ctx,
+      rt,
+      col_name[0],
+      col_axes_uid[0],
+      new_axes,
+      col_datatype[0],
+      new_col_lr,
 #ifdef HYPERION_USE_CASACORE
-    mr,
+      mr,
+      ((ref_col[0].size() > 0)
+       ? std::make_optional<std::string>(ref_col[0])
+       : std::nullopt),
 #endif
-    kws);
+      kws);
 }
 
 Column
@@ -2010,8 +2020,9 @@ ReindexColumnTask::base_impl(
     if (args->mr_region_offset != -1) {
       MeasRef::DataRegions dr;
       dr.metadata = regions[args->mr_region_offset];
-      if (args->mr_region_offset + 1 < (int)regions.size())
-        dr.values = regions[args->mr_region_offset + 1];
+      dr.values = regions[args->mr_region_offset + 1];
+      if (args->mr_region_offset + 2 < (int)regions.size())
+        dr.index = regions[args->mr_region_offset + 2];
       mr = MeasRef::clone(ctx, rt, dr);
     }
 
@@ -2026,19 +2037,26 @@ ReindexColumnTask::base_impl(
     const Column::AxesUidAccessor<READ_ONLY> col_axes_uid(
       regions[ReindexColumnRegionIndexes::METADATA],
       Column::METADATA_AXES_UID_FID);
+    const Column::RefColAccessor<READ_ONLY> ref_col(
+      regions[ReindexColumnRegionIndexes::METADATA],
+      Column::METADATA_REF_COL_FID);
 
-    return Column::create(
-      ctx,
-      rt,
-      col_name[0],
-      col_axes_uid[0],
-      new_axes,
-      col_datatype[0],
-      new_col_lr,
+    return
+      Column::create(
+        ctx,
+        rt,
+        col_name[0],
+        col_axes_uid[0],
+        new_axes,
+        col_datatype[0],
+        new_col_lr,
 #ifdef HYPERION_USE_CASACORE
-      mr,
+        mr,
+        ((ref_col[0].size() > 0)
+         ? std::make_optional<std::string>(ref_col[0])
+         : std::nullopt),
 #endif
-      kws);
+        kws);
   }
 }
 

@@ -37,6 +37,55 @@ const char* table_axes_dt_name =
   HYPERION_NAMESPACE_PREFIX "table_axes";
 const char* column_axes_attr_name =
   HYPERION_NAMESPACE_PREFIX "axes";
+const char* column_refcol_attr_name =
+  HYPERION_NAMESPACE_PREFIX "refcol";
+
+#define CHECK_H5(F) do {                        \
+    herr_t err = F;                             \
+    assert(err >= 0);                           \
+  } while (0)
+
+template <
+  typename OPEN,
+  typename F,
+  typename CLOSE,
+  std::enable_if_t<
+    !std::is_void_v<
+      std::invoke_result_t<F, std::invoke_result_t<OPEN>>>,
+    int> = 0>
+std::invoke_result_t<F, std::invoke_result_t<OPEN>>
+using_resource(OPEN open, F f, CLOSE close) {
+  auto r = open();
+  std::invoke_result_t<F, std::invoke_result_t<OPEN>> result;
+  try {
+    result = f(r);
+  } catch (...) {
+    close(r);
+    throw;
+  }
+  close(r);
+  return result;
+}
+
+template <
+  typename OPEN,
+  typename F,
+  typename CLOSE,
+  std::enable_if_t<
+    std::is_void_v<
+      std::invoke_result_t<F, std::invoke_result_t<OPEN>>>,
+    int> = 0>
+void
+using_resource(OPEN open, F f, CLOSE close) {
+  auto r = open();
+  try {
+    f(r);
+  } catch (...) {
+    close(r);
+    throw;
+  }
+  close(r);
+}
 
 std::optional<std::string>
 hyperion::hdf5::read_index_tree_attr_metadata(
@@ -54,16 +103,15 @@ hyperion::hdf5::read_index_tree_attr_metadata(
     if (attr_id >= 0) {
       hid_t attr_type = H5Aget_type(attr_id);
 
+      // FIXME: shouldn't I be using hyperion::string?
       hid_t attr_dt =
         H5DatatypeManager::datatype<ValueType<std::string>::DataType>();
       if (H5Tequal(attr_type, attr_dt) > 0) {
         string attr;
-        herr_t rc = H5Aread(attr_id, attr_dt, attr.val);
-        assert(rc >= 0);
+        CHECK_H5(H5Aread(attr_id, attr_dt, attr.val));
         result = attr.val;
       }
-      herr_t err = H5Aclose(attr_id);
-      assert(err >= 0);
+      CHECK_H5(H5Aclose(attr_id));
     }
   }
   return result;
@@ -93,10 +141,8 @@ init_datatype_attr(
   hyperion::TypeTag dt) {
 
   htri_t rc = H5Aexists(loc_id, HYPERION_ATTRIBUTE_DT);
-  if (rc > 0) {
-    herr_t err = H5Adelete(loc_id, HYPERION_ATTRIBUTE_DT);
-    assert(err >= 0);
-  }
+  if (rc > 0)
+    CHECK_H5(H5Adelete(loc_id, HYPERION_ATTRIBUTE_DT));
 
   hid_t ds = H5Screate(H5S_SCALAR);
   assert(ds >= 0);
@@ -111,12 +157,9 @@ init_datatype_attr(
       H5P_DEFAULT,
       H5P_DEFAULT);
   assert(attr_id >= 0);
-  herr_t err = H5Awrite(attr_id, did, &dt);
-  assert(err >= 0);
-  err = H5Sclose(ds);
-  assert(err >= 0);
-  err = H5Aclose(attr_id);
-  assert(err >= 0);
+  CHECK_H5(H5Awrite(attr_id, did, &dt));
+  CHECK_H5(H5Sclose(ds));
+  CHECK_H5(H5Aclose(attr_id));
 }
 
 static hid_t
@@ -136,10 +179,8 @@ init_kw(
   {
     htri_t rc = H5Lexists(loc_id, attr_name, H5P_DEFAULT);
     assert(rc >= 0);
-    if (rc > 0) {
-      herr_t err = H5Ldelete(loc_id, attr_name, H5P_DEFAULT);
-      assert(err >= 0);
-    }
+    if (rc > 0)
+      CHECK_H5(H5Ldelete(loc_id, attr_name, H5P_DEFAULT));
   }
   hid_t result;
   {
@@ -153,8 +194,7 @@ init_kw(
         attr_ds,
         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     assert(result >= 0);
-    herr_t err = H5Sclose(attr_ds);
-    assert(err >= 0);
+    CHECK_H5(H5Sclose(attr_ds));
   }
   init_datatype_attr(result, dt);
   return result;
@@ -180,12 +220,9 @@ write_kw(
   hid_t attr_id = init_kw(loc_id, attr_name, dt, DT);
   if (region) {
     const KW<DT> kw(region.value(), fid);
-    herr_t err =
-      H5Dwrite(attr_id, dt, H5S_ALL, H5S_ALL, H5P_DEFAULT, kw.ptr(0));
-    assert(err >= 0);
+    CHECK_H5(H5Dwrite(attr_id, dt, H5S_ALL, H5S_ALL, H5P_DEFAULT, kw.ptr(0)));
   }
-  herr_t err = H5Dclose(attr_id);
-  assert(err >= 0);
+  CHECK_H5(H5Dclose(attr_id));
 }
 
 template <>
@@ -204,11 +241,9 @@ write_kw<HYPERION_TYPE_STRING> (
     const hyperion::string& kwval = kw[0];
     hyperion::string buf;
     fstrcpy(buf.val, kwval.val);
-    herr_t err = H5Dwrite(attr_id, dt, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf.val);
-    assert(err >= 0);
+    CHECK_H5(H5Dwrite(attr_id, dt, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf.val));
   }
-  herr_t err = H5Dclose(attr_id);
-  assert(err >= 0);
+  CHECK_H5(H5Dclose(attr_id));
 }
 
 void
@@ -291,16 +326,7 @@ write_mr_region(
   FieldID fid) {
 
   std::vector<T> buff = copy_mr_region<D, A, T>(ctx, rt, lr, fid);
-
-  herr_t err =
-    H5Dwrite(
-      ds,
-      dt,
-      H5S_ALL,
-      H5S_ALL,
-      H5P_DEFAULT,
-      buff.data());
-  assert(err >= 0);
+  CHECK_H5(H5Dwrite(ds, dt, H5S_ALL, H5S_ALL, H5P_DEFAULT, buff.data()));
 }
 
 void
@@ -381,8 +407,7 @@ hyperion::hdf5::write_measure(
           assert(false);
           break;
         }
-        herr_t err = H5Dclose(ds);
-        assert(err >= 0);
+        CHECK_H5(H5Dclose(ds));
       }
       {
         hid_t ds =
@@ -416,8 +441,7 @@ hyperion::hdf5::write_measure(
           assert(false);
           break;
         }
-        herr_t err = H5Dclose(ds);
-        assert(err >= 0);
+        CHECK_H5(H5Dclose(ds));
       }
       {
         hid_t ds =
@@ -451,8 +475,7 @@ hyperion::hdf5::write_measure(
           assert(false);
           break;
         }
-        herr_t err = H5Dclose(ds);
-        assert(err >= 0);
+        CHECK_H5(H5Dclose(ds));
       }
     }
     if (dims1.size() > 0) {
@@ -486,8 +509,32 @@ hyperion::hdf5::write_measure(
         assert(false);
         break;
       }
-      herr_t err = H5Dclose(ds);
-      assert(err >= 0);
+      CHECK_H5(H5Dclose(ds));
+    }
+    // write the index array, if it exists
+    if (mr.index_lr != LogicalRegion::NO_REGION) {
+      hid_t udt =
+        H5DatatypeManager::datatype<
+          ValueType<MeasRef::M_CODE_TYPE>::DataType>();
+      hid_t ds =
+        H5Dcreate(
+          mr_id,
+          HYPERION_MEAS_REF_INDEX_DS,
+          udt,
+          sp1,
+          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      assert(ds >= 0);
+      write_mr_region<
+        1,
+        MeasRef::MCodeAccessor<READ_ONLY>,
+        MeasRef::M_CODE_TYPE>(
+          ctx,
+          rt,
+          ds,
+          udt,
+          mr.index_lr,
+          MeasRef::M_CODE_FID);
+      CHECK_H5(H5Dclose(ds));
     }
   }
   IndexTreeL metadata_tree =
@@ -506,8 +553,7 @@ hyperion::hdf5::write_measure(
       name,
       "value_index_tree");
   }
-  herr_t err = H5Gclose(mr_id);
-  assert(err >= 0);
+  CHECK_H5(H5Gclose(mr_id));
 }
 #endif //HYPERION_USE_CASACORE
 
@@ -526,14 +572,18 @@ hyperion::hdf5::write_column(
   auto colname = column.name(ctx, rt);
   auto datatype = column.datatype(ctx, rt);
 
+  // FIXME: the value of column_path is only correct when the table group
+  // occurs at the HDF5 root...must add some way to pass in the path to the
+  // table HDF5 group
+  std::string column_path =
+    std::string("/") + table_name + "/" + colname;
+
   htri_t ds_exists =
     H5Lexists(table_id, colname.c_str(), H5P_DEFAULT);
-  if (ds_exists > 0) {
-    herr_t err = H5Ldelete(table_id, colname.c_str(), H5P_DEFAULT);
-    assert(err >= 0);
-  } else {
+  if (ds_exists > 0)
+    CHECK_H5(H5Ldelete(table_id, colname.c_str(), H5P_DEFAULT));
+  else
     assert(ds_exists == 0);
-  }
 
   // create column group
   hid_t col_group_id =
@@ -568,8 +618,6 @@ hyperion::hdf5::write_column(
     assert(ds >= 0);
 
     hid_t dt;
-
-
     switch (datatype) {
 #define DT(T) \
       case T: dt = H5DatatypeManager::datatype<T>(); break;
@@ -588,68 +636,68 @@ hyperion::hdf5::write_column(
         ds,
         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     assert(col_id >= 0);
-    herr_t err = H5Sclose(ds);
-    assert(err >= 0);
+    CHECK_H5(H5Sclose(ds));
 
     // write column value datatype
     init_datatype_attr(col_id, datatype);
 
-    err = H5Dclose(col_id);
-    assert(err >= 0);
+    CHECK_H5(H5Dclose(col_id));
   }
 
   // write axes attribute to column
   {
     htri_t rc = H5Aexists(col_group_id, column_axes_attr_name);
-    if (rc > 0) {
-      herr_t err = H5Adelete(col_group_id, column_axes_attr_name);
-      assert(err >= 0);
-    }
+    if (rc > 0)
+      CHECK_H5(H5Adelete(col_group_id, column_axes_attr_name));
 
-    auto axes = column.axes(ctx, rt);
+    auto axes = column.axes(ctx, rt);    
     hsize_t dims = axes.size();
     hid_t axes_ds = H5Screate_simple(1, &dims, NULL);
     assert(axes_ds >= 0);
+    hid_t axes_id =
+      H5Acreate(
+        col_group_id,
+        column_axes_attr_name,
+        table_axes_dt,
+        axes_ds,
+        H5P_DEFAULT, H5P_DEFAULT);
+    assert(axes_id >= 0);
+    std::vector<unsigned char> ax;
+    ax.reserve(axes.size());
+    std::copy(axes.begin(), axes.end(), std::back_inserter(ax));
+    CHECK_H5(H5Awrite(axes_id, table_axes_dt, ax.data()));
+    CHECK_H5(H5Aclose(axes_id));
+    CHECK_H5(H5Sclose(axes_ds));
+  }
 
-    try {
-      hid_t axes_id =
+  // write measure reference column name to attribute
+  {
+    htri_t rc = H5Aexists(col_group_id, column_refcol_attr_name);
+    if (rc > 0)
+      CHECK_H5(H5Adelete(col_group_id, column_refcol_attr_name));
+
+    auto refcol = column.ref_column(ctx, rt);
+    if (refcol) {
+      hsize_t dims = 1;
+      hid_t refcol_ds = H5Screate_simple(1, &dims, NULL);
+      assert(refcol_ds >= 0);
+      const hid_t sdt = H5DatatypeManager::datatype<HYPERION_TYPE_STRING>();
+      hid_t refcol_id =
         H5Acreate(
           col_group_id,
-          column_axes_attr_name,
-          table_axes_dt,
-          axes_ds,
+          column_refcol_attr_name,
+          sdt,
+          refcol_ds,
           H5P_DEFAULT, H5P_DEFAULT);
-      assert(axes_id >= 0);
-      try {
-        std::vector<unsigned char> ax;
-        ax.reserve(axes.size());
-        std::copy(axes.begin(), axes.end(), std::back_inserter(ax));
-        assert(axes_id >= 0);
-        herr_t err = H5Awrite(axes_id, table_axes_dt, ax.data());
-        assert(err >= 0);
-      } catch (...) {
-        herr_t err = H5Aclose(axes_id);
-        assert(err >= 0);
-        throw;
-      }
-      herr_t err = H5Aclose(axes_id);
-      assert(err >= 0);
-    } catch (...) {
-      herr_t err = H5Sclose(axes_ds);
-      assert(err >= 0);
-      throw;
+      assert(refcol_id >= 0);
+      string s = refcol.value();
+      CHECK_H5(H5Awrite(refcol_id, sdt, s.val));
+      CHECK_H5(H5Aclose(refcol_id));
+      CHECK_H5(H5Sclose(refcol_ds));
     }
-    herr_t err = H5Sclose(axes_ds);
-    assert(err >= 0);
   }
 
   // write data to dataset
-  // FIXME: the value of column_path is only correct when the table group
-  // occurs at the HDF5 root...must add some way to pass in the path to the
-  // table HDF5 group
-  std::string column_path =
-    std::string("/") + table_name + "/" + colname;
-
   if (with_data) {
     std::string column_ds_name = column_path + "/" + HYPERION_COLUMN_DS;
     std::map<FieldID, const char*>
@@ -681,11 +729,8 @@ hyperion::hdf5::write_column(
     {
       htri_t rc =
         H5Lexists(col_group_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
-      if (rc > 0) {
-        herr_t err =
-          H5Ldelete(col_group_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
-        assert(err >= 0);
-      }
+      if (rc > 0)
+        CHECK_H5(H5Ldelete(col_group_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT));
     }
     hid_t measures_id =
       H5Gcreate(
@@ -699,13 +744,11 @@ hyperion::hdf5::write_column(
       measures_id,
       "FIXME",
       column.meas_ref);
-    herr_t err = H5Gclose(measures_id);
-    assert(err >= 0);
+    CHECK_H5(H5Gclose(measures_id));
   }
 #endif
 
-  herr_t err = H5Gclose(col_group_id);
-  assert(err >= 0);
+  CHECK_H5(H5Gclose(col_group_id));
 
   write_index_tree_to_attr<binary_index_tree_serdez>(
     column.index_tree(rt),
@@ -726,110 +769,103 @@ hyperion::hdf5::write_table(
 
   // open or create the group for the table
   auto tabname = table.name(ctx, rt);
-  hid_t table_id;
-  {
-    htri_t rc = H5Lexists(loc_id, tabname.c_str(), H5P_DEFAULT);
-    if (rc == 0) {
-      table_id =
-        H5Gcreate(
-          loc_id,
-          tabname.c_str(),
-          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    } else {
-      assert(rc > 0);
-      table_id = H5Gopen(loc_id, tabname.c_str(), H5P_DEFAULT);
-    }
-    assert(table_id >= 0);
-  }
-
-  // write axes datatype to table
-  auto axes = AxesRegistrar::axes(table.axes_uid(ctx, rt));
-  assert(axes);
-  hid_t table_axes_dt = axes.value().h5_datatype;
-  {
-    herr_t err =
-      H5Tcommit(
-        table_id,
-        table_axes_dt_name,
-        table_axes_dt,
-        H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    assert(err >= 0);
-  }
-
-  // write index axes attribute to table
-  try {
-    htri_t rc = H5Aexists(table_id, table_index_axes_attr_name);
-    if (rc > 0) {
-      herr_t err = H5Adelete(table_id, table_index_axes_attr_name);
-      assert(err >= 0);
-    }
-
-    auto index_axes = table.index_axes(ctx, rt);
-    hsize_t dims = index_axes.size();
-    hid_t index_axes_ds = H5Screate_simple(1, &dims, NULL);
-    assert(index_axes_ds >= 0);
-
-    try {
-      hid_t index_axes_id =
-        H5Acreate(
+  using_resource(
+    [&]() {
+      hid_t table_id;
+      htri_t rc = H5Lexists(loc_id, tabname.c_str(), H5P_DEFAULT);
+      if (rc == 0) {
+        table_id =
+          H5Gcreate(
+            loc_id,
+            tabname.c_str(),
+            H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      } else {
+        assert(rc > 0);
+        table_id = H5Gopen(loc_id, tabname.c_str(), H5P_DEFAULT);
+      }
+      assert(table_id >= 0);
+      return table_id;
+    },
+    [&](hid_t table_id) {
+      // write axes datatype to table
+      auto axes = AxesRegistrar::axes(table.axes_uid(ctx, rt));
+      assert(axes);
+      hid_t table_axes_dt = axes.value().h5_datatype;
+      CHECK_H5(
+        H5Tcommit(
           table_id,
-          table_index_axes_attr_name,
+          table_axes_dt_name,
           table_axes_dt,
-          index_axes_ds,
-          H5P_DEFAULT, H5P_DEFAULT);
-      assert(index_axes_id >= 0);
-      try {
-        std::vector<unsigned char> ax;
-        ax.reserve(index_axes.size());
-        std::copy(index_axes.begin(), index_axes.end(), std::back_inserter(ax));
-        herr_t err = H5Awrite(index_axes_id, table_axes_dt, ax.data());
-        assert(err >= 0);
-      } catch (...) {
-        herr_t err = H5Aclose(index_axes_id);
-        assert(err >= 0);
-        throw;
+          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+
+      // write index axes attribute to table
+      htri_t rc = H5Aexists(table_id, table_index_axes_attr_name);
+      if (rc > 0)
+        CHECK_H5(H5Adelete(table_id, table_index_axes_attr_name));
+      auto index_axes = table.index_axes(ctx, rt);
+      using_resource(
+        [&]() {
+          hsize_t dims = index_axes.size();
+          hid_t index_axes_ds = H5Screate_simple(1, &dims, NULL);
+          assert(index_axes_ds >= 0);
+          return index_axes_ds;
+        },
+        [&](hid_t index_axes_ds) {
+          using_resource(
+            [&]() {
+              hid_t index_axes_id =
+                H5Acreate(
+                  table_id,
+                  table_index_axes_attr_name,
+                  table_axes_dt,
+                  index_axes_ds,
+                  H5P_DEFAULT, H5P_DEFAULT);
+              assert(index_axes_id >= 0);
+              return index_axes_id;
+            },
+            [&](hid_t index_axes_id) {
+              std::vector<unsigned char> ax;
+              ax.reserve(index_axes.size());
+              std::copy(
+                index_axes.begin(),
+                index_axes.end(),
+                std::back_inserter(ax));
+              CHECK_H5(H5Awrite(index_axes_id, table_axes_dt, ax.data()));
+            },
+            [](hid_t index_axes_id) {
+              CHECK_H5(H5Aclose(index_axes_id));
+            });
+        },
+        [](hid_t index_axes_ds) {
+          CHECK_H5(H5Sclose(index_axes_ds));
+        });
+
+      {
+        RegionRequirement
+          req(table.columns_lr, READ_ONLY, EXCLUSIVE, table.columns_lr);
+        req.add_field(Table::COLUMNS_FID);
+        auto columns = rt->map_region(ctx, req);
+        auto colnames = Table::column_names(ctx, rt, columns);
+        for (auto& nm : colnames) {
+          auto col = table.column(ctx, rt, columns, nm);
+          if (excluded_columns.count(nm) == 0 && !col.is_empty())
+            write_column(
+              ctx,
+              rt,
+              path,
+              table_id,
+              tabname,
+              col,
+              table_axes_dt,
+              with_data);
+        }
+        rt->unmap_region(ctx, columns);
       }
-      herr_t err = H5Aclose(index_axes_id);
-      assert(err >= 0);
-    } catch (...) {
-      herr_t err = H5Sclose(index_axes_ds);
-      assert(err >= 0);
-      throw;
-    }
-    herr_t err = H5Sclose(index_axes_ds);
-    assert(err >= 0);
-
-    {
-      RegionRequirement
-        req(table.columns_lr, READ_ONLY, EXCLUSIVE, table.columns_lr);
-      req.add_field(Table::COLUMNS_FID);
-      auto columns = rt->map_region(ctx, req);
-      auto colnames = Table::column_names(ctx, rt, columns);
-      for (auto& nm : colnames) {
-        auto col = table.column(ctx, rt, columns, nm);
-        if (excluded_columns.count(nm) == 0 && !col.is_empty())
-          write_column(
-            ctx,
-            rt,
-            path,
-            table_id,
-            tabname,
-            col,
-            table_axes_dt,
-            with_data);
-      }
-      rt->unmap_region(ctx, columns);
-    }
-
-    write_keywords(ctx, rt, table_id, table.keywords, with_data);
-
-  } catch (...) {
-    herr_t err = H5Gclose(table_id);
-    assert(err >= 0);
-    throw;
-  }
-  herr_t err = H5Gclose(table_id);
-  assert(err >= 0);
+      write_keywords(ctx, rt, table_id, table.keywords, with_data);
+    },
+    [](hid_t table_id) {
+      CHECK_H5(H5Gclose(table_id));
+    });
 }
 
 static bool
@@ -864,8 +900,7 @@ acc_kw_names(
   std::vector<std::string>* acc = static_cast<std::vector<std::string>*>(ctx);
   if (!starts_with(name, HYPERION_NAMESPACE_PREFIX)) {
     H5O_info_t infobuf;
-    herr_t err = H5Oget_info_by_name(loc_id, name, &infobuf, H5P_DEFAULT);
-    assert(err >= 0);
+    CHECK_H5(H5Oget_info_by_name(loc_id, name, &infobuf, H5P_DEFAULT));
     if (infobuf.type == H5O_TYPE_DATASET)
       acc->push_back(name);
   }
@@ -879,8 +914,7 @@ read_dt_value(hid_t dt_id) {
   // ensures interoperability for hyperion HDF5 files written with one enumeration
   // definition and read with a different enumeration definition (for example,
   // in two hyperion codes built with and without HYPERION_USE_CASACORE)
-  herr_t err = H5Aread(dt_id, H5T_NATIVE_INT, &dt);
-  assert(err >= 0);
+  CHECK_H5(H5Aread(dt_id, H5T_NATIVE_INT, &dt));
   return dt;
 }
 
@@ -892,15 +926,14 @@ hyperion::hdf5::init_keywords(
 
   std::vector<std::string> kw_names;
   hsize_t n = 0;
-  herr_t err =
+  CHECK_H5(
     H5Literate(
       loc_id,
       H5_INDEX_NAME,
       H5_ITER_INC,
       &n,
       acc_kw_names,
-      &kw_names);
-  assert(err >= 0);
+      &kw_names));
 
   if (kw_names.size() == 0)
     return {};
@@ -917,8 +950,7 @@ hyperion::hdf5::init_keywords(
             H5P_DEFAULT, H5P_DEFAULT);
         assert(dt_id >= 0);
         hyperion::TypeTag dt = read_dt_value(dt_id);
-        err = H5Aclose(dt_id);
-        assert(err >= 0);
+        CHECK_H5(H5Aclose(dt_id));
         return std::make_tuple(nm, dt);
       });
 }
@@ -934,17 +966,15 @@ copy_mr_ds(hid_t ds) {
   assert(rank > 0);
   hssize_t npts = H5Sget_simple_extent_npoints(spc);
   std::vector<T> result(npts);
-  herr_t err =
+  CHECK_H5(
     H5Dread(
       ds,
       H5DatatypeManager::datatype<ValueType<T>::DataType>(),
       H5S_ALL,
       H5S_ALL,
       H5P_DEFAULT,
-      result.data());
-  assert(err >= 0);
-  err = H5Sclose(spc);
-  assert(err >= 0);
+      result.data()));
+  CHECK_H5(H5Sclose(spc));
   return result;
 }
 
@@ -980,16 +1010,22 @@ init_meas_ref(
   hid_t loc_id,
   const std::string& name,
   const std::optional<IndexTreeL>& metadata_tree,
-  const std::optional<IndexTreeL>& value_tree) {
+  const std::optional<IndexTreeL>& value_tree,
+  bool no_index) {
 
   if (!metadata_tree)
     return std::make_pair(name, MeasRef());
 
-  std::array<LogicalRegion, 2> regions =
-    MeasRef::create_regions(ctx, rt, metadata_tree.value(), value_tree.value());
+  std::array<LogicalRegion, 3> regions =
+    MeasRef::create_regions(
+      ctx,
+      rt,
+      metadata_tree.value(),
+      value_tree.value(),
+      no_index);
   LogicalRegion metadata_lr = regions[0];
   LogicalRegion values_lr = regions[1];
-
+  LogicalRegion index_lr = regions[2];
   {
     // Read the datasets for the MeasRef values directly.
     {
@@ -1015,8 +1051,7 @@ init_meas_ref(
         assert(false);
         break;
       }
-      herr_t err = H5Dclose(ds);
-      assert(err >= 0);
+      CHECK_H5(H5Dclose(ds));
     }
     {
       hid_t ds = H5Dopen(loc_id, HYPERION_MEAS_REF_RTYPE_DS, H5P_DEFAULT);
@@ -1041,8 +1076,7 @@ init_meas_ref(
         assert(false);
         break;
       }
-      herr_t err = H5Dclose(ds);
-      assert(err >= 0);
+      CHECK_H5(H5Dclose(ds));
     }
     {
       hid_t ds = H5Dopen(loc_id, HYPERION_MEAS_REF_NVAL_DS, H5P_DEFAULT);
@@ -1067,8 +1101,7 @@ init_meas_ref(
         assert(false);
         break;
       }
-      herr_t err = H5Dclose(ds);
-      assert(err >= 0);
+      CHECK_H5(H5Dclose(ds));
     }
   }
   if (values_lr != LogicalRegion::NO_REGION) {
@@ -1094,15 +1127,24 @@ init_meas_ref(
       assert(false);
       break;
     }
-    herr_t err = H5Dclose(ds);
-    assert(err >= 0);
+    CHECK_H5(H5Dclose(ds));
   }
-  return std::make_pair(name, MeasRef(metadata_lr, values_lr));
+  if (index_lr != LogicalRegion::NO_REGION) {
+    hid_t ds = H5Dopen(loc_id, HYPERION_MEAS_REF_INDEX_DS, H5P_DEFAULT);
+    assert(ds >= 0);
+    read_mr_region<
+      1,
+      MeasRef::MCodeAccessor<WRITE_ONLY>,
+      MeasRef::M_CODE_TYPE>(ctx, rt, ds, index_lr, MeasRef::M_CODE_FID);
+    CHECK_H5(H5Dclose(ds));
+  }
+  return std::make_pair(name, MeasRef(metadata_lr, values_lr, index_lr));
 }
 
 struct acc_meas_ref_ctx {
   Context ctx;
   Runtime* rt;
+  bool has_index;
   std::unordered_map<std::string, MeasRef> acc;
 };
 
@@ -1113,12 +1155,9 @@ acc_meas_ref(
   const H5L_info_t* info,
   void* ctx) {
 
-  struct acc_meas_ref_ctx* args = static_cast<acc_meas_ref_ctx*>(ctx);
+  acc_meas_ref_ctx* args = static_cast<acc_meas_ref_ctx*>(ctx);
   H5O_info_t infobuf;
-  {
-    herr_t err = H5Oget_info_by_name(group, name, &infobuf, H5P_DEFAULT);
-    assert(err >= 0);
-  }
+  CHECK_H5(H5Oget_info_by_name(group, name, &infobuf, H5P_DEFAULT));
   if (infobuf.type == H5O_TYPE_GROUP) {
     hid_t mr_id = H5Gopen(group, name, H5P_DEFAULT);
     assert(mr_id >= 0);
@@ -1153,9 +1192,9 @@ acc_meas_ref(
         mr_id,
         name,
         metadata_tree,
-        value_tree));
-    herr_t err = H5Gclose(mr_id);
-    assert(err >= 0);
+        value_tree,
+        !args->has_index));
+    CHECK_H5(H5Gclose(mr_id));
   }
   return 0;
 }
@@ -1172,37 +1211,6 @@ hyperion::hdf5::init_column(
   const std::string& name_prefix) {
 
   Column result;
-
-#ifdef HYPERION_USE_CASACORE
-  MeasRef mr;
-  std::string mr_name;
-  {
-    std::unordered_map<std::string, MeasRef> mrs;
-    htri_t rc = H5Lexists(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
-    assert(rc >= 0);
-    if (rc > 0) {
-      hid_t measures_id =
-        H5Gopen(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
-      assert(measures_id >= 0);
-      hsize_t position = 0;
-      struct acc_meas_ref_ctx acc_meas_ref_ctx{ctx, rt};
-      herr_t err =
-        H5Literate(
-          measures_id,
-          H5_INDEX_NAME,
-          H5_ITER_NATIVE,
-          &position,
-          acc_meas_ref,
-          &acc_meas_ref_ctx);
-      assert(err >= 0);
-      mrs = std::move(acc_meas_ref_ctx.acc);
-      assert(mrs.size() == 1);
-      mr = mrs.begin()->second;
-      err = H5Gclose(measures_id);
-      assert(err >= 0);
-    }
-  }
-#endif
 
   hyperion::TypeTag datatype = ValueType<int>::DataType;
   hid_t datatype_id = -1;
@@ -1228,8 +1236,7 @@ hyperion::hdf5::init_column(
         if (ndims != 1)
           goto return_nothing;
         std::vector<unsigned char> ax(H5Sget_simple_extent_npoints(axes_id_ds));
-        herr_t err = H5Aread(axes_id, axes_dt, ax.data());
-        assert(err >= 0);
+        CHECK_H5(H5Aread(axes_id, axes_dt, ax.data()));
         axes.reserve(ax.size());
         std::copy(ax.begin(), ax.end(), std::back_inserter(axes));
       }
@@ -1252,7 +1259,56 @@ hyperion::hdf5::init_column(
         assert(datatype_id >= 0);
         datatype = read_dt_value(datatype_id);
       }
+      std::optional<std::string> ref_column;
+      {
+        htri_t refcol_exists = H5Aexists(loc_id, column_refcol_attr_name);
+        assert(refcol_exists >= 0);
+        if (refcol_exists > 0){
+          hid_t refcol_id =
+            H5Aopen(loc_id, column_refcol_attr_name, H5P_DEFAULT);
+          assert(refcol_id >= 0);
+          hyperion::string s;
+          CHECK_H5(
+            H5Aread(
+              refcol_id,
+              H5DatatypeManager::datatype<HYPERION_TYPE_STRING>(),
+              s.val));
+          if (s.size() > 0)
+            ref_column = s;
+          CHECK_H5(H5Aclose(refcol_id));
+        }
+      }
       auto keywords = init_keywords(ctx, rt, loc_id);
+
+#ifdef HYPERION_USE_CASACORE
+      MeasRef mr;
+      std::string mr_name;
+      {
+        std::unordered_map<std::string, MeasRef> mrs;
+        htri_t rc = H5Lexists(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
+        assert(rc >= 0);
+        if (rc > 0) {
+          hid_t measures_id =
+            H5Gopen(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
+          assert(measures_id >= 0);
+          hsize_t position = 0;
+          acc_meas_ref_ctx acc_meas_ref_ctx{ctx, rt, ref_column.has_value()};
+          CHECK_H5(
+            H5Literate(
+              measures_id,
+              H5_INDEX_NAME,
+              H5_ITER_NATIVE,
+              &position,
+              acc_meas_ref,
+              &acc_meas_ref_ctx));
+          mrs = std::move(acc_meas_ref_ctx.acc);
+          assert(mrs.size() == 1);
+          mr = mrs.begin()->second;
+          CHECK_H5(H5Gclose(measures_id));
+        }
+      }
+#endif
+
       {
         std::optional<std::string> sid =
           read_index_tree_attr_metadata(loc_id, "index_tree");
@@ -1279,6 +1335,7 @@ hyperion::hdf5::init_column(
             it,
 #ifdef HYPERION_USE_CASACORE
             mr,
+            ref_column,
 #endif
             keywords,
             name_prefix);
@@ -1287,18 +1344,12 @@ hyperion::hdf5::init_column(
   }
 
 return_nothing:
-  if (datatype_id >= 0) {
-    herr_t err = H5Aclose(datatype_id);
-    assert(err >= 0);
-  }
-  if (axes_id_ds >= 0) {
-    herr_t err = H5Sclose(axes_id_ds);
-    assert(err >= 0);
-  }
-  if (axes_id >= 0) {
-    herr_t err = H5Aclose(axes_id);
-    assert(err >= 0);
-  }
+  if (datatype_id >= 0)
+    CHECK_H5(H5Aclose(datatype_id));
+  if (axes_id_ds >= 0)
+    CHECK_H5(H5Sclose(axes_id_ds));
+  if (axes_id >= 0) 
+    CHECK_H5(H5Aclose(axes_id));
   return result;
 }
 
@@ -1339,8 +1390,7 @@ acc_col(
           args->axes_dt,
           args->table_name);
       args->acc->push_back(std::move(col));
-      herr_t err = H5Gclose(col_group_id);
-      assert(err >= 0);
+      CHECK_H5(H5Gclose(col_group_id));
     }
   }
   return 0;
@@ -1373,8 +1423,7 @@ hyperion::hdf5::init_table(
       goto return_nothing;
     axes_uid = uid.value();
     axes_dt = AxesRegistrar::axes(axes_uid).value().h5_datatype;
-    herr_t err = H5Tclose(dt);
-    assert(err >= 0);
+    CHECK_H5(H5Tclose(dt));
   }
   {
     htri_t index_axes_exists = H5Aexists(loc_id, table_index_axes_attr_name);
@@ -1390,8 +1439,7 @@ hyperion::hdf5::init_table(
       goto return_nothing;
     std::vector<unsigned char>
       ax(H5Sget_simple_extent_npoints(index_axes_id_ds));
-    herr_t err = H5Aread(index_axes_id, axes_dt, ax.data());
-    assert(err >= 0);
+    CHECK_H5(H5Aread(index_axes_id, axes_dt, ax.data()));
     index_axes.reserve(ax.size());
     std::copy(ax.begin(), ax.end(), std::back_inserter(index_axes));
   }
@@ -1399,15 +1447,14 @@ hyperion::hdf5::init_table(
     struct acc_col_ctx acc_col_ctx{
       table_name, &column_names, &cols, axes_uid, axes_dt, rt, ctx};
     hsize_t position = 0;
-    herr_t err =
+    CHECK_H5(
       H5Literate(
         loc_id,
         H5_INDEX_NAME,
         H5_ITER_NATIVE,
         &position,
         acc_col,
-        &acc_col_ctx);
-    assert(err >= 0);
+        &acc_col_ctx));
   }
   {
     auto keywords = init_keywords(ctx, rt, loc_id);
@@ -1416,14 +1463,10 @@ hyperion::hdf5::init_table(
       Table::create(ctx, rt, table_name, axes_uid, index_axes, cols, keywords);
   }
 return_nothing:
-  if (index_axes_id_ds >= 0) {
-    herr_t err = H5Sclose(index_axes_id_ds);
-    assert(err >= 0);
-  }
-  if (index_axes_id >= 0) {
-    herr_t err = H5Aclose(index_axes_id);
-    assert(err >= 0);
-  }
+  if (index_axes_id_ds >= 0)
+    CHECK_H5(H5Sclose(index_axes_id_ds));
+  if (index_axes_id >= 0)
+    CHECK_H5(H5Aclose(index_axes_id));
   return result;
 }
 
@@ -1437,38 +1480,37 @@ hyperion::hdf5::init_table(
   unsigned flags) {
 
   Table result;
-
-  hid_t fid = H5Fopen(file_path.c_str(), flags, H5P_DEFAULT);
-  if (fid >= 0) {
-    try {
-      hid_t table_loc = H5Gopen(fid, table_path.c_str(), H5P_DEFAULT);
-      if (table_loc >= 0) {
-        auto table_basename = table_path.rfind('/') + 1;
-        try {
-          result =
-            init_table(
-              context,
-              runtime,
-              table_path.substr(table_basename),
-              table_loc,
-              column_names,
-              table_path.substr(0, table_basename));
-        } catch (...) {
-          herr_t err = H5Gclose(table_loc);
-          assert(err >= 0);
-          throw;
-        }
-        herr_t err = H5Gclose(table_loc);
-        assert(err >= 0);
+  using_resource(
+    [&]() {
+      return H5Fopen(file_path.c_str(), flags, H5P_DEFAULT);
+    },
+    [&](hid_t fid) {
+      if (fid >= 0) {
+        using_resource(
+          [&]() {
+            return H5Gopen(fid, table_path.c_str(), H5P_DEFAULT);
+          },
+          [&](hid_t table_loc) {
+            if (table_loc >= 0) {
+              auto table_basename = table_path.rfind('/') + 1;
+              result =
+                init_table(
+                  context,
+                  runtime,
+                  table_path.substr(table_basename),
+                  table_loc,
+                  column_names,
+                  table_path.substr(0, table_basename));
+            }
+          },
+          [](hid_t table_loc) {
+            CHECK_H5(H5Gclose(table_loc));
+          });
       }
-    } catch (...) {
-      herr_t err = H5Fclose(fid);
-      assert(err >= 0);
-      throw;
-    }
-    herr_t err = H5Fclose(fid);
-    assert(err >= 0);
-  }
+    },
+    [](hid_t fid) {
+      CHECK_H5(H5Fclose(fid));
+    });
   return result;
 }
 
@@ -1478,8 +1520,7 @@ acc_table_paths(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
   std::unordered_set<std::string>* tblpaths =
     (std::unordered_set<std::string>*)(ctx);
   H5O_info_t infobuf;
-  herr_t err = H5Oget_info_by_name(loc_id, name, &infobuf, H5P_DEFAULT);
-  assert(err >= 0);
+  CHECK_H5( H5Oget_info_by_name(loc_id, name, &infobuf, H5P_DEFAULT));
   if (infobuf.type == H5O_TYPE_GROUP)
     tblpaths->insert(std::string("/") + name);
   return 0;
@@ -1493,17 +1534,15 @@ hyperion::hdf5::get_table_paths(
   hid_t fid = H5Fopen(file_path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
   if (fid >= 0) {
     hsize_t n = 0;
-    herr_t err =
+    CHECK_H5(
       H5Literate(
         fid,
         H5_INDEX_NAME,
         H5_ITER_NATIVE,
         &n,
         acc_table_paths,
-        &result);
-    assert(err >= 0);
-    err = H5Fclose(fid);
-    assert(err >= 0);
+        &result));
+    CHECK_H5(H5Fclose(fid));
   }
   return result;
 }
@@ -1513,8 +1552,7 @@ acc_column_names(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
   std::unordered_set<std::string>* colnames =
     (std::unordered_set<std::string>*)(ctx);
   H5O_info_t infobuf;
-  herr_t err = H5Oget_info_by_name(loc_id, name, &infobuf, H5P_DEFAULT);
-  assert(err >= 0);
+  CHECK_H5(H5Oget_info_by_name(loc_id, name, &infobuf, H5P_DEFAULT));
   if (infobuf.type == H5O_TYPE_GROUP
       && (std::string(name).substr(0, sizeof(HYPERION_NAMESPACE_PREFIX) - 1)
           != HYPERION_NAMESPACE_PREFIX)) {
@@ -1523,14 +1561,12 @@ acc_column_names(hid_t loc_id, const char* name, const H5L_info_t*, void* ctx) {
     htri_t has_col_ds = H5Oexists_by_name(gid, HYPERION_COLUMN_DS, H5P_DEFAULT);
     assert(has_col_ds >= 0);
     if (has_col_ds > 0) {
-      herr_t err =
-        H5Oget_info_by_name(gid, HYPERION_COLUMN_DS, &infobuf, H5P_DEFAULT);
-      assert(err >= 0);
+      CHECK_H5(
+        H5Oget_info_by_name(gid, HYPERION_COLUMN_DS, &infobuf, H5P_DEFAULT));
       if (infobuf.type == H5O_TYPE_DATASET)
         colnames->insert(name);
     }
-    herr_t err = H5Gclose(gid);
-    assert(err >= 0);
+    CHECK_H5(H5Gclose(gid));
   }
   return 0;
 }
@@ -1546,20 +1582,17 @@ hyperion::hdf5::get_column_names(
     hid_t tid = H5Gopen(fid, table_path.c_str(), H5P_DEFAULT);
     if (tid >= 0) {
       hsize_t n = 0;
-      herr_t err =
+      CHECK_H5(
         H5Literate(
           tid,
           H5_INDEX_NAME,
           H5_ITER_NATIVE,
           &n,
           acc_column_names,
-          &result);
-      assert(err >= 0);
-      err = H5Gclose(tid);
-      assert(err >= 0);
+          &result));
+      CHECK_H5(H5Gclose(tid));
     }
-    herr_t err = H5Fclose(fid);
-    assert(err >= 0);
+    CHECK_H5(H5Fclose(fid));
   }
   return result;
 }

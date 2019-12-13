@@ -46,14 +46,23 @@ namespace hyperion {
 class HYPERION_API Column {
 public:
 
+  typedef hyperion::string METADATA_NAME_TYPE;
   static const constexpr Legion::FieldID METADATA_NAME_FID = 0;
+  typedef hyperion::string METADATA_AXES_UID_TYPE;
   static const constexpr Legion::FieldID METADATA_AXES_UID_FID = 1;
+  typedef hyperion::TypeTag METADATA_DATATYPE_TYPE;
   static const constexpr Legion::FieldID METADATA_DATATYPE_FID = 2;
+  typedef hyperion::string METADATA_REF_COL_TYPE;
+  static const constexpr Legion::FieldID METADATA_REF_COL_FID = 3;
   Legion::LogicalRegion metadata_lr;
+
+  typedef int AXES_VALUE_TYPE;
   static const constexpr Legion::FieldID AXES_FID = 0;
   Legion::LogicalRegion axes_lr;
+
   static const constexpr Legion::FieldID VALUE_FID = 0;
   Legion::LogicalRegion values_lr;
+
 #ifdef HYPERION_USE_CASACORE
   MeasRef meas_ref;
 #endif
@@ -63,40 +72,50 @@ public:
   using NameAccessor =
     Legion::FieldAccessor<
     MODE,
-    hyperion::string,
+    METADATA_NAME_TYPE,
     1,
     Legion::coord_t,
-    Legion::AffineAccessor<hyperion::string, 1, Legion::coord_t>,
+    Legion::AffineAccessor<METADATA_NAME_TYPE, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxesUidAccessor =
     Legion::FieldAccessor<
     MODE,
-    hyperion::string,
+    METADATA_AXES_UID_TYPE,
     1,
     Legion::coord_t,
-    Legion::AffineAccessor<hyperion::string, 1, Legion::coord_t>,
+    Legion::AffineAccessor<METADATA_AXES_UID_TYPE, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using DatatypeAccessor =
     Legion::FieldAccessor<
     MODE,
-    hyperion::TypeTag,
+    METADATA_DATATYPE_TYPE,
     1,
     Legion::coord_t,
-    Legion::AffineAccessor<hyperion::TypeTag, 1, Legion::coord_t>,
+    Legion::AffineAccessor<METADATA_DATATYPE_TYPE, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using RefColAccessor =
+    Legion::FieldAccessor<
+      MODE,
+      METADATA_REF_COL_TYPE,
+      1,
+      Legion::coord_t,
+      Legion::AffineAccessor<METADATA_REF_COL_TYPE, 1, Legion::coord_t>,
+      CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxesAccessor =
     Legion::FieldAccessor<
     MODE,
-    int,
+    AXES_VALUE_TYPE,
     1,
     Legion::coord_t,
-    Legion::AffineAccessor<int, 1, Legion::coord_t>,
+    Legion::AffineAccessor<AXES_VALUE_TYPE, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
   typedef std::function<
@@ -133,6 +152,7 @@ public:
     const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
     const MeasRef& meas_ref,
+    const std::optional<std::string>& ref_column,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
@@ -148,6 +168,7 @@ public:
     const Legion::LogicalRegion& values,
 #ifdef HYPERION_USE_CASACORE
     const MeasRef& meas_ref,
+    const std::optional<std::string>& ref_column,
 #endif
     const Keywords& kws);
 
@@ -165,6 +186,7 @@ public:
     const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
     const MeasRef& meas_ref,
+    const std::optional<std::string>& ref_column,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "") {
@@ -179,6 +201,7 @@ public:
         index_tree,
 #ifdef HYPERION_USE_CASACORE
         meas_ref,
+        ref_column,
 #endif
         kws,
         name_prefix);
@@ -204,6 +227,12 @@ public:
 
   std::vector<int>
   axes(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  std::optional<std::string>
+  ref_column(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  static hyperion::string
+  ref_column(const Legion::PhysicalRegion& metadata);
 
   unsigned
   rank(Legion::Runtime* rt) const;
@@ -345,6 +374,7 @@ public:
     const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
     const MeasRef& meas_ref,
+    const std::optional<std::string>& ref_column,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
@@ -363,6 +393,7 @@ public:
             index_tree,
 #ifdef HYPERION_USE_CASACORE
             meas_ref,
+            ref_column,
 #endif
             kws,
             name_prefix);
@@ -379,6 +410,7 @@ public:
     unsigned num_rows,
 #ifdef HYPERION_USE_CASACORE
     const MeasRef& meas_ref,
+    const std::optional<std::string>& ref_column,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
@@ -390,6 +422,7 @@ public:
         IndexTreeL(row_index_pattern, num_rows),
 #ifdef HYPERION_USE_CASACORE
         meas_ref,
+        ref_column,
 #endif
         kws);
   }
@@ -405,6 +438,7 @@ public:
     unsigned num_rows,
 #ifdef HYPERION_USE_CASACORE
     const MeasRef& meas_ref,
+    const std::optional<std::string>& ref_column,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t()) {
 
@@ -418,6 +452,7 @@ public:
           num_rows * row_pattern.size() / row_index_pattern.size()),
 #ifdef HYPERION_USE_CASACORE
         meas_ref,
+        ref_column,
 #endif
         kws);
   }

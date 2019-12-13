@@ -162,6 +162,7 @@ table0_col(
           IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
           mr,
+          std::nullopt,
 #endif
           {},
           name_prefix);

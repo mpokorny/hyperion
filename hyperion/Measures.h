@@ -21,6 +21,7 @@
 
 #pragma GCC visibility push(default)
 # include <memory>
+# include <optional>
 # include <tuple>
 # include <vector>
 
@@ -195,19 +196,22 @@ struct HYPERION_API MClassT<MClass::M_UVW> {
   __func__(::hyperion::MClass::M_RADIAL_VELOCITY)  \
   __func__(::hyperion::MClass::M_UVW)
 
-std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>
-get_meas_refs(
-  const casacore::Table& table,
-  const std::optional<std::string>& colname = std::nullopt);
+std::optional<
+  std::tuple<
+    hyperion::MClass,
+    std::vector<std::tuple<std::unique_ptr<casacore::MRBase>, unsigned>>,
+    std::optional<std::string>>>
+get_meas_refs(const casacore::Table& table, const std::string& colname);
 
 class MeasRef;
 
-std::unordered_map<std::string, MeasRef>
+std::tuple<std::string, MeasRef>
 create_named_meas_refs(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const std::vector<
-    std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>>& mrs);
+  const std::tuple<
+    hyperion::MClass,
+    std::vector<std::tuple<casacore::MRBase*, unsigned>>>& mrs);
 
 } // end namespace hyperion
 

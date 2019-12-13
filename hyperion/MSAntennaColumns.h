@@ -23,15 +23,19 @@
 #pragma GCC visibility push(default)
 # include <casacore/measures/Measures/MPosition.h>
 # include <casacore/measures/Measures/MCPosition.h>
+
+# include <any>
 # include <memory>
 # include <optional>
 # include <unordered_map>
+# include <variant>
 # include <vector>
 #pragma GCC visibility pop
 
 namespace hyperion {
 
-class HYPERION_API MSAntennaColumns {
+class HYPERION_API MSAntennaColumns
+  : public MSTableColumnsBase {
 public:
 
   typedef MSTableColumns<MS_ANTENNA> C;
@@ -39,27 +43,9 @@ public:
   MSAntennaColumns(
     Legion::Runtime* rt,
     const Legion::RegionRequirement& rows_requirement,
-    const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&
-    regions);
+    const std::unordered_map<std::string, Regions>& regions);
 
-private:
-
-  template <TypeTag T, int N, legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using FieldAccessor =
-    Legion::FieldAccessor<
-      MODE,
-      typename DataType<T>::ValueType,
-      N,
-      Legion::coord_t,
-      Legion::AffineAccessor<
-        typename DataType<T>::ValueType,
-        N,
-        Legion::coord_t>,
-      CHECK_BOUNDS>;
-
-public:
-
-  static const unsigned row_rank = 1;
+  static const constexpr unsigned row_rank = 1;
 
   Legion::DomainT<row_rank>
   rows(Legion::Runtime* rt) const {
@@ -204,7 +190,8 @@ public:
       static_assert(row_rank == 1);
       static_assert(position_rank == 2);
 
-      auto p = T::m_convert(val);
+      auto cvt = T::m_cm.convert_at(pt);
+      auto p = cvt(val);
       auto vs = p.get(*T::m_units).getValue();
       T::m_position[Legion::Point<position_rank>(pt[0], 0)] = vs[0];
       T::m_position[Legion::Point<position_rank>(pt[0], 1)] = vs[1];
@@ -219,11 +206,12 @@ public:
     using T::T;
 
     casacore::MPosition
-    read(const Legion::Point<row_rank,Legion::coord_t>& pt) const {
+    read(const Legion::Point<row_rank, Legion::coord_t>& pt) const {
 
       static_assert(row_rank == 1);
       static_assert(position_rank == 2);
 
+      auto mr = T::m_cm.meas_ref_at(pt);
       const DataType<HYPERION_TYPE_DOUBLE>::ValueType* mp =
         T::m_position.ptr(Legion::Point<position_rank>(pt[0], 0));
       return
@@ -231,7 +219,7 @@ public:
           casacore::Quantity(mp[0], *T::m_units),
           casacore::Quantity(mp[1], *T::m_units),
           casacore::Quantity(mp[2], *T::m_units),
-          *T::m_mr);
+          mr);
     }
   };
 
@@ -241,11 +229,10 @@ public:
     PositionMeasAccessorBase(
       const char* units,
       const Legion::PhysicalRegion& region,
-      const std::shared_ptr<casacore::MeasRef<casacore::MPosition>>& mr)
+      const mr_t<casacore::MPosition>* mr)
       : m_units(units)
       , m_position(region, FID)
-      , m_mr(mr) {
-      m_convert.setOut(*m_mr);
+      , m_cm(mr) {
     }
 
   protected:
@@ -254,9 +241,12 @@ public:
 
     PositionAccessor<MODE, CHECK_BOUNDS> m_position;
 
-    std::shared_ptr<casacore::MeasRef<casacore::MPosition>> m_mr;
-
-    casacore::MPosition::Convert m_convert;
+    ColumnMeasure<
+      casacore::MPosition,
+      row_rank,
+      row_rank,
+      READ_ONLY,
+      CHECK_BOUNDS> m_cm;
   };
 
   template <
@@ -296,7 +286,7 @@ public:
 
   bool
   has_positionMeas() const {
-    return has_position() && m_position_mr;
+    return has_position() && m_mrs.count(C::col_t::MS_ANTENNA_COL_POSITION) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -312,7 +302,8 @@ public:
         CHECK_BOUNDS>(
         C::units.at(C::col_t::MS_ANTENNA_COL_POSITION),
         m_regions.at(C::col_t::MS_ANTENNA_COL_POSITION),
-        m_position_mr);
+        std::any_cast<mr_t<casacore::MPosition>>(
+          &m_mrs.at(C::col_t::MS_ANTENNA_COL_POSITION)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -351,7 +342,7 @@ public:
 
   bool
   has_offsetMeas() const {
-    return has_offset() && m_offset_mr;
+    return has_offset() && m_mrs.count(C::col_t::MS_ANTENNA_COL_OFFSET) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -361,7 +352,8 @@ public:
       OffsetMeasAccessor<MODE, CHECK_BOUNDS>(
         C::units.at(C::col_t::MS_ANTENNA_COL_OFFSET),
         m_regions.at(C::col_t::MS_ANTENNA_COL_OFFSET),
-        m_offset_mr);
+        std::any_cast<casacore::MPosition>(
+          &m_mrs.at(C::col_t::MS_ANTENNA_COL_OFFSET)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -492,8 +484,7 @@ private:
   std::unordered_map<C::col_t, Legion::PhysicalRegion> m_regions;
 
 #ifdef HYPERION_USE_CASACORE
-  std::shared_ptr<casacore::MeasRef<casacore::MPosition>> m_position_mr;
-  std::shared_ptr<casacore::MeasRef<casacore::MPosition>> m_offset_mr;
+  std::unordered_map<C::col_t, std::any> m_mrs;
 #endif
 };
 

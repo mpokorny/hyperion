@@ -98,6 +98,12 @@ toupper(std::string& s);
 std::string
 toupper(const std::string& s);
 
+bool
+has_suffix(const std::string& str, const std::string& suffix);
+
+std::string
+add_name_prefix(const std::string& prefix, const std::string& str);
+
 template <typename D>
 struct Axes {
   static const char* uid;
@@ -836,7 +842,7 @@ public:
   }
 
   template <TypeTag DT>
-  static hid_t
+  static constexpr hid_t
   datatype();
 
   static herr_t
@@ -1243,7 +1249,7 @@ struct DataType<HYPERION_TYPE_STRING> {
 
 #ifdef HYPERION_USE_HDF5
 template <TypeTag DT>
-hid_t
+constexpr hid_t
 H5DatatypeManager::datatype() {
   return datatypes()[DataType<DT>::h5t_id];
 }

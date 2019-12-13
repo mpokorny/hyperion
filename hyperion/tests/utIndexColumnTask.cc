@@ -118,6 +118,7 @@ table0_col(const std::string& name) {
           IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
           MeasRef(),
+          std::nullopt,
 #endif
           {},
           name_prefix);

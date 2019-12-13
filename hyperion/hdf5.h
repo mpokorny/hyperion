@@ -62,7 +62,7 @@ namespace hdf5 {
 #define HYPERION_MEAS_REF_RTYPE_DS HYPERION_NAMESPACE_PREFIX "rtype"
 #define HYPERION_MEAS_REF_NVAL_DS HYPERION_NAMESPACE_PREFIX "nval"
 #define HYPERION_MEAS_REF_VALUES_DS HYPERION_NAMESPACE_PREFIX "values"
-#define HYPERION_MEAS_REF_LINK_PREFIX HYPERION_NAMESPACE_PREFIX "mr" HYPERION_NAME_SEP
+#define HYPERION_MEAS_REF_INDEX_DS HYPERION_NAMESPACE_PREFIX "index"
 #endif // HYPERION_USE_CASACORE
 
 #define HYPERION_LARGE_TREE_MIN (64 * (1 << 10))
@@ -170,6 +170,7 @@ write_index_tree_to_attr(
   {
     std::string md_name = std::string(HYPERION_ATTRIBUTE_SID_PREFIX) + attr_name;
     hid_t md_space_id = H5Screate(H5S_SCALAR);
+    // FIXME: shouldn't I be using hyperion::string?
     hid_t md_attr_dt =
       hyperion::H5DatatypeManager::datatype<ValueType<std::string>::DataType>();
     hid_t md_attr_id =

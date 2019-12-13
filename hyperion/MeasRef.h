@@ -24,7 +24,9 @@
 # include <array>
 # include <memory>
 # include <optional>
+# include <unordered_map>
 # include <vector>
+
 # include <casacore/measures/Measures.h>
 #pragma GCC visibility pop
 
@@ -54,71 +56,89 @@ public:
   static const constexpr Legion::FieldID REF_TYPE_FID = 1;
   static const constexpr Legion::FieldID NUM_VALUES_FID = 2;
 
+  typedef unsigned M_CODE_TYPE;
+
+  static const constexpr Legion::FieldID M_CODE_FID = 0;
+
   Legion::LogicalRegion metadata_lr;
   Legion::LogicalRegion values_lr;
+  Legion::LogicalRegion index_lr;
 
   struct DataRegions {
     Legion::PhysicalRegion metadata;
     Legion::PhysicalRegion values;
+    std::optional<Legion::PhysicalRegion> index;
   };
 
   template <legion_privilege_mode_t MODE, int N, bool CHECK_BOUNDS=false>
   using ValueAccessor =
     Legion::FieldAccessor<
-    MODE,
-    VALUE_TYPE,
-    N,
-    Legion::coord_t,
-    Legion::AffineAccessor<VALUE_TYPE, N, Legion::coord_t>,
-    CHECK_BOUNDS>;
+      MODE,
+      VALUE_TYPE,
+      N,
+      Legion::coord_t,
+       Legion::AffineAccessor<VALUE_TYPE, N, Legion::coord_t>,
+      CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, int N, bool CHECK_BOUNDS=false>
   using RefTypeAccessor =
     Legion::FieldAccessor<
-    MODE,
-    REF_TYPE_TYPE,
-    N,
-    Legion::coord_t,
-    Legion::AffineAccessor<REF_TYPE_TYPE, N, Legion::coord_t>,
-    CHECK_BOUNDS>;
+      MODE,
+      REF_TYPE_TYPE,
+      N,
+      Legion::coord_t,
+      Legion::AffineAccessor<REF_TYPE_TYPE, N, Legion::coord_t>,
+      CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, int N, bool CHECK_BOUNDS=false>
   using MeasureClassAccessor =
     Legion::FieldAccessor<
-    MODE,
-    MEASURE_CLASS_TYPE,
-    N,
-    Legion::coord_t,
-    Legion::AffineAccessor<MEASURE_CLASS_TYPE, N, Legion::coord_t>,
-    CHECK_BOUNDS>;
+      MODE,
+      MEASURE_CLASS_TYPE,
+      N,
+      Legion::coord_t,
+      Legion::AffineAccessor<MEASURE_CLASS_TYPE, N, Legion::coord_t>,
+      CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, int N, bool CHECK_BOUNDS=false>
   using NumValuesAccessor =
     Legion::FieldAccessor<
-    MODE,
-    NUM_VALUES_TYPE,
-    N,
-    Legion::coord_t,
-    Legion::AffineAccessor<NUM_VALUES_TYPE, N, Legion::coord_t>,
-    CHECK_BOUNDS>;
+      MODE,
+      NUM_VALUES_TYPE,
+      N,
+      Legion::coord_t,
+      Legion::AffineAccessor<NUM_VALUES_TYPE, N, Legion::coord_t>,
+      CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using MCodeAccessor =
+    Legion::FieldAccessor<
+      MODE,
+      M_CODE_TYPE,
+      1,
+      Legion::coord_t,
+      Legion::AffineAccessor<M_CODE_TYPE, 1, Legion::coord_t>,
+      CHECK_BOUNDS>;
 
   MeasRef() {}
 
   MeasRef(
     Legion::LogicalRegion metadata_lr_,
-    Legion::LogicalRegion values_lr_)
+    Legion::LogicalRegion values_lr_,
+    Legion::LogicalRegion index_lr_)
     : metadata_lr(metadata_lr_)
-    , values_lr(values_lr_) {
+    , values_lr(values_lr_)
+    , index_lr(index_lr_) {
     assert(metadata_lr != Legion::LogicalRegion::NO_REGION);
   }
 
-  MeasRef(
-    Legion::LogicalRegion metadata_lr_,
-    std::optional<Legion::LogicalRegion> values_lr_)
-    : MeasRef(
-        metadata_lr_,
-        values_lr_.value_or(Legion::LogicalRegion::NO_REGION)) {
-  }
+  // MeasRef(
+  //   Legion::LogicalRegion metadata_lr_,
+  //   std::optional<Legion::LogicalRegion> values_lr_)
+  //   : MeasRef(
+  //       metadata_lr_,
+  //       values_lr_.value_or(Legion::LogicalRegion::NO_REGION)) {
+  // }
 
   bool
   operator==(const MeasRef& rhs) const {
@@ -131,6 +151,7 @@ public:
   }
 
   std::tuple<
+    Legion::RegionRequirement,
     Legion::RegionRequirement,
     std::optional<Legion::RegionRequirement>>
   requirements(legion_privilege_mode_t mode) const;
@@ -163,21 +184,23 @@ public:
   create(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    std::vector<casacore::MeasRef<Ms>>& meas_ref) {
+    const std::vector<std::tuple<casacore::MeasRef<Ms>, unsigned>>& meas_refs,
+    bool no_index=false) {
+
     if (false) assert(false);
-#define CREATE(M)                                                       \
-    else if (typeid(MClassT<M>::type).hash_code() == typeid(Ms).hash_code()) { \
-      std::vector<casacore::MRBase*> mrbs;                              \
-      mrbs.reserve(meas_ref.size());                                    \
-      std::transform(                                                   \
-        meas_ref.begin(),                                               \
-        meas_ref.end(),                                                 \
-        std::back_inserter(mrbs),                                       \
-        [](auto& mr) { return &mr; });                                  \
-      return create(ctx, rt, mrbs, M);                                  \
+#define CREATE(MC)                                                      \
+    else if (typeid(MClassT<MC>::type).hash_code() == typeid(Ms).hash_code()) { \
+      std::vector<std::tuple<casacore::MRBase*, unsigned>> mrbs;        \
+      mrbs.reserve(meas_refs.size());                                   \
+      for (auto& [mr, c] : meas_refs)                                   \
+        mrbs.emplace_back(                                              \
+          const_cast<casacore::MRBase*>(                                \
+            static_cast<const casacore::MRBase*>(&mr)),                 \
+          c);                                                           \
+      return create(ctx, rt, mrbs, MC, no_index);                       \
     }
     HYPERION_FOREACH_MCLASS(CREATE)
-#undef CM
+#undef CREATE
     else assert(false);
   }
 
@@ -187,62 +210,77 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const casacore::MeasRef<Ms>& meas_ref) {
-    std::vector<casacore::MeasRef<Ms>> mrs{meas_ref};
-    return create<Ms>(ctx, rt, mrs);
+    std::vector<std::tuple<casacore::MeasRef<Ms>, unsigned>> mrs{{meas_ref, 0}};
+    return create<Ms>(ctx, rt, mrs, true);
   }
 
   static MeasRef
   create(
     Legion::Context ctx,
     Legion::Runtime *rt,
-    const std::vector<casacore::MRBase*>& mrbs,
-    MClass klass);
+    const std::vector<std::tuple<casacore::MRBase*, unsigned>>& mrbs,
+    MClass klass,
+    bool no_index=false);
 
-  static std::array<Legion::LogicalRegion, 2>
+  static std::array<Legion::LogicalRegion, 3>
   create_regions(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const IndexTreeL& metadata_tree,
-    const IndexTreeL& value_tree);
+    const IndexTreeL& value_tree,
+    bool no_index=false);
 
-  std::vector<std::unique_ptr<casacore::MRBase>>
+  std::tuple<
+    std::vector<std::unique_ptr<casacore::MRBase>>,
+    std::unordered_map<unsigned, unsigned>>
   make(Legion::Context ctx, Legion::Runtime* rt) const;
 
   template <typename Ms>
-  std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>>
+  std::tuple<
+    std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>>,
+    std::unordered_map<unsigned, unsigned>>
   make(Legion::Context ctx, Legion::Runtime* rt) const {
 
-    std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>> result;
     auto mrbs = make(ctx, rt);
-    result.reserve(mrbs.size());
-    for (auto&& mrb : mrbs) {
+    std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>> tmrs;
+    tmrs.reserve(std::get<0>(mrbs).size());
+    for (auto&& mrb : std::get<0>(mrbs)) {
       auto mr =
         std::dynamic_pointer_cast<typename casacore::MeasRef<Ms>>(
           std::shared_ptr<casacore::MRBase>(std::move(mrb)));
       if (mr)
-        result.push_back(mr);
+        tmrs.push_back(mr);
+      else
+        return
+          std::make_tuple(
+            std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>>(),
+            std::unordered_map<unsigned, unsigned>());
     }
-    return result;
+    return std::make_tuple(tmrs, std::get<1>(mrbs));
   }
 
-  static std::vector<std::unique_ptr<casacore::MRBase>>
+  static std::tuple<
+    std::vector<std::unique_ptr<casacore::MRBase>>,
+    std::unordered_map<unsigned, unsigned>>
   make(Legion::Runtime* rt, DataRegions prs);
 
   template <typename Ms>
-  static std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>>
+  static std::tuple<
+    std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>>,
+    std::unordered_map<unsigned, unsigned>>
   make(Legion::Runtime* rt, DataRegions prs) {
 
-    std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>> result;
     auto mrbs = make(rt, prs);
-    result.reserve(mrbs.size());
-    for (auto&& mrb : mrbs) {
+    std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>> tmrs;
+    tmrs.reserve(std::get<0>(mrbs).size());
+    for (auto&& mrb : std::get<0>(mrbs)) {
       auto mr =
         std::dynamic_pointer_cast<typename casacore::MeasRef<Ms>>(
           std::shared_ptr<casacore::MRBase>(std::move(mrb)));
-      if (mr)
-        result.push_back(mr);
+      assert(mr);
+      tmrs.push_back(mr);
     }
-    return result;
+    return std::make_tuple(tmrs, std::get<1>(mrbs));
   }
 
   void

@@ -25,124 +25,158 @@ using namespace hyperion;
 HYPERION_FOREACH_MCLASS(MCLASS_NAME)
 #undef MCLASS_NAME
 
-std::tuple<hyperion::MClass, std::vector<std::unique_ptr<casacore::MRBase>>>
+std::optional<
+  std::tuple<
+    hyperion::MClass,
+    std::vector<std::tuple<std::unique_ptr<casacore::MRBase>, unsigned>>,
+    std::optional<std::string>>>
 hyperion::get_meas_refs(
   const casacore::Table& table,
-  const std::optional<std::string>& colname) {
+  const std::string& colname) {
 
-  std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>> result;
-  std::get<0>(result) = M_NONE;
+  std::optional<
+    std::tuple<
+      MClass,
+      std::vector<std::tuple<std::unique_ptr<casacore::MRBase>, unsigned>>,
+      std::optional<std::string>>>
+    result;
 
-  if (colname) {
-    bool has_measinfo = false;
-    {
-      auto tcol = casacore::TableColumn(table, colname.value());
-      auto kws = tcol.keywordSet();
-      auto nf = kws.nfields();
-      for (unsigned f = 0; !has_measinfo && f < nf; ++f) {
-        std::string name = kws.name(f);
-        auto dt = kws.dataType(f);
-        has_measinfo =
-          (name == "MEASINFO" && dt == casacore::DataType::TpRecord);
+  std::optional<unsigned> measinfo_index;
+  auto tcol = casacore::TableColumn(table, colname);
+  auto kws = tcol.keywordSet();
+  auto nf = kws.nfields();
+  for (unsigned f = 0; !measinfo_index && f < nf; ++f) {
+    std::string name = kws.name(f);
+    auto dt = kws.dataType(f);
+    if (name == "MEASINFO" && dt == casacore::DataType::TpRecord)
+      measinfo_index = f;
+  }
+  if (measinfo_index) {
+    result =
+      std::make_tuple(
+        M_NONE,
+        std::vector<std::tuple<std::unique_ptr<casacore::MRBase>, unsigned>>(),
+        std::optional<std::string>());
+    auto& [mc, mrbs, refcol] = result.value();
+    casacore::TableMeasColumn tmc(table, colname);
+    const casacore::TableMeasDescBase& tmd = tmc.measDesc();
+    if (!tmd.isRefCodeVariable() && !tmd.isOffsetVariable()) {
+      std::string mtype = tmd.type();
+      if (false) {}
+#define GET_MR(MC)                                                    \
+      else if (MClassT<MC>::name == mtype) {                          \
+        mc = MC;                                                      \
+        auto code = tmd.getRefCode();                                 \
+        if (tmc.isScalar()) {                                         \
+          casacore::ScalarMeasColumn<MClassT<MC>::type>               \
+            smc(table, colname);                                      \
+          mrbs.emplace_back(                                          \
+            std::make_unique<casacore::MeasRef<MClassT<MC>::type>>(   \
+              smc.getMeasRef()),                                      \
+            code);                                                    \
+        } else {                                                      \
+          casacore::ArrayMeasColumn<MClassT<MC>::type>                \
+            amc(table, colname);                                      \
+          mrbs.emplace_back(                                          \
+            std::make_unique<casacore::MeasRef<MClassT<MC>::type>>(   \
+              amc.getMeasRef()),                                      \
+            code);                                                    \
+        }                                                             \
       }
-    }
-    if (has_measinfo) {
-      casacore::TableMeasColumn tmc(table, colname.value());
-      const casacore::TableMeasDescBase& tmd = tmc.measDesc();
-      if (!tmd.isRefCodeVariable() && !tmd.isOffsetVariable()) {
-        std::string mtype = tmd.type();
+      HYPERION_FOREACH_MCLASS(GET_MR)
+#undef GET_MR
+      else { assert(false); }
+    } else {
+      auto mi = casacore::Record(kws.asRecord(measinfo_index.value()));
+      std::cout << colname << " has variable MeasRef" << std::endl
+                << mi << std::endl;
+      if (mi.fieldNumber("RefOff") >= 0) {
+        std::cerr << "Row measures with variable offsets are unsupported"
+                  << std::endl;
+        assert(false);
+      }
+      // FIXME: must find a way to propagate i2c, i2t, and refcol back to the
+      // caller, and into a Column. Will need a way to handle unexpected
+      // reference columns in an MS, too, as refcols can apparently be
+      // undocumented.
+      std::vector<unsigned> i2c;
+      auto vrc = mi.fieldNumber("VarRefCol");
+      if (vrc >= 0) {
+        std::string mtype = mi.asString("type");
+        mtype[0] = std::toupper(mtype[0]); // FIXME: case-insensitive?
+        refcol = mi.asString(vrc);
+        auto vrt = mi.fieldNumber("TabRefTypes");
+        if (table.tableDesc().columnDesc(refcol.value()).dataType()
+            == casacore::DataType::TpInt
+            && vrt >= 0) {
+          auto cs = mi.toArrayuInt("TabRefCodes").tovector();
+          i2c.reserve(cs.size());
+          for (size_t i = 0; i < cs.size(); ++i)
+            i2c.emplace_back(cs[i]);
+        } else {
+          // support for string-valued measure reference columns isn't hard to
+          // add, but leave it unimplemented for now
+          std::cerr << "String-valued measure reference columns not supported"
+                    << std::endl;
+          assert(false);
+        }
         if (false) {}
-#define GET_MEAS_REF(MC)                                              \
-        else if (MClassT<MC>::name == mtype) {                        \
-          std::get<0>(result) = MC;                                   \
-          if (tmc.isScalar()) {                                       \
-            casacore::ScalarMeasColumn<MClassT<MC>::type>             \
-              smc(table, colname.value());                            \
-            std::get<1>(result).emplace_back(                         \
-              std::make_unique<casacore::MeasRef<MClassT<MC>::type>>( \
-                smc.getMeasRef()));                                   \
-          } else {                                                    \
-            casacore::ArrayMeasColumn<MClassT<MC>::type>              \
-              amc(table, colname.value());                            \
-            std::get<1>(result).emplace_back(                         \
-              std::make_unique<casacore::MeasRef<MClassT<MC>::type>>( \
-                amc.getMeasRef()));                                   \
-          }                                                           \
+#define GET_MRS(MC)                                                     \
+        else if (MClassT<MC>::name == mtype) {                          \
+          mc = MC;                                                      \
+          if (i2c.size() == 0) {                                        \
+            int nall, nextra;                                           \
+            const unsigned* codes;                                      \
+            [[maybe_unused]] auto types =                               \
+              MClassT<MC>::type::allMyTypes(nall, nextra, codes);       \
+            i2c.reserve(nall);                                          \
+            for (int i = 0; i < nall; ++i)                              \
+              i2c.emplace_back(codes[i]);                               \
+          }                                                             \
+          for (auto& code : i2c) {                                      \
+            auto tp = MClassT<MC>::type::castType(code);                \
+            mrbs.emplace_back(                                          \
+              std::make_unique<casacore::MeasRef<MClassT<MC>::type>>(tp), \
+              code);                                                    \
+          }                                                             \
         }
-        HYPERION_FOREACH_MCLASS(GET_MEAS_REF)
-#undef GET_MEAS_REF
+        HYPERION_FOREACH_MCLASS(GET_MRS)
+#undef GET_MRS
         else { assert(false); }
-      } else {
-        std::cout << colname.value() << " has variable MeasRef" << std::endl;
-      }
-    }
-  } else {
-    bool has_measinfo = false;
-    auto kws = table.keywordSet();
-    auto nf = kws.nfields();
-    for (unsigned f = 0; !has_measinfo && f < nf; ++f) {
-      std::string name = kws.name(f);
-      auto dt = kws.dataType(f);
-      if (name == "MEASINFO" && dt == casacore::DataType::TpRecord) {
-        has_measinfo = true;
-        // NB: this doesn't occur in normal MSs, but it exists in the logical
-        // model of hyperion Tables, so it's nice to have, but the
-        // implementation doesn't use standard casacore TableMeasures methods
-        // and is thus somewhat ad hoc
-        casacore::MeasureHolder mh;
-        casacore::String err;
-        auto converted = mh.fromRecord(err, kws.asRecord(f));
-        if (converted) {
-          if (false) {}
-#define MK_MR(MC)                                                       \
-          else if (MClassT<MC>::holds(mh)) {                            \
-            MClassT<MC>::type m = MClassT<MC>::get(mh);                 \
-            std::get<0>(result) = MC;                                   \
-            std::get<1>(result).emplace_back(                           \
-              std::make_unique<casacore::MeasRef<MClassT<MC>::type>>(   \
-                m.getRef()));                                           \
-          }
-          HYPERION_FOREACH_MCLASS(MK_MR)
-#undef MK_MR
-          else { assert(false); }
-        }
       }
     }
   }
   return result;
 }
 
-std::unordered_map<std::string, hyperion::MeasRef>
+std::tuple<std::string, hyperion::MeasRef>
 hyperion::create_named_meas_refs(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const std::vector<
-    std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>>& mrs) {
+  const std::tuple<
+    hyperion::MClass,
+    std::vector<std::tuple<casacore::MRBase*, unsigned>>>& mrs) {
 
-  std::unordered_map<std::string, MeasRef> result;
-  std::for_each(
-    mrs.begin(),
-    mrs.end(),
-    [&result, &ctx, rt](auto& mc_mrbs) {
-      auto& [mc, mrbs] = mc_mrbs;
-      std::string nm;
-      switch (mc) {
-#define NM(MC)                                  \
-        case MC:                                \
-          nm = toupper(MClassT<MC>::name);      \
-          break;
-        HYPERION_FOREACH_MCLASS(NM)
+  std::tuple<std::string, MeasRef> result;
+  auto& [mc, mrbs] = mrs;
+  switch (mc) {
+#define NM(MC)                                          \
+    case MC:                                            \
+      std::get<0>(result) = toupper(MClassT<MC>::name); \
+      break;
+    HYPERION_FOREACH_MCLASS(NM)
 #undef NM
-        default:
-          assert(false);
-          break;
-      }
-      std::vector<casacore::MRBase*> pmrbs;
-      pmrbs.reserve(mrbs.size());
-      for (auto& mrb : mrbs)
-        pmrbs.push_back(mrb.get());
-      result.emplace(nm, MeasRef::create(ctx, rt, pmrbs, mc));
-    });
+    default:
+      assert(false);
+      break;
+  }
+  std::vector<std::tuple<casacore::MRBase*, unsigned>> pmrbs;
+  pmrbs.reserve(mrbs.size());
+  for (auto& mct : mrbs) {
+    auto& [mrb, code] = mct;
+    pmrbs.emplace_back(mrb, code);
+  }
+  std::get<1>(result) = MeasRef::create(ctx, rt, pmrbs, mc);
   return result;
 }
 

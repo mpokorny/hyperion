@@ -165,6 +165,7 @@ table0_col(
             IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
             mr,
+            std::nullopt,
 #endif
             {},
             name_prefix);
@@ -185,6 +186,7 @@ table0_col(
             IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
             mr,
+            std::nullopt,
 #endif
             Keywords::kw_desc_t{{"perfect", ValueType<short>::DataType}},
             name_prefix);
@@ -205,6 +207,7 @@ table0_col(
             IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}),
 #ifdef HYPERION_USE_CASACORE
             mr,
+            std::nullopt,
 #endif
             {},
             name_prefix);

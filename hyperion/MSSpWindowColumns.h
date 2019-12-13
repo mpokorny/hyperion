@@ -23,6 +23,8 @@
 #pragma GCC visibility push(default)
 # include <casacore/measures/Measures/MFrequency.h>
 # include <casacore/measures/Measures/MCFrequency.h>
+
+# include <any>
 # include <memory>
 # include <optional>
 # include <unordered_map>
@@ -31,7 +33,8 @@
 
 namespace hyperion {
 
-class HYPERION_API MSSpWindowColumns {
+class HYPERION_API MSSpWindowColumns
+  : public MSTableColumnsBase {
 public:
 
   typedef MSTableColumns<MS_SPECTRAL_WINDOW> C;
@@ -39,25 +42,7 @@ public:
   MSSpWindowColumns(
     Legion::Runtime* rt,
     const Legion::RegionRequirement& rows_requirement,
-    const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&
-    regions);
-
-private:
-
-  template <TypeTag T, int N, legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using FieldAccessor =
-    Legion::FieldAccessor<
-    MODE,
-    typename DataType<T>::ValueType,
-    N,
-    Legion::coord_t,
-    Legion::AffineAccessor<
-      typename DataType<T>::ValueType,
-      N,
-      Legion::coord_t>,
-    CHECK_BOUNDS>;
-
-public:
+    const std::unordered_map<std::string, Regions>& regions);
 
   static const constexpr unsigned row_rank = 1;
 
@@ -152,7 +137,8 @@ public:
       const Legion::Point<refFrequency_rank, Legion::coord_t>& pt,
       const casacore::MFrequency& val) {
 
-      auto f = T::m_convert(val);
+      auto cvt = T::m_cm.convert_at(pt);
+      auto f = cvt(val);
       T::m_ref_frequency[pt] = f.get(T::m_units).getValue();
     }
   };
@@ -165,10 +151,11 @@ public:
 
     casacore::MFrequency
     read(const Legion::Point<refFrequency_rank, Legion::coord_t>& pt) const {
+
       const DataType<HYPERION_TYPE_DOUBLE>::ValueType& f =
         T::m_ref_frequency[pt];
-      return
-        casacore::MFrequency(casacore::Quantity(f, T::m_units), *T::m_mr);
+      auto mr = T::m_cm.meas_ref_at(pt);
+      return casacore::MFrequency(casacore::Quantity(f, T::m_units), mr);
     }
   };
 
@@ -177,24 +164,26 @@ public:
   public:
     RefFrequencyMeasAccessorBase(
       const Legion::PhysicalRegion& region,
-      const std::shared_ptr<casacore::MeasRef<casacore::MFrequency>>& mr)
+      const mr_t<casacore::MFrequency>* mr)
       : m_ref_frequency(
         region,
         C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY))
-      , m_mr(mr)
-      , m_units(C::units.at(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY)) {
-      m_convert.setOut(*m_mr);
+      , m_units(C::units.at(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY))
+      , m_cm(mr) {
     }
 
   protected:
 
     RefFrequencyAccessor<MODE, CHECK_BOUNDS> m_ref_frequency;
 
-    std::shared_ptr<casacore::MeasRef<casacore::MFrequency>> m_mr;
-
     const char* m_units;
 
-    casacore::MFrequency::Convert m_convert;
+    ColumnMeasure<
+      casacore::MFrequency,
+      row_rank,
+      refFrequency_rank,
+      READ_ONLY,
+      CHECK_BOUNDS> m_cm;
   };
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
@@ -232,7 +221,9 @@ public:
 
   bool
   has_refFrequencyMeas() const {
-    return has_refFrequency() && m_ref_frequency_mr;
+    return
+      has_refFrequency()
+      && m_mrs.count(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -241,33 +232,10 @@ public:
     return
       RefFrequencyMeasAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY),
-        m_ref_frequency_mr);
+        std::any_cast<mr_t<casacore::MFrequency>>(
+          &m_mrs.at(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY)));
   }
 #endif // HYPERION_USE_CASACORE
-
-  //
-  // MEAS_FREQ_REF
-  //
-  static const constexpr unsigned measFreqRef_rank =
-    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_MEAS_FREQ_REF];
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using MeasFreqRefAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, measFreqRef_rank, MODE, CHECK_BOUNDS>;
-
-  bool
-  has_measFreqRef() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_MEAS_FREQ_REF) > 0;
-  }
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  MeasFreqRefAccessor<MODE, CHECK_BOUNDS>
-  measFreqRef() const {
-    return
-      MeasFreqRefAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_MEAS_FREQ_REF),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_MEAS_FREQ_REF));
-  }
 
   //
   // CHAN_FREQ
@@ -305,8 +273,8 @@ public:
       const Legion::Point<chanFreq_rank, Legion::coord_t>& pt,
       const casacore::MFrequency& val) {
 
-      auto m = 0; // FIXME: T::m_meas_freq_mr[pt[0]];
-      auto f = T::m_convert[m](val);
+      auto cvt = T::m_cm.convert_at(pt);
+      auto f = cvt(val);
       T::m_chan_freq[pt] = f.get(T::m_units).getValue();
     }
   };
@@ -321,9 +289,9 @@ public:
     read(const Legion::Point<chanFreq_rank, Legion::coord_t>& pt) const {
       const DataType<HYPERION_TYPE_DOUBLE>::ValueType& f =
         T::m_chan_freq[pt];
-      auto m = 0; // FIXME: T::m_meas_freq_mr[pt[0]];
-      return
-        casacore::MFrequency(casacore::Quantity(f, T::m_units), *T::m_mr[m]);
+
+      auto mr = T::m_cm.meas_ref_at(pt);
+      return casacore::MFrequency(casacore::Quantity(f, T::m_units), mr);
     }
   };
 
@@ -332,34 +300,26 @@ public:
   public:
     ChanFreqMeasAccessorBase(
       const Legion::PhysicalRegion& chan_freq_region,
-      const Legion::PhysicalRegion& meas_freq_ref_region,
-      const std::vector<
-        std::shared_ptr<casacore::MeasRef<casacore::MFrequency>>>& mr)
+      const mr_t<casacore::MFrequency>* mr)
       : m_chan_freq(
         chan_freq_region,
         C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ))
-      , m_meas_freq_ref(
-        meas_freq_ref_region,
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_MEAS_FREQ_REF))
-      , m_mr(mr)
-      , m_units(C::units.at(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ)){
-      m_convert.resize(m_mr.size());
-      for (size_t i = 0; i < m_mr.size(); ++i)
-        m_convert[i].setOut(*m_mr[i]);
+      , m_units(C::units.at(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ))
+      , m_cm(mr) {
     }
 
   protected:
 
     ChanFreqAccessor<MODE, CHECK_BOUNDS> m_chan_freq;
 
-    MeasFreqRefAccessor<READ_ONLY, CHECK_BOUNDS> m_meas_freq_ref;
-
-    std::vector<std::shared_ptr<casacore::MeasRef<casacore::MFrequency>>>
-    m_mr;
-
     const char* m_units;
 
-    std::vector<casacore::MFrequency::Convert> m_convert;
+    ColumnMeasure<
+      casacore::MFrequency,
+      row_rank,
+      chanFreq_rank,
+      READ_ONLY,
+      CHECK_BOUNDS> m_cm;
   };
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
@@ -397,8 +357,9 @@ public:
 
   bool
   has_chanFreqMeas() const {
-    return has_chanFreq() && m_chan_freq_mr.size() > 0
-      && has_measFreqRef();
+    return
+      has_chanFreq()
+      && m_mrs.count(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -407,8 +368,8 @@ public:
     return
       ChanFreqMeasAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ),
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_MEAS_FREQ_REF),
-        m_chan_freq_mr);
+        std::any_cast<mr_t<casacore::MFrequency>>(
+          &m_mrs.at(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ)));
   }
 #endif
 
@@ -786,10 +747,8 @@ private:
   std::unordered_map<C::col_t, Legion::PhysicalRegion> m_regions;
 
 #ifdef HYPERION_USE_CASACORE
-  std::shared_ptr<casacore::MeasRef<casacore::MFrequency>>
-  m_ref_frequency_mr;
-  std::vector<std::shared_ptr<casacore::MeasRef<casacore::MFrequency>>>
-  m_chan_freq_mr;
+  // the values of this map are of type mr_t<M> for some M
+  std::unordered_map<C::col_t, std::any> m_mrs;
 #endif
 };
 

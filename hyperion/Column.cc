@@ -73,6 +73,7 @@ Column::create(
   const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
   const MeasRef& meas_ref,
+  const std::optional<std::string>& ref_column,
 #endif
   const Keywords::kw_desc_t& kws,
   const std::string& name_prefix) {
@@ -88,12 +89,14 @@ Column::create(
     IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    fa.allocate_field(sizeof(hyperion::string), METADATA_NAME_FID);
+    fa.allocate_field(sizeof(METADATA_NAME_TYPE), METADATA_NAME_FID);
     rt->attach_name(fs, METADATA_NAME_FID, "name");
-    fa.allocate_field(sizeof(hyperion::string), METADATA_AXES_UID_FID);
+    fa.allocate_field(sizeof(METADATA_AXES_UID_TYPE), METADATA_AXES_UID_FID);
     rt->attach_name(fs, METADATA_AXES_UID_FID, "axes_uid");
-    fa.allocate_field(sizeof(hyperion::TypeTag), METADATA_DATATYPE_FID);
+    fa.allocate_field(sizeof(METADATA_DATATYPE_TYPE), METADATA_DATATYPE_FID);
     rt->attach_name(fs, METADATA_DATATYPE_FID, "datatype");
+    fa.allocate_field(sizeof(METADATA_REF_COL_TYPE), METADATA_REF_COL_FID);
+    rt->attach_name(fs, METADATA_REF_COL_FID, "refcol");
     metadata = rt->create_logical_region(ctx, is, fs);
     {
       std::string metadata_name = component_name_prefix + "/metadata";
@@ -104,13 +107,21 @@ Column::create(
       req.add_field(METADATA_NAME_FID);
       req.add_field(METADATA_AXES_UID_FID);
       req.add_field(METADATA_DATATYPE_FID);
+      req.add_field(METADATA_REF_COL_FID);
       PhysicalRegion pr = rt->map_region(ctx, req);
       const NameAccessor<WRITE_ONLY> nm(pr, METADATA_NAME_FID);
       const AxesUidAccessor<WRITE_ONLY> au(pr, METADATA_AXES_UID_FID);
       const DatatypeAccessor<WRITE_ONLY> dt(pr, METADATA_DATATYPE_FID);
+      const RefColAccessor<WRITE_ONLY> rc(pr, METADATA_REF_COL_FID);
       nm[0] = name;
       au[0] = axes_uid;
       dt[0] = datatype;
+      if (ref_column.value_or("X") == "") {
+        // FIXME: log error message: ref_column argument value cannot be an
+        // empty string
+        assert(ref_column.value_or("X") != "");
+      }
+      rc[0] = ref_column.value_or("");
       rt->unmap_region(ctx, pr);
     }
   }
@@ -170,6 +181,7 @@ Column::create(
   const Legion::LogicalRegion& values,
 #ifdef HYPERION_USE_CASACORE
   const MeasRef& meas_ref,
+  const std::optional<std::string>& ref_column,
 #endif
   const Keywords& kws) {
 
@@ -318,6 +330,25 @@ Column::axes(Context ctx, Runtime* rt) const {
     result[pid[0]] = ax[*pid];
   rt->unmap_region(ctx, pr);
   return result;
+}
+
+std::optional<std::string>
+Column::ref_column(Context ctx, Runtime* rt) const {
+  RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
+  req.add_field(METADATA_REF_COL_FID);
+  auto pr = rt->map_region(ctx, req);
+  hyperion::string result = ref_column(pr);
+  rt->unmap_region(ctx, pr);
+  return
+    (result.size() > 0)
+    ? std::make_optional<std::string>(result)
+    : std::nullopt;
+}
+
+hyperion::string
+Column::ref_column(const Legion::PhysicalRegion& metadata) {
+  const RefColAccessor<READ_ONLY> rc(metadata, METADATA_REF_COL_FID);
+  return rc[0];
 }
 
 unsigned

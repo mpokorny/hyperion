@@ -65,14 +65,15 @@ public:
   }
 
   template <typename T>
-  void
+  std::optional<std::string>
   add_scalar_column(const casacore::Table& table, const std::string& name) {
 
-    add_column(table, ScalarColumnBuilder<D>::template generator<T>(name)());
+    return
+      add_column(table, ScalarColumnBuilder<D>::template generator<T>(name)());
   }
 
   template <typename T, int DIM>
-  void
+  std::optional<std::string>
   add_array_column(
     const casacore::Table& table,
     const std::string& name,
@@ -84,11 +85,12 @@ public:
       element_axes.begin(),
       element_axes.end(),
       std::back_inserter(axes));
-    add_column(
-      table,
-      ArrayColumnBuilder<D, DIM>::template generator<T>(
-        name,
-        element_shape)(axes));
+    return
+      add_column(
+        table,
+        ArrayColumnBuilder<D, DIM>::template generator<T>(
+          name,
+          element_shape)(axes));
   }
 
   void
@@ -108,19 +110,6 @@ public:
   void
   add_row() {
     add_row(std::unordered_map<std::string, std::any>());
-  }
-
-  const std::vector<
-    std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>>&
-  meas_records() const {
-    return m_meas_records;
-  }
-
-  void
-  add_meas_record(
-    std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>&& rec) {
-    if (std::get<0>(rec) != M_NONE)
-      m_meas_records.emplace_back(std::move(rec));
   }
 
   std::unordered_set<std::string>
@@ -182,7 +171,7 @@ protected:
   }
 
   template <TypeTag DT>
-  void
+  std::optional<std::string>
   add_from_table_column(
     const casacore::Table& table,
     const std::string& nm,
@@ -204,23 +193,24 @@ protected:
         measure_name = measure_name.value().substr(pos);
       }
     }
+    std::optional<std::string> result;
     switch (element_axes.size()) {
     case 0:
-      add_scalar_column<VT>(table, nm);
+      result = add_scalar_column<VT>(table, nm);
       break;
 
     case 1:
-      add_array_column<VT, 1>(table, nm, element_axes, size<1>);
+      result = add_array_column<VT, 1>(table, nm, element_axes, size<1>);
       array_names.insert(nm);
       break;
 
     case 2:
-      add_array_column<VT, 2>(table, nm, element_axes, size<2>);
+      result = add_array_column<VT, 2>(table, nm, element_axes, size<2>);
       array_names.insert(nm);
       break;
 
     case 3:
-      add_array_column<VT, 3>(table, nm, element_axes, size<3>);
+      result = add_array_column<VT, 3>(table, nm, element_axes, size<3>);
       array_names.insert(nm);
       break;
 
@@ -228,18 +218,25 @@ protected:
       assert(false);
       break;
     }
+    return result;
   }
 
-  void
+  std::optional<std::string>
   add_column(
     const casacore::Table& table,
     std::unique_ptr<ColumnBuilder<D>>&& col) {
 
+    std::optional<std::string> result;
     std::shared_ptr<ColumnBuilder<D>> scol = std::move(col);
     assert(scol->num_rows() == m_num_rows);
     assert(m_columns.count(scol->name()) == 0);
     m_columns[scol->name()] = scol;
-    scol->add_meas_record(get_meas_refs(table, scol->name()));
+    auto mr = get_meas_refs(table, scol->name());
+    if (mr) {
+      if (std::get<2>(mr.value()))
+        result = std::get<2>(mr.value()).value();
+      scol->set_meas_record(std::move(mr.value()));
+    }
     auto tcol = casacore::TableColumn(table, scol->name());
     auto kws = tcol.keywordSet();
     auto nf = kws.nfields();
@@ -263,6 +260,7 @@ protected:
         }
       }
     }
+    return result;
   }
 
   std::string m_name;
@@ -270,9 +268,6 @@ protected:
   std::unordered_map<std::string, std::shared_ptr<ColumnBuilder<D>>> m_columns;
 
   size_t m_num_rows;
-
-  std::vector<std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>>
-  m_meas_records;
 
 public:
 
@@ -308,17 +303,20 @@ public:
       }
     }
     // add a column to TableBuilderT for each of the selected columns
+    //
     std::for_each(
       actual_column_selections.begin(),
       actual_column_selections.end(),
       [&table, &result, &tdesc, &element_axes, &array_names](auto& nm) {
         auto axes = element_axes.at(nm);
         auto cdesc = tdesc[nm];
+        std::optional<std::string> refcol;
         switch (cdesc.dataType()) {
 #define ADD_FROM_TCOL(DT)                                               \
           case DataType<DT>::CasacoreTypeTag:                           \
-            result.template add_from_table_column<DT>(                  \
-              table, nm, axes, array_names);                          \
+            refcol =                                                    \
+              result.template add_from_table_column<DT>(                \
+                table, nm, axes, array_names);                          \
             break;
           HYPERION_FOREACH_DATATYPE(ADD_FROM_TCOL);
 #undef ADD_FROM_TCOL
@@ -326,11 +324,19 @@ public:
           assert(false);
           break;
         }
+        if (refcol) {
+          auto rc =
+            result.template add_from_table_column<HYPERION_TYPE_INT>(
+              table,
+              refcol.value(),
+              {static_cast<Axes>(0)},
+              array_names);
+          assert(!rc);
+        }
       });
 
     // get table keyword names and types
     {
-      result.add_meas_record(get_meas_refs(table));
       auto kws = table.keywordSet();
       auto nf = kws.nfields();
       for (unsigned f = 0; f < nf; ++f) {
@@ -421,8 +427,6 @@ from_ms(
      : (path / MSTable<T>::name));
 
   auto builder = TableBuilder::from_ms<T>(table_path, column_selections);
-
-  auto meas_refs = create_named_meas_refs(ctx, rt, builder.meas_records());
 
   auto result =
     Table::create(

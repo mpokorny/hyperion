@@ -25,15 +25,18 @@
 # include <casacore/measures/Measures/MCDirection.h>
 # include <casacore/measures/Measures/MEpoch.h>
 # include <casacore/measures/Measures/MCEpoch.h>
+# include <any>
 # include <memory>
 # include <optional>
 # include <unordered_map>
+# include <variant>
 # include <vector>
 #pragma GCC visibility pop
 
 namespace hyperion {
 
-class HYPERION_API MSFieldColumns {
+class HYPERION_API MSFieldColumns
+  : public MSTableColumnsBase {
 public:
 
   typedef MSTableColumns<MS_FIELD> C;
@@ -41,25 +44,7 @@ public:
   MSFieldColumns(
     Legion::Runtime* rt,
     const Legion::RegionRequirement& rows_requirement,
-    const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&
-    regions);
-
-private:
-
-  template <TypeTag T, int N, legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using FieldAccessor =
-    Legion::FieldAccessor<
-      MODE,
-      typename DataType<T>::ValueType,
-      N,
-      Legion::coord_t,
-      Legion::AffineAccessor<
-        typename DataType<T>::ValueType,
-        N,
-        Legion::coord_t>,
-      CHECK_BOUNDS>;
-
-public:
+    const std::unordered_map<std::string, Regions>& regions);
 
   static const constexpr unsigned row_rank = 1;
 
@@ -156,7 +141,8 @@ public:
       const Legion::Point<time_rank, Legion::coord_t>& pt,
       const casacore::MEpoch& val) {
 
-      auto t = T::m_convert(val);
+      auto cvt = T::m_cm.convert_at(pt);
+      auto t = cvt(val);
       T::m_time[pt] = t.get(T::m_units).getValue();
     }
   };
@@ -169,8 +155,10 @@ public:
 
     casacore::MEpoch
     read(const Legion::Point<time_rank, Legion::coord_t>& pt) const {
+
+      auto mr = T::m_cm.meas_ref_at(pt);
       const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t = T::m_time[pt];
-      return casacore::MEpoch(casacore::Quantity(t, T::m_units), *T::m_mr);
+      return casacore::MEpoch(casacore::Quantity(t, T::m_units), mr);
     }
   };
 
@@ -179,22 +167,24 @@ public:
   public:
     TimeMeasAccessorBase(
       const Legion::PhysicalRegion& region,
-      const std::shared_ptr<casacore::MeasRef<casacore::MEpoch>>& mr)
+      const mr_t<casacore::MEpoch>* mr)
       : m_time(region, C::fid(C::col_t::MS_FIELD_COL_TIME))
-      , m_mr(mr)
-      , m_units(C::col_t::MS_FIELD_COL_TIME) {
-      m_convert.setOut(*m_mr);
+      , m_units(C::col_t::MS_FIELD_COL_TIME)
+      , m_cm(mr) {
     }
 
   protected:
 
-    TimeAccessor<MODE, CHECK_BOUNDS> m_time;
-
-    std::shared_ptr<casacore::MeasRef<casacore::MEpoch>> m_mr;
-
     const char *m_units;
 
-    casacore::MEpoch::Convert m_convert;
+    TimeAccessor<MODE, CHECK_BOUNDS> m_time;
+
+    ColumnMeasure<
+      casacore::MEpoch,
+      row_rank,
+      row_rank,
+      READ_ONLY,
+      CHECK_BOUNDS> m_cm;
   };
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
@@ -230,7 +220,7 @@ public:
 
   bool
   has_timeMeas() const {
-    return has_time() && m_time_mr;
+    return has_time() && m_mrs.count(C::col_t::MS_FIELD_COL_TIME) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -239,7 +229,8 @@ public:
     return
       TimeMeasAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_TIME),
-        m_time_mr);
+        std::any_cast<mr_t<casacore::MEpoch>>(
+          &m_mrs.at(C::col_t::MS_FIELD_COL_TIME)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -306,6 +297,7 @@ public:
       static_assert(row_rank == 1);
       static_assert(delayDir_rank == 3);
 
+      auto cvt = T::m_cm.convert_at(pt);
       // until either the num_poly index space is writable or there's some
       // convention to interpret a difference in polynomial order, the following
       // precondition is intended to avoid unexpected results
@@ -313,7 +305,7 @@ public:
       assert(val.size() == static_cast<unsigned>(np) + 1);
 
       for (int i = 0; i < np + 1; ++i) {
-        auto d = T::m_convert(val[i]);
+        auto d = cvt(val[i]);
         auto vs = d.getAngle(T::m_units).getValue();
         T::m_delay_dir[Legion::Point<delayDir_rank>(pt[0], i, 0)] = vs[0];
         T::m_delay_dir[Legion::Point<delayDir_rank>(pt[0], i, 1)] = vs[1];
@@ -335,18 +327,19 @@ public:
       static_assert(row_rank == 1);
       static_assert(delayDir_rank == 3);
 
+      auto mr = T::m_cm.meas_ref_at(pt);
       const DataType<HYPERION_TYPE_DOUBLE>::ValueType* ds =
         T::m_delay_dir.ptr(Legion::Point<delayDir_rank>(pt[0], 0, 0));
 
       if (time == 0.0)
-        return to_mdirection(ds);
+        return to_mdirection(ds, mr);
 
       // TODO: support ephemerides as in casacore::MSFieldColumns
       std::vector<casacore::MDirection> dir_poly;
       auto np = T::m_num_poly[pt];
       dir_poly.reserve(np + 1);
       for (int i = 0; i < np + 1; ++i) {
-        dir_poly.push_back(to_mdirection(ds));
+        dir_poly.push_back(to_mdirection(ds, mr));
         ds += 2;
       }
       return interpolateDirMeas(dir_poly, time, T::m_time[pt]);
@@ -355,12 +348,14 @@ public:
   private:
 
     casacore::MDirection
-    to_mdirection(const DataType<HYPERION_TYPE_DOUBLE>::ValueType* ds) const {
+    to_mdirection(
+      const DataType<HYPERION_TYPE_DOUBLE>::ValueType* ds,
+      const casacore::MeasRef<casacore::MDirection>& mr) const {
       return
         casacore::MDirection(
           casacore::Quantity(ds[0], T::m_units),
           casacore::Quantity(ds[1], T::m_units),
-          *T::m_mr);
+          mr);
     };
   };
 
@@ -375,12 +370,12 @@ public:
       const Legion::PhysicalRegion& delay_dir_region,
       const Legion::PhysicalRegion& num_poly_region,
       const Legion::PhysicalRegion& time_region,
-      const std::shared_ptr<casacore::MeasRef<casacore::MDirection>>& mr)
+      const mr_t<casacore::MDirection>* mr)
       : m_units(units)
       , m_delay_dir(delay_dir_region, FID)
       , m_num_poly(num_poly_region, C::fid(C::col_t::MS_FIELD_COL_NUM_POLY))
-      , m_time(time_region, C::fid(C::col_t::MS_FIELD_COL_TIME)) {
-      m_convert.setOut(*mr);
+      , m_time(time_region, C::fid(C::col_t::MS_FIELD_COL_TIME))
+      , m_cm(mr) {
     }
 
   private:
@@ -393,8 +388,12 @@ public:
 
     TimeAccessor<READ_ONLY, CHECK_BOUNDS> m_time;
 
-    casacore::MDirection::Convert m_convert;
-
+    ColumnMeasure<
+      casacore::MDirection,
+      row_rank,
+      row_rank,
+      READ_ONLY,
+      CHECK_BOUNDS> m_cm;
   };
 
   template <
@@ -435,7 +434,7 @@ public:
 
   bool
   has_delayDirMeas() const {
-    return has_delayDir() && m_delay_dir_mr
+    return has_delayDir() && m_mrs.count(C::col_t::MS_FIELD_COL_DELAY_DIR) > 0
       && has_numPoly() && has_time();
   }
 
@@ -454,7 +453,8 @@ public:
         m_regions.at(C::col_t::MS_FIELD_COL_DELAY_DIR),
         m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
         m_regions.at(C::col_t::MS_FIELD_COL_TIME),
-        m_delay_dir_mr);
+        std::any_cast<mr_t<casacore::MDirection>>(
+          &m_mrs.at(C::col_t::MS_FIELD_COL_DELAY_DIR)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -493,7 +493,7 @@ public:
 
   bool
   has_phaseDirMeas() const {
-    return has_phaseDir() && m_phase_dir_mr
+    return has_phaseDir() && m_mrs.count(C::col_t::MS_FIELD_COL_PHASE_DIR) > 0
       && has_numPoly() && has_time();
   }
 
@@ -506,7 +506,8 @@ public:
         m_regions.at(C::col_t::MS_FIELD_COL_PHASE_DIR),
         m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
         m_regions.at(C::col_t::MS_FIELD_COL_TIME),
-        m_phase_dir_mr);
+        std::any_cast<mr_t<casacore::MDirection>>(
+          &m_mrs.at(C::col_t::MS_FIELD_COL_PHASE_DIR)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -545,7 +546,8 @@ public:
 
   bool
   has_referenceDirMeas() const {
-    return has_referenceDir() && m_reference_dir_mr
+    return has_referenceDir()
+      && m_mrs.count(C::col_t::MS_FIELD_COL_REFERENCE_DIR) > 0
       && has_numPoly() && has_time();
   }
 
@@ -558,7 +560,8 @@ public:
         m_regions.at(C::col_t::MS_FIELD_COL_REFERENCE_DIR),
         m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
         m_regions.at(C::col_t::MS_FIELD_COL_TIME),
-        m_reference_dir_mr);
+        std::any_cast<mr_t<casacore::MDirection>>(
+          &m_mrs.at(C::col_t::MS_FIELD_COL_REFERENCE_DIR)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -639,10 +642,8 @@ private:
   std::unordered_map<C::col_t, Legion::PhysicalRegion> m_regions;
 
 #ifdef HYPERION_USE_CASACORE
-  std::shared_ptr<casacore::MeasRef<casacore::MEpoch>> m_time_mr;
-  std::shared_ptr<casacore::MeasRef<casacore::MDirection>> m_delay_dir_mr;
-  std::shared_ptr<casacore::MeasRef<casacore::MDirection>> m_phase_dir_mr;
-  std::shared_ptr<casacore::MeasRef<casacore::MDirection>> m_reference_dir_mr;
+// the values of this map are of type mr_t<M> for some M
+  std::unordered_map<C::col_t, std::any> m_mrs;
 #endif
 
   static casacore::MDirection

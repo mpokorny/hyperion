@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 #include <hyperion/MSFieldColumns.h>
-#include <hyperion/MeasRef.h>
 
 #include <casacore/casa/BasicMath/Math.h>
+
+#include <optional>
 
 using namespace hyperion;
 using namespace Legion;
@@ -26,46 +27,27 @@ namespace cc = casacore;
 MSFieldColumns::MSFieldColumns(
   Runtime* rt,
   const RegionRequirement& rows_requirement,
-  const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&
-  regions)
+  const std::unordered_map<std::string, Regions>& regions)
   : m_rows_requirement(rows_requirement) {
 
-  for (auto& [nm, prs] : regions) {
-    if (prs.size() > 0) {
-      auto col = C::lookup_col(nm);
-      if (col) {
-        m_regions[col.value()] = prs[0];
-      } else {
+  for (auto& [nm, rgs] : regions) {
+    auto col = C::lookup_col(nm);
+    if (col) {
+      m_regions[col.value()] = rgs.values;
 #ifdef HYPERION_USE_CASACORE
-        auto col = C::lookup_measure_col(nm);
-        if (col) {
-          MeasRef::DataRegions drs;
-          drs.metadata = prs[0];
-          if (prs.size() > 1)
-            drs.values = prs[1];
-          switch (col.value()) {
-          case C::col_t::MS_FIELD_COL_TIME:
-            m_time_mr =
-              MeasRef::make<MClassT<M_EPOCH>::type>(rt, drs)[0];
-            break;
-          case C::col_t::MS_FIELD_COL_DELAY_DIR:
-            m_delay_dir_mr =
-              MeasRef::make<MClassT<M_DIRECTION>::type>(rt, drs)[0];
-            break;
-          case C::col_t::MS_FIELD_COL_PHASE_DIR:
-            m_phase_dir_mr =
-              MeasRef::make<MClassT<M_DIRECTION>::type>(rt, drs)[0];
-            break;
-          case C::col_t::MS_FIELD_COL_REFERENCE_DIR:
-            m_reference_dir_mr =
-              MeasRef::make<MClassT<M_DIRECTION>::type>(rt, drs)[0];
-            break;
-          default:
-            break;
-          }
-        }
-#endif //HYPERION_USE_CASACORE
+      switch (col.value()) {
+      case C::col_t::MS_FIELD_COL_TIME:
+        m_mrs[col.value()] = create_mr<cc::MEpoch>(rt, rgs);
+        break;
+      case C::col_t::MS_FIELD_COL_DELAY_DIR:
+      case C::col_t::MS_FIELD_COL_PHASE_DIR:
+      case C::col_t::MS_FIELD_COL_REFERENCE_DIR:
+        m_mrs[col.value()] = create_mr<cc::MDirection>(rt, rgs);
+        break;
+      default:
+        break;
       }
+#endif
     }
   }
 }

@@ -23,6 +23,7 @@
 # include <hyperion/IndexTree.h>
 # include <hyperion/Column.h>
 # include <hyperion/MSTable.h>
+# include <hyperion/MeasRef.h>
 
 # pragma GCC visibility push(default)
 #  include <any>
@@ -98,23 +99,23 @@ public:
     return index_tree().size() == 0;
   }
 
-  void
-  set_mclass(MClass mc) {
-    if (mc != MClass::M_NONE)
-      m_mclass = mc;
-  }
-
-  const std::vector<
-    std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>>&
-  meas_records() const {
-    return m_meas_records;
+  const std::optional<
+    std::tuple<
+      hyperion::MClass,
+      std::vector<std::tuple<std::unique_ptr<casacore::MRBase>, unsigned>>,
+      std::optional<std::string>>>&
+  meas_record() const {
+    return m_meas_record;
   }
 
   void
-  add_meas_record(
-    std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>&& rec) {
-    if (std::get<0>(rec) != M_NONE)
-      m_meas_records.emplace_back(std::move(rec));
+  set_meas_record(
+    std::tuple<
+      hyperion::MClass,
+      std::vector<
+      std::tuple<std::unique_ptr<casacore::MRBase>, unsigned>>,
+      std::optional<std::string>>&& rec) {
+    m_meas_record = std::move(rec);
   }
 
   virtual void
@@ -130,23 +131,15 @@ public:
     auto itrank = index_tree().rank();
     if (itrank && itrank.value() == rank())
       itree = index_tree();
-    auto meas_refs = create_named_meas_refs(ctx, rt, meas_records());
-    auto merged_meas_refs =
-      MeasRefContainer::create(ctx, rt, meas_refs, inherited_meas_refs);
     MeasRef mr;
-    auto converted = mh.fromType(err, m_meas_record);
-    if (converted) {
-      if (false) {}
-#define MK_MR(MC)                                               \
-      else if (MClassT<MC>::holds(mh)) {                        \
-        auto m = MClassT<MC>::get(mh);                          \
-        std::vector<casacore::MeasRef<MClassT<MC>::type>> mrs   \
-          {m.getRef()};                                         \
-        mr = MeasRef::create<MClassT<MC>::type>(ctx, rt, mrs);  \
-      }
-      HYPERION_FOREACH_MCLASS(MK_MR)
-#undef MK_MR
-      else { assert(false); }
+    std::optional<std::string> ref_column;
+    if (m_meas_record) {
+      std::tuple<MClass, std::vector<std::tuple<casacore::MRBase*, unsigned>>>
+        mrec;
+      std::get<0>(mrec) = std::get<0>(m_meas_record.value());
+      for (auto& [mrb, c] : std::get<1>(m_meas_record.value()))
+        std::get<1>(mrec).emplace_back(mrb.get(), c);
+      mr = std::get<1>(create_named_meas_refs(ctx, rt, {mrec}));
     }
     return
       Column::create(
@@ -158,6 +151,7 @@ public:
         itree,
 #ifdef HYPERION_USE_CASACORE
         mr,
+        ref_column,
 #endif
         keywords(),
         name_prefix);
@@ -184,10 +178,12 @@ private:
 
   IndexTreeL m_index_tree;
 
-  std::vector<std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>>
-  m_meas_records;
-
-  std::optional<MClass> m_mclass;
+  std::optional<
+    std::tuple<
+      hyperion::MClass,
+      std::vector<std::tuple<std::unique_ptr<casacore::MRBase>, unsigned>>,
+      std::optional<std::string>>>
+  m_meas_record;
 };
 
 template <MSTables D>

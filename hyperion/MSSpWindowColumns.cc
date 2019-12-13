@@ -19,41 +19,28 @@
 using namespace hyperion;
 using namespace Legion;
 
+namespace cc = casacore;
+
 MSSpWindowColumns::MSSpWindowColumns(
   Legion::Runtime* rt,
   const Legion::RegionRequirement& rows_requirement,
-  const std::unordered_map<std::string, std::vector<Legion::PhysicalRegion>>&
-  regions)
+  const std::unordered_map<std::string, Regions>& regions)
   : m_rows_requirement(rows_requirement) {
 
-  for (auto& [nm, prs] : regions) {
-    if (prs.size() > 0) {
-      auto col = C::lookup_col(nm);
-      if (col) {
-        m_regions[col.value()] = prs[0];
-      } else {
+  for (auto& [nm, rgs] : regions) {
+    auto col = C::lookup_col(nm);
+    if (col) {
+      m_regions[col.value()] = rgs.values;
 #ifdef HYPERION_USE_CASACORE
-        auto col = C::lookup_measure_col(nm);
-        if (col) {
-          MeasRef::DataRegions drs;
-          drs.metadata = prs[0];
-          if (prs.size() > 1)
-            drs.values = prs[1];
-          switch (col.value()) {
-          case C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY:
-            m_ref_frequency_mr =
-              MeasRef::make<MClassT<M_FREQUENCY>::type>(rt, drs)[0];
-            break;
-          case C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ:
-            m_chan_freq_mr =
-              MeasRef::make<MClassT<M_FREQUENCY>::type>(rt, drs);
-            break;
-          default:
-            break;
-          }
-        }
-#endif //HYPERION_USE_CASACORE
+      switch (col.value()) {
+      case C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY:
+      case C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ:
+        m_mrs[col.value()] = create_mr<cc::MFrequency>(rt, rgs);
+        break;
+      default:
+        break;
       }
+#endif
     }
   }
 }

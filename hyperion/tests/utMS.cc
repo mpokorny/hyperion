@@ -355,11 +355,16 @@ verify_column_task(
       MeasRef::DataRegions prs;
       prs.metadata = regions[region_idx++];
       prs.values = regions[region_idx++];
+      if (region_idx < regions.size())
+        prs.index = regions[region_idx];
       {
-        auto mrbs = MeasRef::make(rt, prs);
+        auto [mrbs, rmap] = MeasRef::make(rt, prs);
         recorder.assert_true(
           std::string("column ") + args->column + " has a measure",
           TE(mrbs.size() == 1));
+        recorder.assert_true(
+          std::string("column ") + args->column + " measure is simple",
+          TE(rmap.size() == 1));
       }
       recorder.expect_true(
         std::string("column ") + args->column
@@ -375,7 +380,8 @@ verify_column_task(
               if (false) {}
 #define MATCH(MC)                                                       \
               else if (MClassT<MC>::holds(mh)) {                        \
-                auto mrs = MeasRef::make<MClassT<MC>::type>(rt, prs);   \
+                auto [mrs, rmap] =                                      \
+                  MeasRef::make<MClassT<MC>::type>(rt, prs);            \
                 result = mrs.size() == 1;                               \
               }
               HYPERION_FOREACH_MCLASS(MATCH)
@@ -529,10 +535,11 @@ read_full_ms(
       args.has_keywords = false;
     }
     if (!col.meas_ref.is_empty()) {
-      auto [mr, ovr] = col.meas_ref.requirements(READ_ONLY);
+      auto [mr, vr, oir] = col.meas_ref.requirements(READ_ONLY);
       verify_task.add_region_requirement(mr);
-      if (ovr)
-        verify_task.add_region_requirement(ovr.value());
+      verify_task.add_region_requirement(vr);
+      if (oir)
+        verify_task.add_region_requirement(oir.value());
       args.has_measure = true;
     } else {
       args.has_measure = false;
@@ -577,7 +584,8 @@ main(int argc, char** argv) {
   testing::TestSuiteDriver driver =
     testing::TestSuiteDriver::make<ms_test_suite>(
       MS_TEST_SUITE,
-      "ms_test_suite");
+      "ms_test_suite",
+      200);
 
   return driver.start(argc, argv);
 }

@@ -20,7 +20,6 @@
 
 #include <cassert>
 #include <stack>
-#include <unordered_map>
 #include <variant>
 
 using namespace hyperion;
@@ -447,24 +446,36 @@ show_index_space(Runtime* rt, IndexSpaceT<DIM> is) {
   std::cout << oss.str();
 }
 
-std::tuple<RegionRequirement, std::optional<RegionRequirement>>
+std::tuple<
+  RegionRequirement,
+  RegionRequirement,
+  std::optional<RegionRequirement>>
 MeasRef::requirements(legion_privilege_mode_t mode) const {
 
   RegionRequirement mreq(metadata_lr, mode, EXCLUSIVE, metadata_lr);
   mreq.add_field(MEASURE_CLASS_FID);
   mreq.add_field(REF_TYPE_FID);
   mreq.add_field(NUM_VALUES_FID);
-  std::optional<RegionRequirement> vreq;
-  if (values_lr != LogicalRegion::NO_REGION)
-    vreq =
+  RegionRequirement
+    vreq(
+      values_lr,
+      {0},
+      {0},
+      mode,
+      EXCLUSIVE,
+      values_lr);
+  std::optional<RegionRequirement> ireq;
+  if (index_lr != LogicalRegion::NO_REGION)
+    ireq =
       RegionRequirement(
-        values_lr,
-        {0},
-        {0},
+        index_lr,
+        {M_CODE_FID},
+        {M_CODE_FID},
         mode,
         EXCLUSIVE,
-        values_lr);
-  return std::make_tuple(mreq, vreq);
+        index_lr);
+
+  return std::make_tuple(mreq, vreq, ireq);
 }
 
 MClass
@@ -604,43 +615,54 @@ MeasRef::clone(Context ctx, Runtime* rt) const {
     req.add_field(NUM_VALUES_FID);
     drs.metadata = rt->map_region(ctx, req);
   }
-  if (values_lr != LogicalRegion::NO_REGION) {
+  {
     RegionRequirement req(values_lr, READ_ONLY, EXCLUSIVE, values_lr);
     req.add_field(0);
     drs.values = rt->map_region(ctx, req);
   }
+  if (index_lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(index_lr, READ_ONLY, EXCLUSIVE, index_lr);
+    req.add_field(M_CODE_FID);
+    drs.index = rt->map_region(ctx, req);
+  }
   auto result = clone(ctx, rt, drs);
   rt->unmap_region(ctx, drs.metadata);
-  if (drs.values)
-    rt->unmap_region(ctx, drs.values.value());
+  rt->unmap_region(ctx, drs.values);
+  if (drs.index)
+    rt->unmap_region(ctx, drs.index.value());
   return result;
 }
 
 MeasRef
 MeasRef::clone(Context ctx, Runtime* rt, const DataRegions& drs) {
   MeasRef result;
+  std::vector<std::tuple<casacore::MRBase*, unsigned>> pmrbs;
   switch (mclass(drs.metadata)) {
-#define CLONE(MC)                                       \
-  case MC: {                                            \
-    auto mr = make<MClassT<MC>::type>(rt, drs).value(); \
-    result = create(ctx, rt, *mr);                      \
-    break;                                              \
-  }
-  HYPERION_FOREACH_MCLASS(CLONE);
+#define CLONE(MC)                                                 \
+    case MC: {                                                    \
+      auto mrbs = std::get<0>(make<MClassT<MC>::type>(rt, drs));  \
+      pmrbs.reserve(mrbs.size());                                 \
+      for (auto& mrb : mrbs)                                      \
+        pmrbs.emplace_back(mrb.get(), mrb->getType());            \
+      result = create(ctx, rt, pmrbs, MC, false);                 \
+      break;                                                      \
+    }
+    HYPERION_FOREACH_MCLASS(CLONE);
 #undef CLONE
-  default:
-    assert(false);
-    break;
+    default:
+      assert(false);
+      break;
   }
   return result;
 }
 
-std::array<LogicalRegion, 2>
+std::array<LogicalRegion, 3>
 MeasRef::create_regions(
   Context ctx,
   Runtime* rt,
   const IndexTreeL& metadata_tree,
-  const IndexTreeL& value_tree) {
+  const IndexTreeL& value_tree,
+  bool no_index) {
 
   LogicalRegion metadata_lr;
   {
@@ -662,21 +684,33 @@ MeasRef::create_regions(
     values_lr = rt->create_logical_region(ctx, is, fs);
   }
 
-  return {metadata_lr, values_lr};
+  LogicalRegion index_lr;
+  if (!no_index) {
+    auto d = rt->get_index_space_domain(metadata_lr.get_index_space());
+    Rect<1> id(d.lo()[0], d.hi()[0]);
+    IndexSpace is = rt->create_index_space(ctx, id);
+    FieldSpace fs = rt->create_field_space(ctx);
+    FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+    fa.allocate_field(sizeof(M_CODE_TYPE), M_CODE_FID);
+    index_lr = rt->create_logical_region(ctx, is, fs);
+  }
+
+  return {metadata_lr, values_lr, index_lr};
 }
 
 MeasRef
 MeasRef::create(
   Context ctx,
   Runtime *rt,
-  const std::vector<casacore::MRBase*>& mrbs,
-  MClass klass) {
+  const std::vector<std::tuple<casacore::MRBase*, unsigned>>& mrbs,
+  MClass klass,
+  bool no_index) {
 
   MeasureIndexTrees index_trees;
   {
     std::vector<MeasureIndexTrees> itrees;
     for (auto& mrb : mrbs)
-      itrees.push_back(measure_index_trees(mrb));
+      itrees.push_back(measure_index_trees(std::get<0>(mrb)));
     std::vector<std::tuple<coord_t, IndexTreeL>> md_v;
     std::vector<std::tuple<coord_t, IndexTreeL>> val_v;
     for (auto& it : itrees) {
@@ -693,15 +727,17 @@ MeasRef::create(
         index_trees.metadata_tree.value().rank().value() + 1);
   }
 
-  std::array<LogicalRegion, 2> regions =
+  std::array<LogicalRegion, 3> regions =
     create_regions(
       ctx,
       rt,
       index_trees.metadata_tree.value(),
-      index_trees.value_tree.value());
+      index_trees.value_tree.value(),
+      no_index);
 
   LogicalRegion metadata_lr = regions[0];
   LogicalRegion values_lr = regions[1];
+  LogicalRegion index_lr = regions[2];
   {
     RegionRequirement
       values_req(values_lr, WRITE_ONLY, EXCLUSIVE, values_lr);
@@ -715,10 +751,14 @@ MeasRef::create(
     metadata_req.add_field(NUM_VALUES_FID);
     auto metadata_pr = rt->map_region(ctx, metadata_req);
 
+    std::vector<casacore::MRBase*> mrs;
+    mrs.reserve(mrbs.size());
+    for (auto& [mrb, tp] : mrbs)
+      mrs.push_back(mrb);
     switch (metadata_lr.get_dim()) {
 #define INIT(D)                                                         \
       case D: {                                                         \
-        initialize<D>(DataRegions{metadata_pr, values_pr}, mrbs, klass); \
+        initialize<D>(DataRegions{metadata_pr, values_pr}, mrs, klass); \
         break;                                                          \
       }
       HYPERION_FOREACH_N_LESS_MAX(INIT);
@@ -732,10 +772,22 @@ MeasRef::create(
     rt->unmap_region(ctx, values_pr);
   }
 
-  return MeasRef(metadata_lr, values_lr);
+  if (!no_index) {
+    RegionRequirement req(index_lr, WRITE_ONLY, EXCLUSIVE, index_lr);
+    req.add_field(M_CODE_FID);
+    auto pr = rt->map_region(ctx, req);
+    const MCodeAccessor<WRITE_ONLY> mcodes(pr, M_CODE_FID);
+    for (size_t i = 0; i < mrbs.size(); ++i)
+      mcodes[i] = std::get<1>(mrbs[i]);
+    rt->unmap_region(ctx, pr);
+  }
+
+  return MeasRef(metadata_lr, values_lr, index_lr);
 }
 
-std::vector<std::unique_ptr<casacore::MRBase>>
+std::tuple<
+  std::vector<std::unique_ptr<casacore::MRBase>>,
+  std::unordered_map<unsigned, unsigned>>
 MeasRef::make(Context ctx, Runtime* rt) const {
 
   RegionRequirement
@@ -750,22 +802,32 @@ MeasRef::make(Context ctx, Runtime* rt) const {
   metadata_req.add_field(NUM_VALUES_FID);
   auto metadata_pr = rt->map_region(ctx, metadata_req);
 
-  auto result = make(rt, DataRegions{metadata_pr, values_pr});
+  std::optional<PhysicalRegion> index_pr;
+  if (index_lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(index_lr, READ_ONLY, EXCLUSIVE, index_lr);
+    req.add_field(M_CODE_FID);
+    index_pr = rt->map_region(ctx, req);
+  }
+  auto result = make(rt, DataRegions{metadata_pr, values_pr, index_pr});
 
   rt->unmap_region(ctx, metadata_pr);
   rt->unmap_region(ctx, values_pr);
+  if (index_pr)
+    rt->unmap_region(ctx, index_pr.value());
 
   return result;
 }
 
-std::vector<std::unique_ptr<casacore::MRBase>>
+std::tuple<
+  std::vector<std::unique_ptr<casacore::MRBase>>,
+  std::unordered_map<unsigned, unsigned>>
 MeasRef::make(Legion::Runtime* rt, DataRegions prs) {
 
-  std::vector<std::unique_ptr<casacore::MRBase>> result;
+  std::vector<std::unique_ptr<casacore::MRBase>> mrbs;
   switch (prs.metadata.get_logical_region().get_dim()) {
 #define INST(D)                                                    \
     case D:                                                        \
-      result =                                                     \
+      mrbs =                                                       \
         instantiate<D>(                                            \
           prs,                                                     \
           rt->get_index_space_domain(                              \
@@ -777,12 +839,24 @@ MeasRef::make(Legion::Runtime* rt, DataRegions prs) {
     assert(false);
     break;
   }
-  return result;
+  std::unordered_map<unsigned, unsigned> rmap;
+  if (prs.index) {
+    const MCodeAccessor<READ_ONLY> mcodes(prs.index.value(), M_CODE_FID);
+    for (PointInDomainIterator<1>
+           pid(
+             rt->get_index_space_domain(
+               prs.index.value().get_logical_region().get_index_space()));
+         pid();
+         pid++) {
+      rmap[mcodes[*pid]] = *pid;
+    }
+  }
+  return std::make_tuple(std::move(mrbs), std::move(rmap));
 }
 
 void
 MeasRef::destroy(Context ctx, Runtime* rt) {
-  for (auto&lr : {&metadata_lr, &values_lr}) {
+  for (auto&lr : {&metadata_lr, &values_lr, &index_lr}) {
     if (*lr != LogicalRegion::NO_REGION) {
       rt->destroy_field_space(ctx, lr->get_field_space());
       rt->destroy_index_space(ctx, lr->get_index_space());
