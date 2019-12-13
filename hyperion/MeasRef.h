@@ -191,6 +191,13 @@ public:
     return create<Ms>(ctx, rt, mrs);
   }
 
+  static MeasRef
+  create(
+    Legion::Context ctx,
+    Legion::Runtime *rt,
+    const std::vector<casacore::MRBase*>& mrbs,
+    MClass klass);
+
   static std::array<Legion::LogicalRegion, 2>
   create_regions(
     Legion::Context ctx,
@@ -241,14 +248,6 @@ public:
   void
   destroy(Legion::Context ctx, Legion::Runtime* rt);
 
-private:
-
-  static MeasRef
-  create(
-    Legion::Context ctx,
-    Legion::Runtime *rt,
-    const std::vector<casacore::MRBase*>& mrbs,
-    MClass klass);
 };
 
 } // end namespace hyperion

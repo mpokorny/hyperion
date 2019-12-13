@@ -25,6 +25,7 @@
 #include <hyperion/MSTable.h>
 #include <hyperion/MSTableColumns.h>
 #include <hyperion/MeasRef.h>
+#include <hyperion/Measures.h>
 
 #pragma GCC visibility push(default)
 # include <algorithm>
@@ -107,6 +108,19 @@ public:
   void
   add_row() {
     add_row(std::unordered_map<std::string, std::any>());
+  }
+
+  const std::vector<
+    std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>>&
+  meas_records() const {
+    return m_meas_records;
+  }
+
+  void
+  add_meas_record(
+    std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>&& rec) {
+    if (std::get<0>(rec) != M_NONE)
+      m_meas_records.emplace_back(std::move(rec));
   }
 
   std::unordered_set<std::string>
@@ -225,16 +239,14 @@ protected:
     assert(scol->num_rows() == m_num_rows);
     assert(m_columns.count(scol->name()) == 0);
     m_columns[scol->name()] = scol;
+    scol->add_meas_record(get_meas_refs(table, scol->name()));
     auto tcol = casacore::TableColumn(table, scol->name());
     auto kws = tcol.keywordSet();
     auto nf = kws.nfields();
     for (unsigned f = 0; f < nf; ++f) {
       std::string name = kws.name(f);
       auto dt = kws.dataType(f);
-      if (name == "MEASINFO") {
-        if (dt == casacore::DataType::TpRecord)
-          scol->add_meas_record(kws.asRecord(f));
-      } else if (name != "QuantumUnits") {
+      if (name != "MEASINFO" && name != "QuantumUnits") {
         switch (dt) {
 #define ADD_KW(DT)                              \
           case DataType<DT>::CasacoreTypeTag:   \
@@ -258,6 +270,9 @@ protected:
   std::unordered_map<std::string, std::shared_ptr<ColumnBuilder<D>>> m_columns;
 
   size_t m_num_rows;
+
+  std::vector<std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>>
+  m_meas_records;
 
 public:
 
@@ -315,6 +330,7 @@ public:
 
     // get table keyword names and types
     {
+      result.add_meas_record(get_meas_refs(table));
       auto kws = table.keywordSet();
       auto nf = kws.nfields();
       for (unsigned f = 0; f < nf; ++f) {
@@ -405,6 +421,8 @@ from_ms(
      : (path / MSTable<T>::name));
 
   auto builder = TableBuilder::from_ms<T>(table_path, column_selections);
+
+  auto meas_refs = create_named_meas_refs(ctx, rt, builder.meas_records());
 
   auto result =
     Table::create(

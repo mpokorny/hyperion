@@ -21,7 +21,10 @@
 
 #pragma GCC visibility push(default)
 # include <memory>
+# include <tuple>
+# include <vector>
 
+# include <casacore/tables/Tables.h>
 # include <casacore/measures/Measures.h>
 # include <casacore/measures/Measures/MBaseline.h>
 # include <casacore/measures/Measures/MDirection.h>
@@ -191,6 +194,20 @@ struct HYPERION_API MClassT<MClass::M_UVW> {
   __func__(::hyperion::MClass::M_POSITION)         \
   __func__(::hyperion::MClass::M_RADIAL_VELOCITY)  \
   __func__(::hyperion::MClass::M_UVW)
+
+std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>
+get_meas_refs(
+  const casacore::Table& table,
+  const std::optional<std::string>& colname = std::nullopt);
+
+class MeasRef;
+
+std::unordered_map<std::string, MeasRef>
+create_named_meas_refs(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const std::vector<
+    std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>>& mrs);
 
 } // end namespace hyperion
 

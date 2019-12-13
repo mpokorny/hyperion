@@ -99,8 +99,22 @@ public:
   }
 
   void
-  add_meas_record(const casacore::Record& rec) {
-    m_meas_record = rec;
+  set_mclass(MClass mc) {
+    if (mc != MClass::M_NONE)
+      m_mclass = mc;
+  }
+
+  const std::vector<
+    std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>>&
+  meas_records() const {
+    return m_meas_records;
+  }
+
+  void
+  add_meas_record(
+    std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>&& rec) {
+    if (std::get<0>(rec) != M_NONE)
+      m_meas_records.emplace_back(std::move(rec));
   }
 
   virtual void
@@ -116,8 +130,9 @@ public:
     auto itrank = index_tree().rank();
     if (itrank && itrank.value() == rank())
       itree = index_tree();
-    casacore::MeasureHolder mh;
-    casacore::String err;
+    auto meas_refs = create_named_meas_refs(ctx, rt, meas_records());
+    auto merged_meas_refs =
+      MeasRefContainer::create(ctx, rt, meas_refs, inherited_meas_refs);
     MeasRef mr;
     auto converted = mh.fromType(err, m_meas_record);
     if (converted) {
@@ -169,7 +184,10 @@ private:
 
   IndexTreeL m_index_tree;
 
-  casacore::Record m_meas_record;
+  std::vector<std::tuple<MClass, std::vector<std::unique_ptr<casacore::MRBase>>>>
+  m_meas_records;
+
+  std::optional<MClass> m_mclass;
 };
 
 template <MSTables D>
