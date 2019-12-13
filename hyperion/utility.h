@@ -169,6 +169,12 @@ struct HYPERION_API string {
     return *this;
   }
 
+  string&
+  operator=(const char* s) {
+    fstrcpy(val, s);
+    return *this;
+  }
+
   char val[HYPERION_MAX_STRING_SIZE];
 
   operator std::string() const {
