@@ -696,6 +696,47 @@ MeasRef::equiv(Runtime* rt, const DataRegions& x, const DataRegions& y) {
   return result;
 }
 
+MeasRef
+MeasRef::clone(Context ctx, Runtime* rt) const {
+  DataRegions drs;
+  {
+    RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
+    req.add_field(MEASURE_CLASS_FID);
+    req.add_field(REF_TYPE_FID);
+    req.add_field(NUM_VALUES_FID);
+    drs.metadata = rt->map_region(ctx, req);
+  }
+  if (values_lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(values_lr, READ_ONLY, EXCLUSIVE, values_lr);
+    req.add_field(0);
+    drs.values = rt->map_region(ctx, req);
+  }
+  auto result = clone(ctx, rt, drs);
+  rt->unmap_region(ctx, drs.metadata);
+  if (drs.values)
+    rt->unmap_region(ctx, drs.values.value());
+  return result;
+}
+
+MeasRef
+MeasRef::clone(Context ctx, Runtime* rt, const DataRegions& drs) {
+  MeasRef result;
+  switch (mclass(drs.metadata)) {
+#define CLONE(MC)                                       \
+  case MC: {                                            \
+    auto mr = make<MClassT<MC>::type>(rt, drs).value(); \
+    result = create(ctx, rt, *mr);                      \
+    break;                                              \
+  }
+  HYPERION_FOREACH_MCLASS(CLONE);
+#undef CLONE
+  default:
+    assert(false);
+    break;
+  }
+  return result;
+}
+
 std::array<LogicalRegion, 2>
 MeasRef::create_regions(
   Context ctx,

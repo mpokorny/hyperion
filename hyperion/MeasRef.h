@@ -151,6 +151,12 @@ public:
   static bool
   equiv(Legion::Runtime* rt, const DataRegions& x, const DataRegions& y);
 
+  MeasRef
+  clone(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  static MeasRef
+  clone(Legion::Context ctx, Legion::Runtime* rt, const DataRegions& drs);
+
   template <typename Ms>
   static MeasRef
   create(
