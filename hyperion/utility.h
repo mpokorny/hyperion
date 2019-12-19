@@ -175,6 +175,11 @@ struct HYPERION_API string {
     return std::string(val);
   }
 
+  size_t
+  size() const {
+    return std::strlen(val);
+  };
+
   bool
   operator==(const string& other) const {
     return std::strncmp(val, other.val, sizeof(val)) == 0;
