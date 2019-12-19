@@ -146,7 +146,14 @@ list(APPEND HYPERION_SRC
   MSFieldColumns.h
   MSFieldColumns.cc
   MSSpWindowColumns.h
-  MSSpWindowColumns.cc)
+  MSSpWindowColumns.cc
+  x/Column.h
+  x/ColumnSpace.h
+  x/ColumnSpace.cc
+  x/Table.h
+  x/Table.cc
+  x/ColumnSpacePartition.h
+  x/ColumnSpacePartition.cc)
 
 if(USE_CASACORE)
   list(APPEND HYPERION_SRC
