@@ -1428,7 +1428,7 @@ projected_index_partition(
   const std::vector<int>& dmap);
 
 struct HYPERION_API AxisPartition {
-  std::string axes_uid;
+  string axes_uid;
   int dim;
   Legion::coord_t stride;
   Legion::coord_t offset;
