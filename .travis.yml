@@ -1,6 +1,7 @@
 branches:
   except:
     - gridder
+    - x
 dist: bionic
 language: cpp
 env:
