@@ -28,6 +28,8 @@ Table::column_map(const columns_result_t& columns_result) {
   for (auto& [nm, c] : columns_result)
     if (c.is_valid())
       result[nm] = c;
+    else
+      break;
   return result;
 }
 
