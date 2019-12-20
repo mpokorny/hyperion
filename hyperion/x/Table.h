@@ -32,57 +32,64 @@
 namespace hyperion {
 namespace x {
 
-struct HYPERION_API Table {
+enum TableFid {
+  COLUMNS_NM_FID,
+  COLUMNS_DT_FID,
+  COLUMNS_KW_FID,
+  COLUMNS_MR_FID,
+};
+
+template <TableFid F>
+struct TableFieldType {
+  typedef void type;
+};
+template<>
+struct TableFieldType<COLUMNS_NM_FID> { typedef hyperion::string type; };
+template<>
+struct TableFieldType<COLUMNS_DT_FID> { typedef hyperion::TypeTag type; };
+template<>
+struct TableFieldType<COLUMNS_KW_FID> { typedef hyperion::Keywords type; };
+template<>
+struct TableFieldType<COLUMNS_MR_FID> { typedef hyperion::MeasRef type; };
+
+class HYPERION_API Table {
+
+public:
 
   static const constexpr size_t MAX_COLUMNS = HYPERION_MAX_NUM_TABLE_COLUMNS;
 
-  static const constexpr Legion::FieldID COLUMNS_NM_FID = 0;
-  typedef hyperion::string COLUMNS_NM_TYPE;
+private:
+
+  template <legion_privilege_mode_t MODE, TableFid F, bool CHECK_BOUNDS=false>
+  using ColumnsAccessor =
+    Legion::FieldAccessor<
+      MODE,
+      typename TableFieldType<F>::type,
+      1,
+      Legion::coord_t,
+      Legion::AffineAccessor<
+        typename TableFieldType<F>::type,
+        1,
+        Legion::coord_t>,
+      CHECK_BOUNDS>;
+
+public:
+
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using ColumnsNameAccessor =
-    Legion::FieldAccessor<
-      MODE,
-      COLUMNS_NM_TYPE,
-      1,
-      Legion::coord_t,
-      Legion::AffineAccessor<COLUMNS_NM_TYPE, 1, Legion::coord_t>,
-      CHECK_BOUNDS>;
+    ColumnsAccessor<MODE, COLUMNS_NM_FID, CHECK_BOUNDS>;
 
-  static const constexpr Legion::FieldID COLUMNS_DT_FID = 1;
-  typedef hyperion::TypeTag COLUMNS_DT_TYPE;
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using ColumnsDatatypeAccessor =
-    Legion::FieldAccessor<
-      MODE,
-      COLUMNS_DT_TYPE,
-      1,
-      Legion::coord_t,
-      Legion::AffineAccessor<COLUMNS_DT_TYPE, 1, Legion::coord_t>,
-      CHECK_BOUNDS>;
+    ColumnsAccessor<MODE, COLUMNS_DT_FID, CHECK_BOUNDS>;
 
-  static const constexpr Legion::FieldID COLUMNS_KW_FID = 2;
-  typedef hyperion::Keywords COLUMNS_KW_TYPE;
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using ColumnsKeywordsAccessor =
-    Legion::FieldAccessor<
-      MODE,
-      COLUMNS_KW_TYPE,
-      1,
-      Legion::coord_t,
-      Legion::AffineAccessor<COLUMNS_KW_TYPE, 1, Legion::coord_t>,
-      CHECK_BOUNDS>;
+    ColumnsAccessor<MODE, COLUMNS_KW_FID, CHECK_BOUNDS>;
 
-  static const constexpr Legion::FieldID COLUMNS_MR_FID = 3;
-  typedef hyperion::MeasRef COLUMNS_MR_TYPE;
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using ColumnsMeasRefAccessor =
-    Legion::FieldAccessor<
-      MODE,
-      COLUMNS_MR_TYPE,
-      1,
-      Legion::coord_t,
-      Legion::AffineAccessor<COLUMNS_MR_TYPE, 1, Legion::coord_t>,
-      CHECK_BOUNDS>;
+    ColumnsAccessor<MODE, COLUMNS_MR_FID, CHECK_BOUNDS>;
 
   Table() {}
 

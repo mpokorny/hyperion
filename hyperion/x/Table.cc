@@ -61,6 +61,12 @@ Table::init_task(
   }
 }
 
+template <TableFid F>
+static Legion::FieldID
+allocate_field(Legion::FieldAllocator& fa) {
+  return fa.allocate_field(sizeof(typename TableFieldType<F>::type), F);
+}
+
 Table
 Table::create(
   Context ctx,
@@ -73,10 +79,10 @@ Table::create(
     IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, columns.size() - 1));
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    fa.allocate_field(sizeof(COLUMNS_NM_TYPE), COLUMNS_NM_FID);
-    fa.allocate_field(sizeof(COLUMNS_DT_TYPE), COLUMNS_DT_FID);
-    fa.allocate_field(sizeof(COLUMNS_KW_TYPE), COLUMNS_KW_FID);
-    fa.allocate_field(sizeof(COLUMNS_MR_TYPE), COLUMNS_MR_FID);
+    allocate_field<COLUMNS_NM_FID>(fa);
+    allocate_field<COLUMNS_DT_FID>(fa);
+    allocate_field<COLUMNS_KW_FID>(fa);
+    allocate_field<COLUMNS_MR_FID>(fa);
     columns_lr = rt->create_logical_region(ctx, is, fs);
   }
   LogicalRegion values_lr;
