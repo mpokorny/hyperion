@@ -26,8 +26,7 @@ namespace x {
 
 struct HYPERION_API Column {
 
-  Column()
-  : dt(HYPERION_TYPE_NONE) {}
+  Column() {}
 
   Column(
     TypeTag dt_,
