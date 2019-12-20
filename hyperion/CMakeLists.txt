@@ -150,10 +150,11 @@ list(APPEND HYPERION_SRC
   x/Column.h
   x/ColumnSpace.h
   x/ColumnSpace.cc
+  x/ColumnSpacePartition.h
+  x/ColumnSpacePartition.cc
   x/Table.h
   x/Table.cc
-  x/ColumnSpacePartition.h
-  x/ColumnSpacePartition.cc)
+  x/TableField.h)
 
 if(USE_CASACORE)
   list(APPEND HYPERION_SRC
