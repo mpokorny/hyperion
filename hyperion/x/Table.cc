@@ -21,6 +21,62 @@ using namespace hyperion::x;
 
 using namespace Legion;
 
+size_t
+Table::columns_result_tt::legion_buffer_size(void) const {
+  size_t result = sizeof(unsigned);
+  for (size_t i = 0; i < fields.size(); ++i)
+    result +=
+      sizeof(ColumnSpace)
+      + sizeof(Legion::LogicalRegion)
+      + sizeof(unsigned)
+      + std::get<2>(fields[i]).size() * sizeof(tbl_fld_t);
+  return result;
+}
+
+size_t
+Table::columns_result_tt::legion_serialize(void* buffer) const {
+  char* b = static_cast<char*>(buffer);
+  *reinterpret_cast<unsigned*>(b) = (unsigned)fields.size();
+  b += sizeof(unsigned);
+  for (size_t i = 0; i < fields.size(); ++i) {
+    auto& [csp, lr, fs] = fields[i];
+    *reinterpret_cast<ColumnSpace*>(b) = csp;
+    b += sizeof(csp);
+    *reinterpret_cast<Legion::LogicalRegion*>(b) = lr;
+    b += sizeof(lr);
+    *reinterpret_cast<unsigned*>(b) = (unsigned)fs.size();
+    b += sizeof(unsigned);
+    for (auto& f : fs) {
+      *reinterpret_cast<tbl_fld_t*>(b) = f;
+      b += sizeof(f);
+    }
+  }
+  return b - static_cast<char*>(buffer);
+}
+
+size_t
+Table::columns_result_tt::legion_deserialize(const void* buffer) {
+  const char* b = static_cast<const char*>(buffer);
+  unsigned n = *reinterpret_cast<const unsigned*>(b);
+  b += sizeof(n);
+  fields.resize(n);
+  for (size_t i = 0; i < n; ++i) {
+    auto& [csp, lr, fs] = fields[i];
+    csp = *reinterpret_cast<const ColumnSpace*>(b);
+    b += sizeof(csp);
+    lr = *reinterpret_cast<const Legion::LogicalRegion*>(b);
+    b += sizeof(lr);
+    unsigned nn = *reinterpret_cast<const unsigned*>(b);
+    b += sizeof(nn);
+    fs.resize(nn);
+    for (auto& f : fs) {
+      f = *reinterpret_cast<const tbl_fld_t*>(b);
+      b += sizeof(f);
+    }
+  }
+  return b - static_cast<const char*>(buffer);
+}
+
 std::unordered_map<std::string, Column>
 Table::column_map(const columns_result_t& columns_result) {
 
@@ -30,6 +86,16 @@ Table::column_map(const columns_result_t& columns_result) {
       result[nm] = c;
     else
       break;
+  return result;
+}
+
+std::unordered_map<std::string, Column>
+Table::column_map(const columns_result_tt& columns_result) {
+  std::unordered_map<std::string, Column> result;
+  for (auto& [csp, lr, tfs] : columns_result.fields) {
+    for (auto& [nm, tf] : tfs)
+      result[nm] = Column(tf.dt, tf.fid, tf.mr, tf.kw, csp, lr);
+  }
   return result;
 }
 

@@ -80,6 +80,25 @@ public:
   // columns_result_t
   static const constexpr size_t MAX_COLUMNS = HYPERION_MAX_NUM_TABLE_COLUMNS / 2;
 
+  struct columns_result_tt {
+    typedef std::tuple<hyperion::string, TableField> tbl_fld_t;
+
+    std::vector<
+      std::tuple<
+        ColumnSpace,
+        Legion::LogicalRegion,
+        std::vector<tbl_fld_t>>> fields;
+
+    size_t
+    legion_buffer_size(void) const;
+
+    size_t
+    legion_serialize(void* buffer) const;
+
+    size_t
+    legion_deserialize(const void* buffer);
+};
+
 private:
 
   template <
@@ -204,6 +223,9 @@ private:
 
   static std::unordered_map<std::string, Column>
   column_map(const columns_result_t& columns_result);
+
+  static std::unordered_map<std::string, Column>
+  column_map(const columns_result_tt& columns_result);
 
   static void
   create_columns(

@@ -26,6 +26,8 @@ namespace x {
 
 struct HYPERION_API TableField {
 
+  TableField() {}
+
   TableField(
     TypeTag dt_,
     Legion::FieldID fid_,
