@@ -19,12 +19,14 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/x/Column.h>
 #include <hyperion/x/ColumnSpace.h>
+#include <hyperion/x/TableField.h>
 #include <hyperion/Table.h>
 
 #pragma GCC visibility push(default)
 # include <array>
 # include <string>
 # include <type_traits>
+# include <unordered_map>
 # include <utility>
 # include <vector>
 #pragma GCC visibility pop
@@ -32,43 +34,66 @@
 namespace hyperion {
 namespace x {
 
-enum TableFid {
-  COLUMNS_NM_FID,
-  COLUMNS_DT_FID,
-  COLUMNS_KW_FID,
-  COLUMNS_MR_FID,
+enum class TableFieldsFid {
+  NM,
+  DT,
+  KW,
+  MR,
+  MD,
+  VS
 };
 
-template <TableFid F>
-struct TableFieldType {
+template <TableFieldsFid F>
+struct TableFieldsType {
   typedef void type;
 };
 template<>
-struct TableFieldType<COLUMNS_NM_FID> { typedef hyperion::string type; };
+struct TableFieldsType<TableFieldsFid::NM> {
+  typedef hyperion::string type;
+};
 template<>
-struct TableFieldType<COLUMNS_DT_FID> { typedef hyperion::TypeTag type; };
+struct TableFieldsType<TableFieldsFid::DT> {
+  typedef hyperion::TypeTag type;
+};
 template<>
-struct TableFieldType<COLUMNS_KW_FID> { typedef hyperion::Keywords type; };
+struct TableFieldsType<TableFieldsFid::KW> {
+  typedef hyperion::Keywords type;
+};
 template<>
-struct TableFieldType<COLUMNS_MR_FID> { typedef hyperion::MeasRef type; };
+struct TableFieldsType<TableFieldsFid::MR> {
+  typedef hyperion::MeasRef type;
+};
+template<>
+struct TableFieldsType<TableFieldsFid::MD> {
+  typedef Legion::LogicalRegion type;
+};
+template<>
+struct TableFieldsType<TableFieldsFid::VS> {
+  typedef Legion::LogicalRegion type;
+};
 
 class HYPERION_API Table {
 
 public:
 
-  static const constexpr size_t MAX_COLUMNS = HYPERION_MAX_NUM_TABLE_COLUMNS;
+  // FIXME: value of MAX_COLUMNS has been reduced due to size of
+  // columns_result_t
+  static const constexpr size_t MAX_COLUMNS = HYPERION_MAX_NUM_TABLE_COLUMNS / 2;
 
 private:
 
-  template <legion_privilege_mode_t MODE, TableFid F, bool CHECK_BOUNDS=false>
-  using ColumnsAccessor =
+  template <
+    legion_privilege_mode_t MODE,
+    TableFieldsFid F,
+    bool CHECK_BOUNDS=false>
+  using Accessor =
     Legion::FieldAccessor<
       MODE,
-      typename TableFieldType<F>::type,
+      typename TableFieldsType<F>::type,
       1,
       Legion::coord_t,
       Legion::AffineAccessor<
-        typename TableFieldType<F>::type,
+        typename TableFieldsType<F>::type,
         1,
         Legion::coord_t>,
       CHECK_BOUNDS>;
@@ -76,39 +101,44 @@ private:
 public:
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  using ColumnsNameAccessor =
-    ColumnsAccessor<MODE, COLUMNS_NM_FID, CHECK_BOUNDS>;
+  using NameAccessor =
+    Accessor<MODE, TableFieldsFid::NM, CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  using ColumnsDatatypeAccessor =
-    ColumnsAccessor<MODE, COLUMNS_DT_FID, CHECK_BOUNDS>;
+  using DatatypeAccessor =
+    Accessor<MODE, TableFieldsFid::DT, CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  using ColumnsKeywordsAccessor =
-    ColumnsAccessor<MODE, COLUMNS_KW_FID, CHECK_BOUNDS>;
+  using KeywordsAccessor =
+    Accessor<MODE, TableFieldsFid::KW, CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  using ColumnsMeasRefAccessor =
-    ColumnsAccessor<MODE, COLUMNS_MR_FID, CHECK_BOUNDS>;
+  using MeasRefAccessor =
+    Accessor<MODE, TableFieldsFid::MR, CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using MetadataAccessor =
+    Accessor<MODE, TableFieldsFid::MD, CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using ValuesAccessor =
+    Accessor<MODE, TableFieldsFid::VS, CHECK_BOUNDS>;
 
   Table() {}
 
-  Table(
-    const Legion::LogicalRegion& columns_lr,
-    const Legion::LogicalRegion& values_lr,
-    const ColumnSpace& column_space);
+  Table(const Legion::LogicalRegion& fields_lr_)
+    : fields_lr(fields_lr_) {}
 
   static Table
   create(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<std::pair<std::string, Column>>& columns,
-    const ColumnSpace& column_space);
+    const std::vector<
+      std::tuple<
+        ColumnSpace,
+        std::vector<std::pair<std::string, TableField>>>>& columns);
 
-  typedef std::array<Table, MAX_COLUMNS> convert_result_t;
-  // The following check is at the end of this file, after the Table class has
-  // been defined --
-  // static_assert(sizeof(convert_result_t) <= LEGION_MAX_RETURN_SIZE);
+  typedef Table convert_result_t;
 
   static Legion::Future /* convert_result_t */
   convert(
@@ -133,9 +163,7 @@ public:
 
   bool
   is_valid() const {
-    return columns_lr != Legion::LogicalRegion::NO_REGION
-      && values_lr != Legion::LogicalRegion::NO_REGION
-      && column_space.is_valid();
+    return fields_lr != Legion::LogicalRegion::NO_REGION;
   }
 
   void
@@ -149,7 +177,6 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const Legion::PhysicalRegion& columns_pr,
-    const Legion::PhysicalRegion& values_pr,
     const std::vector<
       std::tuple<Legion::PhysicalRegion, Legion::PhysicalRegion>>& src_col_prs);
 
@@ -157,56 +184,35 @@ public:
   destroy(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    bool destroy_column_space=false,
-    bool destroy_column_index_space=false);
+    bool destroy_column_space_components=false);
 
+  typedef std::array<std::tuple<hyperion::string, Column>, MAX_COLUMNS>
+  columns_result_t;
 
-  typedef std::array<hyperion::string, MAX_COLUMNS> column_names_result_t;
-  static_assert(sizeof(column_names_result_t) <= LEGION_MAX_RETURN_SIZE);
+  Legion::Future /* columns_result_t */
+  columns(Legion::Context ctx, Legion::Runtime *rt) const;
 
-  // names array provided in returned Future contains empty string values for
-  // all indexes past the number of Columns in the Table
-  Legion::Future /* column_names_result_t */
-  column_names(Legion::Context ctx, Legion::Runtime *rt) const;
-
-  // names array returned below contains empty string values for all indexes
-  // past the number of Columns in the Table
-  static column_names_result_t
-  column_names(
-    Legion::Runtime *rt,
-    const Legion::PhysicalRegion& columns_pr);
-
-  typedef Column column_result_t;
-
-  // Column value provided in the returned Future should be checked for
-  // validity, using Column::is_valid(); Column value will be invalid if no
-  // Column in the Table has a matching name
-  Legion::Future /* column_result_t */
-  column(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const std::string& name) const;
-
-  // Column value returned below should be checked for validity, using
-  // Column::is_valid(); Column value will be invalid if no Column in the Table
-  // has a matching name
-  static column_result_t
-  column(
-    Legion::Runtime* rt,
-    const Legion::PhysicalRegion& columns_pr,
-    const Legion::FieldSpace& values_fs,
-    const hyperion::string& name);
+  static columns_result_t
+  columns(Legion::Runtime *rt, const Legion::PhysicalRegion& fields_pr);
 
   static void
   preregister_tasks();
 
-  Legion::LogicalRegion columns_lr;
-
-  Legion::LogicalRegion values_lr;
-
-  ColumnSpace column_space;
+  Legion::LogicalRegion fields_lr;
 
 private:
+
+  static std::unordered_map<std::string, Column>
+  column_map(const columns_result_t& columns_result);
+
+  static void
+  create_columns(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const ColumnSpace& column_space,
+    const std::vector<std::pair<std::string, TableField>>& tbl_fields,
+    Legion::LogicalRegion& fields_lr,
+    size_t tbl_field_offset);
 
   static Legion::TaskID init_task_id;
 
@@ -219,23 +225,12 @@ private:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static Legion::TaskID column_task_id;
+  static Legion::TaskID columns_task_id;
 
-  static const char* column_task_name;
+  static const char* columns_task_name;
 
-  static column_result_t
-  column_task(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime *rt);
-
-  static Legion::TaskID column_names_task_id;
-
-  static const char* column_names_task_name;
-
-  static column_names_result_t
-  column_names_task(
+  static columns_result_t
+  columns_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
@@ -263,8 +258,6 @@ private:
     Legion::Context ctx,
     Legion::Runtime *rt);
 };
-
-static_assert(sizeof(Table::convert_result_t) <= LEGION_MAX_RETURN_SIZE);
 
 } // end namespace x
 } // end namespace hyperion

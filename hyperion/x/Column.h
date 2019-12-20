@@ -20,6 +20,7 @@
 #include <hyperion/utility.h>
 #include <hyperion/Keywords.h>
 #include <hyperion/MeasRef.h>
+#include <hyperion/x/ColumnSpace.h>
 
 namespace hyperion {
 namespace x {
@@ -32,21 +33,27 @@ struct HYPERION_API Column {
     TypeTag dt_,
     Legion::FieldID fid_,
     const hyperion::MeasRef& mr_,
-    const hyperion::Keywords& kw_)
+    const hyperion::Keywords& kw_,
+    const ColumnSpace& csp_,
+    const Legion::LogicalRegion& vlr_)
     : dt(dt_)
     , fid(fid_)
     , mr(mr_)
-    , kw(kw_) {}
+    , kw(kw_)
+    , csp(csp_)
+    , vlr(vlr_) {}
 
   bool
   is_valid() const {
-    return dt != HYPERION_TYPE_NONE;
+    return vlr != Legion::LogicalRegion::NO_REGION;
   }
 
   TypeTag dt;
   Legion::FieldID fid;
   hyperion::MeasRef mr;
   hyperion::Keywords kw;
+  ColumnSpace csp;
+  Legion::LogicalRegion vlr;
 };
 
 } // end namespace x
