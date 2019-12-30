@@ -19,6 +19,26 @@ using namespace hyperion::x;
 
 using namespace Legion;
 
+ColumnSpace::ColumnSpace(
+  const Legion::IndexSpace& column_is_,
+  const Legion::LogicalRegion& metadata_lr_)
+  : column_is(column_is_)
+  , metadata_lr(metadata_lr_) {
+}
+
+bool
+ColumnSpace::is_valid() const {
+  return column_is != IndexSpace::NO_SPACE
+    && metadata_lr != LogicalRegion::NO_REGION;
+}
+
+bool
+ColumnSpace::operator<(const ColumnSpace& rhs) const {
+  return column_is < rhs.column_is
+    || (column_is == rhs.column_is
+        && metadata_lr < rhs.metadata_lr);
+}
+
 struct InitTaskArgs {
   ColumnSpace::AXIS_VECTOR_TYPE axes;
   ColumnSpace::AXIS_SET_UID_TYPE axis_set_uid;

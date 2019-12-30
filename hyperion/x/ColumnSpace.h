@@ -64,16 +64,16 @@ struct HYPERION_API ColumnSpace {
     const Legion::LogicalRegion& metadata_lr);
 
   bool
-  is_valid() const {
-    return column_is != Legion::IndexSpace::NO_SPACE
-      && metadata_lr != Legion::LogicalRegion::NO_REGION;
-  }
+  is_valid() const;
 
   void
   destroy(
     Legion::Context ctx,
     Legion::Runtime* rt,
     bool destroy_index_space=false);
+
+  bool
+  operator<(const ColumnSpace& rhs) const;
 
   static ColumnSpace
   create(
