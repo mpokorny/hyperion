@@ -21,8 +21,17 @@ using namespace hyperion::x;
 
 using namespace Legion;
 
+#define FOREACH_TABLE_FIELD_FID(__FUNC__)       \
+  __FUNC__(TableFieldsFid::NM)                  \
+  __FUNC__(TableFieldsFid::DT)                  \
+  __FUNC__(TableFieldsFid::KW)                  \
+  __FUNC__(TableFieldsFid::MR)                  \
+  __FUNC__(TableFieldsFid::MD)                  \
+  __FUNC__(TableFieldsFid::VF)                  \
+  __FUNC__(TableFieldsFid::VS)
+
 size_t
-Table::columns_result_tt::legion_buffer_size(void) const {
+Table::columns_result_t::legion_buffer_size(void) const {
   size_t result = sizeof(unsigned);
   for (size_t i = 0; i < fields.size(); ++i)
     result +=
@@ -34,7 +43,7 @@ Table::columns_result_tt::legion_buffer_size(void) const {
 }
 
 size_t
-Table::columns_result_tt::legion_serialize(void* buffer) const {
+Table::columns_result_t::legion_serialize(void* buffer) const {
   char* b = static_cast<char*>(buffer);
   *reinterpret_cast<unsigned*>(b) = (unsigned)fields.size();
   b += sizeof(unsigned);
@@ -55,7 +64,7 @@ Table::columns_result_tt::legion_serialize(void* buffer) const {
 }
 
 size_t
-Table::columns_result_tt::legion_deserialize(const void* buffer) {
+Table::columns_result_t::legion_deserialize(const void* buffer) {
   const char* b = static_cast<const char*>(buffer);
   unsigned n = *reinterpret_cast<const unsigned*>(b);
   b += sizeof(n);
@@ -79,79 +88,11 @@ Table::columns_result_tt::legion_deserialize(const void* buffer) {
 
 std::unordered_map<std::string, Column>
 Table::column_map(const columns_result_t& columns_result) {
-
   std::unordered_map<std::string, Column> result;
-  for (auto& [nm, c] : columns_result)
-    if (c.is_valid())
-      result[nm] = c;
-    else
-      break;
-  return result;
-}
-
-std::unordered_map<std::string, Column>
-Table::column_map(const columns_result_tt& columns_result) {
-  std::unordered_map<std::string, Column> result;
-  for (auto& [csp, lr, tfs] : columns_result.fields) {
+  for (auto& [csp, lr, tfs] : columns_result.fields)
     for (auto& [nm, tf] : tfs)
       result[nm] = Column(tf.dt, tf.fid, tf.mr, tf.kw, csp, lr);
-  }
   return result;
-}
-
-struct InitTaskTableFieldArgs {
-  hyperion::string nm;
-  hyperion::TypeTag dt;
-  hyperion::Keywords kw;
-  hyperion::MeasRef mr;
-  LogicalRegion md;
-  LogicalRegion vs;
-};
-
-struct InitTaskArgs {
-  size_t index_offset;
-  size_t num_fields;
-  std::array<InitTaskTableFieldArgs, Table::MAX_COLUMNS> field_args;
-};
-
-TaskID Table::init_task_id;
-
-const char* Table::init_task_name = "x::Table::init_task";
-
-void
-Table::init_task(
-  const Task* task,
-  const std::vector<PhysicalRegion>& regions,
-  Context ctx,
-  Runtime *rt) {
-
-  const InitTaskArgs* args = static_cast<const InitTaskArgs*>(task->args);
-  assert(regions.size() == 1);
-  const NameAccessor<WRITE_ONLY>
-    nms(regions[0], static_cast<FieldID>(TableFieldsFid::NM));
-  const DatatypeAccessor<WRITE_ONLY>
-    dts(regions[0], static_cast<FieldID>(TableFieldsFid::DT));
-  const KeywordsAccessor<WRITE_ONLY>
-    kws(regions[0], static_cast<FieldID>(TableFieldsFid::KW));
-  const MeasRefAccessor<WRITE_ONLY>
-    mrs(regions[0], static_cast<FieldID>(TableFieldsFid::MR));
-  const MetadataAccessor<WRITE_ONLY>
-    mds(regions[0], static_cast<FieldID>(TableFieldsFid::MD));
-  const ValuesAccessor<WRITE_ONLY>
-    vss(regions[0], static_cast<FieldID>(TableFieldsFid::VS));
-  PointInDomainIterator<1> pid(
-    rt->get_index_space_domain(task->regions[0].region.get_index_space()));
-  for (size_t i = 0; i < args->index_offset; ++i)
-    pid++;
-  for (size_t i = 0; i < args->num_fields; pid++, ++i) {
-    const InitTaskTableFieldArgs& tfa = args->field_args[i];
-    nms[*pid] = tfa.nm;
-    dts[*pid] = tfa.dt;
-    kws[*pid] = tfa.kw;
-    mrs[*pid] = tfa.mr;
-    mds[*pid] = tfa.md;
-    vss[*pid] = tfa.vs;
-  }
 }
 
 template <TableFieldsFid F>
@@ -163,73 +104,30 @@ allocate_field(Legion::FieldAllocator& fa) {
       static_cast<FieldID>(F));
 }
 
-void
-Table::create_columns(
-  Context ctx,
-  Runtime* rt,
-  const ColumnSpace& column_space,
-  const std::vector<std::pair<std::string, TableField>>& tbl_fields,
-  Legion::LogicalRegion& fields_lr,
-  size_t tbl_field_offset) {
+static void
+allocate_table_fields(Legion::FieldAllocator& fa) {
+#define ALLOC_F(F) allocate_field<F>(fa);
+  FOREACH_TABLE_FIELD_FID(ALLOC_F);
+#undef ALLOC_F
+}
 
-  LogicalRegion values_lr;
-  {
-    std::unordered_set<FieldID> fids;
-    FieldSpace fs = rt->create_field_space(ctx);
-    FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    for (auto& nm_tf : tbl_fields) {
-      const TableField& tf = std::get<1>(nm_tf);
-      assert(fids.count(tf.fid) == 0);
-      switch(tf.dt) {
-#define ALLOC_FLD(DT)                                           \
-      case DT:                                                  \
-        fa.allocate_field(hyperion::DataType<DT>::serdez_size, tf.fid); \
-        break;
-      HYPERION_FOREACH_DATATYPE(ALLOC_FLD)
-#undef ALLOC_FLD
-      default:
-        assert(false);
-        break;
-      }
-    }
-    values_lr = rt->create_logical_region(ctx, column_space.column_is, fs);
-  }
-  {
-    InitTaskArgs args;
-    args.index_offset = tbl_field_offset;
-    args.num_fields = tbl_fields.size();
-    for (size_t i = 0; i < tbl_fields.size(); ++i) {
-      auto& [nm, col] = tbl_fields[i];
-      InitTaskTableFieldArgs& tfa = args.field_args[i];
-      tfa.nm = nm;
-      tfa.dt = col.dt;
-      tfa.kw = col.kw;
-      tfa.mr = col.mr;
-      tfa.md = column_space.metadata_lr;
-      tfa.vs = values_lr;
-    }
-    RegionRequirement req(fields_lr, WRITE_ONLY, EXCLUSIVE, fields_lr);
-    req.add_field(static_cast<FieldID>(TableFieldsFid::NM));
-    req.add_field(static_cast<FieldID>(TableFieldsFid::DT));
-    req.add_field(static_cast<FieldID>(TableFieldsFid::KW));
-    req.add_field(static_cast<FieldID>(TableFieldsFid::MR));
-    req.add_field(static_cast<FieldID>(TableFieldsFid::MD));
-    req.add_field(static_cast<FieldID>(TableFieldsFid::VS));
-    TaskLauncher init(init_task_id, TaskArgument(&args, sizeof(args)));
-    init.add_region_requirement(req);
-    init.enable_inlining = true;
-    rt->execute_task(ctx, init);
-  }
+static RegionRequirement
+table_fields_requirement(LogicalRegion lr, legion_privilege_mode_t mode) {
+
+  RegionRequirement result(lr, mode, EXCLUSIVE, lr);
+#define ADD_F(F) result.add_field(static_cast<FieldID>(F));
+  FOREACH_TABLE_FIELD_FID(ADD_F);
+#undef ADD_F
+  return result;
 }
 
 Table
 Table::create(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const std::vector<
-    std::tuple<
-      ColumnSpace,
-      std::vector<std::pair<std::string, TableField>>>>& columns) {
+  const std::map<
+    ColumnSpace,
+    std::vector<std::pair<std::string, TableField>>>& columns) {
 
   size_t num_cols = 0;
   for (auto& csp_cs : columns)
@@ -245,23 +143,243 @@ Table::create(
 
   LogicalRegion fields_lr;
   {
-    IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, num_cols - 1));
+    IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, MAX_COLUMNS - 1));
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    allocate_field<TableFieldsFid::NM>(fa);
-    allocate_field<TableFieldsFid::DT>(fa);
-    allocate_field<TableFieldsFid::KW>(fa);
-    allocate_field<TableFieldsFid::MR>(fa);
-    allocate_field<TableFieldsFid::MD>(fa);
-    allocate_field<TableFieldsFid::VS>(fa);
+    allocate_table_fields(fa);
     fields_lr = rt->create_logical_region(ctx, is, fs);
-  }
-  size_t field_offset = 0;
-  for (auto& [csp, tfs] : columns) {
-    create_columns(ctx, rt, csp, tfs, fields_lr, field_offset);
-    field_offset += tfs.size();
+    PhysicalRegion fields_pr =
+      rt->map_region(ctx, table_fields_requirement(fields_lr, READ_WRITE));
+    {
+      static const hyperion::string nm;
+      static const Keywords kw;
+      static const MeasRef mr;
+
+      const NameAccessor<WRITE_ONLY>
+        nms(fields_pr, static_cast<FieldID>(TableFieldsFid::NM));
+      const DatatypeAccessor<WRITE_ONLY>
+        dts(fields_pr, static_cast<FieldID>(TableFieldsFid::DT));
+      const KeywordsAccessor<WRITE_ONLY>
+        kws(fields_pr, static_cast<FieldID>(TableFieldsFid::KW));
+      const MeasRefAccessor<WRITE_ONLY>
+        mrs(fields_pr, static_cast<FieldID>(TableFieldsFid::MR));
+      const MetadataAccessor<WRITE_ONLY>
+        mds(fields_pr, static_cast<FieldID>(TableFieldsFid::MD));
+      const ValueFidAccessor<WRITE_ONLY>
+        vfs(fields_pr, static_cast<FieldID>(TableFieldsFid::VF));
+      const ValuesAccessor<WRITE_ONLY>
+        vss(fields_pr, static_cast<FieldID>(TableFieldsFid::VS));
+      for (PointInDomainIterator<1> pid(
+             rt->get_index_space_domain(fields_lr.get_index_space()));
+           pid();
+           pid++) {
+        nms[*pid] = nm;
+        dts[*pid] = (type_tag_t)0;
+        kws[*pid] = kw;
+        mrs[*pid] = mr;
+        mds[*pid] = LogicalRegion::NO_REGION;
+        vfs[*pid] = 0;
+        vss[*pid] = LogicalRegion::NO_REGION;
+      }
+    }
+    add_columns(ctx, rt, columns, fields_pr);
+    rt->unmap_region(ctx, fields_pr);
   }
   return Table(fields_lr);
+}
+
+void
+Table::add_columns(
+  Context ctx,
+  Runtime* rt,
+  const std::map<
+    ColumnSpace,
+    std::vector<std::pair<std::string, TableField>>>& columns) {
+
+  PhysicalRegion fields_pr =
+    rt->map_region(ctx, table_fields_requirement(fields_lr, READ_WRITE));
+  add_columns(ctx, rt, columns, fields_pr);
+  rt->unmap_region(ctx, fields_pr);
+}
+
+void
+Table::add_columns(
+  Context ctx,
+  Runtime* rt,
+  const std::map<
+    ColumnSpace,
+    std::vector<std::pair<std::string, TableField>>>& columns,
+  const Legion::PhysicalRegion& fields_pr) {
+
+  const NameAccessor<READ_WRITE>
+    nms(fields_pr, static_cast<FieldID>(TableFieldsFid::NM));
+  const DatatypeAccessor<READ_WRITE>
+    dts(fields_pr, static_cast<FieldID>(TableFieldsFid::DT));
+  const KeywordsAccessor<READ_WRITE>
+    kws(fields_pr, static_cast<FieldID>(TableFieldsFid::KW));
+  const MeasRefAccessor<READ_WRITE>
+    mrs(fields_pr, static_cast<FieldID>(TableFieldsFid::MR));
+  const MetadataAccessor<READ_WRITE>
+    mds(fields_pr, static_cast<FieldID>(TableFieldsFid::MD));
+  const ValueFidAccessor<READ_WRITE>
+    vfs(fields_pr, static_cast<FieldID>(TableFieldsFid::VF));
+  const ValuesAccessor<READ_WRITE>
+    vss(fields_pr, static_cast<FieldID>(TableFieldsFid::VS));
+
+  std::map<ColumnSpace, LogicalRegion> csp_vlrs;
+
+  PointInDomainIterator<1> fields_pid(
+    rt->get_index_space_domain(
+      fields_pr.get_logical_region().get_index_space()));
+
+  while (fields_pid() && vss[*fields_pid] != LogicalRegion::NO_REGION) {
+    auto csp =
+      ColumnSpace(vss[*fields_pid].get_index_space(), mds[*fields_pid]);
+    if (csp_vlrs.count(csp) == 0)
+      csp_vlrs.emplace(csp, vss[*fields_pid]);
+    fields_pid++;
+  }
+
+  assert(fields_pid());
+
+  for (auto& [csp, tfs] : columns) {
+    if (csp_vlrs.count(csp) == 0) {
+      FieldSpace fs = rt->create_field_space(ctx);
+      csp_vlrs.emplace(
+        csp,
+        rt->create_logical_region(ctx, csp.column_is, fs));
+    }
+    LogicalRegion& values_lr = csp_vlrs[csp];
+    std::set<FieldID> fids;
+    FieldSpace fs = values_lr.get_field_space();
+    rt->get_field_space_fields(fs, fids);
+    FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+    for (auto& nm_tf : tfs) {
+      auto& [nm, tf] = nm_tf;
+      assert(fids.count(tf.fid) == 0);
+      switch(tf.dt) {
+#define ALLOC_FLD(DT)                                                   \
+        case DT:                                                        \
+          fa.allocate_field(hyperion::DataType<DT>::serdez_size, tf.fid); \
+          break;
+        HYPERION_FOREACH_DATATYPE(ALLOC_FLD)
+#undef ALLOC_FLD
+      default:
+          assert(false);
+        break;
+      }
+      nms[*fields_pid] = nm;
+      dts[*fields_pid] = tf.dt;
+      kws[*fields_pid] = tf.kw;
+      mrs[*fields_pid] = tf.mr;
+      mds[*fields_pid] = csp.metadata_lr;
+      vfs[*fields_pid] = tf.fid;
+      vss[*fields_pid] = values_lr;
+    }
+  }
+}
+
+void
+Table::remove_columns(
+  Context ctx,
+  Runtime* rt,
+  const std::unordered_set<std::string>& columns,
+  bool destroy_orphan_column_spaces) {
+
+  auto fields_pr =
+    rt->map_region(ctx, table_fields_requirement(fields_lr, READ_WRITE));
+  remove_columns(ctx, rt, columns, destroy_orphan_column_spaces, fields_pr);
+  rt->unmap_region(ctx, fields_pr);
+}
+
+void
+Table::remove_columns(
+  Context ctx,
+  Runtime* rt,
+  const std::unordered_set<std::string>& columns,
+  bool destroy_orphan_column_spaces,
+  const PhysicalRegion& fields_pr) {
+
+  std::map<
+    ColumnSpace,
+    std::tuple<LogicalRegion, LogicalRegion, FieldAllocator>>
+    csp_lrs_fa;
+
+  {
+    const NameAccessor<READ_WRITE>
+      nms(fields_pr, static_cast<FieldID>(TableFieldsFid::NM));
+    const DatatypeAccessor<READ_WRITE>
+      dts(fields_pr, static_cast<FieldID>(TableFieldsFid::DT));
+    const KeywordsAccessor<READ_WRITE>
+      kws(fields_pr, static_cast<FieldID>(TableFieldsFid::KW));
+    const MeasRefAccessor<READ_WRITE>
+      mrs(fields_pr, static_cast<FieldID>(TableFieldsFid::MR));
+    const MetadataAccessor<READ_WRITE>
+      mds(fields_pr, static_cast<FieldID>(TableFieldsFid::MD));
+    const ValueFidAccessor<READ_WRITE>
+      vfs(fields_pr, static_cast<FieldID>(TableFieldsFid::VF));
+    const ValuesAccessor<READ_WRITE>
+      vss(fields_pr, static_cast<FieldID>(TableFieldsFid::VS));
+
+    PointInDomainIterator<1> src_pid(
+      rt->get_index_space_domain(
+        fields_pr.get_logical_region().get_index_space()));
+    PointInDomainIterator<1> dst_pid = src_pid;
+    while (src_pid()) {
+      bool remove = columns.count(nms[*src_pid]) > 0;
+      if (remove) {
+        auto csp =
+          ColumnSpace(vss[*src_pid].get_index_space(), mds[*src_pid]);
+        if (csp_lrs_fa.count(csp) == 0)
+          csp_lrs_fa[csp] =
+            std::make_tuple(
+              mds[*src_pid],
+              vss[*src_pid],
+              rt->create_field_allocator(ctx, vss[*src_pid].get_field_space()));
+        std::get<2>(csp_lrs_fa[csp]).free_field(vfs[*src_pid]);
+      }
+      if (!remove && src_pid[0] != dst_pid[0]) {
+        nms[*dst_pid] = nms[*src_pid];
+        dts[*dst_pid] = dts[*src_pid];
+        kws[*dst_pid] = kws[*src_pid];
+        mrs[*dst_pid] = mrs[*src_pid];
+        mds[*dst_pid] = mds[*src_pid];
+        vfs[*dst_pid] = vfs[*src_pid];
+        vss[*dst_pid] = vss[*src_pid];
+      }
+      src_pid++;
+      if (!remove)
+        dst_pid++;
+    }
+    {
+      static const hyperion::string nm;
+      static const Keywords kw;
+      static const MeasRef mr;
+      while (dst_pid()) {
+        nms[*dst_pid] = nm;
+        dts[*dst_pid] = (type_tag_t)0;
+        kws[*dst_pid] = kw;
+        mrs[*dst_pid] = mr;
+        mds[*dst_pid] = LogicalRegion::NO_REGION;
+        vfs[*dst_pid] = 0;
+        vss[*dst_pid] = LogicalRegion::NO_REGION;
+        dst_pid++;
+      }
+    }
+  }
+  for (auto& clf : csp_lrs_fa) {
+    ColumnSpace csp = std::get<0>(clf);
+    LogicalRegion md, v;
+    std::tie(md, v, std::ignore) = std::get<1>(clf);
+    std::vector<FieldID> fids;
+    rt->get_field_space_fields(v.get_field_space(), fids);
+    if (fids.size() == 0) {
+      if (destroy_orphan_column_spaces)
+        csp.destroy(ctx, rt, true);
+      rt->destroy_field_space(ctx, v.get_field_space());
+      rt->destroy_logical_region(ctx, v);
+    }
+  }
 }
 
 void
@@ -315,15 +433,8 @@ Table::columns_task(
 
 Future /* columns_result_t */
 Table::columns(Context ctx, Runtime *rt) const {
-  RegionRequirement req(fields_lr, READ_ONLY, EXCLUSIVE, fields_lr);
-  req.add_field(static_cast<FieldID>(TableFieldsFid::NM));
-  req.add_field(static_cast<FieldID>(TableFieldsFid::DT));
-  req.add_field(static_cast<FieldID>(TableFieldsFid::KW));
-  req.add_field(static_cast<FieldID>(TableFieldsFid::MR));
-  req.add_field(static_cast<FieldID>(TableFieldsFid::MD));
-  req.add_field(static_cast<FieldID>(TableFieldsFid::VS));
   TaskLauncher task(columns_task_id, TaskArgument(NULL, 0));
-  task.add_region_requirement(req);
+  task.add_region_requirement(table_fields_requirement(fields_lr, READ_ONLY));
   task.enable_inlining = true;
   return rt->execute_task(ctx, task);
 }
@@ -331,7 +442,11 @@ Table::columns(Context ctx, Runtime *rt) const {
 Table::columns_result_t
 Table::columns(Runtime *rt, const PhysicalRegion& fields_pr) {
 
-  columns_result_t result;
+  std::map<
+    ColumnSpace,
+    std::tuple<
+      LogicalRegion,
+      std::vector<columns_result_t::tbl_fld_t>>> cols;
 
   const NameAccessor<READ_ONLY>
     nms(fields_pr, static_cast<FieldID>(TableFieldsFid::NM));
@@ -343,38 +458,32 @@ Table::columns(Runtime *rt, const PhysicalRegion& fields_pr) {
     mrs(fields_pr, static_cast<FieldID>(TableFieldsFid::MR));
   const MetadataAccessor<READ_ONLY>
     mds(fields_pr, static_cast<FieldID>(TableFieldsFid::MD));
+  const ValueFidAccessor<READ_ONLY>
+    vfs(fields_pr, static_cast<FieldID>(TableFieldsFid::VF));
   const ValuesAccessor<READ_ONLY>
     vss(fields_pr, static_cast<FieldID>(TableFieldsFid::VS));
 
-  PointInDomainIterator<1> pid(
-    rt->get_index_space_domain(
-      fields_pr.get_logical_region().get_index_space()));
-  std::vector<FieldID> fids;
-  size_t i = 0;
-  if (pid()) {
-    Point<1> v0 = *pid;
-    rt->get_field_space_fields(vss[v0].get_field_space(), fids);
-    while (pid()) {
-      if (vss[v0] != vss[*pid]) {
-        v0 = *pid;
-        rt->get_field_space_fields(vss[v0].get_field_space(), fids);
-      }
-      result[i++] =
-        std::make_tuple(
-          nms[*pid],
-          Column(
-            dts[*pid],
-            fids[pid[0] - v0[0]],
-            mrs[*pid],
-            kws[*pid],
-            ColumnSpace(vss[*pid].get_index_space(), mds[*pid]),
-            vss[*pid]));
-      pid++;
-    }
+  for (PointInDomainIterator<1> pid(
+         rt->get_index_space_domain(
+           fields_pr.get_logical_region().get_index_space()));
+       pid();
+       pid++) {
+    auto csp = ColumnSpace(vss[*pid].get_index_space(), mds[*pid]);
+    columns_result_t::tbl_fld_t tf =
+      std::make_tuple(
+        nms[*pid],
+        TableField(dts[*pid], vfs[*pid], mrs[*pid], kws[*pid]));
+    if (cols.count(csp) == 0)
+      cols[csp] = std::make_tuple(vss[*pid], std::vector{tf});
+    else
+      std::get<1>(cols[csp]).push_back(tf);
   }
-  static const std::tuple<hyperion::string, Column> empty;
-  for (; i < (coord_t)MAX_COLUMNS; ++i)
-    result[i] = empty;
+  columns_result_t result;
+  result.fields.reserve(cols.size());
+  for (auto& [csp, lr_tfs] : cols) {
+    auto& [lr, tfs] = lr_tfs;
+    result.fields.emplace_back(csp, lr, tfs);
+  }
   return result;
 }
 
@@ -597,14 +706,12 @@ Table::convert(
       std::get<1>(tbl_flds[axes]).push_back(nm_tf);
     }
   }
-  std::vector<
-    std::tuple<
-      ColumnSpace,
-      std::vector<std::pair<std::string, TableField>>>> columns;
-  columns.reserve(tbl_flds.size());
+  std::map<
+    ColumnSpace,
+    std::vector<std::pair<std::string, TableField>>> columns;
   for (auto& [ax, is_tfs] : tbl_flds) {
     auto& [is, tfs] = is_tfs;
-    columns.emplace_back(
+    columns.emplace(
       ColumnSpace::create(ctx, rt, ax, axes_uid.value(), is),
       tfs);
   }
@@ -651,8 +758,7 @@ Table::copy_values_from(
   std::vector<RegionRequirement> reqs;
   std::vector<LogicalRegion> vlrs;
   {
-    RegionRequirement req(fields_lr, READ_ONLY, EXCLUSIVE, fields_lr);
-    req.add_field(static_cast<FieldID>(TableFieldsFid::VS));
+    RegionRequirement req = table_fields_requirement(fields_lr, READ_ONLY);
     {
       auto pr = rt->map_region(ctx, req);
       const ValuesAccessor<READ_ONLY>
@@ -667,11 +773,6 @@ Table::copy_values_from(
       }
       rt->unmap_region(ctx, pr);
     }
-    req.add_field(static_cast<FieldID>(TableFieldsFid::NM));
-    req.add_field(static_cast<FieldID>(TableFieldsFid::DT));
-    req.add_field(static_cast<FieldID>(TableFieldsFid::KW));
-    req.add_field(static_cast<FieldID>(TableFieldsFid::MR));
-    req.add_field(static_cast<FieldID>(TableFieldsFid::MD));
     reqs.push_back(req);
   }
   args.num_value_prs = vlrs.size();
@@ -756,15 +857,6 @@ Table::copy_values_from(
 
 void
 Table::preregister_tasks() {
-  {
-    // init_task
-    init_task_id = Runtime::generate_static_task_id();
-    TaskVariantRegistrar registrar(init_task_id, init_task_name);
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.set_idempotent();
-    registrar.set_leaf();
-    Runtime::preregister_task_variant<init_task>(registrar, init_task_name);
-  }
   {
     // columns_task
     columns_task_id = Runtime::generate_static_task_id();

@@ -24,6 +24,7 @@
 
 #pragma GCC visibility push(default)
 # include <array>
+# include <map>
 # include <string>
 # include <type_traits>
 # include <unordered_map>
@@ -40,6 +41,7 @@ enum class TableFieldsFid {
   KW,
   MR,
   MD,
+  VF,
   VS
 };
 
@@ -68,6 +70,10 @@ struct TableFieldsType<TableFieldsFid::MD> {
   typedef Legion::LogicalRegion type;
 };
 template<>
+struct TableFieldsType<TableFieldsFid::VF> {
+  typedef Legion::FieldID type;
+};
+template<>
 struct TableFieldsType<TableFieldsFid::VS> {
   typedef Legion::LogicalRegion type;
 };
@@ -76,11 +82,9 @@ class HYPERION_API Table {
 
 public:
 
-  // FIXME: value of MAX_COLUMNS has been reduced due to size of
-  // columns_result_t
-  static const constexpr size_t MAX_COLUMNS = HYPERION_MAX_NUM_TABLE_COLUMNS / 2;
+  static const constexpr size_t MAX_COLUMNS = HYPERION_MAX_NUM_TABLE_COLUMNS;
 
-  struct columns_result_tt {
+  struct columns_result_t {
     typedef std::tuple<hyperion::string, TableField> tbl_fld_t;
 
     std::vector<
@@ -140,6 +144,10 @@ public:
     Accessor<MODE, TableFieldsFid::MD, CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using ValueFidAccessor =
+    Accessor<MODE, TableFieldsFid::VF, CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using ValuesAccessor =
     Accessor<MODE, TableFieldsFid::VS, CHECK_BOUNDS>;
 
@@ -152,10 +160,41 @@ public:
   create(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<
-      std::tuple<
-        ColumnSpace,
-        std::vector<std::pair<std::string, TableField>>>>& columns);
+    const std::map<
+      ColumnSpace,
+      std::vector<std::pair<std::string, TableField>>>& columns);
+
+  void
+  add_columns(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::map<
+      ColumnSpace,
+      std::vector<std::pair<std::string, TableField>>>& columns);
+
+  static void
+  add_columns(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::map<
+      ColumnSpace,
+      std::vector<std::pair<std::string, TableField>>>& columns,
+    const Legion::PhysicalRegion& fields_pr);
+
+  void
+  remove_columns(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::unordered_set<std::string>& columns,
+    bool destroy_orphan_column_spaces=true);
+
+  static void
+  remove_columns(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::unordered_set<std::string>& columns,
+    bool destroy_orphan_column_spaces,
+    const Legion::PhysicalRegion& fields_pr);
 
   typedef Table convert_result_t;
 
@@ -205,14 +244,14 @@ public:
     Legion::Runtime* rt,
     bool destroy_column_space_components=false);
 
-  typedef std::array<std::tuple<hyperion::string, Column>, MAX_COLUMNS>
-  columns_result_t;
-
   Legion::Future /* columns_result_t */
   columns(Legion::Context ctx, Legion::Runtime *rt) const;
 
   static columns_result_t
   columns(Legion::Runtime *rt, const Legion::PhysicalRegion& fields_pr);
+
+  static std::unordered_map<std::string, Column>
+  column_map(const columns_result_t& columns_result);
 
   static void
   preregister_tasks();
@@ -220,32 +259,6 @@ public:
   Legion::LogicalRegion fields_lr;
 
 private:
-
-  static std::unordered_map<std::string, Column>
-  column_map(const columns_result_t& columns_result);
-
-  static std::unordered_map<std::string, Column>
-  column_map(const columns_result_tt& columns_result);
-
-  static void
-  create_columns(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const ColumnSpace& column_space,
-    const std::vector<std::pair<std::string, TableField>>& tbl_fields,
-    Legion::LogicalRegion& fields_lr,
-    size_t tbl_field_offset);
-
-  static Legion::TaskID init_task_id;
-
-  static const char* init_task_name;
-
-  static void
-  init_task(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime *rt);
 
   static Legion::TaskID columns_task_id;
 
