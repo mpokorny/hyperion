@@ -264,7 +264,7 @@ ColumnSpacePartition::project_onto(
 }
 
 ColumnSpacePartition::project_onto_result_t
-project_onto(
+ColumnSpacePartition::project_onto(
   Context ctx,
   Runtime* rt,
   const IndexPartition& csp_column_ip,
