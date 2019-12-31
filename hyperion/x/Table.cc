@@ -687,7 +687,7 @@ Table::convert(
   // axis order ensures that the shapes of the index spaces are the same for all
   // the columns with that axis order.
   std::map<
-    std::vector<unsigned>,
+    std::vector<int>,
     std::tuple<
       IndexSpace,
       std::vector<std::pair<std::string, TableField>>>> tbl_flds;
@@ -696,7 +696,7 @@ Table::convert(
     auto& [md_pr, ax_pr, o_mr_drs, o_kw_pair] = col_prs[i];
     IndexSpaceT<1> is(ax_pr.get_logical_region().get_index_space());
     DomainT<1> dom = rt->get_index_space_domain(is);
-    std::vector<unsigned> axes(Domain(dom).hi()[0] + 1);
+    std::vector<int> axes(Domain(dom).hi()[0] + 1);
     const hyperion::Column::AxesAccessor<READ_ONLY>
       ax(ax_pr, hyperion::Column::AXES_FID);
     for (PointInDomainIterator<1> pid(dom); pid(); pid++)

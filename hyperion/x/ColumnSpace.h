@@ -79,12 +79,23 @@ struct HYPERION_API ColumnSpace {
   create(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<unsigned> axes,
+    const std::vector<int>& axes,
     const std::string& axis_set_uid,
     const Legion::IndexSpace& column_is);
 
+  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  static ColumnSpace
+  create(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<D>& axes,
+    const Legion::IndexSpace& column_is) {
+
+    return create(ctx, rt, hyperion::map_to_int(axes), Axes<D>::uid, column_is);
+  }
+
   static AXIS_VECTOR_TYPE
-  to_axis_vector(const std::vector<unsigned>& v) {
+  to_axis_vector(const std::vector<int>& v) {
     assert(v.size() <= MAX_DIM);
     AXIS_VECTOR_TYPE result;
     auto e = std::copy(v.begin(), v.end(), result.begin());

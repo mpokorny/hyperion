@@ -93,7 +93,7 @@ ColumnSpace
 ColumnSpace::create(
   Context ctx,
   Runtime* rt,
-  const std::vector<unsigned> axes,
+  const std::vector<int>& axes,
   const std::string& axis_set_uid,
   const IndexSpace& column_is) {
 
