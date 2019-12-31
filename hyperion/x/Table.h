@@ -179,6 +179,7 @@ public:
     const std::map<
       ColumnSpace,
       std::vector<std::pair<std::string, TableField>>>& columns,
+    const std::optional<Legion::PhysicalRegion>& csp_md_pr,
     const Legion::PhysicalRegion& fields_pr);
 
   void

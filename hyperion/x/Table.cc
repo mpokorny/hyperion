@@ -36,7 +36,7 @@ Table::columns_result_t::legion_buffer_size(void) const {
   for (size_t i = 0; i < fields.size(); ++i)
     result +=
       sizeof(ColumnSpace)
-      + sizeof(Legion::LogicalRegion)
+      + sizeof(LogicalRegion)
       + sizeof(unsigned)
       + std::get<2>(fields[i]).size() * sizeof(tbl_fld_t);
   return result;
@@ -51,7 +51,7 @@ Table::columns_result_t::legion_serialize(void* buffer) const {
     auto& [csp, lr, fs] = fields[i];
     *reinterpret_cast<ColumnSpace*>(b) = csp;
     b += sizeof(csp);
-    *reinterpret_cast<Legion::LogicalRegion*>(b) = lr;
+    *reinterpret_cast<LogicalRegion*>(b) = lr;
     b += sizeof(lr);
     *reinterpret_cast<unsigned*>(b) = (unsigned)fs.size();
     b += sizeof(unsigned);
@@ -73,7 +73,7 @@ Table::columns_result_t::legion_deserialize(const void* buffer) {
     auto& [csp, lr, fs] = fields[i];
     csp = *reinterpret_cast<const ColumnSpace*>(b);
     b += sizeof(csp);
-    lr = *reinterpret_cast<const Legion::LogicalRegion*>(b);
+    lr = *reinterpret_cast<const LogicalRegion*>(b);
     b += sizeof(lr);
     unsigned nn = *reinterpret_cast<const unsigned*>(b);
     b += sizeof(nn);
@@ -96,8 +96,8 @@ Table::column_map(const columns_result_t& columns_result) {
 }
 
 template <TableFieldsFid F>
-static Legion::FieldID
-allocate_field(Legion::FieldAllocator& fa) {
+static FieldID
+allocate_field(FieldAllocator& fa) {
   return
     fa.allocate_field(
       sizeof(typename TableFieldsType<F>::type),
@@ -105,7 +105,7 @@ allocate_field(Legion::FieldAllocator& fa) {
 }
 
 static void
-allocate_table_fields(Legion::FieldAllocator& fa) {
+allocate_table_fields(FieldAllocator& fa) {
 #define ALLOC_F(F) allocate_field<F>(fa);
   FOREACH_TABLE_FIELD_FID(ALLOC_F);
 #undef ALLOC_F
@@ -123,8 +123,8 @@ table_fields_requirement(LogicalRegion lr, legion_privilege_mode_t mode) {
 
 Table
 Table::create(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
+  Context ctx,
+  Runtime* rt,
   const std::map<
     ColumnSpace,
     std::vector<std::pair<std::string, TableField>>>& columns) {
@@ -182,7 +182,7 @@ Table::create(
         vss[*pid] = LogicalRegion::NO_REGION;
       }
     }
-    add_columns(ctx, rt, columns, fields_pr);
+    add_columns(ctx, rt, columns, std::nullopt, fields_pr);
     rt->unmap_region(ctx, fields_pr);
   }
   return Table(fields_lr);
@@ -198,8 +198,20 @@ Table::add_columns(
 
   PhysicalRegion fields_pr =
     rt->map_region(ctx, table_fields_requirement(fields_lr, READ_WRITE));
-  add_columns(ctx, rt, columns, fields_pr);
+  std::optional<PhysicalRegion> csp_md_pr;
+  {
+    auto cols = column_map(Table::columns(rt, fields_pr));
+    if (cols.size() > 0) {
+      auto md = cols.begin()->second.csp.metadata_lr;
+      RegionRequirement req(md, READ_ONLY, EXCLUSIVE, md);
+      req.add_field(ColumnSpace::AXIS_SET_UID_FID);
+      csp_md_pr = rt->map_region(ctx, req);
+    }
+  }
+  add_columns(ctx, rt, columns, csp_md_pr, fields_pr);
   rt->unmap_region(ctx, fields_pr);
+  if (csp_md_pr)
+    rt->unmap_region(ctx, csp_md_pr.value());
 }
 
 void
@@ -209,7 +221,15 @@ Table::add_columns(
   const std::map<
     ColumnSpace,
     std::vector<std::pair<std::string, TableField>>>& columns,
-  const Legion::PhysicalRegion& fields_pr) {
+  const std::optional<PhysicalRegion>& csp_md_pr,
+  const PhysicalRegion& fields_pr) {
+
+  std::optional<ColumnSpace::AXIS_SET_UID_TYPE> auid;
+  if (csp_md_pr) {
+    const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+      au(csp_md_pr.value(), ColumnSpace::AXIS_SET_UID_FID);
+    auid = au[0];
+  }
 
   const NameAccessor<READ_WRITE>
     nms(fields_pr, static_cast<FieldID>(TableFieldsFid::NM));
@@ -243,6 +263,18 @@ Table::add_columns(
   assert(fields_pid());
 
   for (auto& [csp, tfs] : columns) {
+    {
+      RegionRequirement
+        req(csp.metadata_lr, READ_ONLY, EXCLUSIVE, csp.metadata_lr);
+      req.add_field(ColumnSpace::AXIS_SET_UID_FID);
+      auto md_pr = rt->map_region(ctx, req);
+      const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+        au(md_pr, ColumnSpace::AXIS_SET_UID_FID);
+      if (!auid)
+        auid = au[0];
+      assert(auid.value() == au[0]);
+      rt->unmap_region(ctx, md_pr);
+    }
     if (csp_vlrs.count(csp) == 0) {
       FieldSpace fs = rt->create_field_space(ctx);
       csp_vlrs.emplace(
