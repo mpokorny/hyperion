@@ -311,6 +311,8 @@ Table::add_columns(
       mds[*fields_pid] = csp.metadata_lr;
       vfs[*fields_pid] = tf.fid;
       vss[*fields_pid] = values_lr;
+      fids.insert(tf.fid);
+      fields_pid++;
     }
   }
 }
@@ -463,7 +465,7 @@ Table::columns_task(
   Context,
   Runtime *rt) {
 
-  assert(regions.size() == 0);
+  assert(regions.size() == 1);
   return columns(rt, regions[0]);
 }
 
@@ -502,7 +504,7 @@ Table::columns(Runtime *rt, const PhysicalRegion& fields_pr) {
   for (PointInDomainIterator<1> pid(
          rt->get_index_space_domain(
            fields_pr.get_logical_region().get_index_space()));
-       pid();
+       pid() && vss[*pid] != LogicalRegion::NO_REGION;
        pid++) {
     auto csp = ColumnSpace(vss[*pid].get_index_space(), mds[*pid]);
     columns_result_t::tbl_fld_t tf =
