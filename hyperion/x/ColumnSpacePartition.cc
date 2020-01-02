@@ -251,7 +251,7 @@ ColumnSpacePartition::project_onto(
 
   ProjectOntoTaskArgs args;
   args.csp_column_ip = column_ip;
-  args.tgt_cs_column_is = column_space.column_is;
+  args.tgt_cs_column_is = tgt_column_space.column_is;
   TaskLauncher task(project_onto_task_id, TaskArgument(&args, sizeof(args)));
   for (auto& cs : {&column_space, &tgt_column_space}) {
     RegionRequirement
@@ -291,6 +291,10 @@ ColumnSpacePartition::project_onto(
     dmap = hyperion::dimensions_map(tgt_axes, axes);
   }
 
+  // FIXME: the call to projected_index_partition() below doesn't produce the
+  // correct result...it seems that perhaps
+  // Legion::Runtime::create_partition_by_image_range() is not intersecting the
+  // image regions with the target index space
   IndexPartition tgt_column_ip =
     hyperion::projected_index_partition(
       ctx,
