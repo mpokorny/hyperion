@@ -18,6 +18,9 @@
 #include <hyperion/Table.h>
 #include <hyperion/tree_index_space.h>
 #include <hyperion/MSTable.h>
+#include <hyperion/x/Table.h>
+#include <hyperion/x/ColumnSpace.h>
+#include <hyperion/x/ColumnSpacePartition.h>
 
 #ifdef HYPERION_USE_HDF5
 # include <hyperion/hdf5.h>
@@ -489,6 +492,9 @@ hyperion::preregister_all() {
 
   TreeIndexSpaceTask::preregister_task();
   Table::preregister_tasks();
+  x::Table::preregister_tasks();
+  x::ColumnSpace::preregister_tasks();
+  x::ColumnSpacePartition::preregister_tasks();
   ProjectedIndexPartitionTask::preregister_task();
 #ifdef HYPERION_USE_CASACORE
   TableReadTask::preregister_task();
