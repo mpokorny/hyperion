@@ -148,9 +148,10 @@ Table::create(
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     allocate_table_fields(fa);
     fields_lr = rt->create_logical_region(ctx, is, fs);
-    PhysicalRegion fields_pr =
-      rt->map_region(ctx, table_fields_requirement(fields_lr, READ_WRITE));
     {
+      PhysicalRegion fields_pr =
+        rt->map_region(ctx, table_fields_requirement(fields_lr, WRITE_ONLY));
+
       static const hyperion::string nm;
       static const Keywords kw;
       static const MeasRef mr;
@@ -181,7 +182,10 @@ Table::create(
         vfs[*pid] = 0;
         vss[*pid] = LogicalRegion::NO_REGION;
       }
+      rt->unmap_region(ctx, fields_pr);
     }
+    PhysicalRegion fields_pr =
+      rt->map_region(ctx, table_fields_requirement(fields_lr, READ_WRITE));
     add_columns(ctx, rt, columns, std::nullopt, fields_pr);
     rt->unmap_region(ctx, fields_pr);
   }
