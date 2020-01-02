@@ -17,7 +17,9 @@
 #include <hyperion/testing/TestRecorder.h>
 
 #include <hyperion/utility.h>
+#include <hyperion/tree_index_space.h>
 #include <hyperion/x/Table.h>
+#include <hyperion/x/ColumnSpacePartition.h>
 
 // #ifdef HYPERION_USE_CASACORE
 // # include <hyperion/MeasRefContainer.h>
@@ -38,11 +40,11 @@ enum {
 
 enum struct Table0Axes {
   ROW = 0,
-  X,
-  Y
+  W
 };
 
 enum {
+  COL_W,
   COL_X,
   COL_Y,
   COL_Z
@@ -52,14 +54,14 @@ template <>
 struct hyperion::Axes<Table0Axes> {
   static const constexpr char* uid = "Table0Axes";
   static const std::vector<std::string> names;
-  static const unsigned num_axes = 3;
+  static const unsigned num_axes = 2;
 #ifdef HYPERION_USE_HDF5
   static const hid_t h5_datatype;
 #endif
 };
 
 const std::vector<std::string>
-hyperion::Axes<Table0Axes>::names{"ROW", "X", "Y"};
+hyperion::Axes<Table0Axes>::names{"ROW", "W"};
 
 #ifdef HYPERION_USE_HDF5
 hid_t
@@ -68,10 +70,8 @@ h5_dt() {
   Table0Axes a = Table0Axes::ROW;
   herr_t err = H5Tenum_insert(result, "ROW", &a);
   assert(err >= 0);
-  a = Table0Axes::X;
-  err = H5Tenum_insert(result, "X", &a);
-  a = Table0Axes::Y;
-  err = H5Tenum_insert(result, "Y", &a);
+  a = Table0Axes::W;
+  err = H5Tenum_insert(result, "W", &a);
   return result;
 }
 
@@ -85,11 +85,8 @@ operator<<(std::ostream& stream, const Table0Axes& ax) {
   case Table0Axes::ROW:
     stream << "Table0Axes::ROW";
     break;
-  case Table0Axes::X:
-    stream << "Table0Axes::X";
-    break;
-  case Table0Axes::Y:
-    stream << "Table0Axes::Y";
+  case Table0Axes::W:
+    stream << "Table0Axes::W";
     break;
   }
   return stream;
@@ -115,6 +112,8 @@ operator<<(std::ostream& stream, const std::vector<Table0Axes>& axs) {
 #define TABLE0_NUM_Y 3
 #define OY 30
 #define TABLE0_NUM_ROWS (TABLE0_NUM_X * TABLE0_NUM_Y)
+#define TABLE0_ROWS0_NUM_W 2
+#define TABLE0_ROWS1_NUM_W 3
 
 const std::array<DomainPoint, TABLE0_NUM_ROWS> part_cs{
   Point<2>({0, 0}),
@@ -144,6 +143,8 @@ unsigned table0_y[TABLE0_NUM_ROWS] {
                      OY + CS(9,1), OY + CS(10,1), OY + CS(11,1)};
 unsigned table0_z[TABLE0_NUM_ROWS] {
                    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+#define TABLE0_NUM_W_COLS std::max(TABLE0_ROWS0_NUM_W, TABLE0_ROWS1_NUM_W)
+unsigned table0_w[TABLE0_NUM_ROWS * TABLE0_NUM_W_COLS];
 
 PhysicalRegion
 attach_table0_col(
@@ -159,7 +160,7 @@ attach_table0_col(
     .first();
 
   AttachLauncher task(EXTERNAL_INSTANCE, col.vlr, col.vlr);
-  task.attach_array_soa(base, true, {col.fid}, local_sysmem);
+  task.attach_array_soa(base, false, {col.fid}, local_sysmem);
   PhysicalRegion result = runtime->attach_external_resource(context, task);
   AcquireLauncher acq(col.vlr, col.vlr, result);
   acq.add_field(col.fid);
@@ -177,78 +178,42 @@ using ROAccessor =
   DIM,
   coord_t,
   AffineAccessor<T, DIM, coord_t>,
-  false>;
+  true>;
 
-template <typename F>
 bool
-cmp_values(
+verify_xyz(
   Context ctx,
-  Runtime* rt,
-  PhysicalRegion col_pr,
-  LogicalPartition col_lp,
-  FieldID col_fid,
-  DomainT<2> colors,
-  F cmp) {
+  Runtime *rt,
+  const x::Column& col,
+  IndexSpace& is,
+  PhysicalRegion pr,
+  unsigned *ary) {
 
   bool result = true;
-  for (PointInDomainIterator<2> c(colors); result && c(); c++) {
-    LogicalRegion lr =
-      rt->get_logical_subregion_by_color(ctx, col_lp, *c);
-    DomainT<1> rows = rt->get_index_space_domain(ctx, lr.get_index_space());
-    const ROAccessor<unsigned, 1> v(col_pr, col_fid);
-    for (PointInDomainIterator<1> r(rows); result && r(); r++)
-      result = cmp(*c, v[*r]);
-  }
+  const ROAccessor<unsigned, 1> vals(pr, col.fid);
+  for (PointInDomainIterator<1> pid(rt->get_index_space_domain(is));
+       pid() && result;
+       pid++)
+    result = ary[pid[0]] == vals[*pid];
   return result;
 }
 
 bool
-check_partition(
+verify_w(
   Context ctx,
-  Runtime* rt,
-  const std::unordered_map<std::string, PhysicalRegion>& prs,
-  const std::string& col_name,
-  const x::Column& column,
-  IndexPartition ip) {
+  Runtime *rt,
+  const x::Column& col,
+  IndexSpace& is,
+  PhysicalRegion pr,
+  unsigned *ary) {
 
   bool result = true;
-  LogicalPartition col_lp = rt->get_logical_partition(ctx, column.vlr, ip);
-  DomainT<2> colors =
-    rt->get_index_partition_color_space<1,coord_t,2,coord_t>(
-      IndexPartitionT<1>(ip));
-  if (col_name == "X")
-    result =
-      cmp_values(
-        ctx,
-        rt,
-        prs.at("X"),
-        col_lp,
-        COL_X,
-        colors,
-        [](Point<2> c, unsigned v) { return v == OX + c[0]; });
-  else if (col_name == "Y")
-    result =
-      cmp_values(
-        ctx,
-        rt,
-        prs.at("Y"),
-        col_lp,
-        COL_Y,
-        colors,
-        [](Point<2> c, unsigned v) { return v == OY + c[1]; });
-  else // col_name == "Z"
-    result =
-      cmp_values(
-        ctx,
-        rt,
-        prs.at("Z"),
-        col_lp,
-        COL_Z,
-        colors,
-        [](Point<2> c, unsigned v) {
-          return CS(v, 0) == c[0] && CS(v, 1) == c[1];
-        });
-  rt->destroy_logical_partition(ctx, col_lp);
+  const ROAccessor<unsigned, 2> vals(pr, col.fid);
+  for (PointInDomainIterator<2> pid(rt->get_index_space_domain(is));
+       pid() && result;
+       pid++) {
+    result = ary[TABLE0_NUM_W_COLS * pid[0] + pid[1]] == vals[*pid];
+  }
   return result;
 }
 
@@ -294,13 +259,35 @@ table_test_suite(
       ctx,
       rt));
 
-  auto col_is = rt->create_index_space(ctx, Rect<1>(0, TABLE0_NUM_ROWS - 1));
-  auto col_space =
+  std::iota(
+    &table0_w[0],
+    &table0_w[sizeof(table0_w) / sizeof(table0_w[0])],
+    0.0);
+
+  auto xyz_is = rt->create_index_space(ctx, Rect<1>(0, TABLE0_NUM_ROWS - 1));
+  auto xyz_space =
     x::ColumnSpace::create(
       ctx,
       rt,
       std::vector<Table0Axes>{Table0Axes::ROW},
-      col_is);
+      xyz_is);
+
+  IndexSpace w_is;
+  {
+    IndexTreeL wr2(
+      {{1, IndexTreeL(TABLE0_ROWS0_NUM_W)},
+       {1, IndexTreeL(TABLE0_ROWS1_NUM_W)}});
+    IndexTreeL wtree(
+      wr2,
+      (TABLE0_NUM_ROWS / 2) * (TABLE0_ROWS0_NUM_W + TABLE0_ROWS1_NUM_W));
+    w_is = tree_index_space(wtree, ctx, rt);
+  }
+  auto w_space =
+    x::ColumnSpace::create(
+      ctx,
+      rt,
+      std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::W},
+      w_is);
 
 // #ifdef HYPERION_USE_CASACORE
 //   casacore::MeasRef<casacore::MEpoch> tai(casacore::MEpoch::TAI);
@@ -323,7 +310,7 @@ table_test_suite(
 //     table0_col("Z", col_measures["Z"], "EPOCH")
 //   };
 // #else
-  std::vector<std::pair<std::string, x::TableField>> col_fields{
+  std::vector<std::pair<std::string, x::TableField>> xyz_fields{
     {"X",
      x::TableField(HYPERION_TYPE_UINT, COL_X, MeasRef(), Keywords())},
     {"Y",
@@ -331,9 +318,14 @@ table_test_suite(
     {"Z",
      x::TableField(HYPERION_TYPE_UINT, COL_Z, MeasRef(), Keywords())}
   };
+  std::vector<std::pair<std::string, x::TableField>> w_fields{
+    {"W",
+     x::TableField(HYPERION_TYPE_UINT, COL_W, MeasRef(), Keywords())}
+  };
 // #endif
 
-  auto table0 = x::Table::create(ctx, rt, {{col_space, col_fields}});
+  auto table0 =
+    x::Table::create(ctx, rt, {{xyz_space, xyz_fields}, {w_space, w_fields}});
 
 // #ifdef HYPERION_USE_CASACORE
 //   recorder.expect_true(
@@ -357,130 +349,86 @@ table_test_suite(
   auto cols =
     x::Table::column_map(
       table0.columns(ctx, rt).get<x::Table::columns_result_t>());
-  auto col_x = attach_table0_col(ctx, rt, cols.at("X"), table0_x);
-  auto col_y = attach_table0_col(ctx, rt, cols.at("Y"), table0_y);
-  auto col_z = attach_table0_col(ctx, rt, cols.at("Z"), table0_z);
+  std::unordered_map<std::string, unsigned*> col_arrays{
+    {"W", table0_w},
+    {"X", table0_x},
+    {"Y", table0_y},
+    {"Z", table0_z}
+  };
 
-  std::unordered_map<std::string, PhysicalRegion> col_prs{
-    {"X", col_x},
-    {"Y", col_y},
-    {"Z", col_z}};
+  std::unordered_map<std::string, PhysicalRegion> col_prs;
+  for (auto& c : {"W", "X", "Y", "Z"}) {
+    std::string cstr(c);
+    col_prs[cstr] =
+      attach_table0_col(ctx, rt, cols.at(cstr), col_arrays.at(cstr));
+  }
 
-  // auto fparts =
-  //   table0.partition_by_value(
-  //     ctx,
-  //     rt,
-  //     std::vector<Table0Axes>{Table0Axes::X, Table0Axes::Y});
+  for (auto& c : {"X", "Y", "Z"}) {
+    std::string cstr(c);
+    auto col = cols.at(cstr);
+    auto pr = col_prs.at(cstr);
+    recorder.expect_true(
+      "Column '" + cstr + "' has expected values",
+      TE(verify_xyz(ctx, rt, col, col.csp.column_is, pr, col_arrays.at(cstr))));
+  }
 
-  // recorder.assert_true(
-  //   "IndexPartitions named for all table columns",
-  //   TE(fparts.count("X") == 1
-  //      && fparts.count("Y") == 1
-  //      && fparts.count("Z") == 1));
+  {
+    auto col = cols.at("W");
+    auto pr = col_prs.at("W");
+    recorder.expect_true(
+      "Column 'W' has expected values",
+      TE(verify_w(ctx, rt, col, col.csp.column_is, pr, col_arrays.at("W"))));
+  }
 
-  // std::unordered_map<std::string, ColumnPartition> parts;
-  // for (auto&fp : fparts) {
-  //   auto& [c, f] = fp;
-  //   auto cp = f.template get_result<ColumnPartition>();
-  //   parts.emplace(c, cp);
-  // }
+  {
+    constexpr unsigned NUM_PARTS = 3;
+    std::vector<AxisPartition> rowp{
+      AxisPartition{
+        Axes<Table0Axes>::uid,
+        static_cast<int>(Table0Axes::ROW),
+        TABLE0_NUM_ROWS / NUM_PARTS,
+        0,
+        0,
+        TABLE0_NUM_ROWS / NUM_PARTS - 1}};
+    auto xyz_part =
+      x::ColumnSpacePartition::create(ctx, rt, xyz_space, rowp)
+      .get<x::ColumnSpacePartition>();
+    // TODO: a better test would be to use xyz_part.project_onto(ctx, rt,
+    // w_space), but there seems to be an issue with that method
+    auto w_part =
+      x::ColumnSpacePartition::create(ctx, rt, w_space, rowp)
+      .get<x::ColumnSpacePartition>();
 
-  // recorder.expect_true(
-  //   "All column IndexPartitions are non-empty",
-  //   TE(
-  //     std::all_of(
-  //       parts.begin(),
-  //       parts.end(),
-  //       [](auto& p) {
-  //         return p.second.index_partition != IndexPartition::NO_PART;
-  //       })));
+    for (unsigned p = 0; p < NUM_PARTS; ++p) {
+      auto xyz_p_is = rt->get_index_subspace(xyz_part.column_ip, p);
+      for (auto& c : {"X", "Y", "Z"}) {
+        std::string cstr(c);
+        auto col = cols.at(cstr);
+        auto pr = col_prs.at(cstr);
+        recorder.expect_true(
+          "Column '" + cstr + "' has expected values in partition "
+          + std::to_string(p),
+          TE(verify_xyz(ctx, rt, col, xyz_p_is, pr, col_arrays.at(cstr))));
+      }
+      {
+        auto w_p_is = rt->get_index_subspace(w_part.column_ip, p);
+        auto col = cols.at("W");
+        auto pr = col_prs.at("W");
+        recorder.expect_true(
+          "Column 'W' has expected values in partition "
+          + std::to_string(p),
+          TE(verify_w(ctx, rt, col, w_p_is, pr, col_arrays.at("W"))));
+      }
+    }
+    xyz_part.destroy(ctx, rt);
+    w_part.destroy(ctx, rt);
+  }
 
-  // recorder.expect_true(
-  //   "All column IndexPartitions are one dimensional",
-  //   TE(
-  //     std::all_of(
-  //       parts.begin(),
-  //       parts.end(),
-  //       [](auto& p) {
-  //         return p.second.index_partition.get_dim() == 1;
-  //       })));
-
-  // recorder.expect_true(
-  //   "All column IndexPartitions have a two-dimensional color space",
-  //   TE(
-  //     std::all_of(
-  //       parts.begin(),
-  //       parts.end(),
-  //       [&ctx, rt](auto& p) {
-  //         return
-  //           rt->get_index_partition_color_space(
-  //             ctx,
-  //             p.second.index_partition)
-  //           .get_dim() == 2;
-  //       })));
-
-  // recorder.expect_true(
-  //   "All column IndexPartitions have the same color space",
-  //   TE(
-  //     std::all_of(
-  //       ++parts.begin(),
-  //       parts.end(),
-  //       [cs=rt->get_index_partition_color_space(
-  //           ctx,
-  //           parts.begin()->second.index_partition),
-  //        &ctx, rt](auto& p) {
-  //         return
-  //           rt->get_index_partition_color_space(
-  //             ctx,
-  //             p.second.index_partition)
-  //           == cs;
-  //       })));
-
-  // recorder.expect_true(
-  //   "Column IndexPartition has expected color space",
-  //   testing::TestEval(
-  //     [&parts, &ctx, rt]() {
-  //       auto cs =
-  //         rt->get_index_partition_color_space(
-  //           IndexPartitionT<2>(parts.begin()->second.index_partition));
-  //       std::set<Point<2>> part_dom(part_cs.begin(), part_cs.end());
-  //       bool dom_in_cs =
-  //         std::all_of(
-  //           part_dom.begin(),
-  //           part_dom.end(),
-  //           [&cs](auto& p) {
-  //             return cs.contains(p);
-  //           });
-  //       return cs.get_volume() == part_dom.size() && dom_in_cs;
-  //     }));
-
-  // recorder.expect_true(
-  //   "All columns partitioned as expected",
-  //   TE(
-  //     std::all_of(
-  //       parts.begin(),
-  //       parts.end(),
-  //       [&cols, &table0, &ctx, rt](auto& p) {
-  //         return
-  //           check_partition(
-  //             ctx,
-  //             rt,
-  //             cols,
-  //             table0.column(ctx, rt, p.first),
-  //             p.second.index_partition);
-  //       })));
-
-  // {
-  //   bool destroy_color_space = false;
-  //   for (auto& p : parts) {
-  //     std::get<1>(p).destroy(ctx, rt, destroy_color_space);
-  //     destroy_color_space = false;
-  //   }
-  // }
-
-  for (auto& pr : {col_x, col_y, col_z}) {
+  for (auto& c : {"W", "X", "Y", "Z"}) {
+    auto col = cols.at(c);
+    auto pr = col_prs.at(c);
     ReleaseLauncher rel(pr.get_logical_region(), pr.get_logical_region(), pr);
-    rel.add_field(Column::VALUE_FID);
+    rel.add_field(col.fid);
     rt->issue_release(ctx, rel);
     rt->unmap_region(ctx, pr);
   }
