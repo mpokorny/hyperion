@@ -382,46 +382,123 @@ table_test_suite(
 
   {
     constexpr unsigned NUM_PARTS = 3;
-    std::vector<AxisPartition> rowp{
-      AxisPartition{
-        Axes<Table0Axes>::uid,
-        static_cast<int>(Table0Axes::ROW),
-        TABLE0_NUM_ROWS / NUM_PARTS,
-        0,
-        0,
-        TABLE0_NUM_ROWS / NUM_PARTS - 1}};
+    constexpr unsigned BLOCK_SZ = TABLE0_NUM_ROWS / NUM_PARTS;
     auto xyz_part =
-      x::ColumnSpacePartition::create(ctx, rt, xyz_space, rowp)
+      x::ColumnSpacePartition::create(
+        ctx,
+        rt,
+        xyz_space,
+        std::vector<std::pair<Table0Axes,coord_t>>{
+          {Table0Axes::ROW, BLOCK_SZ}})
       .get<x::ColumnSpacePartition>();
-    // TODO: a better test would be to use xyz_part.project_onto(ctx, rt,
-    // w_space), but there seems to be an issue with that method
     auto w_part =
-      x::ColumnSpacePartition::create(ctx, rt, w_space, rowp)
+      xyz_part.project_onto(ctx, rt, w_space)
       .get<x::ColumnSpacePartition>();
 
     for (unsigned p = 0; p < NUM_PARTS; ++p) {
-      auto xyz_p_is = rt->get_index_subspace(xyz_part.column_ip, p);
-      for (auto& c : {"X", "Y", "Z"}) {
-        std::string cstr(c);
-        auto col = cols.at(cstr);
-        auto pr = col_prs.at(cstr);
+      {
+        auto xyz_p_is = rt->get_index_subspace(xyz_part.column_ip, p);
         recorder.expect_true(
-          "Column '" + cstr + "' has expected values in partition "
-          + std::to_string(p),
-          TE(verify_xyz(ctx, rt, col, xyz_p_is, pr, col_arrays.at(cstr))));
+          "Row partition " + std::to_string(p) + " has expected row numbers",
+          testing::TestEval(
+            [&xyz_p_is, p, rt]() {
+              bool result = true;
+              for (PointInDomainIterator<1> pid(
+                     rt->get_index_space_domain(xyz_p_is));
+                   result && pid();
+                   pid++) {
+                result = pid[0] / BLOCK_SZ == p;
+              }
+              return result;
+            }));
+        for (auto& c : {"X", "Y", "Z"}) {
+          std::string cstr(c);
+          auto col = cols.at(cstr);
+          auto pr = col_prs.at(cstr);
+          recorder.expect_true(
+            "Column '" + cstr + "' has expected values in row partition "
+            + std::to_string(p),
+            TE(verify_xyz(ctx, rt, col, xyz_p_is, pr, col_arrays.at(cstr))));
+        }
       }
       {
         auto w_p_is = rt->get_index_subspace(w_part.column_ip, p);
+        recorder.expect_true(
+          "Projected row partition " + std::to_string(p)
+          + " has expected row numbers",
+          testing::TestEval(
+            [&w_p_is, p, rt]() {
+              bool result = true;
+              for (PointInDomainIterator<2> pid(
+                     rt->get_index_space_domain(w_p_is));
+                   result && pid();
+                   pid++)
+                result = pid[0] / BLOCK_SZ == p;
+              return result;
+            }));
         auto col = cols.at("W");
         auto pr = col_prs.at("W");
         recorder.expect_true(
-          "Column 'W' has expected values in partition "
+          "Column 'W' has expected values in row partition "
           + std::to_string(p),
           TE(verify_w(ctx, rt, col, w_p_is, pr, col_arrays.at("W"))));
       }
     }
     xyz_part.destroy(ctx, rt);
     w_part.destroy(ctx, rt);
+  }
+  {
+    constexpr unsigned BLOCK_SZ = 2;
+    constexpr unsigned NUM_PARTS =
+      (TABLE0_NUM_W_COLS + (BLOCK_SZ - 1)) / BLOCK_SZ;
+    auto w_part =
+      x::ColumnSpacePartition::create(
+        ctx,
+        rt,
+        w_space,
+        std::vector<std::pair<Table0Axes,coord_t>>{
+          {Table0Axes::W, BLOCK_SZ}})
+      .get<x::ColumnSpacePartition>();
+    auto xyz_part =
+      w_part.project_onto(ctx, rt, xyz_space)
+      .get<x::ColumnSpacePartition>();
+    for (unsigned p = 0; p < NUM_PARTS; ++p) {
+      {
+        auto w_p_is = rt->get_index_subspace(w_part.column_ip, p);
+        recorder.expect_true(
+          "w-axis partition " + std::to_string(p)
+          + " has expected index values",
+          testing::TestEval(
+            [&w_p_is, p, rt]() {
+              bool result = true;
+              for (PointInDomainIterator<2> pid(
+                     rt->get_index_space_domain(w_p_is));
+                   result && pid();
+                   pid++)
+                result = pid[1] / BLOCK_SZ == p;
+              return result;
+            }));
+      }
+      {
+        auto xyz_p_is = rt->get_index_subspace(xyz_part.column_ip, p);
+        recorder.expect_true(
+          "Projected w-axis partition " + std::to_string(p)
+          + " has expected index values",
+          testing::TestEval(
+            [&xyz_p_is, p, rt]() {
+              std::vector<coord_t> rows(TABLE0_NUM_ROWS);
+              std::iota(rows.begin(), rows.end(), 0);
+              auto rows_end = rows.end();
+              for (PointInDomainIterator<1> pid(
+                     rt->get_index_space_domain(xyz_p_is));
+                   pid();
+                   pid++)
+                rows_end = std::remove(rows.begin(), rows_end, pid[0]);
+              rows.erase(rows_end, rows.end());
+              return rows.size() == 0;
+            }));
+      }
+    }
   }
 
   for (auto& c : {"W", "X", "Y", "Z"}) {

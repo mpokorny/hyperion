@@ -21,6 +21,7 @@
 #include <hyperion/x/ColumnSpace.h>
 
 #pragma GCC visibility push(default)
+# include <array>
 # include <vector>
 #pragma GCC visibility pop
 
@@ -33,9 +34,11 @@ struct HYPERION_API ColumnSpacePartition {
 
   ColumnSpacePartition(
     const ColumnSpace& column_space_,
-    const Legion::IndexPartition column_ip_)
+    const Legion::IndexPartition column_ip_,
+    const std::array<AxisPartition, ColumnSpace::MAX_DIM>& partition_)
     : column_space(column_space_)
-    , column_ip(column_ip_) {
+    , column_ip(column_ip_)
+    , partition(partition_) {
   }
 
   bool
@@ -51,14 +54,40 @@ struct HYPERION_API ColumnSpacePartition {
     bool destroy_column_space=false,
     bool destroy_column_space_index_space=false);
 
-  static Legion::Future /* ColumnSpacePartition */
+  int
+  color_dim(Legion::Runtime* rt) const;
+
+  typedef ColumnSpacePartition create_result_t;
+
+  static Legion::Future /* create_result_t */
   create(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ColumnSpace& column_space,
     const std::vector<hyperion::AxisPartition>& partition);
 
-  typedef ColumnSpacePartition create_result_t;
+  static Legion::Future /* create_result_t */
+  create(
+    Legion::Context ctx,
+    Legion::Runtime *rt,
+    const ColumnSpace& column_space,
+    const std::string& block_axes_uid,
+    const std::vector<std::pair<int, Legion::coord_t>>& block_sizes);
+
+  template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
+  static Legion::Future /* create_result_t */
+  create(
+    Legion::Context ctx,
+    Legion::Runtime *rt,
+    const ColumnSpace& column_space,
+    const std::vector<std::pair<D, Legion::coord_t>>& block_sizes) {
+
+    std::vector<std::pair<int, Legion::coord_t>> bsz;
+    bsz.reserve(block_sizes.size());
+    for (auto& [d, sz] : block_sizes)
+      bsz.emplace_back(static_cast<int>(d), sz);
+    return create(ctx, rt, column_space, Axes<D>::uid, bsz);
+  }
 
   static create_result_t
   create(
@@ -68,22 +97,20 @@ struct HYPERION_API ColumnSpacePartition {
     const std::vector<hyperion::AxisPartition>& partition,
     const Legion::PhysicalRegion& column_space_metadata_pr);
 
-  Legion::Future /* ColumnSpacePartition */
+  static create_result_t
+  create(
+    Legion::Context ctx,
+    Legion::Runtime *rt,
+    const Legion::IndexSpace& column_space_is,
+    const std::string& block_axes_uid,
+    const std::vector<std::pair<int, Legion::coord_t>>& block_sizes,
+    const Legion::PhysicalRegion& column_space_metadata_pr);
+
+  Legion::Future /* create_result_t */
   project_onto(
     Legion::Context ctx,
     Legion::Runtime *rt,
     const ColumnSpace& tgt_column_space) const;
-
-  typedef ColumnSpacePartition project_onto_result_t;
-
-  static project_onto_result_t
-  project_onto(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const Legion::IndexPartition& csp_column_ip,
-    const Legion::IndexSpace& tgt_cs_column_is,
-    const Legion::PhysicalRegion& csp_cs_metadata_pr,
-    const Legion::PhysicalRegion& tgt_cs_metadata_pr);
 
   static void
   preregister_tasks();
@@ -92,25 +119,27 @@ struct HYPERION_API ColumnSpacePartition {
 
   Legion::IndexPartition column_ip;
 
+  std::array<AxisPartition, ColumnSpace::MAX_DIM> partition;
+
 private:
 
-  static Legion::TaskID create_task_id;
+  static Legion::TaskID create_task_ap_id;
 
-  static const char* create_task_name;
+  static const char* create_task_ap_name;
 
   static create_result_t
-  create_task(
+  create_task_ap(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static Legion::TaskID project_onto_task_id;
+  static Legion::TaskID create_task_bs_id;
 
-  static const char* project_onto_task_name;
+  static const char* create_task_bs_name;
 
-  static project_onto_result_t
-  project_onto_task(
+  static create_result_t
+  create_task_bs(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,

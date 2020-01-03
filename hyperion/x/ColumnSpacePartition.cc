@@ -38,25 +38,31 @@ ColumnSpacePartition::destroy(
     column_space.destroy(ctx, rt, destroy_column_space_index_space);
 }
 
-TaskID ColumnSpacePartition::create_task_id;
+int
+ColumnSpacePartition::color_dim(Legion::Runtime* rt) const {
+  return rt->get_index_partition_color_space(column_ip).get_dim();
+}
 
-const char* ColumnSpacePartition::create_task_name =
-  "x::ColumnSpacePartition::create_task";
+TaskID ColumnSpacePartition::create_task_ap_id;
 
-struct CreateTaskArgs {
+const char* ColumnSpacePartition::create_task_ap_name =
+  "x::ColumnSpacePartition::create_task_ap";
+
+struct CreateTaskAPArgs {
   std::array<hyperion::AxisPartition, ColumnSpace::MAX_DIM> partition;
   size_t partition_dim;
   IndexSpace column_space_is;
 };
 
 ColumnSpacePartition::create_result_t
-ColumnSpacePartition::create_task(
+ColumnSpacePartition::create_task_ap(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime *rt) {
 
-  const CreateTaskArgs* args = static_cast<const CreateTaskArgs*>(task->args);
+  const CreateTaskAPArgs* args =
+    static_cast<const CreateTaskAPArgs*>(task->args);
   assert(regions.size() == 1);
   std::vector<hyperion::AxisPartition> partition;
   partition.reserve(args->partition_dim);
@@ -74,8 +80,12 @@ ColumnSpacePartition::create(
   const ColumnSpace& column_space,
   const std::vector<hyperion::AxisPartition>& partition) {
 
-  CreateTaskArgs args;
-  TaskLauncher task(create_task_id, TaskArgument(&args, sizeof(args)));
+  CreateTaskAPArgs args;
+  args.column_space_is = column_space.column_is;
+  args.partition_dim = partition.size();
+  assert(partition.size() <= args.partition.size());
+  std::copy(partition.begin(), partition.end(), args.partition.begin());
+  TaskLauncher task(create_task_ap_id, TaskArgument(&args, sizeof(args)));
   {
     RegionRequirement req(
       column_space.metadata_lr,
@@ -84,10 +94,6 @@ ColumnSpacePartition::create(
       column_space.metadata_lr);
     req.add_field(ColumnSpace::AXIS_VECTOR_FID);
     req.add_field(ColumnSpace::AXIS_SET_UID_FID);
-    args.column_space_is = column_space.column_is;
-    args.partition_dim = partition.size();
-    assert(partition.size() <= args.partition.size());
-    std::copy(partition.begin(), partition.end(), args.partition.begin());
     task.add_region_requirement(req);
   }
   return rt->execute_task(ctx, task);
@@ -101,15 +107,12 @@ create_partition_on_axes(
   IndexSpaceT<IS_DIM> is,
   const std::vector<hyperion::AxisPartition>& parts) {
 
-  Rect<IS_DIM> is_rect = rt->get_index_space_domain(is).bounds;
-
   // partition color space
   Rect<PART_DIM> cs_rect;
   for (auto n = 0; n < PART_DIM; ++n) {
     const auto& part = parts[n];
     coord_t m =
-      ((is_rect.hi[part.dim] - is_rect.lo[part.dim] /*+ 1*/ - part.offset)
-       + part.stride /*- 1*/)
+      ((part.limits[1] - part.limits[0] /*+1*/) + part.stride /*-1*/)
       / part.stride;
     cs_rect.lo[n] = 0;
     cs_rect.hi[n] = m - 1;
@@ -122,15 +125,25 @@ create_partition_on_axes(
       transform[m][n] = 0;
   for (auto n = 0; n < PART_DIM; ++n) {
     const auto& part = parts[n];
-    transform[part.dim][n] = part.stride;
+    if (part.dim >= 0)
+      transform[part.dim][n] = part.stride;
   }
 
   // partition extent
-  Rect<IS_DIM> extent = is_rect;
+  Rect<IS_DIM> extent = rt->get_index_space_domain(is).bounds;
+  bool aliased = false;
+  bool complete = true;
   for (auto n = 0; n < PART_DIM; ++n) {
     const auto& part = parts[n];
-    extent.lo[part.dim] = part.offset + part.lo;
-    extent.hi[part.dim] = part.offset + part.hi;
+    if (part.dim >= 0) {
+      extent.lo[part.dim] = part.offset + part.extent[0];
+      extent.hi[part.dim] = part.offset + part.extent[1];
+      auto next_lo = extent.lo[part.dim] + part.stride;
+      aliased = aliased || next_lo <= extent.hi[part.dim];
+      complete = complete && next_lo == extent.hi[part.dim] + 1;
+    } else {
+      aliased = true;
+    }
   }
 
   IndexSpaceT<PART_DIM> cs = rt->create_index_space(ctx, cs_rect);
@@ -141,7 +154,9 @@ create_partition_on_axes(
       cs,
       transform,
       extent,
-      DISJOINT_COMPLETE_KIND);
+      (aliased
+       ? (complete ? ALIASED_COMPLETE_KIND : ALIASED_INCOMPLETE_KIND)
+       : (complete ? DISJOINT_COMPLETE_KIND : DISJOINT_INCOMPLETE_KIND)));
   return result;
 }
 
@@ -166,6 +181,9 @@ ColumnSpacePartition::create(
 
   std::vector<int> ds =
     hyperion::map(partition, [](const auto& p) { return p.dim; });
+  if (!hyperion::has_unique_values(ds))
+    return ColumnSpacePartition();
+
   std::vector<int> axes = ColumnSpace::from_axis_vector(av[0]);
   auto dm = hyperion::dimensions_map(ds, axes);
   std::vector<hyperion::AxisPartition> iparts;
@@ -174,16 +192,15 @@ ColumnSpacePartition::create(
     auto& part = partition[i];
     iparts.push_back(
       hyperion::AxisPartition{part.axes_uid, dm[i], part.stride, part.offset,
-          part.lo, part.hi});
+          part.extent, part.limits});
   }
 
-  if (!hyperion::has_unique_values(iparts) ||
-      std::any_of(
+  if (std::any_of(
         iparts.begin(),
         iparts.end(),
         [nd=static_cast<int>(column_space_is.get_dim())](auto& part) {
           // TODO: support negative strides
-          return part.dim < 0 || nd <= part.dim || part.stride <= 0;
+          return nd <= part.dim || part.stride <= 0;
         }))
     return ColumnSpacePartition();
 
@@ -198,49 +215,126 @@ ColumnSpacePartition::create(
         IndexSpaceT<IDIM>(column_space_is), iparts); \
     break;                                    \
   }
-  HYPERION_FOREACH_MN(CP);
+  HYPERION_FOREACH_NN(CP);
 #undef CP
   default:
     assert(false);
     break;
   }
 
-  return
-    ColumnSpacePartition(
-      ColumnSpace(
-        column_space_is,
-        column_space_metadata_pr.get_logical_region()),
-      column_ip);
+  ColumnSpacePartition result(
+    ColumnSpace(
+      column_space_is,
+      column_space_metadata_pr.get_logical_region()),
+    column_ip,
+    {});
+  std::copy(partition.begin(), partition.end(), result.partition.begin());
+  return result;
 }
 
-TaskID ColumnSpacePartition::project_onto_task_id;
+TaskID ColumnSpacePartition::create_task_bs_id;
 
-const char* ColumnSpacePartition::project_onto_task_name =
-  "x::ColumnSpacePartition::project_onto_task";
+const char* ColumnSpacePartition::create_task_bs_name =
+  "x::ColumnSpacePartition::create_task_bs";
 
-struct ProjectOntoTaskArgs {
-  IndexPartition csp_column_ip;
-  IndexSpace tgt_cs_column_is;
+struct CreateTaskBSArgs {
+  hyperion::string axes_uid;
+  std::array<std::pair<int, coord_t>, ColumnSpace::MAX_DIM> block_sizes;
+  size_t partition_dim;
+  IndexSpace column_space_is;
 };
 
-ColumnSpacePartition::project_onto_result_t
-ColumnSpacePartition::project_onto_task(
+ColumnSpacePartition::create_result_t
+ColumnSpacePartition::create_task_bs(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime *rt) {
 
-  const ProjectOntoTaskArgs* args =
-    static_cast<const ProjectOntoTaskArgs*>(task->args);
-  assert(regions.size() == 2);
+  const CreateTaskBSArgs* args =
+    static_cast<const CreateTaskBSArgs*>(task->args);
+  assert(regions.size() == 1);
+  std::vector<std::pair<int, coord_t>> block_sizes;
+  block_sizes.reserve(args->partition_dim);
+  std::copy(
+    args->block_sizes.begin(),
+    args->block_sizes.begin() + args->partition_dim,
+    std::back_inserter(block_sizes));
   return
-    project_onto(
+    create(
       ctx,
       rt,
-      args->csp_column_ip,
-      args->tgt_cs_column_is,
-      regions[0],
-      regions[1]);
+      args->column_space_is,
+      args->axes_uid,
+      block_sizes,
+      regions[0]);
+}
+
+Legion::Future /* create_result_t */
+ColumnSpacePartition::create(
+  Legion::Context ctx,
+  Legion::Runtime *rt,
+  const ColumnSpace& column_space,
+  const std::string& block_axes_uid,
+  const std::vector<std::pair<int, Legion::coord_t>>& block_sizes) {
+
+  CreateTaskBSArgs args;
+  args.column_space_is = column_space.column_is;
+  args.partition_dim = block_sizes.size();
+  assert(block_sizes.size() <= args.block_sizes.size());
+  std::copy(block_sizes.begin(), block_sizes.end(), args.block_sizes.begin());
+  args.axes_uid = block_axes_uid;
+  TaskLauncher task(create_task_bs_id, TaskArgument(&args, sizeof(args)));
+  {
+    RegionRequirement req(
+      column_space.metadata_lr,
+      READ_ONLY,
+      EXCLUSIVE,
+      column_space.metadata_lr);
+    req.add_field(ColumnSpace::AXIS_VECTOR_FID);
+    req.add_field(ColumnSpace::AXIS_SET_UID_FID);
+    task.add_region_requirement(req);
+  }
+  return rt->execute_task(ctx, task);
+}
+
+ColumnSpacePartition::create_result_t
+ColumnSpacePartition::create(
+  Context ctx,
+  Runtime *rt,
+  const IndexSpace& column_space_is,
+  const std::string& block_axes_uid,
+  const std::vector<std::pair<int, coord_t>>& block_sizes,
+  const PhysicalRegion& column_space_metadata_pr) {
+
+  const ColumnSpace::AxisVectorAccessor<READ_ONLY>
+    av(column_space_metadata_pr, ColumnSpace::AXIS_VECTOR_FID);
+  std::vector<int> axes = ColumnSpace::from_axis_vector(av[0]);
+  std::vector<int> ds;
+  ds.reserve(block_sizes.size());
+  for (auto& d_sz : block_sizes)
+    ds.push_back(std::get<0>(d_sz));
+  auto dm = hyperion::dimensions_map(ds, axes);
+  assert(std::none_of(dm.begin(), dm.end(), [](auto& d) { return d < 0; }));
+  auto cs_domain = rt->get_index_space_domain(column_space_is);
+  auto cs_lo = cs_domain.lo();
+  auto cs_hi = cs_domain.hi();
+
+  std::vector<hyperion::AxisPartition> partition;
+  partition.reserve(block_sizes.size());
+  for (size_t i = 0; i < block_sizes.size(); ++i) {
+    auto& sz = std::get<1>(block_sizes[i]);
+    partition.push_back(
+        AxisPartition{
+          block_axes_uid,
+          axes[dm[i]],
+          sz,
+          0,
+          {0, sz - 1},
+          {cs_lo[dm[i]], cs_hi[dm[i]]}});
+  }
+  return
+    create(ctx, rt, column_space_is, partition, column_space_metadata_pr);
 }
 
 Future /* ColumnSpacePartition */
@@ -249,87 +343,34 @@ ColumnSpacePartition::project_onto(
   Runtime *rt,
   const ColumnSpace& tgt_column_space) const {
 
-  ProjectOntoTaskArgs args;
-  args.csp_column_ip = column_ip;
-  args.tgt_cs_column_is = tgt_column_space.column_is;
-  TaskLauncher task(project_onto_task_id, TaskArgument(&args, sizeof(args)));
-  for (auto& cs : {&column_space, &tgt_column_space}) {
-    RegionRequirement
-      req(cs->metadata_lr, READ_ONLY, EXCLUSIVE, cs->metadata_lr);
-    req.add_field(ColumnSpace::AXIS_SET_UID_FID);
-    req.add_field(ColumnSpace::AXIS_VECTOR_FID);
-    task.add_region_requirement(req);
-  }
-  return rt->execute_task(ctx, task);
-}
-
-ColumnSpacePartition::project_onto_result_t
-ColumnSpacePartition::project_onto(
-  Context ctx,
-  Runtime* rt,
-  const IndexPartition& csp_column_ip,
-  const IndexSpace& tgt_cs_column_is,
-  const PhysicalRegion& csp_cs_metadata_pr,
-  const PhysicalRegion& tgt_cs_metadata_pr) {
-
-  {
-    const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
-      uid(csp_cs_metadata_pr, ColumnSpace::AXIS_SET_UID_FID);
-    const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
-      tgt_uid(tgt_cs_metadata_pr, ColumnSpace::AXIS_SET_UID_FID);
-    if (uid[0] != tgt_uid[0] || tgt_cs_column_is == IndexSpace::NO_SPACE)
-      return ColumnSpacePartition();
-  }
-  std::vector<int> dmap;
-  {
-    const ColumnSpace::AxisVectorAccessor<READ_ONLY>
-      av(csp_cs_metadata_pr, ColumnSpace::AXIS_VECTOR_FID);
-    const ColumnSpace::AxisVectorAccessor<READ_ONLY>
-      tgt_av(tgt_cs_metadata_pr, ColumnSpace::AXIS_VECTOR_FID);
-    auto axes = ColumnSpace::from_axis_vector(av[0]);
-    auto tgt_axes = ColumnSpace::from_axis_vector(tgt_av[0]);
-    dmap = hyperion::dimensions_map(tgt_axes, axes);
-  }
-
-  // FIXME: the call to projected_index_partition() below doesn't produce the
-  // correct result...it seems that perhaps
-  // Legion::Runtime::create_partition_by_image_range() is not intersecting the
-  // image regions with the target index space
-  IndexPartition tgt_column_ip =
-    hyperion::projected_index_partition(
-      ctx,
-      rt,
-      csp_column_ip,
-      tgt_cs_column_is,
-      dmap);
-
-  return
-    ColumnSpacePartition(
-      ColumnSpace(tgt_cs_column_is, tgt_cs_metadata_pr.get_logical_region()),
-      tgt_column_ip);
+  std::vector<decltype(partition)::value_type> ps;
+  auto cd = color_dim(rt);
+  ps.reserve(cd);
+  std::copy(partition.begin(), partition.begin() + cd, std::back_inserter(ps));
+  return create(ctx, rt, tgt_column_space, ps);
 }
 
 void
 ColumnSpacePartition::preregister_tasks() {
   {
-    // create_task
-    create_task_id = Runtime::generate_static_task_id();
-    TaskVariantRegistrar registrar(create_task_id, create_task_name);
+    // create_task_ap
+    create_task_ap_id = Runtime::generate_static_task_id();
+    TaskVariantRegistrar registrar(create_task_ap_id, create_task_ap_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
-    Runtime::preregister_task_variant<create_result_t, create_task>(
+    Runtime::preregister_task_variant<create_result_t, create_task_ap>(
       registrar,
-      create_task_name);
+      create_task_ap_name);
   }
   {
-    // project_onto_task
-    project_onto_task_id = Runtime::generate_static_task_id();
-    TaskVariantRegistrar registrar(project_onto_task_id, project_onto_task_name);
+    // create_task_bs
+    create_task_bs_id = Runtime::generate_static_task_id();
+    TaskVariantRegistrar registrar(create_task_bs_id, create_task_bs_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
-    Runtime::preregister_task_variant<project_onto_result_t, project_onto_task>(
+    Runtime::preregister_task_variant<create_result_t, create_task_bs>(
       registrar,
-      project_onto_task_name);
+      create_task_bs_name);
   }
 }
 
