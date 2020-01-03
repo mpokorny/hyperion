@@ -54,8 +54,8 @@ create_partition_on_axes(
   Rect<IS_DIM> extent = is_rect;
   for (auto n = 0; n < PART_DIM; ++n) {
     const auto& part = parts[n];
-    extent.lo[part.dim] = part.offset + part.lo;
-    extent.hi[part.dim] = part.offset + part.hi;
+    extent.lo[part.dim] = part.offset + part.extent[0];
+    extent.hi[part.dim] = part.offset + part.extent[1];
   }
 
   IndexSpaceT<PART_DIM> cs = rt->create_index_space(ctx, cs_rect);

@@ -1430,20 +1430,24 @@ projected_index_partition(
 struct HYPERION_API AxisPartition {
   string axes_uid;
   int dim;
+  // stride between start of partition sub-spaces
   Legion::coord_t stride;
+  // offset of start of first partition
   Legion::coord_t offset;
-  Legion::coord_t lo;
-  Legion::coord_t hi;
+  // extent of partition
+  std::array<Legion::coord_t, 2> extent;
+  // axis limits
+  std::array<Legion::coord_t, 2> limits;
 
   bool
   operator==(const AxisPartition& other) {
+    // limits values is not compared, as it depends only on value of dim
     return
       axes_uid == other.axes_uid
       && dim == other.dim
       && stride == other.stride
       && offset == other.offset
-      && lo == other.lo
-      && hi == other.hi;
+      && extent == other.extent;
   }
 
   bool
@@ -1459,11 +1463,8 @@ struct HYPERION_API AxisPartition {
       if (stride < other.stride) return true;
       if (stride == other.stride) {
         if (offset < other.offset) return true;
-        if (offset == other.offset) {
-          if (lo < other.lo) return true;
-          if (lo == other.lo)
-            return hi < other.hi;
-        }
+        if (offset == other.offset)
+          return extent < other.extent;
       }
     }
     return false;

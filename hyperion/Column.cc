@@ -414,7 +414,7 @@ Column::partition_on_axes(
     auto& part = parts[i];
     iparts.push_back(
       AxisPartition{part.axes_uid, dm[i], part.stride, part.offset,
-                    part.lo, part.hi});
+                    part.extent, part.limits});
   }
   return
     ColumnPartition::create(
@@ -437,7 +437,7 @@ Column::partition_on_iaxes(
     hyperion::map(
       ds,
       [au=axes_uid(ctx, rt)](const auto& d) {
-        return AxisPartition{au, d, 1, 0, 0, 0};
+        return AxisPartition{au, d, 1, 0, {0, 0}, {0, 0}};
       });
   return partition_on_axes(ctx, rt, parts);
 }
@@ -454,7 +454,7 @@ Column::partition_on_iaxes(
       dss,
       [au=axes_uid(ctx, rt)](const auto& d_s) {
         auto& [d, s] = d_s;
-        return AxisPartition{au, d, s, 0, 0, s - 1};
+        return AxisPartition{au, d, s, 0, {0, s - 1}, {0, 0}};
       });
   return partition_on_axes(ctx, rt, parts);
 }
