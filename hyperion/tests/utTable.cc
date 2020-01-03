@@ -483,7 +483,8 @@ table_test_suite(
       [&parts, &ctx, rt]() {
         auto cs =
           rt->get_index_partition_color_space(
-            IndexPartitionT<2>(parts.begin()->second.index_partition));
+            ctx,
+            parts.begin()->second.index_partition);
         std::set<Point<2>> part_dom(part_cs.begin(), part_cs.end());
         bool dom_in_cs =
           std::all_of(
