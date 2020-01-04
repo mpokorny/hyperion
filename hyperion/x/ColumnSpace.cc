@@ -39,6 +39,17 @@ ColumnSpace::operator<(const ColumnSpace& rhs) const {
         && metadata_lr < rhs.metadata_lr);
 }
 
+bool
+ColumnSpace::operator==(const ColumnSpace& rhs) const {
+  return column_is == rhs.column_is
+    && metadata_lr == rhs.metadata_lr;
+}
+
+bool
+ColumnSpace::operator!=(const ColumnSpace& rhs) const {
+  return !operator==(rhs);
+}
+
 struct InitTaskArgs {
   ColumnSpace::AXIS_VECTOR_TYPE axes;
   ColumnSpace::AXIS_SET_UID_TYPE axis_set_uid;

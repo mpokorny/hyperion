@@ -75,6 +75,12 @@ struct HYPERION_API ColumnSpace {
   bool
   operator<(const ColumnSpace& rhs) const;
 
+  bool
+  operator==(const ColumnSpace& rhs) const;
+
+  bool
+  operator!=(const ColumnSpace& rhs) const;
+
   static ColumnSpace
   create(
     Legion::Context ctx,
