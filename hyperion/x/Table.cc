@@ -375,8 +375,9 @@ Table::remove_columns(
               vss[*src_pid],
               rt->create_field_allocator(ctx, vss[*src_pid].get_field_space()));
         std::get<2>(csp_lrs_fa[csp]).free_field(vfs[*src_pid]);
-      }
-      if (!remove && src_pid[0] != dst_pid[0]) {
+        mrs[*src_pid].destroy(ctx, rt);
+        kws[*src_pid].destroy(ctx, rt);
+      } else if (src_pid[0] != dst_pid[0]) {
         nms[*dst_pid] = nms[*src_pid];
         dts[*dst_pid] = dts[*src_pid];
         kws[*dst_pid] = kws[*src_pid];
@@ -762,8 +763,8 @@ struct CopyValuesFromTaskArgs {
 
 TaskID Table::copy_values_from_task_id;
 
-const char* Table::copy_values_from_task_name
-= "x::Table::copy_values_from_task";
+const char* Table::copy_values_from_task_name =
+  "x::Table::copy_values_from_task";
 
 void
 Table::copy_values_from_task(
