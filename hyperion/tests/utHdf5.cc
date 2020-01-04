@@ -567,7 +567,7 @@ table_tests(
     {
       // initialize column Y keyword value
       auto cy = table0.column(ctx, rt, "Y");
-      cy.keywords.write(ctx, rt, 0, (unsigned)496);
+      cy.keywords.write(ctx, rt, 0, (short)496);
     }
 
     // write HDF5 file
