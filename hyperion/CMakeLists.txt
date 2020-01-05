@@ -259,4 +259,3 @@ add_subdirectory(gridder)
 
 add_subdirectory(testing)
 add_subdirectory(tests)
-add_subdirectory(x/tests)
