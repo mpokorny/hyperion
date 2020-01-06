@@ -855,6 +855,8 @@ Table::copy_values_from(
   TaskLauncher task(
     copy_values_from_task_id,
     TaskArgument(&args, sizeof(args)));
+  for (auto& r : reqs)
+    task.add_region_requirement(r);
   rt->execute_task(ctx, task);
 }
 

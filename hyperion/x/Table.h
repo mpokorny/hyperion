@@ -235,7 +235,7 @@ public:
   copy_values_from(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const Legion::PhysicalRegion& columns_pr,
+    const Legion::PhysicalRegion& fields_pr,
     const std::vector<
       std::tuple<Legion::PhysicalRegion, Legion::PhysicalRegion>>& src_col_prs);
 
