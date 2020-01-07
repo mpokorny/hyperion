@@ -1,10 +1,10 @@
-set(legms_LEGION_MP_GIT_REPO OFF CACHE BOOL "Use Martin's fork of Legion git repository")
-if(legms_LEGION_MP_GIT_REPO)
-  set(legms_LEGION_GIT_REPO "git@github.com:mpokorny/legion.git")
+set(hyperion_LEGION_MP_GIT_REPO OFF CACHE BOOL "Use Martin's fork of Legion git repository")
+if(hyperion_LEGION_MP_GIT_REPO)
+  set(hyperion_LEGION_GIT_REPO "git@github.com:mpokorny/legion.git")
 else()
-  set(legms_LEGION_GIT_REPO "https://github.com/StanfordLegion/legion.git")
+  set(hyperion_LEGION_GIT_REPO "https://github.com/StanfordLegion/legion.git")
 endif()
-set(legms_LEGION_TAG "stable" CACHE STRING "Legion repository git tag")
+set(hyperion_LEGION_TAG "stable" CACHE STRING "Legion repository git tag")
 
 set(Legion_MAX_DIM ${MAX_DIM} CACHE STRING "Maximum number of dimensions")
 list(APPEND Legion_ARGS Legion_MAX_DIM)
@@ -68,8 +68,8 @@ set(Legion_CMAKE_BUILD_TYPE "Release" CACHE STRING "CMAKE_BUILD_TYPE definition 
 # CMAKE_ARGS -DCMAKE_CXX_FLAGS=-DPRIVILEGE_CHECKS\ -DBOUNDS_CHECKS
 include(ExternalProject)
 ExternalProject_Add(legion_build
-  GIT_REPOSITORY ${legms_LEGION_GIT_REPO}
-  GIT_TAG ${legms_LEGION_TAG}
+  GIT_REPOSITORY ${hyperion_LEGION_GIT_REPO}
+  GIT_TAG ${hyperion_LEGION_TAG}
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}
   CMAKE_ARGS -DCMAKE_BUILD_TYPE=${Legion_CMAKE_BUILD_TYPE}
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
