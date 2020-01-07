@@ -270,7 +270,8 @@ table_test_suite(
       ctx,
       rt,
       std::vector<Table0Axes>{Table0Axes::ROW},
-      xyz_is);
+      xyz_is,
+      false);
 
   IndexSpace w_is;
   {
@@ -287,7 +288,8 @@ table_test_suite(
       ctx,
       rt,
       std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::W},
-      w_is);
+      w_is,
+      false);
 
 // #ifdef HYPERION_USE_CASACORE
 //   casacore::MeasRef<casacore::MEpoch> tai(casacore::MEpoch::TAI);

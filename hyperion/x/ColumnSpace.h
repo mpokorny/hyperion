@@ -57,6 +57,18 @@ struct HYPERION_API ColumnSpace {
       Legion::AffineAccessor<AXIS_SET_UID_TYPE, 1, Legion::coord_t>,
       CHECK_BOUNDS>;
 
+  static const constexpr Legion::FieldID INDEX_FLAG_FID = 2;
+  typedef bool INDEX_FLAG_TYPE;
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using IndexFlagAccessor =
+    Legion::FieldAccessor<
+      MODE,
+      INDEX_FLAG_TYPE,
+      1,
+      Legion::coord_t,
+      Legion::AffineAccessor<INDEX_FLAG_TYPE, 1, Legion::coord_t>,
+      CHECK_BOUNDS>;
+
   ColumnSpace() {}
 
   ColumnSpace(
@@ -87,7 +99,8 @@ struct HYPERION_API ColumnSpace {
     Legion::Runtime* rt,
     const std::vector<int>& axes,
     const std::string& axis_set_uid,
-    const Legion::IndexSpace& column_is);
+    const Legion::IndexSpace& column_is,
+    bool is_index);
 
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
   static ColumnSpace
@@ -95,9 +108,17 @@ struct HYPERION_API ColumnSpace {
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::vector<D>& axes,
-    const Legion::IndexSpace& column_is) {
+    const Legion::IndexSpace& column_is,
+    bool is_index) {
 
-    return create(ctx, rt, hyperion::map_to_int(axes), Axes<D>::uid, column_is);
+    return
+      create(
+        ctx,
+        rt,
+        hyperion::map_to_int(axes),
+        Axes<D>::uid,
+        column_is,
+        is_index);
   }
 
   static AXIS_VECTOR_TYPE

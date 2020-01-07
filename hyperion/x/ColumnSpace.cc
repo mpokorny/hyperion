@@ -53,11 +53,12 @@ ColumnSpace::operator!=(const ColumnSpace& rhs) const {
 struct InitTaskArgs {
   ColumnSpace::AXIS_VECTOR_TYPE axes;
   ColumnSpace::AXIS_SET_UID_TYPE axis_set_uid;
+  bool is_index;
 };
 
 TaskID ColumnSpace::init_task_id;
 
-const char* ColumnSpace::init_task_name = "ColumnSpace::init_task";
+const char* ColumnSpace::init_task_name = "x::ColumnSpace::init_task";
 
 void
 ColumnSpace::preregister_tasks() {
@@ -86,6 +87,10 @@ ColumnSpace::init_task(
     const AxisSetUIDAccessor<WRITE_ONLY> as(regions[0], AXIS_SET_UID_FID);
     as[0] = args->axis_set_uid;
   }
+  {
+    const IndexFlagAccessor<WRITE_ONLY> ifl(regions[0], INDEX_FLAG_FID);
+    ifl[0] = args->is_index;
+  }
 }
 
 void
@@ -106,7 +111,8 @@ ColumnSpace::create(
   Runtime* rt,
   const std::vector<int>& axes,
   const std::string& axis_set_uid,
-  const IndexSpace& column_is) {
+  const IndexSpace& column_is,
+  bool is_index) {
 
   assert(axes.size() <= MAX_DIM);
 
@@ -117,15 +123,18 @@ ColumnSpace::create(
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(AXIS_VECTOR_TYPE), AXIS_VECTOR_FID);
     fa.allocate_field(sizeof(AXIS_SET_UID_TYPE), AXIS_SET_UID_FID);
+    fa.allocate_field(sizeof(INDEX_FLAG_TYPE), INDEX_FLAG_FID);
     metadata_lr = rt->create_logical_region(ctx, is, fs);
   }
   {
     RegionRequirement req(metadata_lr, WRITE_ONLY, EXCLUSIVE, metadata_lr);
     req.add_field(AXIS_VECTOR_FID);
     req.add_field(AXIS_SET_UID_FID);
+    req.add_field(INDEX_FLAG_FID);
     InitTaskArgs args;
     args.axis_set_uid = axis_set_uid;
     args.axes = to_axis_vector(axes);
+    args.is_index = is_index;
     TaskLauncher init(init_task_id, TaskArgument(&args, sizeof(args)));
     init.add_region_requirement(req);
     init.enable_inlining = true;

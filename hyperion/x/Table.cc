@@ -750,8 +750,10 @@ Table::convert(
     std::vector<std::pair<std::string, TableField>>> columns;
   for (auto& [ax, is_tfs] : tbl_flds) {
     auto& [is, tfs] = is_tfs;
+    // TODO: it's assumed here that the columns are not index columns...may want
+    // to change this
     columns.emplace(
-      ColumnSpace::create(ctx, rt, ax, axes_uid.value(), is),
+      ColumnSpace::create(ctx, rt, ax, axes_uid.value(), is, false),
       tfs);
   }
   return Table::create(ctx, rt, columns);
