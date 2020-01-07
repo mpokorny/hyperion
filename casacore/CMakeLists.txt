@@ -1,5 +1,5 @@
-set(legms_CASACORE_GIT_REPO "https://github.com/casacore/casacore.git")
-set(legms_CASACORE_TAG "v3.1.2" CACHE STRING "casacore repository git tag")
+set(hyperion_CASACORE_GIT_REPO "https://github.com/casacore/casacore.git")
+set(hyperion_CASACORE_TAG "v3.1.2" CACHE STRING "casacore repository git tag")
 
 set(MEASURES_URL "")
 
@@ -27,8 +27,8 @@ set(casacore_DATA_DIR "" CACHE STRING "Measures data directory")
 # CMAKE_ARGS -DCMAKE_CXX_FLAGS=-DFOO\ -DBAR
 include(ExternalProject)
 ExternalProject_Add(casacore_build
-  GIT_REPOSITORY ${legms_CASACORE_GIT_REPO}
-  GIT_TAG ${legms_CASACORE_TAG}
+  GIT_REPOSITORY ${hyperion_CASACORE_GIT_REPO}
+  GIT_TAG ${hyperion_CASACORE_TAG}
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}
   CMAKE_ARGS -DCMAKE_POLICY_DEFAULT_CMP0060=NEW
   CMAKE_ARGS -DCMAKE_BUILD_TYPE=${casacore_CMAKE_BUILD_TYPE}
