@@ -143,6 +143,40 @@ struct HYPERION_API ColumnSpace {
     return std::vector<int>(av.begin(), av.begin() + size(av));
   }
 
+  // reindexed_result_t fields:
+  // - new ColumnSpace
+  // - mapping from "row" in old index space to regions in new index space
+  typedef std::tuple<ColumnSpace, Legion::LogicalRegion> reindexed_result_t;
+
+  static constexpr const Legion::FieldID REINDEXED_ROW_RECTS_FID = 22;
+
+  Legion::Future
+  reindexed(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    unsigned element_rank,
+    const std::vector<std::pair<int, Legion::LogicalRegion>>& index_columns,
+    bool allow_rows) const;
+
+  static reindexed_result_t
+  reindexed(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    unsigned element_rank,
+    const std::vector<std::pair<int, Legion::LogicalRegion>>& index_column_lrs,
+    bool allow_rows,
+    const Legion::IndexSpace& column_is,
+    const Legion::PhysicalRegion& metadata_pr);
+
+  static void
+  compute_row_mapping(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    bool allow_rows,
+    Legion::IndexPartition row_partition,
+    const std::vector<Legion::LogicalRegion> index_column_lrs,
+    const Legion::LogicalRegion& row_map_lr);
+
   static void
   preregister_tasks();
 
@@ -158,6 +192,28 @@ private:
 
   static void
   init_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *rt);
+
+  static Legion::TaskID reindexed_task_id;
+
+  static const char* reindexed_task_name;
+
+  static reindexed_result_t
+  reindexed_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *rt);
+
+  static Legion::TaskID compute_row_mapping_task_id;
+
+  static const char* compute_row_mapping_task_name;
+
+  static void
+  compute_row_mapping_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
