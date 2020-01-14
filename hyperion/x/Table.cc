@@ -31,6 +31,71 @@ using namespace Legion;
   __FUNC__(TableFieldsFid::VS)
 
 size_t
+Table::partition_rows_result_t::legion_buffer_size(void) const {
+  size_t result = sizeof(unsigned);
+  for (size_t i = 0; i < partitions.size(); ++i) {
+    result += sizeof(ColumnSpace) + sizeof(IndexPartition) + sizeof(unsigned);
+    auto& p = partitions[i].partition;
+    result +=
+      std::distance(
+        p.begin(),
+        std::find_if(
+          p.begin(),
+          p.end(),
+          [](auto& ap){ return ap.stride == 0; }))
+      * sizeof(AxisPartition);
+  }
+  return result;
+}
+
+size_t
+Table::partition_rows_result_t::legion_serialize(void* buffer) const {
+  char* b = static_cast<char*>(buffer);
+  *reinterpret_cast<unsigned*>(b) = (unsigned)partitions.size();
+  b += sizeof(unsigned);
+  for (size_t i = 0; i < partitions.size(); ++i) {
+    auto& p = partitions[i];
+    *reinterpret_cast<ColumnSpace*>(b) = p.column_space;
+    b += sizeof(ColumnSpace);
+    *reinterpret_cast<IndexPartition*>(b) = p.column_ip;
+    b += sizeof(IndexPartition);
+    *reinterpret_cast<unsigned*>(b) = (unsigned)p.partition.size();
+    b += sizeof(unsigned);
+    for (size_t i = 0;
+         i < ColumnSpace::MAX_DIM && p.partition[i].stride != 0;
+         ++i) {
+      *reinterpret_cast<AxisPartition*>(b) = p.partition[i];
+      b += sizeof(AxisPartition);
+    }
+  }
+  return b - static_cast<char*>(buffer);
+}
+
+size_t
+Table::partition_rows_result_t::legion_deserialize(const void* buffer) {
+  const char* b = static_cast<const char*>(buffer);
+  unsigned n = *reinterpret_cast<const unsigned*>(b);
+  b += sizeof(n);
+  partitions.resize(n);
+  for (size_t i = 0; i < n; ++i) {
+    auto& p = partitions[i];
+    p.column_space = *reinterpret_cast<const ColumnSpace*>(b);
+    b += sizeof(ColumnSpace);
+    p.column_ip= *reinterpret_cast<const IndexPartition*>(b);
+    b += sizeof(IndexPartition);
+    unsigned nn = *reinterpret_cast<const unsigned*>(b);
+    b += sizeof(nn);
+    for (size_t j = 0; j < nn; ++ j) {
+      p.partition[j] = *reinterpret_cast<const AxisPartition*>(b);
+      b += sizeof(AxisPartition);
+    }
+    while (nn < ColumnSpace::MAX_DIM)
+      p.partition[nn++].stride = 0;
+  }
+  return b - static_cast<const char*>(buffer);
+}
+
+size_t
 Table::columns_result_t::legion_buffer_size(void) const {
   size_t result = sizeof(unsigned);
   for (size_t i = 0; i < fields.size(); ++i)
@@ -606,6 +671,111 @@ Table::columns(Runtime *rt, const PhysicalRegion& fields_pr) {
   return result;
 }
 
+struct PartitionRowsTaskArgs {
+  std::array<std::pair<bool, size_t>, Table::MAX_COLUMNS> block_sizes;
+  std::array<IndexSpace, Table::MAX_COLUMNS> csp_iss;
+};
+
+TaskID Table::partition_rows_task_id;
+
+const char* Table::partition_rows_task_name = "x::Table::partition_rows_task";
+
+Table::partition_rows_result_t
+Table::partition_rows_task(
+  const Task* task,
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime *rt) {
+
+  const PartitionRowsTaskArgs* args =
+    static_cast<const PartitionRowsTaskArgs*>(task->args);
+
+  std::vector<IndexSpace> csp_iss;
+  for (size_t i = 0; i < MAX_COLUMNS; ++i) {
+    if (args->csp_iss[i] == IndexSpace::NO_SPACE)
+      break;
+    csp_iss.push_back(args->csp_iss[i]);
+  }
+  std::vector<std::optional<size_t>> block_sizes;
+  for (size_t i = 0; i < MAX_COLUMNS; ++i) {
+    auto& [has_value, value] = args->block_sizes[i];
+    if (has_value && value == 0)
+      break;
+    block_sizes.push_back(has_value ? value : std::optional<size_t>());
+  }
+
+  std::vector<PhysicalRegion> metadata_prs;
+  metadata_prs.reserve(regions.size());
+  std::copy(regions.begin(), regions.end(), std::back_inserter(metadata_prs));
+  return partition_rows(ctx, rt, block_sizes, csp_iss, metadata_prs);
+}
+
+Future /* partition_rows_result_t */
+Table::partition_rows(
+  Context ctx,
+  Runtime* rt,
+  const std::vector<std::optional<size_t>>& block_sizes) const {
+
+  PartitionRowsTaskArgs args;
+  for (size_t i = 0; i < block_sizes.size(); ++i) {
+    assert(block_sizes[i].value_or(1) > 0);
+    args.block_sizes[i] =
+      std::make_pair(block_sizes[i].has_value(), block_sizes[i].value_or(0));
+  }
+  args.block_sizes[block_sizes.size()] = std::make_pair(true, 0);
+
+  auto cols = columns(ctx, rt).get_result<columns_result_t>();
+  size_t csp_idx = 0;
+  TaskLauncher task(partition_rows_task_id, TaskArgument(&args, sizeof(args)));
+  for (auto& csp_vlr_tfs : cols.fields) {
+    auto& csp = std::get<0>(csp_vlr_tfs);
+    args.csp_iss[csp_idx++] = csp.column_is;
+    auto md = csp.metadata_lr;
+    RegionRequirement req(md, READ_ONLY, EXCLUSIVE, md);
+    req.add_field(ColumnSpace::AXIS_VECTOR_FID);
+    req.add_field(ColumnSpace::AXIS_SET_UID_FID);
+    task.add_region_requirement(req);
+  }
+  return rt->execute_task(ctx, task);
+}
+
+Table::partition_rows_result_t
+Table::partition_rows(
+  Context ctx,
+  Runtime* rt,
+  const std::vector<std::optional<size_t>>& block_sizes,
+  const std::vector<Legion::IndexSpace>& csp_iss,
+  const std::vector<PhysicalRegion>& csp_metadata_prs) {
+
+  assert(csp_iss.size() == csp_metadata_prs.size());
+
+  partition_rows_result_t result;
+  auto ixax = Table::index_axes(csp_metadata_prs);
+  if (block_sizes.size() > ixax.size())
+    return result;
+
+  // copy block_sizes, extended to size of ixax with std::nullopt
+  std::vector<std::optional<size_t>> blkszs(ixax.size());
+  {
+    auto e = std::copy(block_sizes.begin(), block_sizes.end(), blkszs.begin());
+    std::fill(e, blkszs.end(), std::nullopt);
+  }
+
+  std::vector<std::pair<int, Legion::coord_t>> parts;
+  for (size_t i = 0; i < ixax.size(); ++i)
+    if (blkszs[i].has_value())
+      parts.emplace_back(ixax[i], blkszs[i].value());
+
+  for (size_t i = 0; i < csp_metadata_prs.size(); ++i) {
+    auto& pr = csp_metadata_prs[i];
+    const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+      auids(pr, ColumnSpace::AXIS_SET_UID_FID);
+    result.partitions[i] =
+      ColumnSpacePartition::create(ctx, rt, csp_iss[i], auids[0], parts, pr);
+  }
+  return result;
+}
+
 TaskID Table::convert_task_id;
 
 const char* Table::convert_task_name = "x::Table::convert_task";
@@ -997,6 +1167,20 @@ Table::preregister_tasks() {
     Runtime::preregister_task_variant<columns_result_t, columns_task>(
       registrar,
       columns_task_name);
+  }
+  {
+    // partition_rows_task
+    partition_rows_task_id = Runtime::generate_static_task_id();
+    TaskVariantRegistrar
+      registrar(partition_rows_task_id, partition_rows_task_name);
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_idempotent();
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<
+      partition_rows_result_t,
+      partition_rows_task>(
+      registrar,
+      partition_rows_task_name);
   }
   {
     // convert_task

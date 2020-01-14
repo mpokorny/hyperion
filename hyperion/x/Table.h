@@ -19,6 +19,7 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/x/Column.h>
 #include <hyperion/x/ColumnSpace.h>
+#include <hyperion/x/ColumnSpacePartition.h>
 #include <hyperion/x/TableField.h>
 #include <hyperion/Table.h>
 
@@ -84,6 +85,19 @@ public:
 
   static const constexpr size_t MAX_COLUMNS = HYPERION_MAX_NUM_TABLE_COLUMNS;
 
+  struct partition_rows_result_t {
+    std::vector<ColumnSpacePartition> partitions;
+
+    size_t
+    legion_buffer_size(void) const;
+
+    size_t
+    legion_serialize(void* buffer) const;
+
+    size_t
+    legion_deserialize(const void* buffer);
+  };
+
   struct columns_result_t {
     typedef std::tuple<hyperion::string, TableField> tbl_fld_t;
 
@@ -101,7 +115,7 @@ public:
 
     size_t
     legion_deserialize(const void* buffer);
-};
+  };
 
 private:
 
@@ -205,6 +219,25 @@ public:
     bool destroy_orphan_column_spaces,
     const Legion::PhysicalRegion& fields_pr);
 
+  // each element of the block_sizes vector is the block size on the
+  // corresponding axis of the index axes vector, with an empty value indicating
+  // that there is no partitioning on that axis; if the length of block_sizes is
+  // less than the length of the index axes vector the "missing" axes will not
+  // be partitioned
+  Legion::Future /* partition_rows_result_t */
+  partition_rows(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<std::optional<size_t>>& block_sizes) const;
+
+  static partition_rows_result_t
+  partition_rows(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<std::optional<size_t>>& block_sizes,
+    const std::vector<Legion::IndexSpace>& csp_iss,
+    const std::vector<Legion::PhysicalRegion>& csp_metadata_prs);
+
   typedef Table convert_result_t;
 
   static Legion::Future /* convert_result_t */
@@ -277,6 +310,17 @@ private:
 
   static index_axes_result_t
   index_axes_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *rt);
+
+  static Legion::TaskID partition_rows_task_id;
+
+  static const char* partition_rows_task_name;
+
+  static partition_rows_result_t
+  partition_rows_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
