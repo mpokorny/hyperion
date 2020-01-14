@@ -48,12 +48,40 @@ struct HYPERION_API Column {
     return csp.is_valid();
   }
 
+  static constexpr const Legion::FieldID COLUMN_INDEX_VALUE_FID = 0;
+  static constexpr const Legion::FieldID COLUMN_INDEX_ROWS_FID = 1;
+  typedef std::vector<Legion::DomainPoint> COLUMN_INDEX_ROWS_TYPE;
+
+  Legion::LogicalRegion
+  create_index(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  static void
+  preregister_tasks();
+
   TypeTag dt;
   Legion::FieldID fid;
   hyperion::MeasRef mr;
   hyperion::Keywords kw;
   ColumnSpace csp;
   Legion::RegionRequirement vreq;
+
+private:
+
+  static Legion::TaskID index_accumulate_task_id[HYPERION_NUM_TYPE_TAGS];
+
+  static std::string index_accumulate_task_name[HYPERION_NUM_TYPE_TAGS];
+
+  template <TypeTag DT>
+  static acc_field_redop_rhs<typename DataType<DT>::ValueType>
+  index_accumulate_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context,
+    Legion::Runtime* rt);
+
+  template <TypeTag DT>
+  static void
+  preregister_index_accumulate_task();
 };
 
 } // end namespace x

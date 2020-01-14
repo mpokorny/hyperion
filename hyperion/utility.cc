@@ -21,6 +21,7 @@
 #include <hyperion/x/Table.h>
 #include <hyperion/x/ColumnSpace.h>
 #include <hyperion/x/ColumnSpacePartition.h>
+#include <hyperion/x/Column.h>
 
 #ifdef HYPERION_USE_HDF5
 # include <hyperion/hdf5.h>
@@ -495,6 +496,7 @@ hyperion::preregister_all() {
   x::Table::preregister_tasks();
   x::ColumnSpace::preregister_tasks();
   x::ColumnSpacePartition::preregister_tasks();
+  x::Column::preregister_tasks();
   ProjectedIndexPartitionTask::preregister_task();
 #ifdef HYPERION_USE_CASACORE
   TableReadTask::preregister_task();

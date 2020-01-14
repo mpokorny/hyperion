@@ -148,6 +148,7 @@ list(APPEND HYPERION_SRC
   MSSpWindowColumns.h
   MSSpWindowColumns.cc
   x/Column.h
+  x/Column.cc
   x/ColumnSpace.h
   x/ColumnSpace.cc
   x/ColumnSpacePartition.h
