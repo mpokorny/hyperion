@@ -228,7 +228,11 @@ ColumnSpacePartition::create(
       column_space_metadata_pr.get_logical_region()),
     column_ip,
     {});
-  std::copy(partition.begin(), partition.end(), result.partition.begin());
+  AxisPartition no_part;
+  no_part.stride = 0;
+  auto e =
+    std::copy(partition.begin(), partition.end(), result.partition.begin());
+  std::fill(e, result.partition.end(), no_part);
   return result;
 }
 
