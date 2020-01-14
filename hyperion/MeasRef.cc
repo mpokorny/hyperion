@@ -698,6 +698,9 @@ MeasRef::equiv(Runtime* rt, const DataRegions& x, const DataRegions& y) {
 
 MeasRef
 MeasRef::clone(Context ctx, Runtime* rt) const {
+  if (is_empty())
+    return MeasRef();
+
   DataRegions drs;
   {
     RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
