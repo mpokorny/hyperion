@@ -280,6 +280,43 @@ public:
     const std::vector<
       std::tuple<Legion::PhysicalRegion, Legion::PhysicalRegion>>& src_col_prs);
 
+  typedef Table reindexed_result_t;
+
+  // 'allow_rows' is intended to support the case where reindexing may not
+  // result in a single value in a column per aggregate index, necessitating the
+  // maintenance of a row index. A value of 'true' for this argument is always
+  // safe, but may result in a degenerate axis when an aggregate index always
+  // identifies a single value in a column. If the value is 'false' and a
+  // non-degenerate axis is required by the reindexing, this method will return
+  // an empty value. TODO: remove degenerate axes after the fact, and do that
+  // automatically in this method, which would allow us to remove the
+  // 'allow_rows' argument.
+  Legion::Future /* reindexed_result_t */
+  reindexed(
+    Legion::Context ctx,
+    Legion::Runtime *rt,
+    const std::vector<std::pair<int, std::string>>& index_axes,
+    bool allow_rows) const;
+
+  struct ColumnRegions {
+    std::tuple<Legion::RegionRequirement, Legion::PhysicalRegion> values;
+    Legion::PhysicalRegion metadata;
+    std::optional<Legion::PhysicalRegion> mr_metadata;
+    std::optional<Legion::PhysicalRegion> mr_values;
+    std::optional<Legion::PhysicalRegion> kw_type_tags;
+    std::optional<Legion::PhysicalRegion> kw_values;
+  };
+
+  static reindexed_result_t
+  reindexed(
+    Legion::Context ctx,
+    Legion::Runtime *rt,
+    const std::vector<std::pair<int, std::string>>& index_axes,
+    bool allow_rows,
+    const Legion::PhysicalRegion& fields_pr,
+    const std::vector<std::tuple<Legion::coord_t, ColumnRegions>>&
+    column_regions);
+
   void
   destroy(
     Legion::Context ctx,
@@ -354,6 +391,39 @@ private:
 
   static void
   copy_values_from_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *rt);
+
+  static Legion::TaskID reindexed_task_id;
+
+  static const char* reindexed_task_name;
+
+  static reindexed_result_t
+  reindexed_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *rt);
+
+  static Legion::TaskID reindex_column_space_task_id;
+
+  static const char* reindex_column_space_task_name;
+
+  static Legion::IndexSpace
+  reindex_column_space_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *rt);
+
+  static Legion::TaskID reindex_copy_values_task_id;
+
+  static const char* reindex_copy_values_task_name;
+
+  static void
+  reindex_copy_values_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
