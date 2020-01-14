@@ -164,6 +164,14 @@ public:
       ColumnSpace,
       std::vector<std::pair<std::string, TableField>>>& columns);
 
+  typedef std::vector<int> index_axes_result_t;
+
+  Legion::Future /* index_axes_result_t */
+  index_axes(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  static index_axes_result_t
+  index_axes(const std::vector<Legion::PhysicalRegion>& csp_metadata_prs);
+
   void
   add_columns(
     Legion::Context ctx,
@@ -262,6 +270,17 @@ public:
   Legion::LogicalRegion fields_lr;
 
 private:
+
+  static Legion::TaskID index_axes_task_id;
+
+  static const char* index_axes_task_name;
+
+  static index_axes_result_t
+  index_axes_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *rt);
 
   static Legion::TaskID columns_task_id;
 

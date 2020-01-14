@@ -199,6 +199,78 @@ Table::create(
   return Table(fields_lr);
 }
 
+TaskID Table::index_axes_task_id;
+
+const char* Table::index_axes_task_name = "x::Table::index_axes_task";
+
+Table::index_axes_result_t
+Table::index_axes_task(
+  const Task*,
+  const std::vector<PhysicalRegion>& regions,
+  Context,
+  Runtime*) {
+  return index_axes(regions);
+}
+
+Future
+Table::index_axes(Context ctx, Runtime* rt) const {
+  auto cols = columns(ctx, rt).get_result<columns_result_t>();
+  TaskLauncher task(index_axes_task_id, TaskArgument(NULL, 0));
+  for (auto& csp_vlr_tfs : cols.fields) {
+    auto& md = std::get<0>(csp_vlr_tfs).metadata_lr;
+    RegionRequirement req(md, READ_ONLY, EXCLUSIVE, md);
+    req.add_field(ColumnSpace::AXIS_VECTOR_FID);
+    req.add_field(ColumnSpace::INDEX_FLAG_FID);
+    task.add_region_requirement(req);
+  }
+  return rt->execute_task(ctx, task);
+}
+
+std::vector<int>
+Table::index_axes(const std::vector<PhysicalRegion>& csp_metadata_prs) {
+
+  std::vector<int> result;
+  if (csp_metadata_prs.size() > 0) {
+    std::vector<int>::const_iterator result_end = result.begin();
+    size_t i = 0;
+    for (;
+         result_end == result.begin() && i < csp_metadata_prs.size();
+         ++i) {
+      const ColumnSpace::IndexFlagAccessor<READ_ONLY>
+        ifl(csp_metadata_prs[i], ColumnSpace::INDEX_FLAG_FID);
+      if (!ifl[0]) {
+        const ColumnSpace::AxisVectorAccessor<READ_ONLY>
+          ax(csp_metadata_prs[i], ColumnSpace::AXIS_VECTOR_FID);
+        result = ColumnSpace::from_axis_vector(ax[0]);
+        assert(result.size() > 0);
+        result_end = result.end();
+      }
+    }
+    for (;
+         result_end != result.begin() && i < csp_metadata_prs.size();
+         ++i) {
+      const ColumnSpace::IndexFlagAccessor<READ_ONLY>
+        ifl(csp_metadata_prs[i], ColumnSpace::INDEX_FLAG_FID);
+      if (!ifl[0]) {
+        const ColumnSpace::AxisVectorAccessor<READ_ONLY>
+          ax(csp_metadata_prs[i], ColumnSpace::AXIS_VECTOR_FID);
+        auto axes = ColumnSpace::from_axis_vector(ax[0]);
+        auto resultp = result.begin();
+        auto axesp = axes.begin();
+        while (resultp != result_end
+               && axesp != axes.end()
+               && *resultp == *axesp) {
+          ++resultp;
+          ++axesp;
+        }
+        result_end = resultp;
+      }
+    }
+    result.erase(result_end);
+  }
+  return result;
+}
+
 void
 Table::add_columns(
   Context ctx,
@@ -904,6 +976,17 @@ Table::copy_values_from(
 
 void
 Table::preregister_tasks() {
+  {
+    // index_axes_task
+    index_axes_task_id = Runtime::generate_static_task_id();
+    TaskVariantRegistrar registrar(index_axes_task_id, index_axes_task_name);
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_idempotent();
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<index_axes_result_t, index_axes_task>(
+      registrar,
+      index_axes_task_name);
+  }
   {
     // columns_task
     columns_task_id = Runtime::generate_static_task_id();
