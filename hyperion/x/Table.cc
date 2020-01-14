@@ -783,8 +783,7 @@ const char* Table::convert_task_name = "x::Table::convert_task";
 struct ConvertTaskArgs {
   size_t num_cols;
   std::array<IndexSpace, Table::MAX_COLUMNS> values_iss;
-  std::array<std::pair<hyperion::string, FieldID>, Table::MAX_COLUMNS>
-  fids;
+  std::array<std::pair<hyperion::string, FieldID>, Table::MAX_COLUMNS> fids;
   std::array<unsigned, Table::MAX_COLUMNS> mr_sz;
   std::array<unsigned, Table::MAX_COLUMNS> kw_sz;
 };
@@ -1058,9 +1057,11 @@ Table::copy_values_from(
              rt->get_index_space_domain(fields_lr.get_index_space()));
            pid();
         pid++) {
-        auto lr = std::find(vlrs.begin(), vlrs.end(), vss[*pid]);
-        if (lr == vlrs.end())
-          vlrs.push_back(vss[*pid]);
+        if (vss[*pid] != LogicalRegion::NO_REGION) {
+          auto lr = std::find(vlrs.begin(), vlrs.end(), vss[*pid]);
+          if (lr == vlrs.end())
+            vlrs.push_back(vss[*pid]);
+        }
       }
       rt->unmap_region(ctx, pr);
     }
