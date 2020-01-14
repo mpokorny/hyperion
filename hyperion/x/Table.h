@@ -252,7 +252,9 @@ public:
   columns(Legion::Runtime *rt, const Legion::PhysicalRegion& fields_pr);
 
   static std::unordered_map<std::string, Column>
-  column_map(const columns_result_t& columns_result);
+  column_map(
+    const columns_result_t& columns_result,
+    legion_privilege_mode_t mode = READ_ONLY);
 
   static void
   preregister_tasks();

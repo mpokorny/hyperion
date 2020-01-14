@@ -35,17 +35,17 @@ struct HYPERION_API Column {
     const hyperion::MeasRef& mr_,
     const hyperion::Keywords& kw_,
     const ColumnSpace& csp_,
-    const Legion::LogicalRegion& vlr_)
+    const Legion::RegionRequirement& vreq_)
     : dt(dt_)
     , fid(fid_)
     , mr(mr_)
     , kw(kw_)
     , csp(csp_)
-    , vlr(vlr_) {}
+    , vreq(vreq_) {}
 
   bool
   is_valid() const {
-    return vlr != Legion::LogicalRegion::NO_REGION;
+    return csp.is_valid();
   }
 
   TypeTag dt;
@@ -53,7 +53,7 @@ struct HYPERION_API Column {
   hyperion::MeasRef mr;
   hyperion::Keywords kw;
   ColumnSpace csp;
-  Legion::LogicalRegion vlr;
+  Legion::RegionRequirement vreq;
 };
 
 } // end namespace x

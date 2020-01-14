@@ -87,11 +87,18 @@ Table::columns_result_t::legion_deserialize(const void* buffer) {
 }
 
 std::unordered_map<std::string, Column>
-Table::column_map(const columns_result_t& columns_result) {
+Table::column_map(
+  const columns_result_t& columns_result,
+  legion_privilege_mode_t mode) {
+
   std::unordered_map<std::string, Column> result;
-  for (auto& [csp, lr, tfs] : columns_result.fields)
-    for (auto& [nm, tf] : tfs)
-      result[nm] = Column(tf.dt, tf.fid, tf.mr, tf.kw, csp, lr);
+  for (auto& [csp, lr, tfs] : columns_result.fields) {
+    for (auto& [nm, tf] : tfs) {
+      RegionRequirement vreq(lr, mode, EXCLUSIVE, lr);
+      vreq.add_field(tf.fid);
+      result[nm] = Column(tf.dt, tf.fid, tf.mr, tf.kw, csp, vreq);
+    }
+  }
   return result;
 }
 
@@ -427,7 +434,8 @@ Table::destroy(
   Runtime* rt,
   bool destroy_column_space_components) {
 
-  auto cols = column_map(columns(ctx, rt).get<columns_result_t>());
+  auto cols =
+    column_map(columns(ctx, rt).get_result<columns_result_t>());
   std::vector<Column> csp_cols;
   for (auto& nm_col : cols) {
     Column& col = std::get<1>(nm_col);
@@ -435,14 +443,14 @@ Table::destroy(
       std::find_if(
         csp_cols.begin(),
         csp_cols.end(),
-        [vlr=col.vlr](auto& c) { return c.vlr == vlr; });
+        [vlr=col.vreq.region](auto& c) { return c.vreq.region == vlr; });
     if (csp_c == csp_cols.end())
       csp_cols.push_back(col);
   }
   for (auto& col : csp_cols) {
-    if (col.vlr != LogicalRegion::NO_REGION) {
-      rt->destroy_field_space(ctx, col.vlr.get_field_space());
-      rt->destroy_logical_region(ctx, col.vlr);
+    if (col.vreq.region != LogicalRegion::NO_REGION) {
+      rt->destroy_field_space(ctx, col.vreq.region.get_field_space());
+      rt->destroy_logical_region(ctx, col.vreq.region);
     }
     if (destroy_column_space_components)
       col.csp.destroy(ctx, rt, true);
@@ -870,7 +878,7 @@ Table::copy_values_from(
   const std::vector<std::tuple<PhysicalRegion, PhysicalRegion>>& src_col_prs) {
 
   std::unordered_map<std::string, Column> dst_cols =
-    column_map(columns(rt, fields_pr));
+    column_map(columns(rt, fields_pr), WRITE_ONLY);
   RegionRequirement src_req(
     LogicalRegion::NO_REGION,
     {hyperion::Column::VALUE_FID},
@@ -886,12 +894,8 @@ Table::copy_values_from(
       nm(md_pr, hyperion::Column::METADATA_NAME_FID);
     if (dst_cols.count(nm[0]) > 0) {
       ++n;
-      auto& dst_col = dst_cols.at(nm[0]);
-      RegionRequirement
-        dst_req(dst_col.vlr, WRITE_ONLY, EXCLUSIVE, dst_col.vlr);
-      dst_req.add_field(dst_col.fid);
       src_req.region = src_req.parent = src_vals_pr.get_logical_region();
-      copy.add_copy_requirements(src_req, dst_req);
+      copy.add_copy_requirements(src_req, dst_cols[nm[0]].vreq);
     }
   }
   if (n > 0)
