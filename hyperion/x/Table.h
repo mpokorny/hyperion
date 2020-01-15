@@ -294,9 +294,24 @@ public:
   Legion::Future /* reindexed_result_t */
   reindexed(
     Legion::Context ctx,
-    Legion::Runtime *rt,
+    Legion::Runtime* rt,
     const std::vector<std::pair<int, std::string>>& index_axes,
     bool allow_rows) const;
+
+  template <typename D>
+  Legion::Future /* reindexed_result_t */
+  reindexed(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<D>& index_axes,
+    bool allow_rows) const {
+
+    std::vector<std::pair<int, std::string>> iax;
+    iax.reserve(index_axes.size());
+    for (auto& d : index_axes)
+      iax.emplace_back(d, Axes<D>::names[static_cast<int>(d)]);
+    return reindexed(ctx, rt, iax, allow_rows);
+  }
 
   struct ColumnRegions {
     std::tuple<Legion::RegionRequirement, Legion::PhysicalRegion> values;
