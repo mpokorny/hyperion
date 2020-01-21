@@ -30,8 +30,12 @@ ColumnSpace::ColumnSpace(
 
 bool
 ColumnSpace::is_valid() const {
-  return column_is != IndexSpace::NO_SPACE
-    && metadata_lr != LogicalRegion::NO_REGION;
+  return metadata_lr != LogicalRegion::NO_REGION;
+}
+
+bool
+ColumnSpace::is_empty() const {
+  return column_is == IndexSpace::NO_SPACE;
 }
 
 bool
@@ -179,6 +183,8 @@ ColumnSpace::reindexed(
   unsigned element_rank,
   const std::vector<std::pair<int, LogicalRegion>>& index_columns,
   bool allow_rows) const {
+
+  assert(!is_empty());
 
   ReindexedTaskArgs args;
   for (size_t i = 0; i < index_columns.size(); ++i)
@@ -354,6 +360,8 @@ ColumnSpace::reindexed(
   bool allow_rows,
   const IndexSpace& column_is,
   const PhysicalRegion& metadata_pr) {
+
+  assert(column_is != IndexSpace::NO_SPACE);
 
   std::vector<std::optional<size_t>> block_sizes;
   for (size_t i = 0; i < (size_t)column_is.get_dim() - element_rank; ++i)

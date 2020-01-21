@@ -78,6 +78,9 @@ struct HYPERION_API ColumnSpace {
   bool
   is_valid() const;
 
+  bool
+  is_empty() const;
+
   void
   destroy(
     Legion::Context ctx,
