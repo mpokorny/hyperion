@@ -104,6 +104,9 @@ verify_scalar_column(
         break;                                                          \
       }
       HYPERION_FOREACH_DATATYPE(CMP);
+      default:
+        assert(false);
+        break;
 #undef CMP
     }
   } else {
@@ -206,6 +209,9 @@ verify_array_column(
         break;                                                        \
       }
       HYPERION_FOREACH_DATATYPE(CMP);
+      default:
+        assert(false);
+        break;
 #undef CMP
     }
   } else {
