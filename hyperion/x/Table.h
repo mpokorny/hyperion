@@ -308,8 +308,10 @@ public:
 
     std::vector<std::pair<int, std::string>> iax;
     iax.reserve(index_axes.size());
-    for (auto& d : index_axes)
-      iax.emplace_back(d, Axes<D>::names[static_cast<int>(d)]);
+    for (auto& d : index_axes) {
+      int i = static_cast<int>(d);
+      iax.emplace_back(i, Axes<D>::names[i]);
+    }
     return reindexed(ctx, rt, iax, allow_rows);
   }
 
