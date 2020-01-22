@@ -265,6 +265,11 @@ Table::create(
   return Table(fields_lr);
 }
 
+bool
+Table::is_empty() const {
+  return fields_lr == LogicalRegion::NO_REGION;
+}
+
 TaskID Table::index_axes_task_id;
 
 const char* Table::index_axes_task_name = "x::Table::index_axes_task";

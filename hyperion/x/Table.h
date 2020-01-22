@@ -178,6 +178,9 @@ public:
       ColumnSpace,
       std::vector<std::pair<std::string, TableField>>>& columns);
 
+  bool
+  is_empty() const;
+
   typedef ColumnSpace::AXIS_VECTOR_TYPE index_axes_result_t;
 
   Legion::Future /* index_axes_result_t */
