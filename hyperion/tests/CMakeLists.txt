@@ -56,6 +56,15 @@ add_test(
   COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
   ./utTable)
 
+add_executable(utXReindexed utXReindexed.cc)
+set_target_properties(utXReindexed PROPERTIES
+  CXX_STANDARD 17
+  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+add_test(
+  NAME XReindexedUnitTest
+  COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+  ./utXReindexed)
+
 if (USE_HDF5)
   add_executable(utHdf5 utHdf5.cc)
   set_target_properties(utHdf5 PROPERTIES
