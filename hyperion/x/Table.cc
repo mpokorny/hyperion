@@ -1257,7 +1257,6 @@ Table::reindexed(
         args_buffer = std::move(std::make_unique<char[]>(args_buffer_sz));
         args = reinterpret_cast<ReindexedTaskArgs*>(args_buffer.get());
         columns.legion_serialize(args->columns_buffer);
-        rt->unmap_region(ctx, pr);
         for (auto& [csp, vlr, tfs] : columns.fields) {
           {
             vlrs.push_back(vlr);
@@ -1362,33 +1361,6 @@ Table::reindexed(
       // TODO: log an error message: index_axes does not extend current Table
       // index axes
       return Table();
-    }
-  }
-
-  // every index axis must be present in all ColumnSpaces, except those that are
-  // already associated with index columns (only check from index_axes_extension
-  // onward, since it can be assumed that the current set of index axes
-  // satisfies this constraint)
-  for (auto& pr : md_prs) {
-    const ColumnSpace::AxisVectorAccessor<READ_ONLY>
-      avs(pr, ColumnSpace::AXIS_VECTOR_FID);
-    const ColumnSpace::IndexFlagAccessor<READ_ONLY>
-      ifl(pr, ColumnSpace::INDEX_FLAG_FID);
-    if (!ifl[0]) {
-      auto av = ColumnSpace::from_axis_vector(avs[0]);
-      auto valid_index_axes =
-        std::all_of(
-          index_axes_extension,
-          index_axes.end(),
-          [&av](auto& d_nm) {
-            return
-              std::find(av.begin(), av.end(), std::get<0>(d_nm)) != av.end();
-          });
-      if (!valid_index_axes) {
-        // TODO: log an error message: all requested index_axes are not present
-        // in all columns
-        return Table();
-      }
     }
   }
 
@@ -1517,7 +1489,8 @@ Table::reindexed(
                 rt,
                 {ix.value()},
                 auid[0],
-                col.csp.column_is, // NB: assume ownership
+                // NB: take ownership of index space
+                index_cols[ix.value()].first.get_index_space(),
                 true);
           else
             icsp =
@@ -1565,6 +1538,8 @@ Table::reindexed(
     for (auto& [dcsp, dvlr, dtfs] : dflds.fields) {
       RegionRequirement
         md_req(dcsp.metadata_lr, READ_ONLY, EXCLUSIVE, dcsp.metadata_lr);
+      md_req.add_field(ColumnSpace::AXIS_VECTOR_FID);
+      md_req.add_field(ColumnSpace::INDEX_FLAG_FID);
       auto dcsp_md_pr = rt->map_region(ctx, md_req);
       const ColumnSpace::AxisVectorAccessor<READ_ONLY>
         dav(dcsp_md_pr, ColumnSpace::AXIS_VECTOR_FID);
@@ -1591,24 +1566,20 @@ Table::reindexed(
         index_column_copier.add_copy_requirements(src, dst);
       } else {
         // a reindexed column
-        IndexSpace sis;
         IndexSpace cs;
         LogicalRegion slr;
-        LogicalPartition slp;
         LogicalRegion rctlr;
         LogicalPartition rctlp;
         LogicalPartition dlp;
         {
           // all table fields in rtfs share an IndexSpace and LogicalRegion
           auto& [col, crg, ix] = named_columns[std::get<0>(dtfs[0])];
-          sis = col.csp.column_is;
-          IndexPartition sip =
-            hyperion::partition_over_all_cpus(ctx, rt, sis, min_block_size);
-          cs = rt->get_index_partition_color_space_name(ctx, sip);
-          slr = col.vreq.region;
-          slp = rt->get_logical_partition(ctx, slr, sip);
           rctlr = std::get<1>(reindexed[col.csp]);
-          rctlp = rt->get_logical_partition(ctx, rctlr, sip);
+          IndexSpace ris = rctlr.get_index_space();
+          IndexPartition rip =
+            hyperion::partition_over_all_cpus(ctx, rt, ris, min_block_size);
+          cs = rt->get_index_partition_color_space_name(ctx, rip);
+          rctlp = rt->get_logical_partition(ctx, rctlr, rip);
           IndexPartition dip =
             rt->create_partition_by_image_range(
               ctx,
@@ -1619,6 +1590,7 @@ Table::reindexed(
               cs,
               DISJOINT_COMPLETE_KIND);
           dlp = rt->get_logical_partition(ctx, dvlr, dip);
+          slr = col.vreq.region;
         }
         ReindexCopyValuesTaskArgs args;
         IndexTaskLauncher task(
@@ -1639,9 +1611,9 @@ Table::reindexed(
           auto& [col, crg, ix] = named_columns[nm];
           args.dt = col.dt;
           args.fid = col.fid;
-          task.region_requirements.erase(task.region_requirements.begin() + 1);
+          task.region_requirements.resize(1);
           task.add_region_requirement(
-            RegionRequirement(slp, 0, READ_ONLY, EXCLUSIVE, slr));
+            RegionRequirement(slr, READ_ONLY, EXCLUSIVE, slr));
           task.add_field(1, col.fid);
           task.add_region_requirement(
             RegionRequirement(dlp, 0, WRITE_ONLY, EXCLUSIVE, dvlr));
@@ -1650,9 +1622,8 @@ Table::reindexed(
         }
         rt->destroy_index_partition(ctx, dlp.get_index_partition());
         rt->destroy_logical_partition(ctx, dlp);
+        rt->destroy_index_partition(ctx, rctlp.get_index_partition());
         rt->destroy_logical_partition(ctx, rctlp);
-        rt->destroy_index_partition(ctx, slp.get_index_partition());
-        rt->destroy_logical_partition(ctx, slp);
       }
       rt->unmap_region(ctx, dcsp_md_pr);
     }
@@ -1725,7 +1696,7 @@ reindex_copy_values(
 #define CPY(ROWDIM,SRCDIM,DSTDIM)                                       \
     case ((ROWDIM * LEGION_MAX_DIM + SRCDIM) * LEGION_MAX_DIM + DSTDIM): { \
       const SA<DT,SRCDIM> from(src_pr, val_fid);                        \
-      const RA<DSTDIM,ROWDIM> rct(rect_pr, Column::COLUMN_INDEX_ROWS_FID); \
+      const RA<DSTDIM,ROWDIM> rct(rect_pr, ColumnSpace::REINDEXED_ROW_RECTS_FID); \
       const DA<DT,DSTDIM> to(dst_pr, val_fid);                          \
       for (PointInDomainIterator<ROWDIM> row(                           \
              rt->get_index_space_domain(rect_req.region.get_index_space()), \
