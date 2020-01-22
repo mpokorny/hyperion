@@ -292,12 +292,12 @@ Table::index_axes(Context ctx, Runtime* rt) const {
   return rt->execute_task(ctx, task);
 }
 
-std::vector<int>
+Table::index_axes_result_t
 Table::index_axes(const std::vector<PhysicalRegion>& csp_metadata_prs) {
 
-  std::vector<int> result;
+  Table::index_axes_result_t result;
   if (csp_metadata_prs.size() > 0) {
-    std::vector<int>::const_iterator result_end = result.begin();
+    Table::index_axes_result_t::iterator result_end = result.begin();
     size_t i = 0;
     for (;
          result_end == result.begin() && i < csp_metadata_prs.size();
@@ -307,9 +307,8 @@ Table::index_axes(const std::vector<PhysicalRegion>& csp_metadata_prs) {
       if (!ifl[0]) {
         const ColumnSpace::AxisVectorAccessor<READ_ONLY>
           ax(csp_metadata_prs[i], ColumnSpace::AXIS_VECTOR_FID);
-        result = ColumnSpace::from_axis_vector(ax[0]);
-        assert(result.size() > 0);
-        result_end = result.end();
+        result = ax[0];
+        result_end = result.begin() + ColumnSpace::size(ax[0]);
       }
     }
     for (;
@@ -320,11 +319,11 @@ Table::index_axes(const std::vector<PhysicalRegion>& csp_metadata_prs) {
       if (!ifl[0]) {
         const ColumnSpace::AxisVectorAccessor<READ_ONLY>
           ax(csp_metadata_prs[i], ColumnSpace::AXIS_VECTOR_FID);
-        auto axes = ColumnSpace::from_axis_vector(ax[0]);
+        auto axes_sz = ColumnSpace::size(ax[0]);
         auto resultp = result.begin();
-        auto axesp = axes.begin();
+        auto axesp = ax[0].begin();
         while (resultp != result_end
-               && axesp != axes.end()
+               && std::distance(axesp, ax[0].begin()) != axes_sz
                && *resultp == *axesp) {
           ++resultp;
           ++axesp;
@@ -332,7 +331,7 @@ Table::index_axes(const std::vector<PhysicalRegion>& csp_metadata_prs) {
         result_end = resultp;
       }
     }
-    result.erase(result_end);
+    std::fill(result_end, result.end(), -1);
   }
   return result;
 }
@@ -757,18 +756,19 @@ Table::partition_rows(
 
   partition_rows_result_t result;
   auto ixax = Table::index_axes(csp_metadata_prs);
-  if (block_sizes.size() > ixax.size())
+  auto ixax_sz = ColumnSpace::size(ixax);
+  if (block_sizes.size() > ixax_sz)
     return result;
 
   // copy block_sizes, extended to size of ixax with std::nullopt
-  std::vector<std::optional<size_t>> blkszs(ixax.size());
+  std::vector<std::optional<size_t>> blkszs(ixax_sz);
   {
     auto e = std::copy(block_sizes.begin(), block_sizes.end(), blkszs.begin());
     std::fill(e, blkszs.end(), std::nullopt);
   }
 
   std::vector<std::pair<int, Legion::coord_t>> parts;
-  for (size_t i = 0; i < ixax.size(); ++i)
+  for (size_t i = 0; i < ixax_sz; ++i)
     if (blkszs[i].has_value())
       parts.emplace_back(ixax[i], blkszs[i].value());
 
@@ -1333,8 +1333,9 @@ Table::reindexed(
   for (auto& crg : column_regions)
     md_prs.insert(std::get<1>(crg).metadata);
   std::vector<int> ixax =
-    Table::index_axes(
-      std::vector<PhysicalRegion>(md_prs.begin(), md_prs.end()));
+    ColumnSpace::from_axis_vector(
+      Table::index_axes(
+        std::vector<PhysicalRegion>(md_prs.begin(), md_prs.end())));
 
   auto index_axes_extension = index_axes.begin();
   {
