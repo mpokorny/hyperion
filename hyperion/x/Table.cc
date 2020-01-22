@@ -781,8 +781,8 @@ Table::partition_rows(
     auto& pr = csp_metadata_prs[i];
     const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
       auids(pr, ColumnSpace::AXIS_SET_UID_FID);
-    result.partitions[i] =
-      ColumnSpacePartition::create(ctx, rt, csp_iss[i], auids[0], parts, pr);
+    result.partitions.push_back(
+      ColumnSpacePartition::create(ctx, rt, csp_iss[i], auids[0], parts, pr));
   }
   return result;
 }
