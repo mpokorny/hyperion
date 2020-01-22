@@ -222,7 +222,8 @@ compute_reindexed(
 
   Rect<OLDDIM> col_rect = rt->get_index_space_domain(column_is);
   // we use the name "rows_is" for the index space at or above the "ROW" axis
-  IndexSpace rows_is = rt->get_index_partition_color_space_name(column_ip);
+  IndexSpace rows_is =
+    rt->create_index_space(ctx, rt->get_index_partition_color_space(column_ip));
   // logical region over rows_is with a field for the rectangle in the new
   // column index space for each value in row_is
   auto row_map_fs = rt->create_field_space(ctx);
@@ -339,15 +340,21 @@ compute_reindexed(
       ColumnSpace::REINDEXED_ROW_RECTS_FID,
       all_rows_cs));
 
+  IndexSpace new_is =
+    rt->create_index_space(
+      ctx,
+      rt->get_index_space_domain(
+        rt->get_index_subspace(new_bounds_ip, 0)));
+
+  rt->destroy_index_partition(ctx, new_bounds_ip);
+  rt->destroy_logical_partition(ctx, all_rows_row_map_lp);
+  rt->destroy_index_partition(ctx, all_rows_ip);
+  rt->destroy_index_space(ctx, all_rows_cs);
+  rt->destroy_index_space(ctx, new_bounds_is);
+
   return
     std::make_tuple(
-      ColumnSpace::create(
-        ctx,
-        rt,
-        new_axes,
-        axes_set_uid,
-        rt->get_index_subspace(new_bounds_ip, 0),
-        false),
+      ColumnSpace::create(ctx, rt, new_axes, axes_set_uid, new_is, false),
       row_map_lr);
 }
 
