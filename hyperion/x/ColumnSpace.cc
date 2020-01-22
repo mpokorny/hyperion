@@ -377,7 +377,8 @@ ColumnSpace::reindexed(
   assert((size_t)column_is.get_dim() == current_axes.size());
 
   unsigned olddim = (unsigned)column_is.get_dim();
-  unsigned newdim = olddim + index_column_lrs.size()+ (allow_rows ? 1 : 0);
+  unsigned newdim =
+    index_column_lrs.size() + element_rank + (allow_rows ? 1 : 0);
   reindexed_result_t result;
   switch (olddim * LEGION_MAX_DIM + newdim) {
 #define COMPUTE_REINDEXED(OLDDIM, NEWDIM)       \
