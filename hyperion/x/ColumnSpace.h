@@ -177,7 +177,7 @@ struct HYPERION_API ColumnSpace {
     Legion::Runtime* rt,
     bool allow_rows,
     Legion::IndexPartition row_partition,
-    const std::vector<Legion::LogicalRegion> index_column_lrs,
+    const std::vector<Legion::LogicalRegion>& index_column_lrs,
     const Legion::LogicalRegion& row_map_lr);
 
   static void

@@ -522,7 +522,7 @@ ColumnSpace::compute_row_mapping(
   Runtime* rt,
   bool allow_rows,
   IndexPartition row_partition,
-  const std::vector<LogicalRegion> index_column_lrs,
+  const std::vector<LogicalRegion>& index_column_lrs,
   const LogicalRegion& row_map_lr) {
 
   ComputeRowRectanglesTaskArgs args;
