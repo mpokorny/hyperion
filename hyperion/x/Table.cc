@@ -806,7 +806,7 @@ Table::convert_task(
   Context ctx,
   Runtime *rt) {
 
-  ConvertTaskArgs* args = static_cast<ConvertTaskArgs*>(task->args);
+  const ConvertTaskArgs* args = static_cast<const ConvertTaskArgs*>(task->args);
   assert(regions.size() ==
          std::accumulate(
            args->mr_sz.begin(),
@@ -1173,7 +1173,7 @@ Table::reindexed_task(
   Context ctx,
   Runtime *rt) {
 
-  static const ReindexedTaskArgs* args =
+  const ReindexedTaskArgs* args =
     static_cast<const ReindexedTaskArgs*>(task->args);
   Table::columns_result_t columns;
   columns.legion_deserialize(args->columns_buffer);
