@@ -191,6 +191,225 @@ attach_table0_col(
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 
 void
+test_totally_reindexed_table(
+  Context ctx,
+  Runtime* rt,
+  const x::Table& tb,
+  const std::string& prefix,
+  testing::TestRecorder<READ_WRITE>& recorder) {
+
+  recorder.expect_true(
+    prefix + " reindexed table is not empty",
+    TE(!tb.is_empty()));
+
+  recorder.expect_true(
+    prefix + " reindexed table has ('X', 'Y') index axes",
+    testing::TestEval(
+      [&ctx, rt, &tb]() {
+        auto ax =
+          tb.index_axes(ctx, rt)
+          .template get_result<x::Table::index_axes_result_t>();
+        auto axes = x::ColumnSpace::from_axis_vector(ax);
+        return
+          axes ==
+          std::vector<int>{
+          static_cast<int>(Table0Axes::X),
+          static_cast<int>(Table0Axes::Y)};
+      }));
+
+  auto cols =
+    x::Table::column_map(
+      tb.columns(ctx, rt)
+      .template get_result<x::Table::columns_result_t>());
+  {
+    recorder.assert_true(
+      prefix + " reindexed table has 'X' column",
+      TE(cols.count("X") > 0));
+
+    auto& cx = cols.at("X");
+    {
+      RegionRequirement
+        req(cx.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cx.csp.metadata_lr);
+      req.add_field(x::ColumnSpace::AXIS_VECTOR_FID);
+      req.add_field(x::ColumnSpace::AXIS_SET_UID_FID);
+      req.add_field(x::ColumnSpace::INDEX_FLAG_FID);
+      auto pr = rt->map_region(ctx, req);
+      const x::ColumnSpace::AxisVectorAccessor<READ_ONLY>
+        av(pr, x::ColumnSpace::AXIS_VECTOR_FID);
+      const x::ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+        auid(pr, x::ColumnSpace::AXIS_SET_UID_FID);
+      const x::ColumnSpace::IndexFlagAccessor<READ_ONLY>
+        ifl(pr, x::ColumnSpace::INDEX_FLAG_FID);
+
+      recorder.expect_true(
+        prefix + " reindexed 'X' column has unchanged axis set uid",
+        TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
+      recorder.expect_true(
+        prefix + " reindexed 'X' column has only 'X' axis",
+        TE(x::ColumnSpace::from_axis_vector(av[0])
+           == map_to_int(std::vector<Table0Axes>{Table0Axes::X})));
+      recorder.expect_true(
+        prefix + " reindexed 'X' column has index flag set",
+        TE(ifl[0]));
+      rt->unmap_region(ctx, pr);
+    }
+    recorder.assert_true(
+      prefix + " reindexed 'X' column has expected size",
+      testing::TestEval(
+        [&cx, &ctx, rt]() {
+          auto is = cx.vreq.region.get_index_space();
+          auto dom = rt->get_index_space_domain(ctx, is);
+          Rect<1> r(dom.bounds<1,coord_t>());
+          return r == Rect<1>(0, TABLE0_NUM_X - 1);
+        }));
+    recorder.expect_true(
+      prefix + " reindexed 'X' column has expected values",
+      testing::TestEval(
+        [&cx, &ctx, rt]() {
+          RegionRequirement
+            req(cx.vreq.region, READ_ONLY, EXCLUSIVE, cx.vreq.region);
+          req.add_field(cx.fid);
+          PhysicalRegion pr = rt->map_region(ctx, req);
+          const FieldAccessor<
+            READ_ONLY, unsigned, 1, coord_t,
+            AffineAccessor<unsigned, 1, coord_t>, true>
+            x(pr, cx.fid);
+          bool result =
+            x[0] == OX && x[1] == OX + 1 && x[2] == OX + 2
+            && x[3] == OX + 3;
+          rt->unmap_region(ctx, pr);
+          return result;
+        }));
+  }
+  {
+    recorder.assert_true(
+      prefix + " Reindexed table has 'Y' column",
+      TE(cols.count("Y") > 0));
+
+    auto& cy = cols.at("Y");
+    {
+      RegionRequirement
+        req(cy.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cy.csp.metadata_lr);
+      req.add_field(x::ColumnSpace::AXIS_VECTOR_FID);
+      req.add_field(x::ColumnSpace::AXIS_SET_UID_FID);
+      req.add_field(x::ColumnSpace::INDEX_FLAG_FID);
+      auto pr = rt->map_region(ctx, req);
+      const x::ColumnSpace::AxisVectorAccessor<READ_ONLY>
+        av(pr, x::ColumnSpace::AXIS_VECTOR_FID);
+      const x::ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+        auid(pr, x::ColumnSpace::AXIS_SET_UID_FID);
+      const x::ColumnSpace::IndexFlagAccessor<READ_ONLY>
+        ifl(pr, x::ColumnSpace::INDEX_FLAG_FID);
+
+      recorder.expect_true(
+        prefix + " reindexed 'Y' column has unchanged axis set uid",
+        TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
+      recorder.expect_true(
+        prefix + " reindexed 'Y' column has only 'Y' axis",
+        TE(x::ColumnSpace::from_axis_vector(av[0])
+           == map_to_int(std::vector<Table0Axes>{Table0Axes::Y})));
+      recorder.expect_true(
+        prefix + " reindexed 'Y' column has index flag set",
+        TE(ifl[0]));
+      rt->unmap_region(ctx, pr);
+    }
+    recorder.assert_true(
+      prefix + " reindexed 'Y' column has expected size",
+      testing::TestEval(
+        [&cy, &ctx, rt]() {
+          auto is = cy.vreq.region.get_index_space();
+          auto dom = rt->get_index_space_domain(ctx, is);
+          Rect<1> r(dom.bounds<1,coord_t>());
+          return r == Rect<1>(0, TABLE0_NUM_Y - 1);
+        }));
+    recorder.expect_true(
+      prefix + " reindexed 'Y' column has expected values",
+      testing::TestEval(
+        [&cy, &ctx, rt]() {
+          RegionRequirement
+            req(cy.vreq.region, READ_ONLY, EXCLUSIVE, cy.vreq.region);
+          req.add_field(cy.fid);
+          PhysicalRegion pr = rt->map_region(ctx, req);
+          const FieldAccessor<
+            READ_ONLY, unsigned, 1, coord_t,
+            AffineAccessor<unsigned, 1, coord_t>, true>
+            y(pr, cy.fid);
+          bool result =
+            y[0] == OY && y[1] == OY + 1 && y[2] == OY + 2;
+          rt->unmap_region(ctx, pr);
+          return result;
+        }));
+  }
+  {
+    recorder.assert_true(
+      prefix + " reindexed table has 'Z' column",
+      TE(cols.count("Z") > 0));
+
+    auto& cz = cols.at("Z");
+    {
+      RegionRequirement
+        req(cz.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cz.csp.metadata_lr);
+      req.add_field(x::ColumnSpace::AXIS_VECTOR_FID);
+      req.add_field(x::ColumnSpace::AXIS_SET_UID_FID);
+      req.add_field(x::ColumnSpace::INDEX_FLAG_FID);
+      auto pr = rt->map_region(ctx, req);
+      const x::ColumnSpace::AxisVectorAccessor<READ_ONLY>
+        av(pr, x::ColumnSpace::AXIS_VECTOR_FID);
+      const x::ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+        auid(pr, x::ColumnSpace::AXIS_SET_UID_FID);
+      const x::ColumnSpace::IndexFlagAccessor<READ_ONLY>
+        ifl(pr, x::ColumnSpace::INDEX_FLAG_FID);
+
+      recorder.expect_true(
+        prefix + " reindexed 'Z' column has unchanged axis set uid",
+        TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
+      recorder.expect_true(
+        prefix + " reindexed 'Z' column has only ('X', 'Y') axes",
+        TE(x::ColumnSpace::from_axis_vector(av[0])
+           == map_to_int(
+             std::vector<Table0Axes>{Table0Axes::X, Table0Axes::Y})));
+      recorder.expect_true(
+        prefix + " reindexed 'Z' column does not have index flag set",
+        TE(!ifl[0]));
+      rt->unmap_region(ctx, pr);
+    }
+    recorder.assert_true(
+      prefix + " reindexed 'Z' column has expected size",
+      testing::TestEval(
+        [&cz, &ctx, rt]() {
+          auto is = cz.vreq.region.get_index_space();
+          auto dom = rt->get_index_space_domain(ctx, is);
+          Rect<2> r(dom.bounds<2,coord_t>());
+          return
+            r ==
+            Rect<2>(
+              Point<2>(0, 0),
+              Point<2>(TABLE0_NUM_X - 1, TABLE0_NUM_Y - 1));
+        }));
+    recorder.expect_true(
+      prefix + " reindexed 'Z' column has expected values",
+      testing::TestEval(
+        [&cz, &ctx, rt]() {
+          RegionRequirement
+            req(cz.vreq.region, READ_ONLY, EXCLUSIVE, cz.vreq.region);
+          req.add_field(cz.fid);
+          PhysicalRegion pr = rt->map_region(ctx, req);
+          const FieldAccessor<
+            READ_ONLY, unsigned, 2, coord_t,
+            AffineAccessor<unsigned, 2, coord_t>, true>
+            z(pr, cz.fid);
+          bool result = true;
+          DomainT<2,coord_t> dom(pr);
+          for (PointInDomainIterator<2> pid(dom); pid(); pid++)
+            result = result &&
+              z[*pid] == table0_z[pid[0] * TABLE0_NUM_Y + pid[1]];
+          rt->unmap_region(ctx, pr);
+          return result;
+        }));
+  }
+}
+
+void
 reindexed_test_suite(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
@@ -253,181 +472,277 @@ reindexed_test_suite(
   
   auto table0 = x::Table::create(ctx, rt, {{xyz_space, xyz_fields}});
   {
-    auto cols =
-      x::Table::column_map(
-        table0.columns(ctx, rt).get<x::Table::columns_result_t>());
-    std::unordered_map<std::string, unsigned*> col_arrays{
-      {"X", table0_x},
-      {"Y", table0_y},
-      {"Z", table0_z}
-    };
-
     std::unordered_map<std::string, PhysicalRegion> col_prs;
-    for (auto& c : {"X", "Y", "Z"}) {
-      std::string cstr(c);
-      col_prs[cstr] =
-        attach_table0_col(ctx, rt, cols.at(cstr), col_arrays.at(cstr));
+    {
+      auto cols =
+        x::Table::column_map(
+          table0.columns(ctx, rt).get<x::Table::columns_result_t>());
+      std::unordered_map<std::string, unsigned*> col_arrays{
+        {"X", table0_x},
+        {"Y", table0_y},
+        {"Z", table0_z}
+      };
+
+      std::unordered_map<std::string, PhysicalRegion> col_prs;
+      for (auto& c : {"X", "Y", "Z"}) {
+        std::string cstr(c);
+        col_prs[cstr] =
+          attach_table0_col(ctx, rt, cols.at(cstr), col_arrays.at(cstr));
+      }
     }
+    // tests of complete, one-step reindexing
+    {
+      auto f =
+        table0.reindexed(
+          ctx,
+          rt,
+          std::vector<Table0Axes>{Table0Axes::X, Table0Axes::Y},
+          false);
 
-    auto f =
-      table0.reindexed(
-        ctx,
-        rt,
-        std::vector<Table0Axes>{Table0Axes::X, Table0Axes::Y},
-        false);
+      auto tb = f.template get_result<x::Table>();
+      test_totally_reindexed_table(ctx, rt, tb, "Totally ", recorder);
+      tb.destroy(ctx, rt);
+    }
+    // tests of two-step reindexing
+    {
+      x::Table tby;
+      {
+        auto f =
+          table0.reindexed(
+            ctx,
+            rt,
+            std::vector<Table0Axes>{Table0Axes::Y},
+            true);
+        tby = f.template get_result<x::Table>();
+      }
+      {
+        recorder.expect_true(
+          "Partially reindexed table is not empty",
+          TE(!tby.is_empty()));
 
-    auto tb = f.template get_result<x::Table>();
-    recorder.expect_true(
-      "Reindexed table is not empty",
-      TE(!tb.is_empty()));
+        recorder.expect_true(
+          "Partially reindexed table has ('Y', 'ROW') index axes",
+          testing::TestEval(
+            [&ctx, rt, &tby]() {
+              auto ax =
+                tby.index_axes(ctx, rt)
+                .template get_result<x::Table::index_axes_result_t>();
+              return x::ColumnSpace::from_axis_vector(ax) ==
+                map_to_int(
+                  std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::ROW});
+            }));
 
-    recorder.expect_true(
-      "Reindexed table has ('X', 'Y') index axes",
-      testing::TestEval(
-        [&ctx, rt, &tb]() {
-          auto ax =
-            tb.index_axes(ctx, rt)
-            .template get_result<x::Table::index_axes_result_t>();
-          auto axes = x::ColumnSpace::from_axis_vector(ax);
-          return
-            axes ==
-            std::vector<int>{
-            static_cast<int>(Table0Axes::X),
-            static_cast<int>(Table0Axes::Y)};
-        }));
+        auto cols =
+          x::Table::column_map(
+            tby.columns(ctx, rt)
+            .template get_result<x::Table::columns_result_t>());
+        {
+          recorder.assert_true(
+            "Partially reindexed table has 'Y' column",
+            TE(cols.count("Y") > 0));
 
+          auto& cy = cols.at("Y");
+          {
+            RegionRequirement
+              req(cy.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cy.csp.metadata_lr);
+            req.add_field(x::ColumnSpace::AXIS_VECTOR_FID);
+            req.add_field(x::ColumnSpace::AXIS_SET_UID_FID);
+            req.add_field(x::ColumnSpace::INDEX_FLAG_FID);
+            auto pr = rt->map_region(ctx, req);
+            const x::ColumnSpace::AxisVectorAccessor<READ_ONLY>
+              av(pr, x::ColumnSpace::AXIS_VECTOR_FID);
+            const x::ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+              auid(pr, x::ColumnSpace::AXIS_SET_UID_FID);
+            const x::ColumnSpace::IndexFlagAccessor<READ_ONLY>
+              ifl(pr, x::ColumnSpace::INDEX_FLAG_FID);
+
+            recorder.expect_true(
+              "Partially reindexed 'Y' column has unchanged axis set uid",
+              TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
+            recorder.expect_true(
+              "Partially reindexed 'Y' column has only 'Y' axis",
+              TE(x::ColumnSpace::from_axis_vector(av[0])
+                 == map_to_int(std::vector<Table0Axes>{Table0Axes::Y})));
+            recorder.expect_true(
+              "Partially reindexed 'Y' column has index flag set",
+              TE(ifl[0]));
+            rt->unmap_region(ctx, pr);
+          }
+          recorder.assert_true(
+            "Partially reindexed 'Y' column has expected size",
+            testing::TestEval(
+              [&cy, &ctx, rt]() {
+                auto is = cy.vreq.region.get_index_space();
+                auto dom = rt->get_index_space_domain(ctx, is);
+                Rect<1> r(dom.bounds<1,coord_t>());
+                return r == Rect<1>(0, TABLE0_NUM_Y - 1);
+              }));
+          recorder.expect_true(
+            "Partially reindexed 'Y' column has expected values",
+            testing::TestEval(
+              [&cy, &ctx, rt]() {
+                RegionRequirement
+                  req(cy.vreq.region, READ_ONLY, EXCLUSIVE, cy.vreq.region);
+                req.add_field(cy.fid);
+                PhysicalRegion pr = rt->map_region(ctx, req);
+                const FieldAccessor<
+                  READ_ONLY, unsigned, 1, coord_t,
+                  AffineAccessor<unsigned, 1, coord_t>, true>
+                  y(pr, cy.fid);
+                bool result =
+                  y[0] == OY && y[1] == OY + 1 && y[2] == OY + 2;
+                rt->unmap_region(ctx, pr);
+                return result;
+              }));
+        }
+        {
+          recorder.assert_true(
+            "Partially reindexed table has 'X' column",
+            TE(cols.count("X") > 0));
+
+          auto& cx = cols.at("X");
+          {
+            RegionRequirement
+              req(cx.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cx.csp.metadata_lr);
+            req.add_field(x::ColumnSpace::AXIS_VECTOR_FID);
+            req.add_field(x::ColumnSpace::AXIS_SET_UID_FID);
+            req.add_field(x::ColumnSpace::INDEX_FLAG_FID);
+            auto pr = rt->map_region(ctx, req);
+            const x::ColumnSpace::AxisVectorAccessor<READ_ONLY>
+              av(pr, x::ColumnSpace::AXIS_VECTOR_FID);
+            const x::ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+              auid(pr, x::ColumnSpace::AXIS_SET_UID_FID);
+            const x::ColumnSpace::IndexFlagAccessor<READ_ONLY>
+              ifl(pr, x::ColumnSpace::INDEX_FLAG_FID);
+
+            recorder.expect_true(
+              "Partially reindexed 'X' column has unchanged axis set uid",
+              TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
+            recorder.expect_true(
+              "Partially reindexed 'X' column has ('Y', 'ROW') axes",
+              TE(x::ColumnSpace::from_axis_vector(av[0])
+                 == map_to_int(
+                   std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::ROW})));
+            recorder.expect_true(
+              "Partially reindexed 'X' column does not have index flag set",
+              TE(!ifl[0]));
+            rt->unmap_region(ctx, pr);
+          }
+          recorder.assert_true(
+            "Partially reindexed 'X' column has expected size",
+            testing::TestEval(
+              [&cx, &ctx, rt]() {
+                auto is = cx.vreq.region.get_index_space();
+                auto dom = rt->get_index_space_domain(ctx, is);
+                Rect<2> r(dom.bounds<2,coord_t>());
+                return r == Rect<2>(
+                  Point<2>(0, 0),
+                  Point<2>(TABLE0_NUM_Y - 1, TABLE0_NUM_X - 1));
+              }));
+          recorder.expect_true(
+            "Partially reindexed 'X' column has expected values",
+            testing::TestEval(
+              [&cx, &ctx, rt]() {
+                RegionRequirement
+                  req(cx.vreq.region, READ_ONLY, EXCLUSIVE, cx.vreq.region);
+                req.add_field(cx.fid);
+                PhysicalRegion pr = rt->map_region(ctx, req);
+                const FieldAccessor<
+                  READ_ONLY, unsigned, 2, coord_t,
+                  AffineAccessor<unsigned, 2, coord_t>, true>
+                  x(pr, cx.fid);
+                bool result = true;
+                DomainT<2,coord_t> dom(pr);
+                for (PointInDomainIterator<2> pid(dom); pid(); pid++)
+                  result = result && x[*pid] == OX + pid[1];
+                rt->unmap_region(ctx, pr);
+                return result;
+              }));
+        }
+        {
+          recorder.assert_true(
+            "Partially reindexed table has 'Z' column",
+            TE(cols.count("Z") > 0));
+
+          auto& cz = cols.at("Z");
+          {
+            RegionRequirement
+              req(cz.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cz.csp.metadata_lr);
+            req.add_field(x::ColumnSpace::AXIS_VECTOR_FID);
+            req.add_field(x::ColumnSpace::AXIS_SET_UID_FID);
+            req.add_field(x::ColumnSpace::INDEX_FLAG_FID);
+            auto pr = rt->map_region(ctx, req);
+            const x::ColumnSpace::AxisVectorAccessor<READ_ONLY>
+              av(pr, x::ColumnSpace::AXIS_VECTOR_FID);
+            const x::ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+              auid(pr, x::ColumnSpace::AXIS_SET_UID_FID);
+            const x::ColumnSpace::IndexFlagAccessor<READ_ONLY>
+              ifl(pr, x::ColumnSpace::INDEX_FLAG_FID);
+
+            recorder.expect_true(
+              "Partially reindexed 'Z' column has unchanged axis set uid",
+              TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
+            recorder.expect_true(
+              "Partially reindexed 'Z' column has only ('Y', 'ROW') axes",
+              TE(x::ColumnSpace::from_axis_vector(av[0])
+                 == map_to_int(
+                   std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::ROW})));
+            recorder.expect_true(
+              "Partially reindexed 'Z' column does not have index flag set",
+              TE(!ifl[0]));
+            rt->unmap_region(ctx, pr);
+          }
+          recorder.assert_true(
+            "Partially reindexed 'Z' column has expected size",
+            testing::TestEval(
+              [&cz, &ctx, rt]() {
+                auto is = cz.vreq.region.get_index_space();
+                auto dom = rt->get_index_space_domain(ctx, is);
+                Rect<2> r(dom.bounds<2,coord_t>());
+                return
+                  r ==
+                  Rect<2>(
+                    Point<2>(0, 0),
+                    Point<2>(TABLE0_NUM_Y - 1, TABLE0_NUM_X - 1));
+              }));
+          recorder.expect_true(
+            "Partially reindexed 'Z' column has expected values",
+            testing::TestEval(
+              [&cz, &ctx, rt]() {
+                RegionRequirement
+                  req(cz.vreq.region, READ_ONLY, EXCLUSIVE, cz.vreq.region);
+                req.add_field(cz.fid);
+                PhysicalRegion pr = rt->map_region(ctx, req);
+                const FieldAccessor<
+                  READ_ONLY, unsigned, 2, coord_t,
+                  AffineAccessor<unsigned, 2, coord_t>, true>
+                  z(pr, cz.fid);
+                bool result = true;
+                DomainT<2,coord_t> dom(pr);
+                for (PointInDomainIterator<2> pid(dom); pid(); pid++)
+                  result = result &&
+                    z[*pid] == table0_z[pid[1] * TABLE0_NUM_Y + pid[0]];
+                rt->unmap_region(ctx, pr);
+                return result;
+              }));
+        }
+      }
+      // tests of further reindexing of partially indexed table
+      x::Table tbxy;
+      {
+        auto f =
+          tby.reindexed(
+            ctx,
+            rt,
+            std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::X},
+            false);
+        tbxy = f.template get_result<x::Table>();
+      }
+      test_totally_reindexed_table(ctx, rt, tbxy, "Final, totally ", recorder);
+      tbxy.destroy(ctx, rt);
+      tby.destroy(ctx, rt);
+    }
   }
-
-#if 0
-  auto colnames = tb.column_names(ctx, rt);
-  {
-    recorder.assert_true(
-      "Reindexed table has 'X' column",
-      TE(std::find(colnames.begin(), colnames.end(), "X") != colnames.end()));
-
-    auto cx = tb.column(ctx, rt, "X");
-
-    recorder.expect_true(
-      "Reindexed 'X' column has only 'X' axis",
-      TE(cx.axes(ctx, rt)
-         == map_to_int(std::vector<Table0Axes>{Table0Axes::X})));
-
-    recorder.assert_true(
-      "Reindexed 'X' column has expected size",
-      testing::TestEval(
-        [&cx, &ctx, rt]() {
-          auto is = cx.values_lr.get_index_space();
-          auto dom = rt->get_index_space_domain(ctx, is);
-          Rect<1> r(dom.bounds<1,coord_t>());
-          return r == Rect<1>(0, TABLE0_NUM_X - 1);
-        }));
-
-    recorder.expect_true(
-      "Reindexed 'X' column has expected values",
-      testing::TestEval(
-        [&cx, &ctx, rt]() {
-          RegionRequirement
-            req(cx.values_lr, READ_ONLY, EXCLUSIVE, cx.values_lr);
-          req.add_field(Column::VALUE_FID);
-          PhysicalRegion pr = rt->map_region(ctx, req);
-          const FieldAccessor<
-            READ_ONLY, unsigned, 1, coord_t,
-            AffineAccessor<unsigned, 1, coord_t>, true>
-            x(pr, Column::VALUE_FID);
-          bool result =
-            x[0] == OX && x[1] == OX + 1 && x[2] == OX + 2 && x[3] == OX + 3;
-          rt->unmap_region(ctx, pr);
-          return result;
-        }));
-  }
-  {
-    recorder.assert_true(
-      "Reindexed table has 'Y' column",
-      TE(std::find(colnames.begin(), colnames.end(), "Y") != colnames.end()));
-
-    auto cy = tb.column(ctx, rt, "Y");
-
-    recorder.expect_true(
-      "Reindexed 'Y' column has only 'Y' axis",
-      TE(cy.axes(ctx, rt)
-         == map_to_int(std::vector<Table0Axes>{Table0Axes::Y})));
-
-    recorder.assert_true(
-      "Reindexed 'Y' column has expected size",
-      testing::TestEval(
-        [&cy, &ctx, rt]() {
-          auto is = cy.values_lr.get_index_space();
-          auto dom = rt->get_index_space_domain(ctx, is);
-          Rect<1> r(dom.bounds<1,coord_t>());
-          return r == Rect<1>(0, TABLE0_NUM_Y - 1);
-        }));
-
-    recorder.expect_true(
-      "Reindexed 'Y' column has expected values",
-      testing::TestEval(
-        [&cy, &ctx, rt]() {
-          RegionRequirement
-            req(cy.values_lr, READ_ONLY, EXCLUSIVE, cy.values_lr);
-          req.add_field(Column::VALUE_FID);
-          PhysicalRegion pr = rt->map_region(ctx, req);
-          const FieldAccessor<
-            READ_ONLY, unsigned, 1, coord_t,
-            AffineAccessor<unsigned, 1, coord_t>, true>
-            y(pr, Column::VALUE_FID);
-          bool result =
-            y[0] == OY && y[1] == OY + 1 && y[2] == OY + 2;
-          rt->unmap_region(ctx, pr);
-          return result;
-        }));
-  }
-  {
-    recorder.assert_true(
-      "Reindexed table has 'Z' column",
-      TE(std::find(colnames.begin(), colnames.end(), "Z") != colnames.end()));
-
-    auto cz = tb.column(ctx, rt, "Z");
-
-    recorder.expect_true(
-      "Reindexed 'Z' column has only ('X', 'Y') axes",
-      TE(cz.axes(ctx, rt)
-         == map_to_int(std::vector<Table0Axes>{Table0Axes::X, Table0Axes::Y})));
-
-    recorder.expect_true(
-      "Reindexed 'Z' column has expected size",
-      testing::TestEval(
-        [&cz, &ctx, rt]() {
-          auto is = cz.values_lr.get_index_space();
-          auto dom = rt->get_index_space_domain(ctx, is);
-          Rect<2> r(dom.bounds<2,coord_t>());
-          return
-            r ==
-            Rect<2>(
-              Point<2>(0, 0),
-              Point<2>(TABLE0_NUM_X - 1, TABLE0_NUM_Y - 1));
-        }));
-
-    recorder.expect_true(
-      "Reindexed 'Z' column has expected values",
-      testing::TestEval(
-        [&cz, &ctx, rt]() {
-          RegionRequirement
-            req(cz.values_lr, READ_ONLY, EXCLUSIVE, cz.values_lr);
-          req.add_field(Column::VALUE_FID);
-          PhysicalRegion pr = rt->map_region(ctx, req);
-          const FieldAccessor<
-            READ_ONLY, unsigned, 2, coord_t,
-            AffineAccessor<unsigned, 2, coord_t>, true>
-            z(pr, Column::VALUE_FID);
-          bool result = true;
-          DomainT<2,coord_t> dom(pr);
-          for (PointInDomainIterator<2> pid(dom); pid(); pid++)
-            result = result &&
-              z[*pid] == table0_z[pid[0] * TABLE0_NUM_Y + pid[1]];
-          rt->unmap_region(ctx, pr);
-          return result;
-        }));
-  }
-#endif
   table0.destroy(ctx, rt);
 }
 
