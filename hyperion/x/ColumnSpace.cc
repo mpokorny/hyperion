@@ -162,10 +162,12 @@ ColumnSpace::reindexed_task(
   std::vector<std::pair<int, LogicalRegion>> index_column_lrs;
   index_column_lrs.reserve(regions.size() - 1);
   size_t rg = 0;
-  while (++rg < regions.size())
+  while (++rg < regions.size()) {
     index_column_lrs.emplace_back(
       args->index_axes[rg - 1],
       task->regions[rg].region);
+    rt->unmap_region(ctx, regions[rg]);
+  }
   return reindexed(
     ctx,
     rt,
@@ -314,6 +316,7 @@ compute_reindexed(
       ++i; ++j;
     }
   }
+  std::cout << col_rect << " --> " << new_bounds << std::endl; // FIXME: remove
   auto new_bounds_is = rt->create_index_space(ctx, new_bounds);
 
   // now reduce the bounding index space to the exact, possibly sparse index
@@ -346,11 +349,16 @@ compute_reindexed(
       rt->get_index_space_domain(
         rt->get_index_subspace(new_bounds_ip, 0)));
 
-  rt->destroy_index_partition(ctx, new_bounds_ip);
-  rt->destroy_logical_partition(ctx, all_rows_row_map_lp);
-  rt->destroy_index_partition(ctx, all_rows_ip);
-  rt->destroy_index_space(ctx, all_rows_cs);
-  rt->destroy_index_space(ctx, new_bounds_is);
+  //FIXME: remove the following
+  std::cout << new_bounds
+            << " ---> "
+            << rt->get_index_space_domain(new_is).bounds<NEWDIM,coord_t>()
+            << std::endl;
+  // rt->destroy_index_partition(ctx, new_bounds_ip); FIXME
+  // rt->destroy_logical_partition(ctx, all_rows_row_map_lp); FIXME
+  // rt->destroy_index_partition(ctx, all_rows_ip); FIXME
+  // rt->destroy_index_space(ctx, all_rows_cs); FIXME
+  // rt->destroy_index_space(ctx, new_bounds_is); FIXME
 
   return
     std::make_tuple(
@@ -381,11 +389,14 @@ ColumnSpace::reindexed(
   const AxisVectorAccessor<READ_ONLY> avs(metadata_pr, AXIS_VECTOR_FID);
   const AxisSetUIDAccessor<READ_ONLY> auid(metadata_pr, AXIS_SET_UID_FID);
   auto current_axes = from_axis_vector(avs[0]);
-  assert((size_t)column_is.get_dim() == current_axes.size());
+  assert((size_t)column_is.get_dim() - element_rank == current_axes.size());
+  assert(current_axes.back() == 0);
 
   unsigned olddim = (unsigned)column_is.get_dim();
   unsigned newdim =
-    index_column_lrs.size() + element_rank + (allow_rows ? 1 : 0);
+    current_axes.size() - 1
+    + index_column_lrs.size() + element_rank
+    + (allow_rows ? 1 : 0);
   reindexed_result_t result;
   switch (olddim * LEGION_MAX_DIM + newdim) {
 #define COMPUTE_REINDEXED(OLDDIM, NEWDIM)       \
@@ -417,7 +428,8 @@ TaskID ColumnSpace::compute_row_mapping_task_id;
 const char* ColumnSpace::compute_row_mapping_task_name =
   "x::ColumnSpace::compute_row_mapping_task";
 
-struct ComputeRowRectanglesTaskArgs {
+struct ComputeRowMappingTaskArgs {
+  unsigned row_dim;
   bool allow_rows;
   IndexPartition row_partition;
 };
@@ -444,8 +456,8 @@ ColumnSpace::compute_row_mapping_task(
   Context ctx,
   Runtime *rt) {
 
-  const ComputeRowRectanglesTaskArgs* args =
-    static_cast<const ComputeRowRectanglesTaskArgs*>(task->args);
+  const ComputeRowMappingTaskArgs* args =
+    static_cast<const ComputeRowMappingTaskArgs*>(task->args);
 
   typedef const FieldAccessor<
     READ_ONLY,
@@ -453,65 +465,86 @@ ColumnSpace::compute_row_mapping_task(
     1,
     coord_t,
     AffineAccessor<Column::COLUMN_INDEX_ROWS_TYPE, 1, coord_t>,
-    false> rows_acc_t;
+    true> rows_acc_t; // FIXME: true => false
 
   auto ixdim = regions.size() - 1;
 
+  unsigned r1 = args->row_dim - 1; // rank above ROW index
   std::vector<DomainPoint> common_rows;
   {
     rows_acc_t rows(regions[0], Column::COLUMN_INDEX_ROWS_FID);
-    common_rows = rows[task->index_point[0]];
+    common_rows = rows[task->index_point[0 + r1]];
   }
   for (size_t i = 1; i < ixdim; ++i) {
     rows_acc_t rows(regions[i], Column::COLUMN_INDEX_ROWS_FID);
-    common_rows = intersection(common_rows, rows[task->index_point[i]]);
+    common_rows = intersection(common_rows, rows[task->index_point[i + r1]]);
   }
 
-  if (common_rows.size() > 0
-      && (args->allow_rows || common_rows.size() == 1)) {
-    auto rowdim = common_rows[0].get_dim();
-    auto rectdim =
-      ixdim + (args->allow_rows ? 1 : 0)
-      + args->row_partition.get_dim() - rowdim;
-    switch (rowdim * LEGION_MAX_DIM + rectdim) {
+  // FIXME: remove the following
+  std::cout << "at " << task->index_point << ": ";
+  for (auto& r : common_rows)
+    std::cout << r << " ";
+  std::cout << std::endl;
+
+  if (common_rows.size() > 0) {
+    assert((int)args->row_dim == common_rows[0].get_dim());
+    std::vector<DomainPoint> here_rows;
+    int r2 = (int)r1 - (args->allow_rows ? 1 : 0);
+    std::copy_if(
+      common_rows.begin(),
+      common_rows.end(),
+      std::back_inserter(here_rows),
+      [task, &r2](auto& pt) {
+        bool match = true;
+        for (int i = 0; match && i < r2; ++i)
+          match = pt[i] == task->index_point[i];
+        return match;
+      });
+    if ((args->allow_rows || here_rows.size() == 1)) {
+      auto rectdim =
+        ixdim + (args->allow_rows ? 1 : 0) /* + args->row_dim */ - 1
+        + args->row_partition.get_dim() /* - args->row_dim */;
+      switch (args->row_dim * LEGION_MAX_DIM + rectdim) {
 #define WRITE_RECTS(ROWDIM, RECTDIM)                                    \
-      case (ROWDIM * LEGION_MAX_DIM + RECTDIM): {                       \
-        const FieldAccessor<                                            \
-          WRITE_DISCARD, \
-          Rect<RECTDIM>, \
-          ROWDIM> rects(regions.back(), REINDEXED_ROW_RECTS_FID); \
-                                                                        \
-        for (size_t i = 0; i < common_rows.size(); ++i) {               \
-          Domain row_d =                                                \
-            rt->get_index_space_domain(                                 \
-              rt->get_index_subspace(                                   \
-                args->row_partition,                                    \
-                common_rows[i]));                                       \
-          Rect<RECTDIM> row_rect;                                       \
-          size_t j = 0;                                                 \
-          for (; j < ixdim; ++j) {                                      \
-            row_rect.lo[j] = task->index_point[j];                      \
-            row_rect.hi[j] = task->index_point[j];                      \
+        case (ROWDIM * LEGION_MAX_DIM + RECTDIM): {                     \
+          const FieldAccessor<                                          \
+            WRITE_DISCARD, \
+            Rect<RECTDIM>, \
+            ROWDIM> rects(regions.back(), REINDEXED_ROW_RECTS_FID); \
+                                                                    \
+          for (size_t i = 0; i < here_rows.size(); ++i) {             \
+            Domain row_d =                                              \
+              rt->get_index_space_domain(                               \
+                rt->get_index_subspace(                                 \
+                  args->row_partition,                                  \
+                  here_rows[i]));                                       \
+            Rect<RECTDIM> row_rect;                                     \
+            size_t j = 0;                                               \
+            for (; j < r1 + ixdim; ++j) {                               \
+              row_rect.lo[j] = task->index_point[j];                    \
+              row_rect.hi[j] = task->index_point[j];                    \
+            }                                                           \
+            if (args->allow_rows) {                                     \
+              row_rect.lo[j] = i;                                       \
+              row_rect.hi[j] = i;                                       \
+              ++j;                                                      \
+            }                                                           \
+            size_t k = j;                                               \
+            for (; j < RECTDIM; ++j) {                                  \
+              row_rect.lo[j] = row_d.lo()[j - k + ROWDIM];              \
+              row_rect.hi[j] = row_d.hi()[j - k + ROWDIM];              \
+            }                                                           \
+            std::cout << here_rows[i] << " => " << row_rect << std::endl; /* FIXME: remove */ \
+            rects[here_rows[i]] = row_rect;                                 \
           }                                                             \
-          if (args->allow_rows) {                                       \
-            row_rect.lo[j] = i;                                         \
-            row_rect.hi[j] = i;                                         \
-            ++j;                                                        \
-          }                                                             \
-          size_t k = j;                                                 \
-          for (; j < RECTDIM; ++j) {                                    \
-            row_rect.lo[j] = row_d.lo()[j - k + ROWDIM];                \
-            row_rect.hi[j] = row_d.hi()[j - k + ROWDIM];                \
-          }                                                             \
-          rects[common_rows[i]] = row_rect;                             \
-        }                                                               \
-        break;                                                          \
-      }
-      HYPERION_FOREACH_MN(WRITE_RECTS);
+          break;                                                        \
+        }
+        HYPERION_FOREACH_MN(WRITE_RECTS);
 #undef WRITE_RECTS
-    default:
-      assert(false);
-      break;
+      default:
+        assert(false);
+        break;
+      }
     }
   }
 }
@@ -525,20 +558,32 @@ ColumnSpace::compute_row_mapping(
   const std::vector<LogicalRegion>& index_column_lrs,
   const LogicalRegion& row_map_lr) {
 
-  ComputeRowRectanglesTaskArgs args;
+  ComputeRowMappingTaskArgs args;
   args.allow_rows = allow_rows;
   args.row_partition = row_partition;
 
   Domain bounds;
-  switch (index_column_lrs.size()) {
-#define INIT_BOUNDS(DIM)                                            \
-    case DIM: {                                                     \
-      Rect<DIM> rect;                                               \
-      for (size_t i = 0; i < DIM; ++i) {                            \
-        IndexSpaceT<1> cis(index_column_lrs[i].get_index_space());  \
+  auto row_domain = rt->get_index_partition_color_space(row_partition);
+  auto row_domain_lo = row_domain.lo();
+  auto row_domain_hi = row_domain.hi();
+  args.row_dim = row_domain.get_dim();
+  unsigned r1 = args.row_dim - 1;
+  switch (r1 + index_column_lrs.size()) {
+#define INIT_BOUNDS(DIM)                                        \
+    case DIM: {                                                 \
+      Rect<DIM> rect;                                           \
+      size_t i = 0;                                             \
+      while (i < r1) {                                          \
+        rect.lo[i] = row_domain_lo[i];                          \
+        rect.hi[i] = row_domain_hi[i];                          \
+        ++i;                                                    \
+      }                                                         \
+      while (i < DIM) {                                                 \
+        IndexSpaceT<1> cis(index_column_lrs[i - r1].get_index_space());   \
         Rect<1> dom = rt->get_index_space_domain(cis).bounds;       \
         rect.lo[i] = dom.lo[0];                                     \
         rect.hi[i] = dom.hi[0];                                     \
+        ++i;                                                        \
       }                                                             \
       bounds = rect;                                                \
       break;                                                        \

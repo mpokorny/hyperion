@@ -187,6 +187,7 @@ allocate_table_fields(FieldAllocator& fa) {
 static RegionRequirement
 table_fields_requirement(LogicalRegion lr, legion_privilege_mode_t mode) {
 
+  std::cout << "freq for " << lr << std::endl; // FIXME: remove
   RegionRequirement result(lr, mode, EXCLUSIVE, lr);
 #define ADD_F(F) result.add_field(static_cast<FieldID>(F));
   FOREACH_TABLE_FIELD_FID(ADD_F);
@@ -221,6 +222,7 @@ Table::create(
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     allocate_table_fields(fa);
     fields_lr = rt->create_logical_region(ctx, is, fs);
+    std::cout << "created " << fields_lr << std::endl; // FIXME: remove
     {
       PhysicalRegion fields_pr =
         rt->map_region(ctx, table_fields_requirement(fields_lr, WRITE_ONLY));
@@ -287,9 +289,9 @@ Future
 Table::index_axes(Context ctx, Runtime* rt) const {
   auto cols = columns(ctx, rt).get_result<columns_result_t>();
   TaskLauncher task(index_axes_task_id, TaskArgument(NULL, 0));
-  for (auto& csp_vlr_tfs : cols.fields) {
-    auto& md = std::get<0>(csp_vlr_tfs).metadata_lr;
-    RegionRequirement req(md, READ_ONLY, EXCLUSIVE, md);
+  for (auto& [csp, vlr, tfs] : cols.fields) {
+    RegionRequirement
+      req(csp.metadata_lr, READ_ONLY, EXCLUSIVE, csp.metadata_lr);
     req.add_field(ColumnSpace::AXIS_VECTOR_FID);
     req.add_field(ColumnSpace::INDEX_FLAG_FID);
     task.add_region_requirement(req);
@@ -349,6 +351,9 @@ Table::add_columns(
     ColumnSpace,
     std::vector<std::pair<std::string, TableField>>>& columns) {
 
+  if (columns.size() == 0)
+    return;
+
   PhysicalRegion fields_pr =
     rt->map_region(ctx, table_fields_requirement(fields_lr, READ_WRITE));
   std::optional<PhysicalRegion> csp_md_pr;
@@ -376,6 +381,9 @@ Table::add_columns(
     std::vector<std::pair<std::string, TableField>>>& columns,
   const std::optional<PhysicalRegion>& csp_md_pr,
   const PhysicalRegion& fields_pr) {
+
+  if (columns.size() == 0)
+    return;
 
   std::optional<ColumnSpace::AXIS_SET_UID_TYPE> auid;
   if (csp_md_pr) {
@@ -1360,7 +1368,7 @@ Table::reindexed(
           && index_axes_extension != index_axes.end())) {
       // TODO: log an error message: index_axes does not extend current Table
       // index axes
-      return Table();
+      return reindexed_result_t();
     }
   }
 
@@ -1395,7 +1403,7 @@ Table::reindexed(
     if (missing.size() > 0) {
       // TODO: log an error message: requested indexing column does not exist in
       // Table
-      return Table();
+      return reindexed_result_t();
     }
   }
 
@@ -1461,7 +1469,7 @@ Table::reindexed(
   }
 
   // create the reindexed table
-  Table result;
+  reindexed_result_t result;
   {
     std::map<ColumnSpace, std::vector<std::pair<std::string, TableField>>>
       nmtfs;
@@ -1546,6 +1554,7 @@ Table::reindexed(
       const ColumnSpace::IndexFlagAccessor<READ_ONLY>
         difl(dcsp_md_pr, ColumnSpace::INDEX_FLAG_FID);
       if (difl[0]) {
+        assert(dtfs.size() == 1);
         // an index column in result Table
         LogicalRegion slr;
         FieldID sfid;
@@ -1587,8 +1596,8 @@ Table::reindexed(
               rctlp,
               rctlr,
               ColumnSpace::REINDEXED_ROW_RECTS_FID,
-              cs,
-              DISJOINT_COMPLETE_KIND);
+              cs/*, FIXME
+                  DISJOINT_COMPLETE_KIND*/);
           dlp = rt->get_logical_partition(ctx, dvlr, dip);
           slr = col.vreq.region;
         }
@@ -1607,10 +1616,12 @@ Table::reindexed(
             READ_ONLY,
             EXCLUSIVE,
             rctlr));
+        std::cout << "val copy " << dtfs.size() << std::endl; // FIXME: remove
         for (auto& [nm, tf] : dtfs) {
           auto& [col, crg, ix] = named_columns[nm];
           args.dt = col.dt;
           args.fid = col.fid;
+          assert(tf.fid == col.fid);
           task.region_requirements.resize(1);
           task.add_region_requirement(
             RegionRequirement(slr, READ_ONLY, EXCLUSIVE, slr));
@@ -1618,12 +1629,14 @@ Table::reindexed(
           task.add_region_requirement(
             RegionRequirement(dlp, 0, WRITE_ONLY, EXCLUSIVE, dvlr));
           task.add_field(2, tf.fid);
+          std::cout << "cp " << nm << std::endl; // FIXME: remove
+          std::cout.flush(); // FIXME: remove
           rt->execute_index_space(ctx, task);
         }
-        rt->destroy_index_partition(ctx, dlp.get_index_partition());
-        rt->destroy_logical_partition(ctx, dlp);
-        rt->destroy_index_partition(ctx, rctlp.get_index_partition());
-        rt->destroy_logical_partition(ctx, rctlp);
+        // rt->destroy_index_partition(ctx, dlp.get_index_partition()); FIXME
+        // rt->destroy_logical_partition(ctx, dlp); FIXME
+        // rt->destroy_index_partition(ctx, rctlp.get_index_partition()); FIXME
+        // rt->destroy_logical_partition(ctx, rctlp); FIXME
       }
       rt->unmap_region(ctx, dcsp_md_pr);
     }
@@ -1633,15 +1646,15 @@ Table::reindexed(
   for (auto& [d, lr_pr] : index_cols) {
     auto& [lr, pr] = lr_pr;
     rt->unmap_region(ctx, pr);
-    rt->destroy_field_space(ctx, lr.get_field_space());
+    //rt->destroy_field_space(ctx, lr.get_field_space());  FIXME
     // DON'T do this: rt->destroy_index_space(ctx, lr.get_index_space());
-    rt->destroy_logical_region(ctx, lr);
+    //rt->destroy_logical_region(ctx, lr); FIXME
   }
   for (auto& [csp, rcsp_rlr] : reindexed) {
     auto& [rcsp, rlr] = rcsp_rlr;
-    rt->destroy_field_space(ctx, rlr.get_field_space());
+    //rt->destroy_field_space(ctx, rlr.get_field_space()); FIXME
     // DON'T destroy index space
-    rt->destroy_logical_region(ctx, rlr);
+    //rt->destroy_logical_region(ctx, rlr); FIXME
   }
   return result;
 }

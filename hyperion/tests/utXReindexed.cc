@@ -80,13 +80,13 @@ std::ostream&
 operator<<(std::ostream& stream, const Table0Axes& ax) {
   switch (ax) {
   case Table0Axes::ROW:
-    stream << "Table0Axes::ROW";
+    stream << "ROW";
     break;
   case Table0Axes::X:
-    stream << "Table0Axes::X";
+    stream << "X";
     break;
   case Table0Axes::Y:
-    stream << "Table0Axes::Y";
+    stream << "Y";
     break;
   }
   return stream;
@@ -195,26 +195,33 @@ test_totally_reindexed_table(
   Context ctx,
   Runtime* rt,
   const x::Table& tb,
+  bool x_before_y,
   const std::string& prefix,
   testing::TestRecorder<READ_WRITE>& recorder) {
 
+  std::cout << "tb flr " << tb.fields_lr << std::endl; // FIXME: remove
   recorder.expect_true(
     prefix + " reindexed table is not empty",
     TE(!tb.is_empty()));
 
+  std::vector<Table0Axes> ixax;
+  if (x_before_y)
+    ixax = {Table0Axes::X, Table0Axes::Y};
+  else
+    ixax = {Table0Axes::Y, Table0Axes::X};
+
+  std::ostringstream oss;
+  oss << ixax;
+
   recorder.expect_true(
-    prefix + " reindexed table has ('X', 'Y') index axes",
+    prefix + " reindexed table has " + oss.str() + " index axes",
     testing::TestEval(
-      [&ctx, rt, &tb]() {
+      [&ctx, rt, &tb, &ixax]() {
         auto ax =
           tb.index_axes(ctx, rt)
           .template get_result<x::Table::index_axes_result_t>();
         auto axes = x::ColumnSpace::from_axis_vector(ax);
-        return
-          axes ==
-          std::vector<int>{
-          static_cast<int>(Table0Axes::X),
-          static_cast<int>(Table0Axes::Y)};
+        return axes == map_to_int(ixax);
       }));
 
   auto cols =
@@ -283,7 +290,7 @@ test_totally_reindexed_table(
   }
   {
     recorder.assert_true(
-      prefix + " Reindexed table has 'Y' column",
+      prefix + " reindexed table has 'Y' column",
       TE(cols.count("Y") > 0));
 
     auto& cy = cols.at("Y");
@@ -364,10 +371,8 @@ test_totally_reindexed_table(
         prefix + " reindexed 'Z' column has unchanged axis set uid",
         TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
       recorder.expect_true(
-        prefix + " reindexed 'Z' column has only ('X', 'Y') axes",
-        TE(x::ColumnSpace::from_axis_vector(av[0])
-           == map_to_int(
-             std::vector<Table0Axes>{Table0Axes::X, Table0Axes::Y})));
+        prefix + " reindexed 'Z' column has only " + oss.str() + " axes",
+        TE(x::ColumnSpace::from_axis_vector(av[0]) == map_to_int(ixax)));
       recorder.expect_true(
         prefix + " reindexed 'Z' column does not have index flag set",
         TE(!ifl[0]));
@@ -376,20 +381,27 @@ test_totally_reindexed_table(
     recorder.assert_true(
       prefix + " reindexed 'Z' column has expected size",
       testing::TestEval(
-        [&cz, &ctx, rt]() {
+        [&cz, &x_before_y, &ctx, rt]() {
           auto is = cz.vreq.region.get_index_space();
           auto dom = rt->get_index_space_domain(ctx, is);
           Rect<2> r(dom.bounds<2,coord_t>());
-          return
-            r ==
-            Rect<2>(
-              Point<2>(0, 0),
-              Point<2>(TABLE0_NUM_X - 1, TABLE0_NUM_Y - 1));
+          coord_t r0, r1;
+          if (x_before_y) {
+            r0 = TABLE0_NUM_X - 1;
+            r1 = TABLE0_NUM_Y - 1;
+          } else {
+            r1 = TABLE0_NUM_X - 1;
+            r0 = TABLE0_NUM_Y - 1;
+          }
+          Rect<2> expected(Point<2>(0, 0), Point<2>(r0, r1));
+          // FIXME: remove the followin
+          std::cout << "expected " << expected << "; actual " << r << std::endl;
+          return r == expected;
         }));
     recorder.expect_true(
       prefix + " reindexed 'Z' column has expected values",
       testing::TestEval(
-        [&cz, &ctx, rt]() {
+        [&cz, &x_before_y, &ctx, rt]() {
           RegionRequirement
             req(cz.vreq.region, READ_ONLY, EXCLUSIVE, cz.vreq.region);
           req.add_field(cz.fid);
@@ -400,9 +412,11 @@ test_totally_reindexed_table(
             z(pr, cz.fid);
           bool result = true;
           DomainT<2,coord_t> dom(pr);
+          coord_t p0 = (x_before_y ? 0 : 1);
+          coord_t p1 = 1 - p0;
           for (PointInDomainIterator<2> pid(dom); pid(); pid++)
             result = result &&
-              z[*pid] == table0_z[pid[0] * TABLE0_NUM_Y + pid[1]];
+              z[*pid] == table0_z[pid[p0] * TABLE0_NUM_Y + pid[p1]];
           rt->unmap_region(ctx, pr);
           return result;
         }));
@@ -499,9 +513,9 @@ reindexed_test_suite(
           std::vector<Table0Axes>{Table0Axes::X, Table0Axes::Y},
           false);
 
-      auto tb = f.template get_result<x::Table>();
-      test_totally_reindexed_table(ctx, rt, tb, "Totally ", recorder);
-      tb.destroy(ctx, rt);
+      auto tb = f.template get_result<x::Table::reindexed_result_t>();
+      test_totally_reindexed_table(ctx, rt, tb, true, "Totally", recorder);
+      //tb.destroy(ctx, rt); FIXME
     }
     // tests of two-step reindexing
     {
@@ -513,7 +527,7 @@ reindexed_test_suite(
             rt,
             std::vector<Table0Axes>{Table0Axes::Y},
             true);
-        tby = f.template get_result<x::Table>();
+        tby = f.template get_result<x::Table::reindexed_result_t>();
       }
       {
         recorder.expect_true(
@@ -728,7 +742,7 @@ reindexed_test_suite(
         }
       }
       // tests of further reindexing of partially indexed table
-      x::Table tbxy;
+      x::Table tbyx;
       {
         auto f =
           tby.reindexed(
@@ -736,14 +750,20 @@ reindexed_test_suite(
             rt,
             std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::X},
             false);
-        tbxy = f.template get_result<x::Table>();
+        tbyx = f.template get_result<x::Table::reindexed_result_t>();
       }
-      test_totally_reindexed_table(ctx, rt, tbxy, "Final, totally ", recorder);
-      tbxy.destroy(ctx, rt);
-      tby.destroy(ctx, rt);
+      test_totally_reindexed_table(
+        ctx,
+        rt,
+        tbyx,
+        false,
+        "Final, totally",
+        recorder);
+      //tbyx.destroy(ctx, rt); FIXME
+      //tby.destroy(ctx, rt); FIXME
     }
   }
-  table0.destroy(ctx, rt);
+  //table0.destroy(ctx, rt); FIXME
 }
 
 int
