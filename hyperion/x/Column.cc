@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
 #include <hyperion/x/Column.h>
 
 using namespace hyperion::x;

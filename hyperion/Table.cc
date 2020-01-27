@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
 #include <hyperion/Column.h>
 #include <hyperion/Table.h>
 #ifdef HYPERION_USE_CASACORE
@@ -261,8 +262,10 @@ Table::create(
       ((name_prefix.back() != '/') ? (name_prefix + "/") : name_prefix)
       + component_name_prefix;
 
+#ifdef HYPERION_USE_CASACORE
   auto merged_meas_refs =
     MeasRefContainer::create(ctx, rt, meas_refs, inherited_meas_refs);
+#endif
 
   std::vector<Column> cols;
   for (auto& cg : column_generators)
@@ -760,23 +763,6 @@ public:
     return result;
   }
 
-  static void
-  preregister_task() {
-    TASK_ID = Runtime::generate_static_task_id();
-    std::string tname =
-      std::string("IndexAccumulateTask<") + DT::s + std::string(">");
-    strncpy(TASK_NAME, tname.c_str(), sizeof(TASK_NAME));
-    TASK_NAME[sizeof(TASK_NAME) - 1] = '\0';
-    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.set_leaf();
-    registrar.set_idempotent();
-    // registrar.set_replicable();
-    Runtime::preregister_task_variant<acc_field_redop_rhs<T>, base_impl>(
-      registrar,
-      TASK_NAME);
-  }
-
   static acc_field_redop_rhs<T>
   base_impl(
     const Task* task,
@@ -810,6 +796,23 @@ public:
     result.v.reserve(pts.size());
     std::copy(pts.begin(), pts.end(), std::back_inserter(result.v));
     return result;
+  }
+
+  static void
+  preregister_task() {
+    TASK_ID = Runtime::generate_static_task_id();
+    std::string tname =
+      std::string("IndexAccumulateTask<") + DT::s + std::string(">");
+    strncpy(TASK_NAME, tname.c_str(), sizeof(TASK_NAME));
+    TASK_NAME[sizeof(TASK_NAME) - 1] = '\0';
+    TaskVariantRegistrar registrar(TASK_ID, TASK_NAME, false);
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_leaf();
+    registrar.set_idempotent();
+    // registrar.set_replicable();
+    Runtime::preregister_task_variant<acc_field_redop_rhs<T>, base_impl>(
+      registrar,
+      TASK_NAME);
   }
 
 private:
@@ -1708,7 +1711,9 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
     req.add_field(Column::METADATA_NAME_FID);
     req.add_field(Column::METADATA_AXES_UID_FID);
     req.add_field(Column::METADATA_DATATYPE_FID);
+#ifdef HYPERION_USE_CASACORE
     req.add_field(Column::METADATA_MEAS_REF_NAME_FID);
+#endif
     // don't need METADATA_OWN_MEAS_REF_FID, since created Column will never own
     // its MeasRef
     reqs.push_back(req);
@@ -1973,9 +1978,11 @@ reindex_column(
   const Column::AxesUidAccessor<READ_ONLY> col_axes_uid(
     regions[ReindexColumnRegionIndexes::METADATA],
     Column::METADATA_AXES_UID_FID);
+#ifdef HYPERION_USE_CASACORE
   const Column::MeasRefNameAccessor<READ_ONLY> col_mr_name(
     regions[ReindexColumnRegionIndexes::METADATA],
     Column::METADATA_MEAS_REF_NAME_FID);
+#endif
   return Column::create(
     ctx,
     rt,
@@ -2082,9 +2089,11 @@ ReindexColumnTask::base_impl(
     const Column::AxesUidAccessor<READ_ONLY> col_axes_uid(
       regions[ReindexColumnRegionIndexes::METADATA],
       Column::METADATA_AXES_UID_FID);
+#ifdef HYPERION_USE_CASACORE
     const Column::MeasRefNameAccessor<READ_ONLY> col_mr_name(
       regions[ReindexColumnRegionIndexes::METADATA],
       Column::METADATA_MEAS_REF_NAME_FID);
+#endif
 
     return Column::create(
       ctx,

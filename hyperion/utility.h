@@ -196,16 +196,6 @@ struct HYPERION_API string {
   }
 };
 
-template <typename F>
-bool
-operator<(const std::complex<F>& a, const std::complex<F>& b) {
-  if (a.real() < b.real())
-    return true;
-  if (a.real() > b.real())
-    return false;
-  return a.imag() < b.imag();
-}
-
 template <typename D>
 bool
 has_unique_values(const std::vector<D>& axes) {
@@ -2624,6 +2614,21 @@ HYPERION_FOREACH_N(DEFINE_POINT_ADD_REDOP);
 
 std::ostream&
 operator<<(std::ostream& stream, const hyperion::string& str);
+
+#ifndef HYPERION_USE_CASACORE
+// casacore has an equivalent, no need to define another
+namespace std {
+template <typename F>
+bool
+operator<(const std::complex<F>& a, const std::complex<F>& b) {
+  if (a.real() < b.real())
+    return true;
+  if (a.real() > b.real())
+    return false;
+  return a.imag() < b.imag();
+}
+} // end namespace std
+#endif
 
 #endif // HYPERION_UTILITY_H_
 

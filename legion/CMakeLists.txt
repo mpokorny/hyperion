@@ -1,7 +1,7 @@
 set(hyperion_LEGION_GIT_REPO "https://github.com/StanfordLegion/legion.git" CACHE STRING "Legion repository")
 set(hyperion_LEGION_TAG "stable" CACHE STRING "Legion repository git tag")
 
-set(Legion_MAX_DIM ${MAX_DIM} CACHE STRING "Maximum number of dimensions")
+set(Legion_MAX_DIM ${MAX_DIM} STRING "Maximum number of dimensions")
 list(APPEND Legion_ARGS Legion_MAX_DIM)
 
 set(Legion_OUTPUT_LEVEL "DEBUG" CACHE STRING "Compile time logging level")
@@ -37,13 +37,13 @@ else()
   set(Legion_LINK_LLVM_LIBS ON BOOL)
 endif()
 
-set(Legion_USE_HDF5 ${USE_HDF5} CACHE BOOL "Enable support for HDF5")
+set(Legion_USE_HDF5 ${USE_HDF5} BOOL "Enable support for HDF5")
 list(APPEND Legion_ARGS Legion_USE_HDF5)
 
 set(Legion_USE_LIBDL ON CACHE BOOL "Enable support for libdl")
 list(APPEND Legion_ARGS Legion_USE_LIBDL)
 
-set(Legion_USE_ZLIB ${ZLIB_FOUND} CACHE BOOL "Use zlib")
+set(Legion_USE_ZLIB ${ZLIB_FOUND} BOOL "Use zlib")
 list(APPEND Legion_ARGS Legion_USE_ZLIB)
 
 set(Legion_USE_HWLOC OFF CACHE BOOL "Use hwloc for topology awareness")

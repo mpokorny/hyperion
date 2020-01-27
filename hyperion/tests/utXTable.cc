@@ -291,7 +291,7 @@ table_test_suite(
       w_is,
       false);
 
-// #ifdef HYPERION_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
 //   casacore::MeasRef<casacore::MEpoch> tai(casacore::MEpoch::TAI);
 //   casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
 //   auto table0_epoch = MeasRef::create(ctx, rt, tai);
@@ -311,7 +311,6 @@ table_test_suite(
 //     table0_col("Y", col_measures["Y"]),
 //     table0_col("Z", col_measures["Z"], "EPOCH")
 //   };
-// #else
   std::vector<std::pair<std::string, x::TableField>> xyz_fields{
     {"X",
      x::TableField(HYPERION_TYPE_UINT, COL_X, MeasRef(), Keywords())},
@@ -324,7 +323,20 @@ table_test_suite(
     {"W",
      x::TableField(HYPERION_TYPE_UINT, COL_W, MeasRef(), Keywords())}
   };
-// #endif
+#else
+  std::vector<std::pair<std::string, x::TableField>> xyz_fields{
+    {"X",
+     x::TableField(HYPERION_TYPE_UINT, COL_X, Keywords())},
+    {"Y",
+     x::TableField(HYPERION_TYPE_UINT, COL_Y, Keywords())},
+    {"Z",
+     x::TableField(HYPERION_TYPE_UINT, COL_Z, Keywords())}
+  };
+  std::vector<std::pair<std::string, x::TableField>> w_fields{
+    {"W",
+     x::TableField(HYPERION_TYPE_UINT, COL_W, Keywords())}
+  };
+#endif
 
   auto table0 =
     x::Table::create(ctx, rt, {{xyz_space, xyz_fields}, {w_space, w_fields}});

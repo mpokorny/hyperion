@@ -19,7 +19,9 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 #include <hyperion/Keywords.h>
-#include <hyperion/MeasRef.h>
+#ifdef HYPERION_USE_CASACORE
+# include <hyperion/MeasRef.h>
+#endif
 #include <hyperion/x/ColumnSpace.h>
 
 namespace hyperion {
@@ -32,13 +34,17 @@ struct HYPERION_API Column {
   Column(
     TypeTag dt_,
     Legion::FieldID fid_,
+#ifdef HYPERION_USE_CASACORE
     const hyperion::MeasRef& mr_,
+#endif
     const hyperion::Keywords& kw_,
     const ColumnSpace& csp_,
     const Legion::RegionRequirement& vreq_)
     : dt(dt_)
     , fid(fid_)
+#ifdef HYPERION_USE_CASACORE
     , mr(mr_)
+#endif
     , kw(kw_)
     , csp(csp_)
     , vreq(vreq_) {}
@@ -60,7 +66,9 @@ struct HYPERION_API Column {
 
   TypeTag dt;
   Legion::FieldID fid;
+#ifdef HYPERION_USE_CASACORE
   hyperion::MeasRef mr;
+#endif
   hyperion::Keywords kw;
   ColumnSpace csp;
   Legion::RegionRequirement vreq;

@@ -17,6 +17,7 @@
 #define HYPERION_X_TABLE_H_
 
 #include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
 #include <hyperion/x/Column.h>
 #include <hyperion/x/ColumnSpace.h>
 #include <hyperion/x/ColumnSpacePartition.h>
@@ -40,7 +41,9 @@ enum class TableFieldsFid {
   NM,
   DT,
   KW,
+#ifdef HYPERION_USE_CASACORE
   MR,
+#endif
   MD,
   VF,
   VS
@@ -62,10 +65,12 @@ template<>
 struct TableFieldsType<TableFieldsFid::KW> {
   typedef hyperion::Keywords type;
 };
+#ifdef HYPERION_USE_CASACORE
 template<>
 struct TableFieldsType<TableFieldsFid::MR> {
   typedef hyperion::MeasRef type;
 };
+#endif
 template<>
 struct TableFieldsType<TableFieldsFid::MD> {
   typedef Legion::LogicalRegion type;
@@ -149,9 +154,11 @@ public:
   using KeywordsAccessor =
     Accessor<MODE, TableFieldsFid::KW, CHECK_BOUNDS>;
 
+#ifdef HYPERION_USE_CASACORE
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using MeasRefAccessor =
     Accessor<MODE, TableFieldsFid::MR, CHECK_BOUNDS>;
+#endif
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using MetadataAccessor =
@@ -260,7 +267,9 @@ public:
       std::tuple<
         Legion::PhysicalRegion,
         Legion::PhysicalRegion,
+#ifdef HYPERION_USE_CASACORE
         std::optional<hyperion::MeasRef::DataRegions>,
+#endif
         std::optional<hyperion::Keywords::pair<Legion::PhysicalRegion>>>>&
     col_prs);
 

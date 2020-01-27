@@ -19,7 +19,9 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 #include <hyperion/Keywords.h>
-#include <hyperion/MeasRef.h>
+#ifdef HYPERION_USE_CASACORE
+# include <hyperion/MeasRef.h>
+#endif
 
 namespace hyperion {
 namespace x {
@@ -31,16 +33,22 @@ struct HYPERION_API TableField {
   TableField(
     TypeTag dt_,
     Legion::FieldID fid_,
+#ifdef HYPERION_USE_CASACORE
     const hyperion::MeasRef& mr_,
+#endif
     const hyperion::Keywords& kw_)
     : dt(dt_)
     , fid(fid_)
+#ifdef HYPERION_USE_CASACORE
     , mr(mr_)
+#endif
     , kw(kw_) {}
 
   TypeTag dt;
   Legion::FieldID fid;
+#ifdef HYPERION_USE_CASACORE
   hyperion::MeasRef mr;
+#endif
   hyperion::Keywords kw;
 };
 

@@ -39,6 +39,7 @@
 
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
+# include <hyperion/MeasRefContainer.h>
 #endif
 
 namespace hyperion {
