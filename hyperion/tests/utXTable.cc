@@ -532,7 +532,7 @@ table_test_suite(
     }
   }
 
-  table0.remove_columns(ctx, rt, {"W"});
+  table0.remove_columns(ctx, rt, {"W"}, false);
   {
     auto cols =
       x::Table::column_map(

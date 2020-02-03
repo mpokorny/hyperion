@@ -316,7 +316,6 @@ compute_reindexed(
       ++i; ++j;
     }
   }
-  std::cout << col_rect << " --> " << new_bounds << std::endl; // FIXME: remove
   auto new_bounds_is = rt->create_index_space(ctx, new_bounds);
 
   // now reduce the bounding index space to the exact, possibly sparse index
@@ -349,16 +348,11 @@ compute_reindexed(
       rt->get_index_space_domain(
         rt->get_index_subspace(new_bounds_ip, 0)));
 
-  //FIXME: remove the following
-  std::cout << new_bounds
-            << " ---> "
-            << rt->get_index_space_domain(new_is).bounds<NEWDIM,coord_t>()
-            << std::endl;
-  // rt->destroy_index_partition(ctx, new_bounds_ip); FIXME
-  // rt->destroy_logical_partition(ctx, all_rows_row_map_lp); FIXME
-  // rt->destroy_index_partition(ctx, all_rows_ip); FIXME
-  // rt->destroy_index_space(ctx, all_rows_cs); FIXME
-  // rt->destroy_index_space(ctx, new_bounds_is); FIXME
+  rt->destroy_index_partition(ctx, new_bounds_ip);
+  rt->destroy_logical_partition(ctx, all_rows_row_map_lp);
+  rt->destroy_index_partition(ctx, all_rows_ip);
+  rt->destroy_index_space(ctx, all_rows_cs);
+  rt->destroy_index_space(ctx, new_bounds_is);
 
   return
     std::make_tuple(
@@ -378,19 +372,25 @@ ColumnSpace::reindexed(
 
   assert(column_is != IndexSpace::NO_SPACE);
 
-  std::vector<std::optional<size_t>> block_sizes;
-  for (size_t i = 0; i < (size_t)column_is.get_dim() - element_rank; ++i)
-    block_sizes.push_back(1);
-  std::vector<IndexSpace> iss{column_is};
-  std::vector<PhysicalRegion> prs{metadata_pr};
-  auto partition =
-    Table::partition_rows(ctx, rt, block_sizes, iss, prs).partitions[0];
-
   const AxisVectorAccessor<READ_ONLY> avs(metadata_pr, AXIS_VECTOR_FID);
   const AxisSetUIDAccessor<READ_ONLY> auid(metadata_pr, AXIS_SET_UID_FID);
   auto current_axes = from_axis_vector(avs[0]);
+
   assert((size_t)column_is.get_dim() - element_rank == current_axes.size());
   assert(current_axes.back() == 0);
+
+  std::vector<std::pair<int, coord_t>> parts;
+  for (size_t i = 0; i < current_axes.size(); ++i)
+    parts.emplace_back(current_axes[i], 1);
+
+  ColumnSpacePartition partition =
+    ColumnSpacePartition::create(
+      ctx,
+      rt,
+      column_is,
+      auid[0],
+      parts,
+      metadata_pr);
 
   unsigned olddim = (unsigned)column_is.get_dim();
   unsigned newdim =
@@ -465,7 +465,7 @@ ColumnSpace::compute_row_mapping_task(
     1,
     coord_t,
     AffineAccessor<Column::COLUMN_INDEX_ROWS_TYPE, 1, coord_t>,
-    true> rows_acc_t; // FIXME: true => false
+    false> rows_acc_t;
 
   auto ixdim = regions.size() - 1;
 
@@ -479,12 +479,6 @@ ColumnSpace::compute_row_mapping_task(
     rows_acc_t rows(regions[i], Column::COLUMN_INDEX_ROWS_FID);
     common_rows = intersection(common_rows, rows[task->index_point[i + r1]]);
   }
-
-  // FIXME: remove the following
-  std::cout << "at " << task->index_point << ": ";
-  for (auto& r : common_rows)
-    std::cout << r << " ";
-  std::cout << std::endl;
 
   if (common_rows.size() > 0) {
     assert((int)args->row_dim == common_rows[0].get_dim());
@@ -534,8 +528,7 @@ ColumnSpace::compute_row_mapping_task(
               row_rect.lo[j] = row_d.lo()[j - k + ROWDIM];              \
               row_rect.hi[j] = row_d.hi()[j - k + ROWDIM];              \
             }                                                           \
-            std::cout << here_rows[i] << " => " << row_rect << std::endl; /* FIXME: remove */ \
-            rects[here_rows[i]] = row_rect;                                 \
+            rects[here_rows[i]] = row_rect;                             \
           }                                                             \
           break;                                                        \
         }

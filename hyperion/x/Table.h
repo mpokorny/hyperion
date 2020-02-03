@@ -181,9 +181,10 @@ public:
   create(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::map<
-      ColumnSpace,
-      std::vector<std::pair<std::string, TableField>>>& columns);
+    const std::vector<
+      std::pair<
+        ColumnSpace,
+        std::vector<std::pair<std::string, TableField>>>>& columns);
 
   bool
   is_empty() const;
@@ -196,23 +197,30 @@ public:
   static index_axes_result_t
   index_axes(const std::vector<Legion::PhysicalRegion>& csp_metadata_prs);
 
-  void
-  add_columns(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const std::map<
-      ColumnSpace,
-      std::vector<std::pair<std::string, TableField>>>& columns);
+  typedef bool add_columns_result_t;
 
-  static void
+  Legion::Future /* add_columns_result_t */
   add_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::map<
-      ColumnSpace,
-      std::vector<std::pair<std::string, TableField>>>& columns,
-    const std::optional<Legion::PhysicalRegion>& csp_md_pr,
-    const Legion::PhysicalRegion& fields_pr);
+    const std::vector<
+      std::pair<
+        ColumnSpace,
+        std::vector<std::pair<std::string, TableField>>>>& columns);
+
+  static add_columns_result_t
+  add_columns(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<
+      std::pair<
+        ColumnSpace,
+        std::pair<
+          ssize_t,
+          std::vector<std::pair<hyperion::string, TableField>>>>>& columns,
+    const std::vector<Legion::LogicalRegion>& val_lrs,
+    const Legion::PhysicalRegion& fields_pr,
+    const std::vector<Legion::PhysicalRegion>& csp_md_prs);
 
   void
   remove_columns(
@@ -387,6 +395,17 @@ private:
 
   static partition_rows_result_t
   partition_rows_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *rt);
+
+  static Legion::TaskID add_columns_task_id;
+
+  static const char* add_columns_task_name;
+
+  static add_columns_result_t
+  add_columns_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,

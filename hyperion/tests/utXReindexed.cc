@@ -199,7 +199,6 @@ test_totally_reindexed_table(
   const std::string& prefix,
   testing::TestRecorder<READ_WRITE>& recorder) {
 
-  std::cout << "tb flr " << tb.fields_lr << std::endl; // FIXME: remove
   recorder.expect_true(
     prefix + " reindexed table is not empty",
     TE(!tb.is_empty()));
@@ -394,8 +393,6 @@ test_totally_reindexed_table(
             r0 = TABLE0_NUM_Y - 1;
           }
           Rect<2> expected(Point<2>(0, 0), Point<2>(r0, r1));
-          // FIXME: remove the followin
-          std::cout << "expected " << expected << "; actual " << r << std::endl;
           return r == expected;
         }));
     recorder.expect_true(
