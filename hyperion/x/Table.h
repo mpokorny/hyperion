@@ -376,11 +376,9 @@ public:
 
   Legion::LogicalRegion fields_lr;
 
-private:
+protected:
 
-  static Legion::TaskID index_axes_task_id;
-
-  static const char* index_axes_task_name;
+  friend class Legion::LegionTaskWrapper;
 
   static index_axes_result_t
   index_axes_task(
@@ -389,20 +387,12 @@ private:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static Legion::TaskID partition_rows_task_id;
-
-  static const char* partition_rows_task_name;
-
   static partition_rows_result_t
   partition_rows_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *rt);
-
-  static Legion::TaskID add_columns_task_id;
-
-  static const char* add_columns_task_name;
 
   static add_columns_result_t
   add_columns_task(
@@ -411,20 +401,12 @@ private:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static Legion::TaskID columns_task_id;
-
-  static const char* columns_task_name;
-
   static columns_result_t
   columns_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *rt);
-
-  static Legion::TaskID convert_task_id;
-
-  static const char* convert_task_name;
 
   static convert_result_t
   convert_task(
@@ -433,20 +415,12 @@ private:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static Legion::TaskID copy_values_from_task_id;
-
-  static const char* copy_values_from_task_name;
-
   static void
   copy_values_from_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *rt);
-
-  static Legion::TaskID reindexed_task_id;
-
-  static const char* reindexed_task_name;
 
   static reindexed_result_t
   reindexed_task(
@@ -455,10 +429,6 @@ private:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static Legion::TaskID reindex_column_space_task_id;
-
-  static const char* reindex_column_space_task_name;
-
   static Legion::IndexSpace
   reindex_column_space_task(
     const Legion::Task* task,
@@ -466,16 +436,50 @@ private:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static Legion::TaskID reindex_copy_values_task_id;
-
-  static const char* reindex_copy_values_task_name;
-
   static void
   reindex_copy_values_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *rt);
+
+private:
+
+  static Legion::TaskID index_axes_task_id;
+
+  static const char* index_axes_task_name;
+
+  static Legion::TaskID partition_rows_task_id;
+
+  static const char* partition_rows_task_name;
+
+  static Legion::TaskID add_columns_task_id;
+
+  static const char* add_columns_task_name;
+
+  static Legion::TaskID columns_task_id;
+
+  static const char* columns_task_name;
+
+  static Legion::TaskID convert_task_id;
+
+  static const char* convert_task_name;
+
+  static Legion::TaskID copy_values_from_task_id;
+
+  static const char* copy_values_from_task_name;
+
+  static Legion::TaskID reindexed_task_id;
+
+  static const char* reindexed_task_name;
+
+  static Legion::TaskID reindex_column_space_task_id;
+
+  static const char* reindex_column_space_task_name;
+
+  static Legion::TaskID reindex_copy_values_task_id;
+
+  static const char* reindex_copy_values_task_name;
 };
 
 } // end namespace x

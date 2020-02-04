@@ -121,11 +121,9 @@ struct HYPERION_API ColumnSpacePartition {
 
   std::array<AxisPartition, ColumnSpace::MAX_DIM> partition;
 
-private:
+protected:
 
-  static Legion::TaskID create_task_ap_id;
-
-  static const char* create_task_ap_name;
+  friend class Legion::LegionTaskWrapper;
 
   static create_result_t
   create_task_ap(
@@ -134,16 +132,22 @@ private:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static Legion::TaskID create_task_bs_id;
-
-  static const char* create_task_bs_name;
-
   static create_result_t
   create_task_bs(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *rt);
+
+private:
+
+  static Legion::TaskID create_task_ap_id;
+
+  static const char* create_task_ap_name;
+
+  static Legion::TaskID create_task_bs_id;
+
+  static const char* create_task_bs_name;
 
 };
 } // end namespace x

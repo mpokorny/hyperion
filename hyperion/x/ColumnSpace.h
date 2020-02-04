@@ -187,11 +187,9 @@ struct HYPERION_API ColumnSpace {
 
   Legion::LogicalRegion metadata_lr;
 
-private:
+protected:
 
-  static Legion::TaskID init_task_id;
-
-  static const char* init_task_name;
+  friend class Legion::LegionTaskWrapper;
 
   static void
   init_task(
@@ -200,10 +198,6 @@ private:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static Legion::TaskID reindexed_task_id;
-
-  static const char* reindexed_task_name;
-
   static reindexed_result_t
   reindexed_task(
     const Legion::Task* task,
@@ -211,16 +205,26 @@ private:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static Legion::TaskID compute_row_mapping_task_id;
-
-  static const char* compute_row_mapping_task_name;
-
   static void
   compute_row_mapping_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *rt);
+
+private:
+
+  static Legion::TaskID init_task_id;
+
+  static const char* init_task_name;
+
+  static Legion::TaskID reindexed_task_id;
+
+  static const char* reindexed_task_name;
+
+  static Legion::TaskID compute_row_mapping_task_id;
+
+  static const char* compute_row_mapping_task_name;
 };
 
 } // end namespace x
