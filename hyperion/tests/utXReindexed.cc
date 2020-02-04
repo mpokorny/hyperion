@@ -129,24 +129,13 @@ Column::Generator
 table0_col(
   const std::string& name
 #ifdef HYPERION_USE_CASACORE
-  , const std::unordered_map<std::string, MeasRef>& measures
-  , const std::optional<std::string> &meas_name = std::nullopt
+  , const std::optional<MeasRef>& measure
 #endif
   ) {
   return
-    [=](Context ctx, Runtime* rt, const std::string& name_prefix
+    [=](Context ctx, Runtime* rt, const std::string& name_prefix) {
 #ifdef HYPERION_USE_CASACORE
-        , const MeasRefContainer& table_mr
-#endif
-      ) {
-#ifdef HYPERION_USE_CASACORE
-      MeasRef mr;
-      bool own_mr = false;
-      if (meas_name) {
-        auto mrs =
-          MeasRefContainer::create(ctx, rt, measures, table_mr);
-        std::tie(mr, own_mr) = mrs.lookup(ctx, rt, meas_name.value());
-      }
+      MeasRef mr = measure.value_or(MeasRef());
 #endif
       return
         Column::create(
@@ -158,8 +147,6 @@ table0_col(
           IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
           mr,
-          own_mr,
-          meas_name.value_or(""),
 #endif
           {},
           name_prefix);

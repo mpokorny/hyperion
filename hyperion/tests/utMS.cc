@@ -460,9 +460,6 @@ read_full_ms(
         std::set<std::string> kw(keys.begin(), keys.end());
         return expected == kw;
       }));
-  recorder.expect_true(
-    "table has no measures",
-    TE(table.meas_refs.size(rt) == 0));
   //
   // read MS table columns to initialize the Column LogicalRegions
   //

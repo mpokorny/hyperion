@@ -30,10 +30,6 @@
 # include <hyperion/hdf5.h>
 #endif // HYPERION_USE_HDF5
 
-#ifdef HYPERION_USE_CASACORE
-# include <hyperion/MeasRefContainer.h>
-#endif
-
 #pragma GCC visibility push(default)
 # include <algorithm>
 # include <cassert>
@@ -57,9 +53,6 @@ public:
   Legion::LogicalRegion axes_lr;
   static const constexpr Legion::FieldID COLUMNS_FID = 0;
   Legion::LogicalRegion columns_lr;
-#ifdef HYPERION_USE_CASACORE
-  MeasRefContainer meas_refs;
-#endif
   Keywords keywords;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -108,18 +101,12 @@ public:
     Legion::LogicalRegion metadata,
     Legion::LogicalRegion axes,
     Legion::LogicalRegion columns,
-#ifdef HYPERION_USE_CASACORE
-    const MeasRefContainer& meas_refs,
-#endif
     const Keywords& keywords);
 
   Table(
     Legion::LogicalRegion metadata,
     Legion::LogicalRegion axes,
     Legion::LogicalRegion columns,
-#ifdef HYPERION_USE_CASACORE
-    const MeasRefContainer& meas_refs,
-#endif
     Keywords&& keywords);
 
   std::string
@@ -145,9 +132,6 @@ public:
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
     const std::vector<Column>& columns_,
-#ifdef HYPERION_USE_CASACORE
-    const MeasRefContainer& meas_refs,
-#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
 
@@ -159,9 +143,6 @@ public:
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
     const std::vector<Column>& columns_,
-#ifdef HYPERION_USE_CASACORE
-    const MeasRefContainer& meas_refs,
-#endif
     const Keywords& keywords);
 
   template <
@@ -174,9 +155,6 @@ public:
     const std::string& name,
     const std::vector<D>& index_axes,
     const std::vector<Column>& columns,
-#ifdef HYPERION_USE_CASACORE
-    const MeasRefContainer& meas_refs,
-#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "") {
 
@@ -188,9 +166,6 @@ public:
         Axes<D>::uid,
         map_to_int(index_axes),
         columns,
-#ifdef HYPERION_USE_CASACORE
-        meas_refs,
-#endif
         kws,
         name_prefix);
   }
@@ -203,10 +178,6 @@ public:
     const std::string& axes_uid,
     const std::vector<int>& index_axes,
     const std::vector<Column::Generator>& column_generators,
-#ifdef HYPERION_USE_CASACORE
-    const std::unordered_map<std::string, MeasRef>& meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
-#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
 
@@ -218,10 +189,6 @@ public:
     const std::string& name,
     const std::vector<D>& index_axes,
     const std::vector<Column::Generator>& column_generators,
-#ifdef HYPERION_USE_CASACORE
-    const std::unordered_map<std::string, MeasRef>& meas_refs,
-    const MeasRefContainer& inherited_meas_refs,
-#endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "")  {
 
@@ -233,10 +200,6 @@ public:
         Axes<D>::uid,
         map_to_int(index_axes),
         column_generators,
-#ifdef HYPERION_USE_CASACORE
-        meas_refs,
-        inherited_meas_refs,
-#endif
         kws,
         name_prefix);
   }
@@ -740,6 +703,7 @@ private:
     Column col;
     ColumnPartition row_partition;
     int kws_region_offset;
+    int mr_region_offset;
     int values_region_offset;
   };
 
@@ -785,9 +749,6 @@ private:
     int index_axes[LEGION_MAX_DIM]; // lazy, but LEGION_MAX_DIM is certainly an
                                     // upper bound
     int kws_region_offset;
-#ifdef HYPERION_USE_CASACORE
-    int mrc_region_offset;
-#endif // HYPERION_USE_CASACORE
   };
 
   const Table m_table;
@@ -824,9 +785,6 @@ struct CObjectWrapper::Unwrapper<table_t> {
         Legion::CObjectWrapper::unwrap(tb.metadata),
         Legion::CObjectWrapper::unwrap(tb.axes),
         Legion::CObjectWrapper::unwrap(tb.columns),
-#ifdef HYPERION_USE_CASACORE
-        MeasRefContainer(), // FIXME
-#endif
         Keywords(
           Keywords::pair<Legion::LogicalRegion>{
             Legion::CObjectWrapper::unwrap(tb.keyword_type_tags),

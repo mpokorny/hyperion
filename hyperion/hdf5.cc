@@ -309,13 +309,12 @@ hyperion::hdf5::write_measure(
   Runtime* rt,
   hid_t loc_id,
   const char* name,
-  bool owned,
   const MeasRef& mr) {
 
   hid_t mr_id = H5Gcreate(loc_id, name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   assert(mr_id > 0);
 
-  if (owned && !mr.is_empty()) {
+  if (!mr.is_empty()) {
     std::vector<hsize_t> dims, dims1;
     hid_t sp, sp1 = -1;
     switch (mr.metadata_lr.get_index_space().get_dim()) {
@@ -510,61 +509,6 @@ hyperion::hdf5::write_measure(
   herr_t err = H5Gclose(mr_id);
   assert(err >= 0);
 }
-
-void
-hyperion::hdf5::write_measures(
-  Context ctx,
-  Runtime* rt,
-  hid_t loc_id,
-  const std::string& component_path,
-  const MeasRefContainer& meas_refs) {
-
-  size_t num_meas_refs = meas_refs.size(rt);
-  if (num_meas_refs == 0)
-    return;
-
-  {
-    htri_t rc = H5Lexists(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
-    if (rc > 0) {
-      herr_t err = H5Ldelete(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
-      assert(err >= 0);
-    }
-  }
-  hid_t measures_id = -1;
-  {
-    std::string component_prefix = component_path;
-    if (component_prefix.back() != '/')
-      component_prefix.push_back('/');
-    RegionRequirement req(meas_refs.lr, READ_ONLY, EXCLUSIVE, meas_refs.lr);
-    req.add_field(MeasRefContainer::MEAS_REF_FID);
-    req.add_field(MeasRefContainer::OWNED_FID);
-    req.add_field(MeasRefContainer::NAME_FID);
-    auto pr = rt->map_region(ctx, req);
-    const MeasRefContainer::MeasRefAccessor<READ_ONLY>
-      mrs(pr, MeasRefContainer::MEAS_REF_FID);
-    const MeasRefContainer::OwnedAccessor<READ_ONLY>
-      owned(pr, MeasRefContainer::OWNED_FID);
-    const MeasRefContainer::NameAccessor<READ_ONLY>
-      name(pr, MeasRefContainer::NAME_FID);
-    for (size_t i = 0; i < num_meas_refs; ++i) {
-      // write value into new group
-      if (measures_id < 0) {
-        measures_id =
-          H5Gcreate(
-            loc_id,
-            HYPERION_MEASURES_GROUP,
-            H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-        assert(measures_id >= 0);
-      }
-      write_measure(ctx, rt, measures_id, name[i].val, owned[i], mrs[i]);
-    }
-    rt->unmap_region(ctx, pr);
-  }
-  if (measures_id >= 0) {
-    herr_t err = H5Gclose(measures_id);
-    assert(err >= 0);
-  }
-}
 #endif //HYPERION_USE_CASACORE
 
 void
@@ -749,23 +693,12 @@ hyperion::hdf5::write_column(
         HYPERION_MEASURES_GROUP,
         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     assert(measures_id >= 0);
-    RegionRequirement
-      req(column.metadata_lr, READ_ONLY, EXCLUSIVE, column.metadata_lr);
-    req.add_field(Column::METADATA_OWN_MEAS_REF_FID);
-    req.add_field(Column::METADATA_MEAS_REF_NAME_FID);
-    auto pr = rt->map_region(ctx, req);
-    const Column::OwnMeasRefAccessor<READ_ONLY>
-      owned_mr(pr, Column::METADATA_OWN_MEAS_REF_FID);
-    const Column::MeasRefNameAccessor<READ_ONLY>
-      mr_nm(pr, Column::METADATA_MEAS_REF_NAME_FID);
     write_measure(
       ctx,
       rt,
       measures_id,
-      mr_nm[0].val,
-      owned_mr[0],
+      "FIXME",
       column.meas_ref);
-    rt->unmap_region(ctx, pr);
     herr_t err = H5Gclose(measures_id);
     assert(err >= 0);
   }
@@ -890,12 +823,6 @@ hyperion::hdf5::write_table(
 
     write_keywords(ctx, rt, table_id, table.keywords, with_data);
 
-#ifdef HYPERION_USE_CASACORE
-    {
-      std::string table_path = std::string("/") + tabname;
-      write_measures(ctx, rt, table_id, table_path, table.meas_refs);
-    }
-#endif
   } catch (...) {
     herr_t err = H5Gclose(table_id);
     assert(err >= 0);
@@ -1242,16 +1169,12 @@ hyperion::hdf5::init_column(
   const std::string& axes_uid,
   hid_t loc_id,
   hid_t axes_dt,
-#ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& table_meas_ref,
-#endif
   const std::string& name_prefix) {
 
   Column result;
 
 #ifdef HYPERION_USE_CASACORE
   MeasRef mr;
-  bool own_mr = false;
   std::string mr_name;
   {
     std::unordered_map<std::string, MeasRef> mrs;
@@ -1273,20 +1196,10 @@ hyperion::hdf5::init_column(
           &acc_meas_ref_ctx);
       assert(err >= 0);
       mrs = std::move(acc_meas_ref_ctx.acc);
+      assert(mrs.size() == 1);
+      mr = mrs.begin()->second;
       err = H5Gclose(measures_id);
       assert(err >= 0);
-    }
-    assert(mrs.size() <= 1);
-    if (mrs.size() == 1) {
-      MeasRef mr0;
-      std::tie(mr_name, mr0) = *mrs.begin();
-      auto mrc =
-        MeasRefContainer::create(
-          ctx,
-          rt,
-          (mr0.is_empty() ? std::unordered_map<std::string, MeasRef>{} : mrs),
-          table_meas_ref);
-      std::tie(mr, own_mr) = mrc.lookup(ctx, rt, mr_name);
     }
   }
 #endif
@@ -1366,8 +1279,6 @@ hyperion::hdf5::init_column(
             it,
 #ifdef HYPERION_USE_CASACORE
             mr,
-            own_mr,
-            mr_name,
 #endif
             keywords,
             name_prefix);
@@ -1397,9 +1308,6 @@ struct acc_col_ctx {
   std::vector<hyperion::Column>* acc;
   std::string axes_uid;
   hid_t axes_dt;
-#ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer* table_meas_ref;
-#endif
   Runtime* rt;
   Context ctx;
 };
@@ -1429,9 +1337,6 @@ acc_col(
           args->axes_uid,
           col_group_id,
           args->axes_dt,
-#ifdef HYPERION_USE_CASACORE
-          *args->table_meas_ref,
-#endif
           args->table_name);
       args->acc->push_back(std::move(col));
       herr_t err = H5Gclose(col_group_id);
@@ -1448,42 +1353,12 @@ hyperion::hdf5::init_table(
   const std::string& table_name,
   hid_t loc_id,
   const std::unordered_set<std::string>& column_names,
-#ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& ms_meas_ref,
-#endif
   const std::string& name_prefix) {
 
   Table result;
 
   if (column_names.size() == 0)
     return result;
-
-#ifdef HYPERION_USE_CASACORE
-  std::unordered_map<std::string, MeasRef> mrs;
-  {
-    htri_t rc = H5Lexists(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
-    assert(rc >= 0);
-    if (rc > 0) {
-      hid_t measures_id = H5Gopen(loc_id, HYPERION_MEASURES_GROUP, H5P_DEFAULT);
-      assert(measures_id >= 0);
-      hsize_t position = 0;
-      struct acc_meas_ref_ctx acc_meas_ref_ctx{ctx, rt};
-      herr_t err =
-        H5Literate(
-          measures_id,
-          H5_INDEX_NAME,
-          H5_ITER_NATIVE,
-          &position,
-          acc_meas_ref,
-          &acc_meas_ref_ctx);
-      assert(err >= 0);
-      mrs = std::move(acc_meas_ref_ctx.acc);
-      err = H5Gclose(measures_id);
-      assert(err >= 0);
-    }
-  }
-  auto table_meas_ref = MeasRefContainer::create(ctx, rt, mrs, ms_meas_ref);
-#endif
 
   std::vector<int> index_axes;
   hid_t index_axes_id = -1;
@@ -1522,11 +1397,7 @@ hyperion::hdf5::init_table(
   }
   {
     struct acc_col_ctx acc_col_ctx{
-      table_name, &column_names, &cols, axes_uid, axes_dt,
-#ifdef HYPERION_USE_CASACORE
-      &table_meas_ref,
-#endif
-      rt, ctx};
+      table_name, &column_names, &cols, axes_uid, axes_dt, rt, ctx};
     hsize_t position = 0;
     herr_t err =
       H5Literate(
@@ -1542,17 +1413,7 @@ hyperion::hdf5::init_table(
     auto keywords = init_keywords(ctx, rt, loc_id);
 
     result =
-      Table::create(
-        ctx,
-        rt,
-        table_name,
-        axes_uid,
-        index_axes,
-        cols,
-#ifdef HYPERION_USE_CASACORE
-        table_meas_ref,
-#endif
-        keywords);
+      Table::create(ctx, rt, table_name, axes_uid, index_axes, cols, keywords);
   }
 return_nothing:
   if (index_axes_id_ds >= 0) {
@@ -1573,9 +1434,6 @@ hyperion::hdf5::init_table(
   const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& column_names,
-#ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& ms_meas_ref,
-#endif
   unsigned flags) {
 
   Table result;
@@ -1594,9 +1452,6 @@ hyperion::hdf5::init_table(
               table_path.substr(table_basename),
               table_loc,
               column_names,
-#ifdef HYPERION_USE_CASACORE
-              ms_meas_ref,
-#endif
               table_path.substr(0, table_basename));
         } catch (...) {
           herr_t err = H5Gclose(table_loc);

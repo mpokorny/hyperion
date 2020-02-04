@@ -15,8 +15,7 @@
  */
 #include <hyperion/MSAntennaColumns.h>
 #include <hyperion/MSTableColumns.h>
-#include <hyperion/MeasRefContainer.h>
-#include <hyperion/MeasRefDict.h>
+#include <hyperion/MeasRef.h>
 
 using namespace hyperion;
 using namespace Legion;

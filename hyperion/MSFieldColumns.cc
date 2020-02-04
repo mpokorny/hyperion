@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 #include <hyperion/MSFieldColumns.h>
-#include <hyperion/MeasRefContainer.h>
-#include <hyperion/MeasRefDict.h>
+#include <hyperion/MeasRef.h>
 
 #include <casacore/casa/BasicMath/Math.h>
 

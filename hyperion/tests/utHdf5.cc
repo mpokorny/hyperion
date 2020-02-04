@@ -22,7 +22,7 @@
 #include <hyperion/Column.h>
 
 #ifdef HYPERION_USE_CASACORE
-# include <hyperion/MeasRefContainer.h>
+# include <hyperion/MeasRef.h>
 #endif
 
 #include <algorithm>
@@ -146,26 +146,14 @@ Column::Generator
 table0_col(
   const std::string& name
 #ifdef HYPERION_USE_CASACORE
-  , const std::unordered_map<std::string, MeasRef>& measures
-  , const std::optional<std::string> &meas_name = std::nullopt
+  , const std::optional<MeasRef>& measure
 #endif
   ) {
   if (name == "X") {
     return
-      [=]
-      (Context ctx, Runtime* rt, const std::string& name_prefix
+      [=] (Context ctx, Runtime* rt, const std::string& name_prefix) {
 #ifdef HYPERION_USE_CASACORE
-       , const MeasRefContainer& table_mr
-#endif
-        ) {
-#ifdef HYPERION_USE_CASACORE
-        MeasRef mr;
-        bool own_mr = false;
-        if (meas_name) {
-          auto mrs =
-            MeasRefContainer::create(ctx, rt, measures, table_mr);
-          std::tie(mr, own_mr) = mrs.lookup(ctx, rt, meas_name.value());
-        }
+        MeasRef mr = measure.value_or(MeasRef());
 #endif
         return
           Column::create(
@@ -177,28 +165,15 @@ table0_col(
             IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
             mr,
-            own_mr,
-            meas_name.value_or(""),
 #endif
             {},
             name_prefix);
       };
   } else if (name == "Y"){
     return
-      [=]
-      (Context ctx, Runtime* rt, const std::string& name_prefix
+      [=] (Context ctx, Runtime* rt, const std::string& name_prefix) {
 #ifdef HYPERION_USE_CASACORE
-       , const MeasRefContainer& table_mr
-#endif
-        ) {
-#ifdef HYPERION_USE_CASACORE
-        MeasRef mr;
-        bool own_mr = false;
-        if (meas_name) {
-          auto mrs =
-            MeasRefContainer::create(ctx, rt, measures, table_mr);
-          std::tie(mr, own_mr) = mrs.lookup(ctx, rt, meas_name.value());
-        }
+        MeasRef mr = measure.value_or(MeasRef());
 #endif
         return
           Column::create(
@@ -210,28 +185,15 @@ table0_col(
             IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
             mr,
-            own_mr,
-            meas_name.value_or(""),
 #endif
             Keywords::kw_desc_t{{"perfect", ValueType<short>::DataType}},
             name_prefix);
       };
   } else /* name == "Z" */ {
     return
-      [=]
-      (Context ctx, Runtime* rt, const std::string& name_prefix
+      [=] (Context ctx, Runtime* rt, const std::string& name_prefix) {
 #ifdef HYPERION_USE_CASACORE
-       , const MeasRefContainer& table_mr
-#endif
-        ) {
-#ifdef HYPERION_USE_CASACORE
-        MeasRef mr;
-        bool own_mr = false;
-        if (meas_name) {
-          auto mrs =
-            MeasRefContainer::create(ctx, rt, measures, table_mr);
-          std::tie(mr, own_mr) = mrs.lookup(ctx, rt, meas_name.value());
-        }
+        MeasRef mr = measure.value_or(MeasRef());
 #endif
         return
           Column::create(
@@ -243,8 +205,6 @@ table0_col(
             IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}),
 #ifdef HYPERION_USE_CASACORE
             mr,
-            own_mr,
-            meas_name.value_or(""),
 #endif
             {},
             name_prefix);
@@ -435,48 +395,6 @@ verify_col(
   return result;
 }
 
-static bool
-verify_mrc_values(
-  Context ctx,
-  Runtime* rt,
-  const MeasRefContainer& mrc,
-  const std::unordered_map<std::string, MeasRef>& expected) {
-
-  std::vector<std::tuple<std::string, MeasRef>> actual;
-
-  if (mrc.lr != LogicalRegion::NO_REGION){
-    RegionRequirement req(mrc.lr, READ_ONLY, EXCLUSIVE, mrc.lr);
-    req.add_field(MeasRefContainer::MEAS_REF_FID);
-    req.add_field(MeasRefContainer::NAME_FID);
-    auto pr = rt->map_region(ctx, req);
-    const MeasRefContainer::MeasRefAccessor<READ_ONLY>
-      mrs(pr, MeasRefContainer::MEAS_REF_FID);
-    const MeasRefContainer::NameAccessor<READ_ONLY>
-      nms(pr, MeasRefContainer::NAME_FID);
-    for (PointInRectIterator<1>
-           pir(rt->get_index_space_domain(mrc.lr.get_index_space()));
-         pir();
-         pir++)
-      actual.emplace_back(nms[*pir], mrs[*pir]);
-    rt->unmap_region(ctx, pr);
-  }
-  bool result = true;
-  for (auto& [nm, mr] : expected) {
-    auto f =
-      std::find_if(
-        actual.begin(),
-        actual.end(),
-        [&nm](auto& nmr) { return std::get<0>(nmr) == nm; });
-    if (f != actual.end()) {
-      result = result && mr.equiv(ctx, rt, std::get<1>(*f));
-      actual.erase(f);
-    } else {
-      result = false;
-    }
-  }
-  return result && actual.size() == 0;
-}
-
 void
 table_tests(
   Context ctx,
@@ -494,9 +412,7 @@ table_tests(
   std::string fname = "h5.XXXXXX";
 
 #ifdef HYPERION_USE_CASACORE
-  casacore::MeasRef<casacore::MEpoch> tai(casacore::MEpoch::TAI);
   casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
-  auto table0_epoch = MeasRef::create(ctx, rt, tai);
 
   casacore::MeasRef<casacore::MDirection>
     direction(casacore::MDirection::J2000);
@@ -504,16 +420,16 @@ table_tests(
     frequency(casacore::MFrequency::GEO);
   auto columnX_direction = MeasRef::create(ctx, rt, direction);
   auto columnZ_epoch = MeasRef::create(ctx, rt, utc);
-  std::unordered_map<std::string, std::unordered_map<std::string, MeasRef>>
+  std::unordered_map<std::string, std::optional<MeasRef>>
     col_measures{
-    {"X", {{"DIRECTION", columnX_direction}}},
-    {"Y", {}},
-    {"Z", {{"EPOCH", columnZ_epoch}}}
+    {"X", {columnX_direction}},
+    {"Y", {std::nullopt}},
+    {"Z", {columnZ_epoch}}
   };
   std::vector<Column::Generator> column_generators{
-    table0_col("X", col_measures["X"], "DIRECTION"),
+    table0_col("X", col_measures["X"]),
     table0_col("Y", col_measures["Y"]),
-    table0_col("Z", col_measures["Z"], "EPOCH")
+    table0_col("Z", col_measures["Z"])
   };
 #else
   std::vector<Column::Generator> column_generators{
@@ -531,10 +447,6 @@ table_tests(
         "table0",
         std::vector<Table0Axes>{Table0Axes::ROW},
         column_generators,
-#ifdef HYPERION_USE_CASACORE
-        {{"EPOCH", table0_epoch}},
-        MeasRefContainer(),
-#endif
         {{"MS_VERSION", ValueType<float>::DataType},
          {"NAME", ValueType<std::string>::DataType}},
         "/");
@@ -613,17 +525,7 @@ table_tests(
   }
   {
     // read back metadata
-    auto tb0 =
-      init_table(
-        ctx,
-        rt,
-        fname,
-        "/table0",
-        {"X", "Y", "Z"}
-#ifdef HYPERION_USE_CASACORE
-        , MeasRefContainer()
-#endif
-        );
+    auto tb0 = init_table(ctx, rt, fname, "/table0", {"X", "Y", "Z"});
     recorder.assert_false(
       "Table initialized from HDF5 is not empty",
       TE(tb0.is_empty(ctx, rt)));
@@ -647,13 +549,6 @@ table_tests(
                {"NAME", ValueType<std::string>::DataType}};
           return tbkw == kw;
         }));
-    recorder.expect_true(
-      "Table has expected measure",
-      TE(verify_mrc_values(
-           ctx,
-           rt,
-           tb0.meas_refs,
-           {{"EPOCH", table0_epoch}})));
     {
       auto cx = tb0.column(ctx, rt, "X");
       recorder.assert_true(
@@ -667,7 +562,7 @@ table_tests(
         "Column X has expected indexes",
         TE(cx.index_tree(rt)) == IndexTreeL(TABLE0_NUM_ROWS));
       recorder.expect_true(
-        "Column X has expected measures",
+        "Column X has expected measure",
         TE(cx.meas_ref.equiv(ctx, rt, columnX_direction)));
     }
     {
@@ -683,7 +578,7 @@ table_tests(
         "Column Y has expected indexes",
         TE(cy.index_tree(rt)) == IndexTreeL(TABLE0_NUM_ROWS));
       recorder.expect_true(
-        "Column Y has expected measures",
+        "Column Y has expected measure",
         TE(cy.meas_ref.is_empty()));
     }
     {
@@ -699,8 +594,8 @@ table_tests(
         "Column Z has expected indexes",
         TE(cz.index_tree(rt)) == IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
       recorder.expect_true(
-        "Column Z has expected measures",
-        TE(cz.meas_ref.equiv(ctx, rt, table0_epoch)));
+        "Column Z has expected measure",
+        TE(cz.meas_ref.equiv(ctx, rt, columnZ_epoch)));
     }
 
     //attach to file, and read back keywords

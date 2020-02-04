@@ -21,7 +21,7 @@
 #include <hyperion/Keywords.h>
 
 #ifdef HYPERION_USE_CASACORE
-# include <hyperion/MeasRefContainer.h>
+# include <hyperion/MeasRef.h>
 #endif
 
 #pragma GCC visibility push(default)
@@ -275,16 +275,7 @@ write_measure(
   Legion::Runtime* rt,
   hid_t loc_id,
   const char* name,
-  bool owned,
   const MeasRef& mr);
-
-HYPERION_API void
-write_measures(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
-  hid_t loc_id,
-  const std::string& component_path,
-  const MeasRefContainer& meas_refs);
 #endif
 
 HYPERION_API void
@@ -322,9 +313,6 @@ init_column(
   const std::string& axes_uid,
   hid_t loc_id,
   hid_t axes_dt,
-#ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& table_meas_ref,
-#endif
   const std::string& name_prefix = "");
 
 HYPERION_API hyperion::Table
@@ -334,9 +322,6 @@ init_table(
   const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& column_names,
-#ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& ms_meas_ref,
-#endif
   unsigned flags = H5F_ACC_RDONLY);
 
 HYPERION_API hyperion::Table
@@ -346,9 +331,6 @@ init_table(
   const std::string& table_name,
   hid_t loc_id,
   const std::unordered_set<std::string>& column_names,
-#ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& ms_meas_ref,
-#endif
   const std::string& name_prefix = "");
 
 HYPERION_API std::unordered_set<std::string>

@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 #include <hyperion/MSSpWindowColumns.h>
-#include <hyperion/MeasRefContainer.h>
-#include <hyperion/MeasRefDict.h>
+#include <hyperion/MeasRef.h>
 
 using namespace hyperion;
 using namespace Legion;

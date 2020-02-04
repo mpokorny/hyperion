@@ -25,7 +25,7 @@
 #include <hyperion/Column.h>
 
 #ifdef HYPERION_USE_CASACORE
-# include <hyperion/MeasRefContainer.h>
+# include <hyperion/MeasRef.h>
 #endif
 
 using namespace hyperion;
@@ -107,12 +107,7 @@ unsigned table0_y[TABLE0_NUM_ROWS] {
 Column::Generator
 table0_col(const std::string& name) {
   return
-    [=](Context ctx, Runtime* rt, const std::string& name_prefix
-#ifdef HYPERION_USE_CASACORE
-        , const MeasRefContainer&
-#endif
-      )
-      {
+    [=](Context ctx, Runtime* rt, const std::string& name_prefix) {
       return
         Column::create(
           ctx,
@@ -123,8 +118,6 @@ table0_col(const std::string& name) {
           IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
           MeasRef(),
-          false,
-          "",
 #endif
           {},
           name_prefix);
@@ -181,12 +174,7 @@ index_column_task_test_suite(
       std::vector<Table0Axes>{Table0Axes::ROW},
       std::vector<Column::Generator>{
         table0_col("X"),
-          table0_col("Y")}
-#ifdef HYPERION_USE_CASACORE
-      , {}
-      , MeasRefContainer()
-#endif
-      );
+        table0_col("Y")});
   auto col_x =
     attach_table0_col(ctx, rt, table0.column(ctx, rt, "X"), table0_x);
   auto col_y =

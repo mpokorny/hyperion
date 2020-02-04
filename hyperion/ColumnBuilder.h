@@ -50,13 +50,11 @@ public:
   ColumnBuilder(
     const std::string& name,
     TypeTag datatype,
-    const std::vector<Axes>& axes,
-    const std::optional<std::string>& measure_name)
+    const std::vector<Axes>& axes)
     : KeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
     , m_axes(axes)
-    , m_measure_name(measure_name)
     , m_num_rows(0) {
 
     assert(axes[0] == MSTable<D>::ROW_AXIS);
@@ -102,7 +100,7 @@ public:
 
   void
   add_meas_record(const casacore::Record& rec) {
-    m_meas_records.push_back(rec);
+    m_meas_record = rec;
   }
 
   virtual void
@@ -112,45 +110,30 @@ public:
   column(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::string& name_prefix,
-    const MeasRefContainer& inherited_meas_refs) const {
+    const std::string& name_prefix) const {
 
     IndexTreeL itree;
     auto itrank = index_tree().rank();
     if (itrank && itrank.value() == rank())
       itree = index_tree();
-    std::unordered_map<std::string, MeasRef> meas_refs;
-    std::for_each(
-      m_meas_records.begin(),
-      m_meas_records.end(),
-      [&meas_refs, &ctx, rt](const casacore::RecordInterface& rec) {
-        casacore::MeasureHolder mh;
-        casacore::String err;
-        auto converted = mh.fromType(err, rec);
-        if (converted) {
-          if (false) {}
-#define MK_MR(MC)                                 \
-          else if (MClassT<MC>::holds(mh)) {      \
-            auto m = MClassT<MC>::get(mh);        \
-            meas_refs.emplace(                    \
-              toupper(MClassT<MC>::name),         \
-              MeasRef::create<MClassT<MC>::type>( \
-                ctx,                              \
-                rt,                               \
-                m.getRef()));                     \
-          }
-          HYPERION_FOREACH_MCLASS(MK_MR)
-#undef MK_MR
-          else { assert(false); }
-        }
-      });
-    auto merged_meas_refs =
-      MeasRefContainer::create(ctx, rt, meas_refs, inherited_meas_refs);
+    casacore::MeasureHolder mh;
+    casacore::String err;
     MeasRef mr;
-    bool own_mr = false;
-    if (m_measure_name)
-      std::tie(mr, own_mr) =
-        merged_meas_refs.lookup(ctx, rt, m_measure_name.value());
+    auto converted = mh.fromType(err, m_meas_record);
+    if (converted) {
+      if (false) {}
+#define MK_MR(MC)                                 \
+      else if (MClassT<MC>::holds(mh)) {          \
+        auto m = MClassT<MC>::get(mh);            \
+        mr = MeasRef::create<MClassT<MC>::type>(  \
+          ctx,                                    \
+          rt,                                     \
+          m.getRef());                            \
+      }
+      HYPERION_FOREACH_MCLASS(MK_MR)
+#undef MK_MR
+      else { assert(false); }
+    }
     return
       Column::create(
         ctx,
@@ -161,8 +144,6 @@ public:
         itree,
 #ifdef HYPERION_USE_CASACORE
         mr,
-        own_mr,
-        m_measure_name.value_or(""),
 #endif
         keywords(),
         name_prefix);
@@ -185,13 +166,11 @@ private:
 
   std::vector<Axes> m_axes;
 
-  std::optional<std::string> m_measure_name;
-
   size_t m_num_rows;
 
   IndexTreeL m_index_tree;
 
-  std::vector<casacore::Record> m_meas_records;
+  casacore::Record m_meas_record;
 };
 
 template <MSTables D>
@@ -199,25 +178,19 @@ class ScalarColumnBuilder
   : public ColumnBuilder<D> {
 public:
 
-  ScalarColumnBuilder(
-    const std::string& name,
-    TypeTag datatype,
-    const std::optional<std::string>& measure_name)
-    : ColumnBuilder<D>(name, datatype, {MSTable<D>::ROW_AXIS}, measure_name) {
+  ScalarColumnBuilder(const std::string& name, TypeTag datatype)
+    : ColumnBuilder<D>(name, datatype, {MSTable<D>::ROW_AXIS}) {
   }
 
   template <typename T>
   static auto
-  generator(
-    const std::string& name,
-    const std::optional<std::string>& measure_name) {
+  generator(const std::string& name) {
     return
       [=]() {
         return
           std::make_unique<ScalarColumnBuilder<D>>(
             name,
-            ValueType<T>::DataType,
-            measure_name);
+            ValueType<T>::DataType);
       };
   }
 
@@ -240,9 +213,8 @@ public:
     const std::string& name,
     TypeTag datatype,
     const std::vector<Axes>& axes,
-    const std::optional<std::string>& measure_name,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)> element_shape)
-    : ColumnBuilder<D>(name, datatype, axes, measure_name)
+    : ColumnBuilder<D>(name, datatype, axes)
     , m_element_shape(element_shape) {
 
     assert(axes.size() > 0);
@@ -254,7 +226,6 @@ public:
   static auto
   generator(
     const std::string& name,
-    const std::optional<std::string>& measure_name,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)>
     element_shape) {
 
@@ -264,7 +235,6 @@ public:
           name,
           ValueType<T>::DataType,
           axes,
-          measure_name,
           element_shape);
       };
   }

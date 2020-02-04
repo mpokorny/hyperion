@@ -39,7 +39,6 @@
 
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
-# include <hyperion/MeasRefContainer.h>
 #endif
 
 namespace hyperion {
@@ -50,10 +49,6 @@ public:
   static const constexpr Legion::FieldID METADATA_NAME_FID = 0;
   static const constexpr Legion::FieldID METADATA_AXES_UID_FID = 1;
   static const constexpr Legion::FieldID METADATA_DATATYPE_FID = 2;
-#ifdef HYPERION_USE_CASACORE
-  static const constexpr Legion::FieldID METADATA_OWN_MEAS_REF_FID = 3;
-  static const constexpr Legion::FieldID METADATA_MEAS_REF_NAME_FID = 4;
-#endif
   Legion::LogicalRegion metadata_lr;
   static const constexpr Legion::FieldID AXES_FID = 0;
   Legion::LogicalRegion axes_lr;
@@ -94,28 +89,6 @@ public:
     Legion::AffineAccessor<hyperion::TypeTag, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
-#ifdef HYPERION_USE_CASACORE
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  using OwnMeasRefAccessor =
-    Legion::FieldAccessor<
-    MODE,
-    bool,
-    1,
-    Legion::coord_t,
-    Legion::AffineAccessor<bool, 1, Legion::coord_t>,
-    CHECK_BOUNDS>;
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  using MeasRefNameAccessor =
-    Legion::FieldAccessor<
-    MODE,
-    hyperion::string,
-    1,
-    Legion::coord_t,
-    Legion::AffineAccessor<hyperion::string, 1, Legion::coord_t>,
-    CHECK_BOUNDS>;
-#endif
-
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxesAccessor =
     Legion::FieldAccessor<
@@ -126,18 +99,8 @@ public:
     Legion::AffineAccessor<int, 1, Legion::coord_t>,
     CHECK_BOUNDS>;
 
-#ifdef HYPERION_USE_CASACORE
-  typedef std::function<
-    Column(
-    Legion::Context,
-    Legion::Runtime*,
-    const std::string&,
-    const MeasRefContainer&)>
-  Generator;
-#else
   typedef std::function<
     Column(Legion::Context, Legion::Runtime*, const std::string&)> Generator;
-#endif
 
   Column();
 
@@ -170,8 +133,6 @@ public:
     const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
     const MeasRef& meas_ref,
-    bool owned_meas_ref,
-    const std::string& meas_ref_name,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "");
@@ -187,8 +148,6 @@ public:
     const Legion::LogicalRegion& values,
 #ifdef HYPERION_USE_CASACORE
     const MeasRef& meas_ref,
-    bool owned_meas_ref,
-    const std::string& meas_ref_name,
 #endif
     const Keywords& kws);
 
@@ -206,8 +165,6 @@ public:
     const IndexTreeL& index_tree,
 #ifdef HYPERION_USE_CASACORE
     const MeasRef& meas_ref,
-    bool owned_meas_ref,
-    const std::string& meas_ref_name,
 #endif
     const Keywords::kw_desc_t& kws = Keywords::kw_desc_t(),
     const std::string& name_prefix = "") {
@@ -222,8 +179,6 @@ public:
         index_tree,
 #ifdef HYPERION_USE_CASACORE
         meas_ref,
-        owned_meas_ref,
-        meas_ref_name,
 #endif
         kws,
         name_prefix);
@@ -397,11 +352,7 @@ public:
       [=]
       (Legion::Context ctx,
        Legion::Runtime* rt,
-       const std::string& name_prefix
-#ifdef HYPERION_USE_CASACORE
-       , const MeasRef& inherited_meas_ref
-#endif
-        ) {
+       const std::string& name_prefix) {
         return
           create(
             ctx,
@@ -411,8 +362,7 @@ public:
             datatype,
             index_tree,
 #ifdef HYPERION_USE_CASACORE
-            meas_ref.is_empty() ? inherited_meas_ref : meas_ref,
-            !meas_ref.is_empty(),
+            meas_ref,
 #endif
             kws,
             name_prefix);

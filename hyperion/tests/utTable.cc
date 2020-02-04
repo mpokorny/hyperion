@@ -21,7 +21,7 @@
 #include <hyperion/Column.h>
 
 #ifdef HYPERION_USE_CASACORE
-# include <hyperion/MeasRefContainer.h>
+# include <hyperion/MeasRef.h>
 #endif
 
 #include <algorithm>
@@ -144,25 +144,13 @@ Column::Generator
 table0_col(
   const std::string& name
 #ifdef HYPERION_USE_CASACORE
-  , const std::unordered_map<std::string, MeasRef>& measures
-  , const std::optional<std::string>& meas_name = std::nullopt
+  , const std::optional<MeasRef>& measure
 #endif
   ) {
   return
-    [=]
-    (Context ctx, Runtime* rt, const std::string& name_prefix
+    [=] (Context ctx, Runtime* rt, const std::string& name_prefix) {
 #ifdef HYPERION_USE_CASACORE
-     , const MeasRefContainer& table_mr
-#endif
-      ) {
-#ifdef HYPERION_USE_CASACORE
-      MeasRef mr;
-      bool own_mr = false;
-      if (meas_name) {
-        auto mrs =
-          MeasRefContainer::create(ctx, rt, measures, table_mr);
-        std::tie(mr, own_mr) = mrs.lookup(ctx, rt, meas_name.value());
-      }
+      MeasRef mr = measure.value_or(MeasRef());
 #endif
       return
         Column::create(
@@ -174,8 +162,6 @@ table0_col(
           IndexTreeL(TABLE0_NUM_ROWS),
 #ifdef HYPERION_USE_CASACORE
           mr,
-          own_mr,
-          meas_name.value_or(""),
 #endif
           {},
           name_prefix);
@@ -291,32 +277,6 @@ check_partition(
   return result;
 }
 
-#ifdef HYPERION_USE_CASACORE
-static bool
-verify_mrc_names(
-  Context ctx,
-  Runtime* rt,
-  const MeasRefContainer& mrc,
-  std::set<std::string> expected) {
-
-  std::set<std::string> names;
-  if (mrc.lr != LogicalRegion::NO_REGION) {
-    RegionRequirement req(mrc.lr, READ_ONLY, EXCLUSIVE, mrc.lr);
-    req.add_field(MeasRefContainer::NAME_FID);
-    auto pr = rt->map_region(ctx, req);
-    const MeasRefContainer::NameAccessor<READ_ONLY>
-      nms(pr, MeasRefContainer::NAME_FID);
-    for (PointInDomainIterator<1>
-           pid(rt->get_index_space_domain(mrc.lr.get_index_space()));
-         pid();
-         pid++)
-      names.insert(nms[*pid]);
-    rt->unmap_region(ctx, pr);
-  }
-  return names == expected;
-}
-#endif // HYPERION_USE_CASACORE
-
 void
 table_test_suite(
   const Task* task,
@@ -336,24 +296,22 @@ table_test_suite(
       rt));
 
 #ifdef HYPERION_USE_CASACORE
-  casacore::MeasRef<casacore::MEpoch> tai(casacore::MEpoch::TAI);
   casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
-  auto table0_epoch = MeasRef::create(ctx, rt, tai);
 
   casacore::MeasRef<casacore::MDirection>
     direction(casacore::MDirection::J2000);
   casacore::MeasRef<casacore::MFrequency>
     frequency(casacore::MFrequency::GEO);
-  std::unordered_map<std::string, std::unordered_map<std::string, MeasRef>>
+  std::unordered_map<std::string, std::optional<MeasRef>>
     col_measures{
-    {"X", {{"DIRECTION", MeasRef::create(ctx, rt, direction)}}},    
-    {"Y", {}},
-    {"Z", {{"EPOCH", MeasRef::create(ctx, rt, utc)}}}
+    {"X", {MeasRef::create(ctx, rt, direction)}},    
+    {"Y", {std::nullopt}},
+    {"Z", {MeasRef::create(ctx, rt, utc)}}
   };
   std::vector<Column::Generator> column_generators{
-    table0_col("X", col_measures["X"], "DIRECTION"),
+    table0_col("X", col_measures["X"]),
     table0_col("Y", col_measures["Y"]),
-    table0_col("Z", col_measures["Z"], "EPOCH")
+    table0_col("Z", col_measures["Z"])
   };
 #else
   std::vector<Column::Generator> column_generators{
@@ -369,30 +327,18 @@ table_test_suite(
       rt,
       "table0",
       std::vector<Table0Axes>{Table0Axes::ROW},
-      column_generators
-#ifdef HYPERION_USE_CASACORE
-      , {{"EPOCH", table0_epoch}}
-      , MeasRefContainer()
-#endif
-      );
+      column_generators);
 
 #ifdef HYPERION_USE_CASACORE
   recorder.expect_true(
-    "Create expected table measures using table name prefix",
-    testing::TestEval(
-      [&table0, &ctx, rt]() {
-        return
-          verify_mrc_names(ctx, rt, table0.meas_refs, {"EPOCH"});
-      }));
-  recorder.expect_true(
-    "'X' column DIRECTION measure is that defined by the column",
-    TE(table0.column(ctx, rt, "X").meas_ref == col_measures["X"]["DIRECTION"]));
+    "'X' column measure is that defined by the column",
+    TE(table0.column(ctx, rt, "X").meas_ref == col_measures["X"].value()));
   recorder.expect_true(
     "'Y' column has no associated measure",
     TE(table0.column(ctx, rt, "Y").meas_ref.is_empty()));
   recorder.expect_true(
     "'Z' column EPOCH measure is that defined by the column",
-    TE(table0.column(ctx, rt, "Z").meas_ref == col_measures["Z"]["EPOCH"]));
+    TE(table0.column(ctx, rt, "Z").meas_ref == col_measures["Z"].value()));
 #endif
 
   auto col_x =

@@ -19,6 +19,7 @@
 #include <hyperion/Table.h>
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/TableBuilder.h>
+# include <hyperion/MeasRef.h>
 #endif
 
 #pragma GCC visibility push(default)
@@ -48,16 +49,10 @@ Table::Table(
   LogicalRegion metadata,
   LogicalRegion axes,
   LogicalRegion columns,
-#ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& meas_refs,
-#endif
   const Keywords& keywords)
   : metadata_lr(metadata)
   , axes_lr(axes)
   , columns_lr(columns)
-#ifdef HYPERION_USE_CASACORE
-  , meas_refs(meas_refs)
-#endif
   , keywords(keywords) {
 }
 
@@ -65,16 +60,10 @@ Table::Table(
   LogicalRegion metadata,
   LogicalRegion axes,
   LogicalRegion columns,
-#ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& meas_refs,
-#endif
   Keywords&& keywords)
   : metadata_lr(metadata)
   , axes_lr(axes)
   , columns_lr(columns)
-#ifdef HYPERION_USE_CASACORE
-  , meas_refs(meas_refs)
-#endif
   , keywords(std::move(keywords)) {
 }
 
@@ -133,9 +122,6 @@ Table::create(
   const std::string& axes_uid,
   const std::vector<int>& index_axes,
   const std::vector<Column>& columns_,
-#ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& meas_refs,
-#endif
   const Keywords::kw_desc_t& kws,
   const std::string& name_prefix) {
 
@@ -175,15 +161,7 @@ Table::create(
     assert(!pir());
     rt->unmap_region(ctx, pr);
   }
-  return
-    Table(
-      metadata,
-      axes,
-      columns,
-#ifdef HYPERION_USE_CASACORE
-      meas_refs,
-#endif //HYPERION_USE_CASACORE
-      keywords);
+  return Table(metadata, axes, columns, keywords);
 }
 
 Table
@@ -194,9 +172,6 @@ Table::create(
   const std::string& axes_uid,
   const std::vector<int>& index_axes,
   const std::vector<Column>& columns_,
-#ifdef HYPERION_USE_CASACORE
-  const MeasRefContainer& meas_refs,
-#endif
   const Keywords& keywords) {
 
   std::string component_name_prefix = name;
@@ -230,15 +205,7 @@ Table::create(
     assert(!pir());
     rt->unmap_region(ctx, pr);
   }
-  return
-    Table(
-      metadata,
-      axes,
-      columns,
-#ifdef HYPERION_USE_CASACORE
-      meas_refs,
-#endif //HYPERION_USE_CASACORE
-      keywords);
+  return Table(metadata, axes, columns, keywords);
 }
 
 Table
@@ -249,10 +216,6 @@ Table::create(
   const std::string& axes_uid,
   const std::vector<int>& index_axes,
   const std::vector<Column::Generator>& column_generators,
-#ifdef HYPERION_USE_CASACORE
-  const std::unordered_map<std::string, MeasRef>& meas_refs,
-  const MeasRefContainer& inherited_meas_refs,
-#endif
   const Keywords::kw_desc_t& kws,
   const std::string& name_prefix) {
 
@@ -262,22 +225,9 @@ Table::create(
       ((name_prefix.back() != '/') ? (name_prefix + "/") : name_prefix)
       + component_name_prefix;
 
-#ifdef HYPERION_USE_CASACORE
-  auto merged_meas_refs =
-    MeasRefContainer::create(ctx, rt, meas_refs, inherited_meas_refs);
-#endif
-
   std::vector<Column> cols;
   for (auto& cg : column_generators)
-    cols.push_back(
-      cg(
-        ctx,
-        rt,
-        component_name_prefix
-#ifdef HYPERION_USE_CASACORE
-        , merged_meas_refs
-#endif
-        ));
+    cols.push_back(cg(ctx, rt, component_name_prefix));
 
   return
     create(
@@ -287,9 +237,6 @@ Table::create(
       axes_uid,
       index_axes,
       cols,
-#ifdef HYPERION_USE_CASACORE
-      merged_meas_refs,
-#endif
       kws,
       name_prefix);
 }
@@ -385,9 +332,6 @@ Table::destroy(Context ctx, Runtime* rt, bool destroy_columns) {
     }
   }
   keywords.destroy(ctx, rt);
-#ifdef HYPERION_USE_CASACORE
-  meas_refs.destroy(ctx, rt);
-#endif
 }
 
 bool
@@ -577,9 +521,6 @@ ReindexedTableTask::ReindexedTableTask(
   for (size_t i = 0; i < m_args.num_index_axes; ++i)
     m_args.index_axes[i] = index_axes[i];
   m_args.kws_region_offset = -1;
-#ifdef HYPERION_USE_CASACORE
-  m_args.mrc_region_offset = -1;
-#endif
 }
 
 void
@@ -612,12 +553,6 @@ ReindexedTableTask::dispatch(Context ctx, Runtime* rt) {
     reqs.push_back(kwreqs.type_tags);
     reqs.push_back(kwreqs.values);
   }
-#ifdef HYPERION_USE_CASACORE
-  if (m_table.meas_refs.lr != LogicalRegion::NO_REGION) {
-    m_args.mrc_region_offset = reqs.size();
-    reqs.push_back(m_table.meas_refs.requirements(ctx, rt, READ_ONLY).value());
-  }
-#endif
 
   TaskLauncher
     launcher(
@@ -639,13 +574,6 @@ ReindexedTableTask::base_impl(
   Runtime *rt) {
 
   const TaskArgs* args = static_cast<TaskArgs*>(task->args);
-
-#ifdef HYPERION_USE_CASACORE
-  MeasRefContainer meas_refs;
-  if (args->mrc_region_offset != -1)
-    meas_refs =
-      MeasRefContainer::create(ctx, rt, {}, regions[args->mrc_region_offset]);
-#endif
 
   Keywords kws;
   if (args->kws_region_offset != -1)
@@ -679,9 +607,6 @@ ReindexedTableTask::base_impl(
       Table::axes_uid(regions[0]),
       index_axes,
       cols,
-#ifdef HYPERION_USE_CASACORE
-      meas_refs,
-#endif
       kws);
 }
 
@@ -1682,6 +1607,7 @@ ReindexColumnTask::ReindexColumnTask(
   m_args.num_index_axes = i;
   m_args.values_region_offset = -1;
   m_args.kws_region_offset = -1;
+  m_args.mr_region_offset = -1;
 }
 
 enum ReindexColumnRegionIndexes {
@@ -1711,11 +1637,6 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
     req.add_field(Column::METADATA_NAME_FID);
     req.add_field(Column::METADATA_AXES_UID_FID);
     req.add_field(Column::METADATA_DATATYPE_FID);
-#ifdef HYPERION_USE_CASACORE
-    req.add_field(Column::METADATA_MEAS_REF_NAME_FID);
-#endif
-    // don't need METADATA_OWN_MEAS_REF_FID, since created Column will never own
-    // its MeasRef
     reqs.push_back(req);
   }
   {
@@ -1769,6 +1690,13 @@ ReindexColumnTask::dispatch(Context ctx, Runtime* rt) {
     auto kwreqs = m_args.col.keywords.requirements(rt, fids, READ_ONLY).value();
     reqs.push_back(kwreqs.type_tags);
     reqs.push_back(kwreqs.values);
+  }
+  if (!m_args.col.meas_ref.is_empty()) {
+    m_args.mr_region_offset = reqs.size();
+    auto [mrq, ovrq] = m_args.col.meas_ref.requirements(READ_ONLY);
+    reqs.push_back(mrq);
+    if (ovrq)
+      reqs.push_back(ovrq.value());
   }
 
   TaskLauncher launcher(TASK_ID, TaskArgument(&m_args, sizeof(m_args)));
@@ -1964,6 +1892,7 @@ reindex_column(
   rt->destroy_index_partition(ctx, new_bounds_ip);
 
   Keywords kws;
+  MeasRef mr;
   if (args.kws_region_offset != -1)
     kws = Keywords::clone(
       ctx,
@@ -1971,6 +1900,13 @@ reindex_column(
       Keywords::pair<PhysicalRegion>{
         regions[args.kws_region_offset],
         regions[args.kws_region_offset + 1]});
+  if (args.mr_region_offset != -1) {
+    MeasRef::DataRegions dr;
+    dr.metadata = regions[args.mr_region_offset];
+    if (args.mr_region_offset + 1 < (int)regions.size())
+      dr.values = regions[args.mr_region_offset + 1];
+    mr = MeasRef::clone(ctx, rt, dr);
+  }
 
   const Column::NameAccessor<READ_ONLY> col_name(
     regions[ReindexColumnRegionIndexes::METADATA],
@@ -1978,11 +1914,6 @@ reindex_column(
   const Column::AxesUidAccessor<READ_ONLY> col_axes_uid(
     regions[ReindexColumnRegionIndexes::METADATA],
     Column::METADATA_AXES_UID_FID);
-#ifdef HYPERION_USE_CASACORE
-  const Column::MeasRefNameAccessor<READ_ONLY> col_mr_name(
-    regions[ReindexColumnRegionIndexes::METADATA],
-    Column::METADATA_MEAS_REF_NAME_FID);
-#endif
   return Column::create(
     ctx,
     rt,
@@ -1992,9 +1923,7 @@ reindex_column(
     col_datatype[0],
     new_col_lr,
 #ifdef HYPERION_USE_CASACORE
-    args.col.meas_ref,
-    false,
-    col_mr_name[0],
+    mr,
 #endif
     kws);
 }
@@ -2070,6 +1999,7 @@ ReindexColumnTask::base_impl(
     }
 
     Keywords kws;
+    MeasRef mr;
     if (args->kws_region_offset != -1)
       kws = Keywords::clone(
         ctx,
@@ -2077,6 +2007,13 @@ ReindexColumnTask::base_impl(
         Keywords::pair<PhysicalRegion>{
           regions[args->kws_region_offset],
           regions[args->kws_region_offset + 1]});
+    if (args->mr_region_offset != -1) {
+      MeasRef::DataRegions dr;
+      dr.metadata = regions[args->mr_region_offset];
+      if (args->mr_region_offset + 1 < (int)regions.size())
+        dr.values = regions[args->mr_region_offset + 1];
+      mr = MeasRef::clone(ctx, rt, dr);
+    }
 
     std::vector<int> new_axes{args->index_axes[0]};
 
@@ -2089,11 +2026,6 @@ ReindexColumnTask::base_impl(
     const Column::AxesUidAccessor<READ_ONLY> col_axes_uid(
       regions[ReindexColumnRegionIndexes::METADATA],
       Column::METADATA_AXES_UID_FID);
-#ifdef HYPERION_USE_CASACORE
-    const Column::MeasRefNameAccessor<READ_ONLY> col_mr_name(
-      regions[ReindexColumnRegionIndexes::METADATA],
-      Column::METADATA_MEAS_REF_NAME_FID);
-#endif
 
     return Column::create(
       ctx,
@@ -2104,9 +2036,7 @@ ReindexColumnTask::base_impl(
       col_datatype[0],
       new_col_lr,
 #ifdef HYPERION_USE_CASACORE
-      args->col.meas_ref,
-      false,
-      col_mr_name[0],
+      mr,
 #endif
       kws);
   }

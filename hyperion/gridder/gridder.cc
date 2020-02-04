@@ -22,7 +22,7 @@
 #include <hyperion/hdf5.h>
 #include <hyperion/Table.h>
 #include <hyperion/Column.h>
-#include <hyperion/MeasRefContainer.h>
+#include <hyperion/MeasRef.h>
 #include <hyperion/MSTableColumns.h>
 #include <hyperion/MSAntennaColumns.h>
 #include <hyperion/MSFieldColumns.h>
@@ -351,7 +351,6 @@ init_table(
   Legion::Runtime* rt,
   const FS::path& ms,
   const std::string& root,
-  const MeasRefContainer& ms_meas_ref,
   MSTables mst) {
 
   std::unordered_set<std::string> columns;
@@ -368,14 +367,7 @@ init_table(
     }
     HYPERION_FOREACH_MS_TABLE(INIT);
   }
-  return
-    hyperion::hdf5::init_table(
-      ctx,
-      rt,
-      ms,
-      root + table_name,
-      columns,
-      ms_meas_ref);
+  return hyperion::hdf5::init_table(ctx, rt, ms, root + table_name, columns);
 }
 
 static const FieldID antenna_class_fid = 0;
@@ -1168,10 +1160,8 @@ public:
       MS_SPECTRAL_WINDOW
     };
     std::unordered_map<MSTables, Table> tables;
-    MeasRefContainer ms_meas_ref; // TODO: account for measures at top level
     for (auto& mst : mstables)
-      tables[mst] =
-        init_table(ctx, rt, g_args->h5_path.value(), ms_root, ms_meas_ref, mst);
+      tables[mst] = init_table(ctx, rt, g_args->h5_path.value(), ms_root, mst);
 
     // re-index some tables
     std::unordered_map<MSTables, Table> itables;

@@ -24,7 +24,7 @@
 #include <hyperion/IndexTree.h>
 #include <hyperion/MSTable.h>
 #include <hyperion/MSTableColumns.h>
-#include <hyperion/MeasRefContainer.h>
+#include <hyperion/MeasRef.h>
 
 #pragma GCC visibility push(default)
 # include <algorithm>
@@ -65,14 +65,9 @@ public:
 
   template <typename T>
   void
-  add_scalar_column(
-    const casacore::Table& table,
-    const std::string& name,
-    const std::optional<std::string>& measure_name) {
+  add_scalar_column(const casacore::Table& table, const std::string& name) {
 
-    add_column(
-      table,
-      ScalarColumnBuilder<D>::template generator<T>(name, measure_name)());
+    add_column(table, ScalarColumnBuilder<D>::template generator<T>(name)());
   }
 
   template <typename T, int DIM>
@@ -81,7 +76,6 @@ public:
     const casacore::Table& table,
     const std::string& name,
     const std::vector<Axes>& element_axes,
-    const std::optional<std::string>& measure_name,
     std::function<std::array<size_t, DIM>(const std::any&)> element_shape) {
 
     std::vector<Axes> axes {MSTable<D>::ROW_AXIS};
@@ -93,9 +87,7 @@ public:
       table,
       ArrayColumnBuilder<D, DIM>::template generator<T>(
         name,
-        measure_name,
-        element_shape)(
-          axes));
+        element_shape)(axes));
   }
 
   void
@@ -117,16 +109,6 @@ public:
     add_row(std::unordered_map<std::string, std::any>());
   }
 
-  void
-  add_meas_record(const casacore::Record& rec) {
-    m_meas_records.push_back(rec);
-  }
-
-  const std::vector<casacore::Record>&
-  meas_records() const {
-    return m_meas_records;
-  }
-
   std::unordered_set<std::string>
   column_names() const {
     std::unordered_set<std::string> result;
@@ -143,9 +125,8 @@ public:
         [cb=nm_cb.second]
         (Legion::Context ctx,
          Legion::Runtime* rt,
-         const std::string& name_prefix,
-         const MeasRefContainer& table_meas_ref) {
-         return cb->column(ctx, rt, name_prefix, table_meas_ref);
+         const std::string& name_prefix) {
+          return cb->column(ctx, rt, name_prefix);
         });
     }
     return result;
@@ -211,21 +192,21 @@ protected:
     }
     switch (element_axes.size()) {
     case 0:
-      add_scalar_column<VT>(table, nm, measure_name);
+      add_scalar_column<VT>(table, nm);
       break;
 
     case 1:
-      add_array_column<VT, 1>(table, nm, element_axes, measure_name, size<1>);
+      add_array_column<VT, 1>(table, nm, element_axes, size<1>);
       array_names.insert(nm);
       break;
 
     case 2:
-      add_array_column<VT, 2>(table, nm, element_axes, measure_name, size<2>);
+      add_array_column<VT, 2>(table, nm, element_axes, size<2>);
       array_names.insert(nm);
       break;
 
     case 3:
-      add_array_column<VT, 3>(table, nm, element_axes, measure_name, size<3>);
+      add_array_column<VT, 3>(table, nm, element_axes, size<3>);
       array_names.insert(nm);
       break;
 
@@ -277,8 +258,6 @@ protected:
   std::unordered_map<std::string, std::shared_ptr<ColumnBuilder<D>>> m_columns;
 
   size_t m_num_rows;
-
-  std::vector<casacore::Record> m_meas_records;
 
 public:
 
@@ -341,10 +320,7 @@ public:
       for (unsigned f = 0; f < nf; ++f) {
         std::string name = kws.name(f);
         auto dt = kws.dataType(f);
-        if (name == "MEASINFO") {
-          if (dt == casacore::DataType::TpRecord)
-            result.add_meas_record(kws.asRecord(f));
-        } else if (name != "QuantumUnits") {
+        if (name != "MEASINFO" && name != "QuantumUnits") {
           switch (dt) {
 #define ADD_KW(DT)                              \
             case DataType<DT>::CasacoreTypeTag: \
@@ -430,32 +406,6 @@ from_ms(
 
   auto builder = TableBuilder::from_ms<T>(table_path, column_selections);
 
-  std::unordered_map<std::string, MeasRef> meas_refs;
-  std::for_each(
-    builder.meas_records().begin(),
-    builder.meas_records().end(),
-    [&meas_refs, &ctx, rt](const casacore::RecordInterface& rec) {
-      casacore::MeasureHolder mh;
-      casacore::String err;
-      auto converted = mh.fromType(err, rec);
-      if (converted) {
-        if (false) {}
-#define MK_MR(MC)                               \
-        else if (MClassT<MC>::holds(mh)) {      \
-          auto m = MClassT<MC>::get(mh);        \
-          meas_refs.emplace(                    \
-            toupper(MClassT<MC>::name),         \
-            MeasRef::create<MClassT<MC>::type>( \
-              ctx,                              \
-              rt,                               \
-              m.getRef()));                     \
-        }
-        HYPERION_FOREACH_MCLASS(MK_MR)
-#undef MK_MR
-        else { assert(false); }
-      }
-    }
-    );
   auto result =
     Table::create(
       ctx,
@@ -463,8 +413,6 @@ from_ms(
       builder.name(),
       std::vector<Axes>{MSTable<T>::ROW_AXIS},
       builder.column_generators(),
-      meas_refs,
-      MeasRefContainer(),
       builder.keywords(),
       "/");
 
