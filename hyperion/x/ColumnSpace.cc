@@ -202,7 +202,10 @@ ColumnSpace::reindexed(
     req.add_field(INDEX_FLAG_FID);
     task.add_region_requirement(req);
   }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [d, lr] : index_columns) {
+#pragma GCC diagnostic pop
     RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
     req.add_field(Column::COLUMN_INDEX_ROWS_FID, false);
     task.add_region_requirement(req);
@@ -263,7 +266,10 @@ compute_reindexed(
   {
     std::vector<LogicalRegion> ixlrs;
     ixlrs.reserve(index_column_lrs.size());
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [d, lr] : index_column_lrs)
+#pragma GCC diagnostic pop
       ixlrs.push_back(lr);
     ColumnSpace::compute_row_mapping(
       ctx,

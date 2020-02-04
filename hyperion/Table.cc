@@ -2193,7 +2193,10 @@ Table::ireindexed(
   // original column. The LogicalRegions, along with their IndexSpaces and
   // FieldSpaces, should eventually be reclaimed.
   std::unordered_map<int, Future> index_cols;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [nm, ds] : col_reindex_axes)
+#pragma GCC diagnostic pop
     for (auto& d : ds)
       if (index_cols.count(d) == 0) {
         IndexColumnTask task(cols[axis_names[d]]);
@@ -2232,7 +2235,10 @@ Table::ireindexed(
 
   // free logical regions in index_cols (the call to get_result should not cause
   // any delay since the Futures were already waited upon, above)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [d, f] : index_cols) {
+#pragma GCC diagnostic pop
     auto lr = f.template get_result<LogicalRegion>();
     rt->destroy_field_space(ctx, lr.get_field_space());
     rt->destroy_index_space(ctx, lr.get_index_space());

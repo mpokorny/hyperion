@@ -420,7 +420,10 @@ Future
 Table::index_axes(Context ctx, Runtime* rt) const {
   auto cols = columns(ctx, rt).get_result<columns_result_t>();
   TaskLauncher task(index_axes_task_id, TaskArgument(NULL, 0));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [csp, vlr, tfs] : cols.fields) {
+#pragma GCC diagnostic pop
     RegionRequirement
       req(csp.metadata_lr, READ_ONLY, EXCLUSIVE, csp.metadata_lr);
     req.add_field(ColumnSpace::AXIS_VECTOR_FID);
@@ -578,7 +581,10 @@ Table::add_columns(
   std::map<ColumnSpace, size_t> current_csp_idxs;
   {
     size_t i = 0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [csp, vlr, tfs] : current_columns.fields) {
+#pragma GCC diagnostic pop
       current_csp_idxs[csp] = i;
       assert(vlr != LogicalRegion::NO_REGION);
       args.vlrs[i++] = vlr;
@@ -651,8 +657,11 @@ Table::add_columns(
   // column names must be unique
   {
     std::set<std::string> new_column_names;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [csp, idx_nmtfs]: new_columns)
       for (auto& [hnm, tf]: idx_nmtfs.second) {
+#pragma GCC diagnostic pop
         std::string nm = hnm;
         if (current_column_map.count(nm) > 0
             || new_column_names.count(nm) > 0)
@@ -931,7 +940,10 @@ Table::destroy(
   bool destroy_column_space_components) {
 
   auto cols = columns(ctx, rt).get_result<columns_result_t>();
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [csp, vlr, tfs] : cols.fields) {
+#pragma GCC diagnostic pop
     if (vlr != LogicalRegion::NO_REGION) {
       rt->destroy_field_space(ctx, vlr.get_field_space());
       rt->destroy_logical_region(ctx, vlr);
@@ -1838,7 +1850,10 @@ Table::reindexed(
 
     for (auto& [csp, nms] : csp_cols) {
       for (auto& nm : nms) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
         auto& [col, crg, ix] = named_columns[nm];
+#pragma GCC diagnostic pop
         const ColumnSpace::IndexFlagAccessor<READ_ONLY>
           ifl(crg.metadata, ColumnSpace::INDEX_FLAG_FID);
         if (!ifl[0] && !ix && reindexed.count(csp) == 0) {
@@ -1966,7 +1981,10 @@ Table::reindexed(
           sfid = Column::COLUMN_INDEX_VALUE_FID;
         } else {
           // an old index column
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
           auto& [col, crg, ix] = named_columns[std::get<0>(dtfs[0])];
+#pragma GCC diagnostic pop
           slr = std::get<0>(crg.values).region;
           sfid = col.fid;
         }
@@ -1984,7 +2002,10 @@ Table::reindexed(
         LogicalPartition dlp;
         {
           // all table fields in rtfs share an IndexSpace and LogicalRegion
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
           auto& [col, crg, ix] = named_columns[std::get<0>(dtfs[0])];
+#pragma GCC diagnostic pop
           rctlr = std::get<1>(reindexed[col.csp]);
           IndexSpace ris = rctlr.get_index_space();
           IndexPartition rip =
@@ -2019,7 +2040,10 @@ Table::reindexed(
             EXCLUSIVE,
             rctlr));
         for (auto& [nm, tf] : dtfs) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
           auto& [col, crg, ix] = named_columns[nm];
+#pragma GCC diagnostic pop
           args.dt = col.dt;
           args.fid = col.fid;
           assert(tf.fid == col.fid);
@@ -2042,15 +2066,21 @@ Table::reindexed(
     rt->issue_copy_operation(ctx, index_column_copier);
   }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [d, lr_pr] : index_cols) {
+#pragma GCC diagnostic pop
     auto& [lr, pr] = lr_pr;
     rt->unmap_region(ctx, pr);
     rt->destroy_field_space(ctx, lr.get_field_space());
     // DON'T do this: rt->destroy_index_space(ctx, lr.get_index_space());
     rt->destroy_logical_region(ctx, lr);
   }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [csp, rcsp_rlr] : reindexed) {
     auto& [rcsp, rlr] = rcsp_rlr;
+#pragma GCC diagnostic pop
     rt->destroy_field_space(ctx, rlr.get_field_space());
     // DON'T destroy index space
     rt->destroy_logical_region(ctx, rlr);
