@@ -73,6 +73,10 @@ struct HYPERION_API Column {
   ColumnSpace csp;
   Legion::RegionRequirement vreq;
 
+protected:
+
+  friend class Legion::LegionTaskWrapper;
+
   template <TypeTag DT>
   static acc_field_redop_rhs<typename DataType<DT>::ValueType>
   index_accumulate_task(
