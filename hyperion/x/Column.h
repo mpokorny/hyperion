@@ -73,12 +73,6 @@ struct HYPERION_API Column {
   ColumnSpace csp;
   Legion::RegionRequirement vreq;
 
-private:
-
-  static Legion::TaskID index_accumulate_task_id[HYPERION_NUM_TYPE_TAGS];
-
-  static std::string index_accumulate_task_name[HYPERION_NUM_TYPE_TAGS];
-
   template <TypeTag DT>
   static acc_field_redop_rhs<typename DataType<DT>::ValueType>
   index_accumulate_task(
@@ -86,6 +80,12 @@ private:
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context,
     Legion::Runtime* rt);
+
+private:
+
+  static Legion::TaskID index_accumulate_task_id[HYPERION_NUM_TYPE_TAGS];
+
+  static std::string index_accumulate_task_name[HYPERION_NUM_TYPE_TAGS];
 
   template <TypeTag DT>
   static void
