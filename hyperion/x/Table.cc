@@ -1894,13 +1894,27 @@ Table::reindexed(
         const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
           auid(crg.metadata, ColumnSpace::AXIS_SET_UID_FID);
         axuid = auid[0];
+        std::optional<MeasRef::DataRegions> odrs;
+        if (crg.mr_metadata) {
+          MeasRef::DataRegions drs;
+          drs.metadata = crg.mr_metadata.value();
+          drs.values = crg.mr_values;
+          odrs = drs;
+        }
+        std::optional<Keywords::pair<PhysicalRegion>> okwrs;
+        if (crg.kw_values) {
+          Keywords::pair<PhysicalRegion> kwrs;
+          kwrs.values = crg.kw_values.value();
+          kwrs.type_tags = crg.kw_type_tags.value();
+          okwrs = kwrs;
+        }
         TableField tf(
           col.dt,
           col.fid,
 #ifdef HYPERION_USE_CASACORE
-          col.mr.clone(ctx, rt),
+          (odrs ? MeasRef::clone(ctx, rt, odrs.value()) : MeasRef()),
 #endif
-          col.kw.clone(ctx, rt));
+          (okwrs ? Keywords::clone(ctx, rt, okwrs.value()) : Keywords()));
         if (ix || ifl[0]) {
           ColumnSpace icsp;
           int d;
