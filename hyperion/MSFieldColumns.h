@@ -91,7 +91,7 @@ public:
     return
       NameAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_NAME),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_FIELD_COL_NAME));
   }
 
   //
@@ -115,7 +115,7 @@ public:
     return
       CodeAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_CODE),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_FIELD_COL_CODE));
   }
 
   //
@@ -139,7 +139,7 @@ public:
     return
       TimeAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_TIME),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_FIELD_COL_TIME));
   }
 
   // TODO: timeQuant()?
@@ -180,7 +180,7 @@ public:
     TimeMeasAccessorBase(
       const Legion::PhysicalRegion& region,
       const std::shared_ptr<casacore::MeasRef<casacore::MEpoch>>& mr)
-      : m_time(region, Column::VALUE_FID)
+      : m_time(region, C::fid(C::col_t::MS_FIELD_COL_TIME))
       , m_mr(mr)
       , m_units(C::col_t::MS_FIELD_COL_TIME) {
       m_convert.setOut(*m_mr);
@@ -264,7 +264,7 @@ public:
     return
       NumPolyAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_FIELD_COL_NUM_POLY));
   }
 
   //
@@ -288,7 +288,7 @@ public:
     return
       DelayDirAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_DELAY_DIR),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_FIELD_COL_DELAY_DIR));
   }
 
 #ifdef HYPERION_USE_CASACORE
@@ -364,7 +364,10 @@ public:
     };
   };
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  template <
+    Legion::FieldID FID,
+    legion_privilege_mode_t MODE,
+    bool CHECK_BOUNDS>
   class DelayDirMeasAccessorBase {
   public:
     DelayDirMeasAccessorBase(
@@ -374,9 +377,9 @@ public:
       const Legion::PhysicalRegion& time_region,
       const std::shared_ptr<casacore::MeasRef<casacore::MDirection>>& mr)
       : m_units(units)
-      , m_delay_dir(delay_dir_region, Column::VALUE_FID)
-      , m_num_poly(num_poly_region, Column::VALUE_FID)
-      , m_time(time_region, Column::VALUE_FID) {
+      , m_delay_dir(delay_dir_region, FID)
+      , m_num_poly(num_poly_region, C::fid(C::col_t::MS_FIELD_COL_NUM_POLY))
+      , m_time(time_region, C::fid(C::col_t::MS_FIELD_COL_TIME)) {
       m_convert.setOut(*mr);
     }
 
@@ -394,35 +397,38 @@ public:
 
   };
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  template <
+    Legion::FieldID FID,
+    legion_privilege_mode_t MODE,
+    bool CHECK_BOUNDS>
   class DelayDirMeasAccessor
     : public DelayDirWriterMixin<
-        DelayDirMeasAccessorBase<MODE, CHECK_BOUNDS>> {
+        DelayDirMeasAccessorBase<FID, MODE, CHECK_BOUNDS>> {
     // this implementation supports MODE=WRITE_ONLY and MODE=WRITE_DISCARD
     typedef DelayDirWriterMixin<
-      DelayDirMeasAccessorBase<MODE, CHECK_BOUNDS>> T;
+      DelayDirMeasAccessorBase<FID, MODE, CHECK_BOUNDS>> T;
   public:
     using T::T;
   };
 
-  template <bool CHECK_BOUNDS>
-  class DelayDirMeasAccessor<READ_ONLY, CHECK_BOUNDS>
+  template <Legion::FieldID FID, bool CHECK_BOUNDS>
+  class DelayDirMeasAccessor<FID, READ_ONLY, CHECK_BOUNDS>
     : public DelayDirReaderMixin<
-        DelayDirMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> {
+        DelayDirMeasAccessorBase<FID, READ_ONLY, CHECK_BOUNDS>> {
     typedef DelayDirReaderMixin<
-      DelayDirMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> T;
+      DelayDirMeasAccessorBase<FID, READ_ONLY, CHECK_BOUNDS>> T;
   public:
     using T::T;
   };
 
-  template <bool CHECK_BOUNDS>
-  class DelayDirMeasAccessor<READ_WRITE, CHECK_BOUNDS>
+  template <Legion::FieldID FID, bool CHECK_BOUNDS>
+  class DelayDirMeasAccessor<FID, READ_WRITE, CHECK_BOUNDS>
     : public DelayDirReaderMixin<
         DelayDirWriterMixin<
-          DelayDirMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> {
+          DelayDirMeasAccessorBase<FID, READ_WRITE, CHECK_BOUNDS>>> {
     typedef DelayDirReaderMixin<
       DelayDirWriterMixin<
-        DelayDirMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> T;
+        DelayDirMeasAccessorBase<FID, READ_WRITE, CHECK_BOUNDS>>> T;
   public:
     using T::T;
   };
@@ -434,10 +440,16 @@ public:
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  DelayDirMeasAccessor<MODE, CHECK_BOUNDS>
+  DelayDirMeasAccessor<
+    C::fid(C::col_t::MS_FIELD_COL_DELAY_DIR),
+    MODE,
+    CHECK_BOUNDS>
   delayDirMeas() const {
     return
-      DelayDirMeasAccessor<MODE, CHECK_BOUNDS>(
+      DelayDirMeasAccessor<
+        C::fid(C::col_t::MS_FIELD_COL_DELAY_DIR),
+        MODE,
+        CHECK_BOUNDS>(
         C::units.at(MS_FIELD_COL_DELAY_DIR),
         m_regions.at(C::col_t::MS_FIELD_COL_DELAY_DIR),
         m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
@@ -468,12 +480,16 @@ public:
     return
       PhaseDirAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_PHASE_DIR),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_FIELD_COL_PHASE_DIR));
   }
 
 #ifdef HYPERION_USE_CASACORE
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using PhaseDirMeasAccessor = DelayDirMeasAccessor<MODE, CHECK_BOUNDS>;
+  using PhaseDirMeasAccessor =
+    DelayDirMeasAccessor<
+      C::fid(C::col_t::MS_FIELD_COL_PHASE_DIR),
+      MODE,
+      CHECK_BOUNDS>;
 
   bool
   has_phaseDirMeas() const {
@@ -516,12 +532,16 @@ public:
     return
       ReferenceDirAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_REFERENCE_DIR),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_FIELD_COL_REFERENCE_DIR));
   }
 
 #ifdef HYPERION_USE_CASACORE
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using ReferenceDirMeasAccessor = DelayDirMeasAccessor<MODE, CHECK_BOUNDS>;
+  using ReferenceDirMeasAccessor =
+    DelayDirMeasAccessor<
+      C::fid(C::col_t::MS_FIELD_COL_REFERENCE_DIR),
+      MODE,
+      CHECK_BOUNDS>;
 
   bool
   has_referenceDirMeas() const {
@@ -562,7 +582,7 @@ public:
   sourceId() const {
     return SourceIdAccessor<MODE, CHECK_BOUNDS>(
       m_regions.at(C::col_t::MS_FIELD_COL_SOURCE_ID),
-      Column::VALUE_FID);
+      C::fid(C::col_t::MS_FIELD_COL_SOURCE_ID));
   }
 
   //
@@ -585,7 +605,7 @@ public:
   ephemerisId() const {
     return EphemerisIdAccessor<MODE, CHECK_BOUNDS>(
       m_regions.at(C::col_t::MS_FIELD_COL_EPHEMERIS_ID),
-      Column::VALUE_FID);
+      C::fid(C::col_t::MS_FIELD_COL_EPHEMERIS_ID));
   }
 
   //
@@ -609,7 +629,7 @@ public:
     return
       FlagRowAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_FLAG_ROW),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_FIELD_COL_FLAG_ROW));
   }
 
 private:

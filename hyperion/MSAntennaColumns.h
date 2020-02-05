@@ -89,7 +89,7 @@ public:
     return
       NameAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_NAME),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_ANTENNA_COL_NAME));
   }
 
   //
@@ -113,7 +113,7 @@ public:
     return
       StationAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_STATION),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_ANTENNA_COL_STATION));
   }
 
   //
@@ -137,7 +137,7 @@ public:
     return
       TypeAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_TYPE),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_ANTENNA_COL_TYPE));
   }
 
   //
@@ -161,7 +161,7 @@ public:
     return
       MountAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_MOUNT),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_ANTENNA_COL_MOUNT));
   }
 
   //
@@ -185,7 +185,7 @@ public:
     return
       PositionAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_POSITION),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_ANTENNA_COL_POSITION));
   }
 
 #ifdef HYPERION_USE_CASACORE
@@ -235,7 +235,7 @@ public:
     }
   };
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  template <Legion::FieldID FID, legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   class PositionMeasAccessorBase {
   public:
     PositionMeasAccessorBase(
@@ -243,7 +243,7 @@ public:
       const Legion::PhysicalRegion& region,
       const std::shared_ptr<casacore::MeasRef<casacore::MPosition>>& mr)
       : m_units(units)
-      , m_position(region, Column::VALUE_FID)
+      , m_position(region, FID)
       , m_mr(mr) {
       m_convert.setOut(*m_mr);
     }
@@ -259,34 +259,37 @@ public:
     casacore::MPosition::Convert m_convert;
   };
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  template <
+    Legion::FieldID FID,
+    legion_privilege_mode_t MODE,
+    bool CHECK_BOUNDS>
   class PositionMeasAccessor:
     public PositionMeasWriterMixin<
-      PositionMeasAccessorBase<MODE, CHECK_BOUNDS>> {
+  PositionMeasAccessorBase<FID, MODE, CHECK_BOUNDS>> {
     typedef PositionMeasWriterMixin<
-      PositionMeasAccessorBase<MODE, CHECK_BOUNDS>> T;
+      PositionMeasAccessorBase<FID, MODE, CHECK_BOUNDS>> T;
   public:
     using T::T;
   };
 
-  template <bool CHECK_BOUNDS>
-  class PositionMeasAccessor<READ_ONLY, CHECK_BOUNDS>
+  template <Legion::FieldID FID, bool CHECK_BOUNDS>
+  class PositionMeasAccessor<FID, READ_ONLY, CHECK_BOUNDS>
     : public PositionMeasReaderMixin<
-        PositionMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> {
+        PositionMeasAccessorBase<FID, READ_ONLY, CHECK_BOUNDS>> {
     typedef PositionMeasReaderMixin<
-      PositionMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> T;
+      PositionMeasAccessorBase<FID, READ_ONLY, CHECK_BOUNDS>> T;
   public:
     using T::T;
   };
 
-  template <bool CHECK_BOUNDS>
-  class PositionMeasAccessor<READ_WRITE, CHECK_BOUNDS>
+  template <Legion::FieldID FID, bool CHECK_BOUNDS>
+  class PositionMeasAccessor<FID, READ_WRITE, CHECK_BOUNDS>
     : public PositionMeasReaderMixin<
         PositionMeasWriterMixin<
-          PositionMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> {
+          PositionMeasAccessorBase<FID, READ_WRITE, CHECK_BOUNDS>>> {
     typedef PositionMeasReaderMixin<
       PositionMeasWriterMixin<
-        PositionMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> T;
+        PositionMeasAccessorBase<FID, READ_WRITE, CHECK_BOUNDS>>> T;
   public:
     using T::T;
   };
@@ -297,10 +300,16 @@ public:
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  PositionMeasAccessor<MODE, CHECK_BOUNDS>
+  PositionMeasAccessor<
+    C::fid(C::col_t::MS_ANTENNA_COL_POSITION),
+    MODE,
+    CHECK_BOUNDS>
   positionMeas() const {
     return
-      PositionMeasAccessor<MODE, CHECK_BOUNDS>(
+      PositionMeasAccessor<
+        C::fid(C::col_t::MS_ANTENNA_COL_POSITION),
+        MODE,
+        CHECK_BOUNDS>(
         C::units.at(C::col_t::MS_ANTENNA_COL_POSITION),
         m_regions.at(C::col_t::MS_ANTENNA_COL_POSITION),
         m_position_mr);
@@ -329,12 +338,16 @@ public:
     return
       OffsetAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_OFFSET),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_ANTENNA_COL_OFFSET));
   }
 
 #ifdef HYPERION_USE_CASACORE
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using OffsetMeasAccessor = PositionMeasAccessor<MODE, CHECK_BOUNDS>;
+  using OffsetMeasAccessor =
+    PositionMeasAccessor<
+      C::fid(C::col_t::MS_ANTENNA_COL_OFFSET),
+      MODE,
+      CHECK_BOUNDS>;
 
   bool
   has_offsetMeas() const {
@@ -373,7 +386,7 @@ public:
     return
       DishDiameterAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_DISH_DIAMETER),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_ANTENNA_COL_DISH_DIAMETER));
   }
 
   //
@@ -397,7 +410,7 @@ public:
     return
       OrbitIdAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_ORBIT_ID),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_ANTENNA_COL_ORBIT_ID));
   }
 
   //
@@ -421,7 +434,7 @@ public:
     return
       MeanOrbitAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_MEAN_ORBIT),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_ANTENNA_COL_MEAN_ORBIT));
   }
 
   //
@@ -445,7 +458,7 @@ public:
     return
       PhasedArrayIdAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID));
   }
 
   //
@@ -469,7 +482,7 @@ public:
     return
       FlagRowAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_FLAG_ROW),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_ANTENNA_COL_FLAG_ROW));
   }
 
 private:

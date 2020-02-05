@@ -18,6 +18,8 @@
 
 #include <hyperion/MSTableColumns_c.h>
 #include <hyperion/MSTable.h>
+// TODO: XVERSION : remove
+#include <hyperion/Column.h>
 
 #pragma GCC visibility push(default)
 # include <algorithm>
@@ -37,6 +39,10 @@ struct MSTableColumns {
 template <MSTables T>
 const std::array<const char*, 0> MSTableColumns<T>::column_names;
 
+// TODO: XVERSION : change fid() method to return the following
+//
+// c + MS_##T##_COL_FID_BASE;
+
 #define MSTC(T, t)                                                      \
   template <>                                                           \
   struct HYPERION_API MSTableColumns<MS_##T> {                          \
@@ -45,6 +51,9 @@ const std::array<const char*, 0> MSTableColumns<T>::column_names;
       column_names = MS_##T##_COLUMN_NAMES;                             \
     static const constexpr std::array<unsigned, MS_##T##_NUM_COLS>      \
       element_ranks = MS_##T##_COLUMN_ELEMENT_RANKS;                    \
+    static constexpr Legion::FieldID fid(col_t c) {                     \
+      return Column::VALUE_FID;                                         \
+    }                                                                   \
     static const std::unordered_map<col_t, const char*> units;          \
     static const std::map<col_t, const char*> measure_names;            \
     static std::optional<col_t>                                         \

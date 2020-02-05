@@ -59,6 +59,8 @@ typedef enum ms_main_col_t {
   MS_MAIN_NUM_COLS
 } ms_main_col_t;
 
+#define MS_MAIN_COL_FID_BASE 100
+
 #define MS_MAIN_COLUMN_NAMES {                  \
     "TIME",                                     \
       "TIME_EXTRA_PREC",                        \
@@ -167,6 +169,8 @@ typedef enum ms_antenna_col_t {
   MS_ANTENNA_NUM_COLS
 } ms_antenna_col_t;
 
+#define MS_ANTENNA_COL_FID_BASE 200
+
 #define MS_ANTENNA_COLUMN_NAMES {               \
     "NAME",                                     \
       "STATION",                                \
@@ -214,6 +218,8 @@ typedef enum ms_data_description_col_t {
   MS_DATA_DESCRIPTION_NUM_COLS
 } ms_data_description_col_t;
 
+#define MS_DATA_DESCRIPTION_COL_FID_BASE 300
+
 #define MS_DATA_DESCRIPTION_COLUMN_NAMES {      \
     "SPECTRAL_WINDOW_ID",                       \
       "POLARIZATION_ID",                        \
@@ -239,6 +245,8 @@ typedef enum ms_doppler_col_t  {
   MS_DOPPLER_COL_VELDEF,
   MS_DOPPLER_NUM_COLS
 } ms_doppler_col_t;
+
+#define MS_DOPPLER_COL_FID_BASE 400
 
 #define MS_DOPPLER_COLUMN_NAMES {               \
     "SPECTRAL_WINDOW_ID",                       \
@@ -279,6 +287,8 @@ typedef enum ms_feed_col_t {
   MS_FEED_COL_RECEPTOR_ANGLE,
   MS_FEED_NUM_COLS
 } ms_feed_col_t;
+
+#define MS_FEED_COL_FID_BASE 500
 
 #define MS_FEED_COLUMN_NAMES {                  \
     "ANTENNA_ID",                               \
@@ -343,6 +353,8 @@ typedef enum ms_field_col_t {
   MS_FIELD_NUM_COLS
 } ms_field_col_t;
 
+#define MS_FIELD_COL_FID_BASE 600
+
 #define MS_FIELD_COLUMN_NAMES {                 \
     "NAME",                                     \
       "CODE",                                   \
@@ -395,6 +407,8 @@ typedef enum ms_flag_cmd_col_t {
   MS_FLAG_CMD_NUM_COLS
 } ms_flag_cmd_col_t;
 
+#define MS_FLAG_CMD_COL_FID_BASE 700
+
 #define MS_FLAG_CMD_COLUMN_NAMES {              \
     "TIME",                                     \
       "INTERVAL",                               \
@@ -436,6 +450,8 @@ typedef enum ms_freq_offset_col_t {
   MS_FREQ_OFFSET_COL_OFFSET,
   MS_FREQ_OFFSET_NUM_COLS
 } ms_freq_offset_col_t;
+
+#define MS_FREQ_OFFSET_COL_FID_BASE 800
 
 #define MS_FREQ_OFFSET_COLUMN_NAMES {           \
     "ANTENNA1",                                 \
@@ -479,6 +495,8 @@ typedef enum ms_history_col_t {
   MS_HISTORY_COL_APP_PARAMS,
   MS_HISTORY_NUM_COLS
 } ms_history_col_t;
+
+#define MS_HISTORY_COL_FID_BASE 900
 
 #define MS_HISTORY_COLUMN_NAMES {               \
     "TIME",                                     \
@@ -524,6 +542,8 @@ typedef enum ms_observation_col_t {
   MS_OBSERVATION_COL_FLAG_ROW,
   MS_OBSERVATION_NUM_COLS
 } ms_observation_col_t;
+
+#define MS_OBSERVATION_COL_FID_BASE 1000
 
 #define MS_OBSERVATION_COLUMN_NAMES {           \
     "TELESCOPE_NAME",                           \
@@ -577,6 +597,8 @@ typedef enum ms_pointing_col_t {
   MS_POINTING_COL_OVER_THE_TOP,
   MS_POINTING_NUM_COLS
 } ms_pointing_col_t;
+
+#define MS_POINTING_COL_FID_BASE 1100
 
 #define MS_POINTING_COLUMN_NAMES {              \
     "ANTENNA_ID",                               \
@@ -643,6 +665,8 @@ typedef enum ms_polarization_col_t {
   MS_POLARIZATION_NUM_COLS
 } ms_polarization_col_t;
 
+#define MS_POLARIZATION_COL_FID_BASE 1200
+
 #define MS_POLARIZATION_COLUMN_NAMES {          \
     "NUM_CORR",                                 \
       "CORR_TYPE",                              \
@@ -670,6 +694,8 @@ typedef enum ms_processor_col_t {
   MS_PROCESSOR_COL_FLAG_ROW,
   MS_PROCESSOR_NUM_COLS
 } ms_processor_col_t;
+
+#define MS_PROCESSOR_COL_FID_BASE 1300
 
 #define MS_PROCESSOR_COLUMN_NAMES {             \
     "TYPE",                                     \
@@ -712,6 +738,8 @@ typedef enum ms_source_col_t {
   MS_SOURCE_COL_PULSAR_ID,
   MS_SOURCE_NUM_COLS
 } ms_source_col_t;
+
+#define MS_SOURCE_COL_FID_BASE 1400
 
 #define MS_SOURCE_COLUMN_NAMES {                \
     "SOURCE_ID",                                \
@@ -793,6 +821,8 @@ typedef enum ms_spectral_window_col_t {
   MS_SPECTRAL_WINDOW_NUM_COLS
 } ms_spectral_window_col_t;
 
+#define MS_SPECTRAL_WINDOW_COL_FID_BASE 1500
+
 #define MS_SPECTRAL_WINDOW_COLUMN_NAMES {       \
     "NUM_CHAN",                                 \
       "NAME",                                   \
@@ -864,6 +894,8 @@ typedef enum ms_state_col_t {
   MS_STATE_NUM_COLS
 } ms_state_col_t;
 
+#define MS_STATE_COL_FID_BASE 1600
+
 #define MS_STATE_COLUMN_NAMES {                 \
     "SIG",                                      \
       "REF",                                    \
@@ -919,6 +951,8 @@ typedef enum ms_syscal_col_t {
   MS_SYSCAL_COL_TANT_TSYS_FLAG,
   MS_SYSCAL_NUM_COLS
 } ms_syscal_col_t;
+
+#define MS_SYSCAL_COL_FID_BASE 1700
 
 #define MS_SYSCAL_COLUMN_NAMES {                \
     "ANTENNA_ID",                               \
@@ -1018,6 +1052,8 @@ typedef enum ms_weather_col_t {
   MS_WEATHER_COL_WIND_SPEED_FLAG,
   MS_WEATHER_NUM_COLS
 } ms_weather_col_t;
+
+#define MS_WEATHER_COL_FID_BASE 1800
 
 #define MS_WEATHER_COLUMN_NAMES {               \
     "ANTENNA_ID",                               \

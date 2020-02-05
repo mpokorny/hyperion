@@ -89,7 +89,7 @@ public:
     return
       NumChanAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_NUM_CHAN),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_NUM_CHAN));
   }
 
   //
@@ -113,7 +113,7 @@ public:
     return
       NameAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_NAME),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_NAME));
   }
 
   //
@@ -137,7 +137,7 @@ public:
     return
       RefFrequencyAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY));
   }
 
 #ifdef HYPERION_USE_CASACORE
@@ -178,7 +178,9 @@ public:
     RefFrequencyMeasAccessorBase(
       const Legion::PhysicalRegion& region,
       const std::shared_ptr<casacore::MeasRef<casacore::MFrequency>>& mr)
-      : m_ref_frequency(region, Column::VALUE_FID)
+      : m_ref_frequency(
+        region,
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY))
       , m_mr(mr)
       , m_units(C::units.at(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY)) {
       m_convert.setOut(*m_mr);
@@ -264,7 +266,7 @@ public:
     return
       MeasFreqRefAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_MEAS_FREQ_REF),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_MEAS_FREQ_REF));
   }
 
   //
@@ -288,7 +290,7 @@ public:
     return
       ChanFreqAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ));
   }
 
 #ifdef HYPERION_USE_CASACORE
@@ -333,8 +335,12 @@ public:
       const Legion::PhysicalRegion& meas_freq_ref_region,
       const std::vector<
         std::shared_ptr<casacore::MeasRef<casacore::MFrequency>>>& mr)
-      : m_chan_freq(chan_freq_region, Column::VALUE_FID)
-      , m_meas_freq_ref(meas_freq_ref_region)
+      : m_chan_freq(
+        chan_freq_region,
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ))
+      , m_meas_freq_ref(
+        meas_freq_ref_region,
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_MEAS_FREQ_REF))
       , m_mr(mr)
       , m_units(C::units.at(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ)){
       m_convert.resize(m_mr.size());
@@ -427,7 +433,7 @@ public:
     return
       ChanWidthAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_WIDTH),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_WIDTH));
   }
 
   //
@@ -451,7 +457,7 @@ public:
     return
       EffectiveBWAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_EFFECTIVE_BW),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_EFFECTIVE_BW));
   }
 
   //
@@ -475,7 +481,7 @@ public:
     return
       ResolutionAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_RESOLUTION),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_RESOLUTION));
   }
 
   //
@@ -504,7 +510,7 @@ public:
     return
       TotalBandwidthAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_TOTAL_BANDWIDTH),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_TOTAL_BANDWIDTH));
   }
 
   //
@@ -528,7 +534,7 @@ public:
     return
       NetSidebandAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_NET_SIDEBAND),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_NET_SIDEBAND));
   }
 
   //
@@ -552,7 +558,7 @@ public:
     return
       BbcNoAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_NO),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_NO));
   }
 
   //
@@ -576,7 +582,7 @@ public:
     return
       BbcSidebandAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_SIDEBAND),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_SIDEBAND));
   }
 
   //
@@ -600,7 +606,7 @@ public:
     return
       IfConvChainAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_IF_CONV_CHAIN),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_IF_CONV_CHAIN));
   }
 
   //
@@ -624,7 +630,7 @@ public:
     return
       ReceiverIdAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_RECEIVER_ID),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_RECEIVER_ID));
   }
 
   //
@@ -648,7 +654,7 @@ public:
     return
       FreqGroupAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP));
   }
 
   //
@@ -674,7 +680,7 @@ public:
     return
       FreqGroupNameAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP_NAME),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP_NAME));
   }
 
   //
@@ -698,7 +704,7 @@ public:
     return
       DopplerIdAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_DOPPLER_ID),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_DOPPLER_ID));
   }
 
   //
@@ -722,7 +728,7 @@ public:
     return
       AssocSpwIdAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_SPW_ID),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_SPW_ID));
   }
 
   //
@@ -746,7 +752,7 @@ public:
     return
       AssocNatureAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_NATURE),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_NATURE));
   }
 
   //
@@ -770,7 +776,7 @@ public:
     return
       FlagRowAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_FLAG_ROW),
-        Column::VALUE_FID);
+        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_FLAG_ROW));
   }
 
 private:
