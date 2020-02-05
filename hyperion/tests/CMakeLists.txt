@@ -97,15 +97,6 @@ if (USE_CASACORE)
     NAME MeasRefUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
             ./utMeasRef)
-
-  add_executable(utMeasRefDict utMeasRefDict.cc)
-  set_target_properties(utMeasRefDict PROPERTIES
-    CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
-  add_test(
-    NAME MeasRefDictUnitTest
-    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-            ./utMeasRefDict)
 endif()
 
 add_subdirectory(data)

@@ -163,10 +163,6 @@ if(USE_CASACORE)
     Measures.cc
     MeasRef.h
     MeasRef.cc
-    MeasRefDict.h
-    MeasRefDict.cc
-    MeasRefContainer.h
-    MeasRefContainer.cc
     MSAntennaColumns.h
     MSAntennaColumns.cc
     MSFieldColumns.h
