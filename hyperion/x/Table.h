@@ -91,6 +91,8 @@ struct TableFieldsType<TableFieldsFid::VS> {
 
 class HYPERION_API Table {
 
+  // FIXME: add support for table keywords
+
 public:
 
   static const constexpr size_t MAX_COLUMNS = HYPERION_MAX_NUM_TABLE_COLUMNS;
