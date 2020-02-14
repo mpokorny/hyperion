@@ -29,6 +29,7 @@ using namespace Legion;
   __FUNC__(TableFieldsFid::DT)                  \
   __FUNC__(TableFieldsFid::KW)                  \
   __FUNC__(TableFieldsFid::MR)                  \
+  __FUNC__(TableFieldsFid::RC)                  \
   __FUNC__(TableFieldsFid::MD)                  \
   __FUNC__(TableFieldsFid::VF)                  \
   __FUNC__(TableFieldsFid::VS)
@@ -46,6 +47,7 @@ static const hyperion::string empty_nm;
 static const hyperion::Keywords empty_kw;
 #ifdef HYPERION_USE_CASACORE
 static const hyperion::MeasRef empty_mr;
+static const hyperion::string empty_rc;
 #endif
 static const type_tag_t empty_dt = (type_tag_t) 0;
 static const FieldID empty_vf = 0;
@@ -188,6 +190,7 @@ Table::column_map(
         tf.fid,
 #ifdef HYPERION_USE_CASACORE
         tf.mr,
+        tf.rc,
 #endif
         tf.kw,
         csp,
@@ -318,6 +321,8 @@ Table::create(
 #ifdef HYPERION_USE_CASACORE
       const MeasRefAccessor<WRITE_ONLY>
         mrs(fields_pr, static_cast<FieldID>(TableFieldsFid::MR));
+      const RefColumnAccessor<WRITE_ONLY>
+        rcs(fields_pr, static_cast<FieldID>(TableFieldsFid::RC));
 #endif
       const MetadataAccessor<WRITE_ONLY>
         mds(fields_pr, static_cast<FieldID>(TableFieldsFid::MD));
@@ -334,6 +339,7 @@ Table::create(
         kws[*pid] = empty_kw;
 #ifdef HYPERION_USE_CASACORE
         mrs[*pid] = empty_mr;
+        rcs[*pid] = empty_rc;
 #endif
         mds[*pid] = empty_md;
         vfs[*pid] = empty_vf;
@@ -714,6 +720,8 @@ Table::add_columns(
 #ifdef HYPERION_USE_CASACORE
   const MeasRefAccessor<READ_WRITE>
     mrs(fields_pr, static_cast<FieldID>(TableFieldsFid::MR));
+  const RefColumnAccessor<READ_WRITE>
+    rcs(fields_pr, static_cast<FieldID>(TableFieldsFid::RC));
 #endif
   const MetadataAccessor<READ_WRITE>
     mds(fields_pr, static_cast<FieldID>(TableFieldsFid::MD));
@@ -802,6 +810,7 @@ Table::add_columns(
         kws[*fields_pid] = tf.kw;
 #ifdef HYPERION_USE_CASACORE
         mrs[*fields_pid] = tf.mr;
+        rcs[*fields_pid] = tf.rc.value_or(empty_rc);
 #endif
         mds[*fields_pid] = csp.metadata_lr;
         vfs[*fields_pid] = tf.fid;
@@ -817,6 +826,7 @@ Table::add_columns(
     kws[*fields_pid] = empty_kw;
 #ifdef HYPERION_USE_CASACORE
     mrs[*fields_pid] = empty_mr;
+    rcs[*fields_pid] = empty_rc;
 #endif
     mds[*fields_pid] = new_phantom_csp.value().metadata_lr;
     vfs[*fields_pid] = empty_vf;
@@ -862,6 +872,8 @@ Table::remove_columns(
 #ifdef HYPERION_USE_CASACORE
     const MeasRefAccessor<READ_WRITE>
       mrs(fields_pr, static_cast<FieldID>(TableFieldsFid::MR));
+    const RefColumnAccessor<READ_WRITE>
+      rcs(fields_pr, static_cast<FieldID>(TableFieldsFid::RC));
 #endif
     const MetadataAccessor<READ_WRITE>
       mds(fields_pr, static_cast<FieldID>(TableFieldsFid::MD));
@@ -896,6 +908,7 @@ Table::remove_columns(
         kws[*dst_pid] = kws[*src_pid];
 #ifdef HYPERION_USE_CASACORE
         mrs[*dst_pid] = mrs[*src_pid];
+        rcs[*dst_pid] = rcs[*src_pid];
 #endif
         mds[*dst_pid] = mds[*src_pid];
         vfs[*dst_pid] = vfs[*src_pid];
@@ -911,6 +924,7 @@ Table::remove_columns(
       kws[*dst_pid] = empty_kw;
 #ifdef HYPERION_USE_CASACORE
       mrs[*dst_pid] = empty_mr;
+      rcs[*dst_pid] = empty_rc;
 #endif
       mds[*dst_pid] = empty_md;
       vfs[*dst_pid] = empty_vf;
@@ -1000,6 +1014,8 @@ Table::columns(Runtime *rt, const PhysicalRegion& fields_pr) {
 #ifdef HYPERION_USE_CASACORE
   const MeasRefAccessor<READ_ONLY>
     mrs(fields_pr, static_cast<FieldID>(TableFieldsFid::MR));
+  const RefColumnAccessor<READ_ONLY>
+    rcs(fields_pr, static_cast<FieldID>(TableFieldsFid::RC));
 #endif
   const MetadataAccessor<READ_ONLY>
     mds(fields_pr, static_cast<FieldID>(TableFieldsFid::MD));
@@ -1029,6 +1045,9 @@ Table::columns(Runtime *rt, const PhysicalRegion& fields_pr) {
             vfs[*pid],
 #ifdef HYPERION_USE_CASACORE
             mrs[*pid],
+            ((rcs[*pid].size() > 0)
+             ? std::make_optional<hyperion::string>(rcs[*pid])
+             : std::nullopt),
 #endif
             kws[*pid]));
       if (cols.count(csp) == 0)
@@ -1369,6 +1388,8 @@ Table::convert(
       nm(md_pr, hyperion::Column::METADATA_NAME_FID);
     const hyperion::Column::DatatypeAccessor<READ_ONLY>
       dt(md_pr, hyperion::Column::METADATA_DATATYPE_FID);
+    const hyperion::Column::RefColAccessor<READ_ONLY>
+      rc(md_pr, hyperion::Column::METADATA_REF_COL_FID);
     if (!axes_uid) {
       const hyperion::Column::AxesUidAccessor<READ_ONLY>
         uid(md_pr, hyperion::Column::METADATA_AXES_UID_FID);
@@ -1385,6 +1406,9 @@ Table::convert(
           (o_mr_drs
            ? hyperion::MeasRef::clone(ctx, rt, o_mr_drs.value())
            : hyperion::MeasRef()),
+          ((rc[0].size() > 0)
+           ? std::make_optional<hyperion::string>(rc[0])
+           : std::nullopt),
 #endif
           (o_kw_pair
            ? hyperion::Keywords::clone(ctx, rt, o_kw_pair.value())
@@ -1785,6 +1809,7 @@ Table::reindexed(
         col.fid,
 #ifdef HYPERION_USE_CASACORE
         col.mr,
+        col.rc,
 #endif
         col.kw,
         col.csp,
@@ -1917,6 +1942,7 @@ Table::reindexed(
           col.fid,
 #ifdef HYPERION_USE_CASACORE
           (odrs ? MeasRef::clone(ctx, rt, odrs.value()) : MeasRef()),
+          col.rc,
 #endif
           (okwrs ? Keywords::clone(ctx, rt, okwrs.value()) : Keywords()));
         if (ix || ifl[0]) {

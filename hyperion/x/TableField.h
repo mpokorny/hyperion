@@ -21,6 +21,10 @@
 #include <hyperion/Keywords.h>
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
+# pragma GCC visibility push(default)
+#  include <optional>
+#  include <string>
+# pragma GCC visibility pop
 #endif
 
 namespace hyperion {
@@ -35,12 +39,14 @@ struct HYPERION_API TableField {
     Legion::FieldID fid_,
 #ifdef HYPERION_USE_CASACORE
     const hyperion::MeasRef& mr_,
+    const std::optional<hyperion::string>& rc_,
 #endif
     const hyperion::Keywords& kw_)
     : dt(dt_)
     , fid(fid_)
 #ifdef HYPERION_USE_CASACORE
     , mr(mr_)
+    , rc(rc_)
 #endif
     , kw(kw_) {}
 
@@ -48,6 +54,7 @@ struct HYPERION_API TableField {
   Legion::FieldID fid;
 #ifdef HYPERION_USE_CASACORE
   hyperion::MeasRef mr;
+  std::optional<hyperion::string> rc;
 #endif
   hyperion::Keywords kw;
 };

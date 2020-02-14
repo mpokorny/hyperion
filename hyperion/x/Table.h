@@ -43,6 +43,7 @@ enum class TableFieldsFid {
   KW,
 #ifdef HYPERION_USE_CASACORE
   MR,
+  RC,
 #endif
   MD,
   VF,
@@ -69,6 +70,10 @@ struct TableFieldsType<TableFieldsFid::KW> {
 template<>
 struct TableFieldsType<TableFieldsFid::MR> {
   typedef hyperion::MeasRef type;
+};
+template<>
+struct TableFieldsType<TableFieldsFid::RC> {
+  typedef hyperion::string type;
 };
 #endif
 template<>
@@ -158,6 +163,10 @@ public:
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using MeasRefAccessor =
     Accessor<MODE, TableFieldsFid::MR, CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using RefColumnAccessor =
+    Accessor<MODE, TableFieldsFid::RC, CHECK_BOUNDS>;
 #endif
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>

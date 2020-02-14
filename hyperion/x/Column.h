@@ -21,6 +21,10 @@
 #include <hyperion/Keywords.h>
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
+# pragma GCC visibility push(default)
+#  include <optional>
+#  include <string>
+# pragma GCC visibility pop
 #endif
 #include <hyperion/x/ColumnSpace.h>
 
@@ -36,6 +40,7 @@ struct HYPERION_API Column {
     Legion::FieldID fid_,
 #ifdef HYPERION_USE_CASACORE
     const hyperion::MeasRef& mr_,
+    const std::optional<hyperion::string>& rc_,
 #endif
     const hyperion::Keywords& kw_,
     const ColumnSpace& csp_,
@@ -44,6 +49,7 @@ struct HYPERION_API Column {
     , fid(fid_)
 #ifdef HYPERION_USE_CASACORE
     , mr(mr_)
+    , rc(rc_)
 #endif
     , kw(kw_)
     , csp(csp_)
@@ -68,6 +74,7 @@ struct HYPERION_API Column {
   Legion::FieldID fid;
 #ifdef HYPERION_USE_CASACORE
   hyperion::MeasRef mr;
+  std::optional<hyperion::string> rc;
 #endif
   hyperion::Keywords kw;
   ColumnSpace csp;
