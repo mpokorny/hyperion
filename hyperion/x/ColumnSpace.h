@@ -81,6 +81,24 @@ struct HYPERION_API ColumnSpace {
   bool
   is_empty() const;
 
+  std::vector<int>
+  axes(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  static AXIS_VECTOR_TYPE
+  axes(Legion::PhysicalRegion pr);
+
+  std::string
+  axes_uid(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  static AXIS_SET_UID_TYPE
+  axes_uid(Legion::PhysicalRegion pr);
+
+  bool
+  is_index(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  static INDEX_FLAG_TYPE
+  is_index(Legion::PhysicalRegion pr);
+
   void
   destroy(
     Legion::Context ctx,

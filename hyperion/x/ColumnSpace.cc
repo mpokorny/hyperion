@@ -38,6 +38,55 @@ ColumnSpace::is_empty() const {
   return column_is == IndexSpace::NO_SPACE;
 }
 
+std::vector<int>
+ColumnSpace::axes(Context ctx, Runtime* rt) const {
+  RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
+  req.add_field(AXIS_VECTOR_FID);
+  auto pr = rt->map_region(ctx, req);
+  auto result = from_axis_vector(axes(pr));
+  rt->unmap_region(ctx, pr);
+  return result;
+}
+
+ColumnSpace::AXIS_VECTOR_TYPE
+ColumnSpace::axes(PhysicalRegion pr) {
+  const AxisVectorAccessor<READ_ONLY> ax(pr, AXIS_VECTOR_FID);
+  return ax[0];
+}
+
+std::string
+ColumnSpace::axes_uid(Context ctx, Runtime* rt) const {
+  RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
+  req.add_field(AXIS_SET_UID_FID);
+  auto pr = rt->map_region(ctx, req);
+  auto result = axes_uid(pr);
+  rt->unmap_region(ctx, pr);
+  return result;
+}
+
+ColumnSpace::AXIS_SET_UID_TYPE
+ColumnSpace::axes_uid(PhysicalRegion pr) {
+  const AxisSetUIDAccessor<READ_ONLY> au(pr, AXIS_SET_UID_FID);
+  return au[0];
+}
+
+bool
+ColumnSpace::is_index(Context ctx, Runtime* rt) const {
+  RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
+  req.add_field(INDEX_FLAG_FID);
+  auto pr = rt->map_region(ctx, req);
+  auto result = is_index(pr);
+  rt->unmap_region(ctx, pr);
+  return result;
+
+}
+
+ColumnSpace::INDEX_FLAG_TYPE
+ColumnSpace::is_index(PhysicalRegion pr) {
+  const IndexFlagAccessor<READ_ONLY> ifl(pr, INDEX_FLAG_FID);
+  return ifl[0];
+}
+
 bool
 ColumnSpace::operator<(const ColumnSpace& rhs) const {
   return column_is < rhs.column_is
