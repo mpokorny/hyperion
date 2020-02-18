@@ -766,6 +766,7 @@ Table::add_columns(
   }
 
   std::optional<ColumnSpace> new_phantom_csp;
+  std::set<FieldID> all_fids;
   for (auto& [csp, idx_nmtfs] : new_columns) {
     auto& [idx, nm_tfs] = idx_nmtfs;
     if (csp.is_empty()) {
@@ -791,9 +792,10 @@ Table::add_columns(
       std::set<FieldID> fids;
       FieldSpace fs = values_lr.get_field_space();
       rt->get_field_space_fields(fs, fids);
+      all_fids.merge(fids);
       FieldAllocator fa = rt->create_field_allocator(ctx, fs);
       for (auto& [nm, tf] : nm_tfs) {
-        assert(fids.count(tf.fid) == 0);
+        assert(all_fids.count(tf.fid) == 0);
         switch(tf.dt) {
 #define ALLOC_FLD(DT)                                                   \
           case DT:                                                      \
@@ -815,7 +817,7 @@ Table::add_columns(
         mds[*fields_pid] = csp.metadata_lr;
         vfs[*fields_pid] = tf.fid;
         vss[*fields_pid] = values_lr;
-        fids.insert(tf.fid);
+        all_fids.insert(tf.fid);
         fields_pid++;
       }
     }
