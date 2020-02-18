@@ -152,7 +152,7 @@ partition_over_all_cpus(
   Legion::IndexSpace is,
   unsigned min_block_size);
 
-IndexTreeL
+HYPERION_API IndexTreeL
 index_space_as_tree(Legion::Runtime* rt, Legion::IndexSpace is);
 
 struct HYPERION_API string {
