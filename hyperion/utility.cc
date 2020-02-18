@@ -627,6 +627,9 @@ hyperion::H5DatatypeManager::preregister_datatypes() {
 #undef DTINSERT
     datatypes_[DATATYPE_H5T] = dt;
   }
+
+  datatypes_[FIELD_ID_H5T] = H5T_NATIVE_UINT;
+
 #ifdef HYPERION_USE_CASACORE
   {
     hid_t dt = H5Tenum_create(H5T_NATIVE_UINT);
