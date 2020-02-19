@@ -117,15 +117,15 @@ list(APPEND HYPERION_SRC
   utility.h
   utility_c.cc
   utility_c.h
-  Column.cc
   Column.h
+  Column.cc
   Column_c.cc
   Column_c.h
   ColumnBuilder.h
-  ColumnPartition.h
-  ColumnPartition.cc
-  ColumnPartition_c.cc
-  ColumnPartition_c.h
+  ColumnSpace.h
+  ColumnSpace.cc
+  ColumnSpacePartition.h
+  ColumnSpacePartition.cc
   c_util.h
   Keywords.h
   Keywords.cc
@@ -136,20 +136,12 @@ list(APPEND HYPERION_SRC
   MSTableColumns_c.h
   MSTableColumns.h
   MSTableColumns.cc
-  Table.cc
   Table.h
+  Table.cc
   Table_c.cc
   Table_c.h
-  KeywordsBuilder.h
-  x/Column.h
-  x/Column.cc
-  x/ColumnSpace.h
-  x/ColumnSpace.cc
-  x/ColumnSpacePartition.h
-  x/ColumnSpacePartition.cc
-  x/Table.h
-  x/Table.cc
-  x/TableField.h)
+  TableField.h
+  KeywordsBuilder.h)
 
 if(USE_CASACORE)
   list(APPEND HYPERION_SRC
