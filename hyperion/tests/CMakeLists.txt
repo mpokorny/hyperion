@@ -20,15 +20,6 @@ add_test(
   COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
   ./utIndexColumnTask)
 
-add_executable(utReindexColumnTask utReindexColumnTask.cc)
-set_target_properties(utReindexColumnTask PROPERTIES
-  CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
-add_test(
-  NAME ReindexColumnTaskUnitTest
-  COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-  ./utReindexColumnTask)
-
 add_executable(utReindexed utReindexed.cc)
 set_target_properties(utReindexed PROPERTIES
   CXX_STANDARD 17
@@ -47,24 +38,6 @@ add_test(
   COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
           ./utTable)
 
-add_executable(utXTable utXTable.cc)
-set_target_properties(utTable PROPERTIES
-  CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
-add_test(
-  NAME XTableUnitTest
-  COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-  ./utTable)
-
-add_executable(utXReindexed utXReindexed.cc)
-set_target_properties(utXReindexed PROPERTIES
-  CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
-add_test(
-  NAME XReindexedUnitTest
-  COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-  ./utXReindexed)
-
 if (USE_HDF5)
   add_executable(utHdf5 utHdf5.cc)
   set_target_properties(utHdf5 PROPERTIES
@@ -74,15 +47,6 @@ if (USE_HDF5)
     NAME Hdf5UnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
             ./utHdf5)
-
-add_executable(utXHdf5 utXHdf5.cc)
-set_target_properties(utXHdf5 PROPERTIES
-  CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
-add_test(
-  NAME XHdf5UnitTest
-  COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-  ./utXHdf5)
 endif()
 
 if (USE_CASACORE)
