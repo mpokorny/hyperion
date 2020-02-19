@@ -74,6 +74,15 @@ if (USE_HDF5)
     NAME Hdf5UnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
             ./utHdf5)
+
+add_executable(utXHdf5 utXHdf5.cc)
+set_target_properties(utXHdf5 PROPERTIES
+  CXX_STANDARD 17
+  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+add_test(
+  NAME XHdf5UnitTest
+  COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+  ./utXHdf5)
 endif()
 
 if (USE_CASACORE)
