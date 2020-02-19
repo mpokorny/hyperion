@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 #include <hyperion/utility.h>
-#include <hyperion/x/ColumnSpacePartition.h>
+#include <hyperion/ColumnSpacePartition.h>
 
-using namespace hyperion::x;
+using namespace hyperion;
 
 using namespace Legion;
 
@@ -49,7 +49,7 @@ const char* ColumnSpacePartition::create_task_ap_name =
   "x::ColumnSpacePartition::create_task_ap";
 
 struct CreateTaskAPArgs {
-  std::array<hyperion::AxisPartition, ColumnSpace::MAX_DIM> partition;
+  std::array<AxisPartition, ColumnSpace::MAX_DIM> partition;
   size_t partition_dim;
   IndexSpace column_space_is;
 };
@@ -64,7 +64,7 @@ ColumnSpacePartition::create_task_ap(
   const CreateTaskAPArgs* args =
     static_cast<const CreateTaskAPArgs*>(task->args);
   assert(regions.size() == 1);
-  std::vector<hyperion::AxisPartition> partition;
+  std::vector<AxisPartition> partition;
   partition.reserve(args->partition_dim);
   std::copy(
     args->partition.begin(),
@@ -78,7 +78,7 @@ ColumnSpacePartition::create(
   Context ctx,
   Runtime* rt,
   const ColumnSpace& column_space,
-  const std::vector<hyperion::AxisPartition>& partition) {
+  const std::vector<AxisPartition>& partition) {
 
   CreateTaskAPArgs args;
   args.column_space_is = column_space.column_is;
@@ -105,7 +105,7 @@ create_partition_on_axes(
   Context ctx,
   Runtime* rt,
   IndexSpaceT<IS_DIM> is,
-  const std::vector<hyperion::AxisPartition>& parts) {
+  const std::vector<AxisPartition>& parts) {
 
   // partition color space
   Rect<PART_DIM> cs_rect;
@@ -165,7 +165,7 @@ ColumnSpacePartition::create(
   Context ctx,
   Runtime *rt,
   const IndexSpace& column_space_is,
-  const std::vector<hyperion::AxisPartition>& partition,
+  const std::vector<AxisPartition>& partition,
   const PhysicalRegion& column_space_metadata_pr) {
 
   const ColumnSpace::AxisVectorAccessor<READ_ONLY>
@@ -179,19 +179,18 @@ ColumnSpacePartition::create(
         [auid=uid[0]](auto& p) { return p.axes_uid != auid; }))
     return ColumnSpacePartition();
 
-  std::vector<int> ds =
-    hyperion::map(partition, [](const auto& p) { return p.dim; });
-  if (!hyperion::has_unique_values(ds))
+  std::vector<int> ds = map(partition, [](const auto& p) { return p.dim; });
+  if (!has_unique_values(ds))
     return ColumnSpacePartition();
 
   std::vector<int> axes = ColumnSpace::from_axis_vector(av[0]);
-  auto dm = hyperion::dimensions_map(ds, axes);
-  std::vector<hyperion::AxisPartition> iparts;
+  auto dm = dimensions_map(ds, axes);
+  std::vector<AxisPartition> iparts;
   iparts.reserve(dm.size());
   for (size_t i = 0; i < dm.size(); ++i) {
     auto& part = partition[i];
     iparts.push_back(
-      hyperion::AxisPartition{part.axes_uid, dm[i], part.stride, part.offset,
+      AxisPartition{part.axes_uid, dm[i], part.stride, part.offset,
           part.extent, part.limits});
   }
 
@@ -242,7 +241,7 @@ const char* ColumnSpacePartition::create_task_bs_name =
   "x::ColumnSpacePartition::create_task_bs";
 
 struct CreateTaskBSArgs {
-  hyperion::string axes_uid;
+  string axes_uid;
   std::array<std::pair<int, coord_t>, ColumnSpace::MAX_DIM> block_sizes;
   size_t partition_dim;
   IndexSpace column_space_is;
@@ -318,13 +317,13 @@ ColumnSpacePartition::create(
   ds.reserve(block_sizes.size());
   for (auto& d_sz : block_sizes)
     ds.push_back(std::get<0>(d_sz));
-  auto dm = hyperion::dimensions_map(ds, axes);
+  auto dm = dimensions_map(ds, axes);
   assert(std::none_of(dm.begin(), dm.end(), [](auto& d) { return d < 0; }));
   auto cs_domain = rt->get_index_space_domain(column_space_is);
   auto cs_lo = cs_domain.lo();
   auto cs_hi = cs_domain.hi();
 
-  std::vector<hyperion::AxisPartition> partition;
+  std::vector<AxisPartition> partition;
   partition.reserve(block_sizes.size());
   for (size_t i = 0; i < block_sizes.size(); ++i) {
     auto& sz = std::get<1>(block_sizes[i]);

@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <hyperion/x/ColumnSpace.h>
-#include <hyperion/x/Column.h>
-#include <hyperion/x/Table.h>
+#include <hyperion/ColumnSpace.h>
+#include <hyperion/Column.h>
+#include <hyperion/Table.h>
 
-using namespace hyperion::x;
+using namespace hyperion;
 
 using namespace Legion;
 
 ColumnSpace::ColumnSpace(
-  const Legion::IndexSpace& column_is_,
-  const Legion::LogicalRegion& metadata_lr_)
+  const IndexSpace& column_is_,
+  const LogicalRegion& metadata_lr_)
   : column_is(column_is_)
   , metadata_lr(metadata_lr_) {
 }
@@ -288,7 +288,7 @@ compute_reindexed(
       ColumnSpace::REINDEXED_ROW_RECTS_FID);
 
     LayoutConstraintRegistrar lc(row_map_fs);
-    hyperion::add_row_major_order_constraint(lc, rows_is.get_dim())
+    add_row_major_order_constraint(lc, rows_is.get_dim())
       .add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
     // TODO: free LayoutConstraintID returned from following call...maybe
     // generate field spaces and constraints once at startup

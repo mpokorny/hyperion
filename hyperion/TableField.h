@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_X_TABLE_FIELD_H_
-#define HYPERION_X_TABLE_FIELD_H_
+#ifndef HYPERION_TABLE_FIELD_H_
+#define HYPERION_TABLE_FIELD_H_
 
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
@@ -28,7 +28,6 @@
 #endif
 
 namespace hyperion {
-namespace x {
 
 struct HYPERION_API TableField {
 
@@ -38,31 +37,30 @@ struct HYPERION_API TableField {
     TypeTag dt_,
     Legion::FieldID fid_,
 #ifdef HYPERION_USE_CASACORE
-    const hyperion::MeasRef& mr_,
-    const std::optional<hyperion::string>& rc_,
+    const MeasRef& mr_,
+    const std::optional<string>& rc_,
 #endif
-    const hyperion::Keywords& kw_)
-    : dt(dt_)
-    , fid(fid_)
+    const Keywords& kw_)
+  : dt(dt_)
+  , fid(fid_)
 #ifdef HYPERION_USE_CASACORE
-    , mr(mr_)
-    , rc(rc_)
+  , mr(mr_)
+  , rc(rc_)
 #endif
-    , kw(kw_) {}
+  , kw(kw_) {}
 
   TypeTag dt;
   Legion::FieldID fid;
 #ifdef HYPERION_USE_CASACORE
-  hyperion::MeasRef mr;
-  std::optional<hyperion::string> rc;
+  MeasRef mr;
+  std::optional<string> rc;
 #endif
-  hyperion::Keywords kw;
+  Keywords kw;
 };
 
-} // end namespace x
 } // end namespace hyperion
 
-#endif // HYPERION_X_TABLE_FIELD_H_
+#endif // HYPERION_TABLE_FIELD_H_
 
 // Local Variables:
 // mode: c++

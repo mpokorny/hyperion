@@ -13,16 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_X_TABLE_H_
-#define HYPERION_X_TABLE_H_
+#ifndef HYPERION_TABLE_H_
+#define HYPERION_TABLE_H_
 
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
-#include <hyperion/x/Column.h>
-#include <hyperion/x/ColumnSpace.h>
-#include <hyperion/x/ColumnSpacePartition.h>
-#include <hyperion/x/TableField.h>
-#include <hyperion/Table.h>
+#include <hyperion/Column.h>
+#include <hyperion/ColumnSpace.h>
+#include <hyperion/ColumnSpacePartition.h>
+#include <hyperion/TableField.h>
 
 #pragma GCC visibility push(default)
 # include <array>
@@ -35,7 +34,6 @@
 #pragma GCC visibility pop
 
 namespace hyperion {
-namespace x {
 
 enum class TableFieldsFid {
   NM,
@@ -56,24 +54,24 @@ struct TableFieldsType {
 };
 template<>
 struct TableFieldsType<TableFieldsFid::NM> {
-  typedef hyperion::string type;
+  typedef string type;
 };
 template<>
 struct TableFieldsType<TableFieldsFid::DT> {
-  typedef hyperion::TypeTag type;
+  typedef TypeTag type;
 };
 template<>
 struct TableFieldsType<TableFieldsFid::KW> {
-  typedef hyperion::Keywords type;
+  typedef Keywords type;
 };
 #ifdef HYPERION_USE_CASACORE
 template<>
 struct TableFieldsType<TableFieldsFid::MR> {
-  typedef hyperion::MeasRef type;
+  typedef MeasRef type;
 };
 template<>
 struct TableFieldsType<TableFieldsFid::RC> {
-  typedef hyperion::string type;
+  typedef string type;
 };
 #endif
 template<>
@@ -111,7 +109,7 @@ public:
   };
 
   struct columns_result_t {
-    typedef std::tuple<hyperion::string, TableField> tbl_fld_t;
+    typedef std::tuple<string, TableField> tbl_fld_t;
 
     std::vector<
       std::tuple<
@@ -194,8 +192,8 @@ public:
     Legion::Runtime* rt,
     const std::vector<
       std::pair<
-        ColumnSpace,
-        std::vector<std::pair<std::string, TableField>>>>& columns);
+      ColumnSpace,
+      std::vector<std::pair<std::string, TableField>>>>& columns);
 
   bool
   is_empty() const;
@@ -214,10 +212,10 @@ public:
   add_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<
+      const std::vector<
       std::pair<
-        ColumnSpace,
-        std::vector<std::pair<std::string, TableField>>>>& columns);
+      ColumnSpace,
+      std::vector<std::pair<std::string, TableField>>>>& columns);
 
   static add_columns_result_t
   add_columns(
@@ -228,7 +226,7 @@ public:
         ColumnSpace,
         std::pair<
           ssize_t,
-          std::vector<std::pair<hyperion::string, TableField>>>>>& columns,
+          std::vector<std::pair<string, TableField>>>>>& columns,
     const std::vector<Legion::LogicalRegion>& val_lrs,
     const Legion::PhysicalRegion& fields_pr,
     const std::vector<Legion::PhysicalRegion>& csp_md_prs);
@@ -267,61 +265,22 @@ public:
     const std::vector<Legion::IndexSpace>& csp_iss,
     const std::vector<Legion::PhysicalRegion>& csp_metadata_prs);
 
-  typedef Table convert_result_t;
-
-  static Legion::Future /* convert_result_t */
-  convert(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const hyperion::Table& table,
-    const std::unordered_map<std::string, Legion::FieldID> fids);
-
-  static convert_result_t
-  convert(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const std::unordered_map<std::string, Legion::FieldID>& fids,
-    const std::vector<Legion::IndexSpace>& col_values_iss,
-    const std::vector<
-      std::tuple<
-        Legion::PhysicalRegion,
-        Legion::PhysicalRegion,
-#ifdef HYPERION_USE_CASACORE
-        std::optional<hyperion::MeasRef::DataRegions>,
-#endif
-        std::optional<hyperion::Keywords::pair<Legion::PhysicalRegion>>>>&
-    col_prs);
-
   bool
   is_valid() const {
     return fields_lr != Legion::LogicalRegion::NO_REGION;
   }
 
-  void
-  copy_values_from(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const hyperion::Table& table) const;
-
-  static void
-  copy_values_from(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const Legion::PhysicalRegion& fields_pr,
-    const std::vector<
-      std::tuple<Legion::PhysicalRegion, Legion::PhysicalRegion>>& src_col_prs);
-
   typedef Table reindexed_result_t;
 
-  // 'allow_rows' is intended to support the case where reindexing may not
-  // result in a single value in a column per aggregate index, necessitating the
-  // maintenance of a row index. A value of 'true' for this argument is always
-  // safe, but may result in a degenerate axis when an aggregate index always
-  // identifies a single value in a column. If the value is 'false' and a
-  // non-degenerate axis is required by the reindexing, this method will return
-  // an empty value. TODO: remove degenerate axes after the fact, and do that
-  // automatically in this method, which would allow us to remove the
-  // 'allow_rows' argument.
+// 'allow_rows' is intended to support the case where reindexing may not
+// result in a single value in a column per aggregate index, necessitating the
+// maintenance of a row index. A value of 'true' for this argument is always
+// safe, but may result in a degenerate axis when an aggregate index always
+// identifies a single value in a column. If the value is 'false' and a
+// non-degenerate axis is required by the reindexing, this method will return
+// an empty value. TODO: remove degenerate axes after the fact, and do that
+// automatically in this method, which would allow us to remove the
+// 'allow_rows' argument.
   Legion::Future /* reindexed_result_t */
   reindexed(
     Legion::Context ctx,
@@ -420,20 +379,6 @@ protected:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static convert_result_t
-  convert_task(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime *rt);
-
-  static void
-  copy_values_from_task(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime *rt);
-
   static reindexed_result_t
   reindexed_task(
     const Legion::Task* task,
@@ -473,14 +418,6 @@ private:
 
   static const char* columns_task_name;
 
-  static Legion::TaskID convert_task_id;
-
-  static const char* convert_task_name;
-
-  static Legion::TaskID copy_values_from_task_id;
-
-  static const char* copy_values_from_task_name;
-
   static Legion::TaskID reindexed_task_id;
 
   static const char* reindexed_task_name;
@@ -494,10 +431,9 @@ private:
   static const char* reindex_copy_values_task_name;
 };
 
-} // end namespace x
 } // end namespace hyperion
 
-#endif // HYPERION_X_COLUMN_H_
+#endif // HYPERION_COLUMN_H_
 
 // Local Variables:
 // mode: c++

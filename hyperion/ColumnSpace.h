@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_X_COLUMN_SPACE_H_
-#define HYPERION_X_COLUMN_SPACE_H_
+#ifndef HYPERION_COLUMN_SPACE_H_
+#define HYPERION_COLUMN_SPACE_H_
 
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
@@ -27,7 +27,6 @@
 #pragma GCC visibility pop
 
 namespace hyperion {
-namespace x {
 
 struct HYPERION_API ColumnSpace {
 
@@ -46,7 +45,7 @@ struct HYPERION_API ColumnSpace {
       CHECK_BOUNDS>;
 
   static const constexpr Legion::FieldID AXIS_SET_UID_FID = 1;
-  typedef hyperion::string AXIS_SET_UID_TYPE;
+  typedef string AXIS_SET_UID_TYPE;
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using AxisSetUIDAccessor =
     Legion::FieldAccessor<
@@ -132,14 +131,7 @@ struct HYPERION_API ColumnSpace {
     const Legion::IndexSpace& column_is,
     bool is_index) {
 
-    return
-      create(
-        ctx,
-        rt,
-        hyperion::map_to_int(axes),
-        Axes<D>::uid,
-        column_is,
-        is_index);
+    return create(ctx, rt, map_to_int(axes), Axes<D>::uid, column_is, is_index);
   }
 
   static AXIS_VECTOR_TYPE
@@ -245,10 +237,9 @@ private:
   static const char* compute_row_mapping_task_name;
 };
 
-} // end namespace x
 } // end namespace hyperion
 
-#endif // HYPERION_X_COLUMN_SPACE_H_
+#endif // HYPERION_COLUMN_SPACE_H_
 
 // Local Variables:
 // mode: c++

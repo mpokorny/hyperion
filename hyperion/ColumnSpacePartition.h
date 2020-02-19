@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_X_COLUMN_SPACE_PARTITION_H_
-#define HYPERION_X_COLUMN_SPACE_PARTITION_H_
+#ifndef HYPERION_COLUMN_SPACE_PARTITION_H_
+#define HYPERION_COLUMN_SPACE_PARTITION_H_
 
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
-#include <hyperion/x/ColumnSpace.h>
+#include <hyperion/ColumnSpace.h>
 
 #pragma GCC visibility push(default)
 # include <array>
@@ -26,7 +26,6 @@
 #pragma GCC visibility pop
 
 namespace hyperion {
-namespace x {
 
 struct HYPERION_API ColumnSpacePartition {
 
@@ -36,15 +35,15 @@ struct HYPERION_API ColumnSpacePartition {
     const ColumnSpace& column_space_,
     const Legion::IndexPartition column_ip_,
     const std::array<AxisPartition, ColumnSpace::MAX_DIM>& partition_)
-    : column_space(column_space_)
-    , column_ip(column_ip_)
-    , partition(partition_) {
+  : column_space(column_space_)
+  , column_ip(column_ip_)
+  , partition(partition_) {
   }
 
   bool
   is_valid() const {
     return column_ip != Legion::IndexPartition::NO_PART
-      && column_space.is_valid();
+    && column_space.is_valid();
   }
 
   void
@@ -64,7 +63,7 @@ struct HYPERION_API ColumnSpacePartition {
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ColumnSpace& column_space,
-    const std::vector<hyperion::AxisPartition>& partition);
+    const std::vector<AxisPartition>& partition);
 
   static Legion::Future /* create_result_t */
   create(
@@ -94,7 +93,7 @@ struct HYPERION_API ColumnSpacePartition {
     Legion::Context ctx,
     Legion::Runtime *rt,
     const Legion::IndexSpace& column_space_is,
-    const std::vector<hyperion::AxisPartition>& partition,
+    const std::vector<AxisPartition>& partition,
     const Legion::PhysicalRegion& column_space_metadata_pr);
 
   static create_result_t
@@ -150,11 +149,9 @@ private:
   static const char* create_task_bs_name;
 
 };
-} // end namespace x
 } // end namespace hyperion
 
-
-#endif // HYPERION_X_COLUMN_SPACE_PARTITION_H_
+#endif // HYPERION_COLUMN_SPACE_PARTITION_H_
 
 // Local Variables:
 // mode: c++

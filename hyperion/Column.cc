@@ -15,43 +15,33 @@
  */
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
-#include <hyperion/x/Column.h>
+#include <hyperion/Column.h>
 
-using namespace hyperion::x;
+using namespace hyperion;
 
 using namespace Legion;
 
 template <typename T, int DIM, bool CHECK_BOUNDS=false>
 using ROAccessor =
   FieldAccessor<
-  READ_ONLY,
-  T,
-  DIM,
-  coord_t,
-  AffineAccessor<T, DIM, coord_t>,
-  CHECK_BOUNDS>;
-
-template <typename T, int DIM, bool CHECK_BOUNDS=false>
-using WDAccessor =
-  FieldAccessor<
-  WRITE_DISCARD,
-  T,
-  DIM,
-  coord_t,
-  AffineAccessor<T, DIM, coord_t>,
-  CHECK_BOUNDS>;
+    READ_ONLY,
+    T,
+    DIM,
+    coord_t,
+    AffineAccessor<T, DIM, coord_t>,
+    CHECK_BOUNDS>;
 
 template <typename T, int DIM, bool CHECK_BOUNDS=false>
 using WOAccessor =
   FieldAccessor<
-  WRITE_ONLY,
-  T,
-  DIM,
-  coord_t,
-  AffineAccessor<T, DIM, coord_t>,
-  CHECK_BOUNDS>;
+    WRITE_ONLY,
+    T,
+    DIM,
+    coord_t,
+    AffineAccessor<T, DIM, coord_t>,
+    CHECK_BOUNDS>;
 
-template <hyperion::TypeTag DT>
+template <TypeTag DT>
 static LogicalRegion
 index_column(
   Context ctx,
@@ -59,14 +49,14 @@ index_column(
   TaskID task_id,
   const RegionRequirement& col_req) {
 
-  typedef typename hyperion::DataType<DT>::ValueType T;
+  typedef typename DataType<DT>::ValueType T;
   static const constexpr size_t min_block_size = 10000;
 
   // launch index space task on input region to compute accumulator value
   std::vector<std::tuple<T, Column::COLUMN_INDEX_ROWS_TYPE>> acc;
   {
     IndexPartition ip =
-      hyperion::partition_over_all_cpus(
+      partition_over_all_cpus(
         ctx,
         rt,
         col_req.region.get_index_space(),
@@ -83,12 +73,11 @@ index_column(
       rt->execute_index_space(
         ctx,
         task,
-        hyperion::OpsManager::reduction_id(
-          hyperion::DataType<DT>::af_redop_id));
+        OpsManager::reduction_id(DataType<DT>::af_redop_id));
     rt->destroy_logical_partition(ctx, col_lp);
     rt->destroy_index_space(ctx, cs);
     rt->destroy_index_partition(ctx, ip);
-    acc = f.template get_result<typename hyperion::acc_field_redop_rhs<T>>().v;
+    acc = f.template get_result<typename acc_field_redop_rhs<T>>().v;
   }
 
   LogicalRegionT<1> result_lr;
@@ -96,12 +85,11 @@ index_column(
     auto result_fs = rt->create_field_space(ctx);
     {
       auto fa = rt->create_field_allocator(ctx, result_fs);
-      hyperion::add_field(DT, fa, Column::COLUMN_INDEX_VALUE_FID);
+      add_field(DT, fa, Column::COLUMN_INDEX_VALUE_FID);
       fa.allocate_field(
         sizeof(Column::COLUMN_INDEX_ROWS_TYPE),
         Column::COLUMN_INDEX_ROWS_FID,
-        hyperion::OpsManager::serdez_id(
-          hyperion::OpsManager::V_DOMAIN_POINT_SID));
+        OpsManager::serdez_id(OpsManager::V_DOMAIN_POINT_SID));
     }
     IndexSpaceT<1> result_is =
       rt->create_index_space(ctx, Rect<1>(0, acc.size() - 1));
@@ -164,10 +152,10 @@ acc_d_pts(FieldID fid, const DomainT<DIM>& dom, const PhysicalRegion& pr) {
   return result;
 }
 
-template <hyperion::TypeTag DT>
-std::map<typename hyperion::DataType<DT>::ValueType, std::vector<DomainPoint>>
+template <TypeTag DT>
+std::map<typename DataType<DT>::ValueType, std::vector<DomainPoint>>
 acc_pts(Runtime* rt, const RegionRequirement& req, const PhysicalRegion& pr) {
-  typedef typename hyperion::DataType<DT>::ValueType T;
+  typedef typename DataType<DT>::ValueType T;
   assert(req.privilege_fields.size() == 1);
   Legion::FieldID fid = *(req.privilege_fields.begin());
   IndexSpace is = req.region.get_index_space();
@@ -189,18 +177,17 @@ acc_pts(Runtime* rt, const RegionRequirement& req, const PhysicalRegion& pr) {
 
 #define INDEX_ACCUMULATE_TASK(DT)                                       \
   template <>                                                           \
-  hyperion::acc_field_redop_rhs<typename hyperion::DataType<DT>::ValueType> \
+  acc_field_redop_rhs<typename DataType<DT>::ValueType> \
   Column::index_accumulate_task<DT>(                                    \
     const Legion::Task* task,                                           \
     const std::vector<Legion::PhysicalRegion>& regions,                 \
     Legion::Context,                                                    \
     Legion::Runtime* rt) {                                              \
     std::map<                                                           \
-      typename hyperion::DataType<DT>::ValueType, \
+      typename DataType<DT>::ValueType, \
       std::vector<Legion::DomainPoint>> pts = \
       acc_pts<DT>(rt, task->regions[0], regions[0]);                    \
-    hyperion::acc_field_redop_rhs<hyperion::DataType<DT>::ValueType>    \
-      result;                                                           \
+    acc_field_redop_rhs<DataType<DT>::ValueType> result;                \
     result.v.reserve(pts.size());                                       \
     std::copy(pts.begin(), pts.end(), std::back_inserter(result.v));    \
     return result;                                                      \
@@ -208,7 +195,7 @@ acc_pts(Runtime* rt, const RegionRequirement& req, const PhysicalRegion& pr) {
 HYPERION_FOREACH_DATATYPE(INDEX_ACCUMULATE_TASK);
 #undef INDEX_ACCUMULATE_TASK
 
-template <hyperion::TypeTag DT>
+template <TypeTag DT>
 void
 Column::preregister_index_accumulate_task() {
   index_accumulate_task_id[(unsigned)DT] = Runtime::generate_static_task_id();
@@ -223,7 +210,7 @@ Column::preregister_index_accumulate_task() {
   registrar.set_idempotent();
   // registrar.set_replicable();
   Runtime::preregister_task_variant<
-    hyperion::acc_field_redop_rhs<typename hyperion::DataType<DT>::ValueType>,
+    acc_field_redop_rhs<typename DataType<DT>::ValueType>,
     index_accumulate_task<DT>>(
     registrar,
     index_accumulate_task_name[(unsigned)DT].c_str());

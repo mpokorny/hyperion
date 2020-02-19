@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 #include <hyperion/hyperion.h>
-#include <hyperion/x/Table.h>
+#include <hyperion/Table.h>
 
 #include <map>
 #include <unordered_set>
 
-using namespace hyperion::x;
+using namespace hyperion;
 
 using namespace Legion;
 
@@ -43,11 +43,11 @@ using namespace Legion;
   __FUNC__(TableFieldsFid::VS)
 #endif
 
-static const hyperion::string empty_nm;
-static const hyperion::Keywords empty_kw;
+static const string empty_nm;
+static const Keywords empty_kw;
 #ifdef HYPERION_USE_CASACORE
-static const hyperion::MeasRef empty_mr;
-static const hyperion::string empty_rc;
+static const MeasRef empty_mr;
+static const string empty_rc;
 #endif
 static const type_tag_t empty_dt = (type_tag_t) 0;
 static const FieldID empty_vf = 0;
@@ -352,13 +352,11 @@ Table::create(
     std::vector<
       std::pair<
         ColumnSpace,
-        std::pair<
-          ssize_t,
-          std::vector<std::pair<hyperion::string, TableField>>>>>
+        std::pair<ssize_t, std::vector<std::pair<string, TableField>>>>>
       hcols;
     for (size_t i = 0; i < columns.size(); ++i) {
       auto& [csp, nm_tfs] = columns[i];
-      std::vector<std::pair<hyperion::string, TableField>> htfs;
+      std::vector<std::pair<string, TableField>> htfs;
       for (auto& [nm, tf]: nm_tfs)
         htfs.emplace_back(nm, tf);
       hcols.emplace_back(csp, std::make_pair(i, htfs));
@@ -383,7 +381,7 @@ Table::create(
         csp,
         std::make_pair(
           csp_md_prs.size() - 1,
-          std::vector<std::pair<hyperion::string, TableField>>()));
+          std::vector<std::pair<string, TableField>>()));
     }
 
     added =
@@ -509,7 +507,7 @@ const char* Table::add_columns_task_name = "x::Table::add_columns_task";
 
 struct AddColumnsTaskArgs {
   std::array<
-    std::tuple<ColumnSpace, size_t, hyperion::string, TableField>,
+    std::tuple<ColumnSpace, size_t, string, TableField>,
     Table::MAX_COLUMNS> columns;
   std::array<LogicalRegion, Table::MAX_COLUMNS> vlrs;
 };
@@ -525,7 +523,7 @@ Table::add_columns_task(
     static_cast<const AddColumnsTaskArgs*>(task->args);
   std::map<
     ColumnSpace,
-    std::pair<ssize_t, std::vector<std::pair<hyperion::string, TableField>>>>
+    std::pair<ssize_t, std::vector<std::pair<string, TableField>>>>
     columns;
   {
     size_t i = 0;
@@ -536,7 +534,7 @@ Table::add_columns_task(
           columns[csp] =
             std::make_pair(
               idx,
-              std::vector<std::pair<hyperion::string, TableField>>());
+              std::vector<std::pair<string, TableField>>());
         columns[csp].second.emplace_back(nm, tf);
       } else {
         break;
@@ -559,9 +557,7 @@ Table::add_columns_task(
   std::vector<
     std::pair<
       ColumnSpace,
-      std::pair<
-        ssize_t,
-        std::vector<std::pair<hyperion::string, TableField>>>>>
+      std::pair<ssize_t, std::vector<std::pair<string, TableField>>>>>
     colv(columns.begin(), columns.end());
   return add_columns(ctx, rt, colv, vlrs, fields_pr, csp_md_prs);
 }
@@ -618,11 +614,11 @@ Table::add_columns(
       }
       auto idx = current_csp_idxs[csp];
       for (auto& [nm, tf]: nm_tfs)
-        args.columns[i++] = std::make_tuple(csp, idx, hyperion::string(nm), tf);
+        args.columns[i++] = std::make_tuple(csp, idx, string(nm), tf);
     }
     if (i < MAX_COLUMNS)
       args.columns[i] =
-        std::make_tuple(ColumnSpace(), -1, hyperion::string(), TableField());
+        std::make_tuple(ColumnSpace(), -1, string(), TableField());
   }
   for (auto& req : reqs)
     task.add_region_requirement(req);
@@ -638,7 +634,7 @@ Table::add_columns(
       ColumnSpace,
       std::pair<
         ssize_t,
-        std::vector<std::pair<hyperion::string, TableField>>>>>& new_columns,
+        std::vector<std::pair<string, TableField>>>>>& new_columns,
   const std::vector<LogicalRegion>& vlrs,
   const PhysicalRegion& fields_pr,
   const std::vector<PhysicalRegion>& csp_md_prs) {
@@ -799,7 +795,7 @@ Table::add_columns(
         switch(tf.dt) {
 #define ALLOC_FLD(DT)                                                   \
           case DT:                                                      \
-            fa.allocate_field(hyperion::DataType<DT>::serdez_size, tf.fid); \
+            fa.allocate_field(DataType<DT>::serdez_size, tf.fid); \
             break;
           HYPERION_FOREACH_DATATYPE(ALLOC_FLD)
 #undef ALLOC_FLD
@@ -1048,7 +1044,7 @@ Table::columns(Runtime *rt, const PhysicalRegion& fields_pr) {
 #ifdef HYPERION_USE_CASACORE
             mrs[*pid],
             ((rcs[*pid].size() > 0)
-             ? std::make_optional<hyperion::string>(rcs[*pid])
+             ? std::make_optional<string>(rcs[*pid])
              : std::nullopt),
 #endif
             kws[*pid]));
@@ -1180,414 +1176,12 @@ Table::partition_rows(
   return result;
 }
 
-TaskID Table::convert_task_id;
-
-const char* Table::convert_task_name = "x::Table::convert_task";
-
-struct ConvertTaskArgs {
-  size_t num_cols;
-  std::array<IndexSpace, Table::MAX_COLUMNS> values_iss;
-  std::array<std::pair<hyperion::string, FieldID>, Table::MAX_COLUMNS> fids;
-#ifdef HYPERION_USE_CASACORE
-  std::array<unsigned, Table::MAX_COLUMNS> mr_sz;
-#endif
-  std::array<unsigned, Table::MAX_COLUMNS> kw_sz;
-};
-
-Table::convert_result_t
-Table::convert_task(
-  const Task* task,
-  const std::vector<PhysicalRegion>& regions,
-  Context ctx,
-  Runtime *rt) {
-
-  const ConvertTaskArgs* args = static_cast<const ConvertTaskArgs*>(task->args);
-  assert(regions.size() ==
-#ifdef HYPERION_USE_CASACORE
-         std::accumulate(
-           args->mr_sz.begin(),
-           args->mr_sz.begin() + args->num_cols,
-           0)
-         +
-#endif
-         std::accumulate(
-           args->kw_sz.begin(),
-           args->kw_sz.begin() + args->num_cols,
-           0)
-         + 2 * args->num_cols);
-
-  std::unordered_map<std::string, FieldID> fids;
-  std::vector<IndexSpace> values_iss;
-  values_iss.reserve(args->num_cols);
-  std::vector<
-    std::tuple<
-      PhysicalRegion,
-      PhysicalRegion,
-#ifdef HYPERION_USE_CASACORE
-      std::optional<hyperion::MeasRef::DataRegions>,
-#endif
-      std::optional<hyperion::Keywords::pair<PhysicalRegion>>>> col_prs;
-  col_prs.reserve(args->num_cols);
-  size_t rg = 0;
-  for (size_t i = 0; i < args->num_cols; ++i) {
-    auto& [nm, fid] = args->fids[i];
-    fids[nm] = fid;
-    values_iss.push_back(args->values_iss[i]);
-    PhysicalRegion md = regions[rg++];
-    PhysicalRegion ax = regions[rg++];
-    std::optional<hyperion::Keywords::pair<PhysicalRegion>> kw;
-#ifdef HYPERION_USE_CASACORE
-    std::optional<hyperion::MeasRef::DataRegions> mr;
-    if (args->mr_sz[i] > 0) {
-      assert(args->mr_sz[i] <= 3);
-      hyperion::MeasRef::DataRegions drs;
-      drs.metadata = regions[rg++];
-      drs.values = regions[rg++];
-      if (args->mr_sz[i] > 2)
-        drs.index = regions[rg++];
-      mr = drs;
-    }
-#endif
-    if (args->kw_sz[i] > 0) {
-      assert(args->kw_sz[i] == 2);
-      PhysicalRegion tt = regions[rg++];
-      PhysicalRegion vals = regions[rg++];
-      kw = hyperion::Keywords::pair<PhysicalRegion>{tt, vals};
-    }
-    col_prs.emplace_back(
-      md,
-      ax,
-#ifdef HYPERION_USE_CASACORE
-      mr,
-#endif
-      kw);
-  }
-  return convert(ctx, rt, fids, values_iss, col_prs);
-}
-
-Future /* convert_result_t */
-Table::convert(
-  Context ctx,
-  Runtime* rt,
-  const hyperion::Table& table,
-  const std::unordered_map<std::string, FieldID> fids) {
-
-  PhysicalRegion cols_pr;
-  {
-    RegionRequirement
-      req(table.columns_lr, READ_ONLY, EXCLUSIVE, table.columns_lr);
-    req.add_field(hyperion::Table::COLUMNS_FID);
-    cols_pr = rt->map_region(ctx, req);
-  }
-  const hyperion::Table::ColumnsAccessor<READ_ONLY>
-    cols(cols_pr, hyperion::Table::COLUMNS_FID);
-  bool missing_fid = false;
-  ConvertTaskArgs args;
-  args.num_cols = 0;
-  std::vector<RegionRequirement> reqs;
-  for (PointInDomainIterator<1> pid(
-         rt->get_index_space_domain(
-           cols_pr.get_logical_region().get_index_space()));
-       !missing_fid && pid();
-       pid++) {
-    const hyperion::Column& col = cols[*pid];
-    RegionRequirement
-      req(col.metadata_lr, READ_ONLY, EXCLUSIVE, col.metadata_lr);
-    req.add_field(hyperion::Column::METADATA_NAME_FID);
-    auto md_pr = rt->map_region(ctx, req);
-    const hyperion::Column::NameAccessor<READ_ONLY>
-      nm(md_pr, hyperion::Column::METADATA_NAME_FID);
-    missing_fid = fids.count(nm[0]) == 0;
-    if (!missing_fid) {
-      args.fids[args.num_cols] = std::make_pair(nm[0], fids.at(nm[0]));
-      args.values_iss[args.num_cols] = col.values_lr.get_index_space();
-      reqs.emplace_back(col.metadata_lr, READ_ONLY, EXCLUSIVE, col.metadata_lr);
-      reqs.emplace_back(col.axes_lr, READ_ONLY, EXCLUSIVE, col.axes_lr);
-#ifdef HYPERION_USE_CASACORE
-      if (!col.meas_ref.is_empty()) {
-        auto [mrq, vrq, oirq] = col.meas_ref.requirements(READ_ONLY);
-        reqs.push_back(mrq);
-        reqs.push_back(vrq);
-        args.mr_sz[args.num_cols] = 2;
-        if (oirq) {
-          reqs.push_back(oirq.value());
-          args.mr_sz[args.num_cols] = 3;
-        }
-      } else {
-        args.mr_sz[args.num_cols] = 0;
-      }
-#endif
-      if (!col.keywords.is_empty()) {
-        reqs.emplace_back(
-          col.keywords.type_tags_lr,
-          READ_ONLY,
-          EXCLUSIVE,
-          col.keywords.type_tags_lr);
-        reqs.emplace_back(
-          col.keywords.values_lr,
-          READ_ONLY,
-          EXCLUSIVE,
-          col.keywords.values_lr);
-        args.kw_sz[args.num_cols] = 2;
-      } else {
-        args.kw_sz[args.num_cols] = 0;
-      }
-    }
-    rt->unmap_region(ctx, md_pr);
-    ++args.num_cols;
-  }
-  rt->unmap_region(ctx, cols_pr);
-
-  if (args.num_cols == 0 || missing_fid)
-    return Future::from_value(rt, convert_result_t());
-
-  TaskLauncher task(convert_task_id, TaskArgument(&args, sizeof(args)));
-  for (auto& r : reqs)
-    task.add_region_requirement(r);
-  return rt->execute_task(ctx, task);
-}
-
-Table::convert_result_t
-Table::convert(
-  Context ctx,
-  Runtime* rt,
-  const std::unordered_map<std::string, FieldID>& fids,
-  const std::vector<IndexSpace>& col_values_iss,
-  const std::vector<
-    std::tuple<
-      PhysicalRegion,
-      PhysicalRegion,
-#ifdef HYPERION_USE_CASACORE
-      std::optional<hyperion::MeasRef::DataRegions>,
-#endif
-      std::optional<hyperion::Keywords::pair<PhysicalRegion>>>>& col_prs) {
-
-  // Collect columns that share the same axis vectors. This ought to be
-  // sufficient for the creation of common ColumnSpaces -- since all of the
-  // given columns are associated with a single Table to begin with, a fixed
-  // axis order ensures that the shapes of the index spaces are the same for all
-  // the columns with that axis order.
-  std::map<
-    std::vector<int>,
-    std::tuple<
-      IndexSpace,
-      std::vector<std::pair<std::string, TableField>>>> tbl_flds;
-  std::optional<std::string> axes_uid;
-  for (size_t i = 0; i < col_prs.size(); ++i) {
-#ifdef HYPERION_USE_CASACORE
-    auto& [md_pr, ax_pr, o_mr_drs, o_kw_pair] = col_prs[i];
-#else
-    auto& [md_pr, ax_pr, o_kw_pair] = col_prs[i];
-#endif
-    IndexSpaceT<1> is(ax_pr.get_logical_region().get_index_space());
-    DomainT<1> dom = rt->get_index_space_domain(is);
-    std::vector<int> axes(Domain(dom).hi()[0] + 1);
-    const hyperion::Column::AxesAccessor<READ_ONLY>
-      ax(ax_pr, hyperion::Column::AXES_FID);
-    for (PointInDomainIterator<1> pid(dom); pid(); pid++)
-      axes[pid[0]] = ax[*pid];
-    const hyperion::Column::NameAccessor<READ_ONLY>
-      nm(md_pr, hyperion::Column::METADATA_NAME_FID);
-    const hyperion::Column::DatatypeAccessor<READ_ONLY>
-      dt(md_pr, hyperion::Column::METADATA_DATATYPE_FID);
-    const hyperion::Column::RefColAccessor<READ_ONLY>
-      rc(md_pr, hyperion::Column::METADATA_REF_COL_FID);
-    if (!axes_uid) {
-      const hyperion::Column::AxesUidAccessor<READ_ONLY>
-        uid(md_pr, hyperion::Column::METADATA_AXES_UID_FID);
-      axes_uid = uid[0];
-    }
-    std::string name(nm[0]);
-    auto nm_tf =
-      std::make_pair(
-        name,
-        TableField(
-          dt[0],
-          fids.at(name),
-#ifdef HYPERION_USE_CASACORE
-          (o_mr_drs
-           ? hyperion::MeasRef::clone(ctx, rt, o_mr_drs.value())
-           : hyperion::MeasRef()),
-          ((rc[0].size() > 0)
-           ? std::make_optional<hyperion::string>(rc[0])
-           : std::nullopt),
-#endif
-          (o_kw_pair
-           ? hyperion::Keywords::clone(ctx, rt, o_kw_pair.value())
-           : hyperion::Keywords())));
-    if (tbl_flds.count(axes) == 0) {
-      // use a cloned copy of the column values IndexSpace to avoid ambiguity of
-      // responsibility for cleanup
-      tbl_flds[axes] =
-        std::make_tuple(
-          rt->create_index_space(
-            ctx,
-            rt->get_index_space_domain(
-              ctx,
-              col_values_iss[i])),
-          std::vector{nm_tf});
-    } else {
-      std::get<1>(tbl_flds[axes]).push_back(nm_tf);
-    }
-  }
-  std::vector<
-    std::pair<
-      ColumnSpace,
-      std::vector<std::pair<std::string, TableField>>>> columns;
-  for (auto& [ax, is_tfs] : tbl_flds) {
-    auto& [is, tfs] = is_tfs;
-    // TODO: it's assumed here that the columns are not index columns...may want
-    // to change this
-    columns.emplace_back(
-      ColumnSpace::create(ctx, rt, ax, axes_uid.value(), is, false),
-      tfs);
-  }
-  return Table::create(ctx, rt, columns);
-}
-
-struct CopyValuesFromTaskArgs {
-  size_t num_value_prs;
-};
-
-TaskID Table::copy_values_from_task_id;
-
-const char* Table::copy_values_from_task_name =
-  "x::Table::copy_values_from_task";
-
-void
-Table::copy_values_from_task(
-  const Task* task,
-  const std::vector<PhysicalRegion>& regions,
-  Context ctx,
-  Runtime *rt) {
-
-  const CopyValuesFromTaskArgs *args =
-    static_cast<const CopyValuesFromTaskArgs*>(task->args);
-  size_t num_dst_regions = 1 + args->num_value_prs;
-  assert((regions.size() >= num_dst_regions)
-         && ((regions.size() - num_dst_regions) % 2 == 0));
-  auto fields_pr = regions[0];
-  // note that we're receiving unmapped PhysicalRegions for the value regions,
-  // so write permissions are set, and the writing occurs in a child (copy) task
-  std::vector<std::tuple<PhysicalRegion, PhysicalRegion>> src_col_prs;
-  for (size_t i = num_dst_regions; i < regions.size(); ++i)
-    src_col_prs.emplace_back(regions[i], regions[i + 1]);
-  copy_values_from(ctx, rt, fields_pr, src_col_prs);
-}
-
-void
-Table::copy_values_from(
-  Context ctx,
-  Runtime* rt,
-  const hyperion::Table& table) const {
-
-  CopyValuesFromTaskArgs args;
-  std::vector<RegionRequirement> reqs;
-  std::vector<LogicalRegion> vlrs;
-  {
-    RegionRequirement req = table_fields_requirement(fields_lr, READ_ONLY);
-    {
-      auto pr = rt->map_region(ctx, req);
-      const ValuesAccessor<READ_ONLY>
-        vss(pr, static_cast<FieldID>(TableFieldsFid::VS));
-      for (PointInDomainIterator<1> pid(
-             rt->get_index_space_domain(fields_lr.get_index_space()));
-           pid();
-        pid++) {
-        if (vss[*pid] != empty_vs) {
-          auto lr = std::find(vlrs.begin(), vlrs.end(), vss[*pid]);
-          if (lr == vlrs.end())
-            vlrs.push_back(vss[*pid]);
-        }
-      }
-      rt->unmap_region(ctx, pr);
-    }
-    reqs.push_back(req);
-  }
-  args.num_value_prs = vlrs.size();
-  for (auto& vlr : vlrs) {
-    std::vector<FieldID> fids;
-    rt->get_field_space_fields(ctx, vlr.get_field_space(), fids);
-    RegionRequirement req(vlr, WRITE_ONLY, EXCLUSIVE, vlr);
-    // this region requires permissions, but can remain unmapped
-    req.add_fields(fids, false);
-    reqs.push_back(req);
-  }
-  {
-    RegionRequirement
-      cols_req(table.columns_lr, READ_ONLY, EXCLUSIVE, table.columns_lr);
-    cols_req.add_field(hyperion::Table::COLUMNS_FID);
-    auto pr = rt->map_region(ctx, cols_req);
-    const hyperion::Table::ColumnsAccessor<READ_ONLY>
-      cols_pr(pr, hyperion::Table::COLUMNS_FID);
-    for (PointInDomainIterator<1> pid(
-           rt->get_index_space_domain(table.columns_lr.get_index_space()));
-         pid();
-         pid++) {
-      auto col = cols_pr[*pid];
-      reqs.emplace_back(
-        col.metadata_lr,
-        std::set{hyperion::Column::METADATA_NAME_FID},
-        std::vector{hyperion::Column::METADATA_NAME_FID},
-        READ_ONLY,
-        EXCLUSIVE,
-        col.metadata_lr);
-      reqs.emplace_back(
-        col.values_lr,
-        std::set{hyperion::Column::VALUE_FID},
-        std::vector{hyperion::Column::VALUE_FID},
-        READ_ONLY,
-        EXCLUSIVE,
-        col.values_lr);
-    }
-    rt->unmap_region(ctx, pr);
-  }
-  TaskLauncher task(
-    copy_values_from_task_id,
-    TaskArgument(&args, sizeof(args)));
-  for (auto& r : reqs)
-    task.add_region_requirement(r);
-  rt->execute_task(ctx, task);
-}
-
-void
-Table::copy_values_from(
-  Context ctx,
-  Runtime* rt,
-  const PhysicalRegion& fields_pr,
-  const std::vector<std::tuple<PhysicalRegion, PhysicalRegion>>& src_col_prs) {
-
-  std::unordered_map<std::string, Column> dst_cols =
-    column_map(columns(rt, fields_pr), WRITE_ONLY);
-  RegionRequirement src_req(
-    LogicalRegion::NO_REGION,
-    {hyperion::Column::VALUE_FID},
-    {hyperion::Column::VALUE_FID},
-    READ_ONLY,
-    EXCLUSIVE,
-    LogicalRegion::NO_REGION);
-  CopyLauncher copy;
-  unsigned n = 0;
-  for (size_t i = 0; i < src_col_prs.size(); ++i) {
-    auto& [md_pr, src_vals_pr] = src_col_prs[i];
-    const hyperion::Column::NameAccessor<READ_ONLY>
-      nm(md_pr, hyperion::Column::METADATA_NAME_FID);
-    if (dst_cols.count(nm[0]) > 0) {
-      ++n;
-      src_req.region = src_req.parent = src_vals_pr.get_logical_region();
-      copy.add_copy_requirements(src_req, dst_cols[nm[0]].vreq);
-    }
-  }
-  if (n > 0)
-    rt->issue_copy_operation(ctx, copy);
-}
-
 TaskID Table::reindexed_task_id;
 
 const char* Table::reindexed_task_name = "x::Table::reindexed_task";
 
 struct ReindexedTaskArgs {
-  std::array<std::pair<int, hyperion::string>, Table::MAX_COLUMNS> index_axes;
+  std::array<std::pair<int, string>, Table::MAX_COLUMNS> index_axes;
   bool allow_rows;
   char columns_buffer[]; // serialized Table::columns_result_t
 };
@@ -1734,7 +1328,7 @@ Table::reindexed(
       std::fill(
         e,
         args->index_axes.end(),
-        std::make_pair(-1, hyperion::string()));
+        std::make_pair(-1, string()));
     }
     args->allow_rows = allow_rows;
 
@@ -1751,7 +1345,7 @@ Table::reindexed(
 }
 
 struct ReindexCopyValuesTaskArgs {
-  hyperion::TypeTag dt;
+  TypeTag dt;
   FieldID fid;
 };
 
@@ -2055,7 +1649,7 @@ Table::reindexed(
           rctlr = std::get<1>(reindexed[col.csp]);
           IndexSpace ris = rctlr.get_index_space();
           IndexPartition rip =
-            hyperion::partition_over_all_cpus(ctx, rt, ris, min_block_size);
+            partition_over_all_cpus(ctx, rt, ris, min_block_size);
           cs = rt->get_index_partition_color_space_name(ctx, rip);
           rctlp = rt->get_logical_partition(ctx, rctlr, rip);
           IndexPartition dip =
@@ -2139,22 +1733,22 @@ TaskID Table::reindex_copy_values_task_id;
 const char* Table::reindex_copy_values_task_name =
   "x::Table::reindex_copy_values_task";
 
-template <hyperion::TypeTag DT, int DIM>
+template <TypeTag DT, int DIM>
 using SA = FieldAccessor<
   READ_ONLY,
-  typename hyperion::DataType<DT>::ValueType,
+  typename DataType<DT>::ValueType,
   DIM,
   coord_t,
-  AffineAccessor<typename hyperion::DataType<DT>::ValueType, DIM, coord_t>,
+  AffineAccessor<typename DataType<DT>::ValueType, DIM, coord_t>,
   true>;
 
-template <hyperion::TypeTag DT, int DIM>
+template <TypeTag DT, int DIM>
 using DA = FieldAccessor<
   WRITE_ONLY,
-  typename hyperion::DataType<DT>::ValueType,
+  typename DataType<DT>::ValueType,
   DIM,
   coord_t,
-  AffineAccessor<typename hyperion::DataType<DT>::ValueType, DIM, coord_t>,
+  AffineAccessor<typename DataType<DT>::ValueType, DIM, coord_t>,
   true>;
 
 template <int DDIM, int RDIM>
@@ -2166,7 +1760,7 @@ using RA = FieldAccessor<
   AffineAccessor<Rect<DDIM>, RDIM, coord_t>,
   true>;
 
-template <hyperion::TypeTag DT>
+template <TypeTag DT>
 static void
 reindex_copy_values(
   Runtime *rt,
@@ -2289,29 +1883,6 @@ Table::preregister_tasks() {
       partition_rows_task>(
       registrar,
       partition_rows_task_name);
-  }
-  {
-    // convert_task
-    convert_task_id = Runtime::generate_static_task_id();
-    TaskVariantRegistrar
-      registrar(convert_task_id, convert_task_name);
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.set_idempotent();
-    registrar.set_leaf();
-    Runtime::preregister_task_variant<convert_result_t, convert_task>(
-      registrar,
-      convert_task_name);
-  }
-  {
-    // copy_values_from_task
-    copy_values_from_task_id = Runtime::generate_static_task_id();
-    TaskVariantRegistrar
-      registrar(copy_values_from_task_id, copy_values_from_task_name);
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.set_idempotent();
-    Runtime::preregister_task_variant<copy_values_from_task>(
-      registrar,
-      copy_values_from_task_name);
   }
   {
     // reindexed_task
