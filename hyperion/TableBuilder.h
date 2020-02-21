@@ -252,7 +252,10 @@ protected:
     std::optional<std::string> result;
     std::shared_ptr<ColumnBuilder<D>> scol = std::move(col);
     assert(scol->num_rows() == m_num_rows);
-    assert(m_columns.count(scol->name()) == 0);
+    if (m_columns.count(scol->name()) > 0) {
+      // this can happen if columns share a measure reference column
+      return std::nullopt;
+    }
     m_columns[scol->name()] = scol;
     auto mr = get_meas_refs(table, scol->name());
     if (mr) {
@@ -318,7 +321,6 @@ public:
     bool select_all = column_selections.count("*") > 0;
     for (auto& nm : column_names) {
       if (tdesc.isColumn(nm)
-          && element_axes.count(nm) > 0
           && (select_all || (column_selections.count(nm) > 0))) {
         auto col = tdesc[nm];
         if (col.isScalar() || (col.isArray() && col.ndim() >= 0))
@@ -356,24 +358,29 @@ public:
       actual_column_selections.end(),
       [&table, &result, &tdesc, &element_axes, &array_names, &unreserved_fid]
       (auto& nm) {
-        auto axes = element_axes.at(nm);
-        auto cdesc = tdesc[nm];
         std::optional<std::string> refcol;
         auto c = MSTableColumns<D>::lookup_col(nm);
-        assert(c.has_value());
-        unsigned fid = MSTableColumns<D>::fid(c.value());
-        switch (cdesc.dataType()) {
-#define ADD_FROM_TCOL(DT)                                               \
-          case DataType<DT>::CasacoreTypeTag:                           \
-            refcol =                                                    \
-              result.template add_from_table_column<DT>(                \
-                table, nm, fid, axes, array_names);                     \
-            break;
-          HYPERION_FOREACH_DATATYPE(ADD_FROM_TCOL);
+        // "c" will be empty if "nm" belongs to a measure reference column (all
+        // of which either are undocumented in the MS standard and therefore are
+        // unknown to hyperion, or have been intentionally omitted in
+        // MSTableColumns data values)
+        if (c) {
+          auto axes = element_axes.at(nm);
+          auto cdesc = tdesc[nm];
+          unsigned fid = MSTableColumns<D>::fid(c.value());
+          switch (cdesc.dataType()) {
+#define ADD_FROM_TCOL(DT)                                   \
+            case DataType<DT>::CasacoreTypeTag:             \
+              refcol =                                      \
+                result.template add_from_table_column<DT>(  \
+                  table, nm, fid, axes, array_names);       \
+              break;
+            HYPERION_FOREACH_DATATYPE(ADD_FROM_TCOL);
 #undef ADD_FROM_TCOL
-        default:
-          assert(false);
-          break;
+          default:
+            assert(false);
+            break;
+          }
         }
         if (refcol) {
           auto rc =
@@ -381,7 +388,7 @@ public:
               table,
               refcol.value(),
               unreserved_fid++,
-              {static_cast<Axes>(0)},
+              {},
               array_names);
           assert(!rc);
         }
