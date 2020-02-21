@@ -303,22 +303,15 @@ public:
     rt->destroy_index_space(ctx, table_names_lr.get_index_space());
     rt->destroy_logical_region(ctx, table_names_lr);
 
-    std::vector<Table> tables;
+    std::vector<std::pair<std::string, Table>> tables;
     for (auto& tn : table_names) {
       CXX_FILESYSTEM_NAMESPACE::path path;
       if (tn != "MAIN")
         path = ms / tn;
       else
         path = ms;
-      auto result = Table::from_ms(ctx, rt, path, {"*"});
-      auto colnames = result.column_names(ctx, rt);
-      TableReadTask
-        table_read_task(
-          path,
-          result,
-          colnames.begin(),
-          colnames.end(),
-          100000);
+      auto result = from_ms(ctx, rt, path, {"*"});
+      TableReadTask table_read_task(path, std::get<1>(result), 100000);
       table_read_task.dispatch(ctx, rt);
       tables.push_back(std::move(result));
     }
@@ -328,13 +321,21 @@ public:
     hid_t fid = H5DatatypeManager::create(h5.c_str(), H5F_ACC_EXCL);
     assert(fid >= 0);
 
-    for (auto& t : tables) {
-      hdf5::write_table(ctx, rt, h5, fid, t);
+    hid_t root = H5Gopen(fid, "/", H5P_DEFAULT);
+    for (auto& [nm, t] : tables) {
+      hid_t tid =
+        H5Gcreate(root, nm.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      assert(tid >= 0);
+      hdf5::write_table(ctx, rt, tid, t);
+      herr_t err = H5Gclose(tid);
+      assert(err >= 0);
       t.destroy(ctx, rt);
     }
 
-    herr_t rc = H5Fclose(fid);
-    assert(rc >= 0);
+    herr_t err = H5Gclose(root);
+    assert(err >= 0);
+    err = H5Fclose(fid);
+    assert(err >= 0);
   }
 
   static void

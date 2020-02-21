@@ -95,10 +95,6 @@ hyperion::get_meas_refs(
                   << std::endl;
         assert(false);
       }
-      // FIXME: must find a way to propagate i2c, i2t, and refcol back to the
-      // caller, and into a Column. Will need a way to handle unexpected
-      // reference columns in an MS, too, as refcols can apparently be
-      // undocumented.
       std::vector<unsigned> i2c;
       auto vrc = mi.fieldNumber("VarRefCol");
       if (vrc >= 0) {

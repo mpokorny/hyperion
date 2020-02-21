@@ -18,8 +18,8 @@
 
 #include <hyperion/utility.h>
 #include <hyperion/tree_index_space.h>
-#include <hyperion/x/Table.h>
-#include <hyperion/x/ColumnSpacePartition.h>
+#include <hyperion/Table.h>
+#include <hyperion/ColumnSpacePartition.h>
 
 // #ifdef HYPERION_USE_CASACORE
 // # include <hyperion/MeasRefContainer.h>
@@ -150,7 +150,7 @@ PhysicalRegion
 attach_table0_col(
   Context context,
   Runtime* runtime,
-  const x::Column& col,
+  const Column& col,
   unsigned *base) {
 
   const Memory local_sysmem =
@@ -184,7 +184,7 @@ bool
 verify_xyz(
   Context ctx,
   Runtime *rt,
-  const x::Column& col,
+  const Column& col,
   IndexSpace& is,
   PhysicalRegion pr,
   unsigned *ary) {
@@ -202,7 +202,7 @@ bool
 verify_w(
   Context ctx,
   Runtime *rt,
-  const x::Column& col,
+  const Column& col,
   IndexSpace& is,
   PhysicalRegion pr,
   unsigned *ary) {
@@ -266,7 +266,7 @@ table_test_suite(
 
   auto xyz_is = rt->create_index_space(ctx, Rect<1>(0, TABLE0_NUM_ROWS - 1));
   auto xyz_space =
-    x::ColumnSpace::create(
+    ColumnSpace::create(
       ctx,
       rt,
       std::vector<Table0Axes>{Table0Axes::ROW},
@@ -284,7 +284,7 @@ table_test_suite(
     w_is = tree_index_space(wtree, ctx, rt);
   }
   auto w_space =
-    x::ColumnSpace::create(
+    ColumnSpace::create(
       ctx,
       rt,
       std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::W},
@@ -311,35 +311,35 @@ table_test_suite(
 //     table0_col("Y", col_measures["Y"]),
 //     table0_col("Z", col_measures["Z"], "EPOCH")
 //   };
-  std::vector<std::pair<std::string, x::TableField>> xyz_fields{
+  std::vector<std::pair<std::string, TableField>> xyz_fields{
     {"X",
-     x::TableField(HYPERION_TYPE_UINT, COL_X, MeasRef(), std::nullopt, Keywords())},
+     TableField(HYPERION_TYPE_UINT, COL_X, MeasRef(), std::nullopt, Keywords())},
     {"Y",
-     x::TableField(HYPERION_TYPE_UINT, COL_Y, MeasRef(), std::nullopt, Keywords())},
+     TableField(HYPERION_TYPE_UINT, COL_Y, MeasRef(), std::nullopt, Keywords())},
     {"Z",
-     x::TableField(HYPERION_TYPE_UINT, COL_Z, MeasRef(), std::nullopt, Keywords())}
+     TableField(HYPERION_TYPE_UINT, COL_Z, MeasRef(), std::nullopt, Keywords())}
   };
-  std::vector<std::pair<std::string, x::TableField>> w_fields{
+  std::vector<std::pair<std::string, TableField>> w_fields{
     {"W",
-     x::TableField(HYPERION_TYPE_UINT, COL_W, MeasRef(), std::nullopt, Keywords())}
+     TableField(HYPERION_TYPE_UINT, COL_W, MeasRef(), std::nullopt, Keywords())}
   };
 #else
-  std::vector<std::pair<std::string, x::TableField>> xyz_fields{
+  std::vector<std::pair<std::string, TableField>> xyz_fields{
     {"X",
-     x::TableField(HYPERION_TYPE_UINT, COL_X, Keywords())},
+     TableField(HYPERION_TYPE_UINT, COL_X, Keywords())},
     {"Y",
-     x::TableField(HYPERION_TYPE_UINT, COL_Y, Keywords())},
+     TableField(HYPERION_TYPE_UINT, COL_Y, Keywords())},
     {"Z",
-     x::TableField(HYPERION_TYPE_UINT, COL_Z, Keywords())}
+     TableField(HYPERION_TYPE_UINT, COL_Z, Keywords())}
   };
-  std::vector<std::pair<std::string, x::TableField>> w_fields{
+  std::vector<std::pair<std::string, TableField>> w_fields{
     {"W",
-     x::TableField(HYPERION_TYPE_UINT, COL_W, Keywords())}
+     TableField(HYPERION_TYPE_UINT, COL_W, Keywords())}
   };
 #endif
 
   auto table0 =
-    x::Table::create(ctx, rt, {{xyz_space, xyz_fields}, {w_space, w_fields}});
+    Table::create(ctx, rt, {{xyz_space, xyz_fields}, {w_space, w_fields}});
 
 // #ifdef HYPERION_USE_CASACORE
 //   recorder.expect_true(
@@ -362,8 +362,8 @@ table_test_suite(
 
   {
     auto cols =
-      x::Table::column_map(
-        table0.columns(ctx, rt).get<x::Table::columns_result_t>());
+      Table::column_map(
+        table0.columns(ctx, rt).get<Table::columns_result_t>());
     std::unordered_map<std::string, unsigned*> col_arrays{
       {"W", table0_w},
       {"X", table0_x},
@@ -405,16 +405,16 @@ table_test_suite(
       constexpr unsigned NUM_PARTS = 3;
       constexpr unsigned BLOCK_SZ = TABLE0_NUM_ROWS / NUM_PARTS;
       auto xyz_part =
-        x::ColumnSpacePartition::create(
+        ColumnSpacePartition::create(
           ctx,
           rt,
           xyz_space,
           std::vector<std::pair<Table0Axes,coord_t>>{
             {Table0Axes::ROW, BLOCK_SZ}})
-        .get<x::ColumnSpacePartition>();
+        .get<ColumnSpacePartition>();
       auto w_part =
         xyz_part.project_onto(ctx, rt, w_space)
-        .get<x::ColumnSpacePartition>();
+        .get<ColumnSpacePartition>();
 
       for (unsigned p = 0; p < NUM_PARTS; ++p) {
         {
@@ -473,16 +473,16 @@ table_test_suite(
       constexpr unsigned NUM_PARTS =
         (TABLE0_NUM_W_COLS + (BLOCK_SZ - 1)) / BLOCK_SZ;
       auto w_part =
-        x::ColumnSpacePartition::create(
+        ColumnSpacePartition::create(
           ctx,
           rt,
           w_space,
           std::vector<std::pair<Table0Axes,coord_t>>{
             {Table0Axes::W, BLOCK_SZ}})
-        .get<x::ColumnSpacePartition>();
+        .get<ColumnSpacePartition>();
       auto xyz_part =
         w_part.project_onto(ctx, rt, xyz_space)
-        .get<x::ColumnSpacePartition>();
+        .get<ColumnSpacePartition>();
       for (unsigned p = 0; p < NUM_PARTS; ++p) {
         {
           auto w_p_is = rt->get_index_subspace(w_part.column_ip, p);
@@ -535,8 +535,7 @@ table_test_suite(
   table0.remove_columns(ctx, rt, {"W"}, false);
   {
     auto cols =
-      x::Table::column_map(
-        table0.columns(ctx, rt).get<x::Table::columns_result_t>());
+      Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());
     recorder.expect_true(
       "Column 'W' successfully removed from table",
       TE(cols.find("W") == cols.end()));
@@ -549,8 +548,7 @@ table_test_suite(
   table0.remove_columns(ctx, rt, {"X", "Z"});
   {
     auto cols =
-      x::Table::column_map(
-        table0.columns(ctx, rt).get<x::Table::columns_result_t>());
+      Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());
     recorder.expect_true(
       "Columns 'X' and 'Z' successfully removed from table",
       TE(cols.find("X") == cols.end()
@@ -562,8 +560,7 @@ table_test_suite(
   table0.add_columns(ctx, rt, {{w_space, w_fields}});
   {
     auto cols =
-      x::Table::column_map(
-        table0.columns(ctx, rt).get<x::Table::columns_result_t>());
+      Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());
     recorder.expect_true(
       "Column 'W' successfully added to table",
       TE(cols.find("W") != cols.end()));
@@ -572,8 +569,7 @@ table_test_suite(
   table0.add_columns(ctx, rt, {{xyz_space, xyz_fields}});
   {
     auto cols =
-      x::Table::column_map(
-        table0.columns(ctx, rt).get<x::Table::columns_result_t>());
+      Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());
     recorder.expect_true(
       "Columns 'X' and 'Z' successfully added to table",
       TE(cols.find("X") != cols.end()

@@ -18,8 +18,8 @@
 #include <hyperion/testing/TestExpression.h>
 
 #include <hyperion/hdf5.h>
-#include <hyperion/x/Table.h>
-#include <hyperion/x/Column.h>
+#include <hyperion/Table.h>
+#include <hyperion/Column.h>
 
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
@@ -151,7 +151,7 @@ PhysicalRegion
 attach_table0_col(
   Context context,
   Runtime* runtime,
-  const x::Column& col,
+  const Column& col,
   unsigned *base) {
 
   const Memory local_sysmem =
@@ -194,45 +194,40 @@ struct other_index_tree_serdez {
 
 void
 test_index_tree_attribute(
-  hid_t fid,
-  const std::string& dataset_name,
   testing::TestRecorder<READ_WRITE>& recorder,
-  const IndexTreeL& tree,
-  const std::string& tree_name) {
+  hid_t grp_id,
+  const std::string& attr_name,
+  const IndexTreeL& tree) {
 
-  write_index_tree_to_attr<binary_index_tree_serdez>(
-    tree,
-    fid,
-    dataset_name,
-    tree_name);
+  write_index_tree_to_attr<binary_index_tree_serdez>(grp_id, attr_name, tree);
 
-  hid_t ds = H5Dopen(fid, dataset_name.c_str(), H5P_DEFAULT);
-  assert(ds >= 0);
-  auto tree_md = read_index_tree_attr_metadata(ds, tree_name.c_str());
+  auto tree_md = read_index_tree_attr_metadata(grp_id, attr_name.c_str());
   recorder.assert_true(
-    std::string("IndexTree attribute ") + tree_name + " metadata exists",
+    std::string("IndexTree attribute ") + attr_name + " metadata exists",
     tree_md.has_value());
   recorder.expect_true(
-    std::string("IndexTree attribute ") + tree_name
+    std::string("IndexTree attribute ") + attr_name
     + " metadata has expected serializer id",
     TE(std::string(tree_md.value())) == binary_index_tree_serdez::id);
   auto optTree =
-    read_index_tree_from_attr<binary_index_tree_serdez>(ds, tree_name.c_str());
+    read_index_tree_from_attr<binary_index_tree_serdez>(
+      grp_id,
+      attr_name.c_str());
   recorder.assert_true(
-    std::string("IndexTree attribute ") + tree_name + " value exists",
+    std::string("IndexTree attribute ") + attr_name + " value exists",
     optTree.has_value());
   recorder.expect_true(
-    std::string("IndexTree attribute ") + tree_name + " has expected value",
+    std::string("IndexTree attribute ") + attr_name + " has expected value",
     TE(optTree.value()) == tree);
 
   auto optTree_bad =
-    read_index_tree_from_attr<other_index_tree_serdez>(ds, tree_name.c_str());
+    read_index_tree_from_attr<other_index_tree_serdez>(
+      grp_id,
+      attr_name.c_str());
   recorder.expect_false(
-    std::string("Failure to read IndexTree attribute ") + tree_name
+    std::string("Failure to read IndexTree attribute ") + attr_name
     + " with incorrect deserializer",
     optTree_bad.has_value());
-  herr_t err = H5Dclose(ds);
-  assert(err >= 0);
 }
 
 void
@@ -245,33 +240,21 @@ tree_tests(testing::TestRecorder<READ_WRITE>& recorder) {
     hid_t fid =
       H5Fcreate(fname.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     assert(fid >= 0);
-    hsize_t sz = 1000;
-    hid_t dsp = H5Screate_simple(1, &sz, &sz);
-    assert(dsp >= 0);
-    std::string dataset_name = "Albert";
-    hid_t dset =
-      H5Dcreate(
-        fid,
-        dataset_name.c_str(),
-        H5T_NATIVE_DOUBLE,
-        dsp,
-        H5P_DEFAULT,
-        H5P_DEFAULT,
-        H5P_DEFAULT);
-    assert(dset >= 0);
-    H5Dclose(dset);
+    hid_t gid =
+      H5Gcreate(fid, "Albert", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    assert(gid >= 0);
 
     test_index_tree_attribute(
-      fid,
-      dataset_name,
       recorder,
-      IndexTreeL(HYPERION_LARGE_TREE_MIN / 2 + 1),
-      "small-tree");
+      gid,
+      "small-tree",
+      IndexTreeL(HYPERION_LARGE_TREE_MIN / 2 + 1));
 
     IndexTreeL tree1(4);
     while (tree1.serialized_size() < HYPERION_LARGE_TREE_MIN)
       tree1 = IndexTreeL({{0, 1, tree1}});
-    test_index_tree_attribute(fid, dataset_name, recorder, tree1, "large-tree");
+    test_index_tree_attribute(recorder, gid, "large-tree", tree1);
+    H5Gclose(gid);
 
     H5Fclose(fid);
     unlink(fname.c_str());
@@ -349,7 +332,7 @@ table_tests(
   
   auto xy_is = rt->create_index_space(ctx, Rect<1>(0, TABLE0_NUM_ROWS - 1));
   auto xy_space =
-    x::ColumnSpace::create(
+    ColumnSpace::create(
       ctx,
       rt,
       std::vector<Table0Axes>{Table0Axes::ROW},
@@ -361,7 +344,7 @@ table_tests(
       ctx,
       Rect<2>(Point<2>(0, 0), Point<2>(TABLE0_NUM_ROWS - 1, 1)));
   auto z_space =
-    x::ColumnSpace::create(
+    ColumnSpace::create(
       ctx,
       rt,
       std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP},
@@ -374,34 +357,34 @@ table_tests(
     direction(casacore::MDirection::J2000);
   auto columnX_direction = MeasRef::create(ctx, rt, direction);
   auto columnZ_epoch = MeasRef::create(ctx, rt, utc);
-  std::vector<std::pair<std::string, x::TableField>> xy_fields{
+  std::vector<std::pair<std::string, TableField>> xy_fields{
     {"X",
-     x::TableField(HYPERION_TYPE_UINT, COL_X,
-                   columnX_direction, std::nullopt, Keywords())},
+     TableField(HYPERION_TYPE_UINT, COL_X,
+                columnX_direction, std::nullopt, Keywords())},
     {"Y",
-     x::TableField(HYPERION_TYPE_UINT, COL_Y,
-                   MeasRef(), std::nullopt, Keywords())}
+     TableField(HYPERION_TYPE_UINT, COL_Y,
+                MeasRef(), std::nullopt, Keywords())}
   };
-  std::vector<std::pair<std::string, x::TableField>> z_fields{
+  std::vector<std::pair<std::string, TableField>> z_fields{
     {"Z",
-     x::TableField(HYPERION_TYPE_UINT, COL_Z,
-                   columnZ_epoch, std::nullopt, Keywords())}
+     TableField(HYPERION_TYPE_UINT, COL_Z,
+                columnZ_epoch, std::nullopt, Keywords())}
   };
 #else
-  std::vector<std::pair<std::string, x::TableField>> xy_fields{
-    {"X", x::TableField(HYPERION_TYPE_UINT, COL_X, Keywords())},
-    {"Y", x::TableField(HYPERION_TYPE_UINT, COL_Y, Keywords())}
+  std::vector<std::pair<std::string, TableField>> xy_fields{
+    {"X", TableField(HYPERION_TYPE_UINT, COL_X, Keywords())},
+    {"Y", TableField(HYPERION_TYPE_UINT, COL_Y, Keywords())}
   };
-  std::vector<std::pair<std::string, x::TableField>> z_fields{
-    {"Z", x::TableField(HYPERION_TYPE_UINT, COL_Z, Keywords())}
+  std::vector<std::pair<std::string, TableField>> z_fields{
+    {"Z", TableField(HYPERION_TYPE_UINT, COL_Z, Keywords())}
   };
 #endif
 
   auto tb0 =
-    x::Table::create(ctx, rt, {{xy_space, xy_fields}, {z_space, z_fields}});
+    Table::create(ctx, rt, {{xy_space, xy_fields}, {z_space, z_fields}});
   auto cols0 =
-    x::Table::column_map(
-      tb0.columns(ctx, rt).get<x::Table::columns_result_t>());
+    Table::column_map(
+      tb0.columns(ctx, rt).get<Table::columns_result_t>());
 
   int fd = mkstemp(fname.data());
   assert(fd != -1);
@@ -418,7 +401,7 @@ table_tests(
         hid_t t1_loc =
           H5Gcreate(fid, "/table1", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
         assert(t1_loc >= 0);
-        write_xtable(ctx, rt, t1_loc, tb0);
+        write_table(ctx, rt, t1_loc, tb0);
         H5Gclose(t1_loc);
         root_loc = H5Gopen(fid, "/", H5P_DEFAULT);
         assert(root_loc >= 0);
@@ -438,15 +421,15 @@ table_tests(
         attach_table0_col(ctx, rt, cols0.at(cstr), col0_arrays.at(cstr));
     }
 
-    auto [tb1, tb1_paths] = init_xtable(ctx, rt, root_loc, "table1");
+    auto [tb1, tb1_paths] = init_table(ctx, rt, root_loc, "table1");
 
     // read back metadata
     recorder.assert_false(
       "Table initialized from HDF5 is not empty",
       TE(tb1.is_empty()));
     auto cols1 =
-      x::Table::column_map(
-        tb1.columns(ctx, rt).get<x::Table::columns_result_t>());
+      Table::column_map(
+        tb1.columns(ctx, rt).get<Table::columns_result_t>());
     {
       recorder.assert_true(
         "Column X logically recreated",
@@ -533,7 +516,7 @@ table_tests(
     }
     {
       auto pr =
-        attach_xtable_columns(
+        attach_table_columns(
           ctx,
           rt,
           fname,
@@ -552,7 +535,7 @@ table_tests(
         tb1_paths.begin(), tb1_paths.end());
       some_paths.erase("X");
       auto pr =
-        attach_xtable_columns(
+        attach_table_columns(
           ctx,
           rt,
           fname,
@@ -567,7 +550,7 @@ table_tests(
         TE(pr.has_value()));
     }
     auto tb1_xy_pr =
-      attach_xtable_columns(
+      attach_table_columns(
         ctx,
         rt,
         fname,
@@ -581,7 +564,7 @@ table_tests(
       "Attach X and Y columns in HDF5 file",
       TE(tb1_xy_pr.has_value()));
     auto tb1_z_pr =
-      attach_xtable_columns(
+      attach_table_columns(
         ctx,
         rt,
         fname,
@@ -636,12 +619,12 @@ table_tests(
     fid = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
     assert(fid >= 0);
     root_loc = H5Gopen(fid, "/", H5P_DEFAULT);
-    auto [tb1, tb1_paths] = init_xtable(ctx, rt, root_loc, "table1");
+    auto [tb1, tb1_paths] = init_table(ctx, rt, root_loc, "table1");
     auto cols1 =
-      x::Table::column_map(
-        tb1.columns(ctx, rt).get<x::Table::columns_result_t>());
+      Table::column_map(
+        tb1.columns(ctx, rt).get<Table::columns_result_t>());
     auto tb1_xy_pr =
-      attach_xtable_columns(
+      attach_table_columns(
         ctx,
         rt,
         fname,
@@ -655,7 +638,7 @@ table_tests(
       "Re-attached X and Y columns in HDF5 file",
       TE(tb1_xy_pr.has_value()));
     auto tb1_z_pr =
-      attach_xtable_columns(
+      attach_table_columns(
         ctx,
         rt,
         fname,

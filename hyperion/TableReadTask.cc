@@ -15,13 +15,206 @@
  */
 #include <hyperion/TableReadTask.h>
 
-#pragma GCC visibility push(default)
-# include <algorithm>
-#pragma GCC visibility pop
+#include <casacore/casa/aipstype.h>
+#include <casacore/casa/Arrays.h>
+
+#include <algorithm>
 
 using namespace hyperion;
 
 using namespace Legion;
+
+template <typename T>
+static inline void
+init_rect(
+  const casacore::Array<T> array,
+  casacore::IPosition& start,
+  casacore::IPosition& end) {
+
+  start = 0;
+  end = array.shape();
+  auto ndim = array.shape().size();
+  for (unsigned i = 0; i < ndim; ++i)
+    end[i] -= 1;
+}
+
+template <int DIM, hyperion::TypeTag DT>
+static void
+read_scalar_column(
+  const casacore::Table& table,
+  const casacore::ColumnDesc& col_desc,
+  DomainT<DIM> reg_domain,
+  const PhysicalRegion& region,
+  FieldID fid) {
+
+  typedef typename DataType<DT>::ValueType T;
+  typedef typename DataType<DT>::CasacoreType CT;
+
+  typedef FieldAccessor<
+    WRITE_ONLY,
+    T,
+    DIM,
+    coord_t,
+    AffineAccessor<T, DIM, coord_t>,
+    false> ValueAccessor;
+
+  const ValueAccessor values(region, fid);
+
+  casacore::ScalarColumn<CT> col(table, col_desc.name());
+  coord_t row_number;
+  CT col_value;
+  {
+    PointInDomainIterator<DIM> pid(reg_domain, false);
+    row_number = pid[0];
+    col.get(row_number, col_value);
+  }
+
+  for (PointInDomainIterator<DIM> pid(reg_domain, false);
+       pid();
+       pid++) {
+    if (row_number != pid[0]) {
+      row_number = pid[0];
+      col.get(row_number, col_value);
+    }
+    DataType<DT>::from_casacore(values[*pid], col_value);
+  }
+}
+
+template <int DIM, hyperion::TypeTag DT>
+static void
+read_array_column(
+  const casacore::Table& table,
+  const casacore::ColumnDesc& col_desc,
+  DomainT<DIM> reg_domain,
+  const PhysicalRegion& region,
+  FieldID fid) {
+
+  typedef typename DataType<DT>::ValueType T;
+  typedef typename DataType<DT>::CasacoreType CT;
+
+  typedef FieldAccessor<
+    WRITE_ONLY,
+    T,
+    DIM,
+    coord_t,
+    AffineAccessor<T, DIM, coord_t>,
+    false> ValueAccessor;
+
+  const ValueAccessor values(region, fid);
+
+  casacore::ArrayColumn<CT> col(table, col_desc.name());
+  coord_t row_number;
+  unsigned array_cell_rank;
+  {
+    PointInDomainIterator<DIM> pid(reg_domain, false);
+    row_number = pid[0];
+    array_cell_rank = col.ndim(row_number);
+  }
+
+  casacore::Array<CT> col_array;
+  col.get(row_number, col_array, true);
+  switch (array_cell_rank) {
+  case 1: {
+    casacore::Vector<CT> col_vector;
+    col_vector.reference(col_array);
+    for (PointInDomainIterator<DIM> pid(reg_domain, false);
+         pid();
+         pid++) {
+      if (row_number != pid[0]) {
+        row_number = pid[0];
+        col.get(row_number, col_array, true);
+        col_vector.reference(col_array);
+      }
+      DataType<DT>::from_casacore(values[*pid], col_vector[pid[DIM - 1]]);
+    }
+    break;
+  }
+  case 2: {
+    casacore::IPosition ip(2);
+    casacore::Matrix<CT> col_matrix;
+    col_matrix.reference(col_array);
+    for (PointInDomainIterator<DIM> pid(reg_domain, false);
+         pid();
+         pid++) {
+      if (row_number != pid[0]) {
+        row_number = pid[0];
+        col.get(row_number, col_array, true);
+        col_matrix.reference(col_array);
+      }
+      ip[0] = pid[DIM - 1];
+      ip[1] = pid[DIM - 2];
+      DataType<DT>::from_casacore(values[*pid], col_matrix(ip));
+    }
+    break;
+  }
+  case 3: {
+    casacore::IPosition ip(3);
+    casacore::Cube<CT> col_cube;
+    col_cube.reference(col_array);
+    for (PointInDomainIterator<DIM> pid(reg_domain, false);
+         pid();
+         pid++) {
+      if (row_number != pid[0]) {
+        row_number = pid[0];
+        col.get(row_number, col_array, true);
+        col_cube.reference(col_array);
+      }
+      ip[0] = pid[DIM - 1];
+      ip[1] = pid[DIM - 2];
+      ip[2] = pid[DIM - 3];
+      DataType<DT>::from_casacore(values[*pid], col_cube(ip));
+    }
+    break;
+  }
+  default: {
+    casacore::IPosition ip(array_cell_rank);
+    for (PointInDomainIterator<DIM> pid(reg_domain, false);
+         pid();
+         pid++) {
+      if (row_number != pid[0]) {
+        row_number = pid[0];
+        col.get(row_number, col_array, true);
+      }
+      for (unsigned i = 0; i < array_cell_rank; ++i)
+        ip[i] = pid[DIM - i - 1];
+      DataType<DT>::from_casacore(values[*pid], col_array(ip));
+    }
+    break;
+  }
+  }
+}
+
+template <int DIM>
+static void
+read_column(
+  const casacore::Table& table,
+  const casacore::ColumnDesc& col_desc,
+  hyperion::TypeTag dt,
+  DomainT<DIM> reg_domain,
+  const PhysicalRegion& region,
+  FieldID fid) {
+
+  switch (dt) {
+#define READ_COL(DT)                                                    \
+    case DT:                                                            \
+      switch (col_desc.trueDataType()) {                                \
+      case DataType<DT>::CasacoreTypeTag:                               \
+        read_scalar_column<DIM, DT>(table, col_desc, reg_domain, region, fid); \
+        break;                                                          \
+      case DataType<DT>::CasacoreArrayTypeTag:                          \
+        read_array_column<DIM, DT>(table, col_desc, reg_domain, region, fid); \
+        break;                                                          \
+      default:                                                          \
+        assert(false);                                                  \
+      }                                                                 \
+      break;
+    HYPERION_FOREACH_DATATYPE(READ_COL);
+#undef READ_COL
+    default:
+      assert(false);
+      break;
+  }
+}
 
 TaskID TableReadTask::TASK_ID = 0;
 const char* TableReadTask::TASK_NAME = "TableReadTask";
@@ -35,58 +228,66 @@ TableReadTask::preregister_task() {
   Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
 }
 
+struct TableReadTaskArgs {
+  char table_path[1024];
+  FieldID fid;
+  hyperion::TypeTag dt;
+  hyperion::string nm;
+};
+
 void
 TableReadTask::dispatch(Context ctx, Runtime* rt) {
 
-  RegionRequirement
-    req(m_table.columns_lr, READ_ONLY, EXCLUSIVE, m_table.columns_lr);
-  req.add_field(Table::COLUMNS_FID);
-  auto tcol = rt->map_region(ctx, req);
-
-  if (!Table::is_empty(ctx, rt, tcol)) {
-
-    auto c = Table::min_rank_column(ctx, rt, tcol);
-    auto blockp =
-      c.partition_on_axes(ctx, rt, {std::make_tuple(0, m_block_length)});
+  if (!m_table.is_empty()) {
+    auto columns =
+      m_table.columns(ctx, rt).get_result<Table::columns_result_t>();
+    // N.B: MS table columns always have a ROW index, and tables have no index
+    // columns
+    auto i0dom =
+      rt->get_index_space_domain(std::get<0>(columns.fields.front()).column_is);
+    auto i0sz = i0dom.hi()[0] - i0dom.lo()[0] + 1;
+    size_t num_subregions =
+      std::max(
+        rt->select_tunable_value(
+          ctx,
+          Mapping::DefaultMapper::DefaultTunables::DEFAULT_TUNABLE_GLOBAL_IOS)
+        .get_result<size_t>(),
+        1ul);
+    num_subregions = min_divisor(i0sz, m_min_block_length, num_subregions);
+    auto block_length = (i0sz + num_subregions - 1) / num_subregions;
+    auto csps =
+      m_table
+      .partition_rows(ctx, rt, {std::make_optional(block_length)})
+      .get_result<Table::partition_rows_result_t>();
 
     TableReadTaskArgs args;
     assert(m_table_path.size() < sizeof(args.table_path));
     std::strcpy(args.table_path, m_table_path.c_str());
-
-    for (auto& colname : m_colnames)  {
-      auto column = Table::column(ctx, rt, tcol, colname);
-      if (!column.is_empty()) {
-        auto cp = column.projected_column_partition(ctx, rt, blockp);
-        auto lp =
-          rt->get_logical_partition(ctx, column.values_lr, cp.index_partition);
-        auto launcher =
-          IndexTaskLauncher(
-            TASK_ID,
-            rt->get_index_partition_color_space(cp.index_partition),
-            TaskArgument(&args, sizeof(args)),
-            ArgumentMap());
-        {
-          RegionRequirement
-            req(lp, 0, WRITE_ONLY, EXCLUSIVE, column.values_lr);
-          req.add_field(Column::VALUE_FID);
-          launcher.add_region_requirement(req);
-        }
-        {
-          RegionRequirement
-            req(column.metadata_lr, READ_ONLY, EXCLUSIVE, column.metadata_lr);
-          req.add_field(Column::METADATA_NAME_FID);
-          req.add_field(Column::METADATA_DATATYPE_FID);
-          launcher.add_region_requirement(req);
-        }
+    for (auto& [cs, vlr, nm_tflds] : columns.fields)  {
+      auto csp = csps.find(cs).value(); // optional should not be empty; hard
+                                        // fail o.w. is intentional
+      auto lp = rt->get_logical_partition(ctx, vlr, csp.column_ip);
+      auto launcher =
+        IndexTaskLauncher(
+          TASK_ID,
+          rt->get_index_partition_color_space(csp.column_ip),
+          TaskArgument(&args, sizeof(args)),
+          ArgumentMap());
+      for (auto& [nm, tfld] : nm_tflds) {
+        launcher.region_requirements.clear();
+        RegionRequirement req(lp, 0, WRITE_ONLY, EXCLUSIVE, vlr);
+        req.add_field(tfld.fid);
+        launcher.add_region_requirement(req);
+        args.fid = tfld.fid;
+        args.dt = tfld.dt;
+        args.nm = nm;
         rt->execute_index_space(ctx, launcher);
-        // FIXME: enable
-        // rt->destroy_logical_partition(ctx, lp);
-        // cp.destroy(ctx, rt);
       }
+      rt->destroy_logical_partition(ctx, lp);
     }
-    blockp.destroy(ctx, rt);
+    for (auto& csp : csps.partitions)
+      csp.destroy(ctx, rt);
   }
-  rt->unmap_region(ctx, tcol);
 }
 
 void
@@ -102,20 +303,17 @@ TableReadTask::base_impl(
     args->table_path,
     casacore::TableLock::PermanentLockingWait);
   auto tdesc = table.tableDesc();
-  const Column::NameAccessor<READ_ONLY>
-    name(regions[1], Column::METADATA_NAME_FID);
-  const Column::DatatypeAccessor<READ_ONLY>
-    datatype(regions[1], Column::METADATA_DATATYPE_FID);
-  auto cdesc = tdesc[std::string(name[0])];
+  auto cdesc = tdesc[std::string(args->nm)];
   switch (regions[0].get_logical_region().get_index_space().get_dim()) {
 #if LEGION_MAX_DIM >= 1
   case 1:
     read_column<1>(
       table,
       cdesc,
-      datatype[0],
+      args->dt,
       rt->get_index_space_domain(task->regions[0].region.get_index_space()),
-      regions[0]);
+      regions[0],
+      args->fid);
     break;
 #endif
 #if LEGION_MAX_DIM >= 2
@@ -123,9 +321,10 @@ TableReadTask::base_impl(
     read_column<2>(
       table,
       cdesc,
-      datatype[0],
+      args->dt,
       rt->get_index_space_domain(task->regions[0].region.get_index_space()),
-      regions[0]);
+      regions[0],
+      args->fid);
     break;
 #endif
 #if LEGION_MAX_DIM >= 3
@@ -133,9 +332,10 @@ TableReadTask::base_impl(
     read_column<3>(
       table,
       cdesc,
-      datatype[0],
+      args->dt,
       rt->get_index_space_domain(task->regions[0].region.get_index_space()),
-      regions[0]);
+      regions[0],
+      args->fid);
     break;
 #endif
 #if LEGION_MAX_DIM >= 4
@@ -143,9 +343,10 @@ TableReadTask::base_impl(
     read_column<4>(
       table,
       cdesc,
-      datatype[0],
+      args->dt,
       rt->get_index_space_domain(task->regions[0].region.get_index_space()),
-      regions[0]);
+      regions[0],
+      args->fid);
     break;
 #endif
   default:

@@ -17,6 +17,8 @@
 #include <hyperion/utility.h>
 #include <hyperion/Column.h>
 
+#include <mappers/default_mapper.h>
+
 using namespace hyperion;
 
 using namespace Legion;
@@ -41,7 +43,7 @@ using WOAccessor =
     AffineAccessor<T, DIM, coord_t>,
     CHECK_BOUNDS>;
 
-template <TypeTag DT>
+template <hyperion::TypeTag DT>
 static LogicalRegion
 index_column(
   Context ctx,
@@ -56,11 +58,12 @@ index_column(
   std::vector<std::tuple<T, Column::COLUMN_INDEX_ROWS_TYPE>> acc;
   {
     IndexPartition ip =
-      partition_over_all_cpus(
+      partition_over_default_tunable(
         ctx,
         rt,
         col_req.region.get_index_space(),
-        min_block_size);
+        min_block_size,
+        Mapping::DefaultMapper::DefaultTunables::DEFAULT_TUNABLE_GLOBAL_CPUS);
     IndexSpace cs = rt->get_index_partition_color_space_name(ctx, ip);
     LogicalPartition col_lp =
       rt->get_logical_partition(ctx, col_req.region, ip);
@@ -69,7 +72,7 @@ index_column(
     task.add_region_requirement(
       RegionRequirement(col_lp, 0, READ_ONLY, EXCLUSIVE, col_req.region));
     task.add_field(0, *col_req.privilege_fields.begin());
-    auto f =
+    Future f =
       rt->execute_index_space(
         ctx,
         task,
@@ -77,7 +80,7 @@ index_column(
     rt->destroy_logical_partition(ctx, col_lp);
     rt->destroy_index_space(ctx, cs);
     rt->destroy_index_partition(ctx, ip);
-    acc = f.template get_result<typename acc_field_redop_rhs<T>>().v;
+    acc = f.get_result<acc_field_redop_rhs<T>>().v;
   }
 
   LogicalRegionT<1> result_lr;
@@ -152,7 +155,7 @@ acc_d_pts(FieldID fid, const DomainT<DIM>& dom, const PhysicalRegion& pr) {
   return result;
 }
 
-template <TypeTag DT>
+template <hyperion::TypeTag DT>
 std::map<typename DataType<DT>::ValueType, std::vector<DomainPoint>>
 acc_pts(Runtime* rt, const RegionRequirement& req, const PhysicalRegion& pr) {
   typedef typename DataType<DT>::ValueType T;
@@ -195,7 +198,7 @@ acc_pts(Runtime* rt, const RegionRequirement& req, const PhysicalRegion& pr) {
 HYPERION_FOREACH_DATATYPE(INDEX_ACCUMULATE_TASK);
 #undef INDEX_ACCUMULATE_TASK
 
-template <TypeTag DT>
+template <hyperion::TypeTag DT>
 void
 Column::preregister_index_accumulate_task() {
   index_accumulate_task_id[(unsigned)DT] = Runtime::generate_static_task_id();

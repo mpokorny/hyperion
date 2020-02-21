@@ -17,9 +17,9 @@
 #include <hyperion/testing/TestRecorder.h>
 
 #include <hyperion/utility.h>
-#include <hyperion/x/Table.h>
-#include <hyperion/x/Column.h>
-#include <hyperion/x/ColumnSpace.h>
+#include <hyperion/Table.h>
+#include <hyperion/Column.h>
+#include <hyperion/ColumnSpace.h>
 
 #include <algorithm>
 #include <memory>
@@ -125,41 +125,8 @@ unsigned table0_y[TABLE0_NUM_ROWS] {
 unsigned table0_z[TABLE0_NUM_ROWS] {
                    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
 
-Column::Generator
-table0_col(
-  const std::string& name
-#ifdef HYPERION_USE_CASACORE
-  , const std::optional<MeasRef>& measure
-#endif
-  ) {
-  return
-    [=](Context ctx, Runtime* rt, const std::string& name_prefix) {
-#ifdef HYPERION_USE_CASACORE
-      MeasRef mr = measure.value_or(MeasRef());
-#endif
-      return
-        Column::create(
-          ctx,
-          rt,
-          name,
-          std::vector<Table0Axes>{Table0Axes::ROW},
-          ValueType<unsigned>::DataType,
-          IndexTreeL(TABLE0_NUM_ROWS),
-#ifdef HYPERION_USE_CASACORE
-          mr,
-          std::nullopt,
-#endif
-          {},
-          name_prefix);
-    };
-}
-
 PhysicalRegion
-attach_table0_col(
-  Context ctx,
-  Runtime* rt,
-  const x::Column& col,
-  unsigned *base) {
+attach_table0_col(Context ctx, Runtime* rt, const Column& col, unsigned *base) {
 
   const Memory local_sysmem =
     Machine::MemoryQuery(Machine::get_machine())
@@ -182,7 +149,7 @@ void
 test_totally_reindexed_table(
   Context ctx,
   Runtime* rt,
-  const x::Table& tb,
+  const Table& tb,
   bool x_before_y,
   const std::string& prefix,
   testing::TestRecorder<READ_WRITE>& recorder) {
@@ -206,15 +173,15 @@ test_totally_reindexed_table(
       [&ctx, rt, &tb, &ixax]() {
         auto ax =
           tb.index_axes(ctx, rt)
-          .template get_result<x::Table::index_axes_result_t>();
-        auto axes = x::ColumnSpace::from_axis_vector(ax);
+          .template get_result<Table::index_axes_result_t>();
+        auto axes = ColumnSpace::from_axis_vector(ax);
         return axes == map_to_int(ixax);
       }));
 
   auto cols =
-    x::Table::column_map(
+    Table::column_map(
       tb.columns(ctx, rt)
-      .template get_result<x::Table::columns_result_t>());
+      .template get_result<Table::columns_result_t>());
   {
     recorder.assert_true(
       prefix + " reindexed table has 'X' column",
@@ -224,23 +191,23 @@ test_totally_reindexed_table(
     {
       RegionRequirement
         req(cx.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cx.csp.metadata_lr);
-      req.add_field(x::ColumnSpace::AXIS_VECTOR_FID);
-      req.add_field(x::ColumnSpace::AXIS_SET_UID_FID);
-      req.add_field(x::ColumnSpace::INDEX_FLAG_FID);
+      req.add_field(ColumnSpace::AXIS_VECTOR_FID);
+      req.add_field(ColumnSpace::AXIS_SET_UID_FID);
+      req.add_field(ColumnSpace::INDEX_FLAG_FID);
       auto pr = rt->map_region(ctx, req);
-      const x::ColumnSpace::AxisVectorAccessor<READ_ONLY>
-        av(pr, x::ColumnSpace::AXIS_VECTOR_FID);
-      const x::ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
-        auid(pr, x::ColumnSpace::AXIS_SET_UID_FID);
-      const x::ColumnSpace::IndexFlagAccessor<READ_ONLY>
-        ifl(pr, x::ColumnSpace::INDEX_FLAG_FID);
+      const ColumnSpace::AxisVectorAccessor<READ_ONLY>
+        av(pr, ColumnSpace::AXIS_VECTOR_FID);
+      const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+        auid(pr, ColumnSpace::AXIS_SET_UID_FID);
+      const ColumnSpace::IndexFlagAccessor<READ_ONLY>
+        ifl(pr, ColumnSpace::INDEX_FLAG_FID);
 
       recorder.expect_true(
         prefix + " reindexed 'X' column has unchanged axis set uid",
         TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
       recorder.expect_true(
         prefix + " reindexed 'X' column has only 'X' axis",
-        TE(x::ColumnSpace::from_axis_vector(av[0])
+        TE(ColumnSpace::from_axis_vector(av[0])
            == map_to_int(std::vector<Table0Axes>{Table0Axes::X})));
       recorder.expect_true(
         prefix + " reindexed 'X' column has index flag set",
@@ -284,23 +251,23 @@ test_totally_reindexed_table(
     {
       RegionRequirement
         req(cy.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cy.csp.metadata_lr);
-      req.add_field(x::ColumnSpace::AXIS_VECTOR_FID);
-      req.add_field(x::ColumnSpace::AXIS_SET_UID_FID);
-      req.add_field(x::ColumnSpace::INDEX_FLAG_FID);
+      req.add_field(ColumnSpace::AXIS_VECTOR_FID);
+      req.add_field(ColumnSpace::AXIS_SET_UID_FID);
+      req.add_field(ColumnSpace::INDEX_FLAG_FID);
       auto pr = rt->map_region(ctx, req);
-      const x::ColumnSpace::AxisVectorAccessor<READ_ONLY>
-        av(pr, x::ColumnSpace::AXIS_VECTOR_FID);
-      const x::ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
-        auid(pr, x::ColumnSpace::AXIS_SET_UID_FID);
-      const x::ColumnSpace::IndexFlagAccessor<READ_ONLY>
-        ifl(pr, x::ColumnSpace::INDEX_FLAG_FID);
+      const ColumnSpace::AxisVectorAccessor<READ_ONLY>
+        av(pr, ColumnSpace::AXIS_VECTOR_FID);
+      const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+        auid(pr, ColumnSpace::AXIS_SET_UID_FID);
+      const ColumnSpace::IndexFlagAccessor<READ_ONLY>
+        ifl(pr, ColumnSpace::INDEX_FLAG_FID);
 
       recorder.expect_true(
         prefix + " reindexed 'Y' column has unchanged axis set uid",
         TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
       recorder.expect_true(
         prefix + " reindexed 'Y' column has only 'Y' axis",
-        TE(x::ColumnSpace::from_axis_vector(av[0])
+        TE(ColumnSpace::from_axis_vector(av[0])
            == map_to_int(std::vector<Table0Axes>{Table0Axes::Y})));
       recorder.expect_true(
         prefix + " reindexed 'Y' column has index flag set",
@@ -343,23 +310,23 @@ test_totally_reindexed_table(
     {
       RegionRequirement
         req(cz.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cz.csp.metadata_lr);
-      req.add_field(x::ColumnSpace::AXIS_VECTOR_FID);
-      req.add_field(x::ColumnSpace::AXIS_SET_UID_FID);
-      req.add_field(x::ColumnSpace::INDEX_FLAG_FID);
+      req.add_field(ColumnSpace::AXIS_VECTOR_FID);
+      req.add_field(ColumnSpace::AXIS_SET_UID_FID);
+      req.add_field(ColumnSpace::INDEX_FLAG_FID);
       auto pr = rt->map_region(ctx, req);
-      const x::ColumnSpace::AxisVectorAccessor<READ_ONLY>
-        av(pr, x::ColumnSpace::AXIS_VECTOR_FID);
-      const x::ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
-        auid(pr, x::ColumnSpace::AXIS_SET_UID_FID);
-      const x::ColumnSpace::IndexFlagAccessor<READ_ONLY>
-        ifl(pr, x::ColumnSpace::INDEX_FLAG_FID);
+      const ColumnSpace::AxisVectorAccessor<READ_ONLY>
+        av(pr, ColumnSpace::AXIS_VECTOR_FID);
+      const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+        auid(pr, ColumnSpace::AXIS_SET_UID_FID);
+      const ColumnSpace::IndexFlagAccessor<READ_ONLY>
+        ifl(pr, ColumnSpace::INDEX_FLAG_FID);
 
       recorder.expect_true(
         prefix + " reindexed 'Z' column has unchanged axis set uid",
         TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
       recorder.expect_true(
         prefix + " reindexed 'Z' column has only " + oss.str() + " axes",
-        TE(x::ColumnSpace::from_axis_vector(av[0]) == map_to_int(ixax)));
+        TE(ColumnSpace::from_axis_vector(av[0]) == map_to_int(ixax)));
       recorder.expect_true(
         prefix + " reindexed 'Z' column does not have index flag set",
         TE(!ifl[0]));
@@ -428,7 +395,7 @@ reindexed_test_suite(
 
   auto xyz_is = rt->create_index_space(ctx, Rect<1>(0, TABLE0_NUM_ROWS - 1));
   auto xyz_space =
-    x::ColumnSpace::create(
+    ColumnSpace::create(
       ctx,
       rt,
       std::vector<Table0Axes>{Table0Axes::ROW},
@@ -457,33 +424,32 @@ reindexed_test_suite(
 //     table0_col("Y", col_measures["Y"]),
 //     table0_col("Z", col_measures["Z"], "EPOCH")
 //   };
-  std::vector<std::pair<std::string, x::TableField>> xyz_fields{
+  std::vector<std::pair<std::string, TableField>> xyz_fields{
     {"X",
-     x::TableField(HYPERION_TYPE_UINT, COL_X, MeasRef(), std::nullopt, Keywords())},
+     TableField(HYPERION_TYPE_UINT, COL_X, MeasRef(), std::nullopt, Keywords())},
     {"Y",
-     x::TableField(HYPERION_TYPE_UINT, COL_Y, MeasRef(), std::nullopt, Keywords())},
+     TableField(HYPERION_TYPE_UINT, COL_Y, MeasRef(), std::nullopt, Keywords())},
     {"Z",
-     x::TableField(HYPERION_TYPE_UINT, COL_Z, MeasRef(), std::nullopt, Keywords())}
+     TableField(HYPERION_TYPE_UINT, COL_Z, MeasRef(), std::nullopt, Keywords())}
   };
 #else
-  std::vector<std::pair<std::string, x::TableField>> xyz_fields{
+  std::vector<std::pair<std::string, TableField>> xyz_fields{
     {"X",
-     x::TableField(HYPERION_TYPE_UINT, COL_X, Keywords())},
+     TableField(HYPERION_TYPE_UINT, COL_X, Keywords())},
     {"Y",
-     x::TableField(HYPERION_TYPE_UINT, COL_Y, Keywords())},
+     TableField(HYPERION_TYPE_UINT, COL_Y, Keywords())},
     {"Z",
-     x::TableField(HYPERION_TYPE_UINT, COL_Z, Keywords())}
+     TableField(HYPERION_TYPE_UINT, COL_Z, Keywords())}
   };
 #endif
-
   
-  auto table0 = x::Table::create(ctx, rt, {{xyz_space, xyz_fields}});
+  auto table0 = Table::create(ctx, rt, {{xyz_space, xyz_fields}});
   {
     std::unordered_map<std::string, PhysicalRegion> col_prs;
     {
       auto cols =
-        x::Table::column_map(
-          table0.columns(ctx, rt).get<x::Table::columns_result_t>());
+        Table::column_map(
+          table0.columns(ctx, rt).get<Table::columns_result_t>());
       std::unordered_map<std::string, unsigned*> col_arrays{
         {"X", table0_x},
         {"Y", table0_y},
@@ -499,28 +465,28 @@ reindexed_test_suite(
     }
     // tests of complete, one-step reindexing
     {
-      auto f =
+      Future f =
         table0.reindexed(
           ctx,
           rt,
           std::vector<Table0Axes>{Table0Axes::X, Table0Axes::Y},
           false);
 
-      auto tb = f.template get_result<x::Table::reindexed_result_t>();
+      auto tb = f.get_result<Table::reindexed_result_t>();
       test_totally_reindexed_table(ctx, rt, tb, true, "Totally", recorder);
       //tb.destroy(ctx, rt); FIXME
     }
     // tests of two-step reindexing
     {
-      x::Table tby;
+      Table tby;
       {
-        auto f =
+        Future f =
           table0.reindexed(
             ctx,
             rt,
             std::vector<Table0Axes>{Table0Axes::Y},
             true);
-        tby = f.template get_result<x::Table::reindexed_result_t>();
+        tby = f.get_result<Table::reindexed_result_t>();
       }
       {
         recorder.expect_true(
@@ -533,16 +499,16 @@ reindexed_test_suite(
             [&ctx, rt, &tby]() {
               auto ax =
                 tby.index_axes(ctx, rt)
-                .template get_result<x::Table::index_axes_result_t>();
-              return x::ColumnSpace::from_axis_vector(ax) ==
+                .template get_result<Table::index_axes_result_t>();
+              return ColumnSpace::from_axis_vector(ax) ==
                 map_to_int(
                   std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::ROW});
             }));
 
         auto cols =
-          x::Table::column_map(
+          Table::column_map(
             tby.columns(ctx, rt)
-            .template get_result<x::Table::columns_result_t>());
+            .template get_result<Table::columns_result_t>());
         {
           recorder.assert_true(
             "Partially reindexed table has 'Y' column",
@@ -552,23 +518,23 @@ reindexed_test_suite(
           {
             RegionRequirement
               req(cy.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cy.csp.metadata_lr);
-            req.add_field(x::ColumnSpace::AXIS_VECTOR_FID);
-            req.add_field(x::ColumnSpace::AXIS_SET_UID_FID);
-            req.add_field(x::ColumnSpace::INDEX_FLAG_FID);
+            req.add_field(ColumnSpace::AXIS_VECTOR_FID);
+            req.add_field(ColumnSpace::AXIS_SET_UID_FID);
+            req.add_field(ColumnSpace::INDEX_FLAG_FID);
             auto pr = rt->map_region(ctx, req);
-            const x::ColumnSpace::AxisVectorAccessor<READ_ONLY>
-              av(pr, x::ColumnSpace::AXIS_VECTOR_FID);
-            const x::ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
-              auid(pr, x::ColumnSpace::AXIS_SET_UID_FID);
-            const x::ColumnSpace::IndexFlagAccessor<READ_ONLY>
-              ifl(pr, x::ColumnSpace::INDEX_FLAG_FID);
+            const ColumnSpace::AxisVectorAccessor<READ_ONLY>
+              av(pr, ColumnSpace::AXIS_VECTOR_FID);
+            const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+              auid(pr, ColumnSpace::AXIS_SET_UID_FID);
+            const ColumnSpace::IndexFlagAccessor<READ_ONLY>
+              ifl(pr, ColumnSpace::INDEX_FLAG_FID);
 
             recorder.expect_true(
               "Partially reindexed 'Y' column has unchanged axis set uid",
               TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
             recorder.expect_true(
               "Partially reindexed 'Y' column has only 'Y' axis",
-              TE(x::ColumnSpace::from_axis_vector(av[0])
+              TE(ColumnSpace::from_axis_vector(av[0])
                  == map_to_int(std::vector<Table0Axes>{Table0Axes::Y})));
             recorder.expect_true(
               "Partially reindexed 'Y' column has index flag set",
@@ -611,23 +577,23 @@ reindexed_test_suite(
           {
             RegionRequirement
               req(cx.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cx.csp.metadata_lr);
-            req.add_field(x::ColumnSpace::AXIS_VECTOR_FID);
-            req.add_field(x::ColumnSpace::AXIS_SET_UID_FID);
-            req.add_field(x::ColumnSpace::INDEX_FLAG_FID);
+            req.add_field(ColumnSpace::AXIS_VECTOR_FID);
+            req.add_field(ColumnSpace::AXIS_SET_UID_FID);
+            req.add_field(ColumnSpace::INDEX_FLAG_FID);
             auto pr = rt->map_region(ctx, req);
-            const x::ColumnSpace::AxisVectorAccessor<READ_ONLY>
-              av(pr, x::ColumnSpace::AXIS_VECTOR_FID);
-            const x::ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
-              auid(pr, x::ColumnSpace::AXIS_SET_UID_FID);
-            const x::ColumnSpace::IndexFlagAccessor<READ_ONLY>
-              ifl(pr, x::ColumnSpace::INDEX_FLAG_FID);
+            const ColumnSpace::AxisVectorAccessor<READ_ONLY>
+              av(pr, ColumnSpace::AXIS_VECTOR_FID);
+            const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+              auid(pr, ColumnSpace::AXIS_SET_UID_FID);
+            const ColumnSpace::IndexFlagAccessor<READ_ONLY>
+              ifl(pr, ColumnSpace::INDEX_FLAG_FID);
 
             recorder.expect_true(
               "Partially reindexed 'X' column has unchanged axis set uid",
               TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
             recorder.expect_true(
               "Partially reindexed 'X' column has ('Y', 'ROW') axes",
-              TE(x::ColumnSpace::from_axis_vector(av[0])
+              TE(ColumnSpace::from_axis_vector(av[0])
                  == map_to_int(
                    std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::ROW})));
             recorder.expect_true(
@@ -675,23 +641,23 @@ reindexed_test_suite(
           {
             RegionRequirement
               req(cz.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cz.csp.metadata_lr);
-            req.add_field(x::ColumnSpace::AXIS_VECTOR_FID);
-            req.add_field(x::ColumnSpace::AXIS_SET_UID_FID);
-            req.add_field(x::ColumnSpace::INDEX_FLAG_FID);
+            req.add_field(ColumnSpace::AXIS_VECTOR_FID);
+            req.add_field(ColumnSpace::AXIS_SET_UID_FID);
+            req.add_field(ColumnSpace::INDEX_FLAG_FID);
             auto pr = rt->map_region(ctx, req);
-            const x::ColumnSpace::AxisVectorAccessor<READ_ONLY>
-              av(pr, x::ColumnSpace::AXIS_VECTOR_FID);
-            const x::ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
-              auid(pr, x::ColumnSpace::AXIS_SET_UID_FID);
-            const x::ColumnSpace::IndexFlagAccessor<READ_ONLY>
-              ifl(pr, x::ColumnSpace::INDEX_FLAG_FID);
+            const ColumnSpace::AxisVectorAccessor<READ_ONLY>
+              av(pr, ColumnSpace::AXIS_VECTOR_FID);
+            const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+              auid(pr, ColumnSpace::AXIS_SET_UID_FID);
+            const ColumnSpace::IndexFlagAccessor<READ_ONLY>
+              ifl(pr, ColumnSpace::INDEX_FLAG_FID);
 
             recorder.expect_true(
               "Partially reindexed 'Z' column has unchanged axis set uid",
               TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
             recorder.expect_true(
               "Partially reindexed 'Z' column has only ('Y', 'ROW') axes",
-              TE(x::ColumnSpace::from_axis_vector(av[0])
+              TE(ColumnSpace::from_axis_vector(av[0])
                  == map_to_int(
                    std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::ROW})));
             recorder.expect_true(
@@ -735,15 +701,15 @@ reindexed_test_suite(
         }
       }
       // tests of further reindexing of partially indexed table
-      x::Table tbyx;
+      Table tbyx;
       {
-        auto f =
+        Future f =
           tby.reindexed(
             ctx,
             rt,
             std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::X},
             false);
-        tbyx = f.template get_result<x::Table::reindexed_result_t>();
+        tbyx = f.get_result<Table::reindexed_result_t>();
       }
       test_totally_reindexed_table(
         ctx,
@@ -752,11 +718,11 @@ reindexed_test_suite(
         false,
         "Final, totally",
         recorder);
-      //tbyx.destroy(ctx, rt); FIXME
-      //tby.destroy(ctx, rt); FIXME
+      tbyx.destroy(ctx, rt);
+      tby.destroy(ctx, rt);
     }
   }
-  //table0.destroy(ctx, rt); FIXME
+  table0.destroy(ctx, rt);
 }
 
 int

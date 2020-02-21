@@ -22,6 +22,7 @@
 
 #pragma GCC visibility push(default)
 # include <array>
+# include <string>
 # include <vector>
 #pragma GCC visibility pop
 

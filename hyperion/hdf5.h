@@ -43,12 +43,7 @@ namespace hyperion {
 class Table;
 class Column;
 class Keywords;
-
-namespace x {
-class Table;
-class Column;
 class ColumnSpace;
-}
 
 namespace hdf5 {
 
@@ -90,121 +85,6 @@ namespace hdf5 {
 template <typename SERDEZ>
 void
 write_index_tree_to_attr(
-  const IndexTreeL& spec,
-  hid_t parent_id,
-  const std::string& obj_name,
-  const std::string& attr_name) {
-
-  // remove current attribute value
-  std::string hyperion_attr_name =
-    std::string(HYPERION_NAMESPACE_PREFIX) + attr_name;
-  std::string attr_ds_name =
-    std::string(HYPERION_ATTRIBUTE_DS_PREFIX)
-    + obj_name
-    + std::string(HYPERION_NAME_SEP)
-    + attr_name;
-
-  if (H5Aexists_by_name(
-        parent_id,
-        obj_name.c_str(),
-        hyperion_attr_name.c_str(),
-        H5P_DEFAULT)) {
-    H5Adelete_by_name(
-      parent_id,
-      obj_name.c_str(),
-      hyperion_attr_name.c_str(),
-      H5P_DEFAULT);
-    if (H5Lexists(parent_id, attr_ds_name.c_str(), H5P_DEFAULT) > 0)
-      H5Ldelete(parent_id, attr_ds_name.c_str(), H5P_DEFAULT);
-  }
-
-  auto size = SERDEZ::serialized_size(spec);
-  std::vector<char> buf(size);
-  SERDEZ::serialize(spec, buf.data());
-  hsize_t value_dims = size;
-  hid_t value_space_id = H5Screate_simple(1, &value_dims, NULL);
-  if (size < HYPERION_LARGE_TREE_MIN) {
-    // small serialized size: save byte string as an attribute
-    hid_t attr_id =
-      H5Acreate_by_name(
-        parent_id,
-        obj_name.c_str(),
-        hyperion_attr_name.c_str(),
-        H5T_NATIVE_UINT8,
-        value_space_id,
-        H5P_DEFAULT,
-        H5P_DEFAULT,
-        H5P_DEFAULT);
-    assert(attr_id >= 0);
-    herr_t rc = H5Awrite(attr_id, H5T_NATIVE_UINT8, buf.data());
-    assert (rc >= 0);
-  } else {
-    // large serialized size: create a new dataset containing byte string, and
-    // save reference to that dataset as attribute
-    hid_t attr_ds =
-      H5Dcreate(
-        parent_id,
-        attr_ds_name.c_str(),
-        H5T_NATIVE_UINT8,
-        value_space_id,
-        H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    herr_t rc =
-      H5Dwrite(
-        attr_ds,
-        H5T_NATIVE_UINT8,
-        H5S_ALL,
-        H5S_ALL,
-        H5P_DEFAULT,
-        buf.data());
-    assert(rc >= 0);
-
-    hid_t ref_space_id = H5Screate(H5S_SCALAR);
-    hid_t attr_type = H5T_STD_REF_OBJ;
-    hid_t attr_id =
-      H5Acreate_by_name(
-        parent_id,
-        obj_name.c_str(),
-        hyperion_attr_name.c_str(),
-        attr_type,
-        ref_space_id,
-        H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    assert(attr_id >= 0);
-    hobj_ref_t attr_ref;
-    rc = H5Rcreate(&attr_ref, parent_id, attr_ds_name.c_str(), H5R_OBJECT, -1);
-    assert (rc >= 0);
-    rc = H5Awrite(attr_id, H5T_STD_REF_OBJ, &attr_ref);
-    assert (rc >= 0);
-    H5Sclose(ref_space_id);
-  }
-  H5Sclose(value_space_id);
-
-  // write serdez id
-  {
-    std::string md_name = std::string(HYPERION_ATTRIBUTE_SID_PREFIX) + attr_name;
-    hid_t md_space_id = H5Screate(H5S_SCALAR);
-    // FIXME: shouldn't I be using hyperion::string?
-    hid_t md_attr_dt =
-      hyperion::H5DatatypeManager::datatype<ValueType<std::string>::DataType>();
-    hid_t md_attr_id =
-      H5Acreate_by_name(
-        parent_id,
-        obj_name.c_str(),
-        md_name.c_str(),
-        md_attr_dt,
-        md_space_id,
-        H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    assert(md_attr_id >= 0);
-    char attr[HYPERION_MAX_STRING_SIZE];
-    std::strncpy(attr, SERDEZ::id, sizeof(attr));
-    attr[sizeof(attr) - 1] = '\0';
-    herr_t rc = H5Awrite(md_attr_id, md_attr_dt, attr);
-    assert(rc >= 0);
-  }
-}
-
-template <typename SERDEZ>
-void
-write_xindex_tree_to_attr(
   hid_t grp_id,
   const std::string& attr_name,
   const IndexTreeL& spec) {
@@ -316,88 +196,17 @@ write_xindex_tree_to_attr(
 }
 
 HYPERION_API std::optional<std::string>
-read_index_tree_attr_metadata(hid_t loc_id, const std::string& attr_name);
+read_index_tree_attr_metadata(hid_t grp_id, const std::string& attr_name);
 
 template <typename SERDEZ>
 std::optional<IndexTreeL>
 read_index_tree_from_attr(
-  hid_t loc_id,
-  const std::string& attr_name) {
-
-  std::optional<IndexTreeL> result;
-
-  auto metadata = read_index_tree_attr_metadata(loc_id, attr_name);
-  if (!metadata || metadata.value() != SERDEZ::id)
-    return result;
-
-  std::string hyperion_attr_name =
-    std::string(HYPERION_NAMESPACE_PREFIX) + attr_name;
-  if (!H5Aexists(loc_id, hyperion_attr_name.c_str()))
-    return result;
-
-  hid_t attr_id = H5Aopen(loc_id, hyperion_attr_name.c_str(), H5P_DEFAULT);
-
-  if (attr_id < 0)
-    return result;
-
-  hid_t attr_type = H5Aget_type(attr_id);
-  if (H5Tequal(attr_type, H5T_NATIVE_UINT8) > 0) {
-    // serialized value was written into attribute
-    hid_t attr_ds = H5Aget_space(attr_id);
-    assert(attr_ds >= 0);
-    hssize_t attr_sz = H5Sget_simple_extent_npoints(attr_ds);
-    assert(attr_sz >= 0);
-    H5Sclose(attr_ds);
-    std::vector<char> buf(static_cast<size_t>(attr_sz));
-    herr_t rc = H5Aread(attr_id, H5T_NATIVE_UINT8, buf.data());
-    assert(rc >= 0);
-    IndexTreeL tree;
-    SERDEZ::deserialize(tree, buf.data());
-    result = tree;
-
-  } else if (H5Tequal(attr_type, H5T_STD_REF_OBJ) > 0) {
-    // serialized value is in a dataset referenced by attribute
-    hobj_ref_t attr_ref;
-    herr_t rc = H5Aread(attr_id, H5T_STD_REF_OBJ, &attr_ref);
-    assert(rc >= 0);
-    hid_t attr_ds = H5Rdereference2(loc_id, H5P_DEFAULT, H5R_OBJECT, &attr_ref);
-    assert(attr_ds >= 0);
-    hid_t attr_sp = H5Dget_space(attr_ds);
-    assert(attr_ds >= 0);
-    hssize_t attr_sz = H5Sget_simple_extent_npoints(attr_sp);
-    assert(attr_sz >= 0);
-    std::vector<char> buf(static_cast<size_t>(attr_sz));
-    rc =
-      H5Dread(
-        attr_ds,
-        H5T_NATIVE_UINT8,
-        H5S_ALL,
-        H5S_ALL,
-        H5P_DEFAULT,
-        buf.data());
-    assert(rc >= 0);
-    H5Dclose(attr_ds);
-    H5Sclose(attr_sp);
-    IndexTreeL tree;
-    SERDEZ::deserialize(tree, buf.data());
-    result = tree;
-  }
-  H5Tclose(attr_type);
-  return result;
-}
-
-HYPERION_API std::optional<std::string>
-read_xindex_tree_attr_metadata(hid_t grp_id, const std::string& attr_name);
-
-template <typename SERDEZ>
-std::optional<IndexTreeL>
-read_xindex_tree_from_attr(
   hid_t grp_id,
   const std::string& attr_name) {
 
   std::optional<IndexTreeL> result;
 
-  auto metadata = read_xindex_tree_attr_metadata(grp_id, attr_name);
+  auto metadata = read_index_tree_attr_metadata(grp_id, attr_name);
   if (!metadata || metadata.value() != SERDEZ::id)
     return result;
 
@@ -470,14 +279,6 @@ HYPERION_API void
 write_measure(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  hid_t col_grp_id,
-  hid_t mr_id,
-  const MeasRef& mr);
-
-HYPERION_API void
-write_xmeasure(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
   hid_t mr_id,
   const MeasRef& mr);
 #endif
@@ -486,87 +287,38 @@ HYPERION_API void
 write_column(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const CXX_FILESYSTEM_NAMESPACE::path& path,
-  hid_t table_id,
-  const std::string& table_name,
-  const Column& column,
-  hid_t table_axes_dt,
-  bool with_data = true);
-
-HYPERION_API void
-write_xcolumn(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
   hid_t col_grp_id,
   const std::string& csp_name,
-  const x::Column& column);
+  const Column& column);
 
 HYPERION_API void
-write_xcolumnspace(
+write_columnspace(
   Legion::Context ctx,
   Legion::Runtime* rt,
   hid_t csp_grp_id,
-  const x::ColumnSpace& csp,
+  const ColumnSpace& csp,
   hid_t table_axes_dt);
 
 HYPERION_API void
 write_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const CXX_FILESYSTEM_NAMESPACE::path& path,
-  hid_t loc_id,
-  const Table& table,
-  const std::unordered_set<std::string>& excluded_columns = {},
-  bool with_data = true);
-
-HYPERION_API void
-write_xtable(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
   hid_t table_grp_id,
-  const x::Table& table,
+  const Table& table,
   const std::unordered_set<std::string>& columns);
 
 HYPERION_API void
-write_xtable(
+write_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
   hid_t table_grp_id,
-  const x::Table& table);
+  const Table& table);
 
 HYPERION_API hyperion::Keywords::kw_desc_t
 init_keywords(hid_t loc_id);
 
-HYPERION_API hyperion::Column
-init_column(
-  Legion::Context context,
-  Legion::Runtime* runtime,
-  const std::string& column_name,
-  const std::string& axes_uid,
-  hid_t loc_id,
-  hid_t axes_dt,
-  const std::string& name_prefix = "");
-
-HYPERION_API hyperion::Table
-init_table(
-  Legion::Context context,
-  Legion::Runtime* runtime,
-  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
-  const std::string& table_path,
-  const std::unordered_set<std::string>& column_names,
-  unsigned flags = H5F_ACC_RDONLY);
-
-HYPERION_API hyperion::Table
-init_table(
-  Legion::Context context,
-  Legion::Runtime* runtime,
-  const std::string& table_name,
-  hid_t loc_id,
-  const std::unordered_set<std::string>& column_names,
-  const std::string& name_prefix = "");
-
-HYPERION_API hyperion::x::ColumnSpace
-init_xcolumnspace(
+HYPERION_API hyperion::ColumnSpace
+init_columnspace(
   Legion::Context ctx,
   Legion::Runtime* rt,
   hid_t table_grp_id,
@@ -574,41 +326,13 @@ init_xcolumnspace(
   const std::string& csp_name);
 
 HYPERION_API std::tuple<
-  hyperion::x::Table,
+  hyperion::Table,
   std::unordered_map<std::string, std::string>>
-init_xtable(
+init_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
   hid_t loc_id,
   const std::string& table_name);
-
-HYPERION_API std::unordered_set<std::string>
-get_table_paths(const CXX_FILESYSTEM_NAMESPACE::path& file_path);
-
-HYPERION_API std::unordered_set<std::string>
-get_column_names(
-  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
-  const std::string& table_path);
-
-HYPERION_API std::unordered_map<std::string, std::string>
-get_table_keyword_paths(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
-  const Table& table);
-
-HYPERION_API std::string
-get_table_column_value_path(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
-  const Table& table,
-  const std::string& colname);
-
-HYPERION_API std::unordered_map<std::string, std::string>
-get_table_column_keyword_paths(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
-  const Table& table,
-  const std::string& colname);
 
 HYPERION_API Legion::PhysicalRegion
 attach_keywords(
@@ -619,47 +343,13 @@ attach_keywords(
   const Keywords& keywords,
   bool read_only = true);
 
-HYPERION_API Legion::PhysicalRegion
-attach_column_values(
+HYPERION_API std::optional<Legion::PhysicalRegion>
+attach_table_columns(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
-  const std::string& table_root,
-  const Column& column,
-  bool mapped = true,
-  bool read_only = true);
-
-HYPERION_API Legion::PhysicalRegion
-attach_column_keywords(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
-  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
-  const std::string& table_root,
-  const Column& column,
-  bool read_only = true);
-
-HYPERION_API Legion::PhysicalRegion
-attach_table_keywords(
-  Legion::Context context,
-  Legion::Runtime* runtime,
   const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& root_path,
   const Table& table,
-  bool read_only = true);
-
-HYPERION_API void
-release_table_column_values(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
-  const Table& table);
-
-HYPERION_API std::optional<Legion::PhysicalRegion>
-attach_xtable_columns(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
-  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
-  const std::string& root_path,
-  const x::Table& table,
   const std::unordered_set<std::string>& columns,
   const std::unordered_map<std::string, std::string>& column_paths,
   bool read_only,

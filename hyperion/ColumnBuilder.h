@@ -17,11 +17,11 @@
 #define HYPERION_COLUMN_BUILDER_H_
 
 #include <hyperion/hyperion.h>
+# include <hyperion/IndexTree.h>
+# include <hyperion/TableField.h>
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/utility.h>
 # include <hyperion/KeywordsBuilder.h>
-# include <hyperion/IndexTree.h>
-# include <hyperion/Column.h>
 # include <hyperion/MSTable.h>
 # include <hyperion/MeasRef.h>
 
@@ -41,20 +41,30 @@
 
 namespace hyperion {
 
+struct ColumnArgs {
+  std::string name;
+  TableField tf;
+  std::string axes_uid;
+  std::vector<int> axes;
+  IndexTreeL index_tree;
+};
+
 template <MSTables D>
 class ColumnBuilder
   : public KeywordsBuilder {
 public:
 
-  typedef typename MSTable<D>::Axes Axes;
+  typedef typename MSTable<D>::Axes AxesT;
 
   ColumnBuilder(
     const std::string& name,
     TypeTag datatype,
-    const std::vector<Axes>& axes)
+    unsigned fid,
+    const std::vector<AxesT>& axes)
     : KeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
+    , m_fid(fid)
     , m_axes(axes)
     , m_num_rows(0) {
 
@@ -74,7 +84,7 @@ public:
     return m_datatype;
   }
 
-  const std::vector<Axes>&
+  const std::vector<AxesT>&
   axes() const {
     return m_axes;
   }
@@ -121,11 +131,8 @@ public:
   virtual void
   add_row(const std::any&) = 0;
 
-  Column
-  column(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const std::string& name_prefix) const {
+  ColumnArgs
+  column(Legion::Context ctx, Legion::Runtime* rt) const {
 
     IndexTreeL itree;
     auto itrank = index_tree().rank();
@@ -141,20 +148,20 @@ public:
         std::get<1>(mrec).emplace_back(mrb.get(), c);
       mr = std::get<1>(create_named_meas_refs(ctx, rt, {mrec}));
     }
-    return
-      Column::create(
-        ctx,
-        rt,
-        name(),
-        axes(),
+    return ColumnArgs{
+      name(),
+      TableField(
         datatype(),
-        itree,
+        m_fid,
 #ifdef HYPERION_USE_CASACORE
         mr,
         ref_column,
 #endif
-        keywords(),
-        name_prefix);
+        Keywords::create(ctx, rt, keywords())),
+      Axes<AxesT>::uid,
+      map_to_int(axes()),
+      itree
+    };
   }
 
 protected:
@@ -172,7 +179,9 @@ private:
 
   TypeTag m_datatype;
 
-  std::vector<Axes> m_axes;
+  unsigned m_fid;
+
+  std::vector<AxesT> m_axes;
 
   size_t m_num_rows;
 
@@ -191,19 +200,20 @@ class ScalarColumnBuilder
   : public ColumnBuilder<D> {
 public:
 
-  ScalarColumnBuilder(const std::string& name, TypeTag datatype)
-    : ColumnBuilder<D>(name, datatype, {MSTable<D>::ROW_AXIS}) {
+  ScalarColumnBuilder(const std::string& name, TypeTag datatype, unsigned fid)
+    : ColumnBuilder<D>(name, datatype, fid, {MSTable<D>::ROW_AXIS}) {
   }
 
   template <typename T>
   static auto
-  generator(const std::string& name) {
+  generator(const std::string& name, unsigned fid) {
     return
       [=]() {
         return
           std::make_unique<ScalarColumnBuilder<D>>(
             name,
-            ValueType<T>::DataType);
+            ValueType<T>::DataType,
+            fid);
       };
   }
 
@@ -220,14 +230,15 @@ class ArrayColumnBuilder
   : public ColumnBuilder<D> {
 public:
 
-  typedef typename MSTable<D>::Axes Axes;
+  typedef typename MSTable<D>::Axes AxesT;
 
   ArrayColumnBuilder(
     const std::string& name,
     TypeTag datatype,
-    const std::vector<Axes>& axes,
+    unsigned fid,
+    const std::vector<AxesT>& axes,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)> element_shape)
-    : ColumnBuilder<D>(name, datatype, axes)
+    : ColumnBuilder<D>(name, datatype, fid, axes)
     , m_element_shape(element_shape) {
 
     assert(axes.size() > 0);
@@ -239,14 +250,16 @@ public:
   static auto
   generator(
     const std::string& name,
+    unsigned fid,
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)>
     element_shape) {
 
     return
-      [=](const std::vector<Axes>& axes) {
+      [=](const std::vector<AxesT>& axes) {
         return std::make_unique<ArrayColumnBuilder<D, ARRAYDIM>>(
           name,
           ValueType<T>::DataType,
+          fid,
           axes,
           element_shape);
       };

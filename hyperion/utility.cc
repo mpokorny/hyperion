@@ -14,30 +14,25 @@
  * limitations under the License.
  */
 #include <hyperion/utility.h>
-#include <hyperion/Column.h>
-#include <hyperion/Table.h>
 #include <hyperion/tree_index_space.h>
 #include <hyperion/MSTable.h>
-#include <hyperion/x/Table.h>
-#include <hyperion/x/ColumnSpace.h>
-#include <hyperion/x/ColumnSpacePartition.h>
-#include <hyperion/x/Column.h>
+#include <hyperion/Table.h>
+#include <hyperion/ColumnSpace.h>
+#include <hyperion/ColumnSpacePartition.h>
+#include <hyperion/Column.h>
 
 #ifdef HYPERION_USE_HDF5
 # include <hyperion/hdf5.h>
 #endif // HYPERION_USE_HDF5
 
 #ifdef HYPERION_USE_CASACORE
+# include <hyperion/TableBuilder.h>
 # include <hyperion/TableReadTask.h>
 # include <hyperion/Measures.h>
 #endif
 
-#pragma GCC visibility push(default)
 # include <algorithm>
 # include <cctype>
-
-# include <mappers/default_mapper.h>
-#pragma GCC visibility pop
 
 using namespace hyperion;
 using namespace Legion;
@@ -90,20 +85,15 @@ hyperion::min_divisor(
 }
 
 IndexPartition
-hyperion::partition_over_all_cpus(
+hyperion::partition_over_default_tunable(
   Context ctx,
   Runtime* rt,
   IndexSpace is,
-  unsigned min_block_size) {
+  size_t min_block_size,
+  Mapping::DefaultMapper::DefaultTunables tunable) {
 
-  unsigned num_subregions =
-    rt
-    ->select_tunable_value(
-      ctx,
-      Mapping::DefaultMapper::DefaultTunables::DEFAULT_TUNABLE_GLOBAL_CPUS,
-      0)
-    .get_result<size_t>();
-
+  size_t num_subregions =
+    rt->select_tunable_value(ctx, tunable).get_result<size_t>();
   auto dom = rt->get_index_space_domain(is);
   num_subregions =
     min_divisor(dom.get_volume(), min_block_size, num_subregions);
@@ -140,8 +130,8 @@ operator<<(std::ostream& stream, const hyperion::string& str) {
 HYPERION_FOREACH_N(POINT_ADD_REDOP_IDENTITY);
 #undef POINT_ADD_REDOP_IDENTITY
 
-Legion::CustomSerdezID hyperion::OpsManager::serdez_id_base;
-Legion::ReductionOpID hyperion::OpsManager::reduction_id_base;
+CustomSerdezID hyperion::OpsManager::serdez_id_base;
+ReductionOpID hyperion::OpsManager::reduction_id_base;
 
 void
 hyperion::OpsManager::register_ops(Runtime* rt) {
@@ -508,10 +498,9 @@ hyperion::preregister_all() {
 
   TreeIndexSpaceTask::preregister_task();
   Table::preregister_tasks();
-  x::Table::preregister_tasks();
-  x::ColumnSpace::preregister_tasks();
-  x::ColumnSpacePartition::preregister_tasks();
-  x::Column::preregister_tasks();
+  ColumnSpace::preregister_tasks();
+  ColumnSpacePartition::preregister_tasks();
+  Column::preregister_tasks();
   ProjectedIndexPartitionTask::preregister_task();
 #ifdef HYPERION_USE_CASACORE
   TableReadTask::preregister_task();
@@ -521,7 +510,6 @@ hyperion::preregister_all() {
 void
 hyperion::register_tasks(Context context, Runtime* runtime) {
   OpsManager::register_ops(runtime);
-  Table::register_tasks(context, runtime);
 }
 
 std::unordered_map<std::string, hyperion::AxesRegistrar::A>
@@ -755,6 +743,34 @@ hyperion::index_space_as_tree(Runtime* rt, IndexSpace is) {
     break;
   }
   return result;
+}
+
+std::pair<std::string, hyperion::Table>
+hyperion::from_ms(
+  Context ctx,
+  Runtime* rt,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
+  const std::unordered_set<std::string>& column_selections) {
+
+  std::string table_name = path.filename();
+
+#define FROM_MS_TABLE(N)                        \
+  do {                                          \
+    if (table_name == MSTable<MS_##N>::name)    \
+      return                                    \
+        hyperion:: template from_ms<MS_##N>(    \
+          ctx,                                  \
+          rt,                                   \
+          path,                                 \
+          column_selections);                   \
+  } while (0);
+
+  HYPERION_FOREACH_MS_TABLE(FROM_MS_TABLE);
+
+  // try to read as main table
+  return hyperion:: template from_ms<MS_MAIN>(ctx, rt, path, column_selections);
+
+#undef FROM_MS_TABLE
 }
 
 // Local Variables:

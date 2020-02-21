@@ -19,13 +19,14 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/KeywordsBuilder.h>
 #include <hyperion/ColumnBuilder.h>
-#include <hyperion/Column.h>
+#include <hyperion/ColumnSpace.h>
 #include <hyperion/Table.h>
 #include <hyperion/IndexTree.h>
 #include <hyperion/MSTable.h>
 #include <hyperion/MSTableColumns.h>
 #include <hyperion/MeasRef.h>
 #include <hyperion/Measures.h>
+#include <hyperion/tree_index_space.h>
 
 #pragma GCC visibility push(default)
 # include <algorithm>
@@ -66,10 +67,15 @@ public:
 
   template <typename T>
   std::optional<std::string>
-  add_scalar_column(const casacore::Table& table, const std::string& name) {
+  add_scalar_column(
+    const casacore::Table& table,
+    const std::string& name,
+    unsigned fid) {
 
     return
-      add_column(table, ScalarColumnBuilder<D>::template generator<T>(name)());
+      add_column(
+        table,
+        ScalarColumnBuilder<D>::template generator<T>(name, fid)());
   }
 
   template <typename T, int DIM>
@@ -77,6 +83,7 @@ public:
   add_array_column(
     const casacore::Table& table,
     const std::string& name,
+    unsigned fid,
     const std::vector<Axes>& element_axes,
     std::function<std::array<size_t, DIM>(const std::any&)> element_shape) {
 
@@ -90,6 +97,7 @@ public:
         table,
         ArrayColumnBuilder<D, DIM>::template generator<T>(
           name,
+          fid,
           element_shape)(axes));
   }
 
@@ -112,25 +120,52 @@ public:
     add_row(std::unordered_map<std::string, std::any>());
   }
 
-  std::unordered_set<std::string>
-  column_names() const {
-    std::unordered_set<std::string> result;
-    for (auto& nm_cb : m_columns)
-      result.insert(nm_cb.first);
-    return result;
-  }
+  std::vector<
+    std::pair<
+    ColumnSpace,
+      std::vector<std::pair<std::string, TableField>>>>
+  columns(Legion::Context ctx, Legion::Runtime* rt) const {
+    // sort the ColumnArgs in order to put instances with common index_tree
+    // values next to one another
+    std::vector<ColumnArgs> col_args;
+    for (auto& [nm, cb] : m_columns) {
+      auto ca = cb->column(ctx, rt);
+      if (ca.index_tree != IndexTreeL()) {
+        auto it_match =
+          std::find_if(
+            col_args.begin(),
+            col_args.end(),
+            [&ca](auto& cca) {
+              return ca.index_tree == cca.index_tree;
+            });
+        col_args.insert(it_match, ca);
+      }
+    }
 
-  std::vector<Column::Generator>
-  column_generators() const {
-    std::vector<Column::Generator> result;
-    for (auto& nm_cb : m_columns) {
-      result.push_back(
-        [cb=nm_cb.second]
-        (Legion::Context ctx,
-         Legion::Runtime* rt,
-         const std::string& name_prefix) {
-          return cb->column(ctx, rt, name_prefix);
-        });
+    // collect TableFields with common ColumnSpaces by iterating through
+    // "col_args" in its sort order
+    std::vector<
+      std::pair<
+        ColumnSpace,
+        std::vector<std::pair<std::string, TableField>>>> result;
+    IndexTreeL prev;
+    for (auto& ca : col_args) {
+      assert(ca.index_tree != IndexTreeL());
+      if (ca.index_tree != prev) {
+        prev = ca.index_tree;
+        auto csp =
+          ColumnSpace::create(
+            ctx,
+            rt,
+            ca.axes,
+            ca.axes_uid,
+            tree_index_space(ca.index_tree, ctx, rt),
+            false);
+        result.emplace_back(
+          csp,
+          std::vector<std::pair<std::string, TableField>>());
+      }
+      std::get<1>(result.back()).emplace_back(ca.name, ca.tf);
     }
     return result;
   }
@@ -170,47 +205,35 @@ protected:
     return result;
   }
 
-  template <TypeTag DT>
+  template <hyperion::TypeTag DT>
   std::optional<std::string>
   add_from_table_column(
     const casacore::Table& table,
     const std::string& nm,
+    unsigned fid,
     const std::vector<Axes>& element_axes,
     std::unordered_set<std::string>& array_names) {
 
     typedef typename hyperion::DataType<DT>::ValueType VT;
 
-    auto col = MSTableColumns<D>::lookup_col(nm).value();
-    std::optional<std::string> measure_name;
-    {
-      auto m = MSTableColumns<D>::measure_names.find(col);
-      if (m != MSTableColumns<D>::measure_names.end()) {
-        measure_name = m->second;
-        std::string msr = nm + "_MEASURE_";
-        auto pos = measure_name.value().find(msr);
-        assert(pos == 0);
-        pos += msr.size();
-        measure_name = measure_name.value().substr(pos);
-      }
-    }
     std::optional<std::string> result;
     switch (element_axes.size()) {
     case 0:
-      result = add_scalar_column<VT>(table, nm);
+      result = add_scalar_column<VT>(table, nm, fid);
       break;
 
     case 1:
-      result = add_array_column<VT, 1>(table, nm, element_axes, size<1>);
+      result = add_array_column<VT, 1>(table, nm, fid, element_axes, size<1>);
       array_names.insert(nm);
       break;
 
     case 2:
-      result = add_array_column<VT, 2>(table, nm, element_axes, size<2>);
+      result = add_array_column<VT, 2>(table, nm, fid, element_axes, size<2>);
       array_names.insert(nm);
       break;
 
     case 3:
-      result = add_array_column<VT, 3>(table, nm, element_axes, size<3>);
+      result = add_array_column<VT, 3>(table, nm, fid, element_axes, size<3>);
       array_names.insert(nm);
       break;
 
@@ -302,21 +325,49 @@ public:
           actual_column_selections.insert(nm);
       }
     }
+    // FIXME: awaiting Table keyword support
+    // get table keyword names and types
+//     {
+//       auto kws = table.keywordSet();
+//       auto nf = kws.nfields();
+//       for (unsigned f = 0; f < nf; ++f) {
+//         std::string name = kws.name(f);
+//         auto dt = kws.dataType(f);
+//         if (name != "MEASINFO" && name != "QuantumUnits") {
+//           switch (dt) {
+// #define ADD_KW(DT)                              \
+//             case DataType<DT>::CasacoreTypeTag: \
+//               result.add_keyword(name, DT);     \
+//               break;
+//             HYPERION_FOREACH_DATATYPE(ADD_KW);
+// #undef ADD_KW
+//           default:
+//             // ignore other kw types, like Table
+//             break;
+//           }
+//         }
+//       }
+//     }
     // add a column to TableBuilderT for each of the selected columns
     //
+    unsigned unreserved_fid = MSTableColumns<D>::column_names.size();
     std::for_each(
       actual_column_selections.begin(),
       actual_column_selections.end(),
-      [&table, &result, &tdesc, &element_axes, &array_names](auto& nm) {
+      [&table, &result, &tdesc, &element_axes, &array_names, &unreserved_fid]
+      (auto& nm) {
         auto axes = element_axes.at(nm);
         auto cdesc = tdesc[nm];
         std::optional<std::string> refcol;
+        auto c = MSTableColumns<D>::lookup_col(nm);
+        assert(c.has_value());
+        unsigned fid = MSTableColumns<D>::fid(c.value());
         switch (cdesc.dataType()) {
 #define ADD_FROM_TCOL(DT)                                               \
           case DataType<DT>::CasacoreTypeTag:                           \
             refcol =                                                    \
               result.template add_from_table_column<DT>(                \
-                table, nm, axes, array_names);                          \
+                table, nm, fid, axes, array_names);                     \
             break;
           HYPERION_FOREACH_DATATYPE(ADD_FROM_TCOL);
 #undef ADD_FROM_TCOL
@@ -329,34 +380,13 @@ public:
             result.template add_from_table_column<HYPERION_TYPE_INT>(
               table,
               refcol.value(),
+              unreserved_fid++,
               {static_cast<Axes>(0)},
               array_names);
           assert(!rc);
         }
       });
 
-    // get table keyword names and types
-    {
-      auto kws = table.keywordSet();
-      auto nf = kws.nfields();
-      for (unsigned f = 0; f < nf; ++f) {
-        std::string name = kws.name(f);
-        auto dt = kws.dataType(f);
-        if (name != "MEASINFO" && name != "QuantumUnits") {
-          switch (dt) {
-#define ADD_KW(DT)                              \
-            case DataType<DT>::CasacoreTypeTag: \
-              result.add_keyword(name, DT);     \
-              break;
-            HYPERION_FOREACH_DATATYPE(ADD_KW);
-#undef ADD_KW
-          default:
-            // ignore other kw types, like Table
-            break;
-          }
-        }
-      }
-    }
     // scan rows to get shapes for all selected array columns
     //
     std::unordered_map<std::string, std::any> args;
@@ -404,22 +434,20 @@ struct HYPERION_API TableBuilder {
   }
 };
 
-void
-initialize_keywords_from_ms(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
-  const CXX_FILESYSTEM_NAMESPACE::path& path,
-  Table& table);
+// void
+// initialize_keywords_from_ms(
+//   Legion::Context ctx,
+//   Legion::Runtime* rt,
+//   const CXX_FILESYSTEM_NAMESPACE::path& path,
+//   Table& table);
 
 template <MSTables T>
-Table
+std::pair<std::string, Table>
 from_ms(
   Legion::Context ctx,
   Legion::Runtime* rt,
   const CXX_FILESYSTEM_NAMESPACE::path& path,
   const std::unordered_set<std::string>& column_selections) {
-
-  typedef typename MSTable<T>::Axes Axes;
 
   const CXX_FILESYSTEM_NAMESPACE::path& table_path =
     ((path.filename() == MSTable<T>::name)
@@ -428,19 +456,13 @@ from_ms(
 
   auto builder = TableBuilder::from_ms<T>(table_path, column_selections);
 
-  auto result =
-    Table::create(
-      ctx,
-      rt,
-      builder.name(),
-      std::vector<Axes>{MSTable<T>::ROW_AXIS},
-      builder.column_generators(),
-      builder.keywords(),
-      "/");
+  // FIXME: awaiting keyword support in Tables
+  //initialize_keywords_from_ms(ctx, rt, table_path, result);
 
-  initialize_keywords_from_ms(ctx, rt, table_path, result);
-  
-  return result;
+  return
+    std::make_pair(
+      builder.name(),
+      Table::create(ctx, rt, builder.columns(ctx, rt)));
 }
 
 } // end namespace hyperion

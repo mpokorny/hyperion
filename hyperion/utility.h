@@ -21,6 +21,8 @@
 #include <hyperion/utility_c.h>
 
 #pragma GCC visibility push(default)
+# include <mappers/default_mapper.h>
+
 # include <algorithm>
 # include <array>
 # include <atomic>
@@ -32,6 +34,7 @@
 # include <numeric>
 # include <optional>
 # include <unordered_map>
+# include <unordered_set>
 
 # ifdef HYPERION_USE_HDF5
 #  include <hdf5.h>
@@ -53,6 +56,8 @@
 #define HYPERION_IB_MAX_SIZE (63 * (((size_t)1) << 20))
 
 namespace hyperion {
+
+class Table;
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;
 
@@ -146,14 +151,22 @@ min_divisor(
 // this returns an IndexPartition with a new IndexSpace as a color space, which
 // the caller must eventually destroy
 HYPERION_API Legion::IndexPartition
-partition_over_all_cpus(
+partition_over_default_tunable(
   Legion::Context ctx,
   Legion::Runtime* rt,
   Legion::IndexSpace is,
-  unsigned min_block_size);
+  size_t min_block_size,
+  Legion::Mapping::DefaultMapper::DefaultTunables tunable);
 
 HYPERION_API IndexTreeL
 index_space_as_tree(Legion::Runtime* rt, Legion::IndexSpace is);
+
+HYPERION_API std::pair<std::string, hyperion::Table>
+from_ms(
+  Legion::Context ctx,
+  Legion::Runtime* runtime,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
+  const std::unordered_set<std::string>& column_selections);
 
 struct HYPERION_API string {
 

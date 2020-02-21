@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <hyperion/utility.h>
 #include <hyperion/ColumnSpacePartition.h>
 
 using namespace hyperion;
@@ -241,7 +240,7 @@ const char* ColumnSpacePartition::create_task_bs_name =
   "x::ColumnSpacePartition::create_task_bs";
 
 struct CreateTaskBSArgs {
-  string axes_uid;
+  hyperion::string axes_uid;
   std::array<std::pair<int, coord_t>, ColumnSpace::MAX_DIM> block_sizes;
   size_t partition_dim;
   IndexSpace column_space_is;

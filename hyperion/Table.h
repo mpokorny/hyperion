@@ -58,7 +58,7 @@ struct TableFieldsType<TableFieldsFid::NM> {
 };
 template<>
 struct TableFieldsType<TableFieldsFid::DT> {
-  typedef TypeTag type;
+  typedef hyperion::TypeTag type;
 };
 template<>
 struct TableFieldsType<TableFieldsFid::KW> {
@@ -106,6 +106,9 @@ public:
 
     size_t
     legion_deserialize(const void* buffer);
+
+    std::optional<ColumnSpacePartition>
+    find(const ColumnSpace& cs) const;
   };
 
   struct columns_result_t {
@@ -192,8 +195,8 @@ public:
     Legion::Runtime* rt,
     const std::vector<
       std::pair<
-      ColumnSpace,
-      std::vector<std::pair<std::string, TableField>>>>& columns);
+        ColumnSpace,
+        std::vector<std::pair<std::string, TableField>>>>& columns);
 
   bool
   is_empty() const;

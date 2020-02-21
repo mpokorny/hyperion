@@ -18,8 +18,9 @@
 
 #include <hyperion/MSTableColumns_c.h>
 #include <hyperion/MSTable.h>
-// TODO: XVERSION : remove
-#include <hyperion/Column.h>
+# ifdef HYPERION_USE_CASACORE
+#  include <hyperion/MeasRef.h>
+# endif
 
 #pragma GCC visibility push(default)
 # ifdef HYPERION_USE_CASACORE
@@ -60,7 +61,8 @@ struct MSTableColumnsBase {
   using ref_mr_t = std::tuple<
     std::vector<std::shared_ptr<casacore::MeasRef<M>>>,
     std::unordered_map<unsigned, unsigned>,
-    Legion::PhysicalRegion>;
+    Legion::PhysicalRegion,
+    Legion::FieldID>;
 
   template <typename M>
   using mr_t = std::variant<simple_mr_t<M>, ref_mr_t<M>>;
@@ -70,7 +72,8 @@ struct MSTableColumnsBase {
     Legion::PhysicalRegion values;
 #ifdef HYPERION_USE_CASACORE
     std::vector<Legion::PhysicalRegion> meas_refs;
-    std::optional<Legion::PhysicalRegion> ref_column;
+    std::optional<std::tuple<Legion::PhysicalRegion, Legion::FieldID>>
+    ref_column;
 #endif // HYPERION_USE_CASACORE
   };
 
@@ -86,7 +89,8 @@ struct MSTableColumnsBase {
     auto [mrs, index] = MeasRef::make<M>(rt, drs);
     if (r.ref_column) {
       assert(index.size() > 0);
-      return std::make_tuple(mrs, index, r.ref_column.value());
+      auto& [pr, fid] = r.ref_column.value();
+      return std::make_tuple(mrs, index, pr, fid);
     } else {
       return mrs[0];
     }
@@ -112,7 +116,7 @@ public:
           m_convert.setOut(*m_mr);
         },
         [this](MSTableColumnsBase::ref_mr_t<M>& mr) {
-          auto& [mrs, rmap, rcodes_pr] = mr;
+          auto& [mrs, rmap, rcodes_pr, fid] = mr;
           m_mrv =
             std::make_tuple(
               mrs,
@@ -121,8 +125,7 @@ public:
                 HYPERION_TYPE_INT, // TODO: parameterize for string values
                 ROW_RANK,
                 MODE,
-                CHECK_BOUNDS>(
-                rcodes_pr, Column::VALUE_FID));
+                CHECK_BOUNDS>(rcodes_pr, fid));
         }
       },
       *mr);
@@ -182,10 +185,6 @@ struct MSTableColumns {
 template <MSTables T>
 const std::array<const char*, 0> MSTableColumns<T>::column_names;
 
-// TODO: XVERSION : change fid() method to return the following
-//
-// c + MS_##T##_COL_FID_BASE;
-
 #define MSTC(T, t)                                                      \
   template <>                                                           \
   struct HYPERION_API MSTableColumns<MS_##T> {                          \
@@ -195,7 +194,7 @@ const std::array<const char*, 0> MSTableColumns<T>::column_names;
     static const constexpr std::array<unsigned, MS_##T##_NUM_COLS>      \
       element_ranks = MS_##T##_COLUMN_ELEMENT_RANKS;                    \
     static constexpr Legion::FieldID fid(col_t c) {                     \
-      return Column::VALUE_FID;                                         \
+      return c + MS_##T##_COL_FID_BASE;                                 \
     }                                                                   \
     static const std::unordered_map<col_t, const char*> units;          \
     static const std::map<col_t, const char*> measure_names;            \

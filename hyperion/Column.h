@@ -75,7 +75,7 @@ struct HYPERION_API Column {
   Legion::FieldID fid;
 #ifdef HYPERION_USE_CASACORE
   MeasRef mr;
-  std::optional<string> rc;
+  std::optional<hyperion::string> rc;
 #endif
   Keywords kw;
   ColumnSpace csp;
