@@ -119,8 +119,8 @@ list(APPEND HYPERION_SRC
   utility_c.h
   Column.h
   Column.cc
-  Column_c.cc
-  Column_c.h
+  # Column_c.cc
+  # Column_c.h
   ColumnBuilder.h
   ColumnSpace.h
   ColumnSpace.cc
@@ -138,8 +138,8 @@ list(APPEND HYPERION_SRC
   MSTableColumns.cc
   Table.h
   Table.cc
-  Table_c.cc
-  Table_c.h
+  # Table_c.cc
+  # Table_c.h
   TableField.h
   KeywordsBuilder.h)
 
@@ -149,8 +149,8 @@ if(USE_CASACORE)
     TableBuilder.cc
     TableReadTask.cc
     TableReadTask.h
-    TableReadTask_c.cc
-    TableReadTask_c.h
+    # TableReadTask_c.cc
+    # TableReadTask_c.h
     Measures.h
     Measures.cc
     MeasRef.h

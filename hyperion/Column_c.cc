@@ -26,11 +26,11 @@ using namespace hyperion;
 using namespace hyperion::CObjectWrapper;
 
 const Legion::FieldID metadata_fs[3] =
-  {Column::METADATA_NAME_FID,
-   Column::METADATA_AXES_UID_FID,
-   Column::METADATA_DATATYPE_FID};
-const Legion::FieldID axes_fs[1] = {Column::AXES_FID};
-const Legion::FieldID values_fs[1] = {Column::VALUE_FID};
+{0/*Column::METADATA_NAME_FID*/,
+ 1/*Column::METADATA_AXES_UID_FID*/,
+ 2/*Column::METADATA_DATATYPE_FID*/};
+const Legion::FieldID axes_fs[1] = {0/*Column::AXES_FID*/};
+const Legion::FieldID values_fs[1] = {1/*Column::VALUE_FID*/};
 
 const legion_field_id_t*
 column_metadata_fs() {
@@ -58,41 +58,41 @@ column_is_empty(column_t col) {
   return unwrap(col).is_empty();
 }
 
-column_partition_t
-column_partition_on_axes(
-  legion_context_t ctx,
-  legion_runtime_t rt,
-  column_t col,
-  unsigned num_axes,
-  const int* axes) {
+// column_partition_t
+// column_partition_on_axes(
+//   legion_context_t ctx,
+//   legion_runtime_t rt,
+//   column_t col,
+//   unsigned num_axes,
+//   const int* axes) {
 
-  std::vector<int> ax;
-  ax.reserve(num_axes);
-  std::copy(axes, axes + num_axes, std::back_inserter(ax));
+//   std::vector<int> ax;
+//   ax.reserve(num_axes);
+//   std::copy(axes, axes + num_axes, std::back_inserter(ax));
 
-  return
-    wrap(
-      unwrap(col)
-      .partition_on_axes(
-        Legion::CObjectWrapper::unwrap(ctx)->context(),
-        Legion::CObjectWrapper::unwrap(rt),
-        ax));
-}
+//   return
+//     wrap(
+//       unwrap(col)
+//       .partition_on_axes(
+//         Legion::CObjectWrapper::unwrap(ctx)->context(),
+//         Legion::CObjectWrapper::unwrap(rt),
+//         ax));
+// }
 
-column_partition_t
-column_projected_column_partition(
-  legion_context_t ctx,
-  legion_runtime_t rt,
-  column_t col,
-  column_partition_t cp) {
-  return
-    wrap(
-      unwrap(col)
-      .projected_column_partition(
-        Legion::CObjectWrapper::unwrap(ctx)->context(),
-        Legion::CObjectWrapper::unwrap(rt),
-        unwrap(cp)));
-}
+// column_partition_t
+// column_projected_column_partition(
+//   legion_context_t ctx,
+//   legion_runtime_t rt,
+//   column_t col,
+//   column_partition_t cp) {
+//   return
+//     wrap(
+//       unwrap(col)
+//       .projected_column_partition(
+//         Legion::CObjectWrapper::unwrap(ctx)->context(),
+//         Legion::CObjectWrapper::unwrap(rt),
+//         unwrap(cp)));
+// }
 
 void
 column_destroy(legion_context_t ctx, legion_runtime_t rt, column_t col) {

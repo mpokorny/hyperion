@@ -18,7 +18,6 @@
 
 #include <hyperion/hyperion_c.h>
 #include <hyperion/utility_c.h>
-#include <hyperion/ColumnPartition_c.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,20 +49,20 @@ column_rank(legion_runtime_t rt, column_t col);
 HYPERION_API int
 column_is_empty(column_t col);
 
-HYPERION_API column_partition_t
-column_partition_on_axes(
-  legion_context_t ctx,
-  legion_runtime_t rt,
-  column_t col,
-  unsigned num_axes,
-  const int* axes);
+/* HYPERION_API column_partition_t */
+/* column_partition_on_axes( */
+/*   legion_context_t ctx, */
+/*   legion_runtime_t rt, */
+/*   column_t col, */
+/*   unsigned num_axes, */
+/*   const int* axes); */
 
-HYPERION_API column_partition_t
-column_projected_column_partition(
-  legion_context_t ctx,
-  legion_runtime_t rt,
-  column_t col,
-  column_partition_t cp);
+/* HYPERION_API column_partition_t */
+/* column_projected_column_partition( */
+/*   legion_context_t ctx, */
+/*   legion_runtime_t rt, */
+/*   column_t col, */
+/*   column_partition_t cp); */
 
 HYPERION_API void
 column_destroy(legion_context_t ctx, legion_runtime_t rt, column_t col);
