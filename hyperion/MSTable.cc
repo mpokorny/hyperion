@@ -219,7 +219,7 @@ hyperion::MSTable<MS_OBSERVATION>::element_axes = {
   {"SCHEDULE_TYPE", {}},
   {"SCHEDULE", {OBSERVATION_SCHEDULE}},
   {"PROJECT", {}},
-  {"RELEASE_DATA", {}},
+  {"RELEASE_DATE", {}},
   {"FLAG_ROW", {}}
 };
 
@@ -297,14 +297,13 @@ hyperion::MSTable<MS_SPECTRAL_WINDOW>::element_axes = {
   {"REF_FREQUENCY", {}},
   {"CHAN_FREQ", {SPECTRAL_WINDOW_CHANNEL}},
   {"CHAN_WIDTH", {SPECTRAL_WINDOW_CHANNEL}},
-  {"MEAS_FREQ_REF", {}},
   {"EFFECTIVE_BW", {SPECTRAL_WINDOW_CHANNEL}},
   {"RESOLUTION", {SPECTRAL_WINDOW_CHANNEL}},
   {"TOTAL_BANDWIDTH", {}},
   {"NET_SIDEBAND", {}},
   {"BBC_NO", {}},
   {"BBC_SIDEBAND", {}},
-  {"IF_CONV_CHAN", {}},
+  {"IF_CONV_CHAIN", {}},
   {"RECEIVER_ID", {}},
   {"FREQ_GROUP", {}},
   {"FREQ_GROUP_NAME", {}},
