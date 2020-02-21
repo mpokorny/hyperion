@@ -11,7 +11,7 @@ find_package(yaml-cpp QUIET)
 
 set(MAX_DIM 7 CACHE STRING "Maximum index space dimension")
 set(MAX_STRING_SIZE 64 CACHE STRING "Maximum string size")
-set(MAX_NUM_TABLE_COLUMNS 20 CACHE STRING "Maximum number of table columns")
+set(MAX_NUM_TABLE_COLUMNS 30 CACHE STRING "Maximum number of table columns")
 set(BUILD_REGENT OFF CACHE BOOL "Build Regent")
 set(USE_HDF5 ${HDF5_FOUND} CACHE BOOL "Use HDF5")
 set(USE_CASACORE ON CACHE BOOL "Use casacore")
