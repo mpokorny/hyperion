@@ -74,6 +74,12 @@ namespace hdf5 {
 
 #define HYPERION_LARGE_TREE_MIN (64 * (1 << 10))
 
+#define CHECK_H5(F) ({                          \
+      auto _rc = F;                             \
+      assert(_rc >= 0);                         \
+      _rc;                                      \
+    })
+
 // TODO: it might be nice to support use of types of IndexSpace descriptions
 // other than IndexTree...this might require some sort of type registration
 // interface, the descriptions would have to support a
@@ -93,17 +99,13 @@ write_index_tree_to_attr(
     std::string(HYPERION_ATTRIBUTE_DS_PREFIX) + attr_name;
 
   // remove current attribute value
-  htri_t attr_exists = H5Aexists(grp_id, attr_name.c_str());
-  assert(attr_exists >= 0);
+  htri_t attr_exists = CHECK_H5(H5Aexists(grp_id, attr_name.c_str()));
   if (attr_exists > 0) {
-    herr_t err = H5Adelete(grp_id, attr_name.c_str());
-    assert(err == 0);
-    htri_t attr_ds_exists = H5Lexists(grp_id, attr_ds_name.c_str(), H5P_DEFAULT);
-    assert(attr_ds_exists >= 0);
-    if (attr_ds_exists > 0) {
-      herr_t err = H5Ldelete(grp_id, attr_ds_name.c_str(), H5P_DEFAULT);
-      assert(err == 0);
-    }
+    CHECK_H5(H5Adelete(grp_id, attr_name.c_str()));
+    htri_t attr_ds_exists =
+      CHECK_H5(H5Lexists(grp_id, attr_ds_name.c_str(), H5P_DEFAULT));
+    if (attr_ds_exists > 0)
+      CHECK_H5(H5Ldelete(grp_id, attr_ds_name.c_str(), H5P_DEFAULT));
   }
 
   auto size = SERDEZ::serialized_size(spec);
@@ -114,58 +116,52 @@ write_index_tree_to_attr(
   if (size < HYPERION_LARGE_TREE_MIN) {
     // small serialized size: save byte string as an attribute
     hid_t attr_id =
-      H5Acreate(
-        grp_id,
-        attr_name.c_str(),
-        H5T_NATIVE_UINT8,
-        value_space_id,
-        H5P_DEFAULT, H5P_DEFAULT);
-    assert(attr_id >= 0);
-    herr_t rc = H5Awrite(attr_id, H5T_NATIVE_UINT8, buf.data());
-    assert (rc >= 0);
-    rc = H5Aclose(attr_id);
-    assert(rc >= 0);
+      CHECK_H5(
+        H5Acreate(
+          grp_id,
+          attr_name.c_str(),
+          H5T_NATIVE_UINT8,
+          value_space_id,
+          H5P_DEFAULT, H5P_DEFAULT));
+    CHECK_H5(H5Awrite(attr_id, H5T_NATIVE_UINT8, buf.data()));
+    CHECK_H5(H5Aclose(attr_id));
   } else {
     // large serialized size: create a new dataset containing byte string, and
     // save reference to that dataset as attribute
     hid_t attr_ds =
-      H5Dcreate(
-        grp_id,
-        attr_ds_name.c_str(),
-        H5T_NATIVE_UINT8,
-        value_space_id,
-        H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    assert(attr_ds >= 0);
-    herr_t rc =
+      CHECK_H5(
+        H5Dcreate(
+          grp_id,
+          attr_ds_name.c_str(),
+          H5T_NATIVE_UINT8,
+          value_space_id,
+          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+    CHECK_H5(
       H5Dwrite(
         attr_ds,
         H5T_NATIVE_UINT8,
         H5S_ALL,
         H5S_ALL,
         H5P_DEFAULT,
-        buf.data());
-    assert(rc >= 0);
-    rc = H5Dclose(attr_ds);
-    assert(rc >= 0);
+        buf.data()));
+    CHECK_H5(H5Dclose(attr_ds));
 
-    hid_t ref_space_id = H5Screate(H5S_SCALAR);
+    hid_t ref_space_id = CHECK_H5(H5Screate(H5S_SCALAR));
     hid_t attr_type = H5T_STD_REF_OBJ;
     hid_t attr_id =
-      H5Acreate(
-        grp_id,
-        attr_name.c_str(),
-        attr_type,
-        ref_space_id,
-        H5P_DEFAULT, H5P_DEFAULT);
-    assert(attr_id >= 0);
+      CHECK_H5(
+        H5Acreate(
+          grp_id,
+          attr_name.c_str(),
+          attr_type,
+          ref_space_id,
+          H5P_DEFAULT, H5P_DEFAULT));
     hobj_ref_t attr_ref;
-    rc = H5Rcreate(&attr_ref, grp_id, attr_ds_name.c_str(), H5R_OBJECT, -1);
-    assert (rc >= 0);
-    rc = H5Awrite(attr_id, H5T_STD_REF_OBJ, &attr_ref);
-    assert (rc >= 0);
-    H5Sclose(ref_space_id);
-    rc = H5Aclose(attr_id);
-    assert(rc >= 0);
+    CHECK_H5(
+      H5Rcreate(&attr_ref, grp_id, attr_ds_name.c_str(), H5R_OBJECT, -1));
+    CHECK_H5(H5Awrite(attr_id, H5T_STD_REF_OBJ, &attr_ref));
+    CHECK_H5(H5Sclose(ref_space_id));
+    CHECK_H5(H5Aclose(attr_id));
   }
   H5Sclose(value_space_id);
 
@@ -177,21 +173,18 @@ write_index_tree_to_attr(
     hid_t md_attr_dt =
       hyperion::H5DatatypeManager::datatype<HYPERION_TYPE_STRING>();
     hid_t md_attr_id =
-      H5Acreate(
-        grp_id,
-        md_name.c_str(),
-        md_attr_dt,
-        md_space_id,
-        H5P_DEFAULT, H5P_DEFAULT);
-    assert(md_attr_id >= 0);
+      CHECK_H5(
+        H5Acreate(
+          grp_id,
+          md_name.c_str(),
+          md_attr_dt,
+          md_space_id,
+          H5P_DEFAULT, H5P_DEFAULT));
     hyperion::string attr;
     attr = SERDEZ::id;
-    herr_t rc = H5Awrite(md_attr_id, md_attr_dt, attr.val);
-    assert(rc >= 0);
-    rc = H5Aclose(md_attr_id);
-    assert(rc >= 0);
-    rc = H5Sclose(md_space_id);
-    assert(rc >= 0);
+    CHECK_H5(H5Awrite(md_attr_id, md_attr_dt, attr.val));
+    CHECK_H5(H5Aclose(md_attr_id));
+    CHECK_H5(H5Sclose(md_space_id));
   }
 }
 
@@ -213,57 +206,44 @@ read_index_tree_from_attr(
   if (!H5Aexists(grp_id, attr_name.c_str()))
     return result;
 
-  hid_t attr_id = H5Aopen(grp_id, attr_name.c_str(), H5P_DEFAULT);
-  assert(attr_id >= 0);
+  hid_t attr_id = CHECK_H5(H5Aopen(grp_id, attr_name.c_str(), H5P_DEFAULT));
 
-  hid_t attr_type = H5Aget_type(attr_id);
+  hid_t attr_type = CHECK_H5(H5Aget_type(attr_id));
   if (H5Tequal(attr_type, H5T_NATIVE_UINT8) > 0) {
     // serialized value was written into attribute
-    hid_t attr_ds = H5Aget_space(attr_id);
-    assert(attr_ds >= 0);
-    hssize_t attr_sz = H5Sget_simple_extent_npoints(attr_ds);
-    assert(attr_sz >= 0);
-    herr_t rc = H5Sclose(attr_ds);
-    assert(rc >= 0);
+    hid_t attr_ds = CHECK_H5(H5Aget_space(attr_id));
+    hssize_t attr_sz = CHECK_H5(H5Sget_simple_extent_npoints(attr_ds));
+    CHECK_H5(H5Sclose(attr_ds));
     std::vector<char> buf(static_cast<size_t>(attr_sz));
-    rc = H5Aread(attr_id, H5T_NATIVE_UINT8, buf.data());
-    assert(rc >= 0);
+    CHECK_H5(H5Aread(attr_id, H5T_NATIVE_UINT8, buf.data()));
     IndexTreeL tree;
     SERDEZ::deserialize(tree, buf.data());
     result = tree;
   } else if (H5Tequal(attr_type, H5T_STD_REF_OBJ) > 0) {
     // serialized value is in a dataset referenced by attribute
     hobj_ref_t attr_ref;
-    herr_t rc = H5Aread(attr_id, H5T_STD_REF_OBJ, &attr_ref);
-    assert(rc >= 0);
-    hid_t attr_ds = H5Rdereference2(grp_id, H5P_DEFAULT, H5R_OBJECT, &attr_ref);
-    assert(attr_ds >= 0);
-    hid_t attr_sp = H5Dget_space(attr_ds);
-    assert(attr_ds >= 0);
-    hssize_t attr_sz = H5Sget_simple_extent_npoints(attr_sp);
-    assert(attr_sz >= 0);
+    CHECK_H5(H5Aread(attr_id, H5T_STD_REF_OBJ, &attr_ref));
+    hid_t attr_ds =
+      CHECK_H5(H5Rdereference2(grp_id, H5P_DEFAULT, H5R_OBJECT, &attr_ref));
+    hid_t attr_sp = CHECK_H5(H5Dget_space(attr_ds));
+    hssize_t attr_sz = CHECK_H5(H5Sget_simple_extent_npoints(attr_sp));
     std::vector<char> buf(static_cast<size_t>(attr_sz));
-    rc =
+    CHECK_H5(
       H5Dread(
         attr_ds,
         H5T_NATIVE_UINT8,
         H5S_ALL,
         H5S_ALL,
         H5P_DEFAULT,
-        buf.data());
-    assert(rc >= 0);
-    rc = H5Dclose(attr_ds);
-    assert(rc >= 0);
-    rc = H5Sclose(attr_sp);
-    assert(rc >= 0);
+        buf.data()));
+    CHECK_H5(H5Dclose(attr_ds));
+    CHECK_H5(H5Sclose(attr_sp));
     IndexTreeL tree;
     SERDEZ::deserialize(tree, buf.data());
     result = tree;
   }
-  herr_t err = H5Tclose(attr_type);
-  assert(err >= 0);
-  err = H5Aclose(attr_id);
-  assert(err >= 0);
+  CHECK_H5(H5Tclose(attr_type));
+  CHECK_H5(H5Aclose(attr_id));
   return result;
 }
 

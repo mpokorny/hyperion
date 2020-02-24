@@ -375,28 +375,23 @@ public:
 
     // For now, we write the entire MS into a single HDF5 file.
 
-    hid_t fid = H5DatatypeManager::create(h5.c_str(), H5F_ACC_EXCL);
-    assert(fid >= 0);
-
-    hid_t root = H5Gopen(fid, "/", H5P_DEFAULT);
+    hid_t fid = CHECK_H5(H5DatatypeManager::create(h5.c_str(), H5F_ACC_EXCL));
+    hid_t root = CHECK_H5(H5Gopen(fid, "/", H5P_DEFAULT));
     for (PointInDomainIterator<1> pid(
            rt->get_index_space_domain(table_names_lr.get_index_space()));
          pid();
          pid++) {
       auto [nm, t] = ftables.get_result<read_ms_table_result_t>(*pid);
       hid_t tid =
-        H5Gcreate(root, nm.val, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-      assert(tid >= 0);
+        CHECK_H5(
+          H5Gcreate(root, nm.val, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
       hdf5::write_table(ctx, rt, tid, t);
-      herr_t err = H5Gclose(tid);
-      assert(err >= 0);
+      CHECK_H5(H5Gclose(tid));
       t.destroy(ctx, rt);
     }
 
-    herr_t err = H5Gclose(root);
-    assert(err >= 0);
-    err = H5Fclose(fid);
-    assert(err >= 0);
+    CHECK_H5(H5Gclose(root));
+    CHECK_H5(H5Fclose(fid));
 
     rt->destroy_field_space(ctx, table_names_lr.get_field_space());
     rt->destroy_index_space(ctx, table_names_lr.get_index_space());
