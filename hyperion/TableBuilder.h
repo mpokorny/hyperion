@@ -318,15 +318,16 @@ public:
     auto tdesc = table.tableDesc();
     auto column_names = tdesc.columnNames();
     std::unordered_set<std::string> actual_column_selections;
-    bool select_all = column_selections.count("*") > 0;
-    for (auto& nm : column_names) {
-      if (tdesc.isColumn(nm)
-          && (select_all || (column_selections.count(nm) > 0))) {
-        auto col = tdesc[nm];
-        if (col.isScalar() || (col.isArray() && col.ndim() >= 0))
-          actual_column_selections.insert(nm);
-      }
-    }
+    std::copy_if(
+      column_names.begin(),
+      column_names.end(),
+      std::inserter(actual_column_selections, actual_column_selections.end()),
+      [&tdesc, &column_selections, select_all=column_selections.count("*") > 0]
+      (auto& nm) {
+        return tdesc.isColumn(nm)
+          && (select_all || (column_selections.count(nm) > 0));
+      });
+
     // FIXME: awaiting Table keyword support
     // get table keyword names and types
 //     {
