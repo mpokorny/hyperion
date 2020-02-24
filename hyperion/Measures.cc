@@ -62,34 +62,60 @@ hyperion::get_meas_refs(
     const casacore::TableMeasDescBase& tmd = tmc.measDesc();
     if (!tmd.isRefCodeVariable() && !tmd.isOffsetVariable()) {
       std::string mtype = tmd.type();
+      // I'm not sure of how, exactly, one can decide whether a call to
+      // casacore::ScalarMeasColumn or casacore::ArrayMeasColumn is required.
+      // Simply relying on tmc.isScalar() does not always work (c.f, test MS
+      // t0.ms, table OBSERVATION, column TIME_RANGE). The following definition
+      // of GET_MR seems hacky, but it's the best solution I can come up with
+      // currently. The alternative definition, ALT_GET_MR, looks better, and
+      // although it doesn't work correctly, I'm leaving it here for reference
+      // for future work.
       if (false) {}
 #define GET_MR(MC)                                                    \
       else if (MClassT<MC>::name == mtype) {                          \
         mc = MC;                                                      \
-        auto code = tmd.getRefCode();                                 \
-        if (tmc.isScalar()) {                                         \
+        std::unique_ptr<casacore::MeasRef<MClassT<MC>::type>> mrb;    \
+        try {                                                         \
           casacore::ScalarMeasColumn<MClassT<MC>::type>               \
             smc(table, colname);                                      \
-          mrbs.emplace_back(                                          \
+          mrb =                                                       \
             std::make_unique<casacore::MeasRef<MClassT<MC>::type>>(   \
-              smc.getMeasRef()),                                      \
-            code);                                                    \
-        } else {                                                      \
+              smc.getMeasRef());                                      \
+        } catch (const casacore::TableInvDT&) {                       \
           casacore::ArrayMeasColumn<MClassT<MC>::type>                \
             amc(table, colname);                                      \
-          mrbs.emplace_back(                                          \
+          mrb =                                                       \
             std::make_unique<casacore::MeasRef<MClassT<MC>::type>>(   \
-              amc.getMeasRef()),                                      \
-            code);                                                    \
+              amc.getMeasRef());                                      \
         }                                                             \
+        mrbs.emplace_back(std::move(mrb), tmd.getRefCode());          \
       }
       HYPERION_FOREACH_MCLASS(GET_MR)
 #undef GET_MR
+#define ALT_GET_MR(MC)                                                \
+      else if (MClassT<MC>::name == mtype) {                          \
+        mc = MC;                                                      \
+        std::unique_ptr<casacore::MeasRef<MClassT<MC>::type>> mrb;    \
+        if (tmc.isScalar()) {                                         \
+          casacore::ScalarMeasColumn<MClassT<MC>::type>               \
+            smc(table, colname);                                      \
+          mrb =                                                       \
+            std::make_unique<casacore::MeasRef<MClassT<MC>::type>>(   \
+              smc.getMeasRef());                                      \
+        } else {                                                      \
+          casacore::ArrayMeasColumn<MClassT<MC>::type>                \
+            amc(table, colname);                                      \
+          mrb =                                                       \
+            std::make_unique<casacore::MeasRef<MClassT<MC>::type>>(   \
+              amc.getMeasRef());                                      \
+        }                                                             \
+        mrbs.emplace_back(mrb, tmd.getRefCode());                     \
+      }
+      //HYPERION_FOREACH_MCLASS(ALT_GET_MR)
+#undef ALT_GET_MR
       else { assert(false); }
     } else {
       auto mi = casacore::Record(kws.asRecord(measinfo_index.value()));
-      std::cout << colname << " has variable MeasRef" << std::endl
-                << mi << std::endl;
       if (mi.fieldNumber("RefOff") >= 0) {
         std::cerr << "Row measures with variable offsets are unsupported"
                   << std::endl;
