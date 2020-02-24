@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
+#include <cstring>
 #include CXX_FILESYSTEM_HEADER
 #include <unordered_set>
 
@@ -30,6 +31,7 @@ using namespace Legion;
 enum {
   TOP_LEVEL_TASK_ID,
   TABLE_NAME_COLLECTOR_TASK_ID,
+  READ_MS_TABLE_TASK_ID,
 };
 
 void
@@ -58,6 +60,28 @@ get_args(
       ++i; // skip option argument
     }
   }
+
+  bool inc =
+    std::any_of(
+      tables.begin(),
+      tables.end(),
+      [](auto& s){ return s[0] != '~'; });
+  bool exc =
+    std::any_of(
+      tables.begin(),
+      tables.end(),
+      [](auto& s){ return s[0] == '~'; });
+  if (inc && exc) {
+    std::cerr << "Mixed table inclusion and exclusion: "
+              << "exclusions will be ignored"
+              << std::endl;
+    tables.erase(
+      std::remove_if(
+        tables.begin(),
+        tables.end(),
+        [](auto& s){ return s[0] == '~'; }),
+      tables.end());
+  }
 }
 
 class TableNameCollectorTask {
@@ -70,116 +94,154 @@ public:
   static const int NAME_FID = 0;
 
   TableNameCollectorTask(
-    const CXX_FILESYSTEM_NAMESPACE::path& ms,
-    LogicalRegion table_names_lr)
-    : m_ms(ms)
-    , m_table_names_lr(table_names_lr) {}
+    const std::vector<std::string>& table_selection,
+    const CXX_FILESYSTEM_NAMESPACE::path& ms) {
 
-  void
+    m_args.ms = ms;
+    size_t i = 0;
+    while (i < table_selection.size()) {
+      m_args.selection[i] = table_selection[i];
+      ++i;
+    }
+    while (i < m_args.selection.size())
+      m_args.selection[i++] = hyperion::string();
+  }
+
+  Future
   dispatch(Context context, Runtime* runtime) {
-    TaskArgs args{m_ms};
-    auto args_buffer = args.serialize();
-    TaskLauncher
-      launcher(
-        TASK_ID,
-        TaskArgument(args_buffer.get(), args.serialized_size()));
-    launcher.add_region_requirement(
-      RegionRequirement(
-        m_table_names_lr,
-        WRITE_ONLY,
-        EXCLUSIVE,
-        m_table_names_lr));
-    launcher.add_field(0, NAME_FID);
-    runtime->execute_task(context, launcher);
+    TaskLauncher launcher(TASK_ID, TaskArgument(&m_args, sizeof(m_args)));
+    return runtime->execute_task(context, launcher);
   }
 
-  static LogicalRegion
-  table_names_region(Context context, Runtime* runtime) {
-    IndexSpace is =
-      runtime->create_index_space(context, Rect<1>(0, MAX_TABLES - 1));
-    FieldSpace fs = runtime->create_field_space(context);
-    FieldAllocator fa = runtime->create_field_allocator(context, fs);
-    fa.allocate_field(
-      sizeof(DataType<HYPERION_TYPE_STRING>::ValueType),
-      NAME_FID);
-    LogicalRegion result = runtime->create_logical_region(context, is, fs);
-    return result;
-  }
-
-  static void
-  base_impl(
-    const Task* task,
-    const std::vector<PhysicalRegion>& regions,
-    Context,
-    Runtime*) {
-
-    TaskArgs args = TaskArgs::deserialize(task->args);
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using NameAccessor =
     const FieldAccessor<
-      WRITE_ONLY,
+      MODE,
       hyperion::string,
       1,
       coord_t,
       AffineAccessor<hyperion::string, 1, coord_t>,
-      false> names(regions[0], NAME_FID);
-    coord_t i = 0;
-    if (casacore::Table::isReadable(casacore::String(args.ms))) {
+      CHECK_BOUNDS>;
+
+  static LogicalRegion
+  base_impl(
+    const Task* task,
+    const std::vector<PhysicalRegion>&,
+    Context ctx,
+    Runtime* rt) {
+
+    const TaskArgs* args = static_cast<const TaskArgs*>(task->args);
+    // collect table names, ordered by number of rows...this, to allow the
+    // hdf5::write_table() calls to be initiated in the order in which the
+    // read_ms_table tasks are likely to complete, which ought to improve task
+    // overlap when writing multiple tables to a single HDF5 file (better still
+    // might be to write each table to its own HDF5 file)
+    std::set<std::tuple<unsigned, hyperion::string>> names;
+    if (casacore::Table::isReadable(casacore::String(args->ms))) {
       casacore::Table tb(
-        casacore::String(args.ms),
+        casacore::String(args->ms),
         casacore::TableLock::PermanentLockingWait);
-      if (tb.nrow() > 0)
-        names[i++] = hyperion::string("MAIN");
+      hyperion::string nm("MAIN");
+      auto nrow = tb.nrow();
+      if (nrow > 0 && select(args->selection, nm))
+        names.emplace(nrow, nm);
     }
-    for (auto& p : CXX_FILESYSTEM_NAMESPACE::directory_iterator(args.ms)) {
-      if (i < MAX_TABLES
-          && casacore::Table::isReadable(casacore::String(p.path()))) {
+    for (auto& p :
+           CXX_FILESYSTEM_NAMESPACE::directory_iterator(
+             CXX_FILESYSTEM_NAMESPACE::path(args->ms))) {
+      if (casacore::Table::isReadable(casacore::String(p.path()))) {
         casacore::Table tb(
           casacore::String(p.path()),
           casacore::TableLock::PermanentLockingWait);
-        if (tb.nrow() > 0)
-          names[i++] = hyperion::string(p.path().filename().c_str());
+        hyperion::string nm(p.path().filename().c_str());
+        auto nrow = tb.nrow();
+        if (nrow > 0 && select(args->selection, nm)) 
+          names.emplace(nrow, nm);
       }
     }
-    while (i < MAX_TABLES)
-      names[i++] = hyperion::string();
+
+    IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, names.size() - 1));
+    FieldSpace fs = rt->create_field_space(ctx);
+    FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+    fa.allocate_field(sizeof(hyperion::string), NAME_FID);
+    LogicalRegion result = rt->create_logical_region(ctx, is, fs);
+    RegionRequirement req(result, WRITE_ONLY, EXCLUSIVE, result);
+    req.add_field(NAME_FID);
+    auto pr = rt->map_region(ctx, req);
+    const NameAccessor<WRITE_ONLY> nms(pr, NAME_FID);
+    size_t i = 0;
+    for (auto& [nr, nm] : names)
+      nms[i++] = nm;
+    rt->unmap_region(ctx, pr);
+    return result;
   }
 
   static void
   register_task() {
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
     registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
-    registrar.set_leaf();
-    Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
+    Runtime::preregister_task_variant<LogicalRegion, base_impl>(
+      registrar,
+      TASK_NAME);
   }
 
 private:
 
   struct TaskArgs {
-    CXX_FILESYSTEM_NAMESPACE::path ms;
+    hyperion::string ms;
 
-    size_t
-    serialized_size() {
-      return string_serdez<std::string>::serialized_size(ms);
-    }
-
-    std::unique_ptr<char[]>
-    serialize() {
-      auto result = std::make_unique<char[]>(serialized_size());
-      string_serdez<std::string>::serialize(ms, result.get());
-      return result;
-    }
-
-    static TaskArgs
-    deserialize(void* buffer) {
-      std::string s;
-      string_serdez<std::string>::deserialize(s, buffer);
-      return TaskArgs{s};
-    }
+    std::array<hyperion::string, MAX_TABLES> selection;
   };
 
-  CXX_FILESYSTEM_NAMESPACE::path m_ms;
+  TaskArgs m_args;
 
   LogicalRegion m_table_names_lr;
+
+  static bool
+  select(
+    const decltype(TaskArgs::selection)& selection,
+    const hyperion::string& nm) {
+
+    assert(nm.size() > 0);
+    if (selection[0].size() == 0)
+      return true;
+    if (selection.front().val[0] != '~')
+      return
+        std::find(selection.begin(), selection.end(), nm) != selection.end();
+    return
+      std::find_if(
+        selection.begin(),
+        selection.end(),
+        [&nm](auto& onm) {
+          return strcmp(&onm.val[1], nm.val) == 0;
+        }) == selection.end();
+  }
 };
+
+const char* read_ms_table_task_name = "read_ms_table_task";
+
+typedef std::pair<hyperion::string, Table> read_ms_table_result_t;
+
+read_ms_table_result_t
+read_ms_table(
+  const Task* task,
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime* rt) {
+
+  CXX_FILESYSTEM_NAMESPACE::path ms_path =
+    std::string(*static_cast<hyperion::string*>(task->args));
+
+  const TableNameCollectorTask::NameAccessor<WRITE_ONLY>
+    names(regions[0], TableNameCollectorTask::NAME_FID);
+
+  CXX_FILESYSTEM_NAMESPACE::path tpath;
+  if (names[task->index_point] != "MAIN")
+    tpath = ms_path / std::string(names[task->index_point]);
+  else
+    tpath = ms_path;
+  return from_ms(ctx, rt, tpath, {"*"});
+}
 
 class TopLevelTask {
 public:
@@ -292,39 +354,38 @@ public:
     if (!args_ok(ms, table_args, h5, ctx, rt))
       return;
 
+    TableNameCollectorTask tnames_launcher(table_args, ms);
     LogicalRegion table_names_lr =
-      TableNameCollectorTask::table_names_region(ctx, rt);
-    TableNameCollectorTask tnames_launcher(ms, table_names_lr);
-    tnames_launcher.dispatch(ctx, rt);
+      tnames_launcher.dispatch(ctx, rt).get_result<LogicalRegion>();
 
-    auto table_names =
-      selected_tables(table_args, table_names_lr, ctx, rt);
-    rt->destroy_field_space(ctx, table_names_lr.get_field_space());
-    rt->destroy_index_space(ctx, table_names_lr.get_index_space());
-    rt->destroy_logical_region(ctx, table_names_lr);
-
-    std::vector<std::pair<std::string, Table>> tables;
-    for (auto& tn : table_names) {
-      CXX_FILESYSTEM_NAMESPACE::path path;
-      if (tn != "MAIN")
-        path = ms / tn;
-      else
-        path = ms;
-      auto result = from_ms(ctx, rt, path, {"*"});
-      TableReadTask table_read_task(path, std::get<1>(result), 100000);
-      table_read_task.dispatch(ctx, rt);
-      tables.push_back(std::move(result));
+    FutureMap ftables;
+    {
+      hyperion::string ms_path(ms);
+      IndexTaskLauncher reader(
+        READ_MS_TABLE_TASK_ID,
+        table_names_lr.get_index_space(),
+        TaskArgument(&ms_path, sizeof(ms_path)),
+        ArgumentMap());
+      RegionRequirement
+        req(table_names_lr, READ_ONLY, EXCLUSIVE, table_names_lr);
+      req.add_field(TableNameCollectorTask::NAME_FID);
+      reader.add_region_requirement(req);
+      ftables = rt->execute_index_space(ctx, reader);
     }
 
     // For now, we write the entire MS into a single HDF5 file.
-    //
+
     hid_t fid = H5DatatypeManager::create(h5.c_str(), H5F_ACC_EXCL);
     assert(fid >= 0);
 
     hid_t root = H5Gopen(fid, "/", H5P_DEFAULT);
-    for (auto& [nm, t] : tables) {
+    for (PointInDomainIterator<1> pid(
+           rt->get_index_space_domain(table_names_lr.get_index_space()));
+         pid();
+         pid++) {
+      auto [nm, t] = ftables.get_result<read_ms_table_result_t>(*pid);
       hid_t tid =
-        H5Gcreate(root, nm.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        H5Gcreate(root, nm.val, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
       assert(tid >= 0);
       hdf5::write_table(ctx, rt, tid, t);
       herr_t err = H5Gclose(tid);
@@ -336,6 +397,10 @@ public:
     assert(err >= 0);
     err = H5Fclose(fid);
     assert(err >= 0);
+
+    rt->destroy_field_space(ctx, table_names_lr.get_field_space());
+    rt->destroy_index_space(ctx, table_names_lr.get_index_space());
+    rt->destroy_logical_region(ctx, table_names_lr);
   }
 
   static void
@@ -344,80 +409,6 @@ public:
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
   }
-
-  static std::unordered_set<std::string>
-  selected_tables(
-    std::vector<std::string>& table_args,
-    LogicalRegion table_names_lr,
-    Context context,
-    Runtime* runtime) {
-
-    bool inc =
-      std::any_of(
-        table_args.begin(),
-        table_args.end(),
-        [](auto& s){ return s[0] != '~'; });
-    bool exc =
-      std::any_of(
-        table_args.begin(),
-        table_args.end(),
-        [](auto& s){ return s[0] == '~'; });
-    if (inc && exc) {
-      std::cerr << "Mixed table inclusion and exclusion: "
-                << "exclusions will be ignored"
-                << std::endl;
-      table_args.erase(
-        std::remove_if(
-          table_args.begin(),
-          table_args.end(),
-          [](auto& s){ return s[0] == '~'; }),
-        table_args.end());
-    }
-
-    PhysicalRegion table_names_pr =
-      runtime->map_region(
-        context,
-        RegionRequirement(
-          table_names_lr,
-          {TableNameCollectorTask::NAME_FID},
-          {TableNameCollectorTask::NAME_FID},
-          READ_ONLY,
-          EXCLUSIVE,
-          table_names_lr));
-    const FieldAccessor<
-      READ_ONLY,
-      hyperion::string,
-      1,
-      coord_t,
-      AffineAccessor<hyperion::string, 1, coord_t>,
-      false> table_names(table_names_pr, TableNameCollectorTask::NAME_FID);
-    std::unordered_set<std::string> result;
-    coord_t i = 0;
-    if (table_args.size() == 0) {
-      while (table_names[i].size() > 0)
-        result.insert(table_names[i++].val);
-    } else if (table_args.front()[0] != '~') {
-      while (table_names[i].size() > 0) {
-        if (std::find(
-              table_args.begin(),
-              table_args.end(),
-              std::string(table_names[i].val)) != table_args.end())
-          result.insert(table_names[i].val);
-        ++i;
-      }
-    } else {
-      while (table_names[i].size() > 0) {
-        if (std::find(
-              table_args.begin(),
-              table_args.end(),
-              std::string("~") + table_names[i].val) == table_args.end())
-          result.insert(table_names[i].val);
-        ++i;
-      }
-    }
-    runtime->unmap_region(context, table_names_pr);
-    return result;
-  }
 };
 
 int
@@ -425,6 +416,15 @@ main(int argc, char** argv) {
 
   TopLevelTask::register_task();
   TableNameCollectorTask::register_task();
+  {
+    // read_ms_table_task
+    TaskVariantRegistrar
+      registrar(READ_MS_TABLE_TASK_ID, read_ms_table_task_name);
+    registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
+    Runtime::preregister_task_variant<read_ms_table_result_t, read_ms_table>(
+      registrar,
+      read_ms_table_task_name);
+  }
   Runtime::set_top_level_task_id(TopLevelTask::TASK_ID);
   hyperion::preregister_all();
   return Runtime::start(argc, argv);
