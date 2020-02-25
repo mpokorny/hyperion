@@ -1526,6 +1526,58 @@ hyperion::hdf5::attach_table_columns(
   return rt->attach_external_resource(ctx, attach);
 }
 
+std::map<PhysicalRegion, std::unordered_map<std::string, Column>>
+hyperion::hdf5::attach_all_table_columns(
+  Context ctx,
+  Runtime* rt,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
+  const std::string& root_path,
+  const Table& table,
+  const std::unordered_set<std::string>& exclude,
+  const std::unordered_map<std::string, std::string>& column_paths,
+  bool read_only,
+  bool mapped) {
+
+  std::map<PhysicalRegion, std::unordered_map<std::string, Column>> result;
+  auto all_columns =
+    table.columns(ctx, rt).get_result<Table::columns_result_t>();
+  for (auto& [csp, vlr, nm_tflds] : all_columns.fields) {
+    std::unordered_set<std::string> colnames;
+    std::unordered_map<std::string, Column> cols;
+    for (auto& [nm, tfld] : nm_tflds) {
+      if (exclude.count(nm) == 0) {
+        colnames.insert(nm);
+        RegionRequirement req(vlr, READ_ONLY, EXCLUSIVE, vlr);
+        req.add_field(tfld.fid);
+        cols[nm] =
+          Column(
+            tfld.dt,
+            tfld.fid,
+#ifdef HYPERION_USE_CASACORE
+            tfld.mr,
+            tfld.rc,
+#endif
+            tfld.kw,
+            csp,
+            req);
+      }
+    }
+    auto opr =
+      attach_table_columns(
+        ctx,
+        rt,
+        file_path,
+        root_path,
+        table,
+        colnames,
+        column_paths,
+        mapped,
+        read_only);
+    if (opr)
+      result[opr.value()] = cols;
+  }
+  return result;
+}
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2

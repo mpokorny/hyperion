@@ -419,25 +419,22 @@ public:
       std::vector<PhysicalRegion> h5prs;
       auto tbfields =
         tb.columns(ctx, rt).get_result<Table::columns_result_t>().fields;
-      for (auto& [csp, vlr, tflds] : tbfields) {
-        std::unordered_set<std::string> cols;
-        for (auto& [nm, tfl] : tflds)
-          cols.insert(nm);
-        h5prs.push_back(
-          hdf5::attach_table_columns(
-            ctx,
-            rt,
-            h5,
-            "/",
-            tb,
-            cols,
-            paths,
-            false,
-            false)
-          .value());
-        auto lr = h5prs.back().get_logical_region();
-        AcquireLauncher acquire(lr, lr, h5prs.back());
-        rt->get_field_space_fields(lr.get_field_space(), acquire.fields);
+      auto attached =
+        hdf5::attach_all_table_columns(
+          ctx,
+          rt,
+          h5,
+          "/",
+          tb,
+          {},
+          paths,
+          false,
+          false);
+      for (auto& [pr, nm_cols] : attached) {
+        auto lr = pr.get_logical_region();
+        AcquireLauncher acquire(lr, lr, pr);
+        for (auto& [nm, col] : nm_cols)
+          acquire.add_field(col.fid);
         rt->issue_acquire(ctx, acquire);
       }
 
@@ -447,10 +444,11 @@ public:
         100000);
       copy_task.dispatch(ctx, rt);
 
-      for (auto& pr : h5prs) {
+      for (auto& [pr, nm_cols] : attached) {
         auto lr = pr.get_logical_region();
         ReleaseLauncher release(lr, lr, pr);
-        rt->get_field_space_fields(lr.get_field_space(), release.fields);
+        for (auto& [nm, col] : nm_cols)
+          release.add_field(col.fid);
         rt->issue_release(ctx, release);
         rt->detach_external_resource(ctx, pr);
       }
