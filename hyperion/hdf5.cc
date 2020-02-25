@@ -46,48 +46,6 @@ const char* column_space_link_name =
 const char* index_column_space_link_name =
   HYPERION_NAMESPACE_PREFIX "indexcolspace";
 
-template <
-  typename OPEN,
-  typename F,
-  typename CLOSE,
-  std::enable_if_t<
-    !std::is_void_v<
-      std::invoke_result_t<F, std::invoke_result_t<OPEN>>>,
-    int> = 0>
-std::invoke_result_t<F, std::invoke_result_t<OPEN>>
-using_resource(OPEN open, F f, CLOSE close) {
-  auto r = open();
-  std::invoke_result_t<F, std::invoke_result_t<OPEN>> result;
-  try {
-    result = f(r);
-  } catch (...) {
-    close(r);
-    throw;
-  }
-  close(r);
-  return result;
-}
-
-template <
-  typename OPEN,
-  typename F,
-  typename CLOSE,
-  std::enable_if_t<
-    std::is_void_v<
-      std::invoke_result_t<F, std::invoke_result_t<OPEN>>>,
-    int> = 0>
-void
-using_resource(OPEN open, F f, CLOSE close) {
-  auto r = open();
-  try {
-    f(r);
-  } catch (...) {
-    close(r);
-    throw;
-  }
-  close(r);
-}
-
 static bool
 starts_with(const char* str, const char* pref) {
   bool result = true;
