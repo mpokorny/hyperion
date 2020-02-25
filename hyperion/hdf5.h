@@ -349,6 +349,20 @@ attach_all_table_columns(
   bool read_only,
   bool mapped);
 
+HYPERION_API std::map<
+  Legion::PhysicalRegion,
+  std::unordered_map<std::string, Column>>
+attach_some_table_columns(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
+  const std::string& root_path,
+  const Table& table,
+  const std::unordered_set<std::string>& include,
+  const std::unordered_map<std::string, std::string>& column_paths,
+  bool read_only,
+  bool mapped);
+
 struct HYPERION_API binary_index_tree_serdez {
 
   static const constexpr char* id = "hyperion::hdf5::binary_index_tree_serdez";

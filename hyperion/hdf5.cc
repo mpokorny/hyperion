@@ -1526,14 +1526,15 @@ hyperion::hdf5::attach_table_columns(
   return rt->attach_external_resource(ctx, attach);
 }
 
+template <typename F>
 std::map<PhysicalRegion, std::unordered_map<std::string, Column>>
-hyperion::hdf5::attach_all_table_columns(
+attach_selected_table_columns(
   Context ctx,
   Runtime* rt,
   const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& root_path,
   const Table& table,
-  const std::unordered_set<std::string>& exclude,
+  F select,
   const std::unordered_map<std::string, std::string>& column_paths,
   bool read_only,
   bool mapped) {
@@ -1545,7 +1546,7 @@ hyperion::hdf5::attach_all_table_columns(
     std::unordered_set<std::string> colnames;
     std::unordered_map<std::string, Column> cols;
     for (auto& [nm, tfld] : nm_tflds) {
-      if (exclude.count(nm) == 0) {
+      if (select(nm)) {
         colnames.insert(nm);
         RegionRequirement req(vlr, READ_ONLY, EXCLUSIVE, vlr);
         req.add_field(tfld.fid);
@@ -1577,6 +1578,56 @@ hyperion::hdf5::attach_all_table_columns(
       result[opr.value()] = cols;
   }
   return result;
+}
+
+std::map<PhysicalRegion, std::unordered_map<std::string, Column>>
+hyperion::hdf5::attach_all_table_columns(
+  Context ctx,
+  Runtime* rt,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
+  const std::string& root_path,
+  const Table& table,
+  const std::unordered_set<std::string>& exclude,
+  const std::unordered_map<std::string, std::string>& column_paths,
+  bool read_only,
+  bool mapped) {
+
+  return
+    attach_selected_table_columns(
+      ctx,
+      rt,
+      file_path,
+      root_path,
+      table,
+      [&exclude](const std::string& nm) { return exclude.count(nm) == 0; },
+      column_paths,
+      read_only,
+      mapped);
+}
+
+std::map<PhysicalRegion, std::unordered_map<std::string, Column>>
+hyperion::hdf5::attach_some_table_columns(
+  Context ctx,
+  Runtime* rt,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
+  const std::string& root_path,
+  const Table& table,
+  const std::unordered_set<std::string>& include,
+  const std::unordered_map<std::string, std::string>& column_paths,
+  bool read_only,
+  bool mapped) {
+
+  return
+    attach_selected_table_columns(
+      ctx,
+      rt,
+      file_path,
+      root_path,
+      table,
+      [&include](const std::string& nm) { return include.count(nm) > 0; },
+      column_paths,
+      read_only,
+      mapped);
 }
 // Local Variables:
 // mode: c++
