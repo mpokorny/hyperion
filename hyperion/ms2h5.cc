@@ -31,7 +31,7 @@ using namespace Legion;
 enum {
   TOP_LEVEL_TASK_ID,
   TABLE_NAME_COLLECTOR_TASK_ID,
-  READ_MS_TABLE_TASK_ID,
+  INIT_TABLE_FROM_MS_TASK_ID,
 };
 
 void
@@ -133,9 +133,9 @@ public:
     const TaskArgs* args = static_cast<const TaskArgs*>(task->args);
     // collect table names, ordered by number of rows...this, to allow the
     // hdf5::write_table() calls to be initiated in the order in which the
-    // read_ms_table tasks are likely to complete, which ought to improve task
-    // overlap when writing multiple tables to a single HDF5 file (better still
-    // might be to write each table to its own HDF5 file)
+    // init_table_from_ms tasks are likely to complete, which ought to improve
+    // task overlap when writing multiple tables to a single HDF5 file (better
+    // still might be to write each table to its own HDF5 file)
     std::set<std::tuple<unsigned, hyperion::string>> names;
     if (casacore::Table::isReadable(casacore::String(args->ms))) {
       casacore::Table tb(
@@ -218,12 +218,12 @@ private:
   }
 };
 
-const char* read_ms_table_task_name = "read_ms_table_task";
+const char* init_table_from_ms_task_name = "init_table_from_ms_task";
 
-typedef std::pair<hyperion::string, Table> read_ms_table_result_t;
+typedef std::pair<hyperion::string, Table> init_table_from_ms_result_t;
 
-read_ms_table_result_t
-read_ms_table(
+init_table_from_ms_result_t
+init_table_from_ms(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
@@ -354,15 +354,17 @@ public:
     if (!args_ok(ms, table_args, h5, ctx, rt))
       return;
 
+    // Collect table names, filter them by table_args
     TableNameCollectorTask tnames_launcher(table_args, ms);
     LogicalRegion table_names_lr =
       tnames_launcher.dispatch(ctx, rt).get_result<LogicalRegion>();
 
-    FutureMap ftables;
+    // Initialize Tables from MS (does not initialize the column data) 
+    FutureMap f_mstables;
     {
       hyperion::string ms_path(ms);
       IndexTaskLauncher reader(
-        READ_MS_TABLE_TASK_ID,
+        INIT_TABLE_FROM_MS_TASK_ID,
         table_names_lr.get_index_space(),
         TaskArgument(&ms_path, sizeof(ms_path)),
         ArgumentMap());
@@ -370,28 +372,90 @@ public:
         req(table_names_lr, READ_ONLY, EXCLUSIVE, table_names_lr);
       req.add_field(TableNameCollectorTask::NAME_FID);
       reader.add_region_requirement(req);
-      ftables = rt->execute_index_space(ctx, reader);
+      f_mstables = rt->execute_index_space(ctx, reader);
     }
 
-    // For now, we write the entire MS into a single HDF5 file.
-
+    // Initialize the HDF5 file from Tables
     hid_t fid = CHECK_H5(H5DatatypeManager::create(h5.c_str(), H5F_ACC_EXCL));
     hid_t root = CHECK_H5(H5Gopen(fid, "/", H5P_DEFAULT));
     for (PointInDomainIterator<1> pid(
            rt->get_index_space_domain(table_names_lr.get_index_space()));
          pid();
          pid++) {
-      auto [nm, t] = ftables.get_result<read_ms_table_result_t>(*pid);
+      auto [nm, t] = f_mstables.get_result<init_table_from_ms_result_t>(*pid);
       hid_t tid =
         CHECK_H5(
           H5Gcreate(root, nm.val, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
       hdf5::write_table(ctx, rt, tid, t);
       CHECK_H5(H5Gclose(tid));
-      t.destroy(ctx, rt);
+      t.destroy(ctx, rt); // done with Tables initialized from MS
     }
 
+    // Create new Tables from HDF5. Do this sequentially, since, contrary to
+    // Table initialization from MS, no scanning of rows is needed and thus
+    // should complete quickly
+    std::unordered_map<
+      std::string,
+      std::tuple<
+        Table,
+        std::unordered_map<std::string, std::string>>> h5_tables;
+    for (PointInDomainIterator<1> pid(
+           rt->get_index_space_domain(table_names_lr.get_index_space()));
+         pid();
+         pid++) {
+      auto nm =
+        std::get<0>(f_mstables.get_result<init_table_from_ms_result_t>(*pid));
+      h5_tables[nm] = hdf5::init_table(ctx, rt, root, nm);
+    }
+    // Can close the HDF5 file now, the rest is handled by the Legion runtime
     CHECK_H5(H5Gclose(root));
     CHECK_H5(H5Fclose(fid));
+
+    // Copy column values from MS to HDF5 by simply attaching table column
+    // regions in h5_tables to the HDF5 datasets, and then initiating
+    // TableReadTask tasks to fill the column values
+    for (auto& [nm, tb_paths] : h5_tables) {
+      auto& [tb, paths] = tb_paths;
+      std::vector<PhysicalRegion> h5prs;
+      auto tbfields =
+        tb.columns(ctx, rt).get_result<Table::columns_result_t>().fields;
+      for (auto& [csp, vlr, tflds] : tbfields) {
+        std::unordered_set<std::string> cols;
+        for (auto& [nm, tfl] : tflds)
+          cols.insert(nm);
+        h5prs.push_back(
+          hdf5::attach_table_columns(
+            ctx,
+            rt,
+            h5,
+            "/",
+            tb,
+            cols,
+            paths,
+            false,
+            false)
+          .value());
+        auto lr = h5prs.back().get_logical_region();
+        AcquireLauncher acquire(lr, lr, h5prs.back());
+        rt->get_field_space_fields(lr.get_field_space(), acquire.fields);
+        rt->issue_acquire(ctx, acquire);
+      }
+
+      TableReadTask copy_task(
+        ((nm != "MAIN") ? (ms / nm) : ms),
+        tb,
+        100000);
+      copy_task.dispatch(ctx, rt);
+
+      for (auto& pr : h5prs) {
+        auto lr = pr.get_logical_region();
+        ReleaseLauncher release(lr, lr, pr);
+        rt->get_field_space_fields(lr.get_field_space(), release.fields);
+        rt->issue_release(ctx, release);
+        rt->detach_external_resource(ctx, pr);
+      }
+      tb.destroy(ctx, rt); // done with Tables initialized from HDF5
+    }
 
     rt->destroy_field_space(ctx, table_names_lr.get_field_space());
     rt->destroy_index_space(ctx, table_names_lr.get_index_space());
@@ -412,13 +476,15 @@ main(int argc, char** argv) {
   TopLevelTask::register_task();
   TableNameCollectorTask::register_task();
   {
-    // read_ms_table_task
+    // init_table_from_ms_task
     TaskVariantRegistrar
-      registrar(READ_MS_TABLE_TASK_ID, read_ms_table_task_name);
+      registrar(INIT_TABLE_FROM_MS_TASK_ID, init_table_from_ms_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
-    Runtime::preregister_task_variant<read_ms_table_result_t, read_ms_table>(
+    Runtime::preregister_task_variant<
+      init_table_from_ms_result_t,
+      init_table_from_ms>(
       registrar,
-      read_ms_table_task_name);
+      init_table_from_ms_task_name);
   }
   Runtime::set_top_level_task_id(TopLevelTask::TASK_ID);
   hyperion::preregister_all();
