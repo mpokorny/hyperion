@@ -168,6 +168,48 @@ from_ms(
   const CXX_FILESYSTEM_NAMESPACE::path& path,
   const std::unordered_set<std::string>& column_selections);
 
+template <
+  typename OPEN,
+  typename F,
+  typename CLOSE,
+  std::enable_if_t<
+    !std::is_void_v<
+      std::invoke_result_t<F, std::invoke_result_t<OPEN>&>>,
+    int> = 0>
+std::invoke_result_t<F, std::invoke_result_t<OPEN>&>
+using_resource(OPEN open, F f, CLOSE close) {
+  auto r = open();
+  std::invoke_result_t<F, std::invoke_result_t<OPEN>&> result;
+  try {
+    result = f(r);
+  } catch (...) {
+    close(r);
+    throw;
+  }
+  close(r);
+  return result;
+}
+
+template <
+  typename OPEN,
+  typename F,
+  typename CLOSE,
+  std::enable_if_t<
+    std::is_void_v<
+      std::invoke_result_t<F, std::invoke_result_t<OPEN>&>>,
+    int> = 0>
+void
+using_resource(OPEN open, F f, CLOSE close) {
+  auto r = open();
+  try {
+    f(r);
+  } catch (...) {
+    close(r);
+    throw;
+  }
+  close(r);
+}
+
 struct HYPERION_API string {
 
   string() {
