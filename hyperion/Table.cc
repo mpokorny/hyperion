@@ -585,7 +585,7 @@ Table::add_columns(
   const std::vector<
     std::pair<
       ColumnSpace,
-      std::vector<std::pair<std::string, TableField>>>>& new_columns) {
+      std::vector<std::pair<std::string, TableField>>>>& new_columns) const {
 
   if (new_columns.size() == 0)
     return Future::from_value(rt, true);
@@ -857,7 +857,7 @@ Table::remove_columns(
   Context ctx,
   Runtime* rt,
   const std::unordered_set<std::string>& columns,
-  bool destroy_orphan_column_spaces) {
+  bool destroy_orphan_column_spaces) const {
 
   auto fields_pr =
     rt->map_region(ctx, table_fields_requirement(fields_lr, READ_WRITE));

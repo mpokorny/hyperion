@@ -218,7 +218,7 @@ public:
       const std::vector<
       std::pair<
       ColumnSpace,
-      std::vector<std::pair<std::string, TableField>>>>& columns);
+      std::vector<std::pair<std::string, TableField>>>>& columns) const;
 
   static add_columns_result_t
   add_columns(
@@ -239,7 +239,7 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::unordered_set<std::string>& columns,
-    bool destroy_orphan_column_spaces=true);
+    bool destroy_orphan_column_spaces=true) const;
 
   static void
   remove_columns(
