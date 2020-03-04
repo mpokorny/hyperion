@@ -212,20 +212,6 @@ const std::array<const char*, 0> MSTableColumns<T>::column_names;
           static_cast<col_t>(std::distance(column_names.begin(), col)); \
       return std::nullopt;                                              \
     }                                                                   \
-    static std::optional<col_t>                                         \
-    lookup_measure_col(const std::string& nm) {                         \
-      auto cm =                                                         \
-        std::find_if(                                                   \
-          measure_names.begin(),                                        \
-          measure_names.end(),                                          \
-          [&nm](auto& c_m){                                             \
-            std::string m = std::get<1>(c_m);                           \
-            return m == nm;                                             \
-          });                                                           \
-      if (cm != measure_names.end())                                    \
-        return std::get<0>(*cm);                                        \
-      return std::nullopt;                                              \
-    }                                                                   \
   };
 
 HYPERION_FOREACH_MS_TABLE_Tt(MSTC);
