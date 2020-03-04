@@ -43,6 +43,8 @@ const char* column_refcol_attr_name =
   HYPERION_NAMESPACE_PREFIX "refcol";
 const char* column_space_link_name =
   HYPERION_NAMESPACE_PREFIX "colspace";
+const char* index_column_space_link_name =
+  HYPERION_NAMESPACE_PREFIX "indexcolspace";
 
 template <
   typename OPEN,
@@ -799,7 +801,7 @@ write_table_columns(
     return;
 
   for (size_t i = 0; i < columns.fields.size(); ++i){
-    auto& [csp, vlr, nm_tfs] = columns.fields[i];
+    auto& [csp, ixcs, vlr, nm_tfs] = columns.fields[i];
     if (nm_tfs.size() > 0) {
       auto csp_nm =
         std::string(HYPERION_COLUMN_SPACE_GROUP_PREFIX) + std::to_string(i);
@@ -814,12 +816,21 @@ write_table_columns(
         write_columnspace(ctx, rt, csp_grp_id, csp, table_axes_dt);
         CHECK_H5(H5Gclose(csp_grp_id));
       }
+      // if this ColumnSpace is the Table's index column space, create a soft
+      // link to the ColumnSpace group to indicate that
+      if (ixcs)
+        CHECK_H5(
+          H5Lcreate_soft(
+            csp_nm.c_str(),
+            table_grp_id,
+            index_column_space_link_name,
+            H5P_DEFAULT, H5P_DEFAULT));
+
       // write the (included) Columns in this ColumnSpace
 
       // use Table::column_map() to create named Columns for the
       // columns included in this ColumnSpace
-      Table::columns_result_t csp_cols{
-        {std::make_tuple(csp, vlr, nm_tfs)}};
+      Table::columns_result_t csp_cols{{{csp, ixcs, vlr, nm_tfs}}};
       auto cols = Table::column_map(csp_cols, READ_ONLY);
       for (auto& [col_nm, col] : cols) {
         htri_t grp_exists =
@@ -880,9 +891,12 @@ hyperion::hdf5::write_table(
   if (rc > 0)
     CHECK_H5(H5Adelete(table_grp_id, table_index_axes_attr_name));
   {
-    auto index_axes =
-      ColumnSpace::from_axis_vector(
-        table.index_axes(ctx, rt).get_result<Table::index_axes_result_t>());
+    auto ics =
+      table
+      .index_column_space(ctx, rt)
+      .get_result<Table::index_column_space_result_t>()
+      .value();
+    auto index_axes = ics.axes(ctx, rt);
     hsize_t dims = index_axes.size();
     hid_t index_axes_ds = CHECK_H5(H5Screate_simple(1, &dims, NULL));
     hid_t index_axes_id =
@@ -915,7 +929,7 @@ hyperion::hdf5::write_table(
   // write_keywords(ctx, rt, table_grp_id, table.keywords);  
 
   Table::columns_result_t selected_columns;
-  for (auto& [csp, vlr, nm_tfs] : tbl_columns.fields) {
+  for (auto& [csp, ixcs, vlr, nm_tfs] : tbl_columns.fields) {
     std::vector<std::tuple<hyperion::string, TableField>> flds;
     std::copy_if(
       nm_tfs.begin(),
@@ -924,8 +938,7 @@ hyperion::hdf5::write_table(
       [&columns](auto& nm_tf) {
         return columns.count(std::get<0>(nm_tf)) > 0;
       });
-    if (flds.size() > 0)
-      selected_columns.fields.emplace_back(csp, vlr, flds);
+    selected_columns.fields.emplace_back(csp, ixcs, vlr, flds);
   }
 
   write_table_columns(ctx, rt, table_grp_id, table_axes_dt, selected_columns);
@@ -942,7 +955,7 @@ hyperion::hdf5::write_table(
     table.columns(ctx, rt).get_result<Table::columns_result_t>();
 
   std::unordered_set<std::string> columns;
-  for (auto& [csp, vlr, nm_tfs] : tbl_columns.fields)
+  for (auto& [csp, ixcs, vlr, nm_tfs] : tbl_columns.fields)
     for (auto& [nm, tf] : nm_tfs)
       columns.insert(nm);
 
@@ -1362,7 +1375,7 @@ hyperion::hdf5::init_columnspace(
       is_index);
 }
 
-struct acc_xcsp_t {
+struct acc_csp_t {
   Context ctx;
   Runtime *rt;
   hid_t table_axes_dt;
@@ -1370,14 +1383,14 @@ struct acc_xcsp_t {
 };
 
 static herr_t
-acc_xcsp_fn(
+acc_csp_fn(
   hid_t group,
   const char* name,
   const H5L_info_t* info,
   void* op_data) {
 
   if (starts_with(name, HYPERION_COLUMN_SPACE_GROUP_PREFIX)) {
-    acc_xcsp_t* acc = static_cast<acc_xcsp_t*>(op_data);
+    acc_csp_t* acc = static_cast<acc_csp_t*>(op_data);
     acc->csps[name] =
       init_columnspace(acc->ctx, acc->rt, group, acc->table_axes_dt, name);
   }
@@ -1403,10 +1416,10 @@ hyperion::hdf5::init_table(
         return CHECK_H5(H5Gopen(loc_id, table_name.c_str(), H5P_DEFAULT));
       },
       [&](hid_t table_grp_id) {
-        acc_xcsp_t acc_xcsp;
-        acc_xcsp.ctx = ctx;
-        acc_xcsp.rt = rt;
-        acc_xcsp.table_axes_dt =
+        acc_csp_t acc_csp;
+        acc_csp.ctx = ctx;
+        acc_csp.rt = rt;
+        acc_csp.table_axes_dt =
           CHECK_H5(H5Topen(table_grp_id, table_axes_dt_name, H5P_DEFAULT));
         CHECK_H5(
           H5Literate(
@@ -1414,9 +1427,9 @@ hyperion::hdf5::init_table(
             H5_INDEX_NAME,
             H5_ITER_NATIVE,
             NULL,
-            acc_xcsp_fn,
-            &acc_xcsp));
-        CHECK_H5(H5Tclose(acc_xcsp.table_axes_dt));
+            acc_csp_fn,
+            &acc_csp));
+        CHECK_H5(H5Tclose(acc_csp.table_axes_dt));
         acc_tflds_t acc_tflds;
         acc_tflds.ctx = ctx;
         acc_tflds.rt = rt;
@@ -1428,19 +1441,32 @@ hyperion::hdf5::init_table(
             NULL,
             acc_tflds_fn,
             &acc_tflds));
+        std::string index_cs_name;
+        {
+          hyperion::string str;
+          CHECK_H5(
+            H5Lget_val(
+              table_grp_id,
+              index_column_space_link_name,
+              str.val,
+              sizeof(str),
+              H5P_DEFAULT));
+          index_cs_name = str;
+        }
         std::vector<
-          std::pair<
-          ColumnSpace,
+          std::tuple<
+            ColumnSpace,
+            bool,
             std::vector<std::pair<std::string, TableField>>>> cflds;
         for (auto& [nm, tflds] : acc_tflds.csp_fields) {
-          assert(acc_xcsp.csps.count(nm) > 0);
-          cflds.emplace_back(acc_xcsp.csps[nm], tflds);
+          assert(acc_csp.csps.count(nm) > 0);
+          cflds.emplace_back(acc_csp.csps[nm], index_cs_name == nm, tflds);
         }
         // FIXME: awaiting keywords support in Table: auto kws =
         // init_keywords(table_grp_id);
         auto& [tb, paths] = result;
         tb = Table::create(ctx, rt, cflds);
-        for (auto& [csp, nm_tflds] : cflds)
+        for (auto& [csp, ixcs, nm_tflds] : cflds)
           for (auto& [nm, tfld] : nm_tflds)
             paths[nm] = table_name + "/" + nm + "/" + HYPERION_COLUMN_DS;
       },
@@ -1542,7 +1568,7 @@ attach_selected_table_columns(
   std::map<PhysicalRegion, std::unordered_map<std::string, Column>> result;
   auto all_columns =
     table.columns(ctx, rt).get_result<Table::columns_result_t>();
-  for (auto& [csp, vlr, nm_tflds] : all_columns.fields) {
+  for (auto& [csp, ixcs, vlr, nm_tflds] : all_columns.fields) {
     std::unordered_set<std::string> colnames;
     std::unordered_map<std::string, Column> cols;
     for (auto& [nm, tfld] : nm_tflds) {

@@ -43,7 +43,8 @@ enum class TableFieldsFid {
   MR,
   RC,
 #endif
-  MD,
+  CS,
+  IX,
   VF,
   VS
 };
@@ -75,8 +76,12 @@ struct TableFieldsType<TableFieldsFid::RC> {
 };
 #endif
 template<>
-struct TableFieldsType<TableFieldsFid::MD> {
-  typedef Legion::LogicalRegion type;
+struct TableFieldsType<TableFieldsFid::CS> {
+  typedef ColumnSpace type;
+};
+template<>
+struct TableFieldsType<TableFieldsFid::IX> {
+  typedef bool type;
 };
 template<>
 struct TableFieldsType<TableFieldsFid::VF> {
@@ -117,6 +122,7 @@ public:
     std::vector<
       std::tuple<
         ColumnSpace,
+        bool,
         Legion::LogicalRegion,
         std::vector<tbl_fld_t>>> fields;
 
@@ -173,8 +179,12 @@ public:
 #endif
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  using MetadataAccessor =
-    Accessor<MODE, TableFieldsFid::MD, CHECK_BOUNDS>;
+  using ColumnSpaceAccessor =
+    Accessor<MODE, TableFieldsFid::CS, CHECK_BOUNDS>;
+
+  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  using IndexColumnSpaceFlagAccessor =
+    Accessor<MODE, TableFieldsFid::IX, CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using ValueFidAccessor =
@@ -194,20 +204,38 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::vector<
-      std::pair<
+      std::tuple<
         ColumnSpace,
+        bool,
         std::vector<std::pair<std::string, TableField>>>>& columns);
 
-  bool
-  is_empty() const;
+  typedef std::optional<ColumnSpace> index_column_space_result_t;
 
-  typedef ColumnSpace::AXIS_VECTOR_TYPE index_axes_result_t;
+  Legion::Future /* index_column_space_result_t */
+  index_column_space(Legion::Context ctx, Legion::Runtime* rt) const;
 
-  Legion::Future /* index_axes_result_t */
-  index_axes(Legion::Context ctx, Legion::Runtime* rt) const;
+  static index_column_space_result_t
+  index_column_space(
+    Legion::Runtime* rt,
+    const Legion::PhysicalRegion& fields_pr);
 
-  static index_axes_result_t
-  index_axes(const std::vector<Legion::PhysicalRegion>& csp_metadata_prs);
+  static bool
+  is_empty(const index_column_space_result_t& index_cs);
+
+  Legion::Future /* bool */
+  is_conformant(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const ColumnSpace& cs) const;
+
+  static bool
+  is_conformant(
+    Legion::Runtime* rt,
+    const Legion::PhysicalRegion& fields_pr,
+    const std::optional<std::tuple<Legion::IndexSpace, Legion::PhysicalRegion>>&
+    index_cs,
+    const Legion::IndexSpace& cs_is,
+    const Legion::PhysicalRegion& cs_pd_pr);
 
   typedef bool add_columns_result_t;
 
@@ -216,22 +244,25 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
       const std::vector<
-      std::pair<
-      ColumnSpace,
-      std::vector<std::pair<std::string, TableField>>>>& columns) const;
+        std::tuple<
+          ColumnSpace,
+          bool,
+          std::vector<std::pair<std::string, TableField>>>>& columns) const;
 
   static add_columns_result_t
   add_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::vector<
-      std::pair<
+      std::tuple<
         ColumnSpace,
-        std::pair<
-          ssize_t,
-          std::vector<std::pair<string, TableField>>>>>& columns,
+        bool,
+        ssize_t,
+        std::vector<std::pair<string, TableField>>>>& columns,
     const std::vector<Legion::LogicalRegion>& val_lrs,
     const Legion::PhysicalRegion& fields_pr,
+    const std::optional<
+      std::tuple<Legion::IndexSpace, Legion::PhysicalRegion>>& index_cs,
     const std::vector<Legion::PhysicalRegion>& csp_md_prs);
 
   void
@@ -265,8 +296,9 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::vector<std::optional<size_t>>& block_sizes,
-    const std::vector<Legion::IndexSpace>& csp_iss,
-    const std::vector<Legion::PhysicalRegion>& csp_metadata_prs);
+    const Legion::PhysicalRegion& index_cs_md_pr,
+    const std::vector<Legion::IndexSpace>& cs_iss,
+    const std::vector<Legion::PhysicalRegion>& cs_md_prs);
 
   bool
   is_valid() const {
@@ -275,15 +307,15 @@ public:
 
   typedef Table reindexed_result_t;
 
-// 'allow_rows' is intended to support the case where reindexing may not
-// result in a single value in a column per aggregate index, necessitating the
-// maintenance of a row index. A value of 'true' for this argument is always
-// safe, but may result in a degenerate axis when an aggregate index always
-// identifies a single value in a column. If the value is 'false' and a
-// non-degenerate axis is required by the reindexing, this method will return
-// an empty value. TODO: remove degenerate axes after the fact, and do that
-// automatically in this method, which would allow us to remove the
-// 'allow_rows' argument.
+  // 'allow_rows' is intended to support the case where reindexing may not
+  // result in a single value in a column per aggregate index, necessitating the
+  // maintenance of a row index. A value of 'true' for this argument is always
+  // safe, but may result in a degenerate axis when an aggregate index always
+  // identifies a single value in a column. If the value is 'false' and a
+  // non-degenerate axis is required by the reindexing, this method will return
+  // an empty value. TODO: remove degenerate axes after the fact, and do that
+  // automatically in this method, which would allow us to remove the
+  // 'allow_rows' argument.
   Legion::Future /* reindexed_result_t */
   reindexed(
     Legion::Context ctx,
@@ -325,6 +357,7 @@ public:
     const std::vector<std::pair<int, std::string>>& index_axes,
     bool allow_rows,
     const Legion::PhysicalRegion& fields_pr,
+    const Legion::PhysicalRegion& index_cs_md_pr,
     const std::vector<std::tuple<Legion::coord_t, ColumnRegions>>&
     column_regions);
 
@@ -354,8 +387,15 @@ protected:
 
   friend class Legion::LegionTaskWrapper;
 
-  static index_axes_result_t
-  index_axes_task(
+  static index_column_space_result_t
+  index_column_space_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *rt);
+
+  static bool
+  is_conformant_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
@@ -405,9 +445,13 @@ protected:
 
 private:
 
-  static Legion::TaskID index_axes_task_id;
+  static Legion::TaskID index_column_space_task_id;
 
-  static const char* index_axes_task_name;
+  static const char* index_column_space_task_name;
+
+  static Legion::TaskID is_conformant_task_id;
+
+  static const char* is_conformant_task_name;
 
   static Legion::TaskID partition_rows_task_id;
 

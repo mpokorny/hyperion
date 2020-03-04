@@ -339,7 +339,10 @@ table_test_suite(
 #endif
 
   auto table0 =
-    Table::create(ctx, rt, {{xyz_space, xyz_fields}, {w_space, w_fields}});
+    Table::create(
+      ctx,
+      rt,
+      {{xyz_space, true, xyz_fields}, {w_space, false, w_fields}});
 
 // #ifdef HYPERION_USE_CASACORE
 //   recorder.expect_true(
@@ -557,7 +560,7 @@ table_test_suite(
       "Column 'Y' present in table after removal of 'X' and 'Z'",
       TE(cols.find("Y") != cols.end()));
   }
-  table0.add_columns(ctx, rt, {{w_space, w_fields}});
+  table0.add_columns(ctx, rt, {{w_space, false, w_fields}});
   {
     auto cols =
       Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());
@@ -566,7 +569,7 @@ table_test_suite(
       TE(cols.find("W") != cols.end()));
   }
   xyz_fields.erase(xyz_fields.begin() + 1);
-  table0.add_columns(ctx, rt, {{xyz_space, xyz_fields}});
+  table0.add_columns(ctx, rt, {{xyz_space, true, xyz_fields}});
   {
     auto cols =
       Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());

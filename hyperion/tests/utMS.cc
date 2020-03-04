@@ -408,9 +408,14 @@ read_full_ms(
 
   static const std::string t0_path("data/t0.ms");
   auto [table_name, table] = from_ms(ctx, rt, t0_path, {"*"});
+  auto ics =
+    table
+    .index_column_space(ctx, rt)
+    .get_result<Table::index_column_space_result_t>()
+    .value();
   recorder.assert_true(
     "t0.ms MAIN table successfully read",
-    !table.is_empty());
+    !Table::is_empty(ics));
   recorder.expect_true(
     "main table name is 'MAIN'",
     TE(table_name) == "MAIN");

@@ -381,7 +381,10 @@ table_tests(
 #endif
 
   auto tb0 =
-    Table::create(ctx, rt, {{xy_space, xy_fields}, {z_space, z_fields}});
+    Table::create(
+      ctx,
+      rt,
+      {{xy_space, true, xy_fields}, {z_space, false, z_fields}});
   auto cols0 =
     Table::column_map(
       tb0.columns(ctx, rt).get<Table::columns_result_t>());
@@ -424,9 +427,14 @@ table_tests(
     auto [tb1, tb1_paths] = init_table(ctx, rt, root_loc, "table1");
 
     // read back metadata
-    recorder.assert_false(
+    auto oics =
+      tb1
+      .index_column_space(ctx, rt)
+      .get_result<Table::index_column_space_result_t>();
+    recorder.assert_true(
       "Table initialized from HDF5 is not empty",
-      TE(tb1.is_empty()));
+      TE(!Table::is_empty(oics)));
+
     auto cols1 =
       Table::column_map(
         tb1.columns(ctx, rt).get<Table::columns_result_t>());

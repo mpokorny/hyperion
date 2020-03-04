@@ -238,7 +238,12 @@ struct TableReadTaskArgs {
 void
 TableReadTask::dispatch(Context ctx, Runtime* rt) {
 
-  if (!m_table.is_empty()) {
+  bool is_empty =
+    Table::is_empty(
+      m_table
+      .index_column_space(ctx, rt)
+      .get_result<Table::index_column_space_result_t>());
+  if (!is_empty) {
     auto columns =
       m_table.columns(ctx, rt).get_result<Table::columns_result_t>();
     // N.B: MS table columns always have a ROW index, and tables have no index
@@ -263,7 +268,10 @@ TableReadTask::dispatch(Context ctx, Runtime* rt) {
     TableReadTaskArgs args;
     assert(m_table_path.size() < sizeof(args.table_path));
     std::strcpy(args.table_path, m_table_path.c_str());
-    for (auto& [cs, vlr, nm_tflds] : columns.fields)  {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+    for (auto& [cs, ixfl, vlr, nm_tflds] : columns.fields)  {
+#pragma GCC diagnostic pop
       auto csp = csps.find(cs).value(); // optional should not be empty; hard
                                         // fail o.w. is intentional
       auto lp = rt->get_logical_partition(ctx, vlr, csp.column_ip);

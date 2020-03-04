@@ -121,8 +121,9 @@ public:
   }
 
   std::vector<
-    std::pair<
-    ColumnSpace,
+    std::tuple<
+      ColumnSpace,
+      bool,
       std::vector<std::pair<std::string, TableField>>>>
   columns(Legion::Context ctx, Legion::Runtime* rt) const {
     // sort the ColumnArgs in order to put instances with common index_tree
@@ -145,13 +146,18 @@ public:
     // collect TableFields with common ColumnSpaces by iterating through
     // "col_args" in its sort order
     std::vector<
-      std::pair<
+      std::tuple<
         ColumnSpace,
+        bool,
         std::vector<std::pair<std::string, TableField>>>> result;
     IndexTreeL prev;
+    bool have_ixcs = false;
     for (auto& ca : col_args) {
       assert(ca.index_tree != IndexTreeL());
       if (ca.index_tree != prev) {
+        bool is_ixcs = ca.index_tree.rank().value() == 1;
+        assert(!(have_ixcs && is_ixcs));
+        have_ixcs = have_ixcs || is_ixcs;
         prev = ca.index_tree;
         auto csp =
           ColumnSpace::create(
@@ -163,9 +169,10 @@ public:
             false);
         result.emplace_back(
           csp,
+          is_ixcs,
           std::vector<std::pair<std::string, TableField>>());
       }
-      std::get<1>(result.back()).emplace_back(ca.name, ca.tf);
+      std::get<2>(result.back()).emplace_back(ca.name, ca.tf);
     }
     return result;
   }

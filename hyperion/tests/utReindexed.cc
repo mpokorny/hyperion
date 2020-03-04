@@ -154,9 +154,15 @@ test_totally_reindexed_table(
   const std::string& prefix,
   testing::TestRecorder<READ_WRITE>& recorder) {
 
-  recorder.expect_true(
+  auto oics =
+    tb
+    .index_column_space(ctx, rt)
+    .get_result<Table::index_column_space_result_t>();
+
+  recorder.assert_true(
     prefix + " reindexed table is not empty",
-    TE(!tb.is_empty()));
+    TE(!Table::is_empty(oics)));
+  auto ics = oics.value();
 
   std::vector<Table0Axes> ixax;
   if (x_before_y)
@@ -170,11 +176,8 @@ test_totally_reindexed_table(
   recorder.expect_true(
     prefix + " reindexed table has " + oss.str() + " index axes",
     testing::TestEval(
-      [&ctx, rt, &tb, &ixax]() {
-        auto ax =
-          tb.index_axes(ctx, rt)
-          .template get_result<Table::index_axes_result_t>();
-        auto axes = ColumnSpace::from_axis_vector(ax);
+      [&ctx, rt, &ics, &ixax]() {
+        auto axes = ics.axes(ctx, rt);
         return axes == map_to_int(ixax);
       }));
 
@@ -443,7 +446,7 @@ reindexed_test_suite(
   };
 #endif
   
-  auto table0 = Table::create(ctx, rt, {{xyz_space, xyz_fields}});
+  auto table0 = Table::create(ctx, rt, {{xyz_space, true, xyz_fields}});
   {
     std::unordered_map<std::string, PhysicalRegion> col_prs;
     {
@@ -489,18 +492,21 @@ reindexed_test_suite(
         tby = f.get_result<Table::reindexed_result_t>();
       }
       {
-        recorder.expect_true(
+        auto oics_y =
+          tby
+          .index_column_space(ctx, rt)
+          .get_result<Table::index_column_space_result_t>();
+        recorder.assert_true(
           "Partially reindexed table is not empty",
-          TE(!tby.is_empty()));
+          TE(!Table::is_empty(oics_y)));
+        auto ics_y = oics_y.value();
 
         recorder.expect_true(
           "Partially reindexed table has ('Y', 'ROW') index axes",
           testing::TestEval(
-            [&ctx, rt, &tby]() {
-              auto ax =
-                tby.index_axes(ctx, rt)
-                .template get_result<Table::index_axes_result_t>();
-              return ColumnSpace::from_axis_vector(ax) ==
+            [&ctx, rt, &ics_y]() {
+              auto ax = ics_y.axes(ctx, rt);
+              return ax ==
                 map_to_int(
                   std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::ROW});
             }));
@@ -589,7 +595,7 @@ reindexed_test_suite(
               ifl(pr, ColumnSpace::INDEX_FLAG_FID);
 
             recorder.expect_true(
-              "Partially reindexed 'X' column has unchanged axis set uid",
+               "Partially reindexed 'X' column has unchanged axis set uid",
               TE(auid[0] == std::string(Axes<Table0Axes>::uid)));
             recorder.expect_true(
               "Partially reindexed 'X' column has ('Y', 'ROW') axes",
