@@ -177,6 +177,37 @@ private:
 };
 
 template <MSTables T>
+struct MSTableDefs {
+  typedef void col_t;
+  static const unsigned num_cols;
+  static const char* column_names[];
+  static const unsigned element_ranks[];
+  static const unsigned fid_base;
+  static const std::unordered_map<col_t, const char*> units;
+  static const std::map<col_t, const char*> measure_names;
+};
+
+#define MSTDEF(T, t)                                                    \
+  template <>                                                           \
+  struct HYPERION_API MSTableDefs<MS_##T> {                             \
+    typedef ms_##t##_col_t col_t;                                       \
+    static const constexpr unsigned num_cols =                          \
+      MS_##T##_NUM_COLS;                                                \
+    static const constexpr std::array<const char*, num_cols> column_names = \
+      MS_##T##_COLUMN_NAMES;                                            \
+    static const constexpr std::array<unsigned, num_cols> element_ranks = \
+      MS_##T##_COLUMN_ELEMENT_RANKS;                                    \
+    static const constexpr unsigned fid_base =                          \
+      MS_##T##_COL_FID_BASE;                                            \
+    static const std::unordered_map<col_t, const char*> units;          \
+    static const std::map<col_t, const char*> measure_names;            \
+  };
+
+HYPERION_FOREACH_MS_TABLE_Tt(MSTDEF);
+
+#ifdef FOO
+
+template <MSTables T>
 struct MSTableColumns {
   //typedef ColEnums;
   static const std::array<const char*, 0> column_names;
@@ -212,16 +243,77 @@ const std::array<const char*, 0> MSTableColumns<T>::column_names;
           static_cast<col_t>(std::distance(column_names.begin(), col)); \
       return std::nullopt;                                              \
     }                                                                   \
+    typedef std::array<                                                 \
+      std::optional<MSTableColumnsBase::RegionsInfo>, \
+      MS_##T##_NUM_COLS> \
+      region_infos_t;                                                   \
+    static std::unordered_map<col_t, MSTableColumnsBase::Regions>       \
+      regions(                                                          \
+        const region_infos_t& infos,                                    \
+        const std::vector<Legion::PhysicalRegion>& prs) {               \
+      std::unordered_map<col_t, MSTableColumnsBase::Regions> result;    \
+      for (unsigned i = 0; i < MS_##T##_NUM_COLS; ++i) {                \
+        if (infos[i])                                                   \
+          result[static_cast<col_t>(i)] =                               \
+            infos[i].value().regions(prs);                              \
+      }                                                                 \
+      return result;                                                    \
+    }                                                                   \
   };
-
 HYPERION_FOREACH_MS_TABLE_Tt(MSTC);
+#else
+template <MSTables T>
+struct MSTableColumns {
+  typedef typename MSTableDefs<T>::col_t col_t;
 
-#define HYPERION_COLUMN_NAME(T, C)                    \
+  static const constexpr std::array<const char*, MSTableDefs<T>::num_cols>
+    column_names =
+    MSTableDefs<T>::column_names;
+
+  static const constexpr std::array<unsigned, MSTableDefs<T>::num_cols>
+    element_ranks =
+    MSTableDefs<T>::element_ranks;
+
+  static constexpr Legion::FieldID fid(col_t c) {
+    return c + MSTableDefs<T>::fid_base;
+  }
+
+  static const std::unordered_map<col_t, const char*> units;
+
+  static const std::map<col_t, const char*> measure_names;
+
+  static std::optional<col_t>
+  lookup_col(const std::string& nm) {
+    auto col =
+      std::find_if(
+        column_names.begin(),
+        column_names.end(),
+        [&nm](std::string cn) {
+          return cn == nm;
+        });
+    if (col != column_names.end())
+      return static_cast<col_t>(std::distance(column_names.begin(), col));
+    return std::nullopt;
+  }
+};
+
+template <MSTables T>
+const std::unordered_map<typename MSTableColumns<T>::col_t, const char*>
+MSTableColumns<T>::units =
+  MSTableDefs<T>::units;
+
+template <MSTables T>
+const std::map<typename MSTableColumns<T>::col_t, const char*>
+MSTableColumns<T>::measure_names =
+  MSTableDefs<T>::measure_names;
+
+#endif // FOO
+
+#define HYPERION_COLUMN_NAME(T, C)              \
   MSTableColumns<MS_##T>::column_names[               \
     MSTableColumns<MS_##T>::col_t::MS_##T##_COL_##C]
 
-}
-// end namespace hyperion
+} // end namespace hyperion
 
 #endif // HYPERION_MS_TABLE_COLUMNS_H_
 
