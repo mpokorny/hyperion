@@ -221,7 +221,10 @@ public:
     }
   };
 
-  template <Legion::FieldID FID, legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
+  template <
+    Legion::FieldID FID,
+    legion_privilege_mode_t MODE,
+    bool CHECK_BOUNDS>
   class PositionMeasAccessorBase {
   public:
     PositionMeasAccessorBase(
@@ -283,7 +286,7 @@ public:
   };
 
   bool
-  has_positionMeas() const {
+  has_position_meas() const {
     return has_position() && m_mrs.count(C::col_t::MS_ANTENNA_COL_POSITION) > 0;
   }
 
@@ -292,7 +295,7 @@ public:
     C::fid(C::col_t::MS_ANTENNA_COL_POSITION),
     MODE,
     CHECK_BOUNDS>
-  positionMeas() const {
+  position_meas() const {
     return
       PositionMeasAccessor<
         C::fid(C::col_t::MS_ANTENNA_COL_POSITION),
@@ -339,13 +342,13 @@ public:
       CHECK_BOUNDS>;
 
   bool
-  has_offsetMeas() const {
+  has_offset_meas() const {
     return has_offset() && m_mrs.count(C::col_t::MS_ANTENNA_COL_OFFSET) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   OffsetMeasAccessor<MODE, CHECK_BOUNDS>
-  offsetMeas() const {
+  offset_meas() const {
     return
       OffsetMeasAccessor<MODE, CHECK_BOUNDS>(
         C::units.at(C::col_t::MS_ANTENNA_COL_OFFSET),
@@ -358,21 +361,21 @@ public:
   //
   // DISH_DIAMETER
   //
-  static const constexpr unsigned dishDiameter_rank =
+  static const constexpr unsigned dish_diameter_rank =
     row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_DISH_DIAMETER];
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using DishDiameterAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, dishDiameter_rank, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, dish_diameter_rank, MODE, CHECK_BOUNDS>;
 
   bool
-  has_dishDiameter() const {
+  has_dish_diameter() const {
     return m_regions.count(C::col_t::MS_ANTENNA_COL_DISH_DIAMETER) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   DishDiameterAccessor<MODE, CHECK_BOUNDS>
-  dishDiameter() const {
+  dish_diameter() const {
     return
       DishDiameterAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_DISH_DIAMETER),
@@ -382,21 +385,21 @@ public:
   //
   // ORBIT_ID
   //
-  static const constexpr unsigned orbitId_rank =
+  static const constexpr unsigned orbit_id_rank =
     row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_ORBIT_ID];
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using OrbitIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, orbitId_rank, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, orbit_id_rank, MODE, CHECK_BOUNDS>;
 
   bool
-  has_orbitId() const {
+  has_orbit_id() const {
     return m_regions.count(C::col_t::MS_ANTENNA_COL_ORBIT_ID) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   OrbitIdAccessor<MODE, CHECK_BOUNDS>
-  orbitId() const {
+  orbit_id() const {
     return
       OrbitIdAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_ORBIT_ID),
@@ -406,21 +409,21 @@ public:
   //
   // MEAN_ORBIT
   //
-  static const constexpr unsigned meanOrbit_rank =
+  static const constexpr unsigned mean_orbit_rank =
     row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_MEAN_ORBIT];
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using MeanOrbitAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, meanOrbit_rank, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, mean_orbit_rank, MODE, CHECK_BOUNDS>;
 
   bool
-  has_meanOrbit() const {
+  has_mean_orbit() const {
     return m_regions.count(C::col_t::MS_ANTENNA_COL_MEAN_ORBIT) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   MeanOrbitAccessor<MODE, CHECK_BOUNDS>
-  meanOrbit() const {
+  mean_orbit() const {
     return
       MeanOrbitAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_MEAN_ORBIT),
@@ -430,21 +433,21 @@ public:
   //
   // PHASED_ARRAY_ID
   //
-  static const constexpr unsigned phasedArrayId_rank =
+  static const constexpr unsigned phased_array_id_rank =
     row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID];
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using PhasedArrayIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, phasedArrayId_rank, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, phased_array_id_rank, MODE, CHECK_BOUNDS>;
 
   bool
-  has_phasedArrayId() const {
+  has_phased_array_id() const {
     return m_regions.count(C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   PhasedArrayIdAccessor<MODE, CHECK_BOUNDS>
-  phasedArrayId() const {
+  phased_array_id() const {
     return
       PhasedArrayIdAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID),
@@ -454,21 +457,21 @@ public:
   //
   // FLAG_ROW
   //
-  static const constexpr unsigned flagRow_rank =
+  static const constexpr unsigned flag_row_rank =
     row_rank + C::element_ranks[C::col_t::MS_ANTENNA_COL_FLAG_ROW];
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using FlagRowAccessor =
-    FieldAccessor<HYPERION_TYPE_BOOL, flagRow_rank, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_BOOL, flag_row_rank, MODE, CHECK_BOUNDS>;
 
   bool
-  has_flagRow() const {
+  has_flag_row() const {
     return m_regions.count(C::col_t::MS_ANTENNA_COL_FLAG_ROW) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   FlagRowAccessor<MODE, CHECK_BOUNDS>
-  flagRow() const {
+  flag_row() const {
     return
       FlagRowAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_ANTENNA_COL_FLAG_ROW),

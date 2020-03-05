@@ -405,7 +405,7 @@ compute_antenna_classes(
   auto station = antcols.station<READ_ONLY>();
   auto type = antcols.type<READ_ONLY>();
   auto mount = antcols.mount<READ_ONLY>();
-  auto diameter = antcols.dishDiameter<READ_ONLY>();
+  auto diameter = antcols.dish_diameter<READ_ONLY>();
   for (PointInDomainIterator pid(antcols.rows()); pid(); pid++)
     antenna_class[*pid] =
       trivially_classify_antenna(

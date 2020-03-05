@@ -39,7 +39,7 @@ MSFieldColumns::MSFieldColumns(
 #ifdef HYPERION_USE_CASACORE
       switch (col) {
       case C::col_t::MS_FIELD_COL_TIME:
-        m_mrs[col.value()] = create_mr<cc::MEpoch>(rt, rgs);
+        m_mrs[col] = create_mr<cc::MEpoch>(rt, rgs);
         break;
       case C::col_t::MS_FIELD_COL_DELAY_DIR:
       case C::col_t::MS_FIELD_COL_PHASE_DIR:
@@ -55,17 +55,17 @@ MSFieldColumns::MSFieldColumns(
 }
 
 cc::MDirection
-MSFieldColumns::interpolateDirMeas(
+MSFieldColumns::interpolate_dir_meas(
   const std::vector<cc::MDirection>& dir_poly,
-  double interTime,
-  double timeOrigin) {
+  double inter_time,
+  double time_origin) {
 
   if ((dir_poly.size() == 1)
-      || cc::nearAbs(interTime, timeOrigin)) {
+      || cc::nearAbs(inter_time, time_origin)) {
     return dir_poly[0];
   } else {
     cc::Vector<double> dir(dir_poly[0].getAngle().getValue());
-    double dt = interTime - timeOrigin;
+    double dt = inter_time - time_origin;
     double fac = 1.0;
     for (size_t i = 1; i < dir_poly.size(); ++i) {
       fac *= dt;

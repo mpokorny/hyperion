@@ -217,13 +217,13 @@ public:
   };
 
   bool
-  has_timeMeas() const {
+  has_time_meas() const {
     return has_time() && m_mrs.count(C::col_t::MS_FIELD_COL_TIME) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   TimeMeasAccessor<MODE, CHECK_BOUNDS>
-  timeMeas() const {
+  time_meas() const {
     return
       TimeMeasAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_TIME),
@@ -235,21 +235,21 @@ public:
   //
   // NUM_POLY
   //
-  static const constexpr unsigned numPoly_rank =
+  static const constexpr unsigned num_poly_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_NUM_POLY];
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using NumPolyAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, numPoly_rank, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, num_poly_rank, MODE, CHECK_BOUNDS>;
 
   bool
-  has_numPoly() const {
+  has_num_poly() const {
     return m_regions.count(C::col_t::MS_FIELD_COL_NUM_POLY) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   NumPolyAccessor<MODE, CHECK_BOUNDS>
-  numPoly() const {
+  num_poly() const {
     return
       NumPolyAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
@@ -259,21 +259,21 @@ public:
   //
   // DELAY_DIR
   //
-  static const constexpr unsigned delayDir_rank =
+  static const constexpr unsigned delay_dir_rank =
     row_rank + C::element_ranks[MS_FIELD_COL_DELAY_DIR];
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using DelayDirAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, delayDir_rank, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_DOUBLE, delay_dir_rank, MODE, CHECK_BOUNDS>;
 
   bool
-  has_delayDir() const {
+  has_delay_dir() const {
     return m_regions.count(C::col_t::MS_FIELD_COL_DELAY_DIR) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   DelayDirAccessor<MODE, CHECK_BOUNDS>
-  delayDir() const {
+  delay_dir() const {
     return
       DelayDirAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_DELAY_DIR),
@@ -293,7 +293,7 @@ public:
       std::vector<casacore::MDirection>& val) {
 
       static_assert(row_rank == 1);
-      static_assert(delayDir_rank == 3);
+      static_assert(delay_dir_rank == 3);
 
       auto cvt = T::m_cm.convert_at(pt);
       // until either the num_poly index space is writable or there's some
@@ -305,8 +305,8 @@ public:
       for (int i = 0; i < np + 1; ++i) {
         auto d = cvt(val[i]);
         auto vs = d.getAngle(T::m_units).getValue();
-        T::m_delay_dir[Legion::Point<delayDir_rank>(pt[0], i, 0)] = vs[0];
-        T::m_delay_dir[Legion::Point<delayDir_rank>(pt[0], i, 1)] = vs[1];
+        T::m_delay_dir[Legion::Point<delay_dir_rank>(pt[0], i, 0)] = vs[0];
+        T::m_delay_dir[Legion::Point<delay_dir_rank>(pt[0], i, 1)] = vs[1];
       }
     }
   };
@@ -323,11 +323,11 @@ public:
       double time=0.0) const {
 
       static_assert(row_rank == 1);
-      static_assert(delayDir_rank == 3);
+      static_assert(delay_dir_rank == 3);
 
       auto mr = T::m_cm.meas_ref_at(pt);
       const DataType<HYPERION_TYPE_DOUBLE>::ValueType* ds =
-        T::m_delay_dir.ptr(Legion::Point<delayDir_rank>(pt[0], 0, 0));
+        T::m_delay_dir.ptr(Legion::Point<delay_dir_rank>(pt[0], 0, 0));
 
       if (time == 0.0)
         return to_mdirection(ds, mr);
@@ -340,7 +340,7 @@ public:
         dir_poly.push_back(to_mdirection(ds, mr));
         ds += 2;
       }
-      return interpolateDirMeas(dir_poly, time, T::m_time[pt]);
+      return interpolate_dir_meas(dir_poly, time, T::m_time[pt]);
     }
 
   private:
@@ -431,9 +431,9 @@ public:
   };
 
   bool
-  has_delayDirMeas() const {
-    return has_delayDir() && m_mrs.count(C::col_t::MS_FIELD_COL_DELAY_DIR) > 0
-      && has_numPoly() && has_time();
+  has_delay_dir_meas() const {
+    return has_delay_dir() && m_mrs.count(C::col_t::MS_FIELD_COL_DELAY_DIR) > 0
+      && has_num_poly() && has_time();
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -441,7 +441,7 @@ public:
     C::fid(C::col_t::MS_FIELD_COL_DELAY_DIR),
     MODE,
     CHECK_BOUNDS>
-  delayDirMeas() const {
+  delay_dir_meas() const {
     return
       DelayDirMeasAccessor<
         C::fid(C::col_t::MS_FIELD_COL_DELAY_DIR),
@@ -459,22 +459,22 @@ public:
   //
   // PHASE_DIR
   //
-  static const constexpr unsigned phaseDir_rank =
+  static const constexpr unsigned phase_dir_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_PHASE_DIR];
 
-  static_assert(phaseDir_rank == delayDir_rank);
+  static_assert(phase_dir_rank == delay_dir_rank);
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using PhaseDirAccessor = DelayDirAccessor<MODE, CHECK_BOUNDS>;
 
   bool
-  has_phaseDir() const {
+  has_phase_dir() const {
     return m_regions.count(C::col_t::MS_FIELD_COL_PHASE_DIR) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   PhaseDirAccessor<MODE, CHECK_BOUNDS>
-  phaseDir() const {
+  phase_dir() const {
     return
       PhaseDirAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_PHASE_DIR),
@@ -490,14 +490,14 @@ public:
       CHECK_BOUNDS>;
 
   bool
-  has_phaseDirMeas() const {
-    return has_phaseDir() && m_mrs.count(C::col_t::MS_FIELD_COL_PHASE_DIR) > 0
-      && has_numPoly() && has_time();
+  has_phase_dir_meas() const {
+    return has_phase_dir() && m_mrs.count(C::col_t::MS_FIELD_COL_PHASE_DIR) > 0
+      && has_num_poly() && has_time();
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   PhaseDirMeasAccessor<MODE, CHECK_BOUNDS>
-  phaseDirMeas() const {
+  phase_dir_meas() const {
     return
       PhaseDirMeasAccessor<MODE, CHECK_BOUNDS>(
         C::units.at(MS_FIELD_COL_PHASE_DIR),
@@ -512,22 +512,22 @@ public:
   //
   // REFERENCE_DIR
   //
-  static const constexpr unsigned referenceDir_rank =
+  static const constexpr unsigned reference_dir_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_REFERENCE_DIR];
 
-  static_assert(referenceDir_rank == delayDir_rank);
+  static_assert(reference_dir_rank == delay_dir_rank);
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using ReferenceDirAccessor = DelayDirAccessor<MODE, CHECK_BOUNDS>;
 
   bool
-  has_referenceDir() const {
+  has_reference_dir() const {
     return m_regions.count(C::col_t::MS_FIELD_COL_REFERENCE_DIR) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   ReferenceDirAccessor<MODE, CHECK_BOUNDS>
-  referenceDir() const {
+  reference_dir() const {
     return
       ReferenceDirAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_REFERENCE_DIR),
@@ -543,15 +543,15 @@ public:
       CHECK_BOUNDS>;
 
   bool
-  has_referenceDirMeas() const {
-    return has_referenceDir()
+  has_reference_dir_meas() const {
+    return has_reference_dir()
       && m_mrs.count(C::col_t::MS_FIELD_COL_REFERENCE_DIR) > 0
-      && has_numPoly() && has_time();
+      && has_num_poly() && has_time();
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   ReferenceDirMeasAccessor<MODE, CHECK_BOUNDS>
-  referenceDirMeas() const {
+  reference_dir_meas() const {
     return
       ReferenceDirMeasAccessor<MODE, CHECK_BOUNDS>(
         C::units.at(MS_FIELD_COL_REFERENCE_DIR),
@@ -566,21 +566,21 @@ public:
   //
   // SOURCE_ID
   //
-  static const constexpr unsigned sourceId_rank =
+  static const constexpr unsigned source_id_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_SOURCE_ID];
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using SourceIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, sourceId_rank, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, source_id_rank, MODE, CHECK_BOUNDS>;
 
   bool
-  has_sourceId() const {
+  has_source_id() const {
     return m_regions.count(C::col_t::MS_FIELD_COL_SOURCE_ID) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   SourceIdAccessor<MODE, CHECK_BOUNDS>
-  sourceId() const {
+  source_id() const {
     return SourceIdAccessor<MODE, CHECK_BOUNDS>(
       m_regions.at(C::col_t::MS_FIELD_COL_SOURCE_ID),
       C::fid(C::col_t::MS_FIELD_COL_SOURCE_ID));
@@ -589,12 +589,12 @@ public:
   //
   // EPHEMERIS_ID
   //
-  static const constexpr unsigned ephemerisId_rank =
+  static const constexpr unsigned ephemeris_id_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_EPHEMERIS_ID];
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using EphemerisIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, ephemerisId_rank, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_INT, ephemeris_id_rank, MODE, CHECK_BOUNDS>;
 
   bool
   has_ephemermis_id() const {
@@ -603,7 +603,7 @@ public:
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   EphemerisIdAccessor<MODE, CHECK_BOUNDS>
-  ephemerisId() const {
+  ephemeris_id() const {
     return EphemerisIdAccessor<MODE, CHECK_BOUNDS>(
       m_regions.at(C::col_t::MS_FIELD_COL_EPHEMERIS_ID),
       C::fid(C::col_t::MS_FIELD_COL_EPHEMERIS_ID));
@@ -612,21 +612,21 @@ public:
   //
   // FLAG_ROW
   //
-  static const constexpr unsigned flagRow_rank =
+  static const constexpr unsigned flag_row_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_FLAG_ROW];
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using FlagRowAccessor =
-    FieldAccessor<HYPERION_TYPE_BOOL, flagRow_rank, MODE, CHECK_BOUNDS>;
+    FieldAccessor<HYPERION_TYPE_BOOL, flag_row_rank, MODE, CHECK_BOUNDS>;
 
   bool
-  has_flagRow() const {
+  has_flag_row() const {
     return m_regions.count(C::col_t::MS_FIELD_COL_FLAG_ROW) > 0;
   }
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   FlagRowAccessor<MODE, CHECK_BOUNDS>
-  flagRow() const {
+  flag_row() const {
     return
       FlagRowAccessor<MODE, CHECK_BOUNDS>(
         m_regions.at(C::col_t::MS_FIELD_COL_FLAG_ROW),
@@ -645,7 +645,7 @@ private:
 #endif
 
   static casacore::MDirection
-  interpolateDirMeas(
+  interpolate_dir_meas(
     const std::vector<casacore::MDirection>& dir_poly,
     double interTime,
     double timeOrigin);
