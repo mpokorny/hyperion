@@ -25,8 +25,6 @@
 # include <casacore/measures/Measures/MCFrequency.h>
 
 # include <any>
-# include <memory>
-# include <optional>
 # include <unordered_map>
 # include <vector>
 #pragma GCC visibility pop

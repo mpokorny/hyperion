@@ -25,10 +25,7 @@
 # include <casacore/measures/Measures/MCPosition.h>
 
 # include <any>
-# include <memory>
-# include <optional>
 # include <unordered_map>
-# include <variant>
 # include <vector>
 #pragma GCC visibility pop
 
