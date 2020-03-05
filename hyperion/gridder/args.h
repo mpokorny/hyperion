@@ -292,9 +292,8 @@ struct ArgsBase {
 template <args_t G>
 struct Args
   : public ArgsBase {
-
-  ArgType<FS::path, false, &h5_path_tag, G> h5_path;
-  ArgType<FS::path, true, &config_path_tag, G> config_path;
+  ArgType<CXX_FILESYSTEM_NAMESPACE::path, false, &h5_path_tag, G> h5_path;
+  ArgType<CXX_FILESYSTEM_NAMESPACE::path, true, &config_path_tag, G> config_path;
   ArgType<bool, false, &echo_tag, G> echo;
   ArgType<size_t, false, &min_block_tag, G> min_block;
   ArgType<PARALLACTIC_ANGLE_TYPE, false, &pa_step_tag, G> pa_step;

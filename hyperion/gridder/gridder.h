@@ -15,8 +15,6 @@
  */
 #include <hyperion/hyperion.h>
 
-#define FS CXX_FILESYSTEM_NAMESPACE
-
 #define PARALLACTIC_ANGLE_TYPE float
 #define PARALLACTIC_360 ((PARALLACTIC_ANGLE_TYPE)360.0)
 

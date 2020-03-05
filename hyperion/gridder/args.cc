@@ -58,7 +58,7 @@ arg_error(std::ostringstream& oss, const T& arg, const std::string& reason) {
 
 std::optional<std::string>
 load_config(
-  const FS::path& path,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
   const std::string& config_provenance,
   Args<OPT_STRING_ARGS>& gridder_args) {
 
@@ -112,8 +112,9 @@ load_config(
 Args<VALUE_ARGS>
 hyperion::gridder::as_args(YAML::Node&& node) {
 
-  FS::path h5_path = node[ArgsBase::h5_path_tag].as<std::string>();
-  std::optional<FS::path> config_path;
+  CXX_FILESYSTEM_NAMESPACE::path h5_path =
+    node[ArgsBase::h5_path_tag].as<std::string>();
+  std::optional<CXX_FILESYSTEM_NAMESPACE::path> config_path;
   if (node[ArgsBase::config_path_tag])
     config_path = node[ArgsBase::config_path_tag].as<std::string>();
   bool echo = node[ArgsBase::echo_tag].as<bool>();
@@ -261,7 +262,7 @@ std::optional<std::string>
 hyperion::gridder::validate_args(const Args<VALUE_ARGS>& args) {
 
   std::ostringstream errs;
-  if (!FS::is_regular_file(args.h5_path.value()))
+  if (!CXX_FILESYSTEM_NAMESPACE::is_regular_file(args.h5_path.value()))
     arg_error(errs, args.h5_path, "not a regular file");
 
   switch (std::fpclassify(args.pa_step.value())) {
