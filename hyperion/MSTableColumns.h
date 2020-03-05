@@ -18,9 +18,10 @@
 
 #include <hyperion/MSTableColumns_c.h>
 #include <hyperion/MSTable.h>
-# ifdef HYPERION_USE_CASACORE
-#  include <hyperion/MeasRef.h>
-# endif
+#ifdef HYPERION_USE_CASACORE
+# include <hyperion/MeasRef.h>
+#endif
+#include <hyperion/Table.h>
 
 #pragma GCC visibility push(default)
 # ifdef HYPERION_USE_CASACORE
@@ -29,6 +30,7 @@
 
 # include <algorithm>
 # include <array>
+# include <cstring>
 # include <iterator>
 # include <optional>
 # include <unordered_map>
@@ -76,6 +78,161 @@ struct MSTableColumnsBase {
     ref_column;
 #endif // HYPERION_USE_CASACORE
   };
+
+  struct RegionsInfo {
+    size_t values;
+    Legion::FieldID fid;
+#ifdef HYPERION_USE_CASACORE
+    unsigned meas_refs_size;
+    size_t meas_refs_0;
+    bool has_ref_column;
+    size_t ref_column;
+    Legion::FieldID ref_column_fid;
+#endif // HYPERION_USE_CASACORE
+
+    Regions
+    regions(const std::vector<Legion::PhysicalRegion>& prs) const;
+  };
+
+  typedef std::unordered_map<std::string, MSTableColumnsBase::RegionsInfo>
+  region_infos_t;
+
+  static std::tuple<std::unique_ptr<char[]>, size_t>
+  serialize_region_infos(const region_infos_t& infos) {
+    size_t size = 0;
+    size += sizeof(unsigned);
+    for (auto& [nm, ri] : infos)
+      size += sizeof(unsigned) + nm.size() + 1 + sizeof(ri);
+
+    std::unique_ptr<char[]> buffer = std::make_unique<char[]>(size);
+    char* b = reinterpret_cast<char*>(buffer.get());
+    *reinterpret_cast<unsigned*>(b) = infos.size();
+    b += sizeof(unsigned);
+    for (auto& [nm, ri] : infos) {
+      unsigned sz = nm.size() + 1;
+      *reinterpret_cast<unsigned*>(b) = sz;
+      b += sizeof(unsigned);
+      std::strncpy(b, nm.c_str(), sz);
+      b += sz;
+      *reinterpret_cast<region_infos_t::mapped_type*>(b) = ri;
+      b += sizeof(region_infos_t::mapped_type);
+    }
+    return {std::move(buffer), size};
+  }
+
+  static region_infos_t
+  deserialize_region_infos(const void* buffer) {
+    region_infos_t result;
+    const char* b = reinterpret_cast<const char*>(buffer);
+    unsigned n = *reinterpret_cast<const unsigned*>(b);
+    b += sizeof(unsigned);
+    for (unsigned i = 0; i < n; ++i) {
+      unsigned sz = *reinterpret_cast<const unsigned*>(b);
+      b += sizeof(unsigned);
+      std::string nm = b;
+      b += sz;
+      result[nm] = *reinterpret_cast<const region_infos_t::mapped_type*>(b);
+      b += sizeof(region_infos_t::mapped_type);
+    }
+    return result;
+  }
+
+  static std::unordered_map<std::string, Regions>
+  regions(
+    const region_infos_t& infos,
+    const std::vector<Legion::PhysicalRegion>& prs) {
+
+    std::unordered_map<std::string, Regions> result;
+    for (auto& [nm, ri] : infos)
+      result[nm] = ri.regions(prs);
+    return result;
+  }
+
+  static std::tuple<std::vector<Legion::RegionRequirement>, region_infos_t>
+  requirements(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const Table& table,
+    const std::vector<std::string>& cols,
+    legion_privilege_mode_t mode) {
+
+    std::vector<Legion::RegionRequirement> reqs;
+    region_infos_t infos;
+
+    auto tbl_columns =
+      table.columns(ctx, rt).get_result<Table::columns_result_t>();
+
+    // add measure reference columns to requirements
+    std::set<std::string> cols_w_refs;
+    for (auto& [csp, ixcs, vlr, nm_tfs] : tbl_columns.fields) {
+      for (auto& [nm, tf] : nm_tfs) {
+        std::string nmstr(nm.val);
+        auto cp = std::find(cols.begin(), cols.end(), nmstr);
+        if (cp != cols.end()) {
+          cols_w_refs.insert(nmstr);
+#ifdef HYPERION_USE_CASACORE
+          if (tf.rc)
+            cols_w_refs.insert(tf.rc.value());
+#endif // HYPERION_USE_CASACORE
+        }
+      }
+    }
+    // compute requirements for all columns in cols_w_refs
+#ifdef HYPERION_USE_CASACORE
+    std::map<std::string, std::string> ref_column_names;
+    std::map<std::string, unsigned> ref_column_req_indexes;
+#endif // HYPERION_USE_CASACORE
+    for (auto& [csp, ixcs, vlr, nm_tfs] : tbl_columns.fields) {
+      std::vector<Legion::FieldID> fids;
+      std::vector<std::tuple<std::string, TableField>> fields;
+      for (auto& [nm, tf] : nm_tfs) {
+        if (cols_w_refs.count(nm) > 0) {
+          fids.push_back(tf.fid);
+          fields.emplace_back(nm, tf);
+        }
+      }
+      if (fids.size() > 0) {
+        Legion::RegionRequirement req(vlr, mode, EXCLUSIVE, vlr);
+        req.add_fields(fids);
+        size_t values_idx = reqs.size();
+        reqs.push_back(req);
+        for (auto& [nm, tf] : fields) {
+          RegionsInfo info;
+          info.values = values_idx;
+          info.fid = tf.fid;
+#ifdef HYPERION_USE_CASACORE
+          ref_column_req_indexes[nm] = values_idx;
+          if (!tf.mr.is_empty()) {
+            auto [mreq, vreq, oireq] = tf.mr.requirements(mode);
+            info.meas_refs_size = 2 + (oireq.has_value() ? 1 : 0);
+            info.meas_refs_0 = reqs.size();
+            reqs.push_back(mreq);
+            reqs.push_back(vreq);
+            if (oireq)
+              reqs.push_back(oireq.value());
+          } else {
+            info.meas_refs_size = 0;
+          }
+          if (tf.rc) {
+            info.has_ref_column = true;
+            ref_column_names[nm] = tf.rc.value();
+          } else {
+            info.has_ref_column = false;
+          }
+#endif // HYPERION_USE_CASACORE
+          infos[nm] = info;
+        }
+      }
+    }
+#ifdef HYPERION_USE_CASACORE
+    // write reference column requirement indexes
+    for (auto& [nm, ri] : infos) {
+      if (ri.has_ref_column)
+        ri.ref_column = ref_column_req_indexes.at(ref_column_names.at(nm));
+    }
+#endif
+    return {reqs, infos};
+  }
 
 #ifdef HYPERION_USE_CASACORE
   template <typename M>
