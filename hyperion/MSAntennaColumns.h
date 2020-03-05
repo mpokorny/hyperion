@@ -48,10 +48,8 @@ public:
   static const constexpr unsigned row_rank = 1;
 
   Legion::DomainT<row_rank>
-  rows(Legion::Runtime* rt) const {
-    return
-      rt->get_index_space_domain(
-        m_rows_requirement.region.get_index_space());
+  rows() const {
+    return m_rows;
   }
 
   //
@@ -479,7 +477,7 @@ public:
 
 private:
 
-  Legion::RegionRequirement m_rows_requirement;
+  Legion::DomainT<row_rank> m_rows;
 
   std::unordered_map<C::col_t, Legion::PhysicalRegion> m_regions;
 

@@ -25,17 +25,19 @@ MSSpWindowColumns::MSSpWindowColumns(
   Legion::Runtime* rt,
   const Legion::RegionRequirement& rows_requirement,
   const std::unordered_map<std::string, Regions>& regions)
-  : m_rows_requirement(rows_requirement) {
+  : m_rows(
+    rt->get_index_space_domain(rows_requirement.region.get_index_space())) {
 
   for (auto& [nm, rgs] : regions) {
-    auto col = C::lookup_col(nm);
-    if (col) {
-      m_regions[col.value()] = rgs.values;
+    auto ocol = C::lookup_col(nm);
+    if (ocol) {
+      auto& col = ocol.value();
+      m_regions[col] = rgs.values;
 #ifdef HYPERION_USE_CASACORE
-      switch (col.value()) {
+      switch (col) {
       case C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY:
       case C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ:
-        m_mrs[col.value()] = create_mr<cc::MFrequency>(rt, rgs);
+        m_mrs[col] = create_mr<cc::MFrequency>(rt, rgs);
         break;
       default:
         break;
