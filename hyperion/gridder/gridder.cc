@@ -58,46 +58,46 @@ namespace cc = casacore;
 template <typename FT, int N, bool CHECK_BOUNDS=false>
 using ROAccessor =
   FieldAccessor<
-  READ_ONLY,
-  FT,
-  N,
-  coord_t,
-  AffineAccessor<FT, N, coord_t>,
-  CHECK_BOUNDS>;
+    READ_ONLY,
+    FT,
+    N,
+    coord_t,
+    AffineAccessor<FT, N, coord_t>,
+    CHECK_BOUNDS>;
 
 template <typename FT, int N, bool CHECK_BOUNDS=false>
 using RWAccessor =
   FieldAccessor<
-  READ_WRITE,
-  FT,
-  N,
-  coord_t,
-  AffineAccessor<FT, N, coord_t>,
-  CHECK_BOUNDS>;
+    READ_WRITE,
+    FT,
+    N,
+    coord_t,
+    AffineAccessor<FT, N, coord_t>,
+    CHECK_BOUNDS>;
 
 template <typename FT, int N, bool CHECK_BOUNDS=false>
 using WOAccessor =
   FieldAccessor<
-  WRITE_ONLY,
-  FT,
-  N,
-  coord_t,
-  AffineAccessor<FT, N, coord_t>,
-  CHECK_BOUNDS>;
+    WRITE_ONLY,
+    FT,
+    N,
+    coord_t,
+    AffineAccessor<FT, N, coord_t>,
+    CHECK_BOUNDS>;
 
 template <typename FT, int N, bool CHECK_BOUNDS=false>
 using WDAccessor =
   FieldAccessor<
-  WRITE_DISCARD,
-  FT,
-  N,
-  coord_t,
-  AffineAccessor<FT, N, coord_t>,
-  CHECK_BOUNDS>;
+    WRITE_DISCARD,
+    FT,
+    N,
+    coord_t,
+    AffineAccessor<FT, N, coord_t>,
+    CHECK_BOUNDS>;
 
 enum {
-  TOP_LEVEL_TASK_ID,
-  UNITARY_CLASSIFY_ANTENNAS_TASK_ID,
+  GRIDDER_TASK_ID,
+  CLASSIFY_ANTENNAS_TASK_ID,
   COMPUTE_ROW_AUX_FIELDS_TASK_ID,
 };
 
@@ -188,31 +188,30 @@ struct TableColumns<MS_ANTENNA> {
     TYPE,
     MOUNT,
     DISH_DIAMETER,
-    POSITION,
-    NUM_COLUMNS
+    POSITION
   } col;
-  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
-    "NAME",
-    "STATION",
-    "TYPE",
-    "MOUNT",
-    "DISH_DIAMETER",
-    "POSITION"
+  static const constexpr std::array cols = {
+    ms_antenna_col_t::MS_ANTENNA_COL_NAME,
+    ms_antenna_col_t::MS_ANTENNA_COL_STATION,
+    ms_antenna_col_t::MS_ANTENNA_COL_TYPE,
+    ms_antenna_col_t::MS_ANTENNA_COL_MOUNT,
+    ms_antenna_col_t::MS_ANTENNA_COL_DISH_DIAMETER,
+    ms_antenna_col_t::MS_ANTENNA_COL_POSITION
   };
 };
 
-template <>
-struct TableColumns<MS_DATA_DESCRIPTION> {
-  typedef enum {
-    SPECTRAL_WINDOW_ID,
-    POLARIZATION_ID,
-    NUM_COLUMNS
-  } col;
-  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
-    "SPECTRAL_WINDOW_ID",
-    "POLARIZATION_ID"
-  };
-};
+// template <>
+// struct TableColumns<MS_DATA_DESCRIPTION> {
+//   typedef enum {
+//     SPECTRAL_WINDOW_ID,
+//     POLARIZATION_ID,
+//     NUM_COLUMNS
+//   } col;
+//   static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
+//     "SPECTRAL_WINDOW_ID",
+//     "POLARIZATION_ID"
+//   };
+// };
 
 template <>
 struct TableColumns<MS_FEED> {
@@ -227,322 +226,250 @@ struct TableColumns<MS_FEED> {
     BEAM_OFFSET,
     POL_RESPONSE,
     POSITION,
-    RECEPTOR_ANGLE,
-    NUM_COLUMNS
+    RECEPTOR_ANGLE
   } col;
-  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
-    "ANTENNA_ID",
-    "FEED_ID",
-    "SPECTRAL_WINDOW_ID",
-    "TIME",
-    "INTERVAL",
-    "NUM_RECEPTORS",
-    "BEAM_ID",
-    "BEAM_OFFSET",
-    "POL_RESPONSE",
-    "POSITION",
-    "RECEPTOR_ANGLE"
-  };
-  static const constexpr std::array<unsigned,NUM_COLUMNS> element_rank = {
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    2,
-    2,
-    1,
-    1
+  static const constexpr std::array cols = {
+    ms_feed_col_t::MS_FEED_COL_ANTENNA_ID,
+    ms_feed_col_t::MS_FEED_COL_FEED_ID,
+    ms_feed_col_t::MS_FEED_COL_SPECTRAL_WINDOW_ID,
+    ms_feed_col_t::MS_FEED_COL_TIME,
+    ms_feed_col_t::MS_FEED_COL_INTERVAL,
+    ms_feed_col_t::MS_FEED_COL_NUM_RECEPTORS,
+    ms_feed_col_t::MS_FEED_COL_BEAM_ID,
+    ms_feed_col_t::MS_FEED_COL_BEAM_OFFSET,
+    ms_feed_col_t::MS_FEED_COL_POL_RESPONSE,
+    ms_feed_col_t::MS_FEED_COL_POSITION
   };
   // don't index on TIME and INTERVAL axes, as we don't expect feed
   // columns to vary with time
-  static constexpr const std::array<MSTable<MS_FEED>::Axes,3> index_axes = {
+  static const constexpr std::array<MSTable<MS_FEED>::Axes,3> index_axes = {
     FEED_ANTENNA_ID,
     FEED_FEED_ID,
     FEED_SPECTRAL_WINDOW_ID
   };
 };
 
-template <>
-struct TableColumns<MS_FIELD> {
-  typedef enum {
-    TIME,
-    NUM_POLY,
-    DELAY_DIR,
-    PHASE_DIR,
-    REFERENCE_DIR,
-    SOURCE_ID,
-    NUM_COLUMNS
-  } col;
-  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
-    "TIME",
-    "NUM_POLY",
-    "DELAY_DIR",
-    "PHASE_DIR",
-    "REFERENCE_DIR",
-    "SORUCE_ID"
-  };
-};
+// template <>
+// struct TableColumns<MS_FIELD> {
+//   typedef enum {
+//     TIME,
+//     NUM_POLY,
+//     DELAY_DIR,
+//     PHASE_DIR,
+//     REFERENCE_DIR,
+//     SOURCE_ID,
+//     NUM_COLUMNS
+//   } col;
+//   static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
+//     "TIME",
+//     "NUM_POLY",
+//     "DELAY_DIR",
+//     "PHASE_DIR",
+//     "REFERENCE_DIR",
+//     "SORUCE_ID"
+//   };
+// };
 
-template <>
-struct TableColumns<MS_MAIN> {
-  typedef enum {
-    TIME,
-    ANTENNA1,
-    ANTENNA2,
-    FEED1,
-    FEED2,
-    DATA_DESC_ID,
-    UVW,
-    DATA,
-    SIGMA,
-    FLAG,
-    NUM_COLUMNS
-  } col;
-  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
-    "TIME",
-    "ANTENNA1",
-    "ANTENNA2",
-    "FEED1",
-    "FEED2",
-    "DATA_DESC_ID",
-    "UVW",
-    "DATA",
-    "SIGMA",
-    "FLAG"
-  };
-};
+// template <>
+// struct TableColumns<MS_MAIN> {
+//   typedef enum {
+//     TIME,
+//     ANTENNA1,
+//     ANTENNA2,
+//     FEED1,
+//     FEED2,
+//     DATA_DESC_ID,
+//     UVW,
+//     DATA,
+//     SIGMA,
+//     FLAG,
+//     NUM_COLUMNS
+//   } col;
+//   static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
+//     "TIME",
+//     "ANTENNA1",
+//     "ANTENNA2",
+//     "FEED1",
+//     "FEED2",
+//     "DATA_DESC_ID",
+//     "UVW",
+//     "DATA",
+//     "SIGMA",
+//     "FLAG"
+//   };
+// };
 
-template <>
-struct TableColumns<MS_POLARIZATION> {
-  typedef enum {
-    NUM_CORR,
-    NUM_COLUMNS
-  } col;
-  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
-    "NUM_CORR",
-  };
-};
+// template <>
+// struct TableColumns<MS_POLARIZATION> {
+//   typedef enum {
+//     NUM_CORR,
+//     NUM_COLUMNS
+//   } col;
+//   static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
+//     "NUM_CORR",
+//   };
+// };
 
-template <>
-struct TableColumns<MS_SPECTRAL_WINDOW> {
-  typedef enum {
-    NUM_CHAN,
-    REF_FREQUENCY,
-    CHAN_FREQ,
-    CHAN_WIDTH,
-    NUM_COLUMNS
-  } col;
-  static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
-    "NUM_CHAN",
-    "REF_FREQUENCY",
-    "CHAN_FREQ",
-    "CHAN_WIDTH"
-  };
-};
+// template <>
+// struct TableColumns<MS_SPECTRAL_WINDOW> {
+//   typedef enum {
+//     NUM_CHAN,
+//     REF_FREQUENCY,
+//     CHAN_FREQ,
+//     CHAN_WIDTH,
+//     NUM_COLUMNS
+//   } col;
+//   static const constexpr std::array<const char*,NUM_COLUMNS> column_names = {
+//     "NUM_CHAN",
+//     "REF_FREQUENCY",
+//     "CHAN_FREQ",
+//     "CHAN_WIDTH"
+//   };
+// };
 
-#define COLUMN_NAME(T, C) TableColumns<T>::column_names[TableColumns<T>::C]
+#define COLUMN_NAME(T, C) MSTableColumns<T>::column_names[TableColumns<T>::cols[C]]
 
-Table
-init_table(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
-  const FS::path& ms,
-  const std::string& root,
-  MSTables mst) {
+template <MSTables T>
+std::vector<std::string>
+column_names() {
+  std::vector<std::string> result;
+  result.reserve(TableColumns<T>::cols.size());
+  for (auto& c : TableColumns<T>::cols)
+    result.push_back(MSTableColumns<T>::column_names[c]);
+  return result;
+}
 
-  std::unordered_set<std::string> columns;
-  const char* table_name;
+std::tuple<
+  Table,
+  std::unordered_map<std::string, std::string>>
+init_table(Context ctx, Runtime* rt, hid_t loc, MSTables mst) {
+
+  std::string table_name;
   switch (mst) {
-#define INIT(TBL)                                       \
-    case (MS_##TBL): {                                  \
-      std::copy(                                        \
-        TableColumns<MS_##TBL>::column_names.begin(),   \
-        TableColumns<MS_##TBL>::column_names.end(),     \
-        std::inserter(columns, columns.end()));         \
-      table_name = MSTable<MS_##TBL>::name;             \
-      break;                                            \
+#define INIT(TBL)                               \
+    case (MS_##TBL): {                          \
+      table_name = MSTable<MS_##TBL>::name;     \
+      break;                                    \
     }
     HYPERION_FOREACH_MS_TABLE(INIT);
   }
-  return hyperion::hdf5::init_table(ctx, rt, ms, root + table_name, columns);
+  return hdf5::init_table(ctx, rt, loc, table_name);
 }
 
-static const FieldID antenna_class_fid = 0;
+typedef unsigned antenna_class_t;
+const char* antenna_class_column_name = "CLASS";
 
-template <typename T>
-class ClassifyAntennasTask {
-protected:
+antenna_class_t
+trivially_classify_antenna(
+  const char* /*name*/,
+  const char* /*station*/,
+  const char* /*type*/,
+  const char* /*mount*/,
+  double /*diameter*/) {
+  return 0;
+}
 
-  ClassifyAntennasTask(const Table& table)
-    : m_table(table) {
-  }
+Future /* bool */
+add_antenna_class_column(Context ctx, Runtime* rt, const Table& table) {
 
-  typedef enum {
-    ANTENNA_NAME,
-    ANTENNA_STATION,
-    ANTENNA_TYPE,
-    ANTENNA_MOUNT,
-    ANTENNA_DISH_DIAMETER,
-    ANTENNA_CLASS,
-    NUM_REGIONS
-  } region_t;
+  TableField class_field(
+    ValueType<antenna_class_t>::DataType,
+    AUTO_GENERATE_ID,
+    MeasRef(),
+    std::nullopt,
+    Keywords());
 
-public:
+  ColumnSpace ics =
+    table
+    .index_column_space(ctx, rt)
+    .get_result<Table::index_column_space_result_t>()
+    .value();
 
-  static const constexpr std::array<const char*, 5> column_names = {
-    MSAntennaColumns::C::column_names[
-      MSAntennaColumns::C::col_t::MS_ANTENNA_COL_NAME],
-    MSAntennaColumns::C::column_names[
-      MSAntennaColumns::C::col_t::MS_ANTENNA_COL_STATION],
-    MSAntennaColumns::C::column_names[
-      MSAntennaColumns::C::col_t::MS_ANTENNA_COL_TYPE],
-    MSAntennaColumns::C::column_names[
-      MSAntennaColumns::C::col_t::MS_ANTENNA_COL_MOUNT],
-    MSAntennaColumns::C::column_names[
-      MSAntennaColumns::C::col_t::MS_ANTENNA_COL_DISH_DIAMETER]
-  };
-
-  // caller must only free returned LogicalRegion and associated FieldSpace, but
-  // not the associated IndexSpace
-  Legion::LogicalRegion
-  dispatch(Legion::Context ctx, Legion::Runtime* rt) const {
-
-    IndexSpace row_is =
-      m_table.min_rank_column(ctx, rt).values_lr.get_index_space();
-    FieldSpace fs = rt->create_field_space(ctx);
-    FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    fa.allocate_field(sizeof(unsigned), antenna_class_fid);
-    Legion::LogicalRegion result = rt->create_logical_region(ctx, row_is, fs);
-    rt->attach_name(result, "antenna_classes");
-    assert(result.get_dim() == 1);
-
-    TaskArgs args;
-    std::vector<RegionRequirement> requirements;
-    {
-      RegionRequirement
-        cols_req(
-          m_table.columns_lr,
-          READ_ONLY,
-          EXCLUSIVE,
-          m_table.columns_lr);
-      cols_req.add_field(Table::COLUMNS_FID);
-      auto cols = rt->map_region(ctx, cols_req);
-#define ADD_COL_REQ(NM) do {                                        \
-        auto col =                                                  \
-          m_table.column(                                           \
-            ctx,                                                    \
-            rt,                                                     \
-            cols,                                                   \
-            MSAntennaColumns::C::column_names[                      \
-              MSAntennaColumns::C::col_t::MS_ANTENNA_COL_##NM]);    \
-        RegionRequirement                                           \
-          vreq(col.values_lr, READ_ONLY, EXCLUSIVE, col.values_lr); \
-        vreq.add_field(Column::VALUE_FID);                          \
-        args.ridx[ANTENNA_##NM] = requirements.size();              \
-        requirements.push_back(vreq);                               \
-      } while (0)
-      ADD_COL_REQ(NAME);
-      ADD_COL_REQ(STATION);
-      ADD_COL_REQ(TYPE);
-      ADD_COL_REQ(MOUNT);
-      ADD_COL_REQ(DISH_DIAMETER);
-#undef ADD_COL_REQ
-      rt->unmap_region(ctx, cols);
-    }
-    {
-      RegionRequirement req(result, WRITE_ONLY, EXCLUSIVE, result);
-      req.add_field(antenna_class_fid);
-      args.ridx[ANTENNA_CLASS] = requirements.size();
-      requirements.push_back(req);
-    }
-    TaskLauncher launcher(T::TASK_ID, TaskArgument(&args, sizeof(args)));
-    for (auto& req : requirements)
-      launcher.add_region_requirement(req);
-    rt->execute_task(ctx, launcher);
-    return result;
-  }
-
-  static void
-  base_impl(
-    const Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime* rt) {
-
-    const TaskArgs* args = static_cast<const TaskArgs*>(task->args);
-
-#define NM_REGION(NM)                                         \
-    {std::string(                                             \
-        MSAntennaColumns::C::column_names[                    \
-          MSAntennaColumns::C::col_t::MS_ANTENNA_COL_##NM]),  \
-      {regions[args->ridx[ANTENNA_##NM]]}}
-
-    MSAntennaColumns ac(
+  return
+    table
+    .add_columns(
+      ctx,
       rt,
-      task->regions[args->ridx[ANTENNA_NAME]],
-      {/*FIXME*/});
-    auto names = ac.name<READ_ONLY>();
-    auto stations = ac.station<READ_ONLY>();
-    auto types = ac.type<READ_ONLY>();
-    auto mounts = ac.mount<READ_ONLY>();
-    auto diameters = ac.dishDiameter<READ_ONLY>();
-    const WOAccessor<unsigned, 1>
-      antenna_classes(regions[args->ridx[ANTENNA_CLASS]], 0);
+      {{ics, true, {{antenna_class_column_name, class_field}}}});
+}
 
-    for (PointInDomainIterator<1> pid(ac.rows(rt)); pid(); pid++)
-      antenna_classes[*pid] =
-        T::classify(
-          names[*pid].val,
-          stations[*pid].val,
-          types[*pid].val,
-          mounts[*pid].val,
-          diameters[*pid]);
+void
+compute_antenna_classes(
+  const MSAntennaColumns& antcols,
+  PhysicalRegion antenna_class_pr,
+  FieldID antenna_class_fid) {
+
+  const WOAccessor<antenna_class_t, MSAntennaColumns::row_rank>
+    antenna_class(antenna_class_pr, antenna_class_fid);
+  auto name = antcols.name<READ_ONLY>();
+  auto station = antcols.station<READ_ONLY>();
+  auto type = antcols.type<READ_ONLY>();
+  auto mount = antcols.mount<READ_ONLY>();
+  auto diameter = antcols.dishDiameter<READ_ONLY>();
+  for (PointInDomainIterator pid(antcols.rows()); pid(); pid++)
+    antenna_class[*pid] =
+      trivially_classify_antenna(
+        name[*pid].val,
+        station[*pid].val,
+        type[*pid].val,
+        mount[*pid].val,
+        diameter[*pid]);
+}
+
+void
+classify_antennas_task(
+  const Task* task,
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime* rt) {
+
+  MSTableColumnsBase::region_infos_t infos =
+    MSTableColumnsBase::deserialize_region_infos(task->args);
+  auto rgs = MSTableColumnsBase::regions(infos, regions);
+  compute_antenna_classes(
+    MSAntennaColumns(
+      rt,
+      task->regions[infos.at(HYPERION_COLUMN_NAME(ANTENNA, NAME)).values],
+      rgs),
+    regions[infos.at(antenna_class_column_name).values],
+    infos.at(antenna_class_column_name).fid);
+}
+
+void
+classify_antennas(Context ctx, Runtime* rt, const Table& table) {
+
+  auto added =
+    add_antenna_class_column(ctx, rt, table).get_result<bool>();
+  assert(added);
+  auto [reqs, infos] =
+    MSTableColumnsBase::requirements(
+      ctx,
+      rt,
+      table,
+      columns_names<MS_ANTENNA>(),
+      READ_ONLY);
+  {
+    auto [wo_reqs, wo_infos] =
+      MSTableColumnsBase::requirements(
+        ctx,
+        rt,
+        table,
+        std::vector<std::string>{antenna_class_column_name},
+        WRITE_ONLY);
+    std::move(wo_reqs.begin(), wo_reqs.end(), std::back_inserter(reqs));
+    std::move(
+      wo_infos.begin(),
+      wo_infos.end(),
+      std::inserter(infos, infos.end()));
   }
-
-protected:
-
-  struct TaskArgs {
-    std::array<unsigned, NUM_REGIONS> ridx;
-  };
-
-  Table m_table;
-};
-
-class UnitaryClassifyAntennasTask
-  : public ClassifyAntennasTask<UnitaryClassifyAntennasTask> {
-public:
-
-  static const constexpr FieldID TASK_ID = UNITARY_CLASSIFY_ANTENNAS_TASK_ID;
-  static const constexpr char* TASK_NAME = "UnitaryClassifyAntennasTask";
-  static const unsigned num_classes = 1;
-
-  UnitaryClassifyAntennasTask(const Table& table)
-    : ClassifyAntennasTask(table) {
-  }
-
-  static void
-  preregister() {
-    TaskVariantRegistrar
-      registrar(UNITARY_CLASSIFY_ANTENNAS_TASK_ID, TASK_NAME, false);
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.set_leaf();
-    registrar.set_idempotent();
-    Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
-  }
-
-  static unsigned
-  classify(
-    const char* /*name*/,
-    const char* /*station*/,
-    const char* /*type*/,
-    const char* /*mount*/,
-    double /*diameter*/) {
-    return 0;
-  }
-};
+  auto [buff, buff_sz] = MSTableColumnsBase::serialize_region_infos(infos);
+  TaskLauncher task(
+    CLASSIFY_ANTENNAS_TASK_ID,
+    TaskArgument(buff.get(), buff_sz));
+  for (auto& r : reqs)
+    task.add_region_requirement(r);
+  rt->execute_task(ctx, task);
+}
 
 class PAIntervals {
 public:
@@ -602,7 +529,7 @@ public:
   }
 
   static unsigned long
-  num_steps(PhysicalRegion region) {
+  num_steps(const PhysicalRegion& region) {
     const ROAccessor<unsigned long, 1> num_step(region, PA_NUM_STEP_FID);
     return num_step[0];
   }
@@ -621,7 +548,7 @@ public:
 
   static
   std::optional<std::tuple<PARALLACTIC_ANGLE_TYPE, PARALLACTIC_ANGLE_TYPE>>
-  pa(PhysicalRegion region, unsigned long i) {
+  pa(const PhysicalRegion& region, unsigned long i) {
     const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1> origin(region, PA_ORIGIN_FID);
     const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1> step(region, PA_STEP_FID);
     const ROAccessor<unsigned long, 1> num_step(region, PA_NUM_STEP_FID);
@@ -645,7 +572,7 @@ public:
   }
 
   static unsigned long
-  find(PhysicalRegion region, PARALLACTIC_ANGLE_TYPE pa) {
+  find(const PhysicalRegion& region, PARALLACTIC_ANGLE_TYPE pa) {
     const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1> origin(region, PA_ORIGIN_FID);
     const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1> step(region, PA_STEP_FID);
     pa -= origin[0];
@@ -1093,178 +1020,220 @@ private:
   };
 };
 
-template <typename CLASSIFY_ANTENNAS_TASK>
-class TopLevelTask {
-public:
+void
+gridder_task(
+  const Task*,
+  const std::vector<PhysicalRegion>&,
+  Context ctx,
+  Runtime* rt) {
 
-  static const constexpr char* TASK_NAME = "TopLevelTask";
+  hyperion::register_tasks(ctx, rt);
 
-  static void
-  base_impl(
-    const Legion::Task*,
-    const std::vector<Legion::PhysicalRegion>&,
-    Legion::Context ctx,
-    Legion::Runtime* rt) {
-
-    hyperion::register_tasks(ctx, rt);
-
-    // process command line arguments
-    std::optional<gridder::Args<gridder::VALUE_ARGS>> gridder_args;
-    {
-      const Legion::InputArgs& input_args = Legion::Runtime::get_input_args();
-      gridder::Args<gridder::OPT_STRING_ARGS> some_str_args = default_config();
-      if (gridder::get_args(input_args, some_str_args)) {
-        if (!some_str_args.h5_path) {
-          std::cerr << "Path to HDF5 data [--"
-                    << some_str_args.h5_path.tag
-                    << " option] is required, but missing from arguments"
-                    << std::endl;
-          return;
-        }
-        std::optional<gridder::Args<gridder::STRING_ARGS>> str_args =
-          some_str_args.as_complete();
-        assert(str_args);
-        try {
-          // parse argument values as YAML values, so convert
-          // gridder::Args<gridder::STRING_ARGS> to
-          // gridder::Args<gridder::VALUE_ARGS> via YAML
-          gridder_args = gridder::as_args(str_args.value().as_node());
-        } catch (const YAML::Exception& e) {
-          std::cerr << "Failed to parse some configuration values: " << std::endl
-                    << e.what()
-                    << std::endl;
-          return;
-        }
-        auto errstr = gridder::validate_args(gridder_args.value());
-        if (errstr) {
-          std::cerr << errstr.value() << std::endl;
-          return;
-        }
+  // process command line arguments
+  std::optional<gridder::Args<gridder::VALUE_ARGS>> gridder_args;
+  {
+    const InputArgs& input_args = Runtime::get_input_args();
+    gridder::Args<gridder::OPT_STRING_ARGS> some_str_args = default_config();
+    if (gridder::get_args(input_args, some_str_args)) {
+      if (!some_str_args.h5_path) {
+        std::cerr << "Path to HDF5 data [--"
+                  << some_str_args.h5_path.tag
+                  << " option] is required, but missing from arguments"
+                  << std::endl;
+        return;
+      }
+      std::optional<gridder::Args<gridder::STRING_ARGS>> str_args =
+        some_str_args.as_complete();
+      assert(str_args);
+      try {
+        // parse argument values as YAML values, so convert
+        // gridder::Args<gridder::STRING_ARGS> to
+        // gridder::Args<gridder::VALUE_ARGS> via YAML
+        gridder_args = gridder::as_args(str_args.value().as_node());
+      } catch (const YAML::Exception& e) {
+        std::cerr << "Failed to parse some configuration values: " << std::endl
+                  << e.what()
+                  << std::endl;
+        return;
+      }
+      auto errstr = gridder::validate_args(gridder_args.value());
+      if (errstr) {
+        std::cerr << errstr.value() << std::endl;
+        return;
       }
     }
-    if (!gridder_args)
-      return;
-    gridder::Args<gridder::VALUE_ARGS>* g_args = &gridder_args.value();
-    g_args->pa_step = std::abs(g_args->pa_step.value());
+  }
+  if (!gridder_args)
+    return;
+  gridder::Args<gridder::VALUE_ARGS>* g_args = &gridder_args.value();
+  g_args->pa_step = std::abs(g_args->pa_step.value());
 
-    if (g_args->echo.value())
-      std::cout << "*Effective parameters*" << std::endl
-                << g_args->as_node() << std::endl;
+  if (g_args->echo.value())
+    std::cout << "*Effective parameters*" << std::endl
+              << g_args->as_node() << std::endl;
 
-    // initialize Tables used by gridder from HDF5 file
-    MSTables mstables[] = {
-      MS_ANTENNA,
-      MS_DATA_DESCRIPTION,
-      MS_FEED,
-      MS_MAIN,
-      MS_POLARIZATION,
-      MS_SPECTRAL_WINDOW
-    };
-    std::unordered_map<MSTables, Table> tables;
-    for (auto& mst : mstables)
-      tables[mst] = init_table(ctx, rt, g_args->h5_path.value(), ms_root, mst);
+  // initialize Tables used by gridder from HDF5 file
+  std::unordered_map<
+    MSTables,
+    std::tuple<Table, std::unordered_map<std::string, std::string>>>
+    tables =
+    using_resource(
+      [g_args]() {
+        return CHECK_H5(
+          H5Fopen(
+            g_args->h5_path.value().c_str(),
+            H5F_ACC_RDONLY,
+            H5P_DEFAULT));
+      },
+      [&](hid_t h5f) {
+        return
+          using_resource(
+            [h5f]() {
+              return CHECK_H5(H5Gopen(h5f, "/", H5P_DEFAULT));
+            },
+            [&](hid_t h5root) {
+              MSTables mstables[] = {
+                MS_ANTENNA,
+                MS_DATA_DESCRIPTION,
+                MS_FEED,
+                MS_MAIN,
+                MS_POLARIZATION,
+                MS_SPECTRAL_WINDOW
+              };
+              decltype(tables) result;
+              for (auto& mst : mstables)
+                result[mst] = init_table(ctx, rt, h5root, mst);
+              return result;
+            },
+            [](hid_t h5root) {
+              CHECK_H5(H5Gclose(h5root));
+            });
+      },
+      [](hid_t h5f) {
+        CHECK_H5(H5Fclose(h5f));
+      });
 
-    // re-index some tables
-    std::unordered_map<MSTables, Table> itables;
-    {
-      std::unordered_map<MSTables, Future> fs;
-      fs[MS_FEED] =
-        tables[MS_FEED]
-        .with_columns_attached(
-          ctx,
-          rt,
-          g_args->h5_path.value(),
-          ms_root,
-          std::unordered_set<std::string>(
-            TableColumns<MS_FEED>::column_names.begin(),
-            TableColumns<MS_FEED>::column_names.end()),
-          {},
-          [](Context c, Runtime* r, const Table* tb) {
-            std::vector<MSTable<MS_FEED>::Axes> iaxes(
-              TableColumns<MS_FEED>::index_axes.begin(),
-              TableColumns<MS_FEED>::index_axes.end());
-            return tb->reindexed(c, r, iaxes, false);
-          });
-      // for convenience, just wait for all reindexing to finish; may want to
-      // change this and use the futures directly
-      for (auto& [nm, f] : fs)
-        itables[nm] = f.template get_result<Table>();
-    }
-
-    // create region mapping antenna index to antenna class
-    //
-    // note that ClassifyAntennasTask uses an index space from the antenna
-    // table for the region it creates
-    LogicalRegion antenna_classes =
-      tables[MS_ANTENNA]
-      .with_columns_attached(
-        ctx,
-        rt,
-        g_args->h5_path.value(),
-        ms_root,
-        std::unordered_set<std::string>(
-          CLASSIFY_ANTENNAS_TASK::column_names.begin(),
-          CLASSIFY_ANTENNAS_TASK::column_names.end()),
-        {},
-        [](Context c, Runtime* r, const Table* tb) {
-          CLASSIFY_ANTENNAS_TASK task(*tb);
-          return task.dispatch(c, r);
+  // re-index some tables
+  std::unordered_map<MSTables, Table> itables;
+  {
+    std::unordered_map<MSTables, Future> fs;
+    fs[MS_FEED] =
+      using_resource(
+        [&]() {
+          auto& [tbl, pths] = tables[MS_FEED];
+          return
+            hdf5::attach_all_table_columns(
+              ctx,
+              rt,
+              g_args->h5_path.value(),
+              "/",
+              tbl,
+              {},
+              pths,
+              true,
+              false);
+        },
+        [&](std::map<
+            PhysicalRegion,
+            std::unordered_map<std::string, Column>>&) {
+          std::vector<MSTable<MS_FEED>::Axes> iaxes(
+            TableColumns<MS_FEED>::index_axes.begin(),
+            TableColumns<MS_FEED>::index_axes.end());
+          return
+            std::get<0>(tables[MS_FEED]).reindexed(ctx, rt, iaxes, false);
+        },
+        [&](std::map<
+            PhysicalRegion,
+            std::unordered_map<std::string, Column>>& prs) {
+          for (auto& [pr, cs] : prs)
+            rt->detach_external_resource(ctx, pr);
         });
-
-    // create vector of parallactic angle values
-    PAIntervals pa_intervals =
-      PAIntervals::create(ctx, rt, g_args->pa_step.value(), 0.0f);
-
-    // compute auxiliary row-wise data
-    LogicalRegion row_aux;
-    {
-      ComputeRowAuxFieldsTask task(
-        *g_args,
-        tables[MS_MAIN],
-        tables[MS_DATA_DESCRIPTION],
-        tables[MS_ANTENNA],
-        itables[MS_FEED]);
-      row_aux = task.dispatch(ctx, rt);
-    }
-    {
-      RegionRequirement req(row_aux, READ_ONLY, EXCLUSIVE, row_aux);
-      req.add_field(ComputeRowAuxFieldsTask::PARALLACTIC_ANGLE_FID);
-      auto pr = rt->map_region(ctx, req);
-      const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1>
-        pa(pr, ComputeRowAuxFieldsTask::PARALLACTIC_ANGLE_FID);
-      for (PointInDomainIterator<1>
-             pid(rt->get_index_space_domain(row_aux.get_index_space()));
-           pid();
-           pid++)
-        std::cout << *pid << ": " << pa[*pid] << std::endl;
-    }
-
-    // TODO: the rest goes here
-
-    // clean up
-    pa_intervals.destroy(ctx, rt);
-    // don't destroy index space of antenna_classes, as it is shared with an
-    // index space in the antenna table
-    rt->destroy_field_space(ctx, antenna_classes.get_field_space());
-    rt->destroy_logical_region(ctx, antenna_classes);
-    for (auto& tt : tables)
-      tt.second.destroy(ctx, rt);
+    // for convenience, just wait for all reindexing to finish; may want to
+    // change this and use the futures directly
+    for (auto& [mst, f] : fs)
+      itables[mst] = f.template get_result<Table>();
   }
 
-  static void
-  preregister() {
-    TaskVariantRegistrar registrar(TOP_LEVEL_TASK_ID, TASK_NAME);
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    Runtime::preregister_task_variant<base_impl>(registrar, TASK_NAME);
-    Runtime::set_top_level_task_id(TOP_LEVEL_TASK_ID);
+  // create column in ANTENNA table for mapping antenna to its class
+  //
+  // note that ClassifyAntennasTask uses an index space from the antenna
+  // table for the region it creates
+  LogicalRegion antenna_classes =
+    tables[MS_ANTENNA]
+    .with_columns_attached(
+      ctx,
+      rt,
+      g_args->h5_path.value(),
+      ms_root,
+      std::unordered_set<std::string>(
+        CLASSIFY_ANTENNAS_TASK::column_names.begin(),
+        CLASSIFY_ANTENNAS_TASK::column_names.end()),
+      {},
+      [](Context c, Runtime* r, const Table* tb) {
+        CLASSIFY_ANTENNAS_TASK task(*tb);
+        return task.dispatch(c, r);
+      });
+
+  // create vector of parallactic angle values
+  PAIntervals pa_intervals =
+    PAIntervals::create(ctx, rt, g_args->pa_step.value(), 0.0f);
+
+  // compute auxiliary row-wise data
+  LogicalRegion row_aux;
+  {
+    ComputeRowAuxFieldsTask task(
+      *g_args,
+      tables[MS_MAIN],
+      tables[MS_DATA_DESCRIPTION],
+      tables[MS_ANTENNA],
+      itables[MS_FEED]);
+    row_aux = task.dispatch(ctx, rt);
   }
-};
+  {
+    RegionRequirement req(row_aux, READ_ONLY, EXCLUSIVE, row_aux);
+    req.add_field(ComputeRowAuxFieldsTask::PARALLACTIC_ANGLE_FID);
+    auto pr = rt->map_region(ctx, req);
+    const ROAccessor<PARALLACTIC_ANGLE_TYPE, 1>
+      pa(pr, ComputeRowAuxFieldsTask::PARALLACTIC_ANGLE_FID);
+    for (PointInDomainIterator<1>
+           pid(rt->get_index_space_domain(row_aux.get_index_space()));
+         pid();
+         pid++)
+      std::cout << *pid << ": " << pa[*pid] << std::endl;
+  }
+
+  // TODO: the rest goes here
+
+  // clean up
+  pa_intervals.destroy(ctx, rt);
+  // don't destroy index space of antenna_classes, as it is shared with an
+  // index space in the antenna table
+  rt->destroy_field_space(ctx, antenna_classes.get_field_space());
+  rt->destroy_logical_region(ctx, antenna_classes);
+  for (auto& tt : tables)
+    tt.second.destroy(ctx, rt);
+}
 
 int
 main(int argc, char* argv[]) {
   hyperion::preregister_all();
-  UnitaryClassifyAntennasTask::preregister();
-  TopLevelTask<UnitaryClassifyAntennasTask>::preregister();
+  {
+    TaskVariantRegistrar registrar(GRIDDER_TASK_ID, "gridder_task");
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    Runtime::preregister_task_variant<gridder_task>(registrar, "gridder_task");
+    Runtime::set_top_level_task_id(GRIDDER_TASK_ID);  
+  }
+  {
+    TaskVariantRegistrar registrar(
+      CLASSIFY_ANTENNAS_TASK_ID,
+      "classify_antennas_task");
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_leaf();
+    registrar.set_idempotent();
+    Runtime::preregister_task_variant<classify_antennas_task>(
+      registrar,
+      "classify_antennas_task");
+  }
   ComputeRowAuxFieldsTask::preregister();
   Runtime::register_reduction_op<LastPointRedop<1>>(LAST_POINT_REDOP);
   return Runtime::start(argc, argv);
