@@ -136,6 +136,14 @@ list(APPEND HYPERION_SRC
   MSTableColumns_c.h
   MSTableColumns.h
   MSTableColumns.cc
+  MSAntennaColumns.h
+  MSAntennaColumns.cc
+  MSDataDescriptionColumns.h
+  MSDataDescriptionColumns.cc
+  MSFieldColumns.h
+  MSFieldColumns.cc
+  MSSpWindowColumns.h
+  MSSpWindowColumns.cc
   Table.h
   Table.cc
   # Table_c.cc
@@ -154,13 +162,7 @@ if(USE_CASACORE)
     Measures.h
     Measures.cc
     MeasRef.h
-    MeasRef.cc
-    MSAntennaColumns.h
-    MSAntennaColumns.cc
-    MSFieldColumns.h
-    MSFieldColumns.cc
-    MSSpWindowColumns.h
-    MSSpWindowColumns.cc)
+    MeasRef.cc)
   set(HYPERION_USE_CASACORE ON)
 endif()
 if(USE_HDF5)
