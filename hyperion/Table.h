@@ -222,6 +222,30 @@ public:
   static bool
   is_empty(const index_column_space_result_t& index_cs);
 
+  // Any LogicalPartitions returned from requirements() should eventually be
+  // destroyed by the caller. Such LogicalPartitions should only appear when
+  // "table_partition" is not empty or column_modes deselects some columns.
+  std::tuple<
+    std::vector<Legion::RegionRequirement>,
+    std::vector<Legion::LogicalPartition>>
+  requirements(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const ColumnSpacePartition& table_partition = ColumnSpacePartition(),
+    const std::optional<Legion::RegionRequirement>&
+    table_parent_region = std::nullopt,
+    legion_privilege_mode_t table_privilege = READ_ONLY,
+    const std::map<std::string, Legion::RegionRequirement>&
+    column_parent_regions = {},
+    const std::map<
+      std::string,
+      std::optional<
+        std::tuple<
+          legion_privilege_mode_t,
+          legion_coherence_property_t>>>& column_modes = {},
+    legion_privilege_mode_t columns_privilege = READ_ONLY,
+    legion_coherence_property_t columns_coherence = EXCLUSIVE) const;
+
   Legion::Future /* bool */
   is_conformant(
     Legion::Context ctx,

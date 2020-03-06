@@ -242,9 +242,12 @@ allocate_table_fields(FieldAllocator& fa) {
 }
 
 static RegionRequirement
-table_fields_requirement(LogicalRegion lr, legion_privilege_mode_t mode) {
+table_fields_requirement(
+  LogicalRegion lr,
+  LogicalRegion parent,
+  legion_privilege_mode_t mode) {
 
-  RegionRequirement result(lr, mode, EXCLUSIVE, lr);
+  RegionRequirement result(lr, mode, EXCLUSIVE, parent);
 #define ADD_F(F) result.add_field(static_cast<FieldID>(F));
   FOREACH_TABLE_FIELD_FID(ADD_F);
 #undef ADD_F
@@ -302,7 +305,9 @@ Table::create(
     fields_lr = rt->create_logical_region(ctx, is, fs);
     {
       PhysicalRegion fields_pr =
-        rt->map_region(ctx, table_fields_requirement(fields_lr, WRITE_ONLY));
+        rt->map_region(
+          ctx,
+          table_fields_requirement(fields_lr, fields_lr, WRITE_ONLY));
 
       const NameAccessor<WRITE_ONLY>
         nms(fields_pr, static_cast<FieldID>(TableFieldsFid::NM));
@@ -343,7 +348,9 @@ Table::create(
       rt->unmap_region(ctx, fields_pr);
     }
     PhysicalRegion fields_pr =
-      rt->map_region(ctx, table_fields_requirement(fields_lr, READ_WRITE));
+      rt->map_region(
+        ctx,
+        table_fields_requirement(fields_lr, fields_lr, READ_WRITE));
     std::vector<
       std::tuple<
         ColumnSpace,
@@ -505,6 +512,232 @@ Table::index_column_space(Runtime* rt, const PhysicalRegion& fields_pr) {
 bool
 Table::is_empty(const Table::index_column_space_result_t& index_cs) {
   return !index_cs.has_value();
+}
+
+std::tuple<std::vector<RegionRequirement>, std::vector<LogicalPartition>>
+Table::requirements(
+  Context ctx,
+  Runtime* rt,
+  const ColumnSpacePartition& table_partition,
+  const std::optional<Legion::RegionRequirement>& table_parent_region,
+  legion_privilege_mode_t table_privilege,
+  const std::map<std::string, Legion::RegionRequirement>& column_parent_regions,
+  const std::map<
+    std::string,
+    std::optional<
+      std::tuple<
+        legion_privilege_mode_t,
+        legion_coherence_property_t>>>& column_modes,
+  legion_privilege_mode_t columns_privilege,
+  legion_coherence_property_t columns_coherence) const {
+
+  LogicalRegion fields_parent = fields_lr;
+  if (table_parent_region)
+    fields_parent = table_parent_region.value().region;
+
+  auto fields_pr =
+    rt->map_region(
+      ctx,
+      table_fields_requirement(fields_lr, fields_parent, READ_ONLY));
+
+  const NameAccessor<READ_ONLY>
+    nms(fields_pr, static_cast<FieldID>(TableFieldsFid::NM));
+  const KeywordsAccessor<READ_ONLY>
+    kws(fields_pr, static_cast<FieldID>(TableFieldsFid::KW));
+#ifdef HYPERION_USE_CASACORE
+  const MeasRefAccessor<READ_ONLY>
+    mrs(fields_pr, static_cast<FieldID>(TableFieldsFid::MR));
+  const RefColumnAccessor<READ_ONLY>
+    rcs(fields_pr, static_cast<FieldID>(TableFieldsFid::RC));
+#endif
+  const ColumnSpaceAccessor<READ_ONLY>
+    css(fields_pr, static_cast<FieldID>(TableFieldsFid::CS));
+  const ValueFidAccessor<READ_ONLY>
+    vfs(fields_pr, static_cast<FieldID>(TableFieldsFid::VF));
+  const ValuesAccessor<READ_ONLY>
+    vss(fields_pr, static_cast<FieldID>(TableFieldsFid::VS));
+
+  // use a flag field in the fields_lr index space as the basis of a partition
+  // by column selection
+  const FieldID col_select_fid = 0;
+  LogicalRegion col_select_lr;
+  {
+    auto fs = rt->create_field_space(ctx);
+    auto fa = rt->create_field_allocator(ctx, fs);
+    fa.allocate_field(sizeof(int), col_select_fid);
+    col_select_lr =
+      rt->create_logical_region(ctx, fields_parent.get_index_space(), fs);
+  }
+  auto col_select_pr =
+    rt->map_region(
+      ctx,
+      RegionRequirement(
+        col_select_lr,
+        {col_select_fid},
+        {col_select_fid},
+        WRITE_ONLY,
+        EXCLUSIVE,
+        col_select_lr));
+
+  const FieldAccessor<
+    WRITE_ONLY,
+    int,
+    1,
+    coord_t,
+    AffineAccessor<int, 1, coord_t>>
+    sel_flags(col_select_pr, col_select_fid);
+  bool all_cols_selected = true;
+  bool some_cols_selected = false;
+
+  DomainT<1> tdom = rt->get_index_space_domain(fields_parent.get_index_space());
+
+  // collect requirement parameters for each column
+  std::map<
+    hyperion::string,
+    std::tuple<
+      LogicalRegion,
+      legion_privilege_mode_t,
+      legion_coherence_property_t>> column_regions;
+#ifdef HYPERION_USE_CASACORE
+  std::map<
+    hyperion::string,
+    std::tuple<legion_privilege_mode_t, legion_coherence_property_t>>
+    mrc_modes;
+#endif
+  for (PointInDomainIterator<1> pid(tdom);
+       pid() && !css[*pid].is_empty();
+       pid++) {
+    std::string nm(nms[*pid]);
+    if (column_modes.count(nm) == 0 || column_modes.at(nm)) {
+      legion_privilege_mode_t privilege = columns_privilege;
+      legion_coherence_property_t coherence = columns_coherence;
+      if (column_modes.count(nm) > 0)
+        std::tie(privilege, coherence) = column_modes.at(nm).value();
+      column_regions[nms[*pid]] = {vss[*pid], privilege, coherence};
+#ifdef HYPERION_USE_CASACORE
+      if (rcs[*pid].size() > 0)
+        mrc_modes[rcs[*pid]] = {privilege, coherence};
+#endif
+      sel_flags[*pid] = 1;
+      some_cols_selected = true;
+    } else {
+      sel_flags[*pid] = 0;
+      all_cols_selected = false;
+    }
+  }
+  rt->unmap_region(ctx, col_select_pr);
+
+#ifdef HYPERION_USE_CASACORE
+  // apply mode of value column to its measure reference column
+  for (auto& [nm, md] : mrc_modes) {
+    auto& [lr, p, c] = column_regions[nm];
+    std::tie(p, c) = md;
+  }
+#endif
+
+  // create requirements, applying table_partition as needed
+  std::map<ColumnSpace, LogicalPartition> partitions;
+  std::map<
+    std::tuple<
+      LogicalRegion,
+      legion_privilege_mode_t,
+      legion_coherence_property_t>,
+    RegionRequirement> region_reqs;
+  for (PointInDomainIterator<1> pid(tdom);
+       pid() && !css[*pid].is_empty();
+       pid++) {
+    if (column_regions.count(nms[*pid]) > 0) {
+      auto& rg = column_regions.at(nms[*pid]);
+      if (region_reqs.count(rg) == 0) {
+        auto& [lr, p, c] = rg;
+        LogicalRegion parent = lr;
+        std::string nm(nms[*pid]);
+        if (column_parent_regions.count(nm) > 0)
+          parent = column_parent_regions.at(nm).region;
+        if (!table_partition.is_valid()) {
+          region_reqs.emplace(rg, RegionRequirement(lr, p, c, parent));
+        } else {
+          LogicalPartition lp;
+          if (partitions.count(css[*pid]) == 0) {
+            auto csp =
+              table_partition.project_onto(ctx, rt, css[*pid])
+              .get_result<ColumnSpacePartition>();
+            LogicalPartition lp =
+              rt->get_logical_partition(ctx, lr, csp.column_ip);
+            csp.destroy(ctx, rt);
+            partitions[css[*pid]] = lp;
+          } else {
+            lp = partitions[css[*pid]];
+          }
+          region_reqs[rg] = RegionRequirement(lp, 0, p, c, parent);
+        }
+      }
+      region_reqs[rg].add_field(vfs[*pid]);
+    }
+  }
+  std::vector<LogicalPartition> lps_result;
+  for (auto& [csp, lp] : partitions)
+    lps_result.push_back(lp);
+
+  // gather all requirements, in order set by this traversal of fields_pr
+  std::vector<RegionRequirement> reqs_result;
+
+  // start with the table fields_lr, partitioned according to col_select_lr when
+  // necessary
+  if (all_cols_selected) {
+    reqs_result.push_back(
+      table_fields_requirement(fields_lr, fields_parent, table_privilege));
+  } else if (some_cols_selected) {
+    auto cs = rt->create_index_space(ctx, Rect<1>(0, 1));
+    auto ip =
+      rt->create_partition_by_field(
+        ctx,
+        col_select_lr,
+        col_select_lr,
+        col_select_fid,
+        cs);
+    auto lp = rt->get_logical_partition(ctx, fields_parent, ip);
+    auto lr = rt->get_logical_subregion_by_color(ctx, lp, 1);
+    reqs_result.push_back(
+      table_fields_requirement(lr, fields_parent, table_privilege));
+    rt->destroy_index_partition(ctx, ip);
+    rt->destroy_index_space(ctx, cs);
+    lps_result.push_back(lp);
+  }
+  rt->destroy_field_space(ctx, col_select_lr.get_field_space());
+  rt->destroy_logical_region(ctx, col_select_lr);
+
+  // add requirements for all logical regions in all selected columns
+  for (PointInDomainIterator<1> pid(tdom);
+       pid() && !css[*pid].is_empty();
+       pid++) {
+    if (column_regions.count(nms[*pid]) > 0) {
+      auto& rg = column_regions.at(nms[*pid]);
+      auto& privilege = std::get<1>(rg);
+      reqs_result.push_back(region_reqs.at(rg));
+
+      auto nkw = kws[*pid].size(rt);
+      if (nkw > 0) {
+        std::vector<FieldID> fids(nkw);
+        std::iota(fids.begin(), fids.end(), 0);
+        auto rqs = kws[*pid].requirements(rt, fids, privilege).value();
+        reqs_result.push_back(rqs.type_tags);
+        reqs_result.push_back(rqs.values);
+      }
+
+#ifdef HYPERION_USE_CASACORE
+      if (!mrs[*pid].is_empty()) {
+        auto [mrq, vrq, oirq] = mrs[*pid].requirements(privilege);
+        reqs_result.push_back(mrq);
+        reqs_result.push_back(vrq);
+        if (oirq)
+          reqs_result.push_back(oirq.value());
+      }
+#endif
+    }
+  }
+  rt->unmap_region(ctx, fields_pr);
+  return {reqs_result, lps_result};
 }
 
 Legion::TaskID Table::is_conformant_task_id;
@@ -801,13 +1034,12 @@ Table::add_columns(
       }
       auto idx = current_csp_idxs[csp];
       for (auto& [nm, tf]: nm_tfs)
-        args.columns[i++] = std::make_tuple(csp, ixcs, idx, string(nm), tf);
+        args.columns[i++] = {csp, ixcs, idx, string(nm), tf};
     }
     if (i < MAX_COLUMNS)
-      args.columns[i] =
-        std::make_tuple(ColumnSpace(), false, -1, string(), TableField());
+      args.columns[i] = {ColumnSpace(), false, -1, string(), TableField()};
   }
-  reqs.push_back(table_fields_requirement(fields_lr, READ_WRITE));
+  reqs.push_back(table_fields_requirement(fields_lr, fields_lr, READ_WRITE));
   for (auto& req : reqs)
     task.add_region_requirement(req);
   return rt->execute_task(ctx, task);
@@ -1070,7 +1302,9 @@ Table::remove_columns(
   bool destroy_orphan_column_spaces) const {
 
   auto fields_pr =
-    rt->map_region(ctx, table_fields_requirement(fields_lr, READ_WRITE));
+    rt->map_region(
+      ctx,
+      table_fields_requirement(fields_lr, fields_lr, READ_WRITE));
   remove_columns(ctx, rt, columns, destroy_orphan_column_spaces, fields_pr);
   rt->unmap_region(ctx, fields_pr);
 }
@@ -1220,7 +1454,7 @@ Table::destroy(
     auto fields_pr =
       rt->map_region(
         ctx,
-        table_fields_requirement(fields_lr, READ_WRITE));
+        table_fields_requirement(fields_lr, fields_lr, READ_WRITE));
     const KeywordsAccessor<READ_WRITE>
       kws(fields_pr, static_cast<FieldID>(TableFieldsFid::KW));
 #ifdef HYPERION_USE_CASACORE
@@ -1282,7 +1516,8 @@ Table::columns_task(
 Future /* columns_result_t */
 Table::columns(Context ctx, Runtime *rt) const {
   TaskLauncher task(columns_task_id, TaskArgument(NULL, 0));
-  task.add_region_requirement(table_fields_requirement(fields_lr, READ_ONLY));
+  task.add_region_requirement(
+    table_fields_requirement(fields_lr, fields_lr, READ_ONLY));
   task.enable_inlining = true;
   return rt->execute_task(ctx, task);
 }
@@ -1326,20 +1561,19 @@ Table::columns(Runtime *rt, const PhysicalRegion& fields_pr) {
     auto& cs = css[*pid];
     if (!cs.is_empty() && vss[*pid] != LogicalRegion::NO_REGION) {
       columns_result_t::tbl_fld_t tf =
-        std::make_tuple(
-          nms[*pid],
-          TableField(
-            dts[*pid],
-            vfs[*pid],
+        {nms[*pid],
+         TableField(
+           dts[*pid],
+           vfs[*pid],
 #ifdef HYPERION_USE_CASACORE
-            mrs[*pid],
-            ((rcs[*pid].size() > 0)
-             ? std::make_optional<hyperion::string>(rcs[*pid])
-             : std::nullopt),
+           mrs[*pid],
+           ((rcs[*pid].size() > 0)
+            ? std::make_optional<hyperion::string>(rcs[*pid])
+            : std::nullopt),
 #endif
-            kws[*pid]));
+           kws[*pid])};
       if (cols.count(cs) == 0)
-        cols[cs] = std::make_tuple(ixs[*pid], vss[*pid], std::vector{tf});
+        cols[cs] = {ixs[*pid], vss[*pid], std::vector{tf}};
       else
         std::get<2>(cols[cs]).push_back(tf);
     }
@@ -1405,12 +1639,14 @@ Table::partition_rows(
   for (size_t i = 0; i < block_sizes.size(); ++i) {
     assert(block_sizes[i].value_or(1) > 0);
     args.block_sizes[i] =
-      std::make_pair(block_sizes[i].has_value(), block_sizes[i].value_or(0));
+      {block_sizes[i].has_value(), block_sizes[i].value_or(0)};
   }
-  args.block_sizes[block_sizes.size()] = std::make_pair(true, 0);
+  args.block_sizes[block_sizes.size()] = {true, 0};
 
   auto fields_pr =
-    rt->map_region(ctx, table_fields_requirement(fields_lr, READ_ONLY));
+    rt->map_region(
+      ctx,
+      table_fields_requirement(fields_lr, fields_lr, READ_ONLY));
   TaskLauncher task(partition_rows_task_id, TaskArgument(&args, sizeof(args)));
   {
     auto index_cs = Table::index_column_space(rt, fields_pr).value();
@@ -1525,7 +1761,7 @@ Table::reindexed_task(
     for (auto& [nm, tf] : tfs) {
 #pragma GCC diagnostic pop
       ColumnRegions cr;
-      cr.values = std::make_tuple(values_req, values);
+      cr.values = {values_req, values};
       cr.metadata = metadata;
 #ifdef HYPERION_USE_CASACORE
       if (!tf.mr.is_empty()) {
@@ -1571,10 +1807,7 @@ Table::reindexed(
   std::vector<RegionRequirement> reqs;
   bool can_reindex;
   {
-    {
-      RegionRequirement req = table_fields_requirement(fields_lr, READ_ONLY);
-      reqs.push_back(req);
-    }
+    reqs.push_back(table_fields_requirement(fields_lr, fields_lr, READ_ONLY));
     {
       auto index_cs =
         index_column_space(ctx, rt)
@@ -1799,7 +2032,7 @@ Table::reindexed(
         col.kw,
         col.csp,
         std::get<0>(cr.values));
-      named_columns[nms[i]] = std::make_tuple(col1, cr, std::nullopt);
+      named_columns[nms[i]] = {col1, cr, std::nullopt};
     }
   }
 
@@ -1843,7 +2076,7 @@ Table::reindexed(
       RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
       req.add_field(Column::COLUMN_INDEX_ROWS_FID);
       auto pr = rt->map_region(ctx, req);
-      index_cols[d] = std::make_pair(lr, pr);
+      index_cols[d] = {lr, pr};
       std::get<2>(named_columns[nm]) = d;
     });
 
