@@ -526,8 +526,10 @@ Table::requirements(
     std::string,
     std::optional<
       std::tuple<
+        bool,
         legion_privilege_mode_t,
         legion_coherence_property_t>>>& column_modes,
+  bool columns_mapped,
   legion_privilege_mode_t columns_privilege,
   legion_coherence_property_t columns_coherence) const {
 
@@ -596,12 +598,13 @@ Table::requirements(
     hyperion::string,
     std::tuple<
       LogicalRegion,
+      bool,
       legion_privilege_mode_t,
       legion_coherence_property_t>> column_regions;
 #ifdef HYPERION_USE_CASACORE
   std::map<
     hyperion::string,
-    std::tuple<legion_privilege_mode_t, legion_coherence_property_t>>
+    std::tuple<bool, legion_privilege_mode_t, legion_coherence_property_t>>
     mrc_modes;
 #endif
   for (PointInDomainIterator<1> pid(tdom);
@@ -609,14 +612,15 @@ Table::requirements(
        pid++) {
     std::string nm(nms[*pid]);
     if (column_modes.count(nm) == 0 || column_modes.at(nm)) {
+      bool mapped = columns_mapped;
       legion_privilege_mode_t privilege = columns_privilege;
       legion_coherence_property_t coherence = columns_coherence;
       if (column_modes.count(nm) > 0)
-        std::tie(privilege, coherence) = column_modes.at(nm).value();
-      column_regions[nms[*pid]] = {vss[*pid], privilege, coherence};
+        std::tie(mapped, privilege, coherence) = column_modes.at(nm).value();
+      column_regions[nms[*pid]] = {vss[*pid], mapped, privilege, coherence};
 #ifdef HYPERION_USE_CASACORE
       if (rcs[*pid].size() > 0)
-        mrc_modes[rcs[*pid]] = {privilege, coherence};
+        mrc_modes[rcs[*pid]] = {mapped, privilege, coherence};
 #endif
       sel_flags[*pid] = 1;
       some_cols_selected = true;
@@ -630,8 +634,8 @@ Table::requirements(
 #ifdef HYPERION_USE_CASACORE
   // apply mode of value column to its measure reference column
   for (auto& [nm, md] : mrc_modes) {
-    auto& [lr, p, c] = column_regions[nm];
-    std::tie(p, c) = md;
+    auto& [lr, m, p, c] = column_regions[nm];
+    std::tie(m, p, c) = md;
   }
 #endif
 
@@ -642,20 +646,21 @@ Table::requirements(
       LogicalRegion,
       legion_privilege_mode_t,
       legion_coherence_property_t>,
-    RegionRequirement> region_reqs;
+    std::tuple<bool, RegionRequirement>> region_reqs;
   for (PointInDomainIterator<1> pid(tdom);
        pid() && !css[*pid].is_empty();
        pid++) {
     if (column_regions.count(nms[*pid]) > 0) {
       auto& rg = column_regions.at(nms[*pid]);
-      if (region_reqs.count(rg) == 0) {
-        auto& [lr, p, c] = rg;
+      auto& [lr, m, p, c] = rg;
+      decltype(region_reqs)::key_type rg_rq = {lr, p, c};
+      if (region_reqs.count(rg_rq) == 0) {
         LogicalRegion parent = lr;
         std::string nm(nms[*pid]);
         if (column_parent_regions.count(nm) > 0)
           parent = column_parent_regions.at(nm).region;
         if (!table_partition.is_valid()) {
-          region_reqs.emplace(rg, RegionRequirement(lr, p, c, parent));
+          region_reqs[rg_rq] = {false, RegionRequirement(lr, p, c, parent)};
         } else {
           LogicalPartition lp;
           if (partitions.count(css[*pid]) == 0) {
@@ -669,10 +674,10 @@ Table::requirements(
           } else {
             lp = partitions[css[*pid]];
           }
-          region_reqs[rg] = RegionRequirement(lp, 0, p, c, parent);
+          region_reqs[rg_rq] = {false, RegionRequirement(lp, 0, p, c, parent)};
         }
       }
-      region_reqs[rg].add_field(vfs[*pid]);
+      std::get<1>(region_reqs[rg_rq]).add_field(vfs[*pid], m);
     }
   }
   std::vector<LogicalPartition> lps_result;
@@ -713,21 +718,26 @@ Table::requirements(
        pid++) {
     if (column_regions.count(nms[*pid]) > 0) {
       auto& rg = column_regions.at(nms[*pid]);
-      auto& privilege = std::get<1>(rg);
-      reqs_result.push_back(region_reqs.at(rg));
+      auto& [lr, m, p, c] = rg;
+      decltype(region_reqs)::key_type rg_rq = {lr, p, c};
+      auto& [added, req] = region_reqs.at(rg_rq);
+      if (!added) {
+        reqs_result.push_back(req);
+        added = true;
+      }
 
       auto nkw = kws[*pid].size(rt);
       if (nkw > 0) {
         std::vector<FieldID> fids(nkw);
         std::iota(fids.begin(), fids.end(), 0);
-        auto rqs = kws[*pid].requirements(rt, fids, privilege).value();
+        auto rqs = kws[*pid].requirements(rt, fids, p).value();
         reqs_result.push_back(rqs.type_tags);
         reqs_result.push_back(rqs.values);
       }
 
 #ifdef HYPERION_USE_CASACORE
       if (!mrs[*pid].is_empty()) {
-        auto [mrq, vrq, oirq] = mrs[*pid].requirements(privilege);
+        auto [mrq, vrq, oirq] = mrs[*pid].requirements(p);
         reqs_result.push_back(mrq);
         reqs_result.push_back(vrq);
         if (oirq)

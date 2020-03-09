@@ -241,8 +241,10 @@ public:
       std::string,
       std::optional<
         std::tuple<
+          bool,
           legion_privilege_mode_t,
           legion_coherence_property_t>>>& column_modes = {},
+    bool columns_mapped = true,
     legion_privilege_mode_t columns_privilege = READ_ONLY,
     legion_coherence_property_t columns_coherence = EXCLUSIVE) const;
 
