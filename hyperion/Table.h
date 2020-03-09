@@ -197,7 +197,16 @@ public:
   Table() {}
 
   Table(const Legion::LogicalRegion& fields_lr_)
-    : fields_lr(fields_lr_) {}
+  : fields_lr(fields_lr_) {}
+
+  Table(
+    const Legion::LogicalRegion& fields_lr_,
+    const std::optional<Legion::LogicalRegion>& fields_parent_,
+    const std::unordered_map<std::string, Legion::LogicalRegion>&
+    columns_parents_)
+    : fields_lr(fields_lr_)
+    , fields_parent(fields_parent_)
+    , columns_parents(columns_parents_) {}
 
   static Table
   create(
@@ -217,6 +226,7 @@ public:
   static index_column_space_result_t
   index_column_space(
     Legion::Runtime* rt,
+    const Legion::LogicalRegion& fields_parent,
     const Legion::PhysicalRegion& fields_pr);
 
   static bool
@@ -232,11 +242,7 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ColumnSpacePartition& table_partition = ColumnSpacePartition(),
-    const std::optional<Legion::RegionRequirement>&
-    table_parent_region = std::nullopt,
     legion_privilege_mode_t table_privilege = READ_ONLY,
-    const std::map<std::string, Legion::RegionRequirement>&
-    column_parent_regions = {},
     const std::map<
       std::string,
       std::optional<
@@ -257,6 +263,7 @@ public:
   static bool
   is_conformant(
     Legion::Runtime* rt,
+    const Legion::LogicalRegion& fields_parent,
     const Legion::PhysicalRegion& fields_pr,
     const std::optional<std::tuple<Legion::IndexSpace, Legion::PhysicalRegion>>&
     index_cs,
@@ -286,6 +293,7 @@ public:
         ssize_t,
         std::vector<std::pair<string, TableField>>>>& columns,
     const std::vector<Legion::LogicalRegion>& val_lrs,
+    const Legion::LogicalRegion& fields_parent,
     const Legion::PhysicalRegion& fields_pr,
     const std::optional<
       std::tuple<Legion::IndexSpace, Legion::PhysicalRegion>>& index_cs,
@@ -304,6 +312,7 @@ public:
     Legion::Runtime* rt,
     const std::unordered_set<std::string>& columns,
     bool destroy_orphan_column_spaces,
+    const Legion::LogicalRegion& fields_parent,
     const Legion::PhysicalRegion& fields_pr);
 
   // each element of the block_sizes vector is the block size on the
@@ -331,7 +340,7 @@ public:
     return fields_lr != Legion::LogicalRegion::NO_REGION;
   }
 
-  typedef Table reindexed_result_t;
+  typedef Legion::LogicalRegion reindexed_result_t;
 
   // 'allow_rows' is intended to support the case where reindexing may not
   // result in a single value in a column per aggregate index, necessitating the
@@ -382,6 +391,7 @@ public:
     Legion::Runtime *rt,
     const std::vector<std::pair<int, std::string>>& index_axes,
     bool allow_rows,
+    const Legion::LogicalRegion& fields_parent,
     const Legion::PhysicalRegion& fields_pr,
     const Legion::PhysicalRegion& index_cs_md_pr,
     const std::vector<std::tuple<Legion::coord_t, ColumnRegions>>&
@@ -397,7 +407,10 @@ public:
   columns(Legion::Context ctx, Legion::Runtime *rt) const;
 
   static columns_result_t
-  columns(Legion::Runtime *rt, const Legion::PhysicalRegion& fields_pr);
+  columns(
+    Legion::Runtime *rt,
+    const Legion::LogicalRegion& fields_parent,
+    const Legion::PhysicalRegion& fields_pr);
 
   static std::unordered_map<std::string, Column>
   column_map(
@@ -408,6 +421,10 @@ public:
   preregister_tasks();
 
   Legion::LogicalRegion fields_lr;
+
+  std::optional<Legion::LogicalRegion> fields_parent;
+
+  std::unordered_map<std::string, Legion::LogicalRegion> columns_parents;
 
 protected:
 
@@ -470,6 +487,8 @@ protected:
     Legion::Runtime *rt);
 
 private:
+
+  static const constexpr Legion::FieldID no_column = AUTO_GENERATE_ID;
 
   static Legion::TaskID index_column_space_task_id;
 

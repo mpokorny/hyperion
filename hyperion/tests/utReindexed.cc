@@ -475,7 +475,7 @@ reindexed_test_suite(
           std::vector<Table0Axes>{Table0Axes::X, Table0Axes::Y},
           false);
 
-      auto tb = f.get_result<Table::reindexed_result_t>();
+      auto tb = Table(f.get_result<Table::reindexed_result_t>());
       test_totally_reindexed_table(ctx, rt, tb, true, "Totally", recorder);
       //tb.destroy(ctx, rt); FIXME
     }
@@ -489,7 +489,7 @@ reindexed_test_suite(
             rt,
             std::vector<Table0Axes>{Table0Axes::Y},
             true);
-        tby = f.get_result<Table::reindexed_result_t>();
+        tby = Table(f.get_result<Table::reindexed_result_t>());
       }
       {
         auto oics_y =
@@ -715,7 +715,7 @@ reindexed_test_suite(
             rt,
             std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::X},
             false);
-        tbyx = f.get_result<Table::reindexed_result_t>();
+        tbyx = Table(f.get_result<Table::reindexed_result_t>());
       }
       test_totally_reindexed_table(
         ctx,
