@@ -44,7 +44,6 @@ enum class TableFieldsFid {
   RC,
 #endif
   CS,
-  IX,
   VF,
   VS
 };
@@ -78,10 +77,6 @@ struct TableFieldsType<TableFieldsFid::RC> {
 template<>
 struct TableFieldsType<TableFieldsFid::CS> {
   typedef ColumnSpace type;
-};
-template<>
-struct TableFieldsType<TableFieldsFid::IX> {
-  typedef bool type;
 };
 template<>
 struct TableFieldsType<TableFieldsFid::VF> {
@@ -181,10 +176,6 @@ public:
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using ColumnSpaceAccessor =
     Accessor<MODE, TableFieldsFid::CS, CHECK_BOUNDS>;
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  using IndexColumnSpaceFlagAccessor =
-    Accessor<MODE, TableFieldsFid::IX, CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
   using ValueFidAccessor =

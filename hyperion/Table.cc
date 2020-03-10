@@ -33,7 +33,6 @@ using namespace Legion;
   __FUNC__(TableFieldsFid::MR)                  \
   __FUNC__(TableFieldsFid::RC)                  \
   __FUNC__(TableFieldsFid::CS)                  \
-  __FUNC__(TableFieldsFid::IX)                  \
   __FUNC__(TableFieldsFid::VF)                  \
   __FUNC__(TableFieldsFid::VS)
 #else
@@ -42,7 +41,6 @@ using namespace Legion;
   __FUNC__(TableFieldsFid::DT)                  \
   __FUNC__(TableFieldsFid::KW)                  \
   __FUNC__(TableFieldsFid::CS)                  \
-  __FUNC__(TableFieldsFid::IX)                  \
   __FUNC__(TableFieldsFid::VF)                  \
   __FUNC__(TableFieldsFid::VS)
 #endif
@@ -323,8 +321,6 @@ Table::create(
 #endif
       const ColumnSpaceAccessor<WRITE_ONLY>
         css(fields_pr, static_cast<FieldID>(TableFieldsFid::CS));
-      const IndexColumnSpaceFlagAccessor<WRITE_ONLY>
-        ixs(fields_pr, static_cast<FieldID>(TableFieldsFid::IX));
       const ValueFidAccessor<WRITE_ONLY>
         vfs(fields_pr, static_cast<FieldID>(TableFieldsFid::VF));
       const ValuesAccessor<WRITE_ONLY>
@@ -341,7 +337,6 @@ Table::create(
         rcs[*pid] = empty_rc;
 #endif
         css[*pid] = empty_cs;
-        ixs[*pid] = empty_ix;
         vfs[*pid] = empty_vf;
         vss[*pid] = empty_vs;
       }
@@ -491,7 +486,7 @@ Table::index_column_space(Context ctx, Runtime* rt) const {
     EXCLUSIVE,
     fields_parent.value_or(fields_lr));
   req.add_field(static_cast<FieldID>(TableFieldsFid::CS));
-  req.add_field(static_cast<FieldID>(TableFieldsFid::IX));
+  req.add_field(static_cast<FieldID>(TableFieldsFid::VF));
   TaskLauncher task(index_column_space_task_id, TaskArgument(NULL, 0));
   task.add_region_requirement(req);
   return rt->execute_task(ctx, task);
@@ -506,13 +501,13 @@ Table::index_column_space(
   std::optional<ColumnSpace> result;
   const ColumnSpaceAccessor<READ_ONLY>
     css(fields_pr, static_cast<FieldID>(TableFieldsFid::CS));
-  const IndexColumnSpaceFlagAccessor<READ_ONLY>
-    ixs(fields_pr, static_cast<FieldID>(TableFieldsFid::IX));
+  const ValueFidAccessor<READ_ONLY>
+    vfs(fields_pr, static_cast<FieldID>(TableFieldsFid::VF));
   for (PointInDomainIterator<1> pid(
          rt->get_index_space_domain(fields_parent.get_index_space()));
        pid() && !result && !css[*pid].is_empty();
        pid++)
-    if (ixs[*pid])
+    if (vfs[*pid] == no_column)
       result = css[*pid];
   return result;
 }
@@ -814,7 +809,6 @@ Table::is_conformant(Context ctx, Runtime* rt, const ColumnSpace& cs) const {
       EXCLUSIVE,
       fields_parent.value_or(fields_lr));
     req.add_field(static_cast<FieldID>(TableFieldsFid::CS));
-    req.add_field(static_cast<FieldID>(TableFieldsFid::IX));
     task.add_region_requirement(req);
   }
   {
@@ -1261,8 +1255,6 @@ Table::add_columns(
 #endif
   const ColumnSpaceAccessor<READ_WRITE>
     css(fields_pr, static_cast<FieldID>(TableFieldsFid::CS));
-  const IndexColumnSpaceFlagAccessor<READ_WRITE>
-    ixs(fields_pr, static_cast<FieldID>(TableFieldsFid::IX));
   const ValueFidAccessor<READ_WRITE>
     vfs(fields_pr, static_cast<FieldID>(TableFieldsFid::VF));
   const ValuesAccessor<READ_WRITE>
@@ -1335,7 +1327,6 @@ Table::add_columns(
       rcs[*fields_pid] = tf.rc.value_or(empty_rc);
 #endif
       css[*fields_pid] = csp;
-      ixs[*fields_pid] = ixcs;
       vfs[*fields_pid] = tf.fid;
       vss[*fields_pid] = values_lr;
       fids.insert(tf.fid);
@@ -1354,7 +1345,6 @@ Table::add_columns(
     rcs[*fields_pid] = empty_rc;
 #endif
     css[*fields_pid] = std::get<1>(new_columns_ics);
-    ixs[*fields_pid] = true;
     vfs[*fields_pid] = no_column;
     vss[*fields_pid] = std::get<2>(new_columns_ics);
   }
@@ -1396,10 +1386,8 @@ Table::remove_columns(
 
   // FIXME: fail if index columns are being removed
 
-  std::map<
-    ColumnSpace,
-    std::tuple<bool, LogicalRegion, FieldAllocator>> ixcs_vlr_fa;
-
+  std::map<ColumnSpace, std::tuple<LogicalRegion, FieldAllocator>> vlr_fa;
+  ColumnSpace ics;
   {
     const NameAccessor<READ_WRITE>
       nms(fields_pr, static_cast<FieldID>(TableFieldsFid::NM));
@@ -1415,8 +1403,6 @@ Table::remove_columns(
 #endif
     const ColumnSpaceAccessor<READ_WRITE>
       css(fields_pr, static_cast<FieldID>(TableFieldsFid::CS));
-    const IndexColumnSpaceFlagAccessor<READ_WRITE>
-      ixs(fields_pr, static_cast<FieldID>(TableFieldsFid::IX));
     const ValueFidAccessor<READ_WRITE>
       vfs(fields_pr, static_cast<FieldID>(TableFieldsFid::VF));
     const ValuesAccessor<READ_WRITE>
@@ -1426,16 +1412,17 @@ Table::remove_columns(
       rt->get_index_space_domain(fields_parent.get_index_space()));
     PointInDomainIterator<1> dst_pid = src_pid;
     while (src_pid()) {
+      if (vfs[*src_pid] == no_column)
+        ics = css[*src_pid];
       bool remove =
         vfs[*src_pid] != no_column && columns.count(nms[*src_pid]) > 0;
       if (remove) {
         auto csp = css[*src_pid];
-        if (ixcs_vlr_fa.count(csp) == 0)
-          ixcs_vlr_fa[csp] =
-            {ixs[*src_pid],
-             vss[*src_pid],
+        if (vlr_fa.count(csp) == 0)
+          vlr_fa[csp] =
+            {vss[*src_pid],
              rt->create_field_allocator(ctx, vss[*src_pid].get_field_space())};
-        std::get<2>(ixcs_vlr_fa[csp]).free_field(vfs[*src_pid]);
+        std::get<1>(vlr_fa[csp]).free_field(vfs[*src_pid]);
 #ifdef HYPERION_USE_CASACORE
         mrs[*src_pid].destroy(ctx, rt);
 #endif
@@ -1449,7 +1436,6 @@ Table::remove_columns(
         rcs[*dst_pid] = rcs[*src_pid];
 #endif
         css[*dst_pid] = css[*src_pid];
-        ixs[*dst_pid] = ixs[*src_pid];
         vfs[*dst_pid] = vfs[*src_pid];
         vss[*dst_pid] = vss[*src_pid];
       }
@@ -1466,23 +1452,19 @@ Table::remove_columns(
       rcs[*dst_pid] = empty_rc;
 #endif
       css[*dst_pid] = empty_cs;
-      ixs[*dst_pid] = empty_ix;
       vfs[*dst_pid] = empty_vf;
       vss[*dst_pid] = empty_vs;
       dst_pid++;
     }
   }
-  std::vector<
-    std::pair<
-      ColumnSpace,
-      std::tuple<bool, LogicalRegion, FieldAllocator>>>
-    csp_ixcs_vlr_fa(ixcs_vlr_fa.begin(), ixcs_vlr_fa.end());
-  for (auto& [csp, ixcs_vlr_fa] : csp_ixcs_vlr_fa) {
+  std::vector<std::pair<ColumnSpace, std::tuple<LogicalRegion, FieldAllocator>>>
+    csp_vlr_fa(vlr_fa.begin(), vlr_fa.end());
+  for (auto& [csp, vlr_fa] : csp_vlr_fa) {
+    if (csp != ics) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-    auto& [ixcs, vlr, fa] = ixcs_vlr_fa;
+      auto& [vlr, fa] = vlr_fa;
 #pragma GCC diagnostic pop
-    if (!ixcs) {
       std::vector<FieldID> fids;
       rt->get_field_space_fields(vlr.get_field_space(), fids);
       if (fids.size() == 0) {
@@ -1606,22 +1588,23 @@ Table::columns(
 #endif
   const ColumnSpaceAccessor<READ_ONLY>
     css(fields_pr, static_cast<FieldID>(TableFieldsFid::CS));
-  const IndexColumnSpaceFlagAccessor<READ_ONLY>
-    ixs(fields_pr, static_cast<FieldID>(TableFieldsFid::IX));
   const ValueFidAccessor<READ_ONLY>
     vfs(fields_pr, static_cast<FieldID>(TableFieldsFid::VF));
   const ValuesAccessor<READ_ONLY>
     vss(fields_pr, static_cast<FieldID>(TableFieldsFid::VS));
 
+  ColumnSpace ics;
   for (PointInDomainIterator<1> pid(
          rt->get_index_space_domain(fields_parent.get_index_space()));
        pid() && css[*pid] != empty_cs;
        pid++) {
     auto& cs = css[*pid];
     if (!cs.is_empty() && vss[*pid] != LogicalRegion::NO_REGION) {
+      if (vfs[*pid] == no_column)
+        ics = cs;
       if (cols.count(cs) == 0)
         cols[cs] = {
-          ixs[*pid],
+          false,
           vss[*pid],
           std::vector<columns_result_t::tbl_fld_t>()};
       if (vfs[*pid] != no_column) {
@@ -1645,7 +1628,7 @@ Table::columns(
   result.fields.reserve(cols.size());
   for (auto& [csp, ixcs_lr_tfs] : cols) {
     auto& [ixcs, lr, tfs] = ixcs_lr_tfs;
-    result.fields.emplace_back(csp, ixcs, lr, tfs);
+    result.fields.emplace_back(csp, csp == ics, lr, tfs);
   }
   return result;
 }
