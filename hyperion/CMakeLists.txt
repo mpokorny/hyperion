@@ -144,6 +144,10 @@ list(APPEND HYPERION_SRC
   MSFieldColumns.cc
   MSSpWindowColumns.h
   MSSpWindowColumns.cc
+  PhysicalColumn.h
+  PhysicalColumn.cc
+  PhysicalTable.h
+  PhysicalTable.cc
   Table.h
   Table.cc
   # Table_c.cc
