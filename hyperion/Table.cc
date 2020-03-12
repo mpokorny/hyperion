@@ -198,7 +198,7 @@ Table::columns_result_t::legion_deserialize(const void* buffer) {
 std::unordered_map<std::string, Column>
 Table::column_map(
   const columns_result_t& columns_result,
-  legion_privilege_mode_t mode) {
+  Legion::PrivilegeMode mode) {
 
   std::unordered_map<std::string, Column> result;
 #pragma GCC diagnostic push
@@ -243,7 +243,7 @@ static RegionRequirement
 table_fields_requirement(
   LogicalRegion lr,
   LogicalRegion parent,
-  legion_privilege_mode_t mode) {
+  Legion::PrivilegeMode mode) {
 
   RegionRequirement result(lr, mode, EXCLUSIVE, parent);
 #define ADD_F(F) result.add_field(static_cast<FieldID>(F));
@@ -522,17 +522,14 @@ Table::requirements(
   Context ctx,
   Runtime* rt,
   const ColumnSpacePartition& table_partition,
-  legion_privilege_mode_t table_privilege,
+  PrivilegeMode table_privilege,
   const std::map<
     std::string,
     std::optional<
-      std::tuple<
-        bool,
-        legion_privilege_mode_t,
-        legion_coherence_property_t>>>& column_modes,
+      std::tuple<bool, PrivilegeMode, CoherenceProperty>>>& column_modes,
   bool columns_mapped,
-  legion_privilege_mode_t columns_privilege,
-  legion_coherence_property_t columns_coherence) const {
+  PrivilegeMode columns_privilege,
+  CoherenceProperty columns_coherence) const {
 
   auto fields_pr =
     rt->map_region(
@@ -604,12 +601,12 @@ Table::requirements(
     std::tuple<
       LogicalRegion,
       bool,
-      legion_privilege_mode_t,
-      legion_coherence_property_t>> column_regions;
+      PrivilegeMode,
+      CoherenceProperty>> column_regions;
 #ifdef HYPERION_USE_CASACORE
   std::map<
     hyperion::string,
-    std::tuple<bool, legion_privilege_mode_t, legion_coherence_property_t>>
+    std::tuple<bool, PrivilegeMode, CoherenceProperty>>
     mrc_modes;
 #endif
   for (PointInDomainIterator<1> pid(tdom);
@@ -651,11 +648,8 @@ Table::requirements(
   // create requirements, applying table_partition as needed
   std::map<ColumnSpace, LogicalPartition> partitions;
   std::map<
-    std::tuple<
-      LogicalRegion,
-      legion_privilege_mode_t,
-      legion_coherence_property_t>,
-    std::tuple<bool, RegionRequirement>> region_reqs;
+    std::tuple<LogicalRegion, PrivilegeMode, CoherenceProperty>,
+    std::tuple<bool, RegionRequirement>> val_reqs;
   for (PointInDomainIterator<1> pid(tdom);
        pid() && !css[*pid].is_empty();
        pid++) {

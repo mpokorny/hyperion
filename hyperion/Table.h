@@ -134,7 +134,7 @@ public:
 private:
 
   template <
-    legion_privilege_mode_t MODE,
+    Legion::PrivilegeMode MODE,
     TableFieldsFid F,
     bool CHECK_BOUNDS=false>
   using Accessor =
@@ -151,37 +151,37 @@ private:
 
 public:
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
   using NameAccessor =
     Accessor<MODE, TableFieldsFid::NM, CHECK_BOUNDS>;
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
   using DatatypeAccessor =
     Accessor<MODE, TableFieldsFid::DT, CHECK_BOUNDS>;
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
   using KeywordsAccessor =
     Accessor<MODE, TableFieldsFid::KW, CHECK_BOUNDS>;
 
 #ifdef HYPERION_USE_CASACORE
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
   using MeasRefAccessor =
     Accessor<MODE, TableFieldsFid::MR, CHECK_BOUNDS>;
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
   using RefColumnAccessor =
     Accessor<MODE, TableFieldsFid::RC, CHECK_BOUNDS>;
 #endif
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
   using ColumnSpaceAccessor =
     Accessor<MODE, TableFieldsFid::CS, CHECK_BOUNDS>;
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
   using ValueFidAccessor =
     Accessor<MODE, TableFieldsFid::VF, CHECK_BOUNDS>;
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
+  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
   using ValuesAccessor =
     Accessor<MODE, TableFieldsFid::VS, CHECK_BOUNDS>;
 
@@ -233,17 +233,15 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ColumnSpacePartition& table_partition = ColumnSpacePartition(),
-    legion_privilege_mode_t table_privilege = READ_ONLY,
+    Legion::PrivilegeMode table_privilege = READ_ONLY,
     const std::map<
       std::string,
       std::optional<
-        std::tuple<
-          bool,
-          legion_privilege_mode_t,
-          legion_coherence_property_t>>>& column_modes = {},
+        std::tuple<bool, Legion::PrivilegeMode, Legion::CoherenceProperty>>>&
+    column_modes = {},
     bool columns_mapped = true,
-    legion_privilege_mode_t columns_privilege = READ_ONLY,
-    legion_coherence_property_t columns_coherence = EXCLUSIVE) const;
+    Legion::PrivilegeMode columns_privilege = READ_ONLY,
+    Legion::CoherenceProperty columns_coherence = EXCLUSIVE) const;
 
   Legion::Future /* bool */
   is_conformant(
@@ -406,7 +404,7 @@ public:
   static std::unordered_map<std::string, Column>
   column_map(
     const columns_result_t& columns_result,
-    legion_privilege_mode_t mode = READ_ONLY);
+    Legion::PrivilegeMode mode = READ_ONLY);
 
   static void
   preregister_tasks();
