@@ -21,9 +21,11 @@
 
 #pragma GCC visibility push(default)
 # include <algorithm>
+# include <any>
 # include <optional>
 # include <string>
 # include <tuple>
+# include <unordered_map>
 # include <vector>
 #pragma GCC visibility pop
 
@@ -220,6 +222,12 @@ public:
     const ValueAccessor<READ_ONLY, T> val(prs.values, fid);
     return ((dt[0] == ValueType<T>::DataType) ? val[0] : std::optional<T>());
   }
+
+  std::unordered_map<std::string, std::any>
+  to_map(Legion::Context ctx, Legion::Runtime *rt) const;
+
+  static std::unordered_map<std::string, std::any>
+  to_map(Legion::Runtime *rt, const pair<Legion::PhysicalRegion>& prs);
 };
 
 } // end namespace hyperion

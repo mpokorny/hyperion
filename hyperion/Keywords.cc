@@ -233,6 +233,57 @@ Keywords::value_type(const PhysicalRegion& tt, FieldID fid) {
   return dt[0];
 }
 
+std::unordered_map<std::string, std::any>
+Keywords::to_map(Legion::Context ctx, Legion::Runtime *rt) const {
+  std::unordered_map<std::string, std::any> result;
+  if (!is_empty()) {
+    std::vector<FieldID> fids;
+    auto fs = type_tags_lr.get_field_space();
+    rt->get_field_space_fields(fs, fids);
+    auto reqs = requirements(rt, fids, READ_ONLY).value();
+    auto prs =
+      reqs.map(
+        [&ctx, rt](const RegionRequirement& r){
+          return rt->map_region(ctx, r);
+        });
+    result = to_map(rt, prs);
+    prs.map(
+      [&ctx, rt](const PhysicalRegion& p) {
+        rt->unmap_region(ctx, p);
+        return 0;
+      });
+  }
+  return result;
+}
+
+std::unordered_map<std::string, std::any>
+Keywords::to_map(Legion::Runtime *rt, const pair<Legion::PhysicalRegion>& prs) {
+
+  std::unordered_map<std::string, std::any> result;
+  std::vector<FieldID> fids;
+  auto fs = prs.type_tags.get_logical_region().get_field_space();
+  rt->get_field_space_fields(fs, fids);
+  for (auto& fid : fids) {
+    const char* fname;
+    rt->retrieve_name(fs, fid, fname);
+    const TypeTagAccessor<READ_ONLY> tts(prs.type_tags, fid);
+    switch (tts[0]) {
+#define VAL(DT)                                                   \
+      case DT: {                                                  \
+        const ValueAccessor<READ_ONLY, DataType<DT>::ValueType>   \
+          vals(prs.values, fid);                                  \
+        result[fname] = vals[0];                                  \
+        break;                                                    \
+      }
+      HYPERION_FOREACH_DATATYPE(VAL)
+      default:
+        assert(false);
+        break;
+    }
+  }
+  return result;
+}
+
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2
