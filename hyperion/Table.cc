@@ -1879,7 +1879,7 @@ struct ReindexedTaskArgs {
   char columns_buffer[]; // serialized Table::columns_result_t
 };
 
-Table::reindexed_result_t
+LogicalRegion
 Table::reindexed_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
@@ -1949,7 +1949,7 @@ Table::reindexed_task(
       cregions);
 }
 
-Future /* reindexed_result_t */
+Future /* LogicalRegion */
 Table::reindexed(
   Context ctx,
   Runtime *rt,
@@ -2134,7 +2134,7 @@ truncate_column_space(
       false);
 }
 
-Table::reindexed_result_t
+LogicalRegion
 Table::reindexed(
   Context ctx,
   Runtime *rt,
@@ -2719,7 +2719,7 @@ Table::preregister_tasks() {
       registrar(reindexed_task_id, reindexed_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
-    Runtime::preregister_task_variant<reindexed_result_t, reindexed_task>(
+    Runtime::preregister_task_variant<LogicalRegion, reindexed_task>(
       registrar,
       reindexed_task_name);
   }

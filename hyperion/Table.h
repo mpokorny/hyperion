@@ -352,8 +352,6 @@ public:
     return fields_lr != Legion::LogicalRegion::NO_REGION;
   }
 
-  typedef Legion::LogicalRegion reindexed_result_t;
-
   // 'allow_rows' is intended to support the case where reindexing may not
   // result in a single value in a column per aggregate index, necessitating the
   // maintenance of a row index. A value of 'true' for this argument is always
@@ -363,7 +361,7 @@ public:
   // an empty value. TODO: remove degenerate axes after the fact, and do that
   // automatically in this method, which would allow us to remove the
   // 'allow_rows' argument.
-  Legion::Future /* reindexed_result_t */
+  Legion::Future /* LogicalRegion */
   reindexed(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -371,7 +369,7 @@ public:
     bool allow_rows) const;
 
   template <typename D>
-  Legion::Future /* reindexed_result_t */
+  Legion::Future /* LogicalRegion */
   reindexed(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -397,7 +395,7 @@ public:
     std::optional<Legion::PhysicalRegion> kw_values;
   };
 
-  static reindexed_result_t
+  static Legion::LogicalRegion
   reindexed(
     Legion::Context ctx,
     Legion::Runtime *rt,
@@ -477,7 +475,7 @@ protected:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static reindexed_result_t
+  static Legion::LogicalRegion
   reindexed_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
