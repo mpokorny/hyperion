@@ -111,6 +111,13 @@ class HYPERION_API PhysicalTable {
         bool,
         std::vector<std::pair<std::string, TableField>>>>& columns);
 
+  bool
+  remove_columns(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::unordered_set<std::string>& columns,
+    bool destroy_orphan_column_spaces = true);
+
 protected:
 
   Legion::LogicalRegion m_table_parent;

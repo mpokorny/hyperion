@@ -457,6 +457,40 @@ PhysicalTable::add_columns(
   return result;
 }
 
+bool
+PhysicalTable::remove_columns(
+  Context ctx,
+  Runtime* rt,
+  const std::unordered_set<std::string>& cols,
+  bool destroy_orphan_column_spaces) {
+
+  std::vector<ColumnSpace> css;
+  std::vector<PhysicalRegion> cs_md_prs;
+  for (auto& [cs, ixcs, vlr, nm_tfs] : PhysicalTable::columns(rt).fields) {
+    for (auto& [nm, tf] : nm_tfs) {
+      if (cols.count(nm) > 0) {
+        css.push_back(cs);
+        cs_md_prs.push_back(m_columns.at(nm).m_metadata);
+        break;
+      }
+    }
+  }
+  std::set<hyperion::string> hcols;
+  for (auto& c : cols)
+    hcols.insert(c);
+
+  return
+    Table::remove_columns(
+      ctx,
+      rt,
+      hcols,
+      destroy_orphan_column_spaces,
+      m_table_parent,
+      m_table_pr,
+      css,
+      cs_md_prs);
+}
+
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2
