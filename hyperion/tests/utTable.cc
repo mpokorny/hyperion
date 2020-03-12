@@ -534,8 +534,12 @@ table_test_suite(
       rt->unmap_region(ctx, pr);
     }
   }
-
-  table0.remove_columns(ctx, rt, {"W"}, false);
+  {
+    auto rm = table0.remove_columns(ctx, rt, {"W"}, false);
+    recorder.expect_true(
+      "Call to remove 'W' returned TRUE",
+      TE(rm));
+  }
   {
     auto cols =
       Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());
@@ -548,7 +552,12 @@ table_test_suite(
          && cols.find("Y") != cols.end()
          && cols.find("Z") != cols.end()));
   }
-  table0.remove_columns(ctx, rt, {"X", "Z"});
+  {
+    auto rm = table0.remove_columns(ctx, rt, {"X", "Z"});
+    recorder.expect_true(
+      "Call to remove 'X' and 'Z' returned TRUE",
+      TE(rm));
+  }
   {
     auto cols =
       Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());
@@ -560,7 +569,12 @@ table_test_suite(
       "Column 'Y' present in table after removal of 'X' and 'Z'",
       TE(cols.find("Y") != cols.end()));
   }
-  table0.add_columns(ctx, rt, {{w_space, false, w_fields}});
+  {
+    auto add = table0.add_columns(ctx, rt, {{w_space, false, w_fields}});
+    recorder.expect_true(
+      "Call to add 'W' returned TRUE",
+      TE(add.get_result<bool>()));
+  }
   {
     auto cols =
       Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());
@@ -569,7 +583,12 @@ table_test_suite(
       TE(cols.find("W") != cols.end()));
   }
   xyz_fields.erase(xyz_fields.begin() + 1);
-  table0.add_columns(ctx, rt, {{xyz_space, true, xyz_fields}});
+  {
+    auto add = table0.add_columns(ctx, rt, {{xyz_space, true, xyz_fields}});
+    recorder.expect_true(
+      "Call to add 'X' and 'Z' returned TRUE",
+      TE(add.get_result<bool>()));
+  }
   {
     auto cols =
       Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());

@@ -290,21 +290,23 @@ public:
       std::tuple<Legion::IndexSpace, Legion::PhysicalRegion>>& index_cs,
     const std::vector<Legion::PhysicalRegion>& csp_md_prs);
 
-  void
+  bool
   remove_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::unordered_set<std::string>& columns,
-    bool destroy_orphan_column_spaces=true) const;
+    bool destroy_orphan_column_spaces=true);
 
-  static void
+  static bool
   remove_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::unordered_set<std::string>& columns,
+    const std::set<hyperion::string>& columns,
     bool destroy_orphan_column_spaces,
     const Legion::LogicalRegion& fields_parent,
-    const Legion::PhysicalRegion& fields_pr);
+    const Legion::PhysicalRegion& fields_pr,
+    const std::vector<ColumnSpace>& cs,
+    const std::vector<Legion::PhysicalRegion>& cs_md_prs);
 
   // each element of the block_sizes vector is the block size on the
   // corresponding axis of the index axes vector, with an empty value indicating

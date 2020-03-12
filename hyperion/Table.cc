@@ -1351,12 +1351,12 @@ Table::add_columns(
   return true;
 }
 
-void
+bool
 Table::remove_columns(
   Context ctx,
   Runtime* rt,
   const std::unordered_set<std::string>& columns,
-  bool destroy_orphan_column_spaces) const {
+  bool destroy_orphan_column_spaces) {
 
   auto fields_pr =
     rt->map_region(
@@ -1365,26 +1365,53 @@ Table::remove_columns(
         fields_lr,
         fields_parent.value_or(fields_lr),
         READ_WRITE));
-  remove_columns(
-    ctx,
-    rt,
-    columns,
-    destroy_orphan_column_spaces,
-    fields_parent.value_or(fields_lr),
-    fields_pr);
+  std::vector<ColumnSpace> css;
+  std::vector<PhysicalRegion> cs_md_prs;
+  auto tbl_columns = Table::columns(ctx, rt).get_result<columns_result_t>();
+  for (auto& [cs, ixcs, vlr, nm_tfs] : tbl_columns.fields) {
+    for (auto& [nm, tf] : nm_tfs) {
+      if (columns.count(nm) > 0) {
+        RegionRequirement
+          req(cs.metadata_lr, READ_ONLY, EXCLUSIVE, cs.metadata_lr);
+        req.add_field(ColumnSpace::INDEX_FLAG_FID);
+        cs_md_prs.push_back(rt->map_region(ctx, req));
+        css.push_back(cs);
+        break;
+      }
+    }
+  }
+  std::set<hyperion::string> cols;
+  for (auto& c : columns)
+    cols.insert(c);
+  auto result =
+    Table::remove_columns(
+      ctx,
+      rt,
+      cols,
+      destroy_orphan_column_spaces,
+      fields_parent.value_or(fields_lr),
+      fields_pr,
+      css,
+      cs_md_prs);
+  for (auto& pr : cs_md_prs)
+    rt->unmap_region(ctx, pr);
   rt->unmap_region(ctx, fields_pr);
+  return result;
 }
 
-void
+bool
 Table::remove_columns(
   Context ctx,
   Runtime* rt,
-  const std::unordered_set<std::string>& columns,
+  const std::set<hyperion::string>& columns,
   bool destroy_orphan_column_spaces,
   const LogicalRegion& fields_parent,
-  const PhysicalRegion& fields_pr) {
+  const PhysicalRegion& fields_pr,
+  const std::vector<ColumnSpace>& cs,
+  const std::vector<PhysicalRegion>& cs_md_prs) {
 
-  // FIXME: fail if index columns are being removed
+  if (columns.size() == 0)
+    return true;
 
   std::map<ColumnSpace, std::tuple<LogicalRegion, FieldAllocator>> vlr_fa;
   ColumnSpace ics;
@@ -1407,6 +1434,25 @@ Table::remove_columns(
       vfs(fields_pr, static_cast<FieldID>(TableFieldsFid::VF));
     const ValuesAccessor<READ_WRITE>
       vss(fields_pr, static_cast<FieldID>(TableFieldsFid::VS));
+
+    for (PointInDomainIterator<1> pid(
+           rt->get_index_space_domain(fields_parent.get_index_space()));
+         pid() && !css[*pid].is_empty();
+         pid++) {
+      if (vfs[*pid] != no_column && columns.count(nms[*pid]) > 0) {
+        auto idx =
+          std::distance(
+            cs.begin(),
+            std::find(cs.begin(), cs.end(), css[*pid]));
+        assert(idx < (ssize_t)cs_md_prs.size());
+        const ColumnSpace::IndexFlagAccessor<READ_ONLY>
+          ixfl(cs_md_prs[idx], ColumnSpace::INDEX_FLAG_FID);
+        if (ixfl[0]) {
+          // FIXME: log warning: cannot remove a table index column
+          return false;
+        }
+      }
+    }
 
     PointInDomainIterator<1> src_pid(
       rt->get_index_space_domain(fields_parent.get_index_space()));
@@ -1475,6 +1521,7 @@ Table::remove_columns(
       }
     }
   }
+  return true;
 }
 
 void
