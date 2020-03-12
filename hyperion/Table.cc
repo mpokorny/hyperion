@@ -350,7 +350,7 @@ Table::create(
       std::tuple<
         ColumnSpace,
         bool,
-        ssize_t,
+        size_t,
         std::vector<std::pair<hyperion::string, TableField>>>>
       hcols;
     for (size_t i = 0; i < columns.size(); ++i) {
@@ -957,7 +957,7 @@ struct AddColumnsTaskArgs {
   ssize_t index_cs_idx;
 };
 
-Table::add_columns_result_t
+bool
 Table::add_columns_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
@@ -970,7 +970,7 @@ Table::add_columns_task(
     ColumnSpace,
     std::tuple<
       bool,
-      ssize_t,
+      size_t,
       std::vector<std::pair<hyperion::string, TableField>>>>
     columns;
   std::optional<std::tuple<IndexSpace, PhysicalRegion>> index_cs;
@@ -1000,7 +1000,7 @@ Table::add_columns_task(
     std::tuple<
       ColumnSpace,
       bool,
-      ssize_t,
+      size_t,
       std::vector<std::pair<hyperion::string, TableField>>>>
     colv;
   colv.reserve(columns.size());
@@ -1020,7 +1020,7 @@ Table::add_columns_task(
       csp_md_prs);
 }
 
-Future /* add_columns_result_t */
+Future /* bool */
 Table::add_columns(
   Context ctx,
   Runtime* rt,
@@ -1078,7 +1078,7 @@ Table::add_columns(
         args.columns[i++] = {csp, ixcs, idx, string(nm), tf};
     }
     if (i < MAX_COLUMNS)
-      args.columns[i] = {ColumnSpace(), false, -1, string(), TableField()};
+      args.columns[i] = {ColumnSpace(), false, 0, string(), TableField()};
   }
   reqs.push_back(
     table_fields_requirement(
@@ -1090,7 +1090,7 @@ Table::add_columns(
   return rt->execute_task(ctx, task);
 }
 
-Table::add_columns_result_t
+bool
 Table::add_columns(
   Context ctx,
   Runtime* rt,
@@ -1098,7 +1098,7 @@ Table::add_columns(
     std::tuple<
       ColumnSpace,
       bool,
-      ssize_t,
+      size_t,
       std::vector<std::pair<hyperion::string, TableField>>>>& new_columns,
   const std::vector<LogicalRegion>& vlrs,
   const LogicalRegion& fields_parent,
@@ -2642,7 +2642,7 @@ Table::preregister_tasks() {
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
     registrar.set_leaf();
-    Runtime::preregister_task_variant<add_columns_result_t, add_columns_task>(
+    Runtime::preregister_task_variant<bool, add_columns_task>(
       registrar,
       add_columns_task_name);
   }

@@ -259,11 +259,9 @@ public:
     const std::optional<std::tuple<Legion::IndexSpace, Legion::PhysicalRegion>>&
     index_cs,
     const Legion::IndexSpace& cs_is,
-    const Legion::PhysicalRegion& cs_pd_pr);
+    const Legion::PhysicalRegion& cs_md_pr);
 
-  typedef bool add_columns_result_t;
-
-  Legion::Future /* add_columns_result_t */
+  Legion::Future /* bool */
   add_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -273,7 +271,7 @@ public:
           bool,
           std::vector<std::pair<std::string, TableField>>>>& columns) const;
 
-  static add_columns_result_t
+  static bool
   add_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -281,8 +279,8 @@ public:
       std::tuple<
         ColumnSpace,
         bool,
-        ssize_t,
-        std::vector<std::pair<string, TableField>>>>& columns,
+        size_t,
+        std::vector<std::pair<hyperion::string, TableField>>>>& columns,
     const std::vector<Legion::LogicalRegion>& val_lrs,
     const Legion::LogicalRegion& fields_parent,
     const Legion::PhysicalRegion& fields_pr,
@@ -444,7 +442,7 @@ protected:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static add_columns_result_t
+  static bool
   add_columns_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
