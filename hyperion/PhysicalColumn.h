@@ -51,15 +51,17 @@ class HYPERION_API PhysicalColumn {
 #endif
 
   PhysicalColumn(
+    Legion::Runtime* rt,
     hyperion::TypeTag dt,
     Legion::FieldID fid,
     unsigned index_rank,
     const Legion::PhysicalRegion& metadata,
     const Legion::LogicalRegion& parent,
     const std::optional<Legion::PhysicalRegion>& values,
-    const std::unordered_map<std::string, std::any>& kws
+    const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
-    , const std::optional<mrb_t>& mrb
+    , const std::optional<MeasRef::DataRegions>& mr_drs
+    , const std::optional<PhysicalColumn>& refcol
 #endif // HYPERION_USE_CASACORE
     )
     : m_dt(dt)
@@ -70,9 +72,15 @@ class HYPERION_API PhysicalColumn {
     , m_values(values)
     , m_kws(kws)
 #ifdef HYPERION_USE_CASACORE
-    , m_mrb(mrb)
-#endif
-    {}
+    , m_mr_drs(mr_drs)
+#endif // HYPERION_USE_CASACORE
+    {
+      if (m_kws)
+        m_kw_map = Keywords::to_map(rt, m_kws.value());
+#ifdef HYPERION_USE_CASACORE
+      update_refcol(rt, refcol);
+#endif // HYPERION_USE_CASACORE
+    }
 
   template <
     Legion::PrivilegeMode MODE,
@@ -92,6 +100,13 @@ class HYPERION_API PhysicalColumn {
   std::optional<std::any>
   kw(const std::string& key) const;
 
+#ifdef HYPERION_USE_CASACORE
+  void
+  update_refcol(
+    Legion::Runtime* rt,
+    const std::optional<PhysicalColumn>& refcol);
+#endif
+
 protected:
 
   friend class PhysicalTable;
@@ -110,8 +125,13 @@ protected:
   // (e.g, some Table index column spaces)
   std::optional<Legion::PhysicalRegion> m_values;
 
-  std::unordered_map<std::string, std::any> m_kws;
+  std::optional<Keywords::pair<Legion::PhysicalRegion>> m_kws;
+
+  std::unordered_map<std::string, std::any> m_kw_map;
+
 #ifdef HYPERION_USE_CASACORE
+  std::optional<MeasRef::DataRegions> m_mr_drs;
+
   std::optional<mrb_t> m_mrb;
 #endif // HYPERION_USE_CASACORE
 };

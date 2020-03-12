@@ -54,10 +54,6 @@ PhysicalTable::create(
   LogicalRegion table_parent = reqs->region;
   ++reqs;
   PhysicalRegion table_pr = *prs++;
-  // Maintain PhysicalColumns in a vector for now, since any sort of map would
-  // require, below, a trivial constructor for PhysicalColumn. We'll convert it
-  // to an unordered_map a bit later.
-  std::vector<std::pair<std::string, PhysicalColumn>> colv;
 
   const Table::NameAccessor<READ_ONLY>
     nms(table_pr, static_cast<FieldID>(TableFieldsFid::NM));
@@ -78,12 +74,8 @@ PhysicalTable::create(
   const Table::ValuesAccessor<READ_ONLY>
     vss(table_pr, static_cast<FieldID>(TableFieldsFid::VS));
 
-  std::unordered_map<
-    std::string,
-    std::tuple<
-      std::vector<std::shared_ptr<casacore::MRBase>>,
-      std::unordered_map<unsigned, unsigned>,
-      std::optional<std::string>>> partial_mrbs;
+  std::unordered_map<std::string, PhysicalColumn> columns;
+  std::unordered_map<std::string, std::string> refcols;
 
   std::map<ColumnSpace, PhysicalRegion> md_regions;
   std::map<
@@ -106,7 +98,8 @@ PhysicalTable::create(
     auto& metadata = md_regions.at(css[*pid]);
     LogicalRegion parent;
     std::optional<PhysicalRegion> values;
-    std::unordered_map<std::string, std::any> kwmap;
+    std::optional<Keywords::pair<PhysicalRegion>> kw_prs;
+    std::optional<MeasRef::DataRegions> mr_drs;
     assert((vss[*pid] == LogicalRegion::NO_REGION)
            == (vfs[*pid] == Table::no_column));
     if (vss[*pid] != LogicalRegion::NO_REGION) {
@@ -123,16 +116,16 @@ PhysicalTable::create(
       }
       std::tie(parent, values.value()) = value_regions.at(fid_cs);
       if (!kws[*pid].is_empty()) {
-        Keywords::pair<PhysicalRegion> kwprs;
+        Keywords::pair<PhysicalRegion> kwpair;
         if (reqs == reqs_end || prs == prs_end)
           return result;
         ++reqs;
-        kwprs.type_tags = *prs++;
+        kwpair.type_tags = *prs++;
         if (reqs == reqs_end || prs == prs_end)
           return result;
         ++reqs;
-        kwprs.values = *prs++;
-        kwmap = Keywords::to_map(rt, kwprs);
+        kwpair.values = *prs++;
+        kw_prs = kwpair;
       }
 #ifdef HYPERION_USE_CASACORE
       if (!mrs[*pid].is_empty()) {
@@ -151,58 +144,37 @@ PhysicalTable::create(
           ++reqs;
           drs.index = *prs++;
         }
-        auto [mrb, rmap] = MeasRef::make(rt, drs);
-        std::vector<std::shared_ptr<casacore::MRBase>> smrb;
-        std::move(mrb.begin(), mrb.end(), std::back_inserter(smrb));
+        mr_drs = drs;
         if (rcs[*pid].size() > 0)
-          partial_mrbs[nms[*pid]] = {std::move(smrb), rmap, rcs[*pid]};
-        else
-          partial_mrbs[nms[*pid]] = {std::move(smrb), rmap, std::nullopt};
+          refcols[nms[*pid]] = rcs[*pid];
       }
 #endif
     }
-    colv.emplace_back(
+    columns.emplace(
       nms[*pid],
       PhysicalColumn(
+        rt,
         dts[*pid],
         vfs[*pid],
         idx_rank,
         metadata,
         parent,
         values,
-        kwmap
+        kw_prs
 #ifdef HYPERION_USE_CASACORE
+        , mr_drs
         , std::nullopt
 #endif
         ));
   }
 #ifdef HYPERION_USE_CASACORE
-  for (auto& [nm, pc] : colv) {
-    if (partial_mrbs.count(nm) > 0) {
-      auto& [mrb, rmap, rcol] = partial_mrbs[nm];
-      if (rcol) {
-        auto rpc =
-          std::find_if(
-            colv.begin(),
-            colv.end(),
-            [rc=rcol.value()](auto& n1_pc1) {
-              return rc == std::get<0>(n1_pc1);
-            });
-        pc.m_mrb =
-          std::make_tuple(
-            std::move(mrb),
-            rmap,
-            rpc->second.m_values.value(),
-            rpc->second.m_fid);
-        colv.erase(rpc);
-      } else {
-        pc.m_mrb = mrb[0];
-      }
+  for (auto& [nm, pc] : columns) {
+    if (refcols.count(nm) > 0) {
+      auto& rc = refcols[nm];
+      pc.update_refcol(rt, columns.at(rc));
     }
   }
 #endif
-  std::unordered_map<std::string, PhysicalColumn>
-    columns(colv.begin(), colv.end());
   return
     std::make_tuple(PhysicalTable(table_parent, table_pr, columns), reqs, prs);
 }
@@ -438,6 +410,7 @@ PhysicalTable::add_columns(
             m_columns.emplace(
               nm,
               PhysicalColumn(
+                rt,
                 tf.dt,
                 tf.fid,
                 idx_rank,
@@ -446,6 +419,7 @@ PhysicalTable::add_columns(
                 vpr,
                 {}
 #ifdef HYPERION_USE_CASACORE
+                , std::nullopt
                 , std::nullopt
 #endif
                 ));
