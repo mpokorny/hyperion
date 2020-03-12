@@ -539,6 +539,41 @@ Table::requirements(
         fields_parent.value_or(fields_lr),
         READ_ONLY));
 
+  auto result =
+    Table::requirements(
+      ctx,
+      rt,
+      fields_parent.value_or(fields_lr),
+      fields_pr,
+      column_parents,
+      table_partition,
+      table_privilege,
+      column_modes,
+      columns_mapped,
+      columns_privilege,
+      columns_coherence);
+
+  rt->unmap_region(ctx, fields_pr);
+  return result;
+}
+
+std::tuple<std::vector<RegionRequirement>, std::vector<LogicalPartition>>
+Table::requirements(
+  Context ctx,
+  Runtime* rt,
+  const LogicalRegion& fields_parent,
+  const PhysicalRegion& fields_pr,
+  const std::unordered_map<std::string, LogicalRegion>& column_parents,
+  const ColumnSpacePartition& table_partition,
+  PrivilegeMode table_privilege,
+  const std::map<
+    std::string,
+    std::optional<
+      std::tuple<bool, PrivilegeMode, CoherenceProperty>>>& column_modes,
+  bool columns_mapped,
+  PrivilegeMode columns_privilege,
+  CoherenceProperty columns_coherence) {
+
   const NameAccessor<READ_ONLY>
     nms(fields_pr, static_cast<FieldID>(TableFieldsFid::NM));
   const KeywordsAccessor<READ_ONLY>
@@ -556,30 +591,24 @@ Table::requirements(
   const ValuesAccessor<READ_ONLY>
     vss(fields_pr, static_cast<FieldID>(TableFieldsFid::VS));
 
-  // use a flag field in the fields_lr index space as the basis of a partition
-  // by column selection
-  const FieldID col_select_fid = 0;
-  LogicalRegion col_select_lr;
+  // add a flag field as the basis of a partition by column selection
+  FieldID col_select_fid;
   {
-    auto fs = rt->create_field_space(ctx);
+    auto fs = fields_pr.get_logical_region().get_field_space();
     auto fa = rt->create_field_allocator(ctx, fs);
-    fa.allocate_local_field(sizeof(int), col_select_fid);
-    col_select_lr =
-      rt->create_logical_region(
-        ctx,
-        fields_parent.value_or(fields_lr).get_index_space(),
-        fs);
+    // TODO: can col_select_fid be a local field?
+    col_select_fid = fa.allocate_field(sizeof(int));
   }
   auto col_select_pr =
     rt->map_region(
       ctx,
       RegionRequirement(
-        col_select_lr,
+        fields_pr.get_logical_region(),
         {col_select_fid},
         {col_select_fid},
         WRITE_ONLY,
         EXCLUSIVE,
-        col_select_lr));
+        fields_parent));
 
   const FieldAccessor<
     WRITE_ONLY,
@@ -591,15 +620,14 @@ Table::requirements(
   bool all_cols_selected = true;
   bool some_cols_selected = false;
 
-  DomainT<1> tdom =
-    rt->get_index_space_domain(
-      fields_parent.value_or(fields_lr).get_index_space());
+  DomainT<1> tdom = rt->get_index_space_domain(fields_parent.get_index_space());
 
   // collect requirement parameters for each column
   std::map<
     hyperion::string,
     std::tuple<
-      LogicalRegion,
+      LogicalRegion, // ColumnSpace metadata -- always READ_ONLY
+      LogicalRegion, // Column values -- can be NO_REGION!
       bool,
       PrivilegeMode,
       CoherenceProperty>> column_regions;
@@ -612,22 +640,22 @@ Table::requirements(
   for (PointInDomainIterator<1> pid(tdom);
        pid() && !css[*pid].is_empty();
        pid++) {
-    std::string nm(nms[*pid]);
-    if (column_modes.count(nm) == 0
-        || column_modes.at(nm)
-        || vfs[*pid] == no_column) {
-      if (vfs[*pid] != no_column) {
-        bool mapped = columns_mapped;
-        legion_privilege_mode_t privilege = columns_privilege;
-        legion_coherence_property_t coherence = columns_coherence;
-        if (column_modes.count(nm) > 0)
-          std::tie(mapped, privilege, coherence) = column_modes.at(nm).value();
-        column_regions[nms[*pid]] = {vss[*pid], mapped, privilege, coherence};
+    if (vfs[*pid] == no_column
+        || column_modes.count(nms[*pid]) == 0
+        || column_modes.at(nms[*pid])) {
+      assert((vfs[*pid] == no_column) == (nms[*pid].size() == 0));
+      bool mapped = columns_mapped;
+      PrivilegeMode privilege = columns_privilege;
+      CoherenceProperty coherence = columns_coherence;
+      if (vfs[*pid] != no_column && column_modes.count(nms[*pid]) > 0)
+        std::tie(mapped, privilege, coherence) =
+          column_modes.at(nms[*pid]).value();
+      column_regions[nms[*pid]] =
+        {css[*pid].metadata_lr, vss[*pid], mapped, privilege, coherence};
 #ifdef HYPERION_USE_CASACORE
-        if (rcs[*pid].size() > 0)
-          mrc_modes[rcs[*pid]] = {mapped, privilege, coherence};
+      if (rcs[*pid].size() > 0)
+        mrc_modes[rcs[*pid]] = {mapped, privilege, coherence};
 #endif
-      }
       sel_flags[*pid] = 1;
       some_cols_selected = true;
     } else {
@@ -639,14 +667,17 @@ Table::requirements(
 
 #ifdef HYPERION_USE_CASACORE
   // apply mode of value column to its measure reference column
-  for (auto& [nm, md] : mrc_modes) {
-    auto& [lr, m, p, c] = column_regions[nm];
-    std::tie(m, p, c) = md;
+  for (auto& [nm, modes] : mrc_modes) {
+    auto& [mdlr, vlr, m, p, c] = column_regions[nm];
+    std::tie(m, p, c) = modes;
   }
 #endif
 
   // create requirements, applying table_partition as needed
   std::map<ColumnSpace, LogicalPartition> partitions;
+  // boolean elements in value of following maps is used to track whether the
+  // requirement has already been added when iterating through columns
+  std::map<LogicalRegion, std::tuple<bool, RegionRequirement>> md_reqs;
   std::map<
     std::tuple<LogicalRegion, PrivilegeMode, CoherenceProperty>,
     std::tuple<bool, RegionRequirement>> val_reqs;
@@ -655,32 +686,47 @@ Table::requirements(
        pid++) {
     if (column_regions.count(nms[*pid]) > 0) {
       auto& rg = column_regions.at(nms[*pid]);
-      auto& [lr, m, p, c] = rg;
-      decltype(region_reqs)::key_type rg_rq = {lr, p, c};
-      if (region_reqs.count(rg_rq) == 0) {
-        LogicalRegion parent = lr;
-        std::string nm(nms[*pid]);
-        if (columns_parents.count(nm) > 0)
-          parent = columns_parents.at(nm);
-        if (!table_partition.is_valid()) {
-          region_reqs[rg_rq] = {false, RegionRequirement(lr, p, c, parent)};
-        } else {
-          LogicalPartition lp;
-          if (partitions.count(css[*pid]) == 0) {
-            auto csp =
-              table_partition.project_onto(ctx, rt, css[*pid])
-              .get_result<ColumnSpacePartition>();
-            LogicalPartition lp =
-              rt->get_logical_partition(ctx, lr, csp.column_ip);
-            csp.destroy(ctx, rt);
-            partitions[css[*pid]] = lp;
-          } else {
-            lp = partitions[css[*pid]];
-          }
-          region_reqs[rg_rq] = {false, RegionRequirement(lp, 0, p, c, parent)};
-        }
+      auto& [mdlr, vlr, m, p, c] = rg;
+      if (md_reqs.count(mdlr) == 0) {
+        RegionRequirement req(
+          mdlr,
+          {ColumnSpace::AXIS_VECTOR_FID,
+           ColumnSpace::AXIS_SET_UID_FID,
+           ColumnSpace::INDEX_FLAG_FID},
+          {ColumnSpace::AXIS_VECTOR_FID,
+           ColumnSpace::AXIS_SET_UID_FID,
+           ColumnSpace::INDEX_FLAG_FID},
+          READ_ONLY,
+          EXCLUSIVE,
+          mdlr);
+        md_reqs[mdlr] = {false, req};
       }
-      std::get<1>(region_reqs[rg_rq]).add_field(vfs[*pid], m);
+      if (vfs[*pid] != no_column) {
+        decltype(val_reqs)::key_type rg_rq = {vlr, p, c};
+        if (val_reqs.count(rg_rq) == 0) {
+          LogicalRegion parent = vlr;
+          if (column_parents.count(nms[*pid]) > 0)
+            parent = column_parents.at(nms[*pid]);
+          if (!table_partition.is_valid()) {
+            val_reqs[rg_rq] = {false, RegionRequirement(vlr, p, c, parent)};
+          } else {
+            LogicalPartition lp;
+            if (partitions.count(css[*pid]) == 0) {
+              auto csp =
+                table_partition.project_onto(ctx, rt, css[*pid])
+                .get_result<ColumnSpacePartition>();
+              LogicalPartition lp =
+                rt->get_logical_partition(ctx, vlr, csp.column_ip);
+              csp.destroy(ctx, rt);
+              partitions[css[*pid]] = lp;
+            } else {
+              lp = partitions[css[*pid]];
+            }
+            val_reqs[rg_rq] = {false, RegionRequirement(lp, 0, p, c, parent)};
+          }
+        }
+        std::get<1>(val_reqs[rg_rq]).add_field(vfs[*pid], m);
+      }
     }
   }
   std::vector<LogicalPartition> lps_result;
@@ -695,29 +741,34 @@ Table::requirements(
   if (all_cols_selected) {
     reqs_result.push_back(
       table_fields_requirement(
-        fields_lr,
-        fields_parent.value_or(fields_lr),
+        fields_pr.get_logical_region(),
+        fields_parent,
         table_privilege));
   } else if (some_cols_selected) {
     auto cs = rt->create_index_space(ctx, Rect<1>(0, 1));
     auto ip =
       rt->create_partition_by_field(
         ctx,
-        col_select_lr,
-        col_select_lr,
+        fields_pr.get_logical_region(),
+        fields_parent,
         col_select_fid,
         cs);
-    auto lp =
-      rt->get_logical_partition(ctx, fields_parent.value_or(fields_lr), ip);
+    auto lp = rt->get_logical_partition(ctx, fields_parent, ip);
     auto lr = rt->get_logical_subregion_by_color(ctx, lp, 1);
     reqs_result.push_back(
-      table_fields_requirement(fields_lr, lr, table_privilege));
+      table_fields_requirement(
+        fields_pr.get_logical_region(),
+        lr,
+        table_privilege));
     rt->destroy_index_partition(ctx, ip);
     rt->destroy_index_space(ctx, cs);
     lps_result.push_back(lp);
   }
-  rt->destroy_field_space(ctx, col_select_lr.get_field_space());
-  rt->destroy_logical_region(ctx, col_select_lr);
+  {
+    auto fs = fields_pr.get_logical_region().get_field_space();
+    auto fa = rt->create_field_allocator(ctx, fs);
+    fa.free_field(col_select_fid);
+  }
 
   // add requirements for all logical regions in all selected columns
   for (PointInDomainIterator<1> pid(tdom);
@@ -725,14 +776,23 @@ Table::requirements(
        pid++) {
     if (column_regions.count(nms[*pid]) > 0) {
       auto& rg = column_regions.at(nms[*pid]);
-      auto& [lr, m, p, c] = rg;
-      decltype(region_reqs)::key_type rg_rq = {lr, p, c};
-      auto& [added, req] = region_reqs.at(rg_rq);
-      if (!added) {
-        reqs_result.push_back(req);
-        added = true;
+      auto& [mdlr, vlr, m, p, c] = rg;
+      {
+        auto& [added, req] = md_reqs.at(mdlr);
+        if (!added) {
+          reqs_result.push_back(req);
+          added = true;
+        }
       }
-
+      decltype(val_reqs)::key_type rg_rq = {vlr, p, c};
+      if (vlr != LogicalRegion::NO_REGION) {
+        assert(vfs[*pid] == no_column);
+        auto& [added, req] = val_reqs.at(rg_rq);
+        if (!added) {
+          reqs_result.push_back(req);
+          added = true;
+        }
+      }
       auto nkw = kws[*pid].size(rt);
       if (nkw > 0) {
         std::vector<FieldID> fids(nkw);
@@ -753,11 +813,10 @@ Table::requirements(
 #endif
     }
   }
-  rt->unmap_region(ctx, fields_pr);
   return {reqs_result, lps_result};
 }
 
-Legion::TaskID Table::is_conformant_task_id;
+TaskID Table::is_conformant_task_id;
 
 const char* Table::is_conformant_task_name = "Table::is_conformant_task";
 
@@ -861,7 +920,7 @@ Table::is_conformant(
   Runtime* rt,
   const LogicalRegion& fields_parent,
   const PhysicalRegion& fields_pr,
-  const std::optional<std::tuple<Legion::IndexSpace, Legion::PhysicalRegion>>&
+  const std::optional<std::tuple<IndexSpace, PhysicalRegion>>&
   index_cs,
   const IndexSpace& cs_is,
   const PhysicalRegion& cs_md_pr) {

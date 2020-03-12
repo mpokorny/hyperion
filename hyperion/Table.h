@@ -87,6 +87,8 @@ struct TableFieldsType<TableFieldsFid::VS> {
   typedef Legion::LogicalRegion type;
 };
 
+class PhysicalTable;
+
 class HYPERION_API Table {
 
   // FIXME: add support for table keywords
@@ -194,10 +196,10 @@ public:
     const Legion::LogicalRegion& fields_lr_,
     const std::optional<Legion::LogicalRegion>& fields_parent_,
     const std::unordered_map<std::string, Legion::LogicalRegion>&
-    columns_parents_)
+    column_parents_)
     : fields_lr(fields_lr_)
     , fields_parent(fields_parent_)
-    , columns_parents(columns_parents_) {}
+    , column_parents(column_parents_) {}
 
   static Table
   create(
@@ -242,6 +244,27 @@ public:
     bool columns_mapped = true,
     Legion::PrivilegeMode columns_privilege = READ_ONLY,
     Legion::CoherenceProperty columns_coherence = EXCLUSIVE) const;
+
+  static std::tuple<
+    std::vector<Legion::RegionRequirement>,
+    std::vector<Legion::LogicalPartition>>
+  requirements(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const Legion::LogicalRegion& fields_parent,
+    const Legion::PhysicalRegion& fields_pr,
+    const std::unordered_map<std::string, Legion::LogicalRegion>&
+    column_parents,
+    const ColumnSpacePartition& table_partition = ColumnSpacePartition(),
+    Legion::PrivilegeMode table_privilege = READ_ONLY,
+    const std::map<
+      std::string,
+      std::optional<
+        std::tuple<bool, Legion::PrivilegeMode, Legion::CoherenceProperty>>>&
+    column_modes = {},
+    bool columns_mapped = true,
+    Legion::PrivilegeMode columns_privilege = READ_ONLY,
+    Legion::CoherenceProperty columns_coherence = EXCLUSIVE);
 
   Legion::Future /* bool */
   is_conformant(
@@ -413,7 +436,7 @@ public:
 
   std::optional<Legion::LogicalRegion> fields_parent;
 
-  std::unordered_map<std::string, Legion::LogicalRegion> columns_parents;
+  std::unordered_map<std::string, Legion::LogicalRegion> column_parents;
 
 protected:
 
@@ -475,9 +498,13 @@ protected:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-private:
+protected:
+
+  friend class PhysicalTable;
 
   static const constexpr Legion::FieldID no_column = AUTO_GENERATE_ID;
+
+private:
 
   static Legion::TaskID index_column_space_task_id;
 
