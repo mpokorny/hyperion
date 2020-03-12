@@ -65,6 +65,21 @@ typedef IndexTree<Legion::coord_t> IndexTreeL;
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
+template <typename T, typename F>
+std::optional<std::invoke_result_t<F, T>>
+map(const std::optional<T>& ot, F f) {
+  return
+    ot
+    ? std::make_optional(f(ot.value()))
+    : std::optional<std::invoke_result_t<F, T>>();
+}
+
+template <typename T, typename F>
+std::invoke_result_t<F, T>
+flatMap(const std::optional<T>& ot, F f) {
+  return ot ? f(ot.value()) : std::invoke_result_t<F, T>();
+}
+
 template <template <typename> typename C, typename T, typename F>
 C<std::invoke_result_t<F, T>>
 map(const C<T>& ts, F f) {
@@ -81,21 +96,6 @@ template <template <typename> typename C, typename T>
 C<int>
 map_to_int(const C<T>& ts) {
   return map(ts, [](const auto& t) { return static_cast<int>(t); });
-}
-
-template <typename T, typename F>
-std::optional<std::invoke_result_t<F, T>>
-map(const std::optional<T>& ot, F f) {
-  return
-    ot
-    ? std::make_optional(f(ot.value()))
-    : std::optional<std::invoke_result_t<F, T>>();
-}
-
-template <typename T, typename F>
-std::invoke_result_t<F, T>
-flatMap(const std::optional<T>& ot, F f) {
-  return ot ? f(ot.value()) : std::invoke_result_t<F, T>();
 }
 
 void
