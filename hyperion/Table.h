@@ -386,7 +386,7 @@ public:
   }
 
   struct ColumnRegions {
-    std::tuple<Legion::RegionRequirement, Legion::PhysicalRegion> values;
+    std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion> values;
     Legion::PhysicalRegion metadata;
     std::optional<Legion::PhysicalRegion> mr_metadata;
     std::optional<Legion::PhysicalRegion> mr_values;
@@ -423,9 +423,7 @@ public:
     const Legion::PhysicalRegion& fields_pr);
 
   static std::unordered_map<std::string, Column>
-  column_map(
-    const columns_result_t& columns_result,
-    Legion::PrivilegeMode mode = READ_ONLY);
+  column_map(const columns_result_t& columns_result);
 
   static void
   preregister_tasks();

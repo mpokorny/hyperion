@@ -531,8 +531,7 @@ read_full_ms(
         verify_task.add_region_requirement(req);
       });
     if (col.is_valid()) {
-      RegionRequirement
-        req(col.vreq.region, READ_ONLY, EXCLUSIVE, col.vreq.region);
+      RegionRequirement req(col.vlr, READ_ONLY, EXCLUSIVE, col.vlr);
       req.add_field(col.fid);
       verify_task.add_region_requirement(req);
       args.has_values = true;

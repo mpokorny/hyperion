@@ -789,7 +789,7 @@ write_table_columns(
       // use Table::column_map() to create named Columns for the
       // columns included in this ColumnSpace
       Table::columns_result_t csp_cols{{{csp, ixcs, vlr, nm_tfs}}};
-      auto cols = Table::column_map(csp_cols, READ_ONLY);
+      auto cols = Table::column_map(csp_cols);
       for (auto& [col_nm, col] : cols) {
         htri_t grp_exists =
           CHECK_H5(H5Lexists(table_grp_id, col_nm.c_str(), H5P_DEFAULT));
@@ -1484,7 +1484,7 @@ hyperion::hdf5::attach_table_columns(
         auto &c = table_columns.at(column);
         if (!csp) {
           csp = c.csp;
-          lr = c.vreq.region;
+          lr = c.vlr;
         } else if (csp.value() != c.csp) {
           // FIXME: warning message: multiple ColumnSpaces in column selection
           // of call to attach_table_columns()
@@ -1532,8 +1532,6 @@ attach_selected_table_columns(
     for (auto& [nm, tfld] : nm_tflds) {
       if (select(nm)) {
         colnames.insert(nm);
-        RegionRequirement req(vlr, READ_ONLY, EXCLUSIVE, vlr);
-        req.add_field(tfld.fid);
         cols[nm] =
           Column(
             tfld.dt,
@@ -1544,7 +1542,7 @@ attach_selected_table_columns(
 #endif
             tfld.kw,
             csp,
-            req);
+            vlr);
       }
     }
     auto opr =

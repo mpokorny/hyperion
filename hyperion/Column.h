@@ -45,7 +45,7 @@ struct HYPERION_API Column {
 #endif
     const Keywords& kw_,
     const ColumnSpace& csp_,
-    const Legion::RegionRequirement& vreq_)
+    const Legion::LogicalRegion& vlr_)
   : dt(dt_)
   , fid(fid_)
 #ifdef HYPERION_USE_CASACORE
@@ -54,7 +54,7 @@ struct HYPERION_API Column {
 #endif
   , kw(kw_)
   , csp(csp_)
-  , vreq(vreq_) {}
+  , vlr(vlr_) {}
 
   bool
   is_valid() const {
@@ -79,7 +79,7 @@ struct HYPERION_API Column {
 #endif
   Keywords kw;
   ColumnSpace csp;
-  Legion::RegionRequirement vreq;
+  Legion::LogicalRegion vlr;
 
 protected:
 

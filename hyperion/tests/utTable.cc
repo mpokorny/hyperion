@@ -159,10 +159,10 @@ attach_table0_col(
     .only_kind(Memory::SYSTEM_MEM)
     .first();
 
-  AttachLauncher task(EXTERNAL_INSTANCE, col.vreq.region, col.vreq.region);
+  AttachLauncher task(EXTERNAL_INSTANCE, col.vlr, col.vlr);
   task.attach_array_soa(base, false, {col.fid}, local_sysmem);
   PhysicalRegion result = runtime->attach_external_resource(context, task);
-  AcquireLauncher acq(col.vreq.region, col.vreq.region, result);
+  AcquireLauncher acq(col.vlr, col.vlr, result);
   acq.add_field(col.fid);
   runtime->issue_acquire(context, acq);
   return result;

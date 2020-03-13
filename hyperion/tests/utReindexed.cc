@@ -134,10 +134,10 @@ attach_table0_col(Context ctx, Runtime* rt, const Column& col, unsigned *base) {
     .only_kind(Memory::SYSTEM_MEM)
     .first();
 
-  AttachLauncher task(EXTERNAL_INSTANCE, col.vreq.region, col.vreq.region);
+  AttachLauncher task(EXTERNAL_INSTANCE, col.vlr, col.vlr);
   task.attach_array_soa(base, false, {col.fid}, local_sysmem);
   PhysicalRegion result = rt->attach_external_resource(ctx, task);
-  AcquireLauncher acq(col.vreq.region, col.vreq.region, result);
+  AcquireLauncher acq(col.vlr, col.vlr, result);
   acq.add_field(col.fid);
   rt->issue_acquire(ctx, acq);
   return result;
@@ -221,7 +221,7 @@ test_totally_reindexed_table(
       prefix + " reindexed 'X' column has expected size",
       testing::TestEval(
         [&cx, &ctx, rt]() {
-          auto is = cx.vreq.region.get_index_space();
+          auto is = cx.vlr.get_index_space();
           auto dom = rt->get_index_space_domain(ctx, is);
           Rect<1> r(dom.bounds<1,coord_t>());
           return r == Rect<1>(0, TABLE0_NUM_X - 1);
@@ -230,8 +230,7 @@ test_totally_reindexed_table(
       prefix + " reindexed 'X' column has expected values",
       testing::TestEval(
         [&cx, &ctx, rt]() {
-          RegionRequirement
-            req(cx.vreq.region, READ_ONLY, EXCLUSIVE, cx.vreq.region);
+          RegionRequirement req(cx.vlr, READ_ONLY, EXCLUSIVE, cx.vlr);
           req.add_field(cx.fid);
           PhysicalRegion pr = rt->map_region(ctx, req);
           const FieldAccessor<
@@ -281,7 +280,7 @@ test_totally_reindexed_table(
       prefix + " reindexed 'Y' column has expected size",
       testing::TestEval(
         [&cy, &ctx, rt]() {
-          auto is = cy.vreq.region.get_index_space();
+          auto is = cy.vlr.get_index_space();
           auto dom = rt->get_index_space_domain(ctx, is);
           Rect<1> r(dom.bounds<1,coord_t>());
           return r == Rect<1>(0, TABLE0_NUM_Y - 1);
@@ -290,8 +289,7 @@ test_totally_reindexed_table(
       prefix + " reindexed 'Y' column has expected values",
       testing::TestEval(
         [&cy, &ctx, rt]() {
-          RegionRequirement
-            req(cy.vreq.region, READ_ONLY, EXCLUSIVE, cy.vreq.region);
+          RegionRequirement req(cy.vlr, READ_ONLY, EXCLUSIVE, cy.vlr);
           req.add_field(cy.fid);
           PhysicalRegion pr = rt->map_region(ctx, req);
           const FieldAccessor<
@@ -339,7 +337,7 @@ test_totally_reindexed_table(
       prefix + " reindexed 'Z' column has expected size",
       testing::TestEval(
         [&cz, &x_before_y, &ctx, rt]() {
-          auto is = cz.vreq.region.get_index_space();
+          auto is = cz.vlr.get_index_space();
           auto dom = rt->get_index_space_domain(ctx, is);
           Rect<2> r(dom.bounds<2,coord_t>());
           coord_t r0, r1;
@@ -357,8 +355,7 @@ test_totally_reindexed_table(
       prefix + " reindexed 'Z' column has expected values",
       testing::TestEval(
         [&cz, &x_before_y, &ctx, rt]() {
-          RegionRequirement
-            req(cz.vreq.region, READ_ONLY, EXCLUSIVE, cz.vreq.region);
+          RegionRequirement req(cz.vlr, READ_ONLY, EXCLUSIVE, cz.vlr);
           req.add_field(cz.fid);
           PhysicalRegion pr = rt->map_region(ctx, req);
           const FieldAccessor<
@@ -551,7 +548,7 @@ reindexed_test_suite(
             "Partially reindexed 'Y' column has expected size",
             testing::TestEval(
               [&cy, &ctx, rt]() {
-                auto is = cy.vreq.region.get_index_space();
+                auto is = cy.vlr.get_index_space();
                 auto dom = rt->get_index_space_domain(ctx, is);
                 Rect<1> r(dom.bounds<1,coord_t>());
                 return r == Rect<1>(0, TABLE0_NUM_Y - 1);
@@ -560,8 +557,7 @@ reindexed_test_suite(
             "Partially reindexed 'Y' column has expected values",
             testing::TestEval(
               [&cy, &ctx, rt]() {
-                RegionRequirement
-                  req(cy.vreq.region, READ_ONLY, EXCLUSIVE, cy.vreq.region);
+                RegionRequirement req(cy.vlr, READ_ONLY, EXCLUSIVE, cy.vlr);
                 req.add_field(cy.fid);
                 PhysicalRegion pr = rt->map_region(ctx, req);
                 const FieldAccessor<
@@ -611,7 +607,7 @@ reindexed_test_suite(
             "Partially reindexed 'X' column has expected size",
             testing::TestEval(
               [&cx, &ctx, rt]() {
-                auto is = cx.vreq.region.get_index_space();
+                auto is = cx.vlr.get_index_space();
                 auto dom = rt->get_index_space_domain(ctx, is);
                 Rect<2> r(dom.bounds<2,coord_t>());
                 return r == Rect<2>(
@@ -622,8 +618,7 @@ reindexed_test_suite(
             "Partially reindexed 'X' column has expected values",
             testing::TestEval(
               [&cx, &ctx, rt]() {
-                RegionRequirement
-                  req(cx.vreq.region, READ_ONLY, EXCLUSIVE, cx.vreq.region);
+                RegionRequirement req(cx.vlr, READ_ONLY, EXCLUSIVE, cx.vlr);
                 req.add_field(cx.fid);
                 PhysicalRegion pr = rt->map_region(ctx, req);
                 const FieldAccessor<
@@ -675,7 +670,7 @@ reindexed_test_suite(
             "Partially reindexed 'Z' column has expected size",
             testing::TestEval(
               [&cz, &ctx, rt]() {
-                auto is = cz.vreq.region.get_index_space();
+                auto is = cz.vlr.get_index_space();
                 auto dom = rt->get_index_space_domain(ctx, is);
                 Rect<2> r(dom.bounds<2,coord_t>());
                 return
@@ -688,8 +683,7 @@ reindexed_test_suite(
             "Partially reindexed 'Z' column has expected values",
             testing::TestEval(
               [&cz, &ctx, rt]() {
-                RegionRequirement
-                  req(cz.vreq.region, READ_ONLY, EXCLUSIVE, cz.vreq.region);
+                RegionRequirement req(cz.vlr, READ_ONLY, EXCLUSIVE, cz.vlr);
                 req.add_field(cz.fid);
                 PhysicalRegion pr = rt->map_region(ctx, req);
                 const FieldAccessor<

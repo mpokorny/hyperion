@@ -118,7 +118,7 @@ index_column(
 LogicalRegion
 Column::create_index(Context ctx, Runtime* rt) const {
   LogicalRegion result;
-  RegionRequirement req(vreq.region, READ_ONLY, EXCLUSIVE, vreq.region);
+  RegionRequirement req(vlr, READ_ONLY, EXCLUSIVE, vlr);
   req.add_field(fid);
   switch (dt) {
 #define ICR(DT)                                 \

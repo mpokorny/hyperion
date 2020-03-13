@@ -196,9 +196,7 @@ Table::columns_result_t::legion_deserialize(const void* buffer) {
 }
 
 std::unordered_map<std::string, Column>
-Table::column_map(
-  const columns_result_t& columns_result,
-  Legion::PrivilegeMode mode) {
+Table::column_map(const columns_result_t& columns_result) {
 
   std::unordered_map<std::string, Column> result;
 #pragma GCC diagnostic push
@@ -206,8 +204,6 @@ Table::column_map(
   for (auto& [csp, ixcs, lr, tfs] : columns_result.fields) {
 #pragma GCC diagnostic pop
     for (auto& [nm, tf] : tfs) {
-      RegionRequirement vreq(lr, mode, EXCLUSIVE, lr);
-      vreq.add_field(tf.fid);
       result[nm] = Column(
         tf.dt,
         tf.fid,
@@ -217,7 +213,7 @@ Table::column_map(
 #endif
         tf.kw,
         csp,
-        vreq);
+        lr);
     }
   }
   return result;
@@ -1915,7 +1911,7 @@ Table::reindexed_task(
     for (auto& [nm, tf] : tfs) {
 #pragma GCC diagnostic pop
       ColumnRegions cr;
-      cr.values = {values_req, values};
+      cr.values = {values_req.region, values};
       cr.metadata = metadata;
 #ifdef HYPERION_USE_CASACORE
       if (!tf.mr.is_empty()) {
@@ -2432,7 +2428,7 @@ Table::reindexed(
 #pragma GCC diagnostic ignored "-Wunused-variable"
           auto& [col, crg, ix] = named_columns[std::get<0>(dtfs[0])];
 #pragma GCC diagnostic pop
-          slr = std::get<0>(crg.values).region;
+          slr = std::get<0>(crg.values);
           sfid = col.fid;
         }
         RegionRequirement src(slr, {sfid}, {sfid}, READ_ONLY, EXCLUSIVE, slr);
@@ -2474,7 +2470,7 @@ Table::reindexed(
               cs,
               DISJOINT_COMPLETE_KIND);
           dlp = rt->get_logical_partition(ctx, dvlr, dip);
-          slr = col.vreq.region;
+          slr = col.vlr;
         }
         ReindexCopyValuesTaskArgs args;
         IndexTaskLauncher task(
