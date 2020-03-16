@@ -30,6 +30,7 @@
 namespace hyperion {
 
 class HYPERION_API PhysicalTable {
+public:
 
   PhysicalTable(
     Legion::LogicalRegion table_parent,
@@ -117,6 +118,30 @@ class HYPERION_API PhysicalTable {
     Legion::Runtime* rt,
     const std::unordered_set<std::string>& columns,
     bool destroy_orphan_column_spaces = true);
+
+  Legion::LogicalRegion
+  reindexed(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<std::pair<int, std::string>>& index_axes,
+    bool allow_rows) const;
+
+  template <typename D>
+  Legion::LogicalRegion
+  reindexed(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<D>& index_axes,
+    bool allow_rows) const {
+
+    std::vector<std::pair<int, std::string>> iax;
+    iax.reserve(index_axes.size());
+    for (auto& d : index_axes) {
+      int i = static_cast<int>(d);
+      iax.emplace_back(i, Axes<D>::names[i]);
+    }
+    return reindexed(ctx, rt, iax, allow_rows);
+  }
 
 protected:
 

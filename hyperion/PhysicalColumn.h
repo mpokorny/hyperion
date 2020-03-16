@@ -34,6 +34,7 @@
 namespace hyperion {
 
 class HYPERION_API PhysicalColumn {
+public:
 
 #ifdef HYPERION_USE_CASACORE
   std::vector<std::shared_ptr<casacore::MRBase>>

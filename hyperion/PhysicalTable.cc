@@ -463,6 +463,57 @@ PhysicalTable::remove_columns(
       cs_md_prs);
 }
 
+LogicalRegion
+PhysicalTable::reindexed(
+  Context ctx,
+  Runtime* rt,
+  const std::vector<std::pair<int, std::string>>& index_axes,
+  bool allow_rows) const {
+
+  auto oic = index_column(rt);
+  if (!oic)
+    return LogicalRegion::NO_REGION;
+  auto ic = oic.value();
+
+  const Table::ColumnSpaceAccessor<READ_ONLY>
+    css(m_table_pr, static_cast<FieldID>(TableFieldsFid::CS));
+  const Table::NameAccessor<READ_ONLY>
+    nms(m_table_pr, static_cast<FieldID>(TableFieldsFid::NM));
+
+  std::vector<std::tuple<Legion::coord_t, Table::ColumnRegions>> cregions;
+  for (PointInDomainIterator<1> pid(
+         rt->get_index_space_domain(m_table_parent.get_index_space()));
+       pid() && !css[*pid].is_empty();
+       pid++) {
+    auto& pc = m_columns.at(nms[*pid]);
+    if (pc.m_values) {
+      Table::ColumnRegions cr;
+      cr.values = {pc.m_parent, pc.m_values.value()};
+      cr.metadata = pc.m_metadata;
+      if (pc.m_kws) {
+        cr.kw_type_tags = pc.m_kws.value().type_tags;
+        cr.kw_values = pc.m_kws.value().values;
+      }
+      if (pc.m_mr_drs) {
+        cr.mr_metadata = pc.m_mr_drs.value().metadata;
+        cr.mr_values = pc.m_mr_drs.value().values;
+        cr.mr_index = pc.m_mr_drs.value().index;
+      }
+      cregions.emplace_back(*pid, cr);
+    }
+  }
+  return
+    Table::reindexed(
+      ctx,
+      rt,
+      index_axes,
+      allow_rows,
+      m_table_parent,
+      m_table_pr,
+      ic.m_metadata,
+      cregions);
+}
+
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2
