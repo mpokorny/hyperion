@@ -782,7 +782,6 @@ Table::requirements(
       }
       decltype(val_reqs)::key_type rg_rq = {vlr, p, c};
       if (vlr != LogicalRegion::NO_REGION) {
-        assert(vfs[*pid] == no_column);
         auto& [added, req] = val_reqs.at(rg_rq);
         if (!added) {
           reqs_result.push_back(req);

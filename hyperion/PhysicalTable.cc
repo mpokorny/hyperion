@@ -100,9 +100,7 @@ PhysicalTable::create(
     std::optional<PhysicalRegion> values;
     std::optional<Keywords::pair<PhysicalRegion>> kw_prs;
     std::optional<MeasRef::DataRegions> mr_drs;
-    assert((vss[*pid] == LogicalRegion::NO_REGION)
-           == (vfs[*pid] == Table::no_column));
-    if (vss[*pid] != LogicalRegion::NO_REGION) {
+    if (vfs[*pid] != Table::no_column) {
       std::tuple<FieldID, ColumnSpace> fid_cs = {vfs[*pid], css[*pid]};
       if (value_regions.count(fid_cs) == 0) {
         if (reqs == reqs_end || prs == prs_end)
@@ -114,7 +112,7 @@ PhysicalTable::create(
         ++reqs;
         ++prs;
       }
-      std::tie(parent, values.value()) = value_regions.at(fid_cs);
+      std::tie(parent, values) = value_regions.at(fid_cs);
       if (!kws[*pid].is_empty()) {
         Keywords::pair<PhysicalRegion> kwpair;
         if (reqs == reqs_end || prs == prs_end)
