@@ -14,9 +14,47 @@
  * limitations under the License.
  */
 #include <hyperion/PhysicalColumn.h>
+#include <hyperion/Column.h>
 
 using namespace hyperion;
 using namespace Legion;
+
+Column
+PhysicalColumn::column() const {
+
+#ifdef HYPERION_USE_CASACORE
+  MeasRef mr;
+  if (m_mr_drs) {
+    auto& [mrg, vrg, oirg] = m_mr_drs.value();
+    mr =
+      MeasRef(
+        mrg.get_logical_region(),
+        vrg.get_logical_region(),
+        (oirg ? oirg.value().get_logical_region() : LogicalRegion::NO_REGION));
+  }
+#endif
+
+  Keywords kws;
+  if (m_kws){
+    auto& kwv = m_kws.value();
+    kws =
+      Keywords(
+        Keywords::pair<LogicalRegion>{
+          kwv.type_tags.get_logical_region(),
+          kwv.values.get_logical_region()});
+  }
+
+  return Column(
+    m_dt,
+    m_fid,
+#ifdef HYPERION_USE_CASACORE
+    mr,
+    m_refcol_name,
+#endif
+    kws,
+    ColumnSpace(m_parent.get_index_space(), m_metadata.get_logical_region()),
+    m_parent);
+}
 
 std::optional<std::any>
 PhysicalColumn::kw(const std::string& key) const {
@@ -70,6 +108,14 @@ PhysicalColumn::mrbs() const {
   return result;
 }
 #endif
+
+LogicalRegion
+PhysicalColumn::create_index(Context ctx, Runtime* rt) const {
+
+  auto col = Column();
+  return col.create_index(ctx, rt);
+}
+
 
 // Local Variables:
 // mode: c++

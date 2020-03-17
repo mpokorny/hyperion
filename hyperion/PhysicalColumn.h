@@ -34,6 +34,7 @@
 namespace hyperion {
 
 class HYPERION_API PhysicalColumn {
+class Column;
 public:
 
 #ifdef HYPERION_USE_CASACORE
@@ -83,6 +84,9 @@ public:
 #endif // HYPERION_USE_CASACORE
     }
 
+  Column
+  column() const;
+
   template <
     Legion::PrivilegeMode MODE,
     typename FT,
@@ -107,6 +111,9 @@ public:
     Legion::Runtime* rt,
     const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol);
 #endif
+
+  Legion::LogicalRegion
+  create_index(Legion::Context ctx, Legion::Runtime* rt) const;
 
 protected:
 
