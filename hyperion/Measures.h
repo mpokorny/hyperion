@@ -25,6 +25,8 @@
 # include <tuple>
 # include <vector>
 
+# include <experimental/mdspan>
+
 # include <casacore/tables/Tables.h>
 # include <casacore/measures/Measures.h>
 # include <casacore/measures/Measures/MBaseline.h>
@@ -64,14 +66,56 @@ struct MClassT {
   // static const type&
   // get(const casacore::MeasureHolder& mh);
 };
+
+template <typename M>
+struct MClassTBase {
+
+  typedef M type;
+
+  template <hyperion::TypeTag DT>
+  static M
+  load(
+    const std::experimental::mdspan<
+      typename DataType<DT>::ValueType,
+      std::experimental::dynamic_extent>& vs,
+    const char* units,
+    const casacore::MeasRef<M>& mr) {
+
+    casacore::Vector<typename DataType<DT>::ValueType> cv(vs.extent(0));
+    for (size_t i = 0; i < vs.extent(0); ++i)
+      cv[i] = vs(i);
+    return M(M::MVType(casacore::Quantum(vs, units)), mr);
+  }
+
+  template <hyperion::TypeTag DT>
+  static void
+  store(
+    const M& meas,
+    const char *units,
+    std::experimental::mdspan<
+      typename DataType<DT>::ValueType,
+      std::experimental::dynamic_extent>& vs) {
+
+    auto p = meas.get(units).getValue();
+    assert(p.size() == vs.extent(0));
+    for (size_t i = 0; i < vs.extent(0); ++i)
+      vs(i) = p[i];
+  }
+};
+
 template <>
-struct HYPERION_API MClassT<MClass::M_BASELINE> {
-  typedef casacore::MBaseline type;
+struct HYPERION_API MClassT<MClass::M_BASELINE>
+  : public MClassTBase<casacore::MBaseline> {
+
+  static constexpr const unsigned mrank = 1;
+
   static const std::string name;
+
   static bool
   holds(const casacore::MeasureHolder& mh) {
     return mh.isMBaseline();
   }
+
   static const type&
   get(const casacore::MeasureHolder& mh) {
     return mh.asMBaseline();
@@ -79,13 +123,18 @@ struct HYPERION_API MClassT<MClass::M_BASELINE> {
 };
 
 template <>
-struct HYPERION_API MClassT<MClass::M_DIRECTION> {
-  typedef casacore::MDirection type;
+struct HYPERION_API MClassT<MClass::M_DIRECTION>
+  : public MClassTBase<casacore::MDirection> {
+
+  static constexpr const unsigned mrank = 1;
+
   static const std::string name;
+
   static bool
   holds(const casacore::MeasureHolder& mh) {
     return mh.isMDirection();
   }
+
   static const type&
   get(const casacore::MeasureHolder& mh) {
     return mh.asMDirection();
@@ -93,13 +142,18 @@ struct HYPERION_API MClassT<MClass::M_DIRECTION> {
 };
 
 template <>
-struct HYPERION_API MClassT<MClass::M_DOPPLER> {
-  typedef casacore::MDoppler type;
+struct HYPERION_API MClassT<MClass::M_DOPPLER>
+  : public MClassTBase<casacore::MDoppler> {
+
+  static constexpr const unsigned mrank = 0;
+
   static const std::string name;
+
   static bool
   holds(const casacore::MeasureHolder& mh) {
     return mh.isMDoppler();
   }
+
   static const type&
   get(const casacore::MeasureHolder& mh) {
     return mh.asMDoppler();
@@ -107,78 +161,113 @@ struct HYPERION_API MClassT<MClass::M_DOPPLER> {
 };
 
 template <>
-struct HYPERION_API MClassT<MClass::M_EARTH_MAGNETIC> {
-  typedef casacore::MEarthMagnetic type;
+struct HYPERION_API MClassT<MClass::M_EARTH_MAGNETIC>
+  : public MClassTBase<casacore::MEarthMagnetic> {
+
+  static constexpr const unsigned mrank = 1;
+
   static const std::string name;
+
   static bool
   holds(const casacore::MeasureHolder& mh) {
     return mh.isMEarthMagnetic();
   }
+
   static const type&
   get(const casacore::MeasureHolder& mh) {
     return mh.asMEarthMagnetic();
   }
 };
+
 template <>
-struct HYPERION_API MClassT<MClass::M_EPOCH> {
-  typedef casacore::MEpoch type;
+struct HYPERION_API MClassT<MClass::M_EPOCH>
+  : public MClassTBase<casacore::MEpoch> {
+
+  static constexpr const unsigned mrank = 0;
+
   static const std::string name;
+
   static bool
   holds(const casacore::MeasureHolder& mh) {
     return mh.isMEpoch();
   }
+
   static const type&
   get(const casacore::MeasureHolder& mh) {
     return mh.asMEpoch();
   }
 };
+
 template <>
-struct HYPERION_API MClassT<MClass::M_FREQUENCY> {
-  typedef casacore::MFrequency type;
+struct HYPERION_API MClassT<MClass::M_FREQUENCY>
+  : public MClassTBase<casacore::MFrequency> {
+
+  static constexpr const unsigned mrank = 0;
+
   static const std::string name;
+
   static bool
   holds(const casacore::MeasureHolder& mh) {
     return mh.isMFrequency();
   }
+
   static const type&
   get(const casacore::MeasureHolder& mh) {
     return mh.asMFrequency();
   }
 };
+
 template <>
-struct HYPERION_API MClassT<MClass::M_POSITION> {
-  typedef casacore::MPosition type;
+struct HYPERION_API MClassT<MClass::M_POSITION>
+  : public MClassTBase<casacore::MPosition> {
+
+  static constexpr const unsigned mrank = 1;
+
   static const std::string name;
+
   static bool
   holds(const casacore::MeasureHolder& mh) {
     return mh.isMPosition();
   }
+
   static const type&
   get(const casacore::MeasureHolder& mh) {
     return mh.asMPosition();
   }
 };
+
 template <>
-struct HYPERION_API MClassT<MClass::M_RADIAL_VELOCITY> {
-  typedef casacore::MRadialVelocity type;
+struct HYPERION_API MClassT<MClass::M_RADIAL_VELOCITY>
+  : public MClassTBase<casacore::MRadialVelocity> {
+
+  static constexpr const unsigned mrank = 0;
+
   static const std::string name;
+
   static bool
   holds(const casacore::MeasureHolder& mh) {
     return mh.isMRadialVelocity();
   }
+
   static const type&
   get(const casacore::MeasureHolder& mh) {
     return mh.asMRadialVelocity();
   }
 };
+
 template <>
-struct HYPERION_API MClassT<MClass::M_UVW> {
-  typedef casacore::Muvw type;
+struct HYPERION_API MClassT<MClass::M_UVW>
+  : public MClassTBase<casacore::Muvw> {
+
+  static constexpr const unsigned mrank = 1;
+
   static const std::string name;
+
   static bool
   holds(const casacore::MeasureHolder& mh) {
     return mh.isMuvw();
   }
+
   static const type&
   get(const casacore::MeasureHolder& mh) {
     return mh.asMuvw();

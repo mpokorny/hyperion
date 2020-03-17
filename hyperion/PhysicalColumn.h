@@ -33,24 +33,73 @@
 
 namespace hyperion {
 
-class HYPERION_API PhysicalColumn {
 class Column;
+
+template <
+  typename T,
+  hyperion::TypeTag DT,
+  hyperion::MClass MC,
+  unsigned INDEX_RANK,
+  unsigned COLUMN_RANK,
+  unsigned M_RANK,
+  unsigned MV_SIZE,
+  typename COORD_T = Legion::coord_t>
+class MeasReaderMixin
+  : public T {
 public:
+  using T::T;
 
-#ifdef HYPERION_USE_CASACORE
-  std::vector<std::shared_ptr<casacore::MRBase>>
-  mrbs() const;
+  typename MClassT<MC>::type
+  read(const Legion::Point<COLUMN_RANK - M_RANK, COORD_T>& pt) const {
 
-  typedef std::shared_ptr<casacore::MRBase> simple_mrb_t;
+    Legion::Point<COLUMN_RANK, COORD_T> xpt;
+    for (size_t i = 0; i < COLUMN_RANK - M_RANK; ++i)
+      xpt[i] = pt[i];
+    for (size_t i = COLUMN_RANK - M_RANK; i < COLUMN_RANK; ++i)
+      xpt[i] = 0;
+    return
+      MClassT<MC>::load<DT>(
+        std::experimental::mdspan<typename DataType<DT>::ValueType, MV_SIZE>(
+          T::m_value.ptr(xpt)),
+        T::m_units,
+        T::m_meas_ref.meas_ref_at(xpt));
+  }
+};
 
-  typedef std::tuple<
-    std::vector<std::shared_ptr<casacore::MRBase>>,
-    std::unordered_map<unsigned, unsigned>,
-    Legion::PhysicalRegion,
-    Legion::FieldID> ref_mrb_t;
+template <
+  typename T,
+  hyperion::TypeTag DT,
+  hyperion::MClass MC,
+  unsigned INDEX_RANK,
+  unsigned COLUMN_RANK,
+  unsigned M_RANK,
+  unsigned MV_SIZE,
+  typename COORD_T = Legion::coord_t>
+class MeasWriterMixin
+  : public T {
+public:
+  using T::T;
 
-  typedef std::variant<simple_mrb_t, ref_mrb_t> mrb_t;
-#endif
+  void
+  write(
+    const Legion::Point<COLUMN_RANK - M_RANK, COORD_T>& pt,
+    const typename MClassT<MC>::type& val) {
+
+    Legion::Point<COLUMN_RANK, COORD_T> xpt;
+    for (size_t i = 0; i < COLUMN_RANK - M_RANK; ++i)
+      xpt[i] = pt[i];
+    for (size_t i = COLUMN_RANK - M_RANK; i < COLUMN_RANK; ++i)
+      xpt[i] = 0;
+    MClassT<MC>::store<DT>(
+      T::m_meas_ref.convert_at(xpt)(val),
+      T::m_units,
+      std::experimental::mdspan<typename DataType<DT>::ValueType, MV_SIZE>(
+        T::m_value.ptr(xpt)));
+  }
+};
+
+class HYPERION_API PhysicalColumn {
+public:
 
   PhysicalColumn(
     Legion::Runtime* rt,
@@ -110,6 +159,19 @@ public:
   update_refcol(
     Legion::Runtime* rt,
     const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol);
+
+  std::vector<std::shared_ptr<casacore::MRBase>>
+  mrbs() const;
+
+  typedef std::shared_ptr<casacore::MRBase> simple_mrb_t;
+
+  typedef std::tuple<
+    std::vector<std::shared_ptr<casacore::MRBase>>,
+    std::unordered_map<unsigned, unsigned>,
+    Legion::PhysicalRegion,
+    Legion::FieldID> ref_mrb_t;
+
+  typedef std::variant<simple_mrb_t, ref_mrb_t> mrb_t;
 #endif
 
   Legion::LogicalRegion
@@ -145,6 +207,499 @@ protected:
   std::optional<mrb_t> m_mrb;
 #endif // HYPERION_USE_CASACORE
 };
+
+template <hyperion::TypeTag DT>
+class PhysicalColumnT
+  : public PhysicalColumn {
+public:
+
+  PhysicalColumnT(
+    Legion::Runtime* rt,
+    Legion::FieldID fid,
+    unsigned index_rank,
+    const Legion::PhysicalRegion& metadata,
+    const Legion::LogicalRegion& parent,
+    const std::optional<Legion::PhysicalRegion>& values,
+    const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
+#ifdef HYPERION_USE_CASACORE
+    , const std::optional<MeasRef::DataRegions>& mr_drs
+    , const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol
+#endif // HYPERION_USE_CASACORE
+    )
+    : PhysicalColumn(
+      rt,
+      fid,
+      DT,
+      index_rank,
+      metadata,
+      parent,
+      values,
+      kws
+#ifdef HYPERION_USE_CASACORE
+      , mr_drs
+      , refcol
+#endif // HYPERION_USE_CASACORE
+      ) {}
+
+  template <
+    Legion::PrivilegeMode MODE,
+    int N,
+    typename COORD_T = Legion::coord_t,
+    typename A =
+      Legion::AffineAccessor<typename DataType<DT>::ValueType, N, COORD_T>,
+    bool CHECK_BOUNDS = false>
+  Legion::FieldAccessor<
+    MODE,
+    typename DataType<DT>::ValueType,
+    N,
+    COORD_T,
+    A,
+    CHECK_BOUNDS>
+  accessor() const {
+    return
+      Legion::FieldAccessor<
+        MODE,
+        typename DataType<DT>::ValueType,
+        N,
+        COORD_T,
+        A,
+        CHECK_BOUNDS>(
+          m_values.value(),
+          m_fid);
+  }
+};
+
+template <hyperion::TypeTag DT, unsigned INDEX_RANK, unsigned COLUMN_RANK>
+class PhysicalColumnTD
+  : public PhysicalColumn {
+public:
+
+  static_assert(INDEX_RANK <= COLUMN_RANK);
+
+  PhysicalColumnTD(
+    Legion::Runtime* rt,
+    Legion::FieldID fid,
+    const Legion::PhysicalRegion& metadata,
+    const Legion::LogicalRegion& parent,
+    const std::optional<Legion::PhysicalRegion>& values,
+    const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
+#ifdef HYPERION_USE_CASACORE
+    , const std::optional<MeasRef::DataRegions>& mr_drs
+    , const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol
+#endif // HYPERION_USE_CASACORE
+    )
+    : PhysicalColumn(
+      rt,
+      fid,
+      DT,
+      INDEX_RANK,
+      metadata,
+      parent,
+      values,
+      kws
+#ifdef HYPERION_USE_CASACORE
+      , mr_drs
+      , refcol
+#endif // HYPERION_USE_CASACORE
+      ) {}
+
+  template <
+    Legion::PrivilegeMode MODE,
+    typename COORD_T = Legion::coord_t,
+    typename A =
+      Legion::AffineAccessor<
+        typename DataType<DT>::ValueType,
+        COLUMN_RANK,
+        COORD_T>,
+    bool CHECK_BOUNDS = false>
+  Legion::FieldAccessor<
+    MODE,
+    typename DataType<DT>::ValueType,
+    COLUMN_RANK,
+    COORD_T,
+    A,
+    CHECK_BOUNDS>
+  accessor() const {
+    return
+      Legion::FieldAccessor<
+        MODE,
+        typename DataType<DT>::ValueType,
+        COLUMN_RANK,
+        COORD_T,
+        A,
+        CHECK_BOUNDS>(
+          m_values.value(),
+          m_fid);
+  }
+};
+
+#ifdef HYPERION_USE_CASACORE
+template <hyperion::TypeTag DT, hyperion::MClass MC>
+class PhysicalColumnTM
+  : public PhysicalColumn {
+public:
+
+  PhysicalColumnTM(
+    Legion::Runtime* rt,
+    Legion::FieldID fid,
+    unsigned index_rank,
+    const Legion::PhysicalRegion& metadata,
+    const Legion::LogicalRegion& parent,
+    const std::optional<Legion::PhysicalRegion>& values,
+    const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws,
+    const std::optional<MeasRef::DataRegions>& mr_drs,
+    const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol)
+    : PhysicalColumn(
+      rt,
+      fid,
+      DT,
+      index_rank,
+      metadata,
+      parent,
+      values,
+      kws,
+      mr_drs,
+      refcol) {}
+
+  template <
+    Legion::PrivilegeMode MODE,
+    int N,
+    typename COORD_T = Legion::coord_t,
+    typename A =
+      Legion::AffineAccessor<typename DataType<DT>::ValueType, N, COORD_T>,
+    bool CHECK_BOUNDS = false>
+  Legion::FieldAccessor<
+    MODE,
+    typename DataType<DT>::ValueType,
+    N,
+    COORD_T,
+    A,
+    CHECK_BOUNDS>
+  accessor() const {
+    return
+      Legion::FieldAccessor<
+        MODE,
+        typename DataType<DT>::ValueType,
+        N,
+        COORD_T,
+        A,
+        CHECK_BOUNDS>(
+          m_values.value(),
+          m_fid);
+  }
+
+  typedef casacore::MeasRef<typename MClassT<MC>::type> MR_t;
+
+  std::vector<std::shared_ptr<MR_t>>
+  mrs() const {
+    auto mrbv = mrbs();
+    std::vector<std::shared_ptr<MR_t>> result;
+    result.reserve(mrbv.size());
+    for (auto& mrb : mrbv)
+      result.push_back(std::dynamic_pointer_cast<MR_t>(mrb));
+    return result;
+  }
+};
+
+template <
+  hyperion::TypeTag DT,
+  hyperion::MClass MC,
+  unsigned INDEX_RANK,
+  unsigned COLUMN_RANK,
+  unsigned MV_SIZE>
+class PhysicalColumnTMD
+  : public PhysicalColumn {
+public:
+
+  PhysicalColumnTMD(
+    Legion::Runtime* rt,
+    Legion::FieldID fid,
+    const Legion::PhysicalRegion& metadata,
+    const Legion::LogicalRegion& parent,
+    const std::optional<Legion::PhysicalRegion>& values,
+    const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws,
+    const std::optional<MeasRef::DataRegions>& mr_drs,
+    const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol)
+    : PhysicalColumn(
+      rt,
+      fid,
+      DT,
+      INDEX_RANK,
+      metadata,
+      parent,
+      values,
+      kws,
+      mr_drs,
+      refcol) {}
+
+  typedef casacore::MeasRef<typename MClassT<MC>::type> MR_t;
+
+  typedef typename MClassT<MC>::type::Convert MC_t;
+
+  template <
+    Legion::PrivilegeMode MODE,
+    typename COORD_T = Legion::coord_t,
+    typename A = Legion::AffineAccessor<
+      DataType<HYPERION_TYPE_INT>::ValueType,
+      INDEX_RANK,
+      COORD_T>,
+    bool CHECK_BOUNDS = false>
+  class MeasRefAccessor {
+  private:
+
+    typedef Legion::FieldAccessor<
+      MODE,
+      DataType<HYPERION_TYPE_INT>::ValueType,
+      INDEX_RANK,
+      COORD_T,
+      A,
+      CHECK_BOUNDS> RefcodeAccessor;
+
+  protected:
+    friend class PhysicalColumnTMD<DT, MC, INDEX_RANK, COLUMN_RANK, MV_SIZE>;
+
+    MeasRefAccessor(const mrb_t* mr) {
+      std::visit(overloaded {
+          [this](simple_mrb_t& mr) {
+            m_mr = std::dynamic_pointer_cast<MR_t>(mr);
+            m_convert.setOut(*m_mr);
+          },
+          [this](ref_mrb_t& mr) {
+            auto& [mrs, rmap, rcodes_pr, fid] = mr;
+            m_mrv =
+              std::make_tuple(
+                mrs,
+                rmap,
+                RefcodeAccessor(rcodes_pr, fid));
+          }
+        },
+        *mr);
+    }
+
+  public:
+
+    MC_t&
+    convert_at(const Legion::Point<COLUMN_RANK, Legion::coord_t>& pt) {
+      if (m_mrv) {
+        auto& [mrs, rmap, rcodes] = m_mrv.value();
+        m_convert.setOut(
+          *mrs[
+            rmap.at(
+              rcodes[
+                reinterpret_cast<Legion::Point<INDEX_RANK, Legion::coord_t>&>(
+                  pt)])]);
+      }
+      return m_convert;
+    }
+
+    MR_t&
+    meas_ref_at(const Legion::Point<COLUMN_RANK, Legion::coord_t>& pt) const {
+      if (m_mrv) {
+        auto& [mrs, rmap, rcodes] = m_mrv.value();
+        m_mr =
+          mrs[
+            rmap.at(
+              rcodes[
+                reinterpret_cast<Legion::Point<INDEX_RANK, Legion::coord_t>&>(
+                  pt)])];
+      }
+      return *m_mr;
+    }
+
+  private:
+    std::shared_ptr<MR_t> m_mr;
+
+    std::optional<
+      std::tuple<
+        std::vector<std::shared_ptr<MR_t>>,
+        std::unordered_map<unsigned, unsigned>,
+        RefcodeAccessor>>
+    m_mrv;
+
+    MC_t m_convert;
+  };
+
+  template <
+    Legion::PrivilegeMode MODE,
+    typename COORD_T = Legion::coord_t,
+    typename A =
+      Legion::AffineAccessor<
+        typename DataType<DT>::ValueType,
+        COLUMN_RANK,
+        COORD_T>,
+    bool CHECK_BOUNDS = false>
+  Legion::FieldAccessor<
+    MODE,
+    typename DataType<DT>::ValueType,
+    COLUMN_RANK,
+    COORD_T,
+    A,
+    CHECK_BOUNDS>
+  accessor() const {
+    return
+      Legion::FieldAccessor<
+        MODE,
+        typename DataType<DT>::ValueType,
+        COLUMN_RANK,
+        COORD_T,
+        A,
+        CHECK_BOUNDS>(
+          m_values.value(),
+          m_fid);
+  }
+
+  template <
+    Legion::PrivilegeMode MODE,
+    typename COORD_T = Legion::coord_t,
+    typename A = Legion::AffineAccessor<
+      DataType<HYPERION_TYPE_INT>::ValueType,
+      INDEX_RANK,
+      COORD_T>,
+    bool CHECK_BOUNDS = false>
+  MeasRefAccessor<MODE, COORD_T, A, CHECK_BOUNDS>
+  meas_ref_accessor() const {
+    return MeasRefAccessor<MODE, COORD_T, A, CHECK_BOUNDS>(&m_mrb.value());
+  }
+
+  template <
+    Legion::PrivilegeMode MODE,
+    typename COORD_T = Legion::coord_t,
+    typename A = Legion::AffineAccessor<
+      DataType<HYPERION_TYPE_INT>::ValueType,
+      INDEX_RANK,
+      COORD_T>,
+    bool CHECK_BOUNDS = false>
+  class MeasAccessorBase {
+  public:
+    MeasAccessorBase(
+      const PhysicalColumnTMD<DT, MC, INDEX_RANK, COLUMN_RANK, MV_SIZE>* col,
+      const char* units)
+      : m_units(units)
+      , m_value(col->accessor<MODE, COORD_T, A, CHECK_BOUNDS>())
+      , m_meas_ref(col->meas_ref_accessor<MODE, COORD_T, A, CHECK_BOUNDS>())
+      {}
+
+  protected:
+    const char* m_units;
+
+    Legion::FieldAccessor<
+      MODE,
+      typename DataType<DT>::ValueType,
+      COLUMN_RANK,
+      COORD_T,
+      A,
+      CHECK_BOUNDS> m_value;
+
+    MeasRefAccessor<MODE, COORD_T, A, CHECK_BOUNDS> m_meas_ref;
+  };
+
+  template <
+    Legion::PrivilegeMode MODE,
+    typename COORD_T,
+    typename A,
+    bool CHECK_BOUNDS>
+  class MeasAccessor
+    : public MeasWriterMixin<
+        MeasAccessorBase<MODE, COORD_T, A, CHECK_BOUNDS>,
+        DT,
+        MC,
+        INDEX_RANK,
+        COLUMN_RANK,
+        MClassT<MC>::m_rank,
+        MV_SIZE,
+        COORD_T> {
+    typedef MeasWriterMixin<
+      MeasAccessorBase<MODE, COORD_T, A, CHECK_BOUNDS>,
+      DT,
+      MC,
+      INDEX_RANK,
+      COLUMN_RANK,
+      MClassT<MC>::m_rank,
+      MV_SIZE,
+      COORD_T> T;
+  public:
+    using T::T;
+  };
+
+  template <typename COORD_T, typename A, bool CHECK_BOUNDS>
+  class MeasAccessor<READ_ONLY, COORD_T, A, CHECK_BOUNDS>
+    : public MeasReaderMixin<
+        MeasAccessorBase<READ_ONLY, COORD_T, A, CHECK_BOUNDS>,
+        DT,
+        MC,
+        INDEX_RANK,
+        COLUMN_RANK,
+        MClassT<MC>::m_rank,
+        MV_SIZE,
+        COORD_T> {
+    typedef MeasReaderMixin<
+      MeasAccessorBase<READ_ONLY, COORD_T, A, CHECK_BOUNDS>,
+      DT,
+      MC,
+      INDEX_RANK,
+      COLUMN_RANK,
+      MClassT<MC>::m_rank,
+      MV_SIZE,
+      COORD_T> T;
+  public:
+    using T::T;
+  };
+
+  template <typename COORD_T, typename A, bool CHECK_BOUNDS>
+  class MeasAccessor<READ_WRITE, COORD_T, A, CHECK_BOUNDS>
+    : public MeasReaderMixin<
+        MeasWriterMixin<
+          MeasAccessorBase<READ_WRITE, COORD_T, A, CHECK_BOUNDS>,
+          DT,
+          MC,
+          INDEX_RANK,
+          COLUMN_RANK,
+          MClassT<MC>::m_rank,
+          MV_SIZE,
+          COORD_T>,
+        DT,
+        MC,
+        INDEX_RANK,
+        COLUMN_RANK,
+        MClassT<MC>::m_rank,
+        MV_SIZE,
+        COORD_T> {
+    typedef MeasReaderMixin<
+      MeasWriterMixin<
+        MeasAccessorBase<READ_WRITE, COORD_T, A, CHECK_BOUNDS>,
+        DT,
+        MC,
+        INDEX_RANK,
+        COLUMN_RANK,
+        MClassT<MC>::m_rank,
+        MV_SIZE,
+        COORD_T>,
+      DT,
+      MC,
+      INDEX_RANK,
+      COLUMN_RANK,
+      MClassT<MC>::m_rank,
+      MV_SIZE,
+      COORD_T> T;
+  public:
+    using T::T;
+  };
+
+  template <
+    Legion::PrivilegeMode MODE,
+    typename COORD_T = Legion::coord_t,
+    typename A = Legion::AffineAccessor<
+      DataType<HYPERION_TYPE_INT>::ValueType,
+      INDEX_RANK,
+      COORD_T>,
+    bool CHECK_BOUNDS = false>
+  MeasAccessor<MODE, COORD_T, A, CHECK_BOUNDS>
+  meas_accessor(const char* units) const {
+    return MeasAccessor<MODE, COORD_T, A, CHECK_BOUNDS>(this, units);
+  }
+};
+
+#endif // HYPERION_USE_CASACORE
 
 } // end namespace hyperion
 
