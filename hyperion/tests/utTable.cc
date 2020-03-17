@@ -20,6 +20,7 @@
 #include <hyperion/tree_index_space.h>
 #include <hyperion/Table.h>
 #include <hyperion/ColumnSpacePartition.h>
+#include <hyperion/PhysicalTable.h>
 
 // #ifdef HYPERION_USE_CASACORE
 // # include <hyperion/MeasRefContainer.h>
@@ -36,6 +37,7 @@ using namespace Legion;
 
 enum {
   TABLE_TEST_SUITE,
+  CREATE_PHYSICAL_TABLE_TASK
 };
 
 enum struct Table0Axes {
@@ -244,6 +246,24 @@ verify_w(
 // #endif // HYPERION_USE_CASACORE
 
 void
+create_physical_table_task(
+  const Task* task,
+  const std::vector<PhysicalRegion>& regions,
+  Context,
+  Runtime* rt) {
+
+  auto [pt, rit, pit] =
+    PhysicalTable::create(
+      rt,
+      task->regions.begin(),
+      task->regions.end(),
+      regions.begin(),
+      regions.end()).value();
+  assert(rit == task->regions.end());
+  assert(pit == regions.end());
+}
+
+void
 table_test_suite(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
@@ -379,6 +399,13 @@ table_test_suite(
       std::string cstr(c);
       col_prs[cstr] =
         attach_table0_col(ctx, rt, cols.at(cstr), col_arrays.at(cstr));
+    }
+    {
+      auto [reqs, parts] = table0.requirements(ctx, rt);
+      TaskLauncher task(CREATE_PHYSICAL_TABLE_TASK, TaskArgument(NULL, 0));
+      for (auto& r : reqs)
+        task.add_region_requirement(r);
+      rt->execute_task(ctx, task);
     }
 
     for (auto& c : {"X", "Y", "Z"}) {
@@ -609,6 +636,17 @@ int
 main(int argc, char* argv[]) {
 
   AxesRegistrar::register_axes<Table0Axes>();
+
+  {
+    TaskVariantRegistrar
+      registrar(CREATE_PHYSICAL_TABLE_TASK, "create_physical_table_task");
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_idempotent();
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<create_physical_table_task>(
+      registrar,
+      "create_physical_table_task");
+  }
 
   testing::TestSuiteDriver driver =
     testing::TestSuiteDriver::make<table_test_suite>(
