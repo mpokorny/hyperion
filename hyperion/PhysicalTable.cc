@@ -106,9 +106,8 @@ PhysicalTable::create(
         if (reqs == reqs_end || prs == prs_end)
           return result;
         auto& cs = std::get<1>(fid_cs);
-        for (auto& fid : reqs->privilege_fields) {
+        for (auto& fid : reqs->privilege_fields)
           value_regions[{fid, cs}] = {reqs->region, *prs};
-        }
         ++reqs;
         ++prs;
       }
@@ -169,7 +168,7 @@ PhysicalTable::create(
   for (auto& [nm, pc] : columns) {
     if (refcols.count(nm) > 0) {
       auto& rc = refcols[nm];
-      pc.update_refcol(rt, columns.at(rc));
+      pc.update_refcol(rt, std::make_tuple(rc, columns.at(rc)));
     }
   }
 #endif

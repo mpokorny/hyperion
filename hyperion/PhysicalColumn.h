@@ -62,7 +62,7 @@ public:
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
     , const std::optional<MeasRef::DataRegions>& mr_drs
-    , const std::optional<PhysicalColumn>& refcol
+    , const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol
 #endif // HYPERION_USE_CASACORE
     )
     : m_dt(dt)
@@ -105,7 +105,7 @@ public:
   void
   update_refcol(
     Legion::Runtime* rt,
-    const std::optional<PhysicalColumn>& refcol);
+    const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol);
 #endif
 
 protected:
@@ -132,6 +132,8 @@ protected:
 
 #ifdef HYPERION_USE_CASACORE
   std::optional<MeasRef::DataRegions> m_mr_drs;
+
+  std::optional<std::string> m_refcol_name;
 
   std::optional<mrb_t> m_mrb;
 #endif // HYPERION_USE_CASACORE

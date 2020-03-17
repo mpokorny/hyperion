@@ -30,20 +30,24 @@ PhysicalColumn::kw(const std::string& key) const {
 void
 PhysicalColumn::update_refcol(
   Runtime* rt,
-  const std::optional<PhysicalColumn>& refcol) {
+  const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol) {
+
   if (m_mr_drs) {
     auto [mrb, rmap] = MeasRef::make(rt, m_mr_drs.value());
     std::vector<std::shared_ptr<casacore::MRBase>> smrb;
     std::move(mrb.begin(), mrb.end(), std::back_inserter(smrb));
     if (refcol) {
+      auto& [nm, pc] = refcol.value();
       m_mrb =
         std::make_tuple(
           std::move(smrb),
           rmap,
-          refcol.value().m_values.value(),
-          refcol.value().m_fid);
+          pc.m_values.value(),
+          pc.m_fid);
+      m_refcol_name = nm;
     } else {
       m_mrb = smrb[0];
+      m_refcol_name.reset();
     }
   }
 }
