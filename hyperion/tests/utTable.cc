@@ -31,9 +31,11 @@
 using namespace hyperion;
 using namespace Legion;
 
+using namespace std::string_literals;
+
 enum {
   TABLE_TEST_SUITE,
-  CREATE_PHYSICAL_TABLE_TASK
+  VERIFY_TABLE_COLUMNS_TASK
 };
 
 enum struct Table0Axes {
@@ -144,6 +146,13 @@ unsigned table0_z[TABLE0_NUM_ROWS] {
 #define TABLE0_NUM_W_COLS std::max(TABLE0_ROWS0_NUM_W, TABLE0_ROWS1_NUM_W)
 unsigned table0_w[TABLE0_NUM_ROWS * TABLE0_NUM_W_COLS];
 
+std::unordered_map<std::string, unsigned*> col_arrays{
+  {"W", table0_w},
+  {"X", table0_x},
+  {"Y", table0_y},
+  {"Z", table0_z}
+};
+
 PhysicalRegion
 attach_table0_col(
   Context context,
@@ -168,69 +177,195 @@ attach_table0_col(
 
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 
-template <typename T, int DIM>
-using ROAccessor =
-  FieldAccessor<
-  READ_ONLY,
-  T,
-  DIM,
-  coord_t,
-  AffineAccessor<T, DIM, coord_t>,
-  true>;
-
 bool
 verify_xyz(
-  Context ctx,
-  Runtime *rt,
-  const Column& col,
-  IndexSpace& is,
-  PhysicalRegion pr,
+  const PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 1, Legion::AffineAccessor>& col,
   unsigned *ary) {
 
   bool result = true;
-  const ROAccessor<unsigned, 1> vals(pr, col.fid);
-  for (PointInDomainIterator<1> pid(rt->get_index_space_domain(is));
-       pid() && result;
-       pid++)
+  auto vals = col.accessor<READ_ONLY, true>();
+  for (PointInDomainIterator<1> pid(col.domain()); pid() && result; pid++)
     result = ary[pid[0]] == vals[*pid];
   return result;
 }
 
 bool
 verify_w(
-  Context ctx,
-  Runtime *rt,
-  const Column& col,
-  IndexSpace& is,
-  PhysicalRegion pr,
+  const PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, Legion::AffineAccessor>& col,
   unsigned *ary) {
 
   bool result = true;
-  const ROAccessor<unsigned, 2> vals(pr, col.fid);
-  for (PointInDomainIterator<2> pid(rt->get_index_space_domain(is));
-       pid() && result;
-       pid++) {
+  auto vals = col.accessor<READ_ONLY, true>();
+  for (PointInDomainIterator<2> pid(col.domain()); pid() && result; pid++)
     result = ary[TABLE0_NUM_W_COLS * pid[0] + pid[1]] == vals[*pid];
-  }
   return result;
 }
 
 void
-create_physical_table_task(
+verify_table_columns_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
-  Context,
+  Context ctx,
   Runtime* rt) {
+
+  testing::TestRecorder<READ_WRITE> recorder(
+    testing::TestLog<READ_WRITE>(
+      task->regions[0].region,
+      regions[0],
+      task->regions[1].region,
+      regions[1],
+      ctx,
+      rt));
 
   auto [pt, rit, pit] =
     PhysicalTable::create(
       rt,
-      task->regions.begin(),
+      task->regions.begin() + 2,
       task->regions.end(),
-      regions.begin(),
+      regions.begin() + 2,
       regions.end()).value();
   assert(rit == task->regions.end());
   assert(pit == regions.end());
+
+  for (auto& cn : {"X"s, "Y"s, "Z"s}) {
+    auto opc = pt.column(cn);
+    recorder.assert_true(
+      "Column '" + cn + "' exists in mapped Table",
+      TE(opc.has_value()));
+    recorder.expect_true(
+      "Column '" + cn + "' has expected values",
+      TE(verify_xyz(*opc.value(), col_arrays.at(cn))));
+  }
+  {
+    auto opc = pt.column("W");
+    recorder.assert_true(
+      "Column 'W' exists in mapped Table",
+      TE(opc.has_value()));
+    recorder.expect_true(
+      "Column 'W' has expected values",
+      TE(verify_w(*opc.value(), col_arrays.at("W"))));
+  }
+
+  // {
+  //   constexpr unsigned NUM_PARTS = 3;
+  //   constexpr unsigned BLOCK_SZ = TABLE0_NUM_ROWS / NUM_PARTS;
+  //   auto xyz_part =
+  //     ColumnSpacePartition::create(
+  //       ctx,
+  //       rt,
+  //       xyz_space,
+  //       std::vector<std::pair<Table0Axes,coord_t>>{
+  //         {Table0Axes::ROW, BLOCK_SZ}})
+  //     .get<ColumnSpacePartition>();
+  //   auto w_part =
+  //     xyz_part.project_onto(ctx, rt, w_space)
+  //     .get<ColumnSpacePartition>();
+
+  //   for (unsigned p = 0; p < NUM_PARTS; ++p) {
+  //     {
+  //       auto xyz_p_is = rt->get_index_subspace(xyz_part.column_ip, p);
+  //       recorder.expect_true(
+  //         "Row partition " + std::to_string(p) + " has expected row numbers",
+  //         testing::TestEval(
+  //           [&xyz_p_is, p, rt]() {
+  //             bool result = true;
+  //             for (PointInDomainIterator<1> pid(
+  //                    rt->get_index_space_domain(xyz_p_is));
+  //                  result && pid();
+  //                  pid++) {
+  //               result = pid[0] / BLOCK_SZ == p;
+  //             }
+  //             return result;
+  //           }));
+  //       for (auto& c : {"X", "Y", "Z"}) {
+  //         std::string cstr(c);
+  //         auto col = cols.at(cstr);
+  //         auto pr = col_prs.at(cstr);
+  //         recorder.expect_true(
+  //           "Column '" + cstr + "' has expected values in row partition "
+  //           + std::to_string(p),
+  //           TE(verify_xyz(ctx, rt, col, xyz_p_is, pr, col_arrays.at(cstr))));
+  //       }
+  //     }
+  //     {
+  //       auto w_p_is = rt->get_index_subspace(w_part.column_ip, p);
+  //       recorder.expect_true(
+  //         "Projected row partition " + std::to_string(p)
+  //         + " has expected row numbers",
+  //         testing::TestEval(
+  //           [&w_p_is, p, rt]() {
+  //             bool result = true;
+  //             for (PointInDomainIterator<2> pid(
+  //                    rt->get_index_space_domain(w_p_is));
+  //                  result && pid();
+  //                  pid++)
+  //               result = pid[0] / BLOCK_SZ == p;
+  //             return result;
+  //           }));
+  //       auto col = cols.at("W");
+  //       auto pr = col_prs.at("W");
+  //       recorder.expect_true(
+  //         "Column 'W' has expected values in row partition "
+  //         + std::to_string(p),
+  //         TE(verify_w(ctx, rt, col, w_p_is, pr, col_arrays.at("W"))));
+  //     }
+  //   }
+  //   xyz_part.destroy(ctx, rt);
+  //   w_part.destroy(ctx, rt);
+  // }
+  // {
+  //   constexpr unsigned BLOCK_SZ = 2;
+  //   constexpr unsigned NUM_PARTS =
+  //     (TABLE0_NUM_W_COLS + (BLOCK_SZ - 1)) / BLOCK_SZ;
+  //   auto w_part =
+  //     ColumnSpacePartition::create(
+  //       ctx,
+  //       rt,
+  //       w_space,
+  //       std::vector<std::pair<Table0Axes,coord_t>>{
+  //         {Table0Axes::W, BLOCK_SZ}})
+  //     .get<ColumnSpacePartition>();
+  //   auto xyz_part =
+  //     w_part.project_onto(ctx, rt, xyz_space)
+  //     .get<ColumnSpacePartition>();
+  //   for (unsigned p = 0; p < NUM_PARTS; ++p) {
+  //     {
+  //       auto w_p_is = rt->get_index_subspace(w_part.column_ip, p);
+  //       recorder.expect_true(
+  //         "w-axis partition " + std::to_string(p)
+  //         + " has expected index values",
+  //         testing::TestEval(
+  //           [&w_p_is, p, rt]() {
+  //             bool result = true;
+  //             for (PointInDomainIterator<2> pid(
+  //                    rt->get_index_space_domain(w_p_is));
+  //                  result && pid();
+  //                  pid++)
+  //               result = pid[1] / BLOCK_SZ == p;
+  //             return result;
+  //           }));
+  //     }
+  //     {
+  //       auto xyz_p_is = rt->get_index_subspace(xyz_part.column_ip, p);
+  //       recorder.expect_true(
+  //         "Projected w-axis partition " + std::to_string(p)
+  //         + " has expected index values",
+  //         testing::TestEval(
+  //           [&xyz_p_is, p, rt]() {
+  //             std::vector<coord_t> rows(TABLE0_NUM_ROWS);
+  //             std::iota(rows.begin(), rows.end(), 0);
+  //             auto rows_end = rows.end();
+  //             for (PointInDomainIterator<1> pid(
+  //                    rt->get_index_space_domain(xyz_p_is));
+  //                  pid();
+  //                  pid++)
+  //               rows_end = std::remove(rows.begin(), rows_end, pid[0]);
+  //             rows.erase(rows_end, rows.end());
+  //             return rows.size() == 0;
+  //           }));
+  //     }
+  //   }
+  // }
 }
 
 void
@@ -282,32 +417,31 @@ table_test_suite(
       false);
 
 #ifdef HYPERION_USE_CASACORE
-//   casacore::MeasRef<casacore::MEpoch> tai(casacore::MEpoch::TAI);
-//   casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
-//   auto table0_epoch = MeasRef::create(ctx, rt, tai);
-
-//   casacore::MeasRef<casacore::MDirection>
-//     direction(casacore::MDirection::J2000);
-//   casacore::MeasRef<casacore::MFrequency>
-//     frequency(casacore::MFrequency::GEO);
-//   std::unordered_map<std::string, std::unordered_map<std::string, MeasRef>>
-//     col_measures{
-//     {"X", {{"DIRECTION", MeasRef::create(ctx, rt, direction)}}},
-//     {"Y", {}},
-//     {"Z", {{"EPOCH", MeasRef::create(ctx, rt, utc)}}}
-//   };
-//   std::vector<Column::Generator> column_generators{
-//     table0_col("X", col_measures["X"], "DIRECTION"),
-//     table0_col("Y", col_measures["Y"]),
-//     table0_col("Z", col_measures["Z"], "EPOCH")
-//   };
+  casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
+  casacore::MeasRef<casacore::MDirection>
+    direction(casacore::MDirection::J2000);
   std::vector<std::pair<std::string, TableField>> xyz_fields{
     {"X",
-     TableField(HYPERION_TYPE_UINT, COL_X, MeasRef(), std::nullopt, Keywords())},
+     TableField(
+       HYPERION_TYPE_UINT,
+       COL_X,
+       MeasRef::create(ctx, rt, direction),
+       std::nullopt,
+       Keywords())},
     {"Y",
-     TableField(HYPERION_TYPE_UINT, COL_Y, MeasRef(), std::nullopt, Keywords())},
+     TableField(
+       HYPERION_TYPE_UINT,
+       COL_Y,
+       MeasRef(),
+       std::nullopt,
+       Keywords())},
     {"Z",
-     TableField(HYPERION_TYPE_UINT, COL_Z, MeasRef(), std::nullopt, Keywords())}
+     TableField(
+       HYPERION_TYPE_UINT,
+       COL_Z,
+       MeasRef::create(ctx, rt, utc),
+       std::nullopt,
+       Keywords())}
   };
   std::vector<std::pair<std::string, TableField>> w_fields{
     {"W",
@@ -357,180 +491,33 @@ table_test_suite(
     auto cols =
       Table::column_map(
         table0.columns(ctx, rt).get<Table::columns_result_t>());
-    std::unordered_map<std::string, unsigned*> col_arrays{
-      {"W", table0_w},
-      {"X", table0_x},
-      {"Y", table0_y},
-      {"Z", table0_z}
-    };
 
     std::unordered_map<std::string, PhysicalRegion> col_prs;
-    for (auto& c : {"W", "X", "Y", "Z"}) {
-      std::string cstr(c);
-      col_prs[cstr] =
-        attach_table0_col(ctx, rt, cols.at(cstr), col_arrays.at(cstr));
-    }
+    for (auto& c : {"W"s, "X"s, "Y"s, "Z"s})
+      col_prs[c] = attach_table0_col(ctx, rt, cols.at(c), col_arrays.at(c));
     {
-      auto [reqs, parts] = table0.requirements(ctx, rt);
-      TaskLauncher task(CREATE_PHYSICAL_TABLE_TASK, TaskArgument(NULL, 0));
+      auto [reqs, parts] =
+        table0.requirements(ctx, rt);
+      TaskLauncher pttask(VERIFY_TABLE_COLUMNS_TASK, TaskArgument(NULL, 0));
+      pttask.add_region_requirement(task->regions[0]);
+      pttask.add_region_requirement(task->regions[1]);
       for (auto& r : reqs)
-        task.add_region_requirement(r);
-      rt->execute_task(ctx, task);
+        pttask.add_region_requirement(r);
+      rt->unmap_all_regions(ctx);
+      rt->execute_task(ctx, pttask);
     }
-
-    for (auto& c : {"X", "Y", "Z"}) {
-      std::string cstr(c);
-      auto col = cols.at(cstr);
-      auto pr = col_prs.at(cstr);
-      recorder.expect_true(
-        "Column '" + cstr + "' has expected values",
-        TE(verify_xyz(
-             ctx,
-             rt,
-             col,
-             col.csp.column_is,
-             pr,
-             col_arrays.at(cstr))));
-    }
-
-    {
-      auto col = cols.at("W");
-      auto pr = col_prs.at("W");
-      recorder.expect_true(
-        "Column 'W' has expected values",
-        TE(verify_w(ctx, rt, col, col.csp.column_is, pr, col_arrays.at("W"))));
-    }
-
-    {
-      constexpr unsigned NUM_PARTS = 3;
-      constexpr unsigned BLOCK_SZ = TABLE0_NUM_ROWS / NUM_PARTS;
-      auto xyz_part =
-        ColumnSpacePartition::create(
-          ctx,
-          rt,
-          xyz_space,
-          std::vector<std::pair<Table0Axes,coord_t>>{
-            {Table0Axes::ROW, BLOCK_SZ}})
-        .get<ColumnSpacePartition>();
-      auto w_part =
-        xyz_part.project_onto(ctx, rt, w_space)
-        .get<ColumnSpacePartition>();
-
-      for (unsigned p = 0; p < NUM_PARTS; ++p) {
-        {
-          auto xyz_p_is = rt->get_index_subspace(xyz_part.column_ip, p);
-          recorder.expect_true(
-            "Row partition " + std::to_string(p) + " has expected row numbers",
-            testing::TestEval(
-              [&xyz_p_is, p, rt]() {
-                bool result = true;
-                for (PointInDomainIterator<1> pid(
-                       rt->get_index_space_domain(xyz_p_is));
-                     result && pid();
-                     pid++) {
-                  result = pid[0] / BLOCK_SZ == p;
-                }
-                return result;
-              }));
-          for (auto& c : {"X", "Y", "Z"}) {
-            std::string cstr(c);
-            auto col = cols.at(cstr);
-            auto pr = col_prs.at(cstr);
-            recorder.expect_true(
-              "Column '" + cstr + "' has expected values in row partition "
-              + std::to_string(p),
-              TE(verify_xyz(ctx, rt, col, xyz_p_is, pr, col_arrays.at(cstr))));
-          }
-        }
-        {
-          auto w_p_is = rt->get_index_subspace(w_part.column_ip, p);
-          recorder.expect_true(
-            "Projected row partition " + std::to_string(p)
-            + " has expected row numbers",
-            testing::TestEval(
-              [&w_p_is, p, rt]() {
-                bool result = true;
-                for (PointInDomainIterator<2> pid(
-                       rt->get_index_space_domain(w_p_is));
-                     result && pid();
-                     pid++)
-                  result = pid[0] / BLOCK_SZ == p;
-                return result;
-              }));
-          auto col = cols.at("W");
-          auto pr = col_prs.at("W");
-          recorder.expect_true(
-            "Column 'W' has expected values in row partition "
-            + std::to_string(p),
-            TE(verify_w(ctx, rt, col, w_p_is, pr, col_arrays.at("W"))));
-        }
-      }
-      xyz_part.destroy(ctx, rt);
-      w_part.destroy(ctx, rt);
-    }
-    {
-      constexpr unsigned BLOCK_SZ = 2;
-      constexpr unsigned NUM_PARTS =
-        (TABLE0_NUM_W_COLS + (BLOCK_SZ - 1)) / BLOCK_SZ;
-      auto w_part =
-        ColumnSpacePartition::create(
-          ctx,
-          rt,
-          w_space,
-          std::vector<std::pair<Table0Axes,coord_t>>{
-            {Table0Axes::W, BLOCK_SZ}})
-        .get<ColumnSpacePartition>();
-      auto xyz_part =
-        w_part.project_onto(ctx, rt, xyz_space)
-        .get<ColumnSpacePartition>();
-      for (unsigned p = 0; p < NUM_PARTS; ++p) {
-        {
-          auto w_p_is = rt->get_index_subspace(w_part.column_ip, p);
-          recorder.expect_true(
-            "w-axis partition " + std::to_string(p)
-            + " has expected index values",
-            testing::TestEval(
-              [&w_p_is, p, rt]() {
-                bool result = true;
-                for (PointInDomainIterator<2> pid(
-                       rt->get_index_space_domain(w_p_is));
-                     result && pid();
-                     pid++)
-                  result = pid[1] / BLOCK_SZ == p;
-                return result;
-              }));
-        }
-        {
-          auto xyz_p_is = rt->get_index_subspace(xyz_part.column_ip, p);
-          recorder.expect_true(
-            "Projected w-axis partition " + std::to_string(p)
-            + " has expected index values",
-            testing::TestEval(
-              [&xyz_p_is, p, rt]() {
-                std::vector<coord_t> rows(TABLE0_NUM_ROWS);
-                std::iota(rows.begin(), rows.end(), 0);
-                auto rows_end = rows.end();
-                for (PointInDomainIterator<1> pid(
-                       rt->get_index_space_domain(xyz_p_is));
-                     pid();
-                     pid++)
-                  rows_end = std::remove(rows.begin(), rows_end, pid[0]);
-                rows.erase(rows_end, rows.end());
-                return rows.size() == 0;
-              }));
-        }
-      }
-    }
-
-    for (auto& c : {"W", "X", "Y", "Z"}) {
-      auto col = cols.at(c);
+    for (auto& c : {"W"s, "X"s, "Y"s, "Z"s}) {
       auto pr = col_prs.at(c);
       ReleaseLauncher rel(pr.get_logical_region(), pr.get_logical_region(), pr);
-      rel.add_field(col.fid);
+      rel.add_field(cols.at(c).fid);
       rt->issue_release(ctx, rel);
-      rt->unmap_region(ctx, pr);
+      rt->detach_external_resource(ctx, pr);
     }
   }
+
+  // do tests of column removal and addition in this task, since field additions
+  // and removals must be lexically scoped, and this task is where we initially
+  // added the columns we're about to remove
   {
     auto rm = table0.remove_columns(ctx, rt, {"W"}, false);
     recorder.expect_true(
@@ -581,6 +568,9 @@ table_test_suite(
   }
   xyz_fields.erase(xyz_fields.begin() + 1);
   {
+    // don't reuse MeasRef, as they were destroyed when removing the columns
+    for (auto& [nm, tf] : xyz_fields)
+      tf.mr = MeasRef();
     auto add = table0.add_columns(ctx, rt, {{xyz_space, true, xyz_fields}});
     recorder.expect_true(
       "Call to add 'X' and 'Z' returned TRUE",
@@ -609,13 +599,13 @@ main(int argc, char* argv[]) {
 
   {
     TaskVariantRegistrar
-      registrar(CREATE_PHYSICAL_TABLE_TASK, "create_physical_table_task");
+      registrar(VERIFY_TABLE_COLUMNS_TASK, "verify_table_columns_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
     registrar.set_leaf();
-    Runtime::preregister_task_variant<create_physical_table_task>(
+    Runtime::preregister_task_variant<verify_table_columns_task>(
       registrar,
-      "create_physical_table_task");
+      "verify_table_columns_task");
   }
 
   testing::TestSuiteDriver driver =
