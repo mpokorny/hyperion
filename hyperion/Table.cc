@@ -501,10 +501,14 @@ Table::index_column_space(
     vfs(fields_pr, static_cast<FieldID>(TableFieldsFid::VF));
   for (PointInDomainIterator<1> pid(
          rt->get_index_space_domain(fields_parent.get_index_space()));
-       pid() && !result && !css[*pid].is_empty();
-       pid++)
-    if (vfs[*pid] == no_column)
-      result = css[*pid];
+       pid() && !result;
+       pid++) {
+    auto css_pid = css.read(*pid);
+    if (css_pid.is_empty())
+      break;
+    if (vfs.read(*pid) == no_column)
+      result = css_pid;
+  }
   return result;
 }
 
@@ -634,23 +638,29 @@ Table::requirements(
     mrc_modes;
 #endif
   for (PointInDomainIterator<1> pid(tdom);
-       pid() && !css[*pid].is_empty();
+       pid();
        pid++) {
-    if (vfs[*pid] == no_column
-        || column_modes.count(nms[*pid]) == 0
-        || column_modes.at(nms[*pid])) {
-      assert((vfs[*pid] == no_column) == (nms[*pid].size() == 0));
+    auto css_pid = css.read(*pid);
+    if (css_pid.is_empty())
+      break;
+    auto vfs_pid = vfs.read(*pid);
+    auto nms_pid = nms.read(*pid);
+    if (vfs_pid == no_column
+        || column_modes.count(nms_pid) == 0
+        || column_modes.at(nms_pid)) {
+      assert((vfs_pid == no_column) == (nms_pid.size() == 0));
       bool mapped = columns_mapped;
       PrivilegeMode privilege = columns_privilege;
       CoherenceProperty coherence = columns_coherence;
-      if (vfs[*pid] != no_column && column_modes.count(nms[*pid]) > 0)
+      if (vfs_pid != no_column && column_modes.count(nms_pid) > 0)
         std::tie(mapped, privilege, coherence) =
-          column_modes.at(nms[*pid]).value();
-      column_regions[nms[*pid]] =
-        {css[*pid].metadata_lr, vss[*pid], mapped, privilege, coherence};
+          column_modes.at(nms_pid).value();
+      column_regions[nms_pid] =
+        {css_pid.metadata_lr, vss.read(*pid), mapped, privilege, coherence};
 #ifdef HYPERION_USE_CASACORE
-      if (rcs[*pid].size() > 0)
-        mrc_modes[rcs[*pid]] = {mapped, privilege, coherence};
+      auto rcs_pid = rcs.read(*pid);
+      if (rcs_pid.size() > 0)
+        mrc_modes[rcs_pid] = {mapped, privilege, coherence};
 #endif
       sel_flags[*pid] = 1;
       some_cols_selected = true;
@@ -678,10 +688,14 @@ Table::requirements(
     std::tuple<LogicalRegion, PrivilegeMode, CoherenceProperty>,
     std::tuple<bool, RegionRequirement>> val_reqs;
   for (PointInDomainIterator<1> pid(tdom);
-       pid() && !css[*pid].is_empty();
+       pid();
        pid++) {
-    if (column_regions.count(nms[*pid]) > 0) {
-      auto& rg = column_regions.at(nms[*pid]);
+    auto css_pid = css.read(*pid);
+    if (css_pid.is_empty())
+      break;
+    auto nms_pid = nms.read(*pid);
+    if (column_regions.count(nms_pid) > 0) {
+      auto& rg = column_regions.at(nms_pid);
       auto& [mdlr, vlr, m, p, c] = rg;
       if (md_reqs.count(mdlr) == 0) {
         RegionRequirement req(
@@ -697,31 +711,32 @@ Table::requirements(
           mdlr);
         md_reqs[mdlr] = {false, req};
       }
-      if (vfs[*pid] != no_column) {
+      auto vfs_pid = vfs.read(*pid);
+      if (vfs_pid != no_column) {
         decltype(val_reqs)::key_type rg_rq = {vlr, p, c};
         if (val_reqs.count(rg_rq) == 0) {
           LogicalRegion parent = vlr;
-          if (column_parents.count(nms[*pid]) > 0)
-            parent = column_parents.at(nms[*pid]);
+          if (column_parents.count(nms_pid) > 0)
+            parent = column_parents.at(nms_pid);
           if (!table_partition.is_valid()) {
             val_reqs[rg_rq] = {false, RegionRequirement(vlr, p, c, parent)};
           } else {
             LogicalPartition lp;
-            if (partitions.count(css[*pid]) == 0) {
+            if (partitions.count(css_pid) == 0) {
               auto csp =
-                table_partition.project_onto(ctx, rt, css[*pid])
+                table_partition.project_onto(ctx, rt, css_pid)
                 .get_result<ColumnSpacePartition>();
               LogicalPartition lp =
                 rt->get_logical_partition(ctx, vlr, csp.column_ip);
               csp.destroy(ctx, rt);
-              partitions[css[*pid]] = lp;
+              partitions[css_pid] = lp;
             } else {
-              lp = partitions[css[*pid]];
+              lp = partitions[css_pid];
             }
             val_reqs[rg_rq] = {false, RegionRequirement(lp, 0, p, c, parent)};
           }
         }
-        std::get<1>(val_reqs[rg_rq]).add_field(vfs[*pid], m);
+        std::get<1>(val_reqs[rg_rq]).add_field(vfs_pid, m);
       }
     }
   }
@@ -767,11 +782,12 @@ Table::requirements(
   }
 
   // add requirements for all logical regions in all selected columns
-  for (PointInDomainIterator<1> pid(tdom);
-       pid() && !css[*pid].is_empty();
-       pid++) {
-    if (column_regions.count(nms[*pid]) > 0) {
-      auto& rg = column_regions.at(nms[*pid]);
+  for (PointInDomainIterator<1> pid(tdom); pid(); pid++) {
+    if (css.read(*pid).is_empty())
+      break;
+    auto nms_pid = nms.read(*pid);
+    if (column_regions.count(nms_pid) > 0) {
+      auto& rg = column_regions.at(nms_pid);
       auto& [mdlr, vlr, m, p, c] = rg;
       {
         auto& [added, req] = md_reqs.at(mdlr);
@@ -788,18 +804,20 @@ Table::requirements(
           added = true;
         }
       }
-      auto nkw = kws[*pid].size(rt);
+      auto kws_pid = kws.read(*pid);
+      auto nkw = kws_pid.size(rt);
       if (nkw > 0) {
         std::vector<FieldID> fids(nkw);
         std::iota(fids.begin(), fids.end(), 0);
-        auto rqs = kws[*pid].requirements(rt, fids, p).value();
+        auto rqs = kws_pid.requirements(rt, fids, p).value();
         reqs_result.push_back(rqs.type_tags);
         reqs_result.push_back(rqs.values);
       }
 
 #ifdef HYPERION_USE_CASACORE
-      if (!mrs[*pid].is_empty()) {
-        auto [mrq, vrq, oirq] = mrs[*pid].requirements(p);
+      auto mrs_pid = mrs.read(*pid);
+      if (!mrs_pid.is_empty()) {
+        auto [mrq, vrq, oirq] = mrs_pid.requirements(p);
         reqs_result.push_back(mrq);
         reqs_result.push_back(vrq);
         if (oirq)
@@ -930,10 +948,14 @@ Table::is_conformant(
     css(fields_pr, static_cast<FieldID>(TableFieldsFid::CS));
   for (PointInDomainIterator<1> pid(
          rt->get_index_space_domain(fields_parent.get_index_space()));
-       pid() && !css[*pid].is_empty();
-       pid++)
-    if (css[*pid] == cs)
+       pid();
+       pid++) {
+    auto css_pid = css.read(*pid);
+    if (css_pid.is_empty())
+      break;
+    if (css_pid == cs)
       return true;
+  }
 
   auto& [index_cs_is, index_cs_md_pr] = index_cs.value();
   const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
@@ -1310,23 +1332,26 @@ Table::add_columns(
 
   std::map<ColumnSpace, LogicalRegion> csp_vlrs;
 
-  PointInDomainIterator<1> fields_pid(
+  PointInDomainIterator<1> pid(
     rt->get_index_space_domain(fields_parent.get_index_space()));
 
   {
     size_t num_csp = 0;
     // gather up all ColumnSpaces
-    while (fields_pid() && css[*fields_pid] != empty_cs) {
-      if (csp_vlrs.count(css[*fields_pid]) == 0) {
-        csp_vlrs[css[*fields_pid]] = vss[*fields_pid];
+    while (pid()) {
+      auto css_pid = css.read(*pid);
+      if (css_pid == empty_cs)
+        break;
+      if (csp_vlrs.count(css_pid) == 0) {
+        csp_vlrs[css_pid] = vss.read(*pid);
         ++num_csp;
       }
-      fields_pid++;
+      pid++;
     }
   }
-  if (!fields_pid()) {
+  if (!pid()) {
     // FIXME: log error: cannot add further columns to Table
-    assert(fields_pid());
+    assert(pid());
   }
 
   for (auto& [csp, ixcs, idx, nm_tfs] : new_columns) {
@@ -1353,7 +1378,7 @@ Table::add_columns(
     rt->get_field_space_fields(fs, fids);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     for (auto& [nm, tf] : nm_tfs) {
-      assert(fields_pid());
+      assert(pid());
       assert(fids.count(tf.fid) == 0);
       switch(tf.dt) {
 #define ALLOC_FLD(DT)                                           \
@@ -1366,35 +1391,35 @@ Table::add_columns(
           assert(false);
         break;
       }
-      assert(fields_pid());
-      nms[*fields_pid] = nm;
-      dts[*fields_pid] = tf.dt;
-      kws[*fields_pid] = tf.kw;
+      assert(pid());
+      nms.write(*pid, nm);
+      dts.write(*pid, tf.dt);
+      kws.write(*pid, tf.kw);
 #ifdef HYPERION_USE_CASACORE
-      mrs[*fields_pid] = tf.mr;
-      rcs[*fields_pid] = tf.rc.value_or(empty_rc);
+      mrs.write(*pid, tf.mr);
+      rcs.write(*pid, tf.rc.value_or(empty_rc));
 #endif
-      css[*fields_pid] = csp;
-      vfs[*fields_pid] = tf.fid;
-      vss[*fields_pid] = values_lr;
+      css.write(*pid, csp);
+      vfs.write(*pid, tf.fid);
+      vss.write(*pid, values_lr);
       fids.insert(tf.fid);
-      fields_pid++;
+      pid++;
     }
   }
 
   // add empty column for index column space
   if (!index_cs) {
-    assert(fields_pid());
-    nms[*fields_pid] = empty_nm;
-    dts[*fields_pid] = empty_dt;
-    kws[*fields_pid] = empty_kw;
+    assert(pid());
+    nms.write(*pid, empty_nm);
+    dts.write(*pid, empty_dt);
+    kws.write(*pid, empty_kw);
 #ifdef HYPERION_USE_CASACORE
-    mrs[*fields_pid] = empty_mr;
-    rcs[*fields_pid] = empty_rc;
+    mrs.write(*pid, empty_mr);
+    rcs.write(*pid, empty_rc);
 #endif
-    css[*fields_pid] = std::get<1>(new_columns_ics);
-    vfs[*fields_pid] = no_column;
-    vss[*fields_pid] = std::get<2>(new_columns_ics);
+    css.write(*pid, std::get<1>(new_columns_ics));
+    vfs.write(*pid, no_column);
+    vss.write(*pid, std::get<2>(new_columns_ics));
   }
   return true;
 }
@@ -1485,13 +1510,16 @@ Table::remove_columns(
 
     for (PointInDomainIterator<1> pid(
            rt->get_index_space_domain(fields_parent.get_index_space()));
-         pid() && !css[*pid].is_empty();
+         pid();
          pid++) {
-      if (vfs[*pid] != no_column && columns.count(nms[*pid]) > 0) {
+      auto css_pid = css.read(*pid);
+      if (css_pid.is_empty())
+        break;
+      if (vfs.read(*pid) != no_column && columns.count(nms.read(*pid)) > 0) {
         auto idx =
           std::distance(
             cs.begin(),
-            std::find(cs.begin(), cs.end(), css[*pid]));
+            std::find(cs.begin(), cs.end(), css_pid));
         assert(idx < (ssize_t)cs_md_prs.size());
         const ColumnSpace::IndexFlagAccessor<READ_ONLY>
           ixfl(cs_md_prs[idx], ColumnSpace::INDEX_FLAG_FID);
@@ -1506,48 +1534,51 @@ Table::remove_columns(
       rt->get_index_space_domain(fields_parent.get_index_space()));
     PointInDomainIterator<1> dst_pid = src_pid;
     while (src_pid()) {
-      if (vfs[*src_pid] == no_column)
-        ics = css[*src_pid];
+      auto css_src_pid = css.read(*src_pid);
+      auto vfs_src_pid = vfs.read(*src_pid);
+      if (vfs_src_pid == no_column)
+        ics = css_src_pid;
+      auto nms_src_pid = nms.read(*src_pid);
       bool remove =
-        vfs[*src_pid] != no_column && columns.count(nms[*src_pid]) > 0;
+        vfs_src_pid != no_column && columns.count(nms_src_pid) > 0;
+      auto vss_src_pid = vss.read(*src_pid);
       if (remove) {
-        auto csp = css[*src_pid];
-        if (vlr_fa.count(csp) == 0)
-          vlr_fa[csp] =
-            {vss[*src_pid],
-             rt->create_field_allocator(ctx, vss[*src_pid].get_field_space())};
-        std::get<1>(vlr_fa[csp]).free_field(vfs[*src_pid]);
+        if (vlr_fa.count(css_src_pid) == 0)
+          vlr_fa[css_src_pid] =
+            {vss_src_pid,
+             rt->create_field_allocator(ctx, vss_src_pid.get_field_space())};
+        std::get<1>(vlr_fa[css_src_pid]).free_field(vfs_src_pid);
 #ifdef HYPERION_USE_CASACORE
-        mrs[*src_pid].destroy(ctx, rt);
+        mrs.read(*src_pid).destroy(ctx, rt);
 #endif
-        kws[*src_pid].destroy(ctx, rt);
+        kws.read(*src_pid).destroy(ctx, rt);
       } else if (src_pid[0] != dst_pid[0]) {
-        nms[*dst_pid] = nms[*src_pid];
-        dts[*dst_pid] = dts[*src_pid];
-        kws[*dst_pid] = kws[*src_pid];
+        nms.write(*dst_pid, nms_src_pid);
+        dts.write(*dst_pid, dts.read(*src_pid));
+        kws.write(*dst_pid, kws.read(*src_pid));
 #ifdef HYPERION_USE_CASACORE
-        mrs[*dst_pid] = mrs[*src_pid];
-        rcs[*dst_pid] = rcs[*src_pid];
+        mrs.write(*dst_pid, mrs.read(*src_pid));
+        rcs.write(*dst_pid, rcs.read(*src_pid));
 #endif
-        css[*dst_pid] = css[*src_pid];
-        vfs[*dst_pid] = vfs[*src_pid];
-        vss[*dst_pid] = vss[*src_pid];
+        css.write(*dst_pid, css_src_pid);
+        vfs.write(*dst_pid, vfs_src_pid);
+        vss.write(*dst_pid, vss_src_pid);
       }
       src_pid++;
       if (!remove)
         dst_pid++;
     }
     while (dst_pid()) {
-      nms[*dst_pid] = empty_nm;
-      dts[*dst_pid] = empty_dt;
-      kws[*dst_pid] = empty_kw;
+      nms.write(*dst_pid, empty_nm);
+      dts.write(*dst_pid, empty_dt);
+      kws.write(*dst_pid, empty_kw);
 #ifdef HYPERION_USE_CASACORE
-      mrs[*dst_pid] = empty_mr;
-      rcs[*dst_pid] = empty_rc;
+      mrs.write(*dst_pid, empty_mr);
+      rcs.write(*dst_pid, empty_rc);
 #endif
-      css[*dst_pid] = empty_cs;
-      vfs[*dst_pid] = empty_vf;
-      vss[*dst_pid] = empty_vs;
+      css.write(*dst_pid, empty_cs);
+      vfs.write(*dst_pid, empty_vf);
+      vss.write(*dst_pid, empty_vs);
       dst_pid++;
     }
   }
@@ -1604,20 +1635,22 @@ Table::destroy(
            rt->get_index_space_domain(fields_lr.get_index_space()));
          pid();
          pid++) {
-      kws[*pid].destroy(ctx, rt);
+      kws.read(*pid).destroy(ctx, rt);
 #ifdef HYPERION_USE_CASACORE
-      mrs[*pid].destroy(ctx, rt);
+      mrs.read(*pid).destroy(ctx, rt);
 #endif
-      if (vss[*pid] != LogicalRegion::NO_REGION
-          && destroyed_vlr.count(vss[*pid]) == 0) {
-        destroyed_vlr.insert(vss[*pid]);
-        rt->destroy_field_space(ctx, vss[*pid].get_field_space());
-        rt->destroy_logical_region(ctx, vss[*pid]);
+      auto vss_pid = vss.read(*pid);
+      if (vss_pid != LogicalRegion::NO_REGION
+          && destroyed_vlr.count(vss_pid) == 0) {
+        destroyed_vlr.insert(vss_pid);
+        rt->destroy_field_space(ctx, vss_pid.get_field_space());
+        rt->destroy_logical_region(ctx, vss_pid);
       }
+      auto css_pid = css.read(*pid);
       if (destroy_column_space_components
-          && destroyed_cs.count(css[*pid]) == 0) {
-        destroyed_cs.insert(css[*pid]);
-        css[*pid].destroy(ctx, rt, true);
+          && destroyed_cs.count(css_pid) == 0) {
+        destroyed_cs.insert(css_pid);
+        css_pid.destroy(ctx, rt, true);
       }
     }
     rt->unmap_region(ctx, fields_pr);
@@ -1691,31 +1724,36 @@ Table::columns(
   ColumnSpace ics;
   for (PointInDomainIterator<1> pid(
          rt->get_index_space_domain(fields_parent.get_index_space()));
-       pid() && css[*pid] != empty_cs;
+       pid();
        pid++) {
-    auto& cs = css[*pid];
-    if (!cs.is_empty() && vss[*pid] != LogicalRegion::NO_REGION) {
-      if (vfs[*pid] == no_column)
-        ics = cs;
-      if (cols.count(cs) == 0)
-        cols[cs] = {
+    auto css_pid = css.read(*pid);
+    if (css_pid == empty_cs)
+      break;
+    auto vss_pid = vss.read(*pid);
+    if (!css_pid.is_empty() && vss_pid != LogicalRegion::NO_REGION) {
+      auto vfs_pid = vfs.read(*pid);
+      if (vfs_pid == no_column)
+        ics = css_pid;
+      if (cols.count(css_pid) == 0)
+        cols[css_pid] = {
           false,
-          vss[*pid],
+          vss_pid,
           std::vector<columns_result_t::tbl_fld_t>()};
-      if (vfs[*pid] != no_column) {
+      if (vfs_pid != no_column) {
+        auto rcs_pid = rcs.read(*pid);
         columns_result_t::tbl_fld_t tf = {
-          nms[*pid],
+          nms.read(*pid),
           TableField(
-            dts[*pid],
-            vfs[*pid],
+            dts.read(*pid),
+            vfs_pid,
 #ifdef HYPERION_USE_CASACORE
-            mrs[*pid],
-            ((rcs[*pid].size() > 0)
-             ? std::make_optional<hyperion::string>(rcs[*pid])
+            mrs.read(*pid),
+            ((rcs_pid.size() > 0)
+             ? std::make_optional<hyperion::string>(rcs_pid)
              : std::nullopt),
 #endif
-            kws[*pid])};
-        std::get<2>(cols[cs]).push_back(tf);
+            kws.read(*pid))};
+        std::get<2>(cols[css_pid]).push_back(tf);
       }
     }
   }
@@ -1925,8 +1963,9 @@ Table::reindexed_task(
         cr.kw_values = regions[rg++];
       }
       std::optional<unsigned> offset;
+      // FIXME: this breaks for a column subset
       for (unsigned i = 0; !offset && i < MAX_COLUMNS; ++i) {
-        if (vss[i] == vlr && vfs[i] == tf.fid)
+        if (vss.read(i) == vlr && vfs.read(i) == tf.fid)
           offset = i;
       }
       cregions.emplace_back(offset.value(), cr);
@@ -2177,7 +2216,8 @@ Table::reindexed(
     const NameAccessor<READ_ONLY>
       nms(fields_pr, static_cast<FieldID>(TableFieldsFid::NM));
     for (auto& [i, cr] : column_regions) {
-      auto& col = cols[nms[i]];
+      auto nms_i = nms.read(i);
+      auto& col = cols[nms_i];
       Column col1(
         col.dt,
         col.fid,
@@ -2188,7 +2228,7 @@ Table::reindexed(
         col.kw,
         col.csp,
         std::get<0>(cr.values));
-      named_columns[nms[i]] = {col1, cr, std::nullopt};
+      named_columns[nms_i] = {col1, cr, std::nullopt};
     }
   }
 
@@ -2540,6 +2580,8 @@ TaskID Table::reindex_copy_values_task_id;
 const char* Table::reindex_copy_values_task_name =
   "Table::reindex_copy_values_task";
 
+// FIXME: use GenericAccessor rather than AffineAccessor, or at least leave it
+// as a parameter
 template <hyperion::TypeTag DT, int DIM>
 using SA = FieldAccessor<
   READ_ONLY,

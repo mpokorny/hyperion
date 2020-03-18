@@ -145,7 +145,7 @@ private:
       typename TableFieldsType<F>::type,
       1,
       Legion::coord_t,
-      Legion::AffineAccessor<
+      Legion::GenericAccessor<
         typename TableFieldsType<F>::type,
         1,
         Legion::coord_t>,

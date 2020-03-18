@@ -85,23 +85,28 @@ PhysicalTable::create(
   unsigned idx_rank = index_rank(rt, table_parent, table_pr);
   for (PointInDomainIterator<1> pid(
          rt->get_index_space_domain(table_parent.get_index_space()));
-       pid() && !css[*pid].is_empty();
+       pid();
        pid++) {
 
-    if (md_regions.count(css[*pid]) == 0) {
+    auto css_pid = css.read(*pid);
+    if (css_pid.is_empty())
+      break;
+    if (md_regions.count(css_pid) == 0) {
       if (reqs == reqs_end || prs == prs_end)
         return result;
-      md_regions[css[*pid]] = *prs;
+      md_regions[css_pid] = *prs;
       ++reqs;
       ++prs;
     }
-    auto& metadata = md_regions.at(css[*pid]);
+    auto& metadata = md_regions.at(css_pid);
     LogicalRegion parent;
     std::optional<PhysicalRegion> values;
     std::optional<Keywords::pair<PhysicalRegion>> kw_prs;
     std::optional<MeasRef::DataRegions> mr_drs;
-    if (vfs[*pid] != Table::no_column) {
-      std::tuple<FieldID, ColumnSpace> fid_cs = {vfs[*pid], css[*pid]};
+    auto nms_pid = nms.read(*pid);
+    auto vfs_pid = vfs.read(*pid);
+    if (vfs_pid != Table::no_column) {
+      std::tuple<FieldID, ColumnSpace> fid_cs = {vfs_pid, css_pid};
       if (value_regions.count(fid_cs) == 0) {
         if (reqs == reqs_end || prs == prs_end)
           return result;
@@ -112,7 +117,8 @@ PhysicalTable::create(
         ++prs;
       }
       std::tie(parent, values) = value_regions.at(fid_cs);
-      if (!kws[*pid].is_empty()) {
+      auto kws_pid = kws.read(*pid);
+      if (!kws_pid.is_empty()) {
         Keywords::pair<PhysicalRegion> kwpair;
         if (reqs == reqs_end || prs == prs_end)
           return result;
@@ -125,7 +131,8 @@ PhysicalTable::create(
         kw_prs = kwpair;
       }
 #ifdef HYPERION_USE_CASACORE
-      if (!mrs[*pid].is_empty()) {
+      auto mrs_pid = mrs.read(*pid);
+      if (!mrs_pid.is_empty()) {
         MeasRef::DataRegions drs;
         if (reqs == reqs_end || prs == prs_end)
           return result;
@@ -135,24 +142,26 @@ PhysicalTable::create(
           return result;
         ++reqs;
         drs.values = *prs++;
-        if (mrs[*pid].index_lr != LogicalRegion::NO_REGION) {
+        if (mrs_pid.index_lr != LogicalRegion::NO_REGION) {
           if (reqs == reqs_end || prs == prs_end)
             return result;
           ++reqs;
           drs.index = *prs++;
         }
         mr_drs = drs;
-        if (rcs[*pid].size() > 0)
-          refcols[nms[*pid]] = rcs[*pid];
+        auto rcs_pid = rcs.read(*pid);
+        if (rcs_pid.size() > 0)
+          refcols[nms_pid] = rcs_pid;
       }
 #endif
     }
+    auto dts_pid = dts.read(*pid);
     columns.emplace(
-      nms[*pid],
+      nms_pid,
       PhysicalColumn(
         rt,
-        dts[*pid],
-        vfs[*pid],
+        dts_pid,
+        vfs_pid,
         idx_rank,
         metadata,
         parent,
@@ -211,10 +220,13 @@ PhysicalTable::index_column_space(
     vfs(pr, static_cast<FieldID>(TableFieldsFid::VF));
   for (PointInDomainIterator<1> pid(
          rt->get_index_space_domain(parent.get_index_space()));
-       pid() && !result && !css[*pid].is_empty();
-       pid++)
-    if (vfs[*pid] == Table::no_column)
+       pid() && !result;
+       pid++) {
+    if (css.read(*pid).is_empty())
+      break;
+    if (vfs.read(*pid) == Table::no_column)
       result = *pid;
+  }
   return result;
 }
 
@@ -226,7 +238,7 @@ PhysicalTable::index_column(Runtime* rt) const {
       [this](const auto& ics) {
         const Table::NameAccessor<READ_ONLY>
           nms(m_table_pr, static_cast<FieldID>(TableFieldsFid::NM));
-        return m_columns.at(nms[ics]);
+        return m_columns.at(nms.read(ics));
       });
 }
 
@@ -245,7 +257,7 @@ PhysicalTable::index_rank(
   if (ics) {
     const Table::ColumnSpaceAccessor<READ_ONLY>
       css(pr, static_cast<FieldID>(TableFieldsFid::CS));
-    result = (unsigned)css[ics.value()].column_is.get_dim();
+    result = (unsigned)css.read(ics.value()).column_is.get_dim();
   }
   return result;
 }
@@ -265,8 +277,8 @@ PhysicalTable::is_conformant(
   if (icsp)
     ics =
       std::make_tuple(
-        css[icsp.value()].column_is,
-        m_columns.at(nms[icsp.value()]).m_metadata);
+        css.read(icsp.value()).column_is,
+        m_columns.at(nms.read(icsp.value())).m_metadata);
   return
     Table::is_conformant(
       rt,
@@ -482,9 +494,11 @@ PhysicalTable::reindexed(
   std::vector<std::tuple<Legion::coord_t, Table::ColumnRegions>> cregions;
   for (PointInDomainIterator<1> pid(
          rt->get_index_space_domain(m_table_parent.get_index_space()));
-       pid() && !css[*pid].is_empty();
+       pid();
        pid++) {
-    auto& pc = m_columns.at(nms[*pid]);
+    if (css.read(*pid).is_empty())
+      break;
+    auto& pc = m_columns.at(nms.read(*pid));
     if (pc.m_values) {
       Table::ColumnRegions cr;
       cr.values = {pc.m_parent, pc.m_values.value()};
