@@ -94,6 +94,39 @@ public:
 };
 #endif //HYPERION_USE_CASACORE
 
+template <
+  hyperion::TypeTag,
+  template <typename, int, typename> typename,
+  typename>
+class PhysicalColumnT;
+
+template <
+  hyperion::TypeTag,
+  unsigned,
+  unsigned,
+  template <typename, int, typename> typename,
+  typename>
+class PhysicalColumnTD;
+
+#ifdef HYPERION_USE_CASACORE
+template <
+  hyperion::TypeTag,
+  hyperion::MClass,
+  template <typename, int, typename> typename,
+  typename>
+class PhysicalColumnTM;
+
+template <
+  hyperion::TypeTag,
+  hyperion::MClass,
+  unsigned,
+  unsigned,
+  unsigned,
+  template <typename, int, typename> typename,
+  typename>
+class PhysicalColumnTMD;
+#endif // HYPERION_USE_CASACORE
+
 class HYPERION_API PhysicalColumn {
 public:
 
@@ -148,6 +181,11 @@ public:
         m_fid);
   }
 
+  Legion::Domain
+  domain(Legion::Runtime* rt) const {
+    return rt->get_index_space_domain(m_parent.get_index_space());
+  }
+
   std::optional<std::any>
   kw(const std::string& key) const;
 
@@ -177,7 +215,58 @@ public:
 
 protected:
 
+  PhysicalColumn(const PhysicalColumn& from)
+  : m_dt(from.m_dt)
+  , m_fid(from.m_fid)
+  , m_index_rank(from.m_index_rank)
+  , m_metadata(from.m_metadata)
+  , m_parent(from.m_parent)
+  , m_values(from.m_values)
+  , m_kws(from.m_kws)
+  , m_kw_map(from.m_kw_map)
+#ifdef HYPERION_USE_CASACORE
+  , m_mr_drs(from.m_mr_drs)
+  , m_refcol(from.m_refcol)
+  , m_mrb(from.m_mrb)
+#endif // HYPERION_USE_CASACORE
+  {}
+
+protected:
+
   friend class PhysicalTable;
+
+  template <
+    hyperion::TypeTag,
+    template <typename, int, typename> typename,
+    typename>
+  friend class PhysicalColumnT;
+
+  template <
+    hyperion::TypeTag,
+    unsigned,
+    unsigned,
+    template <typename, int, typename> typename,
+    typename>
+  friend class PhysicalColumnTD;
+
+#ifdef HYPERION_USE_CASACORE
+  template <
+    hyperion::TypeTag,
+    hyperion::MClass,
+    template <typename, int, typename> typename,
+    typename>
+  friend class PhysicalColumnTM;
+
+  template <
+    hyperion::TypeTag,
+    hyperion::MClass,
+    unsigned,
+    unsigned,
+    unsigned,
+    template <typename, int, typename> typename,
+    typename>
+  friend class PhysicalColumnTMD;
+#endif // HYPERION_USE_CASACORE
 
   hyperion::TypeTag m_dt;
 
@@ -244,21 +333,8 @@ public:
 #endif // HYPERION_USE_CASACORE
       ) {}
 
-  PhysicalColumnT(Legion::Runtime* rt, const PhysicalColumn& from)
-    : PhysicalColumn(
-      rt,
-      from.m_fid,
-      DT,
-      from.m_index_rank,
-      from.m_metadata,
-      from.m_parent,
-      from.m_values,
-      from.m_kws
-#ifdef HYPERION_USE_CASACORE
-      , from.m_mr_drs
-      , from.m_refcol
-#endif // HYPERION_USE_CASACORE
-      ) {
+  PhysicalColumnT(const PhysicalColumn& from)
+    : PhysicalColumn(from) {
     // FIXME: change assertion to exception
     assert(DT == from.m_dt);
   }
@@ -273,15 +349,13 @@ public:
     CHECK_BOUNDS>
   accessor() const {
     return
-      Legion::FieldAccessor<
+      PhysicalColumn::accessor<
         MODE,
         typename DataType<DT>::ValueType,
         N,
         COORD_T,
         A<typename DataType<DT>::ValueType, N, COORD_T>,
-        CHECK_BOUNDS>(
-          m_values.value(),
-          m_fid);
+        CHECK_BOUNDS>();
   }
 };
 
@@ -325,21 +399,8 @@ public:
 #endif // HYPERION_USE_CASACORE
       ) {}
 
-  PhysicalColumnTD(Legion::Runtime* rt, const PhysicalColumn& from)
-    : PhysicalColumn(
-      rt,
-      from.m_fid,
-      DT,
-      INDEX_RANK,
-      from.m_metadata,
-      from.m_parent,
-      from.m_values,
-      from.m_kws
-#ifdef HYPERION_USE_CASACORE
-      , from.m_mr_drs
-      , from.m_refcol
-#endif // HYPERION_USE_CASACORE
-      ) {
+  PhysicalColumnTD(const PhysicalColumn& from)
+    : PhysicalColumn(from) {
     // FIXME: change assertions to exceptions
     assert(DT == from.m_dt);
     assert(INDEX_RANK == from.m_index_rank);
@@ -356,15 +417,18 @@ public:
     CHECK_BOUNDS>
   accessor() const {
     return
-      Legion::FieldAccessor<
+      PhysicalColumn::accessor<
         MODE,
         typename DataType<DT>::ValueType,
         COLUMN_RANK,
         COORD_T,
         A<typename DataType<DT>::ValueType, COLUMN_RANK, COORD_T>,
-        CHECK_BOUNDS>(
-          m_values.value(),
-          m_fid);
+        CHECK_BOUNDS>();
+  }
+
+  Legion::DomainT<COLUMN_RANK>
+  domain(Legion::Runtime* rt) const {
+    return PhysicalColumn::domain(rt);
   }
 };
 
@@ -401,21 +465,8 @@ public:
       mr_drs,
       refcol) {}
 
-  PhysicalColumnTM(Legion::Runtime* rt, const PhysicalColumn& from)
-    : PhysicalColumn(
-      rt,
-      from.m_fid,
-      DT,
-      from.m_index_rank,
-      from.m_metadata,
-      from.m_parent,
-      from.m_values,
-      from.m_kws
-#ifdef HYPERION_USE_CASACORE
-      , from.m_mr_drs
-      , from.m_refcol
-#endif // HYPERION_USE_CASACORE
-      ) {
+  PhysicalColumnTM(const PhysicalColumn& from)
+    : PhysicalColumn(from) {
     // FIXME: change assertion to exception
     assert(DT == from.m_dt);
   }
@@ -430,15 +481,13 @@ public:
     CHECK_BOUNDS>
   accessor() const {
     return
-      Legion::FieldAccessor<
+      PhysicalColumn::accessor<
         MODE,
         typename DataType<DT>::ValueType,
         N,
         COORD_T,
         A<typename DataType<DT>::ValueType, N, COORD_T>,
-        CHECK_BOUNDS>(
-          m_values.value(),
-          m_fid);
+        CHECK_BOUNDS>();
   }
 
   typedef casacore::MeasRef<typename MClassT<MC>::type> MR_t;
@@ -489,20 +538,7 @@ public:
       refcol) {}
 
   PhysicalColumnTMD(Legion::Runtime* rt, const PhysicalColumn& from)
-    : PhysicalColumn(
-      rt,
-      from.m_fid,
-      DT,
-      INDEX_RANK,
-      from.m_metadata,
-      from.m_parent,
-      from.m_values,
-      from.m_kws
-#ifdef HYPERION_USE_CASACORE
-      , from.m_mr_drs
-      , from.m_refcol
-#endif // HYPERION_USE_CASACORE
-      ) {
+    : PhysicalColumn(from) {
     // FIXME: change assertions to exceptions
     assert(DT == from.m_dt);
     assert(INDEX_RANK == from.m_index_rank);
@@ -603,15 +639,18 @@ public:
     CHECK_BOUNDS>
   accessor() const {
     return
-      Legion::FieldAccessor<
+      PhysicalColumn::accessor<
         MODE,
         typename DataType<DT>::ValueType,
         COLUMN_RANK,
         COORD_T,
         A<typename DataType<DT>::ValueType, COLUMN_RANK, COORD_T>,
-        CHECK_BOUNDS>(
-          m_values.value(),
-          m_fid);
+        CHECK_BOUNDS>();
+  }
+
+  Legion::DomainT<COLUMN_RANK>
+  domain(Legion::Runtime* rt) const {
+    return PhysicalColumn::domain(rt);
   }
 
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
