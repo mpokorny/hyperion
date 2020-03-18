@@ -23,6 +23,8 @@ using namespace hyperion;
 
 using namespace Legion;
 
+// FIXME: use GenericAccessor rather than AffineAccessor, or at least leave it
+// as a parameter
 template <typename T, int DIM, bool CHECK_BOUNDS=false>
 using ROAccessor =
   FieldAccessor<

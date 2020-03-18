@@ -42,6 +42,8 @@ namespace hyperion {
 
 struct MSTableColumnsBase {
 
+  // FIXME: use GenericAccessor rather than AffineAccessor, or at least leave it
+  // as a parameter
   template <TypeTag T, int N, legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
   using FieldAccessor =
     Legion::FieldAccessor<

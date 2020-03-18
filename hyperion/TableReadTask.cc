@@ -50,6 +50,8 @@ read_scalar_column(
   typedef typename DataType<DT>::ValueType T;
   typedef typename DataType<DT>::CasacoreType CT;
 
+// FIXME: use GenericAccessor rather than AffineAccessor, or at least leave it
+// as a parameter
   typedef FieldAccessor<
     WRITE_ONLY,
     T,
@@ -92,6 +94,8 @@ read_array_column(
   typedef typename DataType<DT>::ValueType T;
   typedef typename DataType<DT>::CasacoreType CT;
 
+// FIXME: use GenericAccessor rather than AffineAccessor, or at least leave it
+// as a parameter
   typedef FieldAccessor<
     WRITE_ONLY,
     T,
