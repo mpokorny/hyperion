@@ -35,38 +35,9 @@ namespace hyperion {
 
 class Column;
 
-template <
-  hyperion::TypeTag DT,
-  template <typename, int, typename> typename A,
-  typename COORD_T>
-class PhysicalColumnT;
-
-template <
-  hyperion::TypeTag DT,
-  unsigned INDEX_RANK,
-  unsigned COLUMN_RANK,
-  template <typename, int, typename> typename A,
-  typename COORD_T>
-class PhysicalColumnTD;
-
 #ifdef HYPERION_USE_CASACORE
-template <
-  hyperion::TypeTag DT,
-  hyperion::MClass MC,
-  template <typename, int, typename> typename A,
-  typename COORD_T>
-class PhysicalColumnTM;
-
-template <
-  hyperion::TypeTag DT,
-  hyperion::MClass MC,
-  unsigned INDEX_RANK,
-  unsigned COLUMN_RANK,
-  unsigned MV_SIZE,
-  template <typename, int, typename> typename A,
-  typename COORD_T>
-class PhysicalColumnTMD;
-
+// the following mixin classes assume that the column layout has the measure
+// components in sequence with a unit stride (i.e, contiguous in memory)
 template <
   typename T,
   hyperion::TypeTag DT,
@@ -204,70 +175,6 @@ public:
   Legion::LogicalRegion
   create_index(Legion::Context ctx, Legion::Runtime* rt) const;
 
-  template <
-    hyperion::TypeTag DT,
-    template <typename, int, typename> typename A = Legion::GenericAccessor,
-    typename COORD_T = Legion::coord_t>
-  PhysicalColumnT<DT, A, COORD_T>&&
-  as() {
-    assert(DT == m_dt);
-    return static_cast<PhysicalColumnT<DT, A, COORD_T>&&>(*this);
-  }
-
-  template <
-    hyperion::TypeTag DT,
-    unsigned INDEX_RANK,
-    unsigned COLUMN_RANK,
-    template <typename, int, typename> typename A = Legion::GenericAccessor,
-    typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<DT, INDEX_RANK, COLUMN_RANK, A, COORD_T>&&
-  as() {
-    assert(DT == m_dt);
-    assert(INDEX_RANK == m_index_rank);
-    assert(COLUMN_RANK == m_parent.get_index_space().get_dim());
-    return
-      static_cast<PhysicalColumnTD<DT, INDEX_RANK, COLUMN_RANK, A, COORD_T>&&>(
-        *this);
-  }
-
-#ifdef HYPERION_USE_CASACORE
-  template <
-    hyperion::TypeTag DT,
-    hyperion::MClass MC,
-    template <typename, int, typename> typename A = Legion::GenericAccessor,
-    typename COORD_T = Legion::coord_t>
-  PhysicalColumnTM<DT, MC, A, COORD_T>&&
-  as() {
-    assert(DT == m_dt);
-    return static_cast<PhysicalColumnTM<DT, MC, A, COORD_T>&&>(*this);
-  }
-
-  template <
-    hyperion::TypeTag DT,
-    hyperion::MClass MC,
-    unsigned INDEX_RANK,
-    unsigned COLUMN_RANK,
-    unsigned MV_SIZE,
-    template <typename, int, typename> typename A = Legion::GenericAccessor,
-    typename COORD_T = Legion::coord_t>
-  PhysicalColumnTMD<DT, MC, INDEX_RANK, COLUMN_RANK, MV_SIZE, A, COORD_T>&&
-  as() {
-    assert(DT == m_dt);
-    assert(INDEX_RANK == m_index_rank);
-    assert(COLUMN_RANK == m_parent.get_index_space().get_dim());
-    return
-      static_cast<
-        PhysicalColumnTMD<
-          DT,
-          MC,
-          INDEX_RANK,
-          COLUMN_RANK,
-          MV_SIZE,
-          A,
-          COORD_T>&&>(*this);
-  }
-#endif // HYPERION_USE_CASACORE
-
 protected:
 
   friend class PhysicalTable;
@@ -337,6 +244,25 @@ public:
 #endif // HYPERION_USE_CASACORE
       ) {}
 
+  PhysicalColumnT(Legion::Runtime* rt, const PhysicalColumn& from)
+    : PhysicalColumn(
+      rt,
+      from.m_fid,
+      DT,
+      from.m_index_rank,
+      from.m_metadata,
+      from.m_parent,
+      from.m_values,
+      from.m_kws
+#ifdef HYPERION_USE_CASACORE
+      , from.m_mr_drs
+      , from.m_refcol
+#endif // HYPERION_USE_CASACORE
+      ) {
+    // FIXME: change assertion to exception
+    assert(DT == from.m_dt);
+  }
+
   template <Legion::PrivilegeMode MODE, int N, bool CHECK_BOUNDS = false>
   Legion::FieldAccessor<
     MODE,
@@ -399,6 +325,27 @@ public:
 #endif // HYPERION_USE_CASACORE
       ) {}
 
+  PhysicalColumnTD(Legion::Runtime* rt, const PhysicalColumn& from)
+    : PhysicalColumn(
+      rt,
+      from.m_fid,
+      DT,
+      INDEX_RANK,
+      from.m_metadata,
+      from.m_parent,
+      from.m_values,
+      from.m_kws
+#ifdef HYPERION_USE_CASACORE
+      , from.m_mr_drs
+      , from.m_refcol
+#endif // HYPERION_USE_CASACORE
+      ) {
+    // FIXME: change assertions to exceptions
+    assert(DT == from.m_dt);
+    assert(INDEX_RANK == from.m_index_rank);
+    assert(COLUMN_RANK == from.m_parent.get_index_space().get_dim());
+  }
+
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
   Legion::FieldAccessor<
     MODE,
@@ -453,6 +400,25 @@ public:
       kws,
       mr_drs,
       refcol) {}
+
+  PhysicalColumnTM(Legion::Runtime* rt, const PhysicalColumn& from)
+    : PhysicalColumn(
+      rt,
+      from.m_fid,
+      DT,
+      from.m_index_rank,
+      from.m_metadata,
+      from.m_parent,
+      from.m_values,
+      from.m_kws
+#ifdef HYPERION_USE_CASACORE
+      , from.m_mr_drs
+      , from.m_refcol
+#endif // HYPERION_USE_CASACORE
+      ) {
+    // FIXME: change assertion to exception
+    assert(DT == from.m_dt);
+  }
 
   template <Legion::PrivilegeMode MODE, int N, bool CHECK_BOUNDS = false>
   Legion::FieldAccessor<
@@ -521,6 +487,27 @@ public:
       kws,
       mr_drs,
       refcol) {}
+
+  PhysicalColumnTMD(Legion::Runtime* rt, const PhysicalColumn& from)
+    : PhysicalColumn(
+      rt,
+      from.m_fid,
+      DT,
+      INDEX_RANK,
+      from.m_metadata,
+      from.m_parent,
+      from.m_values,
+      from.m_kws
+#ifdef HYPERION_USE_CASACORE
+      , from.m_mr_drs
+      , from.m_refcol
+#endif // HYPERION_USE_CASACORE
+      ) {
+    // FIXME: change assertions to exceptions
+    assert(DT == from.m_dt);
+    assert(INDEX_RANK == from.m_index_rank);
+    assert(COLUMN_RANK == from.m_parent.get_index_space().get_dim());
+  }
 
   typedef casacore::MeasRef<typename MClassT<MC>::type> MR_t;
 
