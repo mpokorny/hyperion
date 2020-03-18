@@ -22,7 +22,8 @@ using namespace Legion;
 PhysicalTable::PhysicalTable(
   LogicalRegion table_parent,
   PhysicalRegion table_pr,
-  std::unordered_map<std::string, PhysicalColumn> columns)
+  const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
+  columns)
   : m_table_parent(table_parent)
   , m_table_pr(table_pr)
   , m_columns(columns) {}
@@ -74,7 +75,7 @@ PhysicalTable::create(
   const Table::ValuesAccessor<READ_ONLY>
     vss(table_pr, static_cast<FieldID>(TableFieldsFid::VS));
 
-  std::unordered_map<std::string, PhysicalColumn> columns;
+  std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> columns;
   std::unordered_map<std::string, std::string> refcols;
 
   std::map<ColumnSpace, PhysicalRegion> md_regions;
@@ -158,7 +159,7 @@ PhysicalTable::create(
     auto dts_pid = dts.read(*pid);
     columns.emplace(
       nms_pid,
-      PhysicalColumn(
+      std::make_shared<PhysicalColumn>(
         rt,
         dts_pid,
         vfs_pid,
@@ -174,10 +175,10 @@ PhysicalTable::create(
         ));
   }
 #ifdef HYPERION_USE_CASACORE
-  for (auto& [nm, pc] : columns) {
+  for (auto& [nm, ppc] : columns) {
     if (refcols.count(nm) > 0) {
       auto& rc = refcols[nm];
-      pc.update_refcol(rt, std::make_tuple(rc, columns.at(rc)));
+      ppc->update_refcol(rt, std::make_tuple(rc, columns.at(rc)));
     }
   }
 #endif
@@ -188,15 +189,15 @@ PhysicalTable::create(
 Table
 PhysicalTable::table() const {
   std::unordered_map<std::string, LogicalRegion> column_parents;
-  for (auto& [nm, pc] : m_columns)
-    column_parents[nm] = pc.m_parent;
+  for (auto& [nm, ppc] : m_columns)
+    column_parents[nm] = ppc->m_parent;
   return
     Table(m_table_pr.get_logical_region(), m_table_parent, column_parents);
 }
 
-std::optional<PhysicalColumn>
+std::optional<std::shared_ptr<PhysicalColumn>>
 PhysicalTable::column(const std::string& name) const {
-  std::optional<PhysicalColumn> result;
+  std::optional<std::shared_ptr<PhysicalColumn>> result;
   if (m_columns.count(name) > 0)
     result = m_columns.at(name);
   return result;
@@ -230,7 +231,7 @@ PhysicalTable::index_column_space(
   return result;
 }
 
-std::optional<PhysicalColumn>
+std::optional<std::shared_ptr<PhysicalColumn>>
 PhysicalTable::index_column(Runtime* rt) const {
   return
     map(
@@ -278,7 +279,7 @@ PhysicalTable::is_conformant(
     ics =
       std::make_tuple(
         css.read(icsp.value()).column_is,
-        m_columns.at(nms.read(icsp.value())).m_metadata);
+        m_columns.at(nms.read(icsp.value()))->m_metadata);
   return
     Table::is_conformant(
       rt,
@@ -304,8 +305,8 @@ PhysicalTable::requirements(
   CoherenceProperty columns_coherence) const {
 
   std::unordered_map<std::string, LogicalRegion> column_parents;
-  for (auto& [nm, pc] : m_columns)
-    column_parents[nm] = pc.m_parent;
+  for (auto& [nm, ppc] : m_columns)
+    column_parents[nm] = ppc->m_parent;
 
   return
     Table::requirements(
@@ -340,8 +341,9 @@ PhysicalTable::add_columns(
   std::optional<std::tuple<IndexSpace, PhysicalRegion>> index_cs =
     map(
       index_column(rt),
-      [](const auto& pc) {
-        return std::make_tuple(pc.m_parent.get_index_space(), pc.m_metadata);
+      [](const auto& ppc) {
+        return
+          std::make_tuple(ppc->m_parent.get_index_space(), ppc->m_metadata);
       });
 
   std::vector<
@@ -354,18 +356,18 @@ PhysicalTable::add_columns(
   std::vector<LogicalRegion> val_lrs;
   std::vector<std::optional<PhysicalRegion>> val_prs;
   std::vector<PhysicalRegion> cs_md_prs;
-  for (auto& [nm, pc] : m_columns) {
-    auto md_lr = pc.m_metadata.get_logical_region();
+  for (auto& [nm, ppc] : m_columns) {
+    auto md_lr = ppc->m_metadata.get_logical_region();
     if (cs_idxs.count(md_lr) == 0) {
       auto idx = cs_md_prs.size();
       cs_idxs[md_lr] = idx;
-      cs_md_prs.push_back(pc.m_metadata);
+      cs_md_prs.push_back(ppc->m_metadata);
       val_lrs.push_back(
         map(
-          pc.m_values,
+          ppc->m_values,
           [](const auto& pr) { return pr.get_logical_region(); })
         .value_or(LogicalRegion::NO_REGION));
-      val_prs.push_back(pc.m_values);
+      val_prs.push_back(ppc->m_values);
     }
   }
   for (auto& [cs, ixcs, nm_tfs] : cols) {
@@ -418,7 +420,7 @@ PhysicalTable::add_columns(
           if (m_columns.count(nm) == 0) {
             m_columns.emplace(
               nm,
-              PhysicalColumn(
+              std::make_shared<PhysicalColumn>(
                 rt,
                 tf.dt,
                 tf.fid,
@@ -426,7 +428,7 @@ PhysicalTable::add_columns(
                 md_pr,
                 vlr,
                 vpr,
-                {}
+                std::nullopt
 #ifdef HYPERION_USE_CASACORE
                 , std::nullopt
                 , std::nullopt
@@ -453,7 +455,7 @@ PhysicalTable::remove_columns(
     for (auto& [nm, tf] : nm_tfs) {
       if (cols.count(nm) > 0) {
         css.push_back(cs);
-        cs_md_prs.push_back(m_columns.at(nm).m_metadata);
+        cs_md_prs.push_back(m_columns.at(nm)->m_metadata);
         break;
       }
     }
@@ -498,19 +500,19 @@ PhysicalTable::reindexed(
        pid++) {
     if (css.read(*pid).is_empty())
       break;
-    auto& pc = m_columns.at(nms.read(*pid));
-    if (pc.m_values) {
+    auto& ppc = m_columns.at(nms.read(*pid));
+    if (ppc->m_values) {
       Table::ColumnRegions cr;
-      cr.values = {pc.m_parent, pc.m_values.value()};
-      cr.metadata = pc.m_metadata;
-      if (pc.m_kws) {
-        cr.kw_type_tags = pc.m_kws.value().type_tags;
-        cr.kw_values = pc.m_kws.value().values;
+      cr.values = {ppc->m_parent, ppc->m_values.value()};
+      cr.metadata = ppc->m_metadata;
+      if (ppc->m_kws) {
+        cr.kw_type_tags = ppc->m_kws.value().type_tags;
+        cr.kw_values = ppc->m_kws.value().values;
       }
-      if (pc.m_mr_drs) {
-        cr.mr_metadata = pc.m_mr_drs.value().metadata;
-        cr.mr_values = pc.m_mr_drs.value().values;
-        cr.mr_index = pc.m_mr_drs.value().index;
+      if (ppc->m_mr_drs) {
+        cr.mr_metadata = ppc->m_mr_drs.value().metadata;
+        cr.mr_values = ppc->m_mr_drs.value().values;
+        cr.mr_index = ppc->m_mr_drs.value().index;
       }
       cregions.emplace_back(*pid, cr);
     }
@@ -523,7 +525,7 @@ PhysicalTable::reindexed(
       allow_rows,
       m_table_parent,
       m_table_pr,
-      ic.m_metadata,
+      ic->m_metadata,
       cregions);
 }
 

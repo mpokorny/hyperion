@@ -21,6 +21,7 @@
 #include <hyperion/Table.h>
 
 #pragma GCC visibility push(default)
+# include <memory>
 # include <optional>
 # include <string>
 # include <unordered_map>
@@ -35,7 +36,8 @@ public:
   PhysicalTable(
     Legion::LogicalRegion table_parent,
     Legion::PhysicalRegion table_pr,
-    std::unordered_map<std::string, PhysicalColumn> columns);
+    const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
+    columns);
 
   static std::optional<
     std::tuple<
@@ -52,7 +54,7 @@ public:
   Table
   table() const;
 
-  std::optional<PhysicalColumn>
+  std::optional<std::shared_ptr<PhysicalColumn>>
   column(const std::string& name) const;
 
   std::optional<Legion::Point<1>>
@@ -64,7 +66,7 @@ public:
     const Legion::LogicalRegion& parent,
     const Legion::PhysicalRegion& pr);
 
-  std::optional<PhysicalColumn>
+  std::optional<std::shared_ptr<PhysicalColumn>>
   index_column(Legion::Runtime* rt) const;
 
   unsigned
@@ -149,7 +151,7 @@ protected:
 
   Legion::PhysicalRegion m_table_pr;
 
-  std::unordered_map<std::string, PhysicalColumn> m_columns;
+  std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> m_columns;
 };
 
 } // end namespace hyperion
