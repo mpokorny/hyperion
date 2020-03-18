@@ -77,7 +77,7 @@ public:
       VALUE_TYPE,
       N,
       Legion::coord_t,
-       Legion::AffineAccessor<VALUE_TYPE, N, Legion::coord_t>,
+      Legion::GenericAccessor<VALUE_TYPE, N, Legion::coord_t>,
       CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, int N, bool CHECK_BOUNDS=false>
@@ -87,7 +87,7 @@ public:
       REF_TYPE_TYPE,
       N,
       Legion::coord_t,
-      Legion::AffineAccessor<REF_TYPE_TYPE, N, Legion::coord_t>,
+      Legion::GenericAccessor<REF_TYPE_TYPE, N, Legion::coord_t>,
       CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, int N, bool CHECK_BOUNDS=false>
@@ -97,7 +97,7 @@ public:
       MEASURE_CLASS_TYPE,
       N,
       Legion::coord_t,
-      Legion::AffineAccessor<MEASURE_CLASS_TYPE, N, Legion::coord_t>,
+      Legion::GenericAccessor<MEASURE_CLASS_TYPE, N, Legion::coord_t>,
       CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, int N, bool CHECK_BOUNDS=false>
@@ -107,7 +107,7 @@ public:
       NUM_VALUES_TYPE,
       N,
       Legion::coord_t,
-      Legion::AffineAccessor<NUM_VALUES_TYPE, N, Legion::coord_t>,
+      Legion::GenericAccessor<NUM_VALUES_TYPE, N, Legion::coord_t>,
       CHECK_BOUNDS>;
 
   template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
@@ -117,7 +117,7 @@ public:
       M_CODE_TYPE,
       1,
       Legion::coord_t,
-      Legion::AffineAccessor<M_CODE_TYPE, 1, Legion::coord_t>,
+      Legion::GenericAccessor<M_CODE_TYPE, 1, Legion::coord_t>,
       CHECK_BOUNDS>;
 
   MeasRef() {}

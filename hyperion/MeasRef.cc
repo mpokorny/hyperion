@@ -184,31 +184,33 @@ initialize(
               auto mvals = measure->getData()->getVector();
               for (unsigned j = 0; j < mvals.size(); ++j) {
                 p1[level + 1] = j;
-                vals[p1] = mvals[j];
+                vals.write(p1, mvals[j]);
               }
-              numvals[p] = mvals.size();
+              numvals.write(p, mvals.size());
               std::string name = measure->tellMe();
+              MeasRef::MEASURE_CLASS_TYPE mtype;
               if (name == "") assert(false);
 #define SET_MCLASS(M)                             \
               else if (name == MClassT<M>::name)  \
-                mclasses[p] = M;
+                mtype = M;
               HYPERION_FOREACH_MCLASS(SET_MCLASS)
 #undef SET_MCLASS
               else assert(false);
               ref_base = measure->getRefPtr();
-              m = std::make_tuple(static_cast<MClass>(mclasses[p]), ref_base);
+              mclasses.write(p, mtype);
+              m = std::make_tuple(static_cast<MClass>(mtype), ref_base);
             },
             [&p, &numvals, &mclasses, &ref_base]
             (std::tuple<MClass, casacore::MRBase*>& kr) {
               auto& [k, r] = kr;
-              mclasses[p] = k;
-              numvals[p] = 0;
+              mclasses.write(p, k);
+              numvals.write(p, 0);
               ref_base = r;
             }
           },
           m);
         assert(ref_base != nullptr);
-        rtypes[p] = ref_base->getType();
+        rtypes.write(p, ref_base->getType());
         c = MeasRef::ArrayComponent::OFFSET;
       } else {
         ref_base =
@@ -320,18 +322,18 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
       if (c == MeasRef::ArrayComponent::VALUE) {
         // the measure value itself
         p[level] = p1[level] = MeasRef::ArrayComponent::VALUE;
-        k = (MClass)mclasses[p];
-        casacore::Vector<MeasRef::VALUE_TYPE> mvals(numvals[p]);
+        k = (MClass)mclasses.read(p);
+        casacore::Vector<MeasRef::VALUE_TYPE> mvals(numvals.read(p));
         for (unsigned i = 0; i < mvals.size(); ++i) {
           p1[level + 1] = i;
-          mvals[i] = vals[p1];
+          mvals[i] = vals.read(p1);
         }
         switch (k) {
-#define VR(M)                                                         \
-          case M:                                                     \
-            if (mvals.size() > 0)                                     \
-              v = std::make_unique<MClassT<M>::type::MVType>(mvals);  \
-            r = std::make_unique<MClassT<M>::type::Ref>(rtypes[p]);   \
+#define VR(M)                                                           \
+          case M:                                                       \
+            if (mvals.size() > 0)                                       \
+              v = std::make_unique<MClassT<M>::type::MVType>(mvals);    \
+            r = std::make_unique<MClassT<M>::type::Ref>(rtypes.read(p)); \
             break;
           HYPERION_FOREACH_MCLASS(VR)
 #undef VR
@@ -496,7 +498,7 @@ MeasRef::mclass(Legion::PhysicalRegion pr) {
       const MeasureClassAccessor<READ_ONLY, D>  \
         mc(pr, MEASURE_CLASS_FID);              \
       Point<D> p = Point<D>::ZEROES();          \
-      return (MClass)mc[p];                     \
+      return (MClass)mc.read(p);                \
       break;                                    \
     }
     HYPERION_FOREACH_N_LESS_MAX(MC)
