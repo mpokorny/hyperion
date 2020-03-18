@@ -49,7 +49,7 @@ PhysicalColumn::column() const {
     m_fid,
 #ifdef HYPERION_USE_CASACORE
     mr,
-    m_refcol_name,
+    map(m_refcol, [](const auto& nm_pc){ return std::get<0>(nm_pc); }),
 #endif
     kws,
     ColumnSpace(m_parent.get_index_space(), m_metadata.get_logical_region()),
@@ -68,25 +68,25 @@ PhysicalColumn::kw(const std::string& key) const {
 void
 PhysicalColumn::update_refcol(
   Runtime* rt,
-  const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol) {
+  const std::optional<
+    std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol) {
 
   if (m_mr_drs) {
     auto [mrb, rmap] = MeasRef::make(rt, m_mr_drs.value());
     std::vector<std::shared_ptr<casacore::MRBase>> smrb;
     std::move(mrb.begin(), mrb.end(), std::back_inserter(smrb));
     if (refcol) {
-      auto& [nm, pc] = refcol.value();
+      auto& [nm, ppc] = refcol.value();
       m_mrb =
         std::make_tuple(
           std::move(smrb),
           rmap,
-          pc.m_values.value(),
-          pc.m_fid);
-      m_refcol_name = nm;
+          ppc->m_values.value(),
+          ppc->m_fid);
     } else {
       m_mrb = smrb[0];
-      m_refcol_name.reset();
     }
+    m_refcol = refcol;
   }
 }
 

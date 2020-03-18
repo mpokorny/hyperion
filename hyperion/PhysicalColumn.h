@@ -137,7 +137,8 @@ public:
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
     , const std::optional<MeasRef::DataRegions>& mr_drs
-    , const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol
+    , const std::optional<
+        std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol
 #endif // HYPERION_USE_CASACORE
     )
     : m_dt(dt)
@@ -183,7 +184,8 @@ public:
   void
   update_refcol(
     Legion::Runtime* rt,
-    const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol);
+    const std::optional<
+      std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol);
 
   std::vector<std::shared_ptr<casacore::MRBase>>
   mrbs() const;
@@ -197,7 +199,7 @@ public:
     Legion::FieldID> ref_mrb_t;
 
   typedef std::variant<simple_mrb_t, ref_mrb_t> mrb_t;
-#endif
+#endif // HYPERION_USE_CASACORE
 
   Legion::LogicalRegion
   create_index(Legion::Context ctx, Legion::Runtime* rt) const;
@@ -291,7 +293,8 @@ protected:
 #ifdef HYPERION_USE_CASACORE
   std::optional<MeasRef::DataRegions> m_mr_drs;
 
-  std::optional<std::string> m_refcol_name;
+  std::optional<std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>
+  m_refcol;
 
   std::optional<mrb_t> m_mrb;
 #endif // HYPERION_USE_CASACORE
@@ -315,7 +318,8 @@ public:
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
     , const std::optional<MeasRef::DataRegions>& mr_drs
-    , const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol
+    , const std::optional<
+        std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol
 #endif // HYPERION_USE_CASACORE
     )
     : PhysicalColumn(
@@ -376,7 +380,8 @@ public:
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
     , const std::optional<MeasRef::DataRegions>& mr_drs
-    , const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol
+    , const std::optional<
+        std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol
 #endif // HYPERION_USE_CASACORE
     )
     : PhysicalColumn(
@@ -435,7 +440,8 @@ public:
     const std::optional<Legion::PhysicalRegion>& values,
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws,
     const std::optional<MeasRef::DataRegions>& mr_drs,
-    const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol)
+    const std::optional<
+      std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol)
     : PhysicalColumn(
       rt,
       fid,
@@ -502,7 +508,8 @@ public:
     const std::optional<Legion::PhysicalRegion>& values,
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws,
     const std::optional<MeasRef::DataRegions>& mr_drs,
-    const std::optional<std::tuple<std::string, PhysicalColumn>>& refcol)
+    const std::optional<
+      std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol)
     : PhysicalColumn(
       rt,
       fid,
