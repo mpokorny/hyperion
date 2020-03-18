@@ -209,8 +209,8 @@ protected:
 
 template <
   hyperion::TypeTag DT,
-  template <typename, int, typename> typename A,
-  typename COORD_T>
+  template <typename, int, typename> typename A = Legion::GenericAccessor,
+  typename COORD_T = Legion::coord_t>
 class PhysicalColumnT
   : public PhysicalColumn {
 public:
@@ -289,8 +289,8 @@ template <
   hyperion::TypeTag DT,
   unsigned INDEX_RANK,
   unsigned COLUMN_RANK,
-  template <typename, int, typename> typename A,
-  typename COORD_T>
+  template <typename, int, typename> typename A = Legion::GenericAccessor,
+  typename COORD_T = Legion::coord_t>
 class PhysicalColumnTD
   : public PhysicalColumn {
 public:
@@ -372,8 +372,8 @@ public:
 template <
   hyperion::TypeTag DT,
   hyperion::MClass MC,
-  template <typename, int, typename> typename A,
-  typename COORD_T>
+  template <typename, int, typename> typename A = Legion::GenericAccessor,
+  typename COORD_T = Legion::coord_t>
 class PhysicalColumnTM
   : public PhysicalColumn {
 public:
@@ -460,8 +460,8 @@ template <
   unsigned INDEX_RANK,
   unsigned COLUMN_RANK,
   unsigned MV_SIZE,
-  template <typename, int, typename> typename A,
-  typename COORD_T>
+  template <typename, int, typename> typename A = Legion::GenericAccessor,
+  typename COORD_T = Legion::coord_t>
 class PhysicalColumnTMD
   : public PhysicalColumn {
 public:
