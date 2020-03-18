@@ -22,10 +22,6 @@
 #include <hyperion/ColumnSpacePartition.h>
 #include <hyperion/PhysicalTable.h>
 
-// #ifdef HYPERION_USE_CASACORE
-// # include <hyperion/MeasRefContainer.h>
-// #endif
-
 #include <algorithm>
 #include <array>
 #include <memory>
@@ -218,32 +214,6 @@ verify_w(
   }
   return result;
 }
-
-// #ifdef HYPERION_USE_CASACORE
-// static bool
-// verify_mrc_names(
-//   Context ctx,
-//   Runtime* rt,
-//   const MeasRefContainer& mrc,
-//   std::set<std::string> expected) {
-
-//   std::set<std::string> names;
-//   if (mrc.lr != LogicalRegion::NO_REGION) {
-//     RegionRequirement req(mrc.lr, READ_ONLY, EXCLUSIVE, mrc.lr);
-//     req.add_field(MeasRefContainer::NAME_FID);
-//     auto pr = rt->map_region(ctx, req);
-//     const MeasRefContainer::NameAccessor<READ_ONLY>
-//       nms(pr, MeasRefContainer::NAME_FID);
-//     for (PointInDomainIterator<1>
-//            pid(rt->get_index_space_domain(mrc.lr.get_index_space()));
-//          pid();
-//          pid++)
-//       names.insert(nms[*pid]);
-//     rt->unmap_region(ctx, pr);
-//   }
-//   return names == expected;
-// }
-// #endif // HYPERION_USE_CASACORE
 
 void
 create_physical_table_task(
