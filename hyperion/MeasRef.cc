@@ -696,7 +696,6 @@ MeasRef::create_regions(
     fa.allocate_field(sizeof(M_CODE_TYPE), M_CODE_FID);
     index_lr = rt->create_logical_region(ctx, is, fs);
   }
-
   return {metadata_lr, values_lr, index_lr};
 }
 
@@ -862,6 +861,7 @@ MeasRef::destroy(Context ctx, Runtime* rt) {
     if (*lr != LogicalRegion::NO_REGION) {
       rt->destroy_field_space(ctx, lr->get_field_space());
       rt->destroy_index_space(ctx, lr->get_index_space());
+      rt->destroy_logical_region(ctx, *lr);
       *lr = LogicalRegion::NO_REGION;
     }
   }
