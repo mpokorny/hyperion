@@ -149,6 +149,10 @@ public:
     , m_fid(fid)
     , m_index_rank(index_rank)
     , m_metadata(metadata)
+    , m_domain(
+      (parent != Legion::LogicalRegion::NO_REGION)
+      ? rt->get_index_space_domain(parent.get_index_space())
+      : Legion::Domain::NO_DOMAIN)
     , m_parent(parent)
     , m_values(values)
     , m_kws(kws)
@@ -182,8 +186,8 @@ public:
   }
 
   Legion::Domain
-  domain(Legion::Runtime* rt) const {
-    return rt->get_index_space_domain(m_parent.get_index_space());
+  domain() const {
+    return m_domain;
   }
 
   std::optional<std::any>
@@ -220,6 +224,7 @@ protected:
   , m_fid(from.m_fid)
   , m_index_rank(from.m_index_rank)
   , m_metadata(from.m_metadata)
+  , m_domain(from.m_domain)
   , m_parent(from.m_parent)
   , m_values(from.m_values)
   , m_kws(from.m_kws)
@@ -275,6 +280,8 @@ protected:
   unsigned m_index_rank;
 
   Legion::PhysicalRegion m_metadata;
+
+  Legion::Domain m_domain;
 
   Legion::LogicalRegion m_parent;
 
@@ -427,8 +434,8 @@ public:
   }
 
   Legion::DomainT<COLUMN_RANK>
-  domain(Legion::Runtime* rt) const {
-    return PhysicalColumn::domain(rt);
+  domain() const {
+    return PhysicalColumn::domain();
   }
 };
 
@@ -649,8 +656,8 @@ public:
   }
 
   Legion::DomainT<COLUMN_RANK>
-  domain(Legion::Runtime* rt) const {
-    return PhysicalColumn::domain(rt);
+  domain() const {
+    return PhysicalColumn::domain();
   }
 
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
