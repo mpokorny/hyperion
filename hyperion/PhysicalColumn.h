@@ -102,39 +102,6 @@ public:
 };
 #endif //HYPERION_USE_CASACORE
 
-template <
-  hyperion::TypeTag,
-  template <typename, int, typename> typename,
-  typename>
-class PhysicalColumnT;
-
-template <
-  hyperion::TypeTag,
-  unsigned,
-  unsigned,
-  template <typename, int, typename> typename,
-  typename>
-class PhysicalColumnTD;
-
-#ifdef HYPERION_USE_CASACORE
-template <
-  hyperion::TypeTag,
-  hyperion::MClass,
-  template <typename, int, typename> typename,
-  typename>
-class PhysicalColumnTM;
-
-template <
-  hyperion::TypeTag,
-  hyperion::MClass,
-  unsigned,
-  unsigned,
-  unsigned,
-  template <typename, int, typename> typename,
-  typename>
-class PhysicalColumnTMD;
-#endif // HYPERION_USE_CASACORE
-
 class HYPERION_API PhysicalColumn {
 public:
 
@@ -244,42 +211,7 @@ protected:
 #endif // HYPERION_USE_CASACORE
   {}
 
-protected:
-
-  friend class PhysicalTable;
-
-  template <
-    hyperion::TypeTag,
-    template <typename, int, typename> typename,
-    typename>
-  friend class PhysicalColumnT;
-
-  template <
-    hyperion::TypeTag,
-    unsigned,
-    unsigned,
-    template <typename, int, typename> typename,
-    typename>
-  friend class PhysicalColumnTD;
-
-#ifdef HYPERION_USE_CASACORE
-  template <
-    hyperion::TypeTag,
-    hyperion::MClass,
-    template <typename, int, typename> typename,
-    typename>
-  friend class PhysicalColumnTM;
-
-  template <
-    hyperion::TypeTag,
-    hyperion::MClass,
-    unsigned,
-    unsigned,
-    unsigned,
-    template <typename, int, typename> typename,
-    typename>
-  friend class PhysicalColumnTMD;
-#endif // HYPERION_USE_CASACORE
+public:
 
   hyperion::TypeTag m_dt;
 
