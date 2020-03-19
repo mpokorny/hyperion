@@ -57,16 +57,14 @@ struct HYPERION_API ColumnSpacePartition {
   int
   color_dim(Legion::Runtime* rt) const;
 
-  typedef ColumnSpacePartition create_result_t;
-
-  static Legion::Future /* create_result_t */
+  static Legion::Future /* ColumnSpacePartition */
   create(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ColumnSpace& column_space,
     const std::vector<AxisPartition>& partition);
 
-  static Legion::Future /* create_result_t */
+  static Legion::Future /* ColumnSpacePartition */
   create(
     Legion::Context ctx,
     Legion::Runtime *rt,
@@ -75,7 +73,7 @@ struct HYPERION_API ColumnSpacePartition {
     const std::vector<std::pair<int, Legion::coord_t>>& block_sizes);
 
   template <typename D, std::enable_if_t<!std::is_same_v<D, int>, int> = 0>
-  static Legion::Future /* create_result_t */
+  static Legion::Future /* ColumnSpacePartition */
   create(
     Legion::Context ctx,
     Legion::Runtime *rt,
@@ -89,7 +87,7 @@ struct HYPERION_API ColumnSpacePartition {
     return create(ctx, rt, column_space, Axes<D>::uid, bsz);
   }
 
-  static create_result_t
+  static ColumnSpacePartition
   create(
     Legion::Context ctx,
     Legion::Runtime *rt,
@@ -97,7 +95,7 @@ struct HYPERION_API ColumnSpacePartition {
     const std::vector<AxisPartition>& partition,
     const Legion::PhysicalRegion& column_space_metadata_pr);
 
-  static create_result_t
+  static ColumnSpacePartition
   create(
     Legion::Context ctx,
     Legion::Runtime *rt,
@@ -106,11 +104,18 @@ struct HYPERION_API ColumnSpacePartition {
     const std::vector<std::pair<int, Legion::coord_t>>& block_sizes,
     const Legion::PhysicalRegion& column_space_metadata_pr);
 
-  Legion::Future /* create_result_t */
+  Legion::Future /* ColumnSpacePartition */
   project_onto(
     Legion::Context ctx,
     Legion::Runtime *rt,
     const ColumnSpace& tgt_column_space) const;
+
+  ColumnSpacePartition
+  project_onto(
+    Legion::Context ctx,
+    Legion::Runtime *rt,
+    const Legion::IndexSpace& tgt_column_is,
+    const Legion::PhysicalRegion& tgt_column_md) const;
 
   static void
   preregister_tasks();
@@ -125,14 +130,14 @@ protected:
 
   friend class Legion::LegionTaskWrapper;
 
-  static create_result_t
+  static ColumnSpacePartition
   create_task_ap(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static create_result_t
+  static ColumnSpacePartition
   create_task_bs(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,

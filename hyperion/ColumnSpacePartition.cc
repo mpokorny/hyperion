@@ -53,7 +53,7 @@ struct CreateTaskAPArgs {
   IndexSpace column_space_is;
 };
 
-ColumnSpacePartition::create_result_t
+ColumnSpacePartition
 ColumnSpacePartition::create_task_ap(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
@@ -159,7 +159,7 @@ create_partition_on_axes(
   return result;
 }
 
-ColumnSpacePartition::create_result_t
+ColumnSpacePartition
 ColumnSpacePartition::create(
   Context ctx,
   Runtime *rt,
@@ -210,7 +210,8 @@ ColumnSpacePartition::create(
       create_partition_on_axes<IDIM,PDIM>(    \
         ctx,                                  \
         rt,                                   \
-        IndexSpaceT<IDIM>(column_space_is), iparts); \
+        IndexSpaceT<IDIM>(column_space_is),   \
+        iparts);                              \
     break;                                    \
   }
   HYPERION_FOREACH_NN(CP);
@@ -246,7 +247,7 @@ struct CreateTaskBSArgs {
   IndexSpace column_space_is;
 };
 
-ColumnSpacePartition::create_result_t
+ColumnSpacePartition
 ColumnSpacePartition::create_task_bs(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
@@ -272,7 +273,7 @@ ColumnSpacePartition::create_task_bs(
       regions[0]);
 }
 
-Legion::Future /* create_result_t */
+Legion::Future /* ColumnSpacePartition */
 ColumnSpacePartition::create(
   Legion::Context ctx,
   Legion::Runtime *rt,
@@ -300,7 +301,7 @@ ColumnSpacePartition::create(
   return rt->execute_task(ctx, task);
 }
 
-ColumnSpacePartition::create_result_t
+ColumnSpacePartition
 ColumnSpacePartition::create(
   Context ctx,
   Runtime *rt,
@@ -352,6 +353,21 @@ ColumnSpacePartition::project_onto(
   return create(ctx, rt, tgt_column_space, ps);
 }
 
+ColumnSpacePartition
+ColumnSpacePartition::project_onto(
+  Context ctx,
+  Runtime *rt,
+  const IndexSpace& tgt_column_is,
+  const PhysicalRegion& tgt_column_md) const {
+
+  std::vector<AxisPartition> ps;
+  auto cd = color_dim(rt);
+  ps.reserve(cd);
+  std::copy(partition.begin(), partition.begin() + cd, std::back_inserter(ps));
+  return
+    ColumnSpacePartition::create(ctx, rt, tgt_column_is, ps, tgt_column_md);
+}
+
 void
 ColumnSpacePartition::preregister_tasks() {
   {
@@ -360,7 +376,7 @@ ColumnSpacePartition::preregister_tasks() {
     TaskVariantRegistrar registrar(create_task_ap_id, create_task_ap_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
-    Runtime::preregister_task_variant<create_result_t, create_task_ap>(
+    Runtime::preregister_task_variant<ColumnSpacePartition, create_task_ap>(
       registrar,
       create_task_ap_name);
   }
@@ -370,7 +386,7 @@ ColumnSpacePartition::preregister_tasks() {
     TaskVariantRegistrar registrar(create_task_bs_id, create_task_bs_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
-    Runtime::preregister_task_variant<create_result_t, create_task_bs>(
+    Runtime::preregister_task_variant<ColumnSpacePartition, create_task_bs>(
       registrar,
       create_task_bs_name);
   }
