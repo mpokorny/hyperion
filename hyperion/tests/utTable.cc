@@ -519,7 +519,7 @@ table_test_suite(
   // and removals must be lexically scoped, and this task is where we initially
   // added the columns we're about to remove
   {
-    auto rm = table0.remove_columns(ctx, rt, {"W"}, false);
+    auto rm = table0.remove_columns(ctx, rt, {"W"}, false, false);
     recorder.expect_true(
       "Call to remove 'W' returned TRUE",
       TE(rm));
@@ -537,7 +537,7 @@ table_test_suite(
          && cols.find("Z") != cols.end()));
   }
   {
-    auto rm = table0.remove_columns(ctx, rt, {"X", "Z"});
+    auto rm = table0.remove_columns(ctx, rt, {"X", "Z"}, false, false);
     recorder.expect_true(
       "Call to remove 'X' and 'Z' returned TRUE",
       TE(rm));
@@ -568,9 +568,6 @@ table_test_suite(
   }
   xyz_fields.erase(xyz_fields.begin() + 1);
   {
-    // don't reuse MeasRef, as they were destroyed when removing the columns
-    for (auto& [nm, tf] : xyz_fields)
-      tf.mr = MeasRef();
     auto add = table0.add_columns(ctx, rt, {{xyz_space, true, xyz_fields}});
     recorder.expect_true(
       "Call to add 'X' and 'Z' returned TRUE",
@@ -589,7 +586,7 @@ table_test_suite(
       TE(cols.at("X").csp == csp && cols.at("Z").csp == csp));
   }
 
-  table0.destroy(ctx, rt, true);
+  table0.destroy(ctx, rt, true, true);
 }
 
 int

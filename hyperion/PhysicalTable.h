@@ -119,7 +119,8 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::unordered_set<std::string>& columns,
-    bool destroy_orphan_column_spaces = true);
+    bool destroy_orphan_column_spaces = true,
+    bool destroy_field_data = true);
 
   Legion::LogicalRegion
   reindexed(

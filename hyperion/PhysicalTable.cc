@@ -447,7 +447,8 @@ PhysicalTable::remove_columns(
   Context ctx,
   Runtime* rt,
   const std::unordered_set<std::string>& cols,
-  bool destroy_orphan_column_spaces) {
+  bool destroy_orphan_column_spaces,
+  bool destroy_field_data) {
 
   std::vector<ColumnSpace> css;
   std::vector<PhysicalRegion> cs_md_prs;
@@ -470,6 +471,7 @@ PhysicalTable::remove_columns(
       rt,
       hcols,
       destroy_orphan_column_spaces,
+      destroy_field_data,
       m_table_parent,
       m_table_pr,
       css,

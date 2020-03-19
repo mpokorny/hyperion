@@ -1429,7 +1429,8 @@ Table::remove_columns(
   Context ctx,
   Runtime* rt,
   const std::unordered_set<std::string>& columns,
-  bool destroy_orphan_column_spaces) {
+  bool destroy_orphan_column_spaces,
+  bool destroy_field_data) {
 
   auto fields_pr =
     rt->map_region(
@@ -1462,6 +1463,7 @@ Table::remove_columns(
       rt,
       cols,
       destroy_orphan_column_spaces,
+      destroy_field_data,
       fields_parent.value_or(fields_lr),
       fields_pr,
       css,
@@ -1478,6 +1480,7 @@ Table::remove_columns(
   Runtime* rt,
   const std::set<hyperion::string>& columns,
   bool destroy_orphan_column_spaces,
+  bool destroy_field_data,
   const LogicalRegion& fields_parent,
   const PhysicalRegion& fields_pr,
   const std::vector<ColumnSpace>& cs,
@@ -1548,10 +1551,12 @@ Table::remove_columns(
             {vss_src_pid,
              rt->create_field_allocator(ctx, vss_src_pid.get_field_space())};
         std::get<1>(vlr_fa[css_src_pid]).free_field(vfs_src_pid);
+        if (destroy_field_data) {
 #ifdef HYPERION_USE_CASACORE
-        mrs.read(*src_pid).destroy(ctx, rt);
+          mrs.read(*src_pid).destroy(ctx, rt);
 #endif
-        kws.read(*src_pid).destroy(ctx, rt);
+          kws.read(*src_pid).destroy(ctx, rt);
+        }
       } else if (src_pid[0] != dst_pid[0]) {
         nms.write(*dst_pid, nms_src_pid);
         dts.write(*dst_pid, dts.read(*src_pid));
@@ -1607,7 +1612,8 @@ void
 Table::destroy(
   Context ctx,
   Runtime* rt,
-  bool destroy_column_space_components) {
+  bool destroy_column_space_components,
+  bool destroy_field_data) {
 
   if (fields_lr != LogicalRegion::NO_REGION) {
     auto fields_pr =
@@ -1638,10 +1644,12 @@ Table::destroy(
       auto css_pid = css.read(*pid);
       if (css_pid.is_empty())
         break;
-      kws.read(*pid).destroy(ctx, rt);
+      if (destroy_field_data) {
+        kws.read(*pid).destroy(ctx, rt);
 #ifdef HYPERION_USE_CASACORE
-      mrs.read(*pid).destroy(ctx, rt);
+        mrs.read(*pid).destroy(ctx, rt);
 #endif
+      }
       auto vss_pid = vss.read(*pid);
       if (vss_pid != LogicalRegion::NO_REGION
           && destroyed_vlr.count(vss_pid) == 0) {

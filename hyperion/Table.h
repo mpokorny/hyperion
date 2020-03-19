@@ -314,7 +314,8 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::unordered_set<std::string>& columns,
-    bool destroy_orphan_column_spaces=true);
+    bool destroy_orphan_column_spaces=true,
+    bool destroy_field_data=true);
 
   static bool
   remove_columns(
@@ -322,6 +323,7 @@ public:
     Legion::Runtime* rt,
     const std::set<hyperion::string>& columns,
     bool destroy_orphan_column_spaces,
+    bool destroy_field_data,
     const Legion::LogicalRegion& fields_parent,
     const Legion::PhysicalRegion& fields_pr,
     const std::vector<ColumnSpace>& cs,
@@ -411,7 +413,8 @@ public:
   destroy(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    bool destroy_column_space_components=false);
+    bool destroy_column_space_components=false,
+    bool destroy_field_data=false);
 
   Legion::Future /* columns_result_t */
   columns(Legion::Context ctx, Legion::Runtime *rt) const;
