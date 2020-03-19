@@ -1048,7 +1048,7 @@ Table::add_columns_task(
     index_cs =
       {args->vlrs[args->index_cs_idx].get_index_space(),
        regions[args->index_cs_idx]};
-  for (auto& [csp, idx, ixcs, nm, tf]: args->columns) {
+  for (auto& [csp, ixcs, idx, nm, tf]: args->columns) {
     if (!csp.is_valid())
       break;
     if (columns.count(csp) == 0)
@@ -1135,7 +1135,7 @@ Table::add_columns(
     size_t i = 0;
     for (auto& [csp, ixcs, nm_tfs]: new_columns) {
       if (current_csp_idxs.count(csp) == 0) {
-        current_csp_idxs[csp] = reqs.size() - 1;
+        current_csp_idxs[csp] = reqs.size();
         RegionRequirement
           req(csp.metadata_lr, READ_ONLY, EXCLUSIVE, csp.metadata_lr);
         req.add_field(ColumnSpace::AXIS_VECTOR_FID);
@@ -1635,6 +1635,9 @@ Table::destroy(
            rt->get_index_space_domain(fields_lr.get_index_space()));
          pid();
          pid++) {
+      auto css_pid = css.read(*pid);
+      if (css_pid.is_empty())
+        break;
       kws.read(*pid).destroy(ctx, rt);
 #ifdef HYPERION_USE_CASACORE
       mrs.read(*pid).destroy(ctx, rt);
@@ -1646,7 +1649,6 @@ Table::destroy(
         rt->destroy_field_space(ctx, vss_pid.get_field_space());
         rt->destroy_logical_region(ctx, vss_pid);
       }
-      auto css_pid = css.read(*pid);
       if (destroy_column_space_components
           && destroyed_cs.count(css_pid) == 0) {
         destroyed_cs.insert(css_pid);
