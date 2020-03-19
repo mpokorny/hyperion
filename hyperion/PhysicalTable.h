@@ -122,6 +122,12 @@ public:
     bool destroy_orphan_column_spaces = true,
     bool destroy_field_data = true);
 
+  Table::partition_rows_result_t
+  partition_rows(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::vector<std::optional<size_t>>& block_sizes) const;
+
   Legion::LogicalRegion
   reindexed(
     Legion::Context ctx,
