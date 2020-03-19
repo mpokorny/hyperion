@@ -37,7 +37,7 @@ class Column;
 
 #ifdef HYPERION_USE_CASACORE
 // the following mixin classes assume that the column layout has the measure
-// components in sequence with a unit stride (i.e, contiguous in memory)
+// components in a contiguous sequence in offset range 0..MV_SIZE-1
 template <
   typename T,
   hyperion::TypeTag DT,
@@ -52,6 +52,10 @@ public:
   using T::T;
 
   static const constexpr unsigned M_RANK = MClassT<MC>::m_rank;
+
+  static_assert(M_RANK <= 1);
+  static_assert(MV_SIZE > 0);
+  static_assert((M_RANK == 1) || (MV_SIZE == 1));
 
   typename MClassT<MC>::type
   read(const Legion::Point<COLUMN_RANK - M_RANK, COORD_T>& pt) const {
@@ -79,6 +83,10 @@ public:
   using T::T;
 
   static const constexpr unsigned M_RANK = MClassT<MC>::m_rank;
+
+  static_assert(M_RANK <= 1);
+  static_assert(MV_SIZE > 0);
+  static_assert((M_RANK == 1) || (MV_SIZE == 1));
 
   void
   write(
@@ -343,7 +351,7 @@ public:
   PhysicalColumnT(const PhysicalColumn& from)
     : PhysicalColumn(from) {
     // FIXME: change assertion to exception
-    assert(DT == from.m_dt);
+    assert(DT == m_dt);
   }
 
   template <Legion::PrivilegeMode MODE, int N, bool CHECK_BOUNDS = false>
@@ -409,9 +417,9 @@ public:
   PhysicalColumnTD(const PhysicalColumn& from)
     : PhysicalColumn(from) {
     // FIXME: change assertions to exceptions
-    assert(DT == from.m_dt);
-    assert(INDEX_RANK == from.m_index_rank);
-    assert(COLUMN_RANK == from.m_parent.get_index_space().get_dim());
+    assert(DT == m_dt);
+    assert(INDEX_RANK == m_index_rank);
+    assert(COLUMN_RANK == m_parent.get_index_space().get_dim());
   }
 
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
@@ -475,7 +483,9 @@ public:
   PhysicalColumnTM(const PhysicalColumn& from)
     : PhysicalColumn(from) {
     // FIXME: change assertion to exception
-    assert(DT == from.m_dt);
+    assert(DT == m_dt);
+    assert(m_mr_drs);
+    assert(MeasRef::mclass(m_mr_drs.value().metadata) == MC);
   }
 
   template <Legion::PrivilegeMode MODE, int N, bool CHECK_BOUNDS = false>
@@ -522,6 +532,11 @@ class PhysicalColumnTMD
   : public PhysicalColumn {
 public:
 
+  static const constexpr unsigned M_RANK = MClassT<MC>::m_rank;
+
+  static_assert(MV_SIZE > 0);
+  static_assert(M_RANK <= 1);
+
   PhysicalColumnTMD(
     Legion::Runtime* rt,
     Legion::FieldID fid,
@@ -544,19 +559,29 @@ public:
       mr_drs,
       refcol) {}
 
-  PhysicalColumnTMD(Legion::Runtime* rt, const PhysicalColumn& from)
+  PhysicalColumnTMD(const PhysicalColumn& from)
     : PhysicalColumn(from) {
     // FIXME: change assertions to exceptions
-    assert(DT == from.m_dt);
-    assert(INDEX_RANK == from.m_index_rank);
-    assert(COLUMN_RANK == from.m_parent.get_index_space().get_dim());
+    assert(DT == m_dt);
+    assert(INDEX_RANK == m_index_rank);
+    assert(COLUMN_RANK == m_parent.get_index_space().get_dim());
+    assert(m_mr_drs);
+    assert(MeasRef::mclass(m_mr_drs.value().metadata) == MC);
+    if (M_RANK == 1) {
+      Legion::PointInDomainIterator<COLUMN_RANK> pid(m_domain, false);
+      Legion::Point<COLUMN_RANK> pt = *pid;
+      for (COORD_T i = 0; i < MV_SIZE; ++i) {
+        pt[COLUMN_RANK - 1] = i;
+        assert(m_domain.contains(pt));
+      }
+      pt[COLUMN_RANK - 1] = MV_SIZE;
+      assert(!m_domain.contains(pt));
+    }
   }
 
   typedef casacore::MeasRef<typename MClassT<MC>::type> MR_t;
 
   typedef typename MClassT<MC>::type::Convert MC_t;
-
-  static const constexpr unsigned M_RANK = MClassT<MC>::m_rank;
 
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
   class MeasRefAccessor {
