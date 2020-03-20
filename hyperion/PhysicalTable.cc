@@ -195,6 +195,19 @@ PhysicalTable::table() const {
     Table(m_table_pr.get_logical_region(), m_table_parent, column_parents);
 }
 
+std::optional<ColumnSpace::AXIS_SET_UID_TYPE>
+PhysicalTable::axes_uid() const {
+  std::optional<ColumnSpace::AXIS_SET_UID_TYPE> result;
+  if (m_columns.size() > 0) {
+    const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+      au(
+        std::get<1>(*m_columns.begin())->m_metadata,
+        ColumnSpace::AXIS_SET_UID_FID);
+    result = au[0];
+  }
+  return result;
+}
+
 std::optional<std::shared_ptr<PhysicalColumn>>
 PhysicalTable::column(const std::string& name) const {
   std::optional<std::shared_ptr<PhysicalColumn>> result;

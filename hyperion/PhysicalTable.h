@@ -54,6 +54,9 @@ public:
   Table
   table() const;
 
+  std::optional<ColumnSpace::AXIS_SET_UID_TYPE>
+  axes_uid() const;
+
   std::optional<std::shared_ptr<PhysicalColumn>>
   column(const std::string& name) const;
 
