@@ -44,6 +44,8 @@ class Table;
 class Column;
 class Keywords;
 class ColumnSpace;
+class PhysicalTable;
+class PhysicalColumn;
 
 namespace hdf5 {
 
@@ -249,6 +251,12 @@ read_index_tree_from_attr(
 
 HYPERION_API void
 write_keywords(
+  Legion::Runtime *rt,
+  hid_t loc_id,
+  const Keywords::pair<Legion::PhysicalRegion>& kw_prs);
+
+HYPERION_API void
+write_keywords(
   Legion::Context ctx,
   Legion::Runtime *rt,
   hid_t loc_id,
@@ -257,11 +265,24 @@ write_keywords(
 #ifdef HYPERION_USE_CASACORE
 HYPERION_API void
 write_measure(
+  Legion::Runtime* rt,
+  hid_t mr_id,
+  const MeasRef::DataRegions& mr_drs);
+
+HYPERION_API void
+write_measure(
   Legion::Context ctx,
   Legion::Runtime* rt,
   hid_t mr_id,
   const MeasRef& mr);
 #endif
+
+HYPERION_API void
+write_column(
+  Legion::Runtime* rt,
+  hid_t col_grp_id,
+  const std::string& csp_name,
+  const PhysicalColumn& column);
 
 HYPERION_API void
 write_column(
@@ -273,11 +294,25 @@ write_column(
 
 HYPERION_API void
 write_columnspace(
+  Legion::Runtime* rt,
+  hid_t csp_grp_id,
+  const Legion::PhysicalRegion& csp_md,
+  const Legion::IndexSpace& csp_is,
+  hid_t table_axes_dt);
+
+HYPERION_API void
+write_columnspace(
   Legion::Context ctx,
   Legion::Runtime* rt,
   hid_t csp_grp_id,
   const ColumnSpace& csp,
   hid_t table_axes_dt);
+
+HYPERION_API void
+write_table(
+  Legion::Runtime* rt,
+  hid_t table_grp_id,
+  const PhysicalTable& table);
 
 HYPERION_API void
 write_table(
