@@ -407,7 +407,8 @@ read_full_ms(
   testing::TestRecorder<READ_WRITE> recorder(log);
 
   static const std::string t0_path("data/t0.ms");
-  auto [table_name, table] = from_ms(ctx, rt, t0_path, {"*"});
+  auto [table_name, table_fields] = from_ms(ctx, rt, t0_path, {"*"});
+  auto table = Table::create(ctx, rt, table_fields);
   auto ics =
     table
     .index_column_space(ctx, rt)

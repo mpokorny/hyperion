@@ -617,7 +617,13 @@ hyperion::index_space_as_tree(Runtime* rt, IndexSpace is) {
   return result;
 }
 
-std::pair<std::string, hyperion::Table>
+std::pair<
+  std::string,
+  std::vector<
+    std::tuple<
+      ColumnSpace,
+      bool,
+      std::vector<std::pair<std::string, TableField>>>>>
 hyperion::from_ms(
   Context ctx,
   Runtime* rt,

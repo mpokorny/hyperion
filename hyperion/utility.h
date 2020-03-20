@@ -59,6 +59,8 @@
 namespace hyperion {
 
 class Table;
+class ColumnSpace;
+class TableField;
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;
 
@@ -162,7 +164,13 @@ partition_over_default_tunable(
 HYPERION_API IndexTreeL
 index_space_as_tree(Legion::Runtime* rt, Legion::IndexSpace is);
 
-HYPERION_API std::pair<std::string, hyperion::Table>
+HYPERION_API std::pair<
+  std::string,
+  std::vector<
+    std::tuple<
+    ColumnSpace,
+      bool,
+      std::vector<std::pair<std::string, TableField>>>>>
 from_ms(
   Legion::Context ctx,
   Legion::Runtime* runtime,

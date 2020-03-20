@@ -457,7 +457,13 @@ struct HYPERION_API TableBuilder {
 //   Table& table);
 
 template <MSTables T>
-std::pair<std::string, Table>
+std::pair<
+  std::string,
+  std::vector<
+    std::tuple<
+      ColumnSpace,
+      bool,
+      std::vector<std::pair<std::string, TableField>>>>>
 from_ms(
   Legion::Context ctx,
   Legion::Runtime* rt,
@@ -474,10 +480,7 @@ from_ms(
   // FIXME: awaiting keyword support in Tables
   //initialize_keywords_from_ms(ctx, rt, table_path, result);
 
-  return
-    std::make_pair(
-      builder.name(),
-      Table::create(ctx, rt, builder.columns(ctx, rt)));
+  return std::make_pair(builder.name(), builder.columns(ctx, rt));
 }
 
 } // end namespace hyperion
