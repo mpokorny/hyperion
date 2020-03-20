@@ -56,12 +56,7 @@ PhysicalColumn::column() const {
     m_parent);
 }
 
-std::optional<std::any>
-PhysicalColumn::kw(const std::string& key) const {
-  std::optional<std::any> result;
-  if (m_kw_map.count(key) > 0)
-    result = m_kw_map.at(key);
-  return result;
+ColumnSpace::AXIS_VECTOR_TYPE
 }
 
 #ifdef HYPERION_USE_CASACORE

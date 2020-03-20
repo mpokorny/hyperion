@@ -223,10 +223,10 @@ public:
     return ((dt[0] == ValueType<T>::DataType) ? val[0] : std::optional<T>());
   }
 
-  std::unordered_map<std::string, std::any>
+  std::unordered_map<std::string, std::tuple<hyperion::TypeTag, std::any>>
   to_map(Legion::Context ctx, Legion::Runtime *rt) const;
 
-  static std::unordered_map<std::string, std::any>
+  static std::unordered_map<std::string, std::tuple<hyperion::TypeTag, std::any>>
   to_map(Legion::Runtime *rt, const pair<Legion::PhysicalRegion>& prs);
 };
 

@@ -233,9 +233,10 @@ Keywords::value_type(const PhysicalRegion& tt, FieldID fid) {
   return dt[0];
 }
 
-std::unordered_map<std::string, std::any>
+std::unordered_map<std::string, std::tuple<hyperion::TypeTag, std::any>>
 Keywords::to_map(Legion::Context ctx, Legion::Runtime *rt) const {
-  std::unordered_map<std::string, std::any> result;
+  std::unordered_map<std::string, std::tuple<hyperion::TypeTag, std::any>>
+    result;
   if (!is_empty()) {
     std::vector<FieldID> fids;
     auto fs = type_tags_lr.get_field_space();
@@ -256,10 +257,11 @@ Keywords::to_map(Legion::Context ctx, Legion::Runtime *rt) const {
   return result;
 }
 
-std::unordered_map<std::string, std::any>
+std::unordered_map<std::string, std::tuple<hyperion::TypeTag, std::any>>
 Keywords::to_map(Legion::Runtime *rt, const pair<Legion::PhysicalRegion>& prs) {
 
-  std::unordered_map<std::string, std::any> result;
+  std::unordered_map<std::string, std::tuple<hyperion::TypeTag, std::any>>
+    result;
   std::vector<FieldID> fids;
   auto fs = prs.type_tags.get_logical_region().get_field_space();
   rt->get_field_space_fields(fs, fids);
@@ -272,7 +274,7 @@ Keywords::to_map(Legion::Runtime *rt, const pair<Legion::PhysicalRegion>& prs) {
       case DT: {                                                  \
         const ValueAccessor<READ_ONLY, DataType<DT>::ValueType>   \
           vals(prs.values, fid);                                  \
-        result[fname] = vals[0];                                  \
+        result[fname] = {DT, vals[0]};                            \
         break;                                                    \
       }
       HYPERION_FOREACH_DATATYPE(VAL)

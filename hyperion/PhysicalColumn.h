@@ -135,8 +135,6 @@ public:
     , m_mr_drs(mr_drs)
 #endif // HYPERION_USE_CASACORE
     {
-      if (m_kws)
-        m_kw_map = Keywords::to_map(rt, m_kws.value());
 #ifdef HYPERION_USE_CASACORE
       update_refcol(rt, refcol);
 #endif // HYPERION_USE_CASACORE
@@ -164,9 +162,6 @@ public:
   domain() const {
     return m_domain;
   }
-
-  std::optional<std::any>
-  kw(const std::string& key) const;
 
 #ifdef HYPERION_USE_CASACORE
   void
@@ -203,7 +198,6 @@ protected:
   , m_parent(from.m_parent)
   , m_values(from.m_values)
   , m_kws(from.m_kws)
-  , m_kw_map(from.m_kw_map)
 #ifdef HYPERION_USE_CASACORE
   , m_mr_drs(from.m_mr_drs)
   , m_refcol(from.m_refcol)
@@ -230,8 +224,6 @@ public:
   std::optional<Legion::PhysicalRegion> m_values;
 
   std::optional<Keywords::pair<Legion::PhysicalRegion>> m_kws;
-
-  std::unordered_map<std::string, std::any> m_kw_map;
 
 #ifdef HYPERION_USE_CASACORE
   std::optional<MeasRef::DataRegions> m_mr_drs;
