@@ -57,6 +57,8 @@ PhysicalColumn::column() const {
 }
 
 ColumnSpace::AXIS_VECTOR_TYPE
+PhysicalColumn::axes() const {
+  return ColumnSpace::axes(m_metadata);
 }
 
 #ifdef HYPERION_USE_CASACORE

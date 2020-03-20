@@ -18,6 +18,7 @@
 
 #include <hyperion/hyperion.h>
 #include <hyperion/Keywords.h>
+#include <hyperion/ColumnSpace.h>
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
 #endif // HYPERION_USE_CASACORE
@@ -142,6 +143,9 @@ public:
 
   Column
   column() const;
+
+  ColumnSpace::AXIS_VECTOR_TYPE
+  axes() const;
 
   template <
     Legion::PrivilegeMode MODE,
