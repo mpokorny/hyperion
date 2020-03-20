@@ -19,6 +19,7 @@
 #include <hyperion/utility.h>
 #include <hyperion/IndexTree.h>
 #include <hyperion/Keywords.h>
+#include <hyperion/Table.h>
 
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
@@ -340,6 +341,17 @@ init_columnspace(
   hid_t table_axes_dt,
   const std::string& csp_name);
 
+HYPERION_API
+  std::optional<
+    std::tuple<
+      Table::fields_t,
+      std::unordered_map<std::string, std::string>>>
+table_fields(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  hid_t loc_id,
+  const std::string& table_name);
+
 HYPERION_API std::tuple<
   hyperion::Table,
   std::unordered_map<std::string, std::string>>
@@ -348,6 +360,13 @@ init_table(
   Legion::Runtime* rt,
   hid_t loc_id,
   const std::string& table_name);
+
+HYPERION_API std::unordered_map<
+  std::string,
+    std::tuple<
+      Table::fields_t,
+      std::unordered_map<std::string, std::string>>>
+all_table_fields(Legion::Context ctx, Legion::Runtime* rt, hid_t loc_id);
 
 HYPERION_API Legion::PhysicalRegion
 attach_keywords(

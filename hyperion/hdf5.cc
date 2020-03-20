@@ -1725,6 +1725,84 @@ acc_csp_fn(
   return 0;
 }
 
+std::optional<
+  std::tuple<
+    Table::fields_t,
+    std::unordered_map<std::string, std::string>>>
+hyperion::hdf5::table_fields(
+  Context ctx,
+  Runtime* rt,
+  hid_t loc_id,
+  const std::string& table_name) {
+
+  std::optional<
+    std::tuple<Table::fields_t, std::unordered_map<std::string, std::string>>>
+    result;
+
+  htri_t table_exists =
+    CHECK_H5(H5Lexists(loc_id, table_name.c_str(), H5P_DEFAULT));
+  if (table_exists > 0)
+    using_resource(
+      [&]() {
+        return CHECK_H5(H5Gopen(loc_id, table_name.c_str(), H5P_DEFAULT));
+      },
+      [&](hid_t table_grp_id) {
+        acc_csp_t acc_csp;
+        acc_csp.ctx = ctx;
+        acc_csp.rt = rt;
+        acc_csp.table_axes_dt =
+          CHECK_H5(H5Topen(table_grp_id, table_axes_dt_name, H5P_DEFAULT));
+        CHECK_H5(
+          H5Literate(
+            table_grp_id,
+            H5_INDEX_NAME,
+            H5_ITER_NATIVE,
+            NULL,
+            acc_csp_fn,
+            &acc_csp));
+        CHECK_H5(H5Tclose(acc_csp.table_axes_dt));
+        acc_tflds_t acc_tflds;
+        acc_tflds.ctx = ctx;
+        acc_tflds.rt = rt;
+        CHECK_H5(
+          H5Literate(
+            table_grp_id,
+            H5_INDEX_NAME,
+            H5_ITER_NATIVE,
+            NULL,
+            acc_tflds_fn,
+            &acc_tflds));
+        std::string index_cs_name;
+        {
+          hyperion::string str;
+          CHECK_H5(
+            H5Lget_val(
+              table_grp_id,
+              index_column_space_link_name,
+              str.val,
+              sizeof(str),
+              H5P_DEFAULT));
+          index_cs_name = str;
+        }
+        decltype(result)::value_type fields_paths;
+        auto& [fields, paths] = fields_paths;
+        for (auto& [nm, tflds] : acc_tflds.csp_fields) {
+          assert(acc_csp.csps.count(nm) > 0);
+          fields.emplace_back(acc_csp.csps[nm], index_cs_name == nm, tflds);
+        }
+        // FIXME: awaiting keywords support in Table: auto kws =
+        // init_keywords(table_grp_id);
+        for (auto& [csp, ixcs, nm_tflds] : fields)
+          for (auto& [nm, tfld] : nm_tflds)
+            paths[nm] = table_name + "/" + nm + "/" + HYPERION_COLUMN_DS;
+        result = fields_paths;
+      },
+      [](hid_t table_grp_id) {
+        CHECK_H5(H5Gclose(table_grp_id));
+      });
+  return result;
+}
+
 std::tuple<hyperion::Table, std::unordered_map<std::string, std::string>>
 hyperion::hdf5::init_table(
   Context ctx,
@@ -1802,6 +1880,59 @@ hyperion::hdf5::init_table(
         CHECK_H5(H5Gclose(table_grp_id));
       });
   return result;
+}
+
+struct acc_all_tflds_t {
+  Context ctx;
+  Runtime *rt;
+  std::unordered_map<
+    std::string,
+    std::tuple<
+      Table::fields_t,
+      std::unordered_map<std::string, std::string>>> acc;
+};
+
+static herr_t
+acc_all_tflds_fn(
+  hid_t group,
+  const char* name,
+  const H5L_info_t* info,
+  void* op_data) {
+
+  acc_all_tflds_t* args = static_cast<acc_all_tflds_t*>(op_data);
+
+  H5O_info_t infobuf;
+  CHECK_H5(H5Oget_info_by_name(group, name, &infobuf, H5P_DEFAULT));
+  if (infobuf.type == H5O_TYPE_GROUP) {
+    hid_t tbl_grp_id = CHECK_H5(H5Gopen(group, name, H5P_DEFAULT));
+    auto tfp =
+      hyperion::hdf5::table_fields(args->ctx, args->rt, tbl_grp_id, name);
+    if (tfp)
+      args->acc.emplace(name, tfp.value());
+    CHECK_H5(H5Gclose(tbl_grp_id));
+  }
+  return 0;
+}
+
+std::unordered_map<
+  std::string,
+    std::tuple<
+      Table::fields_t,
+      std::unordered_map<std::string, std::string>>>
+hyperion::hdf5::all_table_fields(Context ctx, Runtime* rt, hid_t loc_id) {
+
+  acc_all_tflds_t acc_all_tflds;
+  acc_all_tflds.ctx = ctx;
+  acc_all_tflds.rt = rt;
+  CHECK_H5(
+    H5Literate(
+      loc_id,
+      H5_INDEX_NAME,
+      H5_ITER_NATIVE,
+      NULL,
+      acc_all_tflds_fn,
+      &acc_all_tflds));
+  return acc_all_tflds.acc;
 }
 
 PhysicalRegion
