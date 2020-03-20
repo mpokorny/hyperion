@@ -249,19 +249,12 @@ table_fields_requirement(
 }
 
 Table
-Table::create(
-  Context ctx,
-  Runtime* rt,
-  const std::vector<
-    std::tuple<
-      ColumnSpace,
-      bool,
-      std::vector<std::pair<std::string, TableField>>>>& columns) {
+Table::create(Context ctx, Runtime* rt, const fields_t& fields) {
 
   size_t num_cols = 0;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [csp, ixcs, tfs] : columns) {
+  for (auto& [csp, ixcs, tfs] : fields) {
 #pragma GCC diagnostic pop
     assert(!csp.is_empty());
     assert(csp.is_valid());
@@ -271,7 +264,7 @@ Table::create(
     std::unordered_set<std::string> cnames;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-    for (auto& [csp, ixcs, cs] : columns)
+    for (auto& [csp, ixcs, cs] : fields)
       for (auto& [nm, c] : cs)
 #pragma GCC diagnostic pop
         cnames.insert(nm);
@@ -280,9 +273,9 @@ Table::create(
   }
 
   std::vector<PhysicalRegion> csp_md_prs;
-  for (size_t i = 0; i < columns.size(); ++i) {
-    auto& lr = std::get<0>(columns[i]).metadata_lr;
-    RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
+  for (auto& [csp, ixcs, tfs] : fields) {
+    RegionRequirement
+      req(csp.metadata_lr, READ_ONLY, EXCLUSIVE, csp.metadata_lr);
     req.add_field(ColumnSpace::INDEX_FLAG_FID);
     req.add_field(ColumnSpace::AXIS_VECTOR_FID);
     req.add_field(ColumnSpace::AXIS_SET_UID_FID);
@@ -349,8 +342,8 @@ Table::create(
         size_t,
         std::vector<std::pair<hyperion::string, TableField>>>>
       hcols;
-    for (size_t i = 0; i < columns.size(); ++i) {
-      auto& [csp, ixcs, nm_tfs] = columns[i];
+    for (size_t i = 0; i < fields.size(); ++i) {
+      auto& [csp, ixcs, nm_tfs] = fields[i];
       std::vector<std::pair<hyperion::string, TableField>> htfs;
       for (auto& [nm, tf]: nm_tfs)
         htfs.emplace_back(nm, tf);
@@ -1094,11 +1087,7 @@ Future /* bool */
 Table::add_columns(
   Context ctx,
   Runtime* rt,
-  const std::vector<
-    std::tuple<
-      ColumnSpace,
-      bool,
-      std::vector<std::pair<std::string, TableField>>>>& new_columns) const {
+  const fields_t& new_columns) const {
 
   if (new_columns.size() == 0)
     return Future::from_value(rt, true);

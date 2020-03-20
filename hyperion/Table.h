@@ -201,15 +201,14 @@ public:
     , fields_parent(fields_parent_)
     , column_parents(column_parents_) {}
 
+  typedef std::vector<
+    std::tuple<
+      ColumnSpace,
+      bool,
+      std::vector<std::pair<std::string, TableField>>>> fields_t;
+
   static Table
-  create(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const std::vector<
-      std::tuple<
-        ColumnSpace,
-        bool,
-        std::vector<std::pair<std::string, TableField>>>>& columns);
+  create(Legion::Context ctx, Legion::Runtime* rt, const fields_t& fields);
 
   typedef std::optional<ColumnSpace> index_column_space_result_t;
 
@@ -286,11 +285,7 @@ public:
   add_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
-      const std::vector<
-        std::tuple<
-          ColumnSpace,
-          bool,
-          std::vector<std::pair<std::string, TableField>>>>& columns) const;
+    const fields_t& fields) const;
 
   static bool
   add_columns(

@@ -457,13 +457,7 @@ struct HYPERION_API TableBuilder {
 //   Table& table);
 
 template <MSTables T>
-std::pair<
-  std::string,
-  std::vector<
-    std::tuple<
-      ColumnSpace,
-      bool,
-      std::vector<std::pair<std::string, TableField>>>>>
+std::pair<std::string, Table::fields_t>
 from_ms(
   Legion::Context ctx,
   Legion::Runtime* rt,
