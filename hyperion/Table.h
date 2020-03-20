@@ -114,7 +114,7 @@ public:
   };
 
   struct columns_result_t {
-    typedef std::tuple<string, TableField> tbl_fld_t;
+    typedef std::tuple<hyperion::string, TableField> tbl_fld_t;
 
     std::vector<
       std::tuple<
