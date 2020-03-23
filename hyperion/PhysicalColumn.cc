@@ -62,36 +62,11 @@ PhysicalColumn::axes() const {
 }
 
 #ifdef HYPERION_USE_CASACORE
-void
-PhysicalColumn::update_refcol(
-  Runtime* rt,
-  const std::optional<
-    std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol) {
-
-  if (m_mr_drs) {
-    auto [mrb, rmap] = MeasRef::make(rt, m_mr_drs.value());
-    std::vector<std::shared_ptr<casacore::MRBase>> smrb;
-    std::move(mrb.begin(), mrb.end(), std::back_inserter(smrb));
-    if (refcol) {
-      auto& [nm, ppc] = refcol.value();
-      m_mrb =
-        std::make_tuple(
-          std::move(smrb),
-          rmap,
-          ppc->m_values.value(),
-          ppc->m_fid);
-    } else {
-      m_mrb = smrb[0];
-    }
-    m_refcol = refcol;
-  }
-}
-
 std::vector<std::shared_ptr<casacore::MRBase>>
-PhysicalColumn::mrbs() const {
+PhysicalColumn::mrbases(Runtime* rt) const {
   std::vector<std::shared_ptr<casacore::MRBase>> result;
-  if (m_mrb) {
-    mrb_t mrb = m_mrb.value();
+  auto omrb = mrb(rt);
+  if (omrb) {
     std::visit(overloaded {
         [&result](simple_mrb_t& smrb) {
           result.push_back(smrb);
@@ -100,10 +75,34 @@ PhysicalColumn::mrbs() const {
           result = std::get<0>(rmrb);
         }
       },
-      mrb);
+      omrb.value());
   }
   return result;
 }
+
+std::optional<PhysicalColumn::mrb_t>
+PhysicalColumn::mrb(Runtime* rt) const {
+
+  std::optional<mrb_t> result;
+  if (m_mr_drs) {
+    auto [mrb, rmap] = MeasRef::make(rt, m_mr_drs.value());
+    std::vector<std::shared_ptr<casacore::MRBase>> smrb;
+    std::move(mrb.begin(), mrb.end(), std::back_inserter(smrb));
+    if (m_refcol) {
+      auto& [nm, ppc] = m_refcol.value();
+      result =
+        std::make_tuple(
+          std::move(smrb),
+          rmap,
+          ppc->m_values.value(),
+          ppc->m_fid);
+    } else {
+      result = smrb[0];
+    }
+  }
+  return result;
+}
+
 #endif
 
 LogicalRegion

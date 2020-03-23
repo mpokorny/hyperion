@@ -134,12 +134,9 @@ public:
     , m_kws(kws)
 #ifdef HYPERION_USE_CASACORE
     , m_mr_drs(mr_drs)
+    , m_refcol(refcol)
 #endif // HYPERION_USE_CASACORE
-    {
-#ifdef HYPERION_USE_CASACORE
-      update_refcol(rt, refcol);
-#endif // HYPERION_USE_CASACORE
-    }
+    {}
 
   Column
   column() const;
@@ -162,20 +159,61 @@ public:
         m_fid);
   }
 
-  Legion::Domain
+  hyperion::TypeTag
+  dt() const {
+    return m_dt;
+  }
+
+  Legion::FieldID
+  fid() const {
+    return m_fid;
+  };
+
+  unsigned
+  index_rank() const {
+    return m_index_rank;
+  };
+
+  const Legion::PhysicalRegion&
+  metadata() const {
+    return m_metadata;
+  };
+
+
+  const Legion::Domain&
   domain() const {
     return m_domain;
   }
 
+  const Legion::LogicalRegion&
+  parent() const {
+    return m_parent;
+  };
+
+  const std::optional<Legion::PhysicalRegion>&
+  values() const {
+    return m_values;
+  };
+
+  const std::optional<Keywords::pair<Legion::PhysicalRegion>>&
+  kws() const {
+    return m_kws;
+  };
+
 #ifdef HYPERION_USE_CASACORE
-  void
-  update_refcol(
-    Legion::Runtime* rt,
-    const std::optional<
-      std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol);
+
+  const std::optional<MeasRef::DataRegions>
+  mr_drs() const {
+    return m_mr_drs;
+  };
+
+  const std::optional<std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>&
+  refcol() const {
+    return m_refcol;
+  }
 
   std::vector<std::shared_ptr<casacore::MRBase>>
-  mrbs() const;
+  mrbases(Legion::Runtime *rt) const;
 
   typedef std::shared_ptr<casacore::MRBase> simple_mrb_t;
 
@@ -186,6 +224,9 @@ public:
     Legion::FieldID> ref_mrb_t;
 
   typedef std::variant<simple_mrb_t, ref_mrb_t> mrb_t;
+
+  std::optional<mrb_t>
+  mrb(Legion::Runtime* rt) const;
 #endif // HYPERION_USE_CASACORE
 
   Legion::LogicalRegion
@@ -205,11 +246,18 @@ protected:
 #ifdef HYPERION_USE_CASACORE
   , m_mr_drs(from.m_mr_drs)
   , m_refcol(from.m_refcol)
-  , m_mrb(from.m_mrb)
 #endif // HYPERION_USE_CASACORE
   {}
 
-public:
+protected:
+
+  friend class PhysicalTable;
+  void
+  set_refcol(const std::string& name, const std::shared_ptr<PhysicalColumn>& col) {
+    m_refcol = std::make_tuple(name, col);
+  }
+
+protected:
 
   hyperion::TypeTag m_dt;
 
@@ -219,6 +267,8 @@ public:
 
   Legion::PhysicalRegion m_metadata;
 
+  // maintain m_domain in order to allow checks in narrowing copy constructors to
+  // PhysicalColumn variants (w.o. needing Legion::Runtime instance)
   Legion::Domain m_domain;
 
   Legion::LogicalRegion m_parent;
@@ -234,8 +284,6 @@ public:
 
   std::optional<std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>
   m_refcol;
-
-  std::optional<mrb_t> m_mrb;
 #endif // HYPERION_USE_CASACORE
 };
 
@@ -438,8 +486,8 @@ public:
   typedef casacore::MeasRef<typename MClassT<MC>::type> MR_t;
 
   std::vector<std::shared_ptr<MR_t>>
-  mrs() const {
-    auto mrbv = mrbs();
+  mrs(Legion::Runtime* rt) {
+    auto mrbv = mrbases(rt);
     std::vector<std::shared_ptr<MR_t>> result;
     result.reserve(mrbv.size());
     for (auto& mrb : mrbv)
@@ -615,14 +663,16 @@ public:
 
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
   MeasRefAccessor<MODE, CHECK_BOUNDS>
-  meas_ref_accessor() const {
-    return MeasRefAccessor<MODE, CHECK_BOUNDS>(&m_mrb.value());
+  meas_ref_accessor(Legion::Runtime* rt) const {
+    auto omrb = mrb(rt);
+    return MeasRefAccessor<MODE, CHECK_BOUNDS>(&omrb.value());
   }
 
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
   class MeasAccessorBase {
   public:
     MeasAccessorBase(
+      Legion::Runtime* rt,
       const PhysicalColumnTMD<
         DT,
         MC,
@@ -634,7 +684,7 @@ public:
       const char* units)
       : m_units(units)
       , m_value(col->accessor<MODE, CHECK_BOUNDS>())
-      , m_meas_ref(col->meas_ref_accessor<MODE, CHECK_BOUNDS>())
+      , m_meas_ref(col->meas_ref_accessor<MODE, CHECK_BOUNDS>(rt))
       {}
 
   protected:
@@ -733,8 +783,8 @@ public:
 
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
   MeasAccessor<MODE, CHECK_BOUNDS>
-  meas_accessor(const char* units) const {
-    return MeasAccessor<MODE, CHECK_BOUNDS>(this, units);
+  meas_accessor(Legion::Runtime* rt, const char* units) const {
+    return MeasAccessor<MODE, CHECK_BOUNDS>(rt, this, units);
   }
 };
 

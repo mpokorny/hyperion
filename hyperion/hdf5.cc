@@ -606,7 +606,7 @@ hyperion::hdf5::write_column(
   const PhysicalColumn& column) {
 
   auto axes =
-    ColumnSpace::from_axis_vector(ColumnSpace::axes(column.m_metadata));
+    ColumnSpace::from_axis_vector(ColumnSpace::axes(column.metadata()));
 
   // create column dataset
   {
@@ -615,7 +615,7 @@ hyperion::hdf5::write_column(
     switch (rank) {
 #define DIMS(N)                                                 \
       case N: {                                                 \
-        Rect<N> rect = column.m_domain.bounds<N, coord_t>();    \
+        Rect<N> rect = column.domain().bounds<N, coord_t>();    \
         for (size_t i = 0; i < N; ++i)                          \
           dims[i] = rect.hi[i] + 1;                             \
         break;                                                  \
@@ -629,7 +629,7 @@ hyperion::hdf5::write_column(
     hid_t ds = CHECK_H5(H5Screate_simple(rank, dims, NULL));
 
     hid_t dt;
-    switch (column.m_dt) {
+    switch (column.dt()) {
 #define DT(T) \
       case T: dt = H5DatatypeManager::datatype<T>(); break;
       HYPERION_FOREACH_DATATYPE(DT)
@@ -663,7 +663,8 @@ hyperion::hdf5::write_column(
             did,
             ds,
             H5P_DEFAULT, H5P_DEFAULT));
-      CHECK_H5(H5Awrite(attr_id, did, &column.m_dt));
+      auto col_dt = column.dt();
+      CHECK_H5(H5Awrite(attr_id, did, &col_dt));
       CHECK_H5(H5Sclose(ds));
       CHECK_H5(H5Aclose(attr_id));
     }
@@ -681,7 +682,8 @@ hyperion::hdf5::write_column(
             fid_dt,
             ds,
             H5P_DEFAULT, H5P_DEFAULT));
-      CHECK_H5(H5Awrite(attr_id, fid_dt, &column.m_fid));
+      auto col_fid = column.fid();
+      CHECK_H5(H5Awrite(attr_id, fid_dt, &col_fid));
       CHECK_H5(H5Sclose(ds));
       CHECK_H5(H5Aclose(attr_id));
     }
@@ -700,7 +702,7 @@ hyperion::hdf5::write_column(
 
 #ifdef HYPERION_USE_CASACORE
   // write measure reference column name to attribute
-  if (column.m_refcol) {
+  if (column.refcol()) {
     hsize_t dims = 1;
     hid_t refcol_ds = CHECK_H5(H5Screate_simple(1, &dims, NULL));
     const hid_t sdt = H5DatatypeManager::datatype<HYPERION_TYPE_STRING>();
@@ -713,25 +715,25 @@ hyperion::hdf5::write_column(
           refcol_ds,
           H5P_DEFAULT, H5P_DEFAULT));
     CHECK_H5(
-      H5Awrite(refcol_id, sdt, std::get<0>(column.m_refcol.value()).c_str()));
+      H5Awrite(refcol_id, sdt, std::get<0>(column.refcol().value()).c_str()));
     CHECK_H5(H5Aclose(refcol_id));
     CHECK_H5(H5Sclose(refcol_ds));
   }
 
-  if (column.m_mr_drs) {
+  if (column.mr_drs()) {
     hid_t measure_id =
       CHECK_H5(
         H5Gcreate(
           col_grp_id,
           HYPERION_MEASURE_GROUP,
           H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-    write_measure(rt, measure_id, column.m_mr_drs.value());
+    write_measure(rt, measure_id, column.mr_drs().value());
     CHECK_H5(H5Gclose(measure_id));
   }
 #endif
 
-  if (column.m_kws)
-    write_keywords(rt, col_grp_id, column.m_kws.value());
+  if (column.kws())
+    write_keywords(rt, col_grp_id, column.kws().value());
 }
 
 void
@@ -1053,7 +1055,7 @@ write_table_columns(
         write_columnspace(
           rt,
           csp_grp_id,
-          col->m_metadata,
+          col->metadata(),
           csp.column_is,
           table_axes_dt);
         CHECK_H5(H5Gclose(csp_grp_id));
@@ -1101,8 +1103,8 @@ write_table_columns(
       write_columnspace(
         rt,
         csp_grp_id,
-        ic->m_metadata,
-        ic->m_parent.get_index_space(),
+        ic->metadata(),
+        ic->parent().get_index_space(),
         table_axes_dt);
       CHECK_H5(H5Gclose(csp_grp_id));
     }

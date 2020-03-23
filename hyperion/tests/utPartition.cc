@@ -237,8 +237,8 @@ verify_partitions_task(
     xyz_part.project_onto(
       ctx,
       rt,
-      colW->m_parent.get_index_space(),
-      colW->m_metadata);
+      colW->parent().get_index_space(),
+      colW->metadata());
   for (PointInRectIterator<1> p(
          rt->get_index_partition_color_space(xyz_part.column_ip));
        p();

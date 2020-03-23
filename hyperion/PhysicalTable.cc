@@ -178,7 +178,7 @@ PhysicalTable::create(
   for (auto& [nm, ppc] : columns) {
     if (refcols.count(nm) > 0) {
       auto& rc = refcols[nm];
-      ppc->update_refcol(rt, std::make_tuple(rc, columns.at(rc)));
+      ppc->set_refcol(rc, columns.at(rc));
     }
   }
 #endif
@@ -190,7 +190,7 @@ Table
 PhysicalTable::table() const {
   std::unordered_map<std::string, LogicalRegion> column_parents;
   for (auto& [nm, ppc] : m_columns)
-    column_parents[nm] = ppc->m_parent;
+    column_parents[nm] = ppc->parent();
   return
     Table(m_table_pr.get_logical_region(), m_table_parent, column_parents);
 }
@@ -475,6 +475,8 @@ PhysicalTable::add_columns(
         }
       }
     }
+    for (auto& [c, rc] : refcols)
+      m_columns[c]->set_refcol(rc, m_columns[rc]);
   }
   return result;
 }
