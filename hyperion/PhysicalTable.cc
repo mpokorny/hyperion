@@ -442,6 +442,18 @@ PhysicalTable::add_columns(
             kws = prs;
           }
           // create mr_drs for MeasRef
+          std::optional<MeasRef::DataRegions> mr_drs;
+          if (!tf.mr.is_empty()) {
+            auto [mrq, vrq, oirq] = tf.mr.requirements(READ_WRITE, false);
+            MeasRef::DataRegions prs;
+            prs.metadata = rt->map_region(ctx, mrq);
+            prs.values = rt->map_region(ctx, vrq);
+            if (oirq)
+              prs.index = rt->map_region(ctx, oirq.value());
+            mr_drs = prs;
+          }
+          if (tf.rc)
+            refcols[nm] = tf.rc.value();
           if (m_columns.count(nm) == 0) {
             m_columns.emplace(
               nm,
@@ -455,7 +467,7 @@ PhysicalTable::add_columns(
                 vpr,
                 kws
 #ifdef HYPERION_USE_CASACORE
-                , std::nullopt
+                , mr_drs
                 , std::nullopt
 #endif
                 ));

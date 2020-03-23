@@ -154,7 +154,7 @@ public:
     Legion::RegionRequirement,
     Legion::RegionRequirement,
     std::optional<Legion::RegionRequirement>>
-  requirements(legion_privilege_mode_t mode) const;
+    requirements(Legion::PrivilegeMode mode, bool mapped = true) const;
 
   bool
   is_empty() const {

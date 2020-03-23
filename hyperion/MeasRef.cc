@@ -452,30 +452,23 @@ std::tuple<
   RegionRequirement,
   RegionRequirement,
   std::optional<RegionRequirement>>
-MeasRef::requirements(legion_privilege_mode_t mode) const {
+MeasRef::requirements(
+  Legion::PrivilegeMode mode,
+  bool mapped) const {
 
   RegionRequirement mreq(metadata_lr, mode, EXCLUSIVE, metadata_lr);
-  mreq.add_field(MEASURE_CLASS_FID);
-  mreq.add_field(REF_TYPE_FID);
-  mreq.add_field(NUM_VALUES_FID);
+  mreq.add_field(MEASURE_CLASS_FID, mapped);
+  mreq.add_field(REF_TYPE_FID, mapped);
+  mreq.add_field(NUM_VALUES_FID, mapped);
   RegionRequirement
-    vreq(
-      values_lr,
-      {0},
-      {0},
-      mode,
-      EXCLUSIVE,
-      values_lr);
+    vreq(values_lr, mode, EXCLUSIVE, values_lr);
+  vreq.add_field(0, mapped);
   std::optional<RegionRequirement> ireq;
-  if (index_lr != LogicalRegion::NO_REGION)
-    ireq =
-      RegionRequirement(
-        index_lr,
-        {M_CODE_FID},
-        {M_CODE_FID},
-        mode,
-        EXCLUSIVE,
-        index_lr);
+  if (index_lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(index_lr, mode, EXCLUSIVE, index_lr);
+    req.add_field(M_CODE_FID, mapped);
+    ireq = req;
+  }
 
   return std::make_tuple(mreq, vreq, ireq);
 }
