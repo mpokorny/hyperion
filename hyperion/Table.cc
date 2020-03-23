@@ -58,83 +58,6 @@ static const bool empty_ix = false;
 static const LogicalRegion empty_vs;
 
 size_t
-Table::partition_rows_result_t::legion_buffer_size(void) const {
-  size_t result = sizeof(unsigned);
-  for (size_t i = 0; i < partitions.size(); ++i) {
-    result += sizeof(ColumnSpace) + sizeof(IndexPartition) + sizeof(unsigned);
-    auto& p = partitions[i].partition;
-    result +=
-      std::distance(
-        p.begin(),
-        std::find_if(
-          p.begin(),
-          p.end(),
-          [](auto& ap){ return ap.stride == 0; }))
-      * sizeof(AxisPartition);
-  }
-  return result;
-}
-
-size_t
-Table::partition_rows_result_t::legion_serialize(void* buffer) const {
-  char* b = static_cast<char*>(buffer);
-  *reinterpret_cast<unsigned*>(b) = (unsigned)partitions.size();
-  b += sizeof(unsigned);
-  for (size_t i = 0; i < partitions.size(); ++i) {
-    auto& p = partitions[i];
-    *reinterpret_cast<ColumnSpace*>(b) = p.column_space;
-    b += sizeof(ColumnSpace);
-    *reinterpret_cast<IndexPartition*>(b) = p.column_ip;
-    b += sizeof(IndexPartition);
-    unsigned* npart = reinterpret_cast<unsigned*>(b);
-    b += sizeof(unsigned);
-    for (*npart = 0;
-         *npart < p.partition.size() && p.partition[*npart].stride != 0;
-         ++(*npart)) {
-      *reinterpret_cast<AxisPartition*>(b) = p.partition[*npart];
-      b += sizeof(AxisPartition);
-    }
-  }
-  return b - static_cast<char*>(buffer);
-}
-
-size_t
-Table::partition_rows_result_t::legion_deserialize(const void* buffer) {
-  const char* b = static_cast<const char*>(buffer);
-  unsigned n = *reinterpret_cast<const unsigned*>(b);
-  b += sizeof(n);
-  partitions.resize(n);
-  for (size_t i = 0; i < n; ++i) {
-    auto& p = partitions[i];
-    p.column_space = *reinterpret_cast<const ColumnSpace*>(b);
-    b += sizeof(ColumnSpace);
-    p.column_ip= *reinterpret_cast<const IndexPartition*>(b);
-    b += sizeof(IndexPartition);
-    unsigned nn = *reinterpret_cast<const unsigned*>(b);
-    b += sizeof(nn);
-    for (size_t j = 0; j < nn; ++ j) {
-      p.partition[j] = *reinterpret_cast<const AxisPartition*>(b);
-      b += sizeof(AxisPartition);
-    }
-    while (nn < ColumnSpace::MAX_DIM)
-      p.partition[nn++].stride = 0;
-  }
-  return b - static_cast<const char*>(buffer);
-}
-
-std::optional<ColumnSpacePartition>
-Table::partition_rows_result_t::find(const ColumnSpace& cs) const {
-  auto p =
-    std::find_if(
-      partitions.begin(),
-      partitions.end(),
-      [&cs](auto& csp) { return csp.column_space == cs; });
-  if (p != partitions.end())
-    return *p;
-  return std::nullopt;
-}
-
-size_t
 Table::columns_result_t::legion_buffer_size(void) const {
   size_t result = sizeof(unsigned);
   for (size_t i = 0; i < fields.size(); ++i)
@@ -1766,15 +1689,15 @@ Table::columns(
 }
 
 struct PartitionRowsTaskArgs {
+  IndexSpace ics_is;
   std::array<std::pair<bool, size_t>, Table::MAX_COLUMNS> block_sizes;
-  std::array<IndexSpace, Table::MAX_COLUMNS> cs_iss;
 };
 
 TaskID Table::partition_rows_task_id;
 
 const char* Table::partition_rows_task_name = "Table::partition_rows_task";
 
-Table::partition_rows_result_t
+ColumnSpacePartition
 Table::partition_rows_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
@@ -1784,12 +1707,6 @@ Table::partition_rows_task(
   const PartitionRowsTaskArgs* args =
     static_cast<const PartitionRowsTaskArgs*>(task->args);
 
-  std::vector<IndexSpace> cs_iss;
-  for (size_t i = 0; i < MAX_COLUMNS; ++i) {
-    if (args->cs_iss[i] == IndexSpace::NO_SPACE)
-      break;
-    cs_iss.push_back(args->cs_iss[i]);
-  }
   std::vector<std::optional<size_t>> block_sizes;
   for (size_t i = 0; i < MAX_COLUMNS; ++i) {
     auto& [has_value, value] = args->block_sizes[i];
@@ -1798,16 +1715,10 @@ Table::partition_rows_task(
     block_sizes.push_back(has_value ? value : std::optional<size_t>());
   }
 
-  std::vector<PhysicalRegion> cs_md_prs;
-  cs_md_prs.reserve(regions.size() - 1);
-  std::copy(
-    regions.begin() + 1,
-    regions.end(),
-    std::back_inserter(cs_md_prs));
-  return partition_rows(ctx, rt, block_sizes, regions[0], cs_iss, cs_md_prs);
+  return partition_rows(ctx, rt, block_sizes, args->ics_is, regions[0]);
 }
 
-Future /* partition_rows_result_t */
+Future /* ColumnSpacePartition */
 Table::partition_rows(
   Context ctx,
   Runtime* rt,
@@ -1821,59 +1732,30 @@ Table::partition_rows(
   }
   args.block_sizes[block_sizes.size()] = {true, 0};
 
-  auto fields_pr =
-    rt->map_region(
-      ctx,
-      table_fields_requirement(
-        fields_lr,
-        fields_parent.value_or(fields_lr),
-        READ_ONLY));
+  auto index_cs =
+    index_column_space(ctx, rt)
+    .get_result<index_column_space_result_t>()
+    .value();
+  args.ics_is = index_cs.column_is;
+
   TaskLauncher task(partition_rows_task_id, TaskArgument(&args, sizeof(args)));
-  {
-    auto index_cs =
-      Table::index_column_space(
-        rt,
-        fields_parent.value_or(fields_lr),
-        fields_pr)
-      .value();
-    RegionRequirement
-      req(index_cs.metadata_lr, READ_ONLY, EXCLUSIVE, index_cs.metadata_lr);
-    req.add_field(ColumnSpace::AXIS_VECTOR_FID);
-    task.add_region_requirement(req);
-  }
-  auto cols = Table::columns(rt, fields_parent.value_or(fields_lr), fields_pr);
-  size_t cs_idx = 0;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [cs, ixcs, vlr, tfs] : cols.fields) {
-#pragma GCC diagnostic pop
-    args.cs_iss[cs_idx++] = cs.column_is;
-    auto md = cs.metadata_lr;
-    RegionRequirement req(md, READ_ONLY, EXCLUSIVE, md);
-    req.add_field(ColumnSpace::AXIS_VECTOR_FID);
-    req.add_field(ColumnSpace::AXIS_SET_UID_FID);
-    req.add_field(ColumnSpace::INDEX_FLAG_FID);
-    task.add_region_requirement(req);
-  }
   auto result = rt->execute_task(ctx, task);
-  rt->unmap_region(ctx, fields_pr);
   return result;
 }
 
-Table::partition_rows_result_t
+ColumnSpacePartition
 Table::partition_rows(
   Context ctx,
   Runtime* rt,
   const std::vector<std::optional<size_t>>& block_sizes,
-  const PhysicalRegion& index_cs_md_pr,
-  const std::vector<IndexSpace>& cs_iss,
-  const std::vector<PhysicalRegion>& cs_md_prs) {
+  const IndexSpace& ics_is,
+  const PhysicalRegion& ics_md_pr) {
 
-  assert(cs_iss.size() == cs_md_prs.size());
-
-  partition_rows_result_t result;
+  ColumnSpacePartition result;
   const ColumnSpace::AxisVectorAccessor<READ_ONLY>
-    ax(index_cs_md_pr, ColumnSpace::AXIS_VECTOR_FID);
+    ax(ics_md_pr, ColumnSpace::AXIS_VECTOR_FID);
+  const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
+    au(ics_md_pr, ColumnSpace::AXIS_SET_UID_FID);
   auto ixax = ax[0];
   auto ixax_sz = ColumnSpace::size(ixax);
   if (block_sizes.size() > ixax_sz)
@@ -1891,14 +1773,7 @@ Table::partition_rows(
     if (blkszs[i].has_value())
       parts.emplace_back(ixax[i], blkszs[i].value());
 
-  for (size_t i = 0; i < cs_md_prs.size(); ++i) {
-    auto& pr = cs_md_prs[i];
-    const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
-      auids(pr, ColumnSpace::AXIS_SET_UID_FID);
-    result.partitions.push_back(
-      ColumnSpacePartition::create(ctx, rt, cs_iss[i], auids[0], parts, pr));
-  }
-  return result;
+  return ColumnSpacePartition::create(ctx, rt, ics_is, au[0], parts, ics_md_pr);
 }
 
 TaskID Table::reindexed_task_id;
@@ -2743,7 +2618,7 @@ Table::preregister_tasks() {
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
     Runtime::preregister_task_variant<
-      partition_rows_result_t,
+      ColumnSpacePartition,
       partition_rows_task>(
       registrar,
       partition_rows_task_name);

@@ -97,22 +97,6 @@ public:
 
   static const constexpr size_t MAX_COLUMNS = HYPERION_MAX_NUM_TABLE_COLUMNS;
 
-  struct partition_rows_result_t {
-    std::vector<ColumnSpacePartition> partitions;
-
-    size_t
-    legion_buffer_size(void) const;
-
-    size_t
-    legion_serialize(void* buffer) const;
-
-    size_t
-    legion_deserialize(const void* buffer);
-
-    std::optional<ColumnSpacePartition>
-    find(const ColumnSpace& cs) const;
-  };
-
   struct columns_result_t {
     typedef std::tuple<hyperion::string, TableField> tbl_fld_t;
 
@@ -329,20 +313,19 @@ public:
   // that there is no partitioning on that axis; if the length of block_sizes is
   // less than the length of the index axes vector the "missing" axes will not
   // be partitioned
-  Legion::Future /* partition_rows_result_t */
+  Legion::Future /* ColumnSpacePartition */
   partition_rows(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::vector<std::optional<size_t>>& block_sizes) const;
 
-  static partition_rows_result_t
+  static ColumnSpacePartition
   partition_rows(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::vector<std::optional<size_t>>& block_sizes,
-    const Legion::PhysicalRegion& index_cs_md_pr,
-    const std::vector<Legion::IndexSpace>& cs_iss,
-    const std::vector<Legion::PhysicalRegion>& cs_md_prs);
+    const Legion::IndexSpace& ics_is,
+    const Legion::PhysicalRegion& ics_md_pr);
 
   bool
   is_valid() const {
@@ -450,7 +433,7 @@ protected:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static partition_rows_result_t
+  static ColumnSpacePartition
   partition_rows_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,

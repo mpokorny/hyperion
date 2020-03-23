@@ -518,32 +518,20 @@ PhysicalTable::remove_columns(
       cs_md_prs);
 }
 
-Table::partition_rows_result_t
+ColumnSpacePartition
 PhysicalTable::partition_rows(
   Context ctx,
   Runtime* rt,
   const std::vector<std::optional<size_t>>& block_sizes) const {
 
-  PhysicalRegion index_cs_md_pr = index_column(rt).value()->m_metadata;
-  std::vector<IndexSpace> cs_iss;
-  std::vector<PhysicalRegion> cs_md_prs;
-  for (auto& [csp, ixcs, vlr, nm_tfs] : column_fields(rt)) {
-    cs_iss.push_back(csp.column_is);
-    if (ixcs) {
-      cs_md_prs.push_back(index_cs_md_pr);
-    } else {
-      assert(nm_tfs.size() > 0);
-      cs_md_prs.push_back(column(std::get<0>(nm_tfs[0])).value()->m_metadata);
-    }
-  }
+  auto ic = index_column(rt).value();
   return
     Table::partition_rows(
       ctx,
       rt,
       block_sizes,
-      index_cs_md_pr,
-      cs_iss,
-      cs_md_prs);
+      ic->parent().get_index_space(),
+      ic->metadata());
 }
 
 LogicalRegion
