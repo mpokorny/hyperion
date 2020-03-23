@@ -430,6 +430,18 @@ PhysicalTable::add_columns(
         }
         auto& md_pr = cs_md_prs[cs_idxs[cs.metadata_lr]];
         for (auto& [nm, tf] : nm_tfs) {
+          // create kws for Keywords
+          std::optional<Keywords::pair<PhysicalRegion>> kws;
+          if (!tf.kw.is_empty()) {
+            std::vector<FieldID> fids;
+            fids.resize(tf.kw.size(rt));
+            std::iota(fids.begin(), fids.end(), 0);
+            auto reqs = tf.kw.requirements(rt, fids, READ_WRITE, false).value();
+            auto prs =
+              reqs.map([&ctx, rt](const auto& rq) { return rt->map_region(ctx, rq); });
+            kws = prs;
+          }
+          // create mr_drs for MeasRef
           if (m_columns.count(nm) == 0) {
             m_columns.emplace(
               nm,
@@ -441,7 +453,7 @@ PhysicalTable::add_columns(
                 md_pr,
                 vlr,
                 vpr,
-                std::nullopt
+                kws
 #ifdef HYPERION_USE_CASACORE
                 , std::nullopt
                 , std::nullopt

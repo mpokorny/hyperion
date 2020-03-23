@@ -802,7 +802,7 @@ Table::requirements(
       if (nkw > 0) {
         std::vector<FieldID> fids(nkw);
         std::iota(fids.begin(), fids.end(), 0);
-        auto rqs = kws_pid.requirements(rt, fids, p).value();
+        auto rqs = kws_pid.requirements(rt, fids, p, m).value();
         reqs_result.push_back(rqs.type_tags);
         reqs_result.push_back(rqs.values);
       }

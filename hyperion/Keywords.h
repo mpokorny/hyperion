@@ -108,7 +108,8 @@ public:
   requirements(
     Legion::Runtime* rt,
     const C<Legion::FieldID>& fids,
-    legion_privilege_mode_t mode) const {
+    Legion::PrivilegeMode mode,
+    bool mapped = true) const {
 
     std::optional<pair<Legion::RegionRequirement>> result;
     auto n = size(rt);
@@ -123,9 +124,9 @@ public:
       std::for_each(
         std::begin(fids),
         std::end(fids),
-        [&tt, &v](auto fid) {
-          tt.add_field(fid);
-          v.add_field(fid);
+        [&mapped, &tt, &v](auto fid) {
+          tt.add_field(fid, mapped);
+          v.add_field(fid, mapped);
         });
       result = pair<Legion::RegionRequirement>{tt, v};
     }
