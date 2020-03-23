@@ -37,44 +37,46 @@ namespace hyperion {
 class HYPERION_API TableReadTask {
 public:
 
-  static Legion::TaskID TASK_ID;
-  static const char* TASK_NAME;
+  static std::tuple<
+    std::vector<Legion::RegionRequirement>,
+    std::vector<Legion::LogicalPartition>>
+  requirements(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const PhysicalTable& table,
+    const ColumnSpacePartition& table_partition = ColumnSpacePartition());
 
-  TableReadTask(
-    const std::string& table_path,
+  static std::tuple<
+    std::vector<Legion::RegionRequirement>,
+    std::vector<Legion::LogicalPartition>>
+  requirements(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
     const Table& table,
-    size_t min_block_length)
-    : m_table_path(table_path)
-    , m_table(table)
-    , m_min_block_length(min_block_length) {
+    const ColumnSpacePartition& table_partition = ColumnSpacePartition());
 
-    // FIXME: the following is insufficient in the case of multiple nodes
-    // FIXME: is this necessary?
-    casacore::Table tb(
-      casacore::String(table_path),
-      casacore::TableLock::PermanentLockingWait);
-  }
+  struct Args {
+    // path to MS table
+    char table_path[1024];
+  };
 
   static void
-  preregister_task();
+  preregister_tasks();
 
-  void
-  dispatch(Legion::Context ctx, Legion::Runtime* rt);
+  static Legion::TaskID TASK_ID;
+
+  static constexpr const char* TASK_NAME = "TableReadTask";
+
+private:
+
+  // read values from MS table for mapped regions in all mapped columns
 
   static void
-  base_impl(
+  impl(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *runtime);
-
-private:
-
-  std::string m_table_path;
-
-  Table m_table;
-
-  size_t m_min_block_length;
 };
 
 } // end namespace hyperion

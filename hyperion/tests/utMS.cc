@@ -27,6 +27,7 @@
 #include <hyperion/testing/TestExpression.h>
 
 #include <algorithm>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <vector>
@@ -490,8 +491,13 @@ read_full_ms(
   // read MS table columns to initialize the Column LogicalRegions
   //
   {
-    TableReadTask table_read_task(t0_path, table, 2000);
-    table_read_task.dispatch(ctx, rt);
+    TableReadTask::Args args;
+    std::strncpy(args.table_path, t0_path.c_str(), sizeof(args.table_path));
+    auto [reqs, parts] = TableReadTask::requirements(ctx, rt, table);
+    TaskLauncher read(TableReadTask::TASK_ID, TaskArgument(&args, sizeof(args)));
+    for (auto& rq : reqs)
+      read.add_region_requirement(rq);
+    rt->execute_task(ctx, read);
   }
 
   // compare column LogicalRegions to values read using casacore functions

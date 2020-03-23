@@ -239,7 +239,7 @@ static RegionRequirement
 table_fields_requirement(
   LogicalRegion lr,
   LogicalRegion parent,
-  Legion::PrivilegeMode mode) {
+  PrivilegeMode mode) {
 
   RegionRequirement result(lr, mode, EXCLUSIVE, parent);
 #define ADD_F(F) result.add_field(static_cast<FieldID>(F));

@@ -375,7 +375,7 @@ hyperion::preregister_all() {
   ColumnSpacePartition::preregister_tasks();
   Column::preregister_tasks();
 #ifdef HYPERION_USE_CASACORE
-  TableReadTask::preregister_task();
+  TableReadTask::preregister_tasks();
 #endif
 }
 
