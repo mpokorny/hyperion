@@ -160,6 +160,28 @@ public:
     return reindexed(ctx, rt, iax, allow_rows);
   }
 
+  // boolean values in 'column_modes': (read-only, restricted, mapped)
+  bool
+  attach_columns(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const CXX_FILESYSTEM_NAMESPACE::path& file_path,
+    const std::unordered_map<std::string, std::string>& column_paths,
+    const std::unordered_map<std::string, std::tuple<bool, bool, bool>>&
+    column_modes);
+
+  void
+  detach_columns(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::unordered_set<std::string>& columns);
+
+  void
+  acquire_columns(Legion::Context ctx, Legion::Runtime* rt);
+
+  void
+  release_columns(Legion::Context ctx, Legion::Runtime* rt);
+
 protected:
 
   Legion::LogicalRegion m_table_parent;
@@ -167,6 +189,8 @@ protected:
   Legion::PhysicalRegion m_table_pr;
 
   std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> m_columns;
+
+  std::unordered_map<std::string, Legion::PhysicalRegion> m_attached;
 };
 
 } // end namespace hyperion

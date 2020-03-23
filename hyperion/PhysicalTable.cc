@@ -599,6 +599,94 @@ PhysicalTable::reindexed(
       cregions);
 }
 
+bool
+PhysicalTable::attach_columns(
+  Context ctx,
+  Runtime* rt,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
+  const std::unordered_map<std::string, std::string>& column_paths,
+  const std::unordered_map<std::string, std::tuple<bool, bool, bool>>&
+  column_modes) {
+
+  std::map<
+    std::tuple<LogicalRegion, std::tuple<bool, bool, bool>>,
+    std::vector<std::tuple<FieldID, std::string>>>
+    regions;
+  for (auto& [nm, pc] : m_columns) {
+    if (column_paths.count(nm) > 0 && pc->fid() != Table::no_column) {
+      if (column_modes.count(nm) == 0) {
+        // FIXME: log warning message: missing column path and/or mode
+        return false;
+      }
+      if (m_attached.count(nm) > 0) {
+        // FIXME: log warning message: column is already attached; this could
+        // perhaps be relaxed if the attachment parameters were maintained
+        return false;
+      }
+      std::tuple<LogicalRegion, std::tuple<bool, bool, bool>> key =
+        {pc->parent(), column_modes.at(nm)};
+      if (regions.count(key) == 0)
+        regions[key] = std::vector<std::tuple<FieldID, std::string>>();
+      regions[key].emplace_back(pc->fid(), nm);
+    }
+  }
+  for (auto& [lr_modes, fid_nms] : regions) {
+    std::map<FieldID, const char*> field_map;
+    for (auto& [fid, nm] : fid_nms)
+      field_map[fid] = column_paths.at(nm).c_str();
+    auto& [lr, modes] = lr_modes;
+    auto& [read_only, restricted, mapped] = modes;
+    AttachLauncher attach(
+      EXTERNAL_HDF5_FILE,
+      m_columns.at(std::get<1>(fid_nms[0]))
+      ->m_values.value().get_logical_region(),
+      lr,
+      restricted,
+      mapped);
+    attach.attach_hdf5(
+      file_path.c_str(),
+      field_map,
+      read_only ? LEGION_FILE_READ_ONLY : LEGION_FILE_READ_WRITE);
+    auto pr = rt->attach_external_resource(ctx, attach);
+    for (auto& [fid, nm] : fid_nms)
+      m_attached[nm] = pr;
+  }
+  return true;
+}
+
+void
+PhysicalTable::detach_columns(
+  Context ctx,
+  Runtime* rt,
+  const std::unordered_set<std::string>& columns) {
+
+  // TODO: we must detach all columns sharing the PhysicalRegion, should there
+  // be an error when not all such columns are named in "columns"?
+  std::set<PhysicalRegion> detached;
+  for (auto& col : columns) {
+    if (m_attached.count(col) > 0) {
+      auto pr = m_attached.at(col);
+      if (detached.count(pr) == 0) {
+        rt->detach_external_resource(ctx, pr);
+        detached.insert(pr);
+      }
+    }
+  }
+  for (auto& [nm, pr] : m_attached)
+    if (detached.count(pr) > 0)
+      m_attached.erase(nm);
+}
+
+void
+PhysicalTable::acquire_columns(Context ctx, Runtime* rt) {
+
+}
+
+void
+PhysicalTable::release_columns(Context ctx, Runtime* rt) {
+
+}
+
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2
