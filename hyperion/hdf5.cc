@@ -1036,7 +1036,7 @@ write_table_columns(
 
   unsigned csp_index = 0;
   bool wrote_index_column_space = false;
-  for (auto& [csp, ixcs, vlr, nm_tfs] : table.columns(rt).fields) {
+  for (auto& [csp, ixcs, vlr, nm_tfs] : table.column_fields(rt)) {
     if (nm_tfs.size() > 0) {
       if (ixcs)
         wrote_index_column_space = true;
@@ -1117,9 +1117,9 @@ hyperion::hdf5::write_table(
   hid_t table_grp_id,
   const PhysicalTable& table) {
 
-  auto columns = table.columns(rt);
+  auto columns = table.column_fields(rt);
 
-  if (columns.fields.size() == 0)
+  if (columns.size() == 0)
     return;
 
   hid_t table_axes_dt;
@@ -1189,14 +1189,14 @@ hyperion::hdf5::write_table(
   const std::unordered_set<std::string>& columns) {
 
   auto tbl_columns =
-    table.columns(ctx, rt).get_result<Table::columns_result_t>();
+    table.columns(ctx, rt).get_result<Table::columns_result_t>().fields;
 
-  if (tbl_columns.fields.size() == 0)
+  if (tbl_columns.size() == 0)
     return;
 
   hid_t table_axes_dt;
   {
-    auto& csp = std::get<0>(tbl_columns.fields[0]);
+    auto& csp = std::get<0>(tbl_columns[0]);
     RegionRequirement
       req(csp.metadata_lr, READ_ONLY, EXCLUSIVE, csp.metadata_lr);
     req.add_field(ColumnSpace::AXIS_SET_UID_FID);
@@ -1259,7 +1259,7 @@ hyperion::hdf5::write_table(
   // write_keywords(ctx, rt, table_grp_id, table.keywords);  
 
   Table::columns_result_t selected_columns;
-  for (auto& [csp, ixcs, vlr, nm_tfs] : tbl_columns.fields) {
+  for (auto& [csp, ixcs, vlr, nm_tfs] : tbl_columns) {
     std::vector<std::tuple<hyperion::string, TableField>> flds;
     std::copy_if(
       nm_tfs.begin(),
@@ -1282,10 +1282,10 @@ hyperion::hdf5::write_table(
   const Table& table) {
 
   auto tbl_columns =
-    table.columns(ctx, rt).get_result<Table::columns_result_t>();
+    table.columns(ctx, rt).get_result<Table::columns_result_t>().fields;
 
   std::unordered_set<std::string> columns;
-  for (auto& [csp, ixcs, vlr, nm_tfs] : tbl_columns.fields)
+  for (auto& [csp, ixcs, vlr, nm_tfs] : tbl_columns)
     for (auto& [nm, tf] : nm_tfs)
       columns.insert(nm);
 
@@ -2027,9 +2027,9 @@ attach_selected_table_columns(
   bool mapped) {
 
   std::map<PhysicalRegion, std::unordered_map<std::string, Column>> result;
-  auto all_columns =
-    table.columns(ctx, rt).get_result<Table::columns_result_t>();
-  for (auto& [csp, ixcs, vlr, nm_tflds] : all_columns.fields) {
+  auto column_fields =
+    table.columns(ctx, rt).get_result<Table::columns_result_t>().fields;
+  for (auto& [csp, ixcs, vlr, nm_tflds] : column_fields) {
     std::unordered_set<std::string> colnames;
     std::unordered_map<std::string, Column> cols;
     for (auto& [nm, tfld] : nm_tflds) {

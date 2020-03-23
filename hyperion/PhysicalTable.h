@@ -104,8 +104,13 @@ public:
     Legion::PrivilegeMode columns_privilege = READ_ONLY,
     Legion::CoherenceProperty columns_coherence = EXCLUSIVE) const;
 
-  Table::columns_result_t
-  columns(Legion::Runtime *rt) const;
+  const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
+  columns() const {
+    return m_columns;
+  }
+
+  decltype(Table::columns_result_t::fields)
+  column_fields(Legion::Runtime *rt) const;
 
   bool
   add_columns(

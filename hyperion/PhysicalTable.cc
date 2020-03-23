@@ -34,7 +34,7 @@ std::optional<
     std::vector<RegionRequirement>::const_iterator,
     std::vector<PhysicalRegion>::const_iterator>>
 PhysicalTable::create(
-  Legion::Runtime *rt,
+  Runtime *rt,
   const std::vector<RegionRequirement>::const_iterator& reqs_begin,
   const std::vector<RegionRequirement>::const_iterator& reqs_end,
   const std::vector<PhysicalRegion>::const_iterator& prs_begin,
@@ -217,7 +217,7 @@ PhysicalTable::column(const std::string& name) const {
 }
 
 std::optional<Point<1>>
-PhysicalTable::index_column_space(Legion::Runtime* rt) const {
+PhysicalTable::index_column_space(Runtime* rt) const {
   return index_column_space(rt, m_table_parent, m_table_pr);
 }
 
@@ -336,9 +336,9 @@ PhysicalTable::requirements(
       columns_coherence);
 }
 
-Table::columns_result_t
-PhysicalTable::columns(Runtime *rt) const {
-  return Table::columns(rt, m_table_parent, m_table_pr);
+decltype(Table::columns_result_t::fields)
+PhysicalTable::column_fields(Runtime *rt) const {
+  return Table::columns(rt, m_table_parent, m_table_pr).fields;
 }
 
 bool
@@ -412,7 +412,8 @@ PhysicalTable::add_columns(
   if (result) {
     // create (unmapped) PhysicalColumns for added columns
     unsigned idx_rank = index_rank(rt);
-    for (auto& [cs, ixcs, vlr, nm_tfs] : columns(rt).fields) {
+    std::unordered_map<std::string, std::string> refcols;
+    for (auto& [cs, ixcs, vlr, nm_tfs] : column_fields(rt)) {
       std::vector<FieldID> new_fields;
       for (auto& [nm, tf] : nm_tfs)
         if (m_columns.count(nm) == 0)
@@ -491,7 +492,7 @@ PhysicalTable::remove_columns(
 
   std::vector<ColumnSpace> css;
   std::vector<PhysicalRegion> cs_md_prs;
-  for (auto& [cs, ixcs, vlr, nm_tfs] : PhysicalTable::columns(rt).fields) {
+  for (auto& [cs, ixcs, vlr, nm_tfs] : column_fields(rt)) {
     for (auto& [nm, tf] : nm_tfs) {
       if (cols.count(nm) > 0) {
         css.push_back(cs);
@@ -519,14 +520,14 @@ PhysicalTable::remove_columns(
 
 Table::partition_rows_result_t
 PhysicalTable::partition_rows(
-  Legion::Context ctx,
-  Legion::Runtime* rt,
+  Context ctx,
+  Runtime* rt,
   const std::vector<std::optional<size_t>>& block_sizes) const {
 
   PhysicalRegion index_cs_md_pr = index_column(rt).value()->m_metadata;
   std::vector<IndexSpace> cs_iss;
   std::vector<PhysicalRegion> cs_md_prs;
-  for (auto& [csp, ixcs, vlr, nm_tfs] : columns(rt).fields) {
+  for (auto& [csp, ixcs, vlr, nm_tfs] : column_fields(rt)) {
     cs_iss.push_back(csp.column_is);
     if (ixcs) {
       cs_md_prs.push_back(index_cs_md_pr);
@@ -562,7 +563,7 @@ PhysicalTable::reindexed(
   const Table::NameAccessor<READ_ONLY>
     nms(m_table_pr, static_cast<FieldID>(TableFieldsFid::NM));
 
-  std::vector<std::tuple<Legion::coord_t, Table::ColumnRegions>> cregions;
+  std::vector<std::tuple<coord_t, Table::ColumnRegions>> cregions;
   for (PointInDomainIterator<1> pid(
          rt->get_index_space_domain(m_table_parent.get_index_space()));
        pid();
