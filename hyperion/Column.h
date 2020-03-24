@@ -61,6 +61,33 @@ struct HYPERION_API Column {
     return csp.is_valid();
   }
 
+  struct Req {
+    Legion::PrivilegeMode privilege;
+    Legion::CoherenceProperty coherence;
+    bool mapped;
+
+    bool
+    operator==(const Req& rhs) const {
+      return privilege == rhs.privilege
+      && coherence == rhs.coherence
+      && mapped == rhs.mapped;
+    }
+  };
+
+  struct Requirements {
+    Req values;
+    Req keywords;
+    Req measref;
+    Req column_space;
+  };
+
+  static constexpr const Requirements default_requirements{
+    Req{READ_ONLY, EXCLUSIVE, false},
+    Req{READ_ONLY, EXCLUSIVE, true},
+    Req{READ_ONLY, EXCLUSIVE, true},
+    Req{READ_ONLY, EXCLUSIVE, true}
+  };
+
   static constexpr const Legion::FieldID COLUMN_INDEX_VALUE_FID = 0;
   static constexpr const Legion::FieldID COLUMN_INDEX_ROWS_FID = 1;
   typedef std::vector<Legion::DomainPoint> COLUMN_INDEX_ROWS_TYPE;
