@@ -239,6 +239,13 @@ TableReadTask::impl(
   }
 }
 
+static const constexpr Column::Requirements column_reqs{
+  Column::Req{WRITE_ONLY, EXCLUSIVE, true},
+  Column::default_requirements.keywords,
+  Column::default_requirements.measref,
+  Column::default_requirements.column_space
+};
+
 std::tuple<
   std::vector<RegionRequirement>,
   std::vector<LogicalPartition>>
@@ -249,15 +256,7 @@ TableReadTask::requirements(
   const ColumnSpacePartition& table_partition) {
 
   return
-    table.requirements(
-      ctx,
-      rt,
-      table_partition,
-      READ_ONLY,
-      {},
-      true,
-      WRITE_ONLY,
-      EXCLUSIVE);
+    table.requirements(ctx, rt, table_partition, READ_ONLY, {}, column_reqs);
 }
 
 std::tuple<
@@ -270,15 +269,7 @@ TableReadTask::requirements(
   const ColumnSpacePartition& table_partition) {
 
   return
-    table.requirements(
-      ctx,
-      rt,
-      table_partition,
-      READ_ONLY,
-      {},
-      true,
-      WRITE_ONLY,
-      EXCLUSIVE);
+    table.requirements(ctx, rt, table_partition, READ_ONLY, {}, column_reqs);
 }
 
 // Local Variables:

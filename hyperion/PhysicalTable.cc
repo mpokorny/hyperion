@@ -309,13 +309,9 @@ PhysicalTable::requirements(
   Runtime* rt,
   const ColumnSpacePartition& table_partition,
   PrivilegeMode table_privilege,
-  const std::map<
-    std::string,
-    std::optional<
-      std::tuple<bool, PrivilegeMode, CoherenceProperty>>>& column_modes,
-  bool columns_mapped,
-  PrivilegeMode columns_privilege,
-  CoherenceProperty columns_coherence) const {
+  const std::map<std::string, std::optional<Column::Requirements>>&
+    column_requirements,
+  const Column::Requirements& default_column_requirements) const {
 
   std::unordered_map<std::string, LogicalRegion> column_parents;
   for (auto& [nm, ppc] : m_columns)
@@ -330,10 +326,8 @@ PhysicalTable::requirements(
       column_parents,
       table_partition,
       table_privilege,
-      column_modes,
-      columns_mapped,
-      columns_privilege,
-      columns_coherence);
+      column_requirements,
+      default_column_requirements);
 }
 
 decltype(Table::columns_result_t::fields)

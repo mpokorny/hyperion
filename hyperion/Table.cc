@@ -439,13 +439,9 @@ Table::requirements(
   Runtime* rt,
   const ColumnSpacePartition& table_partition,
   PrivilegeMode table_privilege,
-  const std::map<
-    std::string,
-    std::optional<
-      std::tuple<bool, PrivilegeMode, CoherenceProperty>>>& column_modes,
-  bool columns_mapped,
-  PrivilegeMode columns_privilege,
-  CoherenceProperty columns_coherence) const {
+  const std::map<std::string, std::optional<Column::Requirements>>&
+    column_requirements,
+  const Column::Requirements& default_column_requirements) const {
 
   auto fields_pr =
     rt->map_region(
@@ -464,10 +460,8 @@ Table::requirements(
       column_parents,
       table_partition,
       table_privilege,
-      column_modes,
-      columns_mapped,
-      columns_privilege,
-      columns_coherence);
+      column_requirements,
+      default_column_requirements);
 
   rt->unmap_region(ctx, fields_pr);
   return result;
@@ -482,13 +476,9 @@ Table::requirements(
   const std::unordered_map<std::string, LogicalRegion>& column_parents,
   const ColumnSpacePartition& table_partition,
   PrivilegeMode table_privilege,
-  const std::map<
-    std::string,
-    std::optional<
-      std::tuple<bool, PrivilegeMode, CoherenceProperty>>>& column_modes,
-  bool columns_mapped,
-  PrivilegeMode columns_privilege,
-  CoherenceProperty columns_coherence) {
+  const std::map<std::string, std::optional<Column::Requirements>>&
+      column_requirements,
+  const Column::Requirements& default_column_requirements) {
 
   const NameAccessor<READ_ONLY>
     nms(fields_pr, static_cast<FieldID>(TableFieldsFid::NM));
@@ -542,56 +532,55 @@ Table::requirements(
   std::map<
     hyperion::string,
     std::tuple<
-      LogicalRegion, // ColumnSpace metadata -- always READ_ONLY
+      LogicalRegion, // ColumnSpace metadata
       LogicalRegion, // Column values -- can be NO_REGION!
-      bool,
-      PrivilegeMode,
-      CoherenceProperty>> column_regions;
+      Column::Requirements>> column_regions;
 #ifdef HYPERION_USE_CASACORE
-  std::map<
-    hyperion::string,
-    std::tuple<bool, PrivilegeMode, CoherenceProperty>>
-    mrc_modes;
+  std::map<hyperion::string, Column::Requirements> mrc_reqs;
 #endif
-  for (PointInDomainIterator<1> pid(tdom);
-       pid();
-       pid++) {
-    auto css_pid = css.read(*pid);
-    if (css_pid.is_empty())
-      break;
-    auto vfs_pid = vfs.read(*pid);
-    auto nms_pid = nms.read(*pid);
-    if (vfs_pid == no_column
-        || column_modes.count(nms_pid) == 0
-        || column_modes.at(nms_pid)) {
-      assert((vfs_pid == no_column) == (nms_pid.size() == 0));
-      bool mapped = columns_mapped;
-      PrivilegeMode privilege = columns_privilege;
-      CoherenceProperty coherence = columns_coherence;
-      if (vfs_pid != no_column && column_modes.count(nms_pid) > 0)
-        std::tie(mapped, privilege, coherence) =
-          column_modes.at(nms_pid).value();
-      column_regions[nms_pid] =
-        {css_pid.metadata_lr, vss.read(*pid), mapped, privilege, coherence};
+  {
+    std::map<ColumnSpace, Column::Req> cs_reqs;
+    for (PointInDomainIterator<1> pid(tdom); pid(); pid++) {
+      auto css_pid = css.read(*pid);
+      if (css_pid.is_empty())
+        break;
+      auto vfs_pid = vfs.read(*pid);
+      auto nms_pid = nms.read(*pid);
+      if (vfs_pid == no_column
+          || column_requirements.count(nms_pid) == 0
+          || column_requirements.at(nms_pid)) {
+        assert((vfs_pid == no_column) == (nms_pid.size() == 0));
+        Column::Requirements colreqs = default_column_requirements;
+        if (vfs_pid != no_column && column_requirements.count(nms_pid) > 0)
+          colreqs = column_requirements.at(nms_pid).value();
+        column_regions[nms_pid] = {css_pid.metadata_lr, vss.read(*pid), colreqs};
+        if (cs_reqs.count(css_pid) == 0) {
+          cs_reqs[css_pid] = colreqs.column_space;
+        } else {
+          // FIXME: log a warning, and return empty result;
+          // warning: inconsistent requirements on shared Column metadata regions
+          assert(cs_reqs[css_pid] == colreqs.column_space);
+        }
 #ifdef HYPERION_USE_CASACORE
-      auto rcs_pid = rcs.read(*pid);
-      if (rcs_pid.size() > 0)
-        mrc_modes[rcs_pid] = {mapped, privilege, coherence};
+        auto rcs_pid = rcs.read(*pid);
+        if (rcs_pid.size() > 0)
+          mrc_reqs[rcs_pid] = colreqs;
 #endif
-      sel_flags[*pid] = 1;
-      some_cols_selected = true;
-    } else {
-      sel_flags[*pid] = 0;
-      all_cols_selected = false;
+        sel_flags[*pid] = 1;
+        some_cols_selected = true;
+      } else {
+        sel_flags[*pid] = 0;
+        all_cols_selected = false;
+      }
     }
   }
   rt->unmap_region(ctx, col_select_pr);
 
 #ifdef HYPERION_USE_CASACORE
   // apply mode of value column to its measure reference column
-  for (auto& [nm, modes] : mrc_modes) {
-    auto& [mdlr, vlr, m, p, c] = column_regions[nm];
-    std::tie(m, p, c) = modes;
+  for (auto& [nm, rq] : mrc_reqs) {
+    auto& [mdlr, vlr, reqs] = column_regions[nm];
+    reqs = rq;
   }
 #endif
 
@@ -612,7 +601,7 @@ Table::requirements(
     auto nms_pid = nms.read(*pid);
     if (column_regions.count(nms_pid) > 0) {
       auto& rg = column_regions.at(nms_pid);
-      auto& [mdlr, vlr, m, p, c] = rg;
+      auto& [mdlr, vlr, reqs] = rg;
       if (md_reqs.count(mdlr) == 0) {
         RegionRequirement req(
           mdlr,
@@ -622,37 +611,50 @@ Table::requirements(
           {ColumnSpace::AXIS_VECTOR_FID,
            ColumnSpace::AXIS_SET_UID_FID,
            ColumnSpace::INDEX_FLAG_FID},
-          READ_ONLY,
-          EXCLUSIVE,
+          reqs.column_space.privilege,
+          reqs.column_space.coherence,
           mdlr);
         md_reqs[mdlr] = {false, req};
       }
       auto vfs_pid = vfs.read(*pid);
       if (vfs_pid != no_column) {
-        decltype(val_reqs)::key_type rg_rq = {vlr, p, c};
+        decltype(val_reqs)::key_type rg_rq =
+          {vlr, reqs.values.privilege, reqs.values.coherence};
         if (val_reqs.count(rg_rq) == 0) {
           LogicalRegion parent = vlr;
           if (column_parents.count(nms_pid) > 0)
             parent = column_parents.at(nms_pid);
           if (!table_partition.is_valid()) {
-            val_reqs[rg_rq] = {false, RegionRequirement(vlr, p, c, parent)};
+            val_reqs[rg_rq] =
+              {false,
+               RegionRequirement(
+                 vlr,
+                 reqs.values.privilege,
+                 reqs.values.coherence,
+                 parent)};
           } else {
             LogicalPartition lp;
             if (partitions.count(css_pid) == 0) {
               auto csp =
                 table_partition.project_onto(ctx, rt, css_pid)
                 .get_result<ColumnSpacePartition>();
-              LogicalPartition lp =
-                rt->get_logical_partition(ctx, vlr, csp.column_ip);
+              lp = rt->get_logical_partition(ctx, vlr, csp.column_ip);
               csp.destroy(ctx, rt);
               partitions[css_pid] = lp;
             } else {
               lp = partitions[css_pid];
             }
-            val_reqs[rg_rq] = {false, RegionRequirement(lp, 0, p, c, parent)};
+            val_reqs[rg_rq] =
+              {false,
+               RegionRequirement(
+                 lp,
+                 0,
+                 reqs.values.privilege,
+                 reqs.values.coherence,
+                 parent)};
           }
         }
-        std::get<1>(val_reqs[rg_rq]).add_field(vfs_pid, m);
+        std::get<1>(val_reqs[rg_rq]).add_field(vfs_pid, reqs.values.mapped);
       }
     }
   }
@@ -704,19 +706,20 @@ Table::requirements(
     auto nms_pid = nms.read(*pid);
     if (column_regions.count(nms_pid) > 0) {
       auto& rg = column_regions.at(nms_pid);
-      auto& [mdlr, vlr, m, p, c] = rg;
+      auto& [mdlr, vlr, reqs] = rg;
       {
-        auto& [added, req] = md_reqs.at(mdlr);
+        auto& [added, rq] = md_reqs.at(mdlr);
         if (!added) {
-          reqs_result.push_back(req);
+          reqs_result.push_back(rq);
           added = true;
         }
       }
-      decltype(val_reqs)::key_type rg_rq = {vlr, p, c};
+      decltype(val_reqs)::key_type rg_rq =
+        {vlr, reqs.values.privilege, reqs.values.coherence};
       if (vlr != LogicalRegion::NO_REGION) {
-        auto& [added, req] = val_reqs.at(rg_rq);
+        auto& [added, rq] = val_reqs.at(rg_rq);
         if (!added) {
-          reqs_result.push_back(req);
+          reqs_result.push_back(rq);
           added = true;
         }
       }
@@ -725,7 +728,13 @@ Table::requirements(
       if (nkw > 0) {
         std::vector<FieldID> fids(nkw);
         std::iota(fids.begin(), fids.end(), 0);
-        auto rqs = kws_pid.requirements(rt, fids, p, m).value();
+        auto rqs =
+          kws_pid.requirements(
+            rt,
+            fids,
+            reqs.keywords.privilege,
+            reqs.keywords.mapped)
+          .value();
         reqs_result.push_back(rqs.type_tags);
         reqs_result.push_back(rqs.values);
       }
@@ -733,7 +742,8 @@ Table::requirements(
 #ifdef HYPERION_USE_CASACORE
       auto mrs_pid = mrs.read(*pid);
       if (!mrs_pid.is_empty()) {
-        auto [mrq, vrq, oirq] = mrs_pid.requirements(p);
+        auto [mrq, vrq, oirq] =
+          mrs_pid.requirements(reqs.measref.privilege, reqs.measref.mapped);
         reqs_result.push_back(mrq);
         reqs_result.push_back(vrq);
         if (oirq)
@@ -1737,8 +1747,12 @@ Table::partition_rows(
     .get_result<index_column_space_result_t>()
     .value();
   args.ics_is = index_cs.column_is;
-
   TaskLauncher task(partition_rows_task_id, TaskArgument(&args, sizeof(args)));
+  RegionRequirement
+    req(index_cs.metadata_lr, READ_ONLY, EXCLUSIVE, index_cs.metadata_lr);
+  req.add_field(ColumnSpace::AXIS_VECTOR_FID);
+  req.add_field(ColumnSpace::AXIS_SET_UID_FID);
+  task.add_region_requirement(req);
   auto result = rt->execute_task(ctx, task);
   return result;
 }

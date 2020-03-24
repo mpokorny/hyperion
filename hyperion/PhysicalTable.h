@@ -95,14 +95,10 @@ public:
     Legion::Runtime* rt,
     const ColumnSpacePartition& table_partition = ColumnSpacePartition(),
     Legion::PrivilegeMode table_privilege = READ_ONLY,
-    const std::map<
-      std::string,
-      std::optional<
-        std::tuple<bool, Legion::PrivilegeMode, Legion::CoherenceProperty>>>&
-    column_modes = {},
-    bool columns_mapped = true,
-    Legion::PrivilegeMode columns_privilege = READ_ONLY,
-    Legion::CoherenceProperty columns_coherence = EXCLUSIVE) const;
+    const std::map<std::string, std::optional<Column::Requirements>>&
+      column_requirements = {},
+    const Column::Requirements& default_column_requirements =
+      Column::default_requirements) const;
 
   const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
   columns() const {
