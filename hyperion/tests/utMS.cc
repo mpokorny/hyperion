@@ -491,13 +491,22 @@ read_full_ms(
   // read MS table columns to initialize the Column LogicalRegions
   //
   {
+    auto row_part =
+      table
+      .partition_rows(ctx, rt, {std::make_optional<size_t>(2000)})
+      .get_result<ColumnSpacePartition>();
+    auto [reqs, parts] = TableReadTask::requirements(ctx, rt, table, row_part);
+
     TableReadTask::Args args;
     std::strncpy(args.table_path, t0_path.c_str(), sizeof(args.table_path));
-    auto [reqs, parts] = TableReadTask::requirements(ctx, rt, table);
-    TaskLauncher read(TableReadTask::TASK_ID, TaskArgument(&args, sizeof(args)));
+    IndexTaskLauncher read(
+      TableReadTask::TASK_ID,
+      rt->get_index_partition_color_space(parts[0].get_index_partition()),
+      TaskArgument(&args, sizeof(args)),
+      ArgumentMap());
     for (auto& rq : reqs)
       read.add_region_requirement(rq);
-    rt->execute_task(ctx, read);
+    rt->execute_index_space(ctx, read);
   }
 
   // compare column LogicalRegions to values read using casacore functions
