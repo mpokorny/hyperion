@@ -81,7 +81,8 @@ PhysicalTable::create(
   std::map<ColumnSpace, PhysicalRegion> md_regions;
   std::map<
     std::tuple<FieldID, ColumnSpace>,
-    std::tuple<LogicalRegion, PhysicalRegion>> value_regions;
+    std::tuple<LogicalRegion, std::variant<PhysicalRegion, LogicalRegion>>>
+    value_regions;
 
   unsigned idx_rank = index_rank(rt, table_parent, table_pr);
   for (PointInDomainIterator<1> pid(
@@ -99,9 +100,10 @@ PhysicalTable::create(
       ++reqs;
       ++prs;
     }
+    auto vss_pid = vss.read(*pid);
     auto& metadata = md_regions.at(css_pid);
     LogicalRegion parent;
-    std::optional<PhysicalRegion> values;
+    std::variant<PhysicalRegion, LogicalRegion> values = vss_pid;
     std::optional<Keywords::pair<PhysicalRegion>> kw_prs;
     std::optional<MeasRef::DataRegions> mr_drs;
     auto nms_pid = nms.read(*pid);
@@ -156,7 +158,7 @@ PhysicalTable::create(
       }
 #endif
     } else {
-      parent = vss.read(*pid);
+      parent = vss_pid;
     }
     auto dts_pid = dts.read(*pid);
     columns.emplace(
@@ -363,7 +365,6 @@ PhysicalTable::add_columns(
       std::vector<std::pair<hyperion::string, TableField>>>> indexed_cols;
   std::map<LogicalRegion, size_t> cs_idxs; // metadata_lr
   std::vector<LogicalRegion> val_lrs;
-  std::vector<std::optional<PhysicalRegion>> val_prs;
   std::vector<PhysicalRegion> cs_md_prs;
   for (auto& [nm, ppc] : m_columns) {
     auto md_lr = ppc->m_metadata.get_logical_region();
@@ -372,11 +373,11 @@ PhysicalTable::add_columns(
       cs_idxs[md_lr] = idx;
       cs_md_prs.push_back(ppc->m_metadata);
       val_lrs.push_back(
-        map(
-          ppc->m_values,
-          [](const auto& pr) { return pr.get_logical_region(); })
-        .value_or(LogicalRegion::NO_REGION));
-      val_prs.push_back(ppc->m_values);
+        std::visit(overloaded {
+            [](const PhysicalRegion& pr) { return pr.get_logical_region(); },
+            [](const LogicalRegion& lr) { return lr; }
+          },
+          ppc->values()));
     }
   }
   for (auto& [cs, ixcs, nm_tfs] : cols) {
@@ -415,7 +416,7 @@ PhysicalTable::add_columns(
         if (m_columns.count(nm) == 0)
           new_fields.push_back(tf.fid);
       if (new_fields.size() > 0) {
-        std::optional<PhysicalRegion> vpr;
+        std::variant<PhysicalRegion, LogicalRegion> vpr = vlr;
         auto nocol =
           std::find(new_fields.begin(), new_fields.end(), Table::no_column);
         if (nocol != new_fields.end())
@@ -526,8 +527,8 @@ for_all_column_regions(
     fn(md);
     done.insert(md);
   }
-  if (column->values()) {
-    auto& v = column->values().value();
+  if (std::holds_alternative<PhysicalRegion>(column->values())) {
+    auto& v = std::get<PhysicalRegion>(column->values());
     if (done.count(v) == 0) {
       fn(v);
       done.insert(v);
@@ -624,20 +625,26 @@ PhysicalTable::reindexed(
     if (css.read(*pid).is_empty())
       break;
     auto& ppc = m_columns.at(nms.read(*pid));
-    if (ppc->m_values) {
+    if (std::holds_alternative<PhysicalRegion>(ppc->values())) {
       Table::ColumnRegions cr;
-      cr.values = {ppc->m_parent, ppc->m_values.value()};
-      cr.metadata = ppc->m_metadata;
-      if (ppc->m_kws) {
-        cr.kw_type_tags = ppc->m_kws.value().type_tags;
-        cr.kw_values = ppc->m_kws.value().values;
+      cr.values = {ppc->parent(), std::get<PhysicalRegion>(ppc->values())};
+      cr.metadata = ppc->metadata();
+      if (ppc->kws()) {
+        auto& kws = ppc->kws().value();
+        cr.kw_type_tags = kws.type_tags;
+        cr.kw_values = kws.values;
       }
-      if (ppc->m_mr_drs) {
-        cr.mr_metadata = ppc->m_mr_drs.value().metadata;
-        cr.mr_values = ppc->m_mr_drs.value().values;
-        cr.mr_index = ppc->m_mr_drs.value().index;
+      if (ppc->mr_drs()) {
+        auto& mr_drs = ppc->mr_drs().value();
+        cr.mr_metadata = mr_drs.metadata;
+        cr.mr_values = mr_drs.values;
+        cr.mr_index = mr_drs.index;
       }
       cregions.emplace_back(*pid, cr);
+    } else {
+      // the column values have not been mapped, which is an error unless this
+      // column has no values (e.g, it's the index column)
+      assert(ppc->fid() == Table::no_column);
     }
   }
   return
@@ -689,12 +696,18 @@ PhysicalTable::attach_columns(
       field_map[fid] = column_paths.at(nm).c_str();
     auto& [parent, modes] = parent_modes;
     auto& [read_only, restricted, mapped] = modes;
-    auto& pr0 =
-      m_columns
-      .at(std::get<1>(fid_nms[0]))
-      ->values().value();
-    auto lr = pr0.get_logical_region();
-    rt->unmap_region(ctx, pr0);
+    LogicalRegion lr =
+      std::visit(overloaded {
+          [&ctx, rt](const PhysicalRegion& pr) {
+            auto result = pr.get_logical_region();
+            rt->unmap_region(ctx, pr);
+            return result;
+          },
+          [](const LogicalRegion& lr) {
+            return lr;
+          }
+        },
+        m_columns.at(std::get<1>(fid_nms[0]))->values());
     AttachLauncher attach(EXTERNAL_HDF5_FILE, lr, parent, restricted, mapped);
     attach.attach_hdf5(
       file_path.c_str(),
