@@ -153,6 +153,7 @@ list(APPEND HYPERION_SRC
   # Table_c.cc
   # Table_c.h
   TableField.h
+  TableField.cc
   KeywordsBuilder.h)
 
 if(USE_CASACORE)

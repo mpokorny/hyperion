@@ -51,6 +51,11 @@ struct HYPERION_API TableField {
 #endif
   {}
 
+  std::vector<Legion::RegionRequirement>
+  requirements(
+    Legion::Runtime* rt,
+    Legion::PrivilegeMode privilege,
+    bool mapped) const;
 
   TypeTag dt;
   Legion::FieldID fid;
