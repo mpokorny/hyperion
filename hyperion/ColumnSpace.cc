@@ -28,6 +28,51 @@ ColumnSpace::ColumnSpace(
   , metadata_lr(metadata_lr_) {
 }
 
+ColumnSpace
+ColumnSpace::clone(Context ctx, Runtime* rt) const {
+  auto cis =
+    ((column_is != IndexSpace::NO_SPACE)
+     ? rt->union_index_spaces(ctx, {column_is})
+     : IndexSpace::NO_SPACE);
+  LogicalRegion mlr;
+  if (metadata_lr != LogicalRegion::NO_REGION) {
+    {
+      IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, 0));
+      FieldSpace fs = rt->create_field_space(ctx);
+      FieldAllocator fa = rt->create_field_allocator(ctx, fs);
+      fa.allocate_field(sizeof(AXIS_VECTOR_TYPE), AXIS_VECTOR_FID);
+      fa.allocate_field(sizeof(AXIS_SET_UID_TYPE), AXIS_SET_UID_FID);
+      fa.allocate_field(sizeof(INDEX_FLAG_TYPE), INDEX_FLAG_FID);
+      mlr = rt->create_logical_region(ctx, is, fs);
+    }
+    CopyLauncher copy;
+    RegionRequirement src_req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
+    RegionRequirement dst_req(mlr, WRITE_ONLY, EXCLUSIVE, mlr);
+    copy.add_copy_requirements(src_req, dst_req);
+    copy.add_copy_requirements(src_req, dst_req);
+    copy.add_copy_requirements(src_req, dst_req);
+    copy.add_src_field(0, AXIS_VECTOR_FID);
+    copy.add_dst_field(0, AXIS_VECTOR_FID);
+    copy.add_src_field(1, AXIS_SET_UID_FID);
+    copy.add_dst_field(1, AXIS_SET_UID_FID);
+    copy.add_src_field(2, INDEX_FLAG_FID);
+    copy.add_dst_field(2, INDEX_FLAG_FID);
+    rt->issue_copy_operation(ctx, copy);
+  }
+  return ColumnSpace(cis, mlr);
+}
+
+ColumnSpace
+ColumnSpace::clone(
+  Context ctx,
+  Runtime* rt,
+  const IndexSpace& column_is,
+  const PhysicalRegion& metadata_pr) {
+
+  return
+    ColumnSpace(column_is, metadata_pr.get_logical_region()).clone(ctx, rt);
+}
+
 bool
 ColumnSpace::is_valid() const {
   return metadata_lr != LogicalRegion::NO_REGION;
@@ -186,6 +231,18 @@ ColumnSpace::create(
     rt->execute_task(ctx, init);
   }
   return ColumnSpace(column_is, metadata_lr);
+}
+
+RegionRequirement
+ColumnSpace::requirements(
+  PrivilegeMode privilege,
+  CoherenceProperty coherence) const {
+
+  RegionRequirement req(metadata_lr, privilege, coherence, metadata_lr);
+  req.add_field(AXIS_VECTOR_FID);
+  req.add_field(AXIS_SET_UID_FID);
+  req.add_field(INDEX_FLAG_FID);
+  return req;
 }
 
 struct ReindexedTaskArgs {

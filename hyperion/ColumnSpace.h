@@ -74,6 +74,16 @@ struct HYPERION_API ColumnSpace {
     const Legion::IndexSpace& column_is,
     const Legion::LogicalRegion& metadata_lr);
 
+  ColumnSpace
+  clone(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  static ColumnSpace
+  clone(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const Legion::IndexSpace& column_is,
+    const Legion::PhysicalRegion& metadata_pr);
+
   bool
   is_valid() const;
 
@@ -155,6 +165,11 @@ struct HYPERION_API ColumnSpace {
   from_axis_vector(const AXIS_VECTOR_TYPE& av) {
     return std::vector<int>(av.begin(), av.begin() + size(av));
   }
+
+  Legion::RegionRequirement
+  requirements(
+    Legion::PrivilegeMode privilege,
+    Legion::CoherenceProperty coherence) const;
 
   // reindexed_result_t fields:
   // - new ColumnSpace
