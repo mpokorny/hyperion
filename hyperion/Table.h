@@ -398,8 +398,21 @@ public:
   static std::unordered_map<std::string, Column>
   column_map(const columns_result_t& columns_result);
 
+  // boolean values in 'column_modes': (read-only, restricted, mapped)
+  PhysicalTable
+  attach_columns(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    Legion::PrivilegeMode table_privilege,
+    const CXX_FILESYSTEM_NAMESPACE::path& file_path,
+    const std::unordered_map<std::string, std::string>& column_paths,
+    const std::unordered_map<std::string, std::tuple<bool, bool, bool>>&
+    column_modes) const;
+
   static void
   preregister_tasks();
+
+  static const constexpr Legion::FieldID no_column = AUTO_GENERATE_ID;
 
   Legion::LogicalRegion fields_lr;
 
@@ -470,8 +483,6 @@ protected:
 protected:
 
   friend class PhysicalTable;
-
-  static const constexpr Legion::FieldID no_column = AUTO_GENERATE_ID;
 
 private:
 

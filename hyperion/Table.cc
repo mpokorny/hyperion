@@ -15,6 +15,7 @@
  */
 #include <hyperion/hyperion.h>
 #include <hyperion/Table.h>
+#include <hyperion/PhysicalTable.h>
 
 #include <mappers/default_mapper.h>
 
@@ -139,6 +140,127 @@ Table::column_map(const columns_result_t& columns_result) {
         lr);
     }
   }
+  return result;
+}
+
+PhysicalTable
+Table::attach_columns(
+  Context ctx,
+  Runtime* rt,
+  Legion::PrivilegeMode table_privilege,
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
+  const std::unordered_map<std::string, std::string>& column_paths,
+  const std::unordered_map<std::string, std::tuple<bool, bool, bool>>&
+  column_modes) const {
+
+  std::unordered_set<std::string> colnames;
+  for (auto& [nm, pth] : column_paths) {
+    if (column_modes.count(nm) > 0)
+      colnames.insert(nm);
+  }
+  auto all_columns = columns(ctx, rt).get_result<columns_result_t>();
+  auto all_columns_map = column_map(all_columns);
+  std::map<std::string, std::optional<Column::Requirements>> omitted_columns;
+  for (auto& [nm, col] : all_columns_map) {
+    if (colnames.count(nm) == 0)
+      omitted_columns[nm] = std::nullopt;
+  }
+  // TODO: implement a more direct way to compute the table region requirements
+  // for the set of attached columns
+  RegionRequirement table_req =
+    std::get<0>(
+      requirements(
+        ctx,
+        rt,
+        ColumnSpacePartition(),
+        table_privilege,
+        omitted_columns
+        /*, column requirements are not be used other than to declare omitted
+         *  columns */))[0];
+  unsigned index_rank = 0;
+  for (auto& [cs, ixcs, vlr, nm_tfs] : all_columns.fields) {
+    if (ixcs) {
+      auto pr = rt->map_region(ctx, cs.requirements(READ_ONLY, EXCLUSIVE));
+      index_rank = ColumnSpace::size(ColumnSpace::axes(pr));
+      rt->unmap_region(ctx, pr);
+      break;
+    }
+  }
+  assert(index_rank != 0);
+
+  std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> pcols;
+  for (auto& [cs, ixcs, vlr, nm_tfs] : all_columns.fields) {
+    std::optional<PhysicalRegion> metadata;
+    for (auto& [nm, tf]: nm_tfs) {
+      if (colnames.count(nm) > 0 || tf.fid == no_column) {
+        if (!metadata) {
+          auto req = cs.requirements(READ_ONLY, EXCLUSIVE);
+          metadata = rt->map_region(ctx, req);
+        }
+        std::optional<Keywords::pair<Legion::PhysicalRegion>> kws;
+        if (!tf.kw.is_empty()) {
+          auto nkw = tf.kw.size(rt);
+          std::vector<FieldID> fids(nkw);
+          std::iota(fids.begin(), fids.end(), 0);
+          auto rqs = tf.kw.requirements(rt, fids, READ_ONLY, true).value();
+          Keywords::pair<Legion::PhysicalRegion> kwprs;
+          kwprs.type_tags = rt->map_region(ctx, rqs.type_tags);
+          kwprs.values = rt->map_region(ctx, rqs.values);
+          kws = kwprs;
+        }
+#ifdef HYPERION_USE_CASACORE
+        std::optional<MeasRef::DataRegions> mr_drs;
+        if (!tf.mr.is_empty()) {
+          auto [mrq, vrq, oirq] = tf.mr.requirements(READ_ONLY, true);
+          MeasRef::DataRegions prs;
+          prs.metadata = rt->map_region(ctx, mrq);
+          prs.values = rt->map_region(ctx, vrq);
+          if (oirq)
+            prs.index = rt->map_region(ctx, oirq.value());
+          mr_drs = prs;
+        }
+#endif
+        pcols[nm] =
+          std::make_shared<PhysicalColumn>(
+            rt,
+            tf.dt,
+            tf.fid,
+            index_rank,
+            metadata.value(),
+            ((column_parents.count(nm) > 0) ? column_parents.at(nm) : vlr),
+            vlr,
+            kws
+#ifdef HYPERION_USE_CASACORE
+            , mr_drs
+            , map(
+              tf.rc,
+              [](const auto& n) {
+                return
+                  std::make_tuple(
+                    std::string(n),
+                    std::shared_ptr<PhysicalColumn>());
+              })
+#endif
+            );
+      }
+    }
+  }
+#ifdef HYPERION_USE_CASACORE
+  // Add pointers to reference columns. This should fail if the reference
+  // column was left out of the arguments. FIXME!
+  for (auto& [nm, pc] : pcols) {
+    if (pc->refcol()) {
+      auto& rcnm = std::get<0>(pc->refcol().value());
+      pc->set_refcol(rcnm, pcols.at(rcnm));
+    }
+  }
+#endif
+
+  PhysicalTable result(
+    table_req.parent,
+    rt->map_region(ctx, table_req),
+    pcols);
+  result.attach_columns(ctx, rt, file_path, column_paths, column_modes);
   return result;
 }
 

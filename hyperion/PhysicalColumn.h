@@ -251,7 +251,9 @@ protected:
 
 protected:
 
+  friend class Table;
   friend class PhysicalTable;
+
   void
   set_refcol(const std::string& name, const std::shared_ptr<PhysicalColumn>& col) {
     m_refcol = std::make_tuple(name, col);
