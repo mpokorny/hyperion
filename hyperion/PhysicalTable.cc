@@ -155,6 +155,8 @@ PhysicalTable::create(
           refcols[nms_pid] = rcs_pid;
       }
 #endif
+    } else {
+      parent = vss.read(*pid);
     }
     auto dts_pid = dts.read(*pid);
     columns.emplace(
