@@ -1131,7 +1131,8 @@ Table::add_columns(
   // check conformance of all ColumnSpaces in new_columns
   //
   // TODO: make this optional?
-  std::tuple<ssize_t, ColumnSpace, LogicalRegion> new_columns_ics;
+  std::tuple<ssize_t, ColumnSpace, LogicalRegion>
+    new_columns_ics = {-1, ColumnSpace(), LogicalRegion::NO_REGION};
   for (auto& [csp, ixcs, idx, nmtfs] : new_columns) {
     if (ixcs) {
       // the third field is initialized only when the LogicalRegion can be
