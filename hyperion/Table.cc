@@ -288,8 +288,11 @@ Table::create(Context ctx, Runtime* rt, const fields_t& fields) {
     rt->unmap_region(ctx, fields_pr);
   }
   Table result(fields_lr);
-  if (!added)
+  if (!added) {
+    // FIXME: log a warning: Failed to create non-empty table
     result.destroy(ctx, rt);
+    assert(false);
+  }
   return result;
 }
 
