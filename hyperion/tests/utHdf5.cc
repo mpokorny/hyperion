@@ -359,16 +359,16 @@ table_tests(
   auto columnZ_epoch = MeasRef::create(ctx, rt, utc);
   std::vector<std::pair<std::string, TableField>> xy_fields{
     {"X",
-     TableField(HYPERION_TYPE_UINT, COL_X,
-                columnX_direction, std::nullopt, Keywords())},
+     TableField(HYPERION_TYPE_UINT, COL_X, Keywords(),
+                columnX_direction, std::nullopt)},
     {"Y",
-     TableField(HYPERION_TYPE_UINT, COL_Y,
-                MeasRef(), std::nullopt, Keywords())}
+     TableField(HYPERION_TYPE_UINT, COL_Y, Keywords(),
+                MeasRef(), std::nullopt)}
   };
   std::vector<std::pair<std::string, TableField>> z_fields{
     {"Z",
-     TableField(HYPERION_TYPE_UINT, COL_Z,
-                columnZ_epoch, std::nullopt, Keywords())}
+     TableField(HYPERION_TYPE_UINT, COL_Z, Keywords(),
+                columnZ_epoch, std::nullopt)}
   };
 #else
   std::vector<std::pair<std::string, TableField>> xy_fields{

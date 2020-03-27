@@ -356,27 +356,27 @@ table_test_suite(
      TableField(
        HYPERION_TYPE_UINT,
        COL_X,
+       Keywords(),
        MeasRef(),
-       std::nullopt,
-       Keywords())},
+       std::nullopt)},
     {"Y",
      TableField(
        HYPERION_TYPE_UINT,
        COL_Y,
+       Keywords(),
        MeasRef(),
-       std::nullopt,
-       Keywords())},
+       std::nullopt)},
     {"Z",
      TableField(
        HYPERION_TYPE_UINT,
        COL_Z,
+       Keywords(),
        MeasRef(),
-       std::nullopt,
-       Keywords())}
+       std::nullopt)}
   };
   std::vector<std::pair<std::string, TableField>> w_fields{
     {"W",
-     TableField(HYPERION_TYPE_UINT, COL_W, MeasRef(), std::nullopt, Keywords())}
+     TableField(HYPERION_TYPE_UINT, COL_W, Keywords(), MeasRef(), std::nullopt)}
   };
 #else
   std::vector<std::pair<std::string, TableField>> xyz_fields{

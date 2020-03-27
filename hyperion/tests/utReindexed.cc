@@ -426,11 +426,26 @@ reindexed_test_suite(
 //   };
   std::vector<std::pair<std::string, TableField>> xyz_fields{
     {"X",
-     TableField(HYPERION_TYPE_UINT, COL_X, MeasRef(), std::nullopt, Keywords())},
+     TableField(
+       HYPERION_TYPE_UINT,
+       COL_X,
+       Keywords(),
+       MeasRef(),
+       std::nullopt)},
     {"Y",
-     TableField(HYPERION_TYPE_UINT, COL_Y, MeasRef(), std::nullopt, Keywords())},
+     TableField(
+       HYPERION_TYPE_UINT,
+       COL_Y,
+       Keywords(),
+       MeasRef(),
+       std::nullopt)},
     {"Z",
-     TableField(HYPERION_TYPE_UINT, COL_Z, MeasRef(), std::nullopt, Keywords())}
+     TableField(
+       HYPERION_TYPE_UINT,
+       COL_Z,
+       Keywords(),
+       MeasRef(),
+       std::nullopt)}
   };
 #else
   std::vector<std::pair<std::string, TableField>> xyz_fields{

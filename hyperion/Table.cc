@@ -1678,13 +1678,14 @@ Table::columns(
           TableField(
             dts.read(*pid),
             vfs_pid,
+            kws.read(*pid)
 #ifdef HYPERION_USE_CASACORE
-            mrs.read(*pid),
-            ((rcs_pid.size() > 0)
+            , mrs.read(*pid)
+            , ((rcs_pid.size() > 0)
              ? std::make_optional<hyperion::string>(rcs_pid)
-             : std::nullopt),
+             : std::nullopt)
 #endif
-            kws.read(*pid))};
+            )};
         std::get<2>(cols[css_pid]).push_back(tf);
       }
     }
@@ -2250,11 +2251,12 @@ Table::reindexed(
         TableField tf(
           col.dt,
           col.fid,
+          (okwrs ? Keywords::clone(ctx, rt, okwrs.value()) : Keywords())
 #ifdef HYPERION_USE_CASACORE
-          (odrs ? MeasRef::clone(ctx, rt, odrs.value()) : MeasRef()),
-          col.rc,
+          , (odrs ? MeasRef::clone(ctx, rt, odrs.value()) : MeasRef())
+          , col.rc
 #endif
-          (okwrs ? Keywords::clone(ctx, rt, okwrs.value()) : Keywords()));
+          );
         if (ix || ifl[0]) {
           ColumnSpace icsp;
           if (ix)

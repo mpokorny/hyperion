@@ -153,11 +153,12 @@ public:
       TableField(
         datatype(),
         m_fid,
+        Keywords::create(ctx, rt, keywords())
 #ifdef HYPERION_USE_CASACORE
-        mr,
-        ref_column,
+        , mr
+        , ref_column
 #endif
-        Keywords::create(ctx, rt, keywords())),
+        ),
       Axes<AxesT>::uid,
       map_to_int(axes()),
       itree
