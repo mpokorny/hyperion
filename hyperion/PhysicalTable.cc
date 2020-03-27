@@ -514,6 +514,75 @@ PhysicalTable::remove_columns(
       cs_md_prs);
 }
 
+template <typename F>
+static void
+for_all_column_regions(
+  const std::shared_ptr<PhysicalColumn>& column,
+  std::set<PhysicalRegion>& done,
+  F fn) {
+
+  auto md = column->metadata();
+  if (done.count(md) == 0) {
+    fn(md);
+    done.insert(md);
+  }
+  if (column->values()) {
+    auto& v = column->values().value();
+    if (done.count(v) == 0) {
+      fn(v);
+      done.insert(v);
+    }
+  }
+  if (column->kws()) {
+    auto& kws = column->kws().value();
+    fn(kws.type_tags);
+    done.insert(kws.type_tags);
+    fn(kws.values);
+    done.insert(kws.values);
+  }
+#ifdef HYPERION_USE_CASACORE
+  if (column->mr_drs()) {
+    auto& dr = column->mr_drs().value();
+    fn(dr.metadata);
+    done.insert(dr.metadata);
+    fn(dr.values);
+    done.insert(dr.values);
+    if (dr.index) {
+      fn(dr.index.value());
+      done.insert(dr.index.value());
+    }
+  }
+  if (column->refcol()) {
+    auto& [nm, prc] = column->refcol().value();
+    for_all_column_regions(prc, done, fn);
+  }
+#endif
+}
+
+void
+PhysicalTable::unmap_regions(Context ctx, Runtime* rt) const {
+
+  std::set<PhysicalRegion> unmapped;
+  for (auto& [nm, pc] : columns())
+    for_all_column_regions(
+      pc,
+      unmapped,
+      [&ctx, rt](auto& pr) { rt->unmap_region(ctx, pr); });
+  rt->unmap_region(ctx, m_table_pr);
+}
+
+void
+PhysicalTable::remap_regions(Context ctx, Runtime* rt) const {
+
+  std::set<PhysicalRegion> remapped;
+  for (auto& [nm, pc] : columns())
+    for_all_column_regions(
+      pc,
+      remapped,
+      [&ctx, rt](auto& pr) { rt->remap_region(ctx, pr); });
+  rt->remap_region(ctx, m_table_pr);
+}
+
 ColumnSpacePartition
 PhysicalTable::partition_rows(
   Context ctx,

@@ -126,6 +126,12 @@ public:
     bool destroy_orphan_column_spaces = true,
     bool destroy_field_data = true);
 
+  void
+  unmap_regions(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  void
+  remap_regions(Legion::Context ctx, Legion::Runtime* rt) const;
+
   ColumnSpacePartition
   partition_rows(
     Legion::Context ctx,
