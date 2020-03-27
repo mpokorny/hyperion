@@ -213,37 +213,41 @@ TableReadTask::impl(
   auto tdesc = cctable.tableDesc();
 
   for (auto& [nm, column] : table.columns()) {
-    switch (column->domain().get_dim()) {
-    case 0: // for index column space
-      break;
-#define READ_COLUMN(D)                                \
-    case D:                                         \
-      read_column<D>(cctable, tdesc[nm], *column);  \
-      break;
+    if (nm != "") {
+      switch (column->domain().get_dim()) {
+      case 0: // for index column space
+        break;
+#define READ_COLUMN(D)                                  \
+        case D:                                         \
+          read_column<D>(cctable, tdesc[nm], *column);  \
+          break;
 #if LEGION_MAX_DIM >= 1
-    READ_COLUMN(1);
+        READ_COLUMN(1);
 #endif
 #if LEGION_MAX_DIM >= 2
-    READ_COLUMN(2);
+        READ_COLUMN(2);
 #endif
 #if LEGION_MAX_DIM >= 3
-    READ_COLUMN(3);
+        READ_COLUMN(3);
 #endif
 #if LEGION_MAX_DIM >= 4
-    READ_COLUMN(4);
+        READ_COLUMN(4);
 #endif
-    default:
-      assert(false);
-      break;
+      default:
+        assert(false);
+        break;
+      }
     }
   }
 }
 
-static const constexpr Column::Requirements column_reqs{
-  Column::Req{WRITE_ONLY, EXCLUSIVE, true},
-  Column::default_requirements.keywords,
-  Column::default_requirements.measref,
-  Column::default_requirements.column_space
+static Column::Requirements
+column_reqs(PrivilegeMode privilege) {
+  return Column::Requirements{
+    Column::Req{privilege, EXCLUSIVE, true},
+    Column::default_requirements.keywords,
+    Column::default_requirements.measref,
+    Column::default_requirements.column_space};
 };
 
 std::tuple<
@@ -253,10 +257,22 @@ TableReadTask::requirements(
   Context ctx,
   Runtime* rt,
   const PhysicalTable& table,
-  const ColumnSpacePartition& table_partition) {
+  const ColumnSpacePartition& table_partition,
+  PrivilegeMode columns_privilege) {
+
+  assert(
+    columns_privilege == READ_WRITE
+    || columns_privilege == WRITE_DISCARD
+    || columns_privilege == WRITE_ONLY);
 
   return
-    table.requirements(ctx, rt, table_partition, READ_ONLY, {}, column_reqs);
+    table.requirements(
+      ctx,
+      rt,
+      table_partition,
+      READ_ONLY,
+      {},
+      column_reqs(columns_privilege));
 }
 
 std::tuple<
@@ -266,10 +282,22 @@ TableReadTask::requirements(
   Context ctx,
   Runtime* rt,
   const Table& table,
-  const ColumnSpacePartition& table_partition) {
+  const ColumnSpacePartition& table_partition,
+  PrivilegeMode columns_privilege) {
+
+  assert(
+    columns_privilege == READ_WRITE
+    || columns_privilege == WRITE_DISCARD
+    || columns_privilege == WRITE_ONLY);
 
   return
-    table.requirements(ctx, rt, table_partition, READ_ONLY, {}, column_reqs);
+    table.requirements(
+      ctx,
+      rt,
+      table_partition,
+      READ_ONLY,
+      {},
+      column_reqs(columns_privilege));
 }
 
 // Local Variables:

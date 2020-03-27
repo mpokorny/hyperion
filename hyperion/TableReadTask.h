@@ -44,7 +44,8 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const PhysicalTable& table,
-    const ColumnSpacePartition& table_partition = ColumnSpacePartition());
+    const ColumnSpacePartition& table_partition = ColumnSpacePartition(),
+    Legion::PrivilegeMode columns_privilege = WRITE_ONLY);
 
   static std::tuple<
     std::vector<Legion::RegionRequirement>,
@@ -53,7 +54,8 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const Table& table,
-    const ColumnSpacePartition& table_partition = ColumnSpacePartition());
+    const ColumnSpacePartition& table_partition = ColumnSpacePartition(),
+    Legion::PrivilegeMode columns_privilege = WRITE_ONLY);
 
   struct Args {
     // path to MS table
