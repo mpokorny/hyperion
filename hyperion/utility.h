@@ -145,7 +145,7 @@ fstrcpy(char(& dest)[N], const char* src) {
   return &dest[0];
 }
 
-unsigned
+HYPERION_API unsigned
 min_divisor(
   size_t numerator,
   size_t min_quotient,
