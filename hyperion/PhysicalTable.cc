@@ -683,26 +683,26 @@ PhysicalTable::attach_columns(
       regions[key].emplace_back(pc->fid(), nm);
     }
   }
-  for (auto& [lr_modes, fid_nms] : regions) {
+  for (auto& [parent_modes, fid_nms] : regions) {
     std::map<FieldID, const char*> field_map;
     for (auto& [fid, nm] : fid_nms)
       field_map[fid] = column_paths.at(nm).c_str();
-    auto& [lr, modes] = lr_modes;
+    auto& [parent, modes] = parent_modes;
     auto& [read_only, restricted, mapped] = modes;
-    AttachLauncher attach(
-      EXTERNAL_HDF5_FILE,
-      m_columns.at(std::get<1>(fid_nms[0]))
-      ->m_values.value().get_logical_region(),
-      lr,
-      restricted,
-      mapped);
+    auto& pr0 =
+      m_columns
+      .at(std::get<1>(fid_nms[0]))
+      ->values().value();
+    auto lr = pr0.get_logical_region();
+    rt->unmap_region(ctx, pr0);
+    AttachLauncher attach(EXTERNAL_HDF5_FILE, lr, parent, restricted, mapped);
     attach.attach_hdf5(
       file_path.c_str(),
       field_map,
       read_only ? LEGION_FILE_READ_ONLY : LEGION_FILE_READ_WRITE);
-    auto pr = rt->attach_external_resource(ctx, attach);
+    auto pr1 = rt->attach_external_resource(ctx, attach);
     for (auto& [fid, nm] : fid_nms)
-      m_attached[nm] = pr;
+      m_attached[nm] = pr1;
   }
   return true;
 }
