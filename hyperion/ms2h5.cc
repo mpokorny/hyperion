@@ -236,6 +236,7 @@ struct create_h5_result_t {
     char *buff = static_cast<char*>(buffer);
     for (auto& map : maps) {
       for (auto& [k, v] : map) {
+        assert(k.size() > 0 && v.size() > 0);
         std::strcpy(buff, k.c_str());
         buff += k.size() + 1;
         std::strcpy(buff, v.c_str());
