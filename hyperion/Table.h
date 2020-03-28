@@ -420,9 +420,9 @@ public:
 
   std::unordered_map<std::string, Legion::LogicalRegion> column_parents;
 
-protected:
+// protected:
 
-  friend class Legion::LegionTaskWrapper;
+//   friend class Legion::LegionTaskWrapper;
 
   static index_column_space_result_t
   index_column_space_task(
@@ -479,12 +479,6 @@ protected:
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *rt);
-
-protected:
-
-  friend class PhysicalTable;
-
-private:
 
   static Legion::TaskID index_column_space_task_id;
 

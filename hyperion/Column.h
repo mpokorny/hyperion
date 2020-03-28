@@ -108,9 +108,9 @@ struct HYPERION_API Column {
   ColumnSpace csp;
   Legion::LogicalRegion vlr;
 
-protected:
+// protected:
 
-  friend class Legion::LegionTaskWrapper;
+//   friend class Legion::LegionTaskWrapper;
 
   template <TypeTag DT>
   static acc_field_redop_rhs<typename DataType<DT>::ValueType>
@@ -120,11 +120,11 @@ protected:
     Legion::Context,
     Legion::Runtime* rt);
 
-private:
-
   static Legion::TaskID index_accumulate_task_id[HYPERION_NUM_TYPE_TAGS];
 
   static std::string index_accumulate_task_name[HYPERION_NUM_TYPE_TAGS];
+
+private:
 
   template <TypeTag DT>
   static void

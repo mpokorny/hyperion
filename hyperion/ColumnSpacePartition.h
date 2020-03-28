@@ -126,9 +126,9 @@ struct HYPERION_API ColumnSpacePartition {
 
   std::array<AxisPartition, ColumnSpace::MAX_DIM> partition;
 
-protected:
+// protected:
 
-  friend class Legion::LegionTaskWrapper;
+//   friend class Legion::LegionTaskWrapper;
 
   static ColumnSpacePartition
   create_task_ap(
@@ -143,8 +143,6 @@ protected:
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *rt);
-
-private:
 
   static Legion::TaskID create_task_ap_id;
 

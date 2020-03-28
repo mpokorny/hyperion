@@ -212,9 +212,9 @@ struct HYPERION_API ColumnSpace {
 
   Legion::LogicalRegion metadata_lr;
 
-protected:
+// protected:
 
-  friend class Legion::LegionTaskWrapper;
+//   friend class Legion::LegionTaskWrapper;
 
   static void
   init_task(
@@ -236,8 +236,6 @@ protected:
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *rt);
-
-private:
 
   static Legion::TaskID init_task_id;
 

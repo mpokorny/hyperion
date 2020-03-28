@@ -69,8 +69,6 @@ public:
 
   static constexpr const char* TASK_NAME = "TableReadTask";
 
-private:
-
   // read values from MS table for mapped regions in all mapped columns
 
   static void
