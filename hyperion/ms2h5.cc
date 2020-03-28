@@ -34,7 +34,6 @@ enum {
   READ_TABLES_FROM_MS_TASK_ID,
   READ_MS_TABLE_COLUMNS_TASK_ID,
   CREATE_H5_TASK_ID,
-  WRITE_H5_TASK_ID,
 };
 
 enum {
@@ -327,78 +326,6 @@ create_h5_task(
   return create_h5_result_t{column_maps};
 }
 
-struct WriteH5Args {
-  char ms_path[MAX_PATHLEN];
-  char h5_path[MAX_PATHLEN];
-};
-
-const char* write_h5_task_name = "write_h5";
-
-void
-write_h5_task(
-  const Task* task,
-  const std::vector<PhysicalRegion>& regions,
-  Context ctx,
-  Runtime* rt) {
-
-  assert(regions.size() >= 1);
-
-  const WriteH5Args* args = static_cast<const WriteH5Args*>(task->args);
-
-  const NameAccessor<READ_ONLY> names(regions[0], TABLE_NAME_FID);
-
-  std::vector<PhysicalTable> tables;
-  auto rq_it = task->regions.begin() + 1;
-  auto pr_it = regions.begin() + 1;
-  while (rq_it != task->regions.end() && pr_it != regions.end()) {
-    auto [pt, rit, pit] =
-      PhysicalTable::create(
-        rt,
-        rq_it,
-        task->regions.end(),
-        pr_it,
-        regions.end())
-      .value();
-    tables.push_back(std::move(pt));
-    rq_it = rit;
-    pr_it = pit;
-  }
-  assert(rq_it == task->regions.end() && pr_it == regions.end());
-
-  // use read_ms_table_columns_task to read values from MS into regions of the
-  // PhysicalTables
-  auto nios =
-    rt->select_tunable_value(
-      ctx,
-      Mapping::DefaultMapper::DefaultTunables::DEFAULT_TUNABLE_GLOBAL_IOS);
-  Column::Requirements colreq = Column::default_requirements;
-  colreq.values = Column::Req{READ_WRITE, EXCLUSIVE, false};
-  for (size_t i = 0; i < tables.size(); ++i) {
-    ReadMSTableColumnsTaskArgs rd_args;
-    std::string tname(names[i]);
-    std::string tpath = std::string(args->ms_path);
-    if (tname != "MAIN")
-      tpath += std::string("/") + tname;
-    fstrcpy(rd_args.table_path, tpath);
-    TaskLauncher task(
-      READ_MS_TABLE_COLUMNS_TASK_ID,
-      TaskArgument(&rd_args, sizeof(rd_args)));
-    auto [reqs, parts] =
-      tables[i].requirements(
-        ctx,
-        rt,
-        ColumnSpacePartition(),
-        READ_ONLY,
-        {},
-        colreq);
-    tables[i].unmap_regions(ctx, rt);
-    for (auto& rq : reqs)
-      task.add_region_requirement(rq);
-    task.add_future(nios);
-    rt->execute_task(ctx, task);
-  }
-}
-
 class TopLevelTask {
 public:
 
@@ -625,7 +552,7 @@ public:
       rt->destroy_logical_partition(ctx, lp);
       rt->destroy_index_partition(ctx, ipart);
 
-      // We're going to need privileges on the Tables in write_h5_task, so wait
+      // We're going to need privileges on the Tables in create_h5_task, so wait
       // on tables_map and construct Tables from results
       for (PointInRectIterator<1> pir(
              rt->get_index_space_domain(tables_map_cs));
@@ -685,36 +612,38 @@ public:
         .attach_columns(ctx, rt, READ_ONLY, h5, column_paths[i], column_modes));
     }
 
-    // Write to HDF5 file. Do this in a single task, since I'm not sure that
-    // attaching multiple tasks to a single HDF5 file is supported in Legion
-    // yet.
-    WriteH5Args wrt_args;
-    fstrcpy(wrt_args.ms_path, ms.c_str());
-    fstrcpy(wrt_args.h5_path, h5.c_str());
-    TaskLauncher write(
-      WRITE_H5_TASK_ID,
-      TaskArgument(&wrt_args, sizeof(wrt_args)));
-    {
-      RegionRequirement req(table_info_lr, READ_ONLY, EXCLUSIVE, table_info_lr);
-      req.add_field(TABLE_NAME_FID);
-      write.add_region_requirement(req);
-    }
+    // use read_ms_table_columns_task to read values from MS into regions of the
+    // PhysicalTables
+    auto nios =
+      rt->select_tunable_value(
+        ctx,
+        Mapping::DefaultMapper::DefaultTunables::DEFAULT_TUNABLE_GLOBAL_IOS);
     Column::Requirements colreq = Column::default_requirements;
     colreq.values = Column::Req{READ_WRITE, EXCLUSIVE, false};
-    for (auto& pt : ptables) {
+    for (size_t i = 0; i < ptables.size(); ++i) {
+      ReadMSTableColumnsTaskArgs rd_args;
+      std::string tname(table_names[i]);
+      std::string tpath = ms;
+      if (tname != "MAIN")
+        tpath += std::string("/") + tname;
+      fstrcpy(rd_args.table_path, tpath);
+      TaskLauncher task(
+        READ_MS_TABLE_COLUMNS_TASK_ID,
+        TaskArgument(&rd_args, sizeof(rd_args)));
       auto [reqs, parts] =
-        pt.requirements(
+        ptables[i].requirements(
           ctx,
           rt,
           ColumnSpacePartition(),
-          READ_WRITE,
+          READ_ONLY,
           {},
           colreq);
+      ptables[i].unmap_regions(ctx, rt);
       for (auto& rq : reqs)
-        write.add_region_requirement(rq);
-      pt.unmap_regions(ctx, rt);
+        task.add_region_requirement(rq);
+      task.add_future(nios);
+      rt->execute_task(ctx, task);
     }
-    rt->execute_task(ctx, write);
 
     for (auto& t : tables)
       t.destroy(ctx, rt);
@@ -764,14 +693,6 @@ main(int argc, char** argv) {
     Runtime::preregister_task_variant<create_h5_result_t, create_h5_task>(
       registrar,
       create_h5_task_name);
-  }
-  {
-    // write_h5_task
-    TaskVariantRegistrar registrar(WRITE_H5_TASK_ID, write_h5_task_name);
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    Runtime::preregister_task_variant<write_h5_task>(
-      registrar,
-      write_h5_task_name);
   }
   Runtime::set_top_level_task_id(TopLevelTask::TASK_ID);
   hyperion::preregister_all();
