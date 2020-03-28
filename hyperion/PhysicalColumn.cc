@@ -89,7 +89,10 @@ PhysicalColumn::mrb(Runtime* rt) const {
     std::vector<std::shared_ptr<casacore::MRBase>> smrb;
     std::move(mrb.begin(), mrb.end(), std::back_inserter(smrb));
     if (m_refcol) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
       auto& [nm, ppc] = m_refcol.value();
+#pragma GCC diagnostic pop
       result =
         std::make_tuple(
           std::move(smrb),

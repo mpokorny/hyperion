@@ -366,7 +366,10 @@ PhysicalTable::add_columns(
   std::map<LogicalRegion, size_t> cs_idxs; // metadata_lr
   std::vector<LogicalRegion> val_lrs;
   std::vector<PhysicalRegion> cs_md_prs;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [nm, ppc] : m_columns) {
+#pragma GCC diagnostic pop
     auto md_lr = ppc->m_metadata.get_logical_region();
     if (cs_idxs.count(md_lr) == 0) {
       auto idx = cs_md_prs.size();
@@ -410,7 +413,10 @@ PhysicalTable::add_columns(
     // create (unmapped) PhysicalColumns for added columns
     unsigned idx_rank = index_rank(rt);
     std::unordered_map<std::string, std::string> refcols;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [cs, ixcs, vlr, nm_tfs] : column_fields(rt)) {
+#pragma GCC diagnostic pop
       std::vector<FieldID> new_fields;
       for (auto& [nm, tf] : nm_tfs)
         if (m_columns.count(nm) == 0)
@@ -489,8 +495,11 @@ PhysicalTable::remove_columns(
 
   std::vector<ColumnSpace> css;
   std::vector<PhysicalRegion> cs_md_prs;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [cs, ixcs, vlr, nm_tfs] : column_fields(rt)) {
     for (auto& [nm, tf] : nm_tfs) {
+#pragma GCC diagnostic pop
       if (cols.count(nm) > 0) {
         css.push_back(cs);
         cs_md_prs.push_back(m_columns.at(nm)->m_metadata);
@@ -554,7 +563,10 @@ for_all_column_regions(
     }
   }
   if (column->refcol()) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     auto& [nm, prc] = column->refcol().value();
+#pragma GCC diagnostic pop
     for_all_column_regions(prc, done, fn);
   }
 #endif
@@ -564,7 +576,10 @@ void
 PhysicalTable::unmap_regions(Context ctx, Runtime* rt) const {
 
   std::set<PhysicalRegion> unmapped;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [nm, pc] : columns())
+#pragma GCC diagnostic pop
     for_all_column_regions(
       pc,
       unmapped,
@@ -576,7 +591,10 @@ void
 PhysicalTable::remap_regions(Context ctx, Runtime* rt) const {
 
   std::set<PhysicalRegion> remapped;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [nm, pc] : columns())
+#pragma GCC diagnostic pop
     for_all_column_regions(
       pc,
       remapped,
@@ -692,7 +710,10 @@ PhysicalTable::attach_columns(
   }
   for (auto& [parent_modes, fid_nms] : regions) {
     std::map<FieldID, const char*> field_map;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [fid, nm] : fid_nms)
+#pragma GCC diagnostic pop
       field_map[fid] = column_paths.at(nm).c_str();
     auto& [parent, modes] = parent_modes;
     auto& [read_only, restricted, mapped] = modes;

@@ -1036,7 +1036,10 @@ write_table_columns(
 
   unsigned csp_index = 0;
   bool wrote_index_column_space = false;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [csp, ixcs, vlr, nm_tfs] : table.column_fields(rt)) {
+#pragma GCC diagnostic pop
     if (nm_tfs.size() > 0) {
       if (ixcs)
         wrote_index_column_space = true;
@@ -1071,7 +1074,10 @@ write_table_columns(
             H5P_DEFAULT, H5P_DEFAULT));
 
       // write the Columns in this ColumnSpace
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
       for (auto& [nm, tfs] : nm_tfs) {
+#pragma GCC diagnostic pop
         htri_t grp_exists =
           CHECK_H5(H5Lexists(table_grp_id, nm.val, H5P_DEFAULT));
         if (grp_exists > 0)
@@ -1285,8 +1291,11 @@ hyperion::hdf5::write_table(
     table.columns(ctx, rt).get_result<Table::columns_result_t>().fields;
 
   std::unordered_set<std::string> columns;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [csp, ixcs, vlr, nm_tfs] : tbl_columns)
     for (auto& [nm, tf] : nm_tfs)
+#pragma GCC diagnostic pop
       columns.insert(nm);
 
   write_table(ctx, rt, table_grp_id, table, columns);
@@ -1794,8 +1803,11 @@ hyperion::hdf5::table_fields(
         }
         // FIXME: awaiting keywords support in Table: auto kws =
         // init_keywords(table_grp_id);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
         for (auto& [csp, ixcs, nm_tflds] : fields)
           for (auto& [nm, tfld] : nm_tflds)
+#pragma GCC diagnostic pop
             paths[nm] = table_name + "/" + nm + "/" + HYPERION_COLUMN_DS;
         result = fields_paths;
       },
@@ -2029,7 +2041,10 @@ attach_selected_table_columns(
   std::map<PhysicalRegion, std::unordered_map<std::string, Column>> result;
   auto column_fields =
     table.columns(ctx, rt).get_result<Table::columns_result_t>().fields;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [csp, ixcs, vlr, nm_tflds] : column_fields) {
+#pragma GCC diagnostic pop
     std::unordered_set<std::string> colnames;
     std::unordered_map<std::string, Column> cols;
     for (auto& [nm, tfld] : nm_tflds) {

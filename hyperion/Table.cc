@@ -154,14 +154,20 @@ Table::attach_columns(
   column_modes) const {
 
   std::unordered_set<std::string> colnames;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [nm, pth] : column_paths) {
+#pragma GCC diagnostic pop
     if (column_modes.count(nm) > 0)
       colnames.insert(nm);
   }
   auto all_columns = columns(ctx, rt).get_result<columns_result_t>();
   auto all_columns_map = column_map(all_columns);
   std::map<std::string, std::optional<Column::Requirements>> omitted_columns;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [nm, col] : all_columns_map) {
+#pragma GCC diagnostic pop
     if (colnames.count(nm) == 0)
       omitted_columns[nm] = std::nullopt;
   }
@@ -178,7 +184,10 @@ Table::attach_columns(
         /*, column requirements are not be used other than to declare omitted
          *  columns */))[0];
   unsigned index_rank = 0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [cs, ixcs, vlr, nm_tfs] : all_columns.fields) {
+#pragma GCC diagnostic pop
     if (ixcs) {
       auto pr = rt->map_region(ctx, cs.requirements(READ_ONLY, EXCLUSIVE));
       index_rank = ColumnSpace::size(ColumnSpace::axes(pr));
@@ -189,7 +198,10 @@ Table::attach_columns(
   assert(index_rank != 0);
 
   std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> pcols;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [cs, ixcs, vlr, nm_tfs] : all_columns.fields) {
+#pragma GCC diagnostic pop
     std::optional<PhysicalRegion> metadata;
     for (auto& [nm, tf]: nm_tfs) {
       if (colnames.count(nm) > 0 || tf.fid == no_column) {
@@ -248,7 +260,10 @@ Table::attach_columns(
 #ifdef HYPERION_USE_CASACORE
   // Add pointers to reference columns. This should fail if the reference
   // column was left out of the arguments. FIXME!
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [nm, pc] : pcols) {
+#pragma GCC diagnostic pop
     if (pc->refcol()) {
       auto& rcnm = std::get<0>(pc->refcol().value());
       pc->set_refcol(rcnm, pcols.at(rcnm));
@@ -318,7 +333,10 @@ Table::create(Context ctx, Runtime* rt, const fields_t& fields) {
   }
 
   std::vector<PhysicalRegion> csp_md_prs;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [csp, ixcs, tfs] : fields) {
+#pragma GCC diagnostic pop
     RegionRequirement
       req(csp.metadata_lr, READ_ONLY, EXCLUSIVE, csp.metadata_lr);
     req.add_field(ColumnSpace::INDEX_FLAG_FID);
@@ -704,7 +722,10 @@ Table::requirements(
 #ifdef HYPERION_USE_CASACORE
   // apply mode of value column to its measure reference column
   for (auto& [nm, rq] : mrc_reqs) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     auto& [mdlr, vlr, reqs] = column_regions[nm];
+#pragma GCC diagnostic pop
     reqs = rq;
   }
 #endif
@@ -784,7 +805,10 @@ Table::requirements(
     }
   }
   std::vector<LogicalPartition> lps_result;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [csp, lp] : partitions)
+#pragma GCC diagnostic pop
     lps_result.push_back(lp);
 
   // gather all requirements, in order set by this traversal of fields_pr
@@ -1180,7 +1204,10 @@ Table::add_columns(
   }
   {
     size_t i = 0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [csp, ixcs, nm_tfs]: new_columns) {
+#pragma GCC diagnostic pop
       if (current_csp_idxs.count(csp) == 0) {
         current_csp_idxs[csp] = reqs.size();
         RegionRequirement
@@ -1255,7 +1282,10 @@ Table::add_columns(
   // TODO: make this optional?
   std::tuple<ssize_t, ColumnSpace, LogicalRegion>
     new_columns_ics = {-1, ColumnSpace(), LogicalRegion::NO_REGION};
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [csp, ixcs, idx, nmtfs] : new_columns) {
+#pragma GCC diagnostic pop
     if (ixcs) {
       // the third field is initialized only when the LogicalRegion can be
       // identified or created

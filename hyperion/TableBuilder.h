@@ -129,7 +129,10 @@ public:
     // sort the ColumnArgs in order to put instances with common index_tree
     // values next to one another
     std::vector<ColumnArgs> col_args;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [nm, cb] : m_columns) {
+#pragma GCC diagnostic pop
       auto ca = cb->column(ctx, rt);
       if (ca.index_tree != IndexTreeL()) {
         auto it_match =

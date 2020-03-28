@@ -747,7 +747,10 @@ MeasRef::create(
 
     std::vector<casacore::MRBase*> mrs;
     mrs.reserve(mrbs.size());
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [mrb, tp] : mrbs)
+#pragma GCC diagnostic pop
       mrs.push_back(mrb);
     switch (metadata_lr.get_dim()) {
 #define INIT(D)                                                         \
