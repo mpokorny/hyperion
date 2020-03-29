@@ -1886,8 +1886,11 @@ hyperion::hdf5::init_table(
         // init_keywords(table_grp_id);
         auto& [tb, paths] = result;
         tb = Table::create(ctx, rt, cflds);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
         for (auto& [csp, ixcs, nm_tflds] : cflds)
           for (auto& [nm, tfld] : nm_tflds)
+#pragma GCC diagnostic pop
             paths[nm] = table_name + "/" + nm + "/" + HYPERION_COLUMN_DS;
       },
       [](hid_t table_grp_id) {

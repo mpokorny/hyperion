@@ -166,8 +166,11 @@ struct MSTableColumnsBase {
 
     // add measure reference columns to requirements
     std::set<std::string> cols_w_refs;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [csp, ixcs, vlr, nm_tfs] : tbl_columns.fields) {
       for (auto& [nm, tf] : nm_tfs) {
+#pragma GCC diagnostic pop
         std::string nmstr(nm.val);
         auto cp = std::find(cols.begin(), cols.end(), nmstr);
         if (cp != cols.end()) {
@@ -184,7 +187,10 @@ struct MSTableColumnsBase {
     std::map<std::string, std::string> ref_column_names;
     std::map<std::string, unsigned> ref_column_req_indexes;
 #endif // HYPERION_USE_CASACORE
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [csp, ixcs, vlr, nm_tfs] : tbl_columns.fields) {
+#pragma GCC diagnostic pop
       std::vector<Legion::FieldID> fids;
       std::vector<std::tuple<std::string, TableField>> fields;
       for (auto& [nm, tf] : nm_tfs) {

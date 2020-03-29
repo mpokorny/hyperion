@@ -60,13 +60,13 @@ meas_ref_test_suite(
       "Readback of MEpoch::Ref region cannot be instantiated as another class",
       testing::TestEval(
         [&mr_tai, &ctx, rt](){
-          auto [ref, rmap] = mr_tai.make<casacore::MDirection>(ctx, rt);
+          auto ref = std::get<0>(mr_tai.make<casacore::MDirection>(ctx, rt));
           return ref.size() == 1;
         }));
     recorder.expect_true(
       "MeasRef equivalence relation is reflexive",
       TE(mr_tai.equiv(ctx, rt, mr_tai)));
-    auto [ref, rmap] = mr_tai.make<casacore::MEpoch>(ctx, rt);
+    auto ref = std::get<0>(mr_tai.make<casacore::MEpoch>(ctx, rt));
     recorder.assert_true(
       "Instance of MEpoch::Ref region has expected class",
       TE(ref.size() == 1));
@@ -108,7 +108,7 @@ meas_ref_test_suite(
         "d"));
     casacore::MEpoch e20_50(v20_50, ref1950);
     MeasRef mr_1950 = MeasRef::create(ctx, rt, ref1950);
-    auto [ref, rmap] = mr_1950.make<casacore::MEpoch>(ctx, rt);
+    auto ref = std::get<0>(mr_1950.make<casacore::MEpoch>(ctx, rt));
     recorder.expect_true(
       "Instance of MEpoch::Ref with offset region has same MEpoch value as original",
       testing::TestEval(

@@ -575,7 +575,8 @@ public:
         CREATE_H5_TASK_ID,
         TaskArgument(&create_args, sizeof(create_args)));
       {
-        RegionRequirement req(table_info_lr, READ_ONLY, EXCLUSIVE, table_info_lr);
+        RegionRequirement
+          req(table_info_lr, READ_ONLY, EXCLUSIVE, table_info_lr);
         req.add_field(TABLE_NAME_FID);
         write.add_region_requirement(req);
       }
@@ -584,14 +585,15 @@ public:
       Column::Requirements colreq = Column::default_requirements;
       colreq.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
       for (auto& t : tables) {
-        auto [reqs, parts] =
-          t.requirements(
-            ctx,
-            rt,
-            ColumnSpacePartition(),
-            READ_ONLY,
-            {},
-            colreq);
+        auto reqs =
+          std::get<0>(
+            t.requirements(
+              ctx,
+              rt,
+              ColumnSpacePartition(),
+              READ_ONLY,
+              {},
+              colreq));
         for (auto& rq : reqs)
           write.add_region_requirement(rq);
       }
@@ -605,7 +607,10 @@ public:
       std::unordered_map<std::string, std::tuple<bool, bool, bool>>
         column_modes;
       // modes are: read-write, restricted, unmapped
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
       for (auto& [nm, pth] : column_paths[i])
+#pragma GCC diagnostic pop
         column_modes[nm] = {false, true, false};
       ptables.push_back(
         tables[i]
@@ -630,14 +635,15 @@ public:
       TaskLauncher task(
         READ_MS_TABLE_COLUMNS_TASK_ID,
         TaskArgument(&rd_args, sizeof(rd_args)));
-      auto [reqs, parts] =
-        ptables[i].requirements(
-          ctx,
-          rt,
-          ColumnSpacePartition(),
-          READ_ONLY,
-          {},
-          colreq);
+      auto reqs =
+        std::get<0>(
+          ptables[i].requirements(
+            ctx,
+            rt,
+            ColumnSpacePartition(),
+            READ_ONLY,
+            {},
+            colreq));
       ptables[i].unmap_regions(ctx, rt);
       for (auto& rq : reqs)
         task.add_region_requirement(rq);

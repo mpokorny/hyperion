@@ -735,7 +735,10 @@ PhysicalTable::attach_columns(
       field_map,
       read_only ? LEGION_FILE_READ_ONLY : LEGION_FILE_READ_WRITE);
     auto pr1 = rt->attach_external_resource(ctx, attach);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [fid, nm] : fid_nms)
+#pragma GCC diagnostic pop
       m_attached[nm] = pr1;
   }
   return true;

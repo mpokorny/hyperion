@@ -496,8 +496,7 @@ table_test_suite(
     for (auto& c : {"W"s, "X"s, "Y"s, "Z"s})
       col_prs[c] = attach_table0_col(ctx, rt, cols.at(c), col_arrays.at(c));
     {
-      auto [reqs, parts] =
-        table0.requirements(ctx, rt);
+      auto reqs = std::get<0>(table0.requirements(ctx, rt));
       TaskLauncher pttask(VERIFY_TABLE_COLUMNS_TASK, TaskArgument(NULL, 0));
       pttask.add_region_requirement(task->regions[0]);
       pttask.add_region_requirement(task->regions[1]);

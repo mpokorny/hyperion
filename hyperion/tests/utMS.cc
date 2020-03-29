@@ -385,8 +385,9 @@ verify_column_task(
               if (false) {}
 #define MATCH(MC)                                                       \
               else if (MClassT<MC>::holds(mh)) {                        \
-                auto [mrs, rmap] =                                      \
-                  MeasRef::make<MClassT<MC>::type>(rt, prs);            \
+                auto mrs =                                              \
+                  std::get<0>(                                          \
+                    MeasRef::make<MClassT<MC>::type>(rt, prs));         \
                 result = mrs.size() == 1;                               \
               }
               HYPERION_FOREACH_MCLASS(MATCH)
@@ -457,7 +458,10 @@ read_full_ms(
     testing::TestEval(
       [&expected_columns, &cols]() {
         std::set<std::string> colnames;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
         for (auto& [nm, col] : cols)
+#pragma GCC diagnostic pop
           colnames.insert(nm);
         return
           std::all_of(

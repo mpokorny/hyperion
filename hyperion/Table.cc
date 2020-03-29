@@ -1362,9 +1362,9 @@ Table::add_columns(
   // column names must be unique
   {
     std::set<std::string> new_column_names;
-    for (auto& [csp, ixcs, idx, nmtfs]: new_columns) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
+    for (auto& [csp, ixcs, idx, nmtfs]: new_columns) {
       for (auto& [hnm, tf]: nmtfs) {
 #pragma GCC diagnostic pop
         std::string nm = hnm;
@@ -1520,8 +1520,11 @@ Table::remove_columns(
   std::vector<ColumnSpace> css;
   std::vector<PhysicalRegion> cs_md_prs;
   auto tbl_columns = Table::columns(ctx, rt).get_result<columns_result_t>();
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [cs, ixcs, vlr, nm_tfs] : tbl_columns.fields) {
     for (auto& [nm, tf] : nm_tfs) {
+#pragma GCC diagnostic pop
       if (columns.count(nm) > 0) {
         RegionRequirement
           req(cs.metadata_lr, READ_ONLY, EXCLUSIVE, cs.metadata_lr);
@@ -1849,7 +1852,10 @@ Table::columns(
   columns_result_t result;
   result.fields.reserve(cols.size());
   for (auto& [csp, ixcs_lr_tfs] : cols) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     auto& [ixcs, lr, tfs] = ixcs_lr_tfs;
+#pragma GCC diagnostic pop
     result.fields.emplace_back(csp, csp == ics, lr, tfs);
   }
   return result;
@@ -1984,7 +1990,10 @@ Table::reindexed_task(
 
   std::vector<std::tuple<coord_t, ColumnRegions>> cregions;
   size_t rg = 2;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [csp, ixcs, vlr, tfs] : columns.fields) {
+#pragma GCC diagnostic pop
     RegionRequirement values_req = task->regions[rg];
     PhysicalRegion values = regions[rg++];
     PhysicalRegion metadata = regions[rg++];
@@ -2367,7 +2376,10 @@ Table::reindexed(
     bool have_index_column_space = false;
     std::vector<int> new_index_axes;
     new_index_axes.reserve(index_axes.size() + ((allow_rows ? 1 : 0)));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [d, nm] : index_axes)
+#pragma GCC diagnostic pop
       new_index_axes.push_back(d);
     if (allow_rows)
       new_index_axes.push_back(0);
@@ -2488,7 +2500,10 @@ Table::reindexed(
     const unsigned min_block_size = 1000000;
     CopyLauncher index_column_copier;
     auto dflds = result_tbl.columns(ctx, rt).get_result<columns_result_t>();
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
     for (auto& [dcsp, dixcs, dvlr, dtfs] : dflds.fields) {
+#pragma GCC diagnostic pop
       RegionRequirement
         md_req(dcsp.metadata_lr, READ_ONLY, EXCLUSIVE, dcsp.metadata_lr);
       md_req.add_field(ColumnSpace::AXIS_VECTOR_FID);

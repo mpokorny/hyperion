@@ -407,8 +407,7 @@ table_test_suite(
     std::unordered_map<std::string, PhysicalRegion> col_prs;
     for (auto& c : {"W"s, "X"s, "Y"s, "Z"s})
       col_prs[c] = attach_table0_col(ctx, rt, cols.at(c), col_arrays.at(c));
-    auto [treqs, parts] =
-      table0.requirements(ctx, rt);
+    auto treqs = std::get<0>(table0.requirements(ctx, rt));
     rt->unmap_all_regions(ctx);
     {
       unsigned NUM_PARTS = 3;
