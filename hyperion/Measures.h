@@ -84,7 +84,7 @@ struct MClassTBase {
     casacore::Vector<typename DataType<DT>::ValueType> cv(vs.extent(0));
     for (size_t i = 0; i < vs.extent(0); ++i)
       cv[i] = vs(i);
-    return M(M::MVType(casacore::Quantum(vs, units)), mr);
+    return M(M::MVType(casacore::Quantum(cv, units)), mr);
   }
 
   template <hyperion::TypeTag DT>
