@@ -30,13 +30,13 @@
 
 namespace hyperion {
 
-class HYPERION_API MSAntennaColumns
+class HYPERION_API MSAntennaTable
   : public PhysicalTable {
 public:
 
   typedef MSTableColumns<MS_ANTENNA> C;
 
-  MSAntennaColumns(const PhysicalTable& pt)
+  MSAntennaTable(const PhysicalTable& pt)
     : PhysicalTable(pt) {}
 
   static const constexpr unsigned row_rank = 1;

@@ -141,8 +141,7 @@ list(APPEND HYPERION_SRC
   MSDataDescriptionColumns.cc
   MSFieldColumns.h
   MSFieldColumns.cc
-  MSSpWindowColumns.h
-  MSSpWindowColumns.cc
+  MSSpWindowTable.h
   PhysicalColumn.h
   PhysicalColumn.cc
   PhysicalTable.h
