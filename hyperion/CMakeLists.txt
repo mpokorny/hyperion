@@ -136,7 +136,7 @@ list(APPEND HYPERION_SRC
   MSTableColumns_c.h
   MSTableColumns.h
   MSTableColumns.cc
-  MSAntennaColumns.h
+  MSAntennaTable.h
   MSDataDescriptionColumns.h
   MSDataDescriptionColumns.cc
   MSFieldColumns.h
