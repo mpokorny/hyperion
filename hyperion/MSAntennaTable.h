@@ -84,7 +84,12 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_STRING, row_rank, station_rank, A, COORD_T>
   station() const {
     return
-      PhysicalColumnTD<HYPERION_TYPE_STRING, row_rank, station_rank, A, COORD_T>(
+      PhysicalColumnTD<
+        HYPERION_TYPE_STRING,
+        row_rank,
+        station_rank,
+        A,
+        COORD_T>(
         *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_STATION)));
   }
 
@@ -147,7 +152,12 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, position_rank, A, COORD_T>
   position() const {
     return
-      PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, position_rank, A, COORD_T>(
+      PhysicalColumnTD<
+        HYPERION_TYPE_DOUBLE,
+        row_rank,
+        position_rank,
+        A,
+        COORD_T>(
         *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_POSITION)));
   }
 
@@ -161,10 +171,24 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTMD<HYPERION_TYPE_DOUBLE, MClass::M_POSITION, row_rank, position_rank, 3, A, COORD_T>
+  PhysicalColumnTMD<
+    HYPERION_TYPE_DOUBLE,
+    MClass::M_POSITION,
+    row_rank,
+    position_rank,
+    3,
+    A,
+    COORD_T>
   position_meas() const {
     return
-      PhysicalColumnTMD<HYPERION_TYPE_DOUBLE, MClass::M_POSITION, row_rank, position_rank, 3, A, COORD_T>(
+      PhysicalColumnTMD<
+        HYPERION_TYPE_DOUBLE,
+        MClass::M_POSITION,
+        row_rank,
+        position_rank,
+        3,
+        A,
+        COORD_T>(
         *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_POSITION)));
   }
 #endif // HYPERION_USE_CASACORE
@@ -194,16 +218,32 @@ public:
   bool
   has_offset_meas() const {
     return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_OFFSET)) > 0
-      && m_columns.at(C::column_name(C::col_t::MS_ANTENNA_COL_OFFSET))->mr_drs();
+      && (m_columns
+          .at(C::column_name(C::col_t::MS_ANTENNA_COL_OFFSET))
+          ->mr_drs());
   }
 
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTMD<HYPERION_TYPE_DOUBLE, MClass::M_POSITION, row_rank, offset_rank, 3, A, COORD_T>
+  PhysicalColumnTMD<
+    HYPERION_TYPE_DOUBLE,
+    MClass::M_POSITION,
+    row_rank,
+    offset_rank,
+    3,
+    A,
+    COORD_T>
   offset_meas() const {
     return
-      PhysicalColumnTMD<HYPERION_TYPE_DOUBLE, MClass::M_POSITION, row_rank, offset_rank, 3, A, COORD_T>(
+      PhysicalColumnTMD<
+        HYPERION_TYPE_DOUBLE,
+        MClass::M_POSITION,
+        row_rank,
+        offset_rank,
+        3,
+        A,
+        COORD_T>(
         *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_OFFSET)));
   }
 #endif // HYPERION_USE_CASACORE
@@ -216,16 +256,27 @@ public:
 
   bool
   has_dish_diameter() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_DISH_DIAMETER)) > 0;
+    return
+      m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_DISH_DIAMETER)) > 0;
   }
 
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, dish_diameter_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_DOUBLE,
+    row_rank,
+    dish_diameter_rank,
+    A,
+    COORD_T>
   dish_diameter() const {
     return
-      PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, dish_diameter_rank, A, COORD_T>(
+      PhysicalColumnTD<
+        HYPERION_TYPE_DOUBLE,
+        row_rank,
+        dish_diameter_rank,
+        A,
+        COORD_T>(
         *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_DISH_DIAMETER)));
   }
 
@@ -258,7 +309,8 @@ public:
 
   bool
   has_mean_orbit() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_MEAN_ORBIT)) > 0;
+    return
+      m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_MEAN_ORBIT)) > 0;
   }
 
   template <
@@ -267,7 +319,12 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, mean_orbit_rank, A, COORD_T>
   mean_orbit() const {
     return
-      PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, mean_orbit_rank, A, COORD_T>(
+      PhysicalColumnTD<
+        HYPERION_TYPE_DOUBLE,
+        row_rank,
+        mean_orbit_rank,
+        A,
+        COORD_T>(
         *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_MEAN_ORBIT)));
   }
 
@@ -279,16 +336,28 @@ public:
 
   bool
   has_phased_array_id() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID)) > 0;
+    return
+      m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID))
+      > 0;
   }
 
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, phased_array_id_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    row_rank,
+    phased_array_id_rank,
+    A,
+    COORD_T>
   phased_array_id() const {
     return
-      PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, phased_array_id_rank, A, COORD_T>(
+      PhysicalColumnTD<
+        HYPERION_TYPE_INT,
+        row_rank,
+        phased_array_id_rank,
+        A,
+        COORD_T>(
         *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID)));
   }
 
