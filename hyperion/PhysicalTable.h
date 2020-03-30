@@ -39,6 +39,10 @@ public:
     const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
     columns);
 
+  PhysicalTable(const PhysicalTable& other);
+
+  PhysicalTable(PhysicalTable&& other);
+
   static std::optional<
     std::tuple<
       PhysicalTable,

@@ -28,6 +28,19 @@ PhysicalTable::PhysicalTable(
   , m_table_pr(table_pr)
   , m_columns(columns) {}
 
+PhysicalTable::PhysicalTable(const PhysicalTable& other)
+  : PhysicalTable(other.m_table_parent, other.m_table_pr, other.m_columns) {
+  m_attached = other.m_attached;
+}
+
+PhysicalTable::PhysicalTable(PhysicalTable&& other)
+  : PhysicalTable(
+    std::move(other).m_table_parent,
+    std::move(other).m_table_pr,
+    std::move(other).m_columns) {
+  m_attached = std::move(other).m_attached;
+}
+
 std::optional<
   std::tuple<
     PhysicalTable,
