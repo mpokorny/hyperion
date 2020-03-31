@@ -136,6 +136,7 @@ fstrcpy(char(& dest)[N], const std::string& src) {
   dest[n] = '\0';
   return &dest[0];
 }
+
 template <size_t N>
 char *
 fstrcpy(char(& dest)[N], const char* src) {
@@ -2576,7 +2577,7 @@ HYPERION_FOREACH_N(DEFINE_POINT_ADD_REDOP);
 
 } // end namespace hyperion
 
-std::ostream&
+HYPERION_API std::ostream&
 operator<<(std::ostream& stream, const hyperion::string& str);
 
 #ifndef HYPERION_USE_CASACORE
