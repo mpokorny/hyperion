@@ -81,7 +81,7 @@ if (USE_CASACORE)
             ./utMeasRef)
 
   add_executable(utMSAntennaTable utMSAntennaTable.cc)
-  set_target_properties(utMS PROPERTIES
+  set_target_properties(utMSAntennaTable PROPERTIES
     CXX_STANDARD 17
     COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   add_test(
@@ -90,6 +90,18 @@ if (USE_CASACORE)
     ./utMSAntennaTable -ll:io 1)
   set_tests_properties(
     MSAntennaTableUnitTest PROPERTIES
+    FIXTURES_REQUIRED T0MS)
+
+  add_executable(utMSSpWindowTable utMSSpWindowTable.cc)
+  set_target_properties(utMSSpWindowTable PROPERTIES
+    CXX_STANDARD 17
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+  add_test(
+    NAME MSSpWindowTableUnitTest
+    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+    ./utMSWpWindowTable -ll:io 1)
+  set_tests_properties(
+    MSSpWindowTableUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)
 endif()
 
