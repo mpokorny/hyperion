@@ -1,3 +1,0 @@
-[submodule "mdspan"]
-	path = mdspan
-	url = https://github.com/kokkos/mdspan.git
