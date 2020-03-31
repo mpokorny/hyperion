@@ -116,7 +116,7 @@ verify_antenna_table(
         for (PointInRectIterator<2> pir(position_col.rect(), false);
              result && pir();
              pir++) {
-          if (!prev_row || pir[0] != prev_row.value()) {
+          if (pir[0] != prev_row.value_or(pir[0] + 1)) {
             prev_row = pir[0];
             auto pos = position_meas.read(prev_row.value());
             decltype(pos) ccpos;
