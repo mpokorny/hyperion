@@ -79,6 +79,18 @@ if (USE_CASACORE)
     NAME MeasRefUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
             ./utMeasRef)
+
+  add_executable(utMSAntennaTable utMSAntennaTable.cc)
+  set_target_properties(utMS PROPERTIES
+    CXX_STANDARD 17
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+  add_test(
+    NAME MSAntennaTableUnitTest
+    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+    ./utMSAntennaTable -ll:io 1)
+  set_tests_properties(
+    MSAntennaTableUnitTest PROPERTIES
+    FIXTURES_REQUIRED T0MS)
 endif()
 
 add_subdirectory(data)
