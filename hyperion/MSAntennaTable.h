@@ -159,7 +159,7 @@ public:
 #ifdef HYPERION_USE_CASACORE
   bool
   has_position_meas() const {
-    return m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, POSITION)) > 0
+    return has_position()
       && m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, POSITION))->mr_drs();
   }
 
@@ -212,7 +212,7 @@ public:
 #ifdef HYPERION_USE_CASACORE
   bool
   has_offset_meas() const {
-    return m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, OFFSET)) > 0
+    return has_offset()
       && m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, OFFSET))->mr_drs();
   }
 
