@@ -41,11 +41,6 @@ public:
 
   static const constexpr unsigned row_rank = 1;
 
-  static constexpr const char*
-  column_name(C::col_t c) {
-    return HYPERION_COLUMN_NAME(ANTENNA, c);
-  }
-
   //
   // NAME
   //
@@ -54,7 +49,7 @@ public:
 
   bool
   has_name() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_NAME)) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, NAME)) > 0;
   }
 
   template <
@@ -64,7 +59,7 @@ public:
   name() const {
     return
       PhysicalColumnTD<HYPERION_TYPE_STRING, row_rank, name_rank, A, COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_NAME)));
+        *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, NAME)));
   }
 
   //
@@ -75,7 +70,7 @@ public:
 
   bool
   has_station() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_STATION)) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, STATION)) > 0;
   }
 
   template <
@@ -90,7 +85,7 @@ public:
         station_rank,
         A,
         COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_STATION)));
+          *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, STATION)));
   }
 
   //
@@ -101,7 +96,7 @@ public:
 
   bool
   has_type() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_TYPE)) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, TYPE)) > 0;
   }
 
   template <
@@ -111,7 +106,7 @@ public:
   type() const {
     return
       PhysicalColumnTD<HYPERION_TYPE_STRING, row_rank, type_rank, A, COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_TYPE)));
+        *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, TYPE)));
   }
 
   //
@@ -122,7 +117,7 @@ public:
 
   bool
   has_mount() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_MOUNT)) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, MOUNT)) > 0;
   }
 
   template <
@@ -132,7 +127,7 @@ public:
   mount() const {
     return
       PhysicalColumnTD<HYPERION_TYPE_STRING, row_rank, mount_rank, A, COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_MOUNT)));
+        *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, MOUNT)));
   }
 
   //
@@ -143,7 +138,7 @@ public:
 
   bool
   has_position() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_POSITION)) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, POSITION)) > 0;
   }
 
   template <
@@ -158,14 +153,14 @@ public:
         position_rank,
         A,
         COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_POSITION)));
+          *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, POSITION)));
   }
 
 #ifdef HYPERION_USE_CASACORE
   bool
   has_position_meas() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_POSITION)) > 0
-      && m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_POSITION))->mr_drs();
+    return m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, POSITION)) > 0
+      && m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, POSITION))->mr_drs();
   }
 
   template <
@@ -189,7 +184,7 @@ public:
         3,
         A,
         COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_POSITION)));
+          *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, POSITION)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -201,7 +196,7 @@ public:
 
   bool
   has_offset() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_OFFSET)) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, OFFSET)) > 0;
   }
 
   template <
@@ -211,16 +206,14 @@ public:
   offset() const {
     return
       PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, offset_rank, A, COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_OFFSET)));
+        *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, OFFSET)));
   }
 
 #ifdef HYPERION_USE_CASACORE
   bool
   has_offset_meas() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_OFFSET)) > 0
-      && (m_columns
-          .at(C::column_name(C::col_t::MS_ANTENNA_COL_OFFSET))
-          ->mr_drs());
+    return m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, OFFSET)) > 0
+      && m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, OFFSET))->mr_drs();
   }
 
   template <
@@ -244,7 +237,7 @@ public:
         3,
         A,
         COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_OFFSET)));
+          *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, OFFSET)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -257,7 +250,7 @@ public:
   bool
   has_dish_diameter() const {
     return
-      m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_DISH_DIAMETER)) > 0;
+      m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, DISH_DIAMETER)) > 0;
   }
 
   template <
@@ -277,7 +270,7 @@ public:
         dish_diameter_rank,
         A,
         COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_DISH_DIAMETER)));
+          *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, DISH_DIAMETER)));
   }
 
   //
@@ -288,7 +281,7 @@ public:
 
   bool
   has_orbit_id() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_ORBIT_ID)) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, ORBIT_ID)) > 0;
   }
 
   template <
@@ -298,7 +291,7 @@ public:
   orbit_id() const {
     return
       PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, orbit_id_rank, A, COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_ORBIT_ID)));
+        *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, ORBIT_ID)));
   }
 
   //
@@ -310,7 +303,7 @@ public:
   bool
   has_mean_orbit() const {
     return
-      m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_MEAN_ORBIT)) > 0;
+      m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, MEAN_ORBIT)) > 0;
   }
 
   template <
@@ -325,7 +318,7 @@ public:
         mean_orbit_rank,
         A,
         COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_MEAN_ORBIT)));
+          *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, MEAN_ORBIT)));
   }
 
   //
@@ -337,7 +330,7 @@ public:
   bool
   has_phased_array_id() const {
     return
-      m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID))
+      m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, PHASED_ARRAY_ID))
       > 0;
   }
 
@@ -358,7 +351,7 @@ public:
         phased_array_id_rank,
         A,
         COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_PHASED_ARRAY_ID)));
+          *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, PHASED_ARRAY_ID)));
   }
 
   //
@@ -369,7 +362,7 @@ public:
 
   bool
   has_flag_row() const {
-    return m_columns.count(column_name(C::col_t::MS_ANTENNA_COL_FLAG_ROW)) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(ANTENNA, FLAG_ROW)) > 0;
   }
 
   template <
@@ -379,7 +372,7 @@ public:
   flag_row() const {
     return
       PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, flag_row_rank, A, COORD_T>(
-        *m_columns.at(column_name(C::col_t::MS_ANTENNA_COL_FLAG_ROW)));
+        *m_columns.at(HYPERION_COLUMN_NAME(ANTENNA, FLAG_ROW)));
   }
 };
 
