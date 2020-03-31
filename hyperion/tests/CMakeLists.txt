@@ -103,6 +103,18 @@ if (USE_CASACORE)
   set_tests_properties(
     MSSpWindowTableUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)
+
+  add_executable(utMSFieldTable utMSFieldTable.cc)
+  set_target_properties(utMSFieldTable PROPERTIES
+    CXX_STANDARD 17
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+  add_test(
+    NAME MSFieldTableUnitTest
+    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+    ./utMSWpWindowTable -ll:io 1)
+  set_tests_properties(
+    MSFieldTableUnitTest PROPERTIES
+    FIXTURES_REQUIRED T0MS)
 endif()
 
 add_subdirectory(data)
