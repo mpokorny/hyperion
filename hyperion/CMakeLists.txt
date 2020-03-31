@@ -140,8 +140,8 @@ list(APPEND HYPERION_SRC
   MSAntennaTable.h
   MSDataDescriptionColumns.h
   MSDataDescriptionColumns.cc
-  MSFieldColumns.h
-  MSFieldColumns.cc
+  MSFieldTable.h
+  MSFieldTable.cc
   MSSpWindowTable.h
   PhysicalColumn.h
   PhysicalColumn.cc
