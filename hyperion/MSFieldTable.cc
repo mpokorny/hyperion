@@ -13,49 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <hyperion/MSFieldColumns.h>
+#include <hyperion/MSFieldTable.h>
 
 #include <casacore/casa/BasicMath/Math.h>
-
-#include <optional>
 
 using namespace hyperion;
 using namespace Legion;
 
 namespace cc = casacore;
 
-MSFieldColumns::MSFieldColumns(
-  Runtime* rt,
-  const RegionRequirement& rows_requirement,
-  const std::unordered_map<std::string, Regions>& regions)
-  : m_rows(
-    rt->get_index_space_domain(rows_requirement.region.get_index_space())) {
-
-  for (auto& [nm, rgs] : regions) {
-    auto ocol = C::lookup_col(nm);
-    if (ocol) {
-      auto& col = ocol.value();
-      m_regions[col] = rgs.values;
-#ifdef HYPERION_USE_CASACORE
-      switch (col) {
-      case C::col_t::MS_FIELD_COL_TIME:
-        m_mrs[col] = create_mr<cc::MEpoch>(rt, rgs);
-        break;
-      case C::col_t::MS_FIELD_COL_DELAY_DIR:
-      case C::col_t::MS_FIELD_COL_PHASE_DIR:
-      case C::col_t::MS_FIELD_COL_REFERENCE_DIR:
-        m_mrs[col] = create_mr<cc::MDirection>(rt, rgs);
-        break;
-      default:
-        break;
-      }
-#endif
-    }
-  }
-}
-
 cc::MDirection
-MSFieldColumns::interpolate_dir_meas(
+MSFieldTable::interpolate_dir_meas(
   const std::vector<cc::MDirection>& dir_poly,
   double inter_time,
   double time_origin) {

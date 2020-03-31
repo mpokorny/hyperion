@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_MS_FIELD_COLUMNS_H_
-#define HYPERION_MS_FIELD_COLUMNS_H_
+#ifndef HYPERION_MS_FIELD_TABLE_H_
+#define HYPERION_MS_FIELD_TABLE_H_
 
 #include <hyperion/hyperion.h>
-#include <hyperion/Column.h>
+#include <hyperion/PhysicalTable.h>
+#include <hyperion/PhysicalColumn.h>
 #include <hyperion/MSTableColumns.h>
 
 #pragma GCC visibility push(default)
@@ -33,23 +34,16 @@
 
 namespace hyperion {
 
-class HYPERION_API MSFieldColumns
-  : public MSTableColumnsBase {
+class /*HYPERION_API*/ MSFieldTable
+  : public PhysicalTable {
 public:
 
   typedef MSTableColumns<MS_FIELD> C;
 
-  MSFieldColumns(
-    Legion::Runtime* rt,
-    const Legion::RegionRequirement& rows_requirement,
-    const std::unordered_map<std::string, Regions>& regions);
+  MSFieldTable(const PhysicalTable& pt)
+    : PhysicalTable(pt) {}
 
   static const constexpr unsigned row_rank = 1;
-
-  Legion::DomainT<row_rank>
-  rows() const {
-    return m_rows;
-  }
 
   //
   // NAME
@@ -57,22 +51,17 @@ public:
   static const constexpr unsigned name_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_NAME];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using NameAccessor =
-    FieldAccessor<HYPERION_TYPE_STRING, name_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_name() const {
-    return m_regions.count(C::col_t::MS_FIELD_COL_NAME) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(FIELD, NAME)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  NameAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_STRING, row_rank, name_rank, A, COORD_T>
   name() const {
-    return
-      NameAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_FIELD_COL_NAME),
-        C::fid(C::col_t::MS_FIELD_COL_NAME));
+    return decltype(name())(*m_columns.at(HYPERION_COLUMN_NAME(FIELD, NAME)));
   }
 
   //
@@ -81,22 +70,17 @@ public:
   static const constexpr unsigned code_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_CODE];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using CodeAccessor =
-    FieldAccessor<HYPERION_TYPE_SHORT, code_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_code() const {
-    return m_regions.count(C::col_t::MS_FIELD_COL_CODE) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(FIELD, CODE)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  CodeAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_SHORT, row_rank, code_rank, A, COORD_T>
   code() const {
-    return
-      CodeAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_FIELD_COL_CODE),
-        C::fid(C::col_t::MS_FIELD_COL_CODE));
+    return decltype(code())(*m_columns.at(HYPERION_COLUMN_NAME(FIELD, CODE)));
   }
 
   //
@@ -105,128 +89,42 @@ public:
   static const constexpr unsigned time_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_TIME];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using TimeAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, time_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_time() const {
-    return m_regions.count(C::col_t::MS_FIELD_COL_TIME) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(FIELD, TIME)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  TimeAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, time_rank, A, COORD_T>
   time() const {
-    return
-      TimeAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_FIELD_COL_TIME),
-        C::fid(C::col_t::MS_FIELD_COL_TIME));
+    return decltype(time())(*m_columns.at(HYPERION_COLUMN_NAME(FIELD, TIME)));
   }
 
   // TODO: timeQuant()?
 
 #ifdef HYPERION_USE_CASACORE
-  template <typename T>
-  class TimeMeasWriterMixin
-    : public T {
-  public:
-    using T::T;
-
-    void
-    write(
-      const Legion::Point<time_rank, Legion::coord_t>& pt,
-      const casacore::MEpoch& val) {
-
-      auto cvt = T::m_cm.convert_at(pt);
-      auto t = cvt(val);
-      T::m_time[pt] = t.get(T::m_units).getValue();
-    }
-  };
-
-  template <typename T>
-  class TimeMeasReaderMixin
-    : public T {
-  public:
-    using T::T;
-
-    casacore::MEpoch
-    read(const Legion::Point<time_rank, Legion::coord_t>& pt) const {
-
-      auto mr = T::m_cm.meas_ref_at(pt);
-      const DataType<HYPERION_TYPE_DOUBLE>::ValueType& t = T::m_time[pt];
-      return casacore::MEpoch(casacore::Quantity(t, T::m_units), mr);
-    }
-  };
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  class TimeMeasAccessorBase {
-  public:
-    TimeMeasAccessorBase(
-      const Legion::PhysicalRegion& region,
-      const mr_t<casacore::MEpoch>* mr)
-      : m_time(region, C::fid(C::col_t::MS_FIELD_COL_TIME))
-      , m_units(C::col_t::MS_FIELD_COL_TIME)
-      , m_cm(mr) {
-    }
-
-  protected:
-
-    const char *m_units;
-
-    TimeAccessor<MODE, CHECK_BOUNDS> m_time;
-
-    ColumnMeasure<
-      casacore::MEpoch,
-      row_rank,
-      row_rank,
-      READ_ONLY,
-      CHECK_BOUNDS> m_cm;
-  };
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  class TimeMeasAccessor
-    : public TimeMeasWriterMixin<TimeMeasAccessorBase<MODE, CHECK_BOUNDS>> {
-    // this implementation supports MODE=WRITE_ONLY and MODE=WRITE_DISCARD
-    typedef TimeMeasWriterMixin<TimeMeasAccessorBase<MODE, CHECK_BOUNDS>> T;
-  public:
-    using T::T;
-  };
-
-  template <bool CHECK_BOUNDS>
-  class TimeMeasAccessor<READ_ONLY, CHECK_BOUNDS>
-    : public TimeMeasReaderMixin<
-        TimeMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> {
-    typedef TimeMeasReaderMixin<
-      TimeMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> T;
-  public:
-    using T::T;
-  };
-
-  template <bool CHECK_BOUNDS>
-  class TimeMeasAccessor<READ_WRITE, CHECK_BOUNDS>
-    : public TimeMeasReaderMixin<
-        TimeMeasWriterMixin<
-          TimeMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> {
-    typedef TimeMeasReaderMixin<
-      TimeMeasWriterMixin<
-        TimeMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> T;
-  public:
-    using T::T;
-  };
-
   bool
   has_time_meas() const {
-    return has_time() && m_mrs.count(C::col_t::MS_FIELD_COL_TIME) > 0;
+    return
+      has_time() && m_columns.at(HYPERION_COLUMN_NAME(FIELD, TIME))->mr_drs();
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  TimeMeasAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTMD<
+    HYPERION_TYPE_DOUBLE,
+    MClass::M_EPOCH,
+    row_rank,
+    time_rank,
+    1,
+    A,
+    COORD_T>
   time_meas() const {
     return
-      TimeMeasAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_FIELD_COL_TIME),
-        std::any_cast<mr_t<casacore::MEpoch>>(
-          &m_mrs.at(C::col_t::MS_FIELD_COL_TIME)));
+      decltype(time_meas())(*m_columns.at(HYPERION_COLUMN_NAME(FIELD, TIME)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -236,22 +134,19 @@ public:
   static const constexpr unsigned num_poly_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_NUM_POLY];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using NumPolyAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, num_poly_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_num_poly() const {
-    return m_regions.count(C::col_t::MS_FIELD_COL_NUM_POLY) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(FIELD, NUM_POLY)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  NumPolyAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, num_poly_rank, A, COORD_T>
   num_poly() const {
     return
-      NumPolyAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
-        C::fid(C::col_t::MS_FIELD_COL_NUM_POLY));
+      decltype(num_poly())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FIELD, NUM_POLY)));
   }
 
   //
@@ -260,25 +155,46 @@ public:
   static const constexpr unsigned delay_dir_rank =
     row_rank + C::element_ranks[MS_FIELD_COL_DELAY_DIR];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using DelayDirAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, delay_dir_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_delay_dir() const {
-    return m_regions.count(C::col_t::MS_FIELD_COL_DELAY_DIR) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(FIELD, DELAY_DIR)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  DelayDirAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, delay_dir_rank, A, COORD_T>
   delay_dir() const {
     return
-      DelayDirAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_FIELD_COL_DELAY_DIR),
-        C::fid(C::col_t::MS_FIELD_COL_DELAY_DIR));
+      decltype(delay_dir())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FIELD, DELAY_DIR)));
   }
 
 #ifdef HYPERION_USE_CASACORE
+  bool
+  has_delay_dir_meas() const {
+    return has_delay_dir() &&
+      m_columns.at(HYPERION_COLUMN_NAME(FIELD, DELAY_DIR))->mr_drs();
+  }
+
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTMD<
+    HYPERION_TYPE_DOUBLE,
+    MClass::M_DIRECTION,
+    row_rank,
+    delay_dir_rank,
+    2,
+    A,
+    COORD_T>
+  delay_dir_meas() const {
+    return
+      decltype(delay_dir_meas())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FIELD, DELAY_DIR)));
+  }
+
+#ifdef SAVE_ME_FOR_REFERENCE
   template <typename T>
   class DelayDirWriterMixin
     : public T {
@@ -354,104 +270,7 @@ public:
           mr);
     };
   };
-
-  template <
-    Legion::FieldID FID,
-    legion_privilege_mode_t MODE,
-    bool CHECK_BOUNDS>
-  class DelayDirMeasAccessorBase {
-  public:
-    DelayDirMeasAccessorBase(
-      const char* units,
-      const Legion::PhysicalRegion& delay_dir_region,
-      const Legion::PhysicalRegion& num_poly_region,
-      const Legion::PhysicalRegion& time_region,
-      const mr_t<casacore::MDirection>* mr)
-      : m_units(units)
-      , m_delay_dir(delay_dir_region, FID)
-      , m_num_poly(num_poly_region, C::fid(C::col_t::MS_FIELD_COL_NUM_POLY))
-      , m_time(time_region, C::fid(C::col_t::MS_FIELD_COL_TIME))
-      , m_cm(mr) {
-    }
-
-  private:
-
-    const char* m_units;
-
-    DelayDirAccessor<MODE, CHECK_BOUNDS> m_delay_dir;
-
-    NumPolyAccessor<READ_ONLY, CHECK_BOUNDS> m_num_poly;
-
-    TimeAccessor<READ_ONLY, CHECK_BOUNDS> m_time;
-
-    ColumnMeasure<
-      casacore::MDirection,
-      row_rank,
-      row_rank,
-      READ_ONLY,
-      CHECK_BOUNDS> m_cm;
-  };
-
-  template <
-    Legion::FieldID FID,
-    legion_privilege_mode_t MODE,
-    bool CHECK_BOUNDS>
-  class DelayDirMeasAccessor
-    : public DelayDirWriterMixin<
-        DelayDirMeasAccessorBase<FID, MODE, CHECK_BOUNDS>> {
-    // this implementation supports MODE=WRITE_ONLY and MODE=WRITE_DISCARD
-    typedef DelayDirWriterMixin<
-      DelayDirMeasAccessorBase<FID, MODE, CHECK_BOUNDS>> T;
-  public:
-    using T::T;
-  };
-
-  template <Legion::FieldID FID, bool CHECK_BOUNDS>
-  class DelayDirMeasAccessor<FID, READ_ONLY, CHECK_BOUNDS>
-    : public DelayDirReaderMixin<
-        DelayDirMeasAccessorBase<FID, READ_ONLY, CHECK_BOUNDS>> {
-    typedef DelayDirReaderMixin<
-      DelayDirMeasAccessorBase<FID, READ_ONLY, CHECK_BOUNDS>> T;
-  public:
-    using T::T;
-  };
-
-  template <Legion::FieldID FID, bool CHECK_BOUNDS>
-  class DelayDirMeasAccessor<FID, READ_WRITE, CHECK_BOUNDS>
-    : public DelayDirReaderMixin<
-        DelayDirWriterMixin<
-          DelayDirMeasAccessorBase<FID, READ_WRITE, CHECK_BOUNDS>>> {
-    typedef DelayDirReaderMixin<
-      DelayDirWriterMixin<
-        DelayDirMeasAccessorBase<FID, READ_WRITE, CHECK_BOUNDS>>> T;
-  public:
-    using T::T;
-  };
-
-  bool
-  has_delay_dir_meas() const {
-    return has_delay_dir() && m_mrs.count(C::col_t::MS_FIELD_COL_DELAY_DIR) > 0
-      && has_num_poly() && has_time();
-  }
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  DelayDirMeasAccessor<
-    C::fid(C::col_t::MS_FIELD_COL_DELAY_DIR),
-    MODE,
-    CHECK_BOUNDS>
-  delay_dir_meas() const {
-    return
-      DelayDirMeasAccessor<
-        C::fid(C::col_t::MS_FIELD_COL_DELAY_DIR),
-        MODE,
-        CHECK_BOUNDS>(
-        C::units.at(MS_FIELD_COL_DELAY_DIR),
-        m_regions.at(C::col_t::MS_FIELD_COL_DELAY_DIR),
-        m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
-        m_regions.at(C::col_t::MS_FIELD_COL_TIME),
-        std::any_cast<mr_t<casacore::MDirection>>(
-          &m_mrs.at(C::col_t::MS_FIELD_COL_DELAY_DIR)));
-  }
+#endif // SAVE_ME_FOR_REFERENCE
 #endif // HYPERION_USE_CASACORE
 
   //
@@ -460,50 +279,43 @@ public:
   static const constexpr unsigned phase_dir_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_PHASE_DIR];
 
-  static_assert(phase_dir_rank == delay_dir_rank);
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using PhaseDirAccessor = DelayDirAccessor<MODE, CHECK_BOUNDS>;
-
   bool
   has_phase_dir() const {
-    return m_regions.count(C::col_t::MS_FIELD_COL_PHASE_DIR) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(FIELD, PHASE_DIR)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  PhaseDirAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, phase_dir_rank, A, COORD_T>
   phase_dir() const {
     return
-      PhaseDirAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_FIELD_COL_PHASE_DIR),
-        C::fid(C::col_t::MS_FIELD_COL_PHASE_DIR));
+      decltype(phase_dir())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FIELD, PHASE_DIR)));
   }
 
 #ifdef HYPERION_USE_CASACORE
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using PhaseDirMeasAccessor =
-    DelayDirMeasAccessor<
-      C::fid(C::col_t::MS_FIELD_COL_PHASE_DIR),
-      MODE,
-      CHECK_BOUNDS>;
-
   bool
   has_phase_dir_meas() const {
-    return has_phase_dir() && m_mrs.count(C::col_t::MS_FIELD_COL_PHASE_DIR) > 0
-      && has_num_poly() && has_time();
+    return has_phase_dir() &&
+      m_columns.at(HYPERION_COLUMN_NAME(FIELD, PHASE_DIR))->mr_drs();
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  PhaseDirMeasAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTMD<
+    HYPERION_TYPE_DOUBLE,
+    MClass::M_DIRECTION,
+    row_rank,
+    phase_dir_rank,
+    2,
+    A,
+    COORD_T>
   phase_dir_meas() const {
     return
-      PhaseDirMeasAccessor<MODE, CHECK_BOUNDS>(
-        C::units.at(MS_FIELD_COL_PHASE_DIR),
-        m_regions.at(C::col_t::MS_FIELD_COL_PHASE_DIR),
-        m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
-        m_regions.at(C::col_t::MS_FIELD_COL_TIME),
-        std::any_cast<mr_t<casacore::MDirection>>(
-          &m_mrs.at(C::col_t::MS_FIELD_COL_PHASE_DIR)));
+      decltype(phase_dir_meas())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FIELD, PHASE_DIR)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -513,51 +325,48 @@ public:
   static const constexpr unsigned reference_dir_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_REFERENCE_DIR];
 
-  static_assert(reference_dir_rank == delay_dir_rank);
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using ReferenceDirAccessor = DelayDirAccessor<MODE, CHECK_BOUNDS>;
-
   bool
   has_reference_dir() const {
-    return m_regions.count(C::col_t::MS_FIELD_COL_REFERENCE_DIR) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(FIELD, REFERENCE_DIR)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  ReferenceDirAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<
+    HYPERION_TYPE_DOUBLE,
+    row_rank,
+    reference_dir_rank,
+    A,
+    COORD_T>
   reference_dir() const {
     return
-      ReferenceDirAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_FIELD_COL_REFERENCE_DIR),
-        C::fid(C::col_t::MS_FIELD_COL_REFERENCE_DIR));
+      decltype(reference_dir())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FIELD, REFERENCE_DIR)));
   }
 
 #ifdef HYPERION_USE_CASACORE
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using ReferenceDirMeasAccessor =
-    DelayDirMeasAccessor<
-      C::fid(C::col_t::MS_FIELD_COL_REFERENCE_DIR),
-      MODE,
-      CHECK_BOUNDS>;
-
   bool
   has_reference_dir_meas() const {
-    return has_reference_dir()
-      && m_mrs.count(C::col_t::MS_FIELD_COL_REFERENCE_DIR) > 0
-      && has_num_poly() && has_time();
+    return has_reference_dir() &&
+      m_columns.at(HYPERION_COLUMN_NAME(FIELD, REFERENCE_DIR))->mr_drs();
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  ReferenceDirMeasAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTMD<
+    HYPERION_TYPE_DOUBLE,
+    MClass::M_DIRECTION,
+    row_rank,
+    reference_dir_rank,
+    2,
+    A,
+    COORD_T>
   reference_dir_meas() const {
     return
-      ReferenceDirMeasAccessor<MODE, CHECK_BOUNDS>(
-        C::units.at(MS_FIELD_COL_REFERENCE_DIR),
-        m_regions.at(C::col_t::MS_FIELD_COL_REFERENCE_DIR),
-        m_regions.at(C::col_t::MS_FIELD_COL_NUM_POLY),
-        m_regions.at(C::col_t::MS_FIELD_COL_TIME),
-        std::any_cast<mr_t<casacore::MDirection>>(
-          &m_mrs.at(C::col_t::MS_FIELD_COL_REFERENCE_DIR)));
+      decltype(reference_dir_meas())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FIELD, REFERENCE_DIR)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -567,21 +376,19 @@ public:
   static const constexpr unsigned source_id_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_SOURCE_ID];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using SourceIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, source_id_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_source_id() const {
-    return m_regions.count(C::col_t::MS_FIELD_COL_SOURCE_ID) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(FIELD, SOURCE_ID)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  SourceIdAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, source_id_rank, A, COORD_T>
   source_id() const {
-    return SourceIdAccessor<MODE, CHECK_BOUNDS>(
-      m_regions.at(C::col_t::MS_FIELD_COL_SOURCE_ID),
-      C::fid(C::col_t::MS_FIELD_COL_SOURCE_ID));
+    return
+      decltype(source_id())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FIELD, SOURCE_ID)));
   }
 
   //
@@ -590,21 +397,19 @@ public:
   static const constexpr unsigned ephemeris_id_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_EPHEMERIS_ID];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using EphemerisIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, ephemeris_id_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_ephemermis_id() const {
-    return m_regions.count(C::col_t::MS_FIELD_COL_EPHEMERIS_ID) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(FIELD, EPHEMERIS_ID)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  EphemerisIdAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, ephemeris_id_rank, A, COORD_T>
   ephemeris_id() const {
-    return EphemerisIdAccessor<MODE, CHECK_BOUNDS>(
-      m_regions.at(C::col_t::MS_FIELD_COL_EPHEMERIS_ID),
-      C::fid(C::col_t::MS_FIELD_COL_EPHEMERIS_ID));
+    return
+      decltype(ephemeris_id())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FIELD, EPHEMERIS_ID)));
   }
 
   //
@@ -613,34 +418,22 @@ public:
   static const constexpr unsigned flag_row_rank =
     row_rank + C::element_ranks[C::col_t::MS_FIELD_COL_FLAG_ROW];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using FlagRowAccessor =
-    FieldAccessor<HYPERION_TYPE_BOOL, flag_row_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_flag_row() const {
-    return m_regions.count(C::col_t::MS_FIELD_COL_FLAG_ROW) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(FIELD, FLAG_ROW)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  FlagRowAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, flag_row_rank, A, COORD_T>
   flag_row() const {
     return
-      FlagRowAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_FIELD_COL_FLAG_ROW),
-        C::fid(C::col_t::MS_FIELD_COL_FLAG_ROW));
+      decltype(flag_row())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FIELD, FLAG_ROW)));
   }
 
 private:
-
-  Legion::DomainT<row_rank> m_rows;
-
-  std::unordered_map<C::col_t, Legion::PhysicalRegion> m_regions;
-
-#ifdef HYPERION_USE_CASACORE
-// the values of this map are of type mr_t<M> for some M
-  std::unordered_map<C::col_t, std::any> m_mrs;
-#endif
 
   static casacore::MDirection
   interpolate_dir_meas(
@@ -652,7 +445,7 @@ private:
 
 } // end namespace hyperion
 
-#endif // HYPERION_FIELD_COLUMNS_H_
+#endif // HYPERION_FIELD_TABLE_H_
 
 // Local Variables:
 // mode: c++
