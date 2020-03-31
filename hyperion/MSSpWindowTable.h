@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_MS_SP_WINDOW_COLUMNS_H_
-#define HYPERION_MS_SP_WINDOW_COLUMNS_H_
+#ifndef HYPERION_MS_SP_WINDOW_TABLE_H_
+#define HYPERION_MS_SP_WINDOW_TABLE_H_
 
 #include <hyperion/hyperion.h>
-#include <hyperion/Column.h>
+#include <hyperion/PhysicalTable.h>
+#include <hyperion/PhysicalColumn.h>
 #include <hyperion/MSTableColumns.h>
 
 #pragma GCC visibility push(default)
@@ -31,23 +32,16 @@
 
 namespace hyperion {
 
-class HYPERION_API MSSpWindowColumns
-  : public MSTableColumnsBase {
+class /*HYPERION_API*/ MSSpWindowTable
+  : public PhysicalTable {
 public:
 
   typedef MSTableColumns<MS_SPECTRAL_WINDOW> C;
 
-  MSSpWindowColumns(
-    Legion::Runtime* rt,
-    const Legion::RegionRequirement& rows_requirement,
-    const std::unordered_map<std::string, Regions>& regions);
+  MSSpWindowTable(const PhysicalTable& pt)
+    : PhysicalTable(pt) {}
 
   static const constexpr unsigned row_rank = 1;
-
-  Legion::DomainT<row_rank>
-  rows() const {
-    return m_rows;
-  }
 
   //
   // NUM_CHAN
@@ -55,22 +49,19 @@ public:
   static const constexpr unsigned num_chan_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_NUM_CHAN];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using NumChanAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, num_chan_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_num_chan() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_NUM_CHAN) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, NUM_CHAN)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  NumChanAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, num_chan_rank, A, COORD_T>
   num_chan() const {
     return
-      NumChanAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_NUM_CHAN),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_NUM_CHAN));
+      decltype(num_chan())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, NUM_CHAN)));
   }
 
   //
@@ -79,22 +70,19 @@ public:
   static const constexpr unsigned name_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_NAME];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using NameAccessor =
-    FieldAccessor<HYPERION_TYPE_STRING, name_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_name() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_NAME) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, NAME)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  NameAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_STRING, row_rank, name_rank, A, COORD_T>
   name() const {
     return
-      NameAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_NAME),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_NAME));
+      decltype(name())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, NAME)));
   }
 
   //
@@ -103,133 +91,51 @@ public:
   static const constexpr unsigned ref_frequency_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using RefFrequencyAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, ref_frequency_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_ref_frequency() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, REF_FREQUENCY)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  RefFrequencyAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<
+    HYPERION_TYPE_DOUBLE,
+    row_rank,
+    ref_frequency_rank,
+    A,
+    COORD_T>
   ref_frequency() const {
     return
-      RefFrequencyAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY));
+      decltype(ref_frequency())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, REF_FREQUENCY)));
   }
 
 #ifdef HYPERION_USE_CASACORE
-  template <typename T>
-  class RefFrequencyMeasWriterMixin
-    : public T {
-  public:
-    using T::T;
-
-    void
-    write(
-      const Legion::Point<ref_frequency_rank, Legion::coord_t>& pt,
-      const casacore::MFrequency& val) {
-
-      auto cvt = T::m_cm.convert_at(pt);
-      auto f = cvt(val);
-      T::m_ref_frequency[pt] = f.get(T::m_units).getValue();
-    }
-  };
-
-  template <typename T>
-  class RefFrequencyMeasReaderMixin
-    : public T {
-  public:
-    using T::T;
-
-    casacore::MFrequency
-    read(const Legion::Point<ref_frequency_rank, Legion::coord_t>& pt) const {
-
-      const DataType<HYPERION_TYPE_DOUBLE>::ValueType& f =
-        T::m_ref_frequency[pt];
-      auto mr = T::m_cm.meas_ref_at(pt);
-      return casacore::MFrequency(casacore::Quantity(f, T::m_units), mr);
-    }
-  };
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  class RefFrequencyMeasAccessorBase {
-  public:
-    RefFrequencyMeasAccessorBase(
-      const Legion::PhysicalRegion& region,
-      const mr_t<casacore::MFrequency>* mr)
-      : m_ref_frequency(
-        region,
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY))
-      , m_units(C::units.at(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY))
-      , m_cm(mr) {
-    }
-
-  protected:
-
-    RefFrequencyAccessor<MODE, CHECK_BOUNDS> m_ref_frequency;
-
-    const char* m_units;
-
-    ColumnMeasure<
-      casacore::MFrequency,
-      row_rank,
-      ref_frequency_rank,
-      READ_ONLY,
-      CHECK_BOUNDS> m_cm;
-  };
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  class RefFrequencyMeasAccessor
-    : public RefFrequencyMeasWriterMixin<
-        RefFrequencyMeasAccessorBase<MODE, CHECK_BOUNDS>> {
-    // this implementation supports MODE=WRITE_ONLY and MODE=WRITE_DISCARD
-    typedef RefFrequencyMeasWriterMixin<
-      RefFrequencyMeasAccessorBase<MODE, CHECK_BOUNDS>> T;
-  public:
-    using T::T;
-  };
-
-  template <bool CHECK_BOUNDS>
-  class RefFrequencyMeasAccessor<READ_ONLY, CHECK_BOUNDS>
-    : public RefFrequencyMeasReaderMixin<
-        RefFrequencyMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> {
-    typedef RefFrequencyMeasReaderMixin<
-      RefFrequencyMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> T;
-  public:
-    using T::T;
-  };
-
-  template <bool CHECK_BOUNDS>
-  class RefFrequencyMeasAccessor<READ_WRITE, CHECK_BOUNDS>
-    : public RefFrequencyMeasReaderMixin<
-        RefFrequencyMeasWriterMixin<
-          RefFrequencyMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> {
-    typedef RefFrequencyMeasReaderMixin<
-      RefFrequencyMeasWriterMixin<
-        RefFrequencyMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> T;
-  public:
-    using T::T;
-  };
-
   bool
   has_ref_frequency_meas() const {
-    return
-      has_ref_frequency()
-      && m_mrs.count(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY) > 0;
+    return has_ref_frequency() &&
+      m_columns
+      .at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, REF_FREQUENCY))->mr_drs();
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  RefFrequencyMeasAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTMD<
+    HYPERION_TYPE_DOUBLE,
+    MClass::M_FREQUENCY,
+    row_rank,
+    ref_frequency_rank,
+    1,
+    A,
+    COORD_T>
   ref_frequency_meas() const {
     return
-      RefFrequencyMeasAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY),
-        std::any_cast<mr_t<casacore::MFrequency>>(
-          &m_mrs.at(C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY)));
+      decltype(ref_frequency_meas())(
+        *m_columns
+        .at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, REF_FREQUENCY)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -239,133 +145,44 @@ public:
   static const constexpr unsigned chan_freq_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using ChanFreqAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, chan_freq_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_chan_freq() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, CHAN_FREQ)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  ChanFreqAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, chan_freq_rank, A, COORD_T>
   chan_freq() const {
     return
-      ChanFreqAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ));
+      decltype(chan_freq())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, CHAN_FREQ)));
   }
 
 #ifdef HYPERION_USE_CASACORE
-  template <typename T>
-  class ChanFreqMeasWriterMixin
-    : public T {
-  public:
-    using T::T;
-
-    void
-    write(
-      const Legion::Point<chan_freq_rank, Legion::coord_t>& pt,
-      const casacore::MFrequency& val) {
-
-      auto cvt = T::m_cm.convert_at(pt);
-      auto f = cvt(val);
-      T::m_chan_freq[pt] = f.get(T::m_units).getValue();
-    }
-  };
-
-  template <typename T>
-  class ChanFreqMeasReaderMixin
-    : public T {
-  public:
-    using T::T;
-
-    casacore::MFrequency
-    read(const Legion::Point<chan_freq_rank, Legion::coord_t>& pt) const {
-      const DataType<HYPERION_TYPE_DOUBLE>::ValueType& f =
-        T::m_chan_freq[pt];
-
-      auto mr = T::m_cm.meas_ref_at(pt);
-      return casacore::MFrequency(casacore::Quantity(f, T::m_units), mr);
-    }
-  };
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  class ChanFreqMeasAccessorBase {
-  public:
-    ChanFreqMeasAccessorBase(
-      const Legion::PhysicalRegion& chan_freq_region,
-      const mr_t<casacore::MFrequency>* mr)
-      : m_chan_freq(
-        chan_freq_region,
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ))
-      , m_units(C::units.at(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ))
-      , m_cm(mr) {
-    }
-
-  protected:
-
-    ChanFreqAccessor<MODE, CHECK_BOUNDS> m_chan_freq;
-
-    const char* m_units;
-
-    ColumnMeasure<
-      casacore::MFrequency,
-      row_rank,
-      chan_freq_rank,
-      READ_ONLY,
-      CHECK_BOUNDS> m_cm;
-  };
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  class ChanFreqMeasAccessor
-    : public ChanFreqMeasWriterMixin<
-        ChanFreqMeasAccessorBase<MODE, CHECK_BOUNDS>> {
-    // this implementation supports MODE=WRITE_ONLY and MODE=WRITE_DISCARD
-    typedef ChanFreqMeasWriterMixin<
-      ChanFreqMeasAccessorBase<MODE, CHECK_BOUNDS>> T;
-  public:
-    using T::T;
-  };
-
-  template <bool CHECK_BOUNDS>
-  class ChanFreqMeasAccessor<READ_ONLY, CHECK_BOUNDS>
-    : public ChanFreqMeasReaderMixin<
-        ChanFreqMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> {
-    typedef ChanFreqMeasReaderMixin<
-      ChanFreqMeasAccessorBase<READ_ONLY, CHECK_BOUNDS>> T;
-  public:
-    using T::T;
-  };
-
-  template <bool CHECK_BOUNDS>
-  class ChanFreqMeasAccessor<READ_WRITE, CHECK_BOUNDS>
-    : public ChanFreqMeasReaderMixin<
-        ChanFreqMeasWriterMixin<
-          ChanFreqMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> {
-    typedef ChanFreqMeasReaderMixin<
-      ChanFreqMeasWriterMixin<
-        ChanFreqMeasAccessorBase<READ_WRITE, CHECK_BOUNDS>>> T;
-  public:
-    using T::T;
-  };
-
   bool
   has_chan_freq_meas() const {
-    return
-      has_chan_freq()
-      && m_mrs.count(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ) > 0;
+    return has_chan_freq() &&
+      m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, CHAN_FREQ))->mr_drs();
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  ChanFreqMeasAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTMD<
+    HYPERION_TYPE_DOUBLE,
+    MClass::M_FREQUENCY,
+    row_rank,
+    chan_freq_rank,
+    1,
+    A,
+    COORD_T>
   chan_freq_meas() const {
     return
-      ChanFreqMeasAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ),
-        std::any_cast<mr_t<casacore::MFrequency>>(
-          &m_mrs.at(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ)));
+      decltype(chan_freq_meas())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, CHAN_FREQ)));
   }
 #endif
 
@@ -375,22 +192,20 @@ public:
   static const constexpr unsigned chan_width_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_WIDTH];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using ChanWidthAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, chan_width_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_chan_width() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_WIDTH) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, CHAN_WIDTH)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  ChanWidthAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, chan_width_rank, A, COORD_T>
   chan_width() const {
     return
-      ChanWidthAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_WIDTH),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_WIDTH));
+      decltype(chan_width())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, CHAN_WIDTH)));
   }
 
   //
@@ -399,22 +214,25 @@ public:
   static const constexpr unsigned effective_bw_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_EFFECTIVE_BW];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using EffectiveBWAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, effective_bw_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_effective_bw() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_EFFECTIVE_BW) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, EFFECTIVE_BW)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  EffectiveBWAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<
+    HYPERION_TYPE_DOUBLE,
+    row_rank,
+    effective_bw_rank,
+    A,
+    COORD_T>
   effective_bw() const {
     return
-      EffectiveBWAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_EFFECTIVE_BW),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_EFFECTIVE_BW));
+      decltype(effective_bw())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, EFFECTIVE_BW)));
   }
 
   //
@@ -423,51 +241,49 @@ public:
   static const constexpr unsigned resolution_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_RESOLUTION];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using ResolutionAccessor =
-    FieldAccessor<HYPERION_TYPE_DOUBLE, resolution_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_resolution() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_RESOLUTION) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, RESOLUTION)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  ResolutionAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, resolution_rank, A, COORD_T>
   resolution() const {
     return
-      ResolutionAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_RESOLUTION),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_RESOLUTION));
+      decltype(resolution())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, RESOLUTION)));
   }
 
   //
   // TOTAL_BANDWIDTH
   //
   static const constexpr unsigned total_bandwidth_rank =
-    row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_TOTAL_BANDWIDTH];
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using TotalBandwidthAccessor =
-    FieldAccessor<
-      HYPERION_TYPE_DOUBLE,
-      total_bandwidth_rank,
-      MODE,
-      CHECK_BOUNDS>;
+    row_rank
+    + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_TOTAL_BANDWIDTH];
 
   bool
   has_total_bandwidth() const {
     return
-      m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_TOTAL_BANDWIDTH) > 0;
+      m_columns
+      .count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, TOTAL_BANDWIDTH)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  TotalBandwidthAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<
+    HYPERION_TYPE_DOUBLE,
+    row_rank,
+    total_bandwidth_rank,
+    A,
+    COORD_T>
   total_bandwidth() const {
     return
-      TotalBandwidthAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_TOTAL_BANDWIDTH),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_TOTAL_BANDWIDTH));
+      decltype(total_bandwidth())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, TOTAL_BANDWIDTH)));
   }
 
   //
@@ -476,22 +292,20 @@ public:
   static const constexpr unsigned net_sideband_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_NET_SIDEBAND];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using NetSidebandAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, net_sideband_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_net_sideband() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_NET_SIDEBAND) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, NET_SIDEBAND)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  NetSidebandAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, net_sideband_rank, A, COORD_T>
   net_sideband() const {
     return
-      NetSidebandAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_NET_SIDEBAND),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_NET_SIDEBAND));
+      decltype(net_sideband())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, NET_SIDEBAND)));
   }
 
   //
@@ -500,22 +314,19 @@ public:
   static const constexpr unsigned bbc_no_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_NO];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using BbcNoAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, bbc_no_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_bbc_no() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_NO) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, BBC_NO)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  BbcNoAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, bbc_no_rank, A, COORD_T>
   bbc_no() const {
     return
-      BbcNoAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_NO),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_NO));
+      decltype(bbc_no())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, BBC_NO)));
   }
 
   //
@@ -523,23 +334,20 @@ public:
   //
   static const constexpr unsigned bbc_sideband_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_SIDEBAND];
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using BbcSidebandAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, bbc_sideband_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_bbc_sideband() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_SIDEBAND) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, BBC_SIDEBAND)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  BbcSidebandAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, bbc_sideband_rank, A, COORD_T>
   bbc_sideband() const {
     return
-      BbcSidebandAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_SIDEBAND),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_BBC_SIDEBAND));
+      decltype(bbc_sideband())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, BBC_SIDEBAND)));
   }
 
   //
@@ -548,22 +356,20 @@ public:
   static const constexpr unsigned if_conv_chain_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_IF_CONV_CHAIN];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using IfConvChainAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, if_conv_chain_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_if_conv_chain() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_IF_CONV_CHAIN) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, IF_CONV_CHAIN)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  IfConvChainAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, if_conv_chain_rank, A, COORD_T>
   if_conv_chain() const {
     return
-      IfConvChainAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_IF_CONV_CHAIN),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_IF_CONV_CHAIN));
+      decltype(if_conv_chain())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, IF_CONV_CHAIN)));
   }
 
   //
@@ -572,22 +378,20 @@ public:
   static const constexpr unsigned receiver_id_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_RECEIVER_ID];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using ReceiverIdAccessor =
-   FieldAccessor<HYPERION_TYPE_INT, receiver_id_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_receiver_id() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_RECEIVER_ID) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, RECEIVER_ID)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  ReceiverIdAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, receiver_id_rank, A, COORD_T>
   receiver_id() const {
     return
-      ReceiverIdAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_RECEIVER_ID),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_RECEIVER_ID));
+      decltype(receiver_id())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, RECEIVER_ID)));
   }
 
   //
@@ -596,22 +400,20 @@ public:
   static const constexpr unsigned freq_group_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using FreqGroupAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, freq_group_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_freq_group() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, FREQ_GROUP)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  FreqGroupAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, freq_group_rank, A, COORD_T>
   freq_group() const {
     return
-      FreqGroupAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP));
+      decltype(freq_group())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, FREQ_GROUP)));
   }
 
   //
@@ -621,23 +423,26 @@ public:
     row_rank
     + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP_NAME];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using FreqGroupNameAccessor =
-    FieldAccessor<HYPERION_TYPE_STRING, freq_group_name_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_freq_group_name() const {
     return
-      m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP_NAME) > 0;
+      m_columns
+      .count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, FREQ_GROUP_NAME)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  FreqGroupNameAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<
+    HYPERION_TYPE_STRING,
+    row_rank,
+    freq_group_name_rank,
+    A,
+    COORD_T>
   freq_group_name() const {
     return
-      FreqGroupNameAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP_NAME),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_FREQ_GROUP_NAME));
+      decltype(freq_group_name())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, FREQ_GROUP_NAME)));
   }
 
   //
@@ -646,22 +451,20 @@ public:
   static const constexpr unsigned doppler_id_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_DOPPLER_ID];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using DopplerIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, doppler_id_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_doppler_id() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_DOPPLER_ID) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, DOPPLER_ID)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  DopplerIdAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, doppler_id_rank, A, COORD_T>
   doppler_id() const {
     return
-      DopplerIdAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_DOPPLER_ID),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_DOPPLER_ID));
+      decltype(doppler_id())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, DOPPLER_ID)));
   }
 
   //
@@ -670,22 +473,20 @@ public:
   static const constexpr unsigned assoc_spw_id_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_SPW_ID];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using AssocSpwIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, assoc_spw_id_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_assoc_spw_id() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_SPW_ID) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, ASSOC_SPW_ID)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  AssocSpwIdAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, assoc_spw_id_rank, A, COORD_T>
   assoc_spw_id() const {
     return
-      AssocSpwIdAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_SPW_ID),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_SPW_ID));
+      decltype(assoc_spw_id())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, ASSOC_SPW_ID)));
   }
 
   //
@@ -694,22 +495,25 @@ public:
   static const constexpr unsigned assoc_nature_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_NATURE];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using AssocNatureAccessor =
-    FieldAccessor<HYPERION_TYPE_STRING, assoc_nature_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_assoc_nature() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_NATURE) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, ASSOC_NATURE)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  AssocNatureAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<
+    HYPERION_TYPE_STRING,
+    row_rank,
+    assoc_nature_rank,
+    A,
+    COORD_T>
   assoc_nature() const {
     return
-      AssocNatureAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_NATURE),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_ASSOC_NATURE));
+      decltype(assoc_nature())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, ASSOC_NATURE)));
   }
 
   //
@@ -718,39 +522,25 @@ public:
   static const constexpr unsigned flag_row_rank =
     row_rank + C::element_ranks[C::col_t::MS_SPECTRAL_WINDOW_COL_FLAG_ROW];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using FlagRowAccessor =
-    FieldAccessor<HYPERION_TYPE_BOOL, flag_row_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_flag_row() const {
-    return m_regions.count(C::col_t::MS_SPECTRAL_WINDOW_COL_FLAG_ROW) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, FLAG_ROW)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  FlagRowAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, flag_row_rank, A, COORD_T>
   flag_row() const {
     return
-      FlagRowAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_SPECTRAL_WINDOW_COL_FLAG_ROW),
-        C::fid(C::col_t::MS_SPECTRAL_WINDOW_COL_FLAG_ROW));
+      decltype(flag_row())(
+        *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, FLAG_ROW)));
   }
-
-private:
-
-  Legion::DomainT<row_rank> m_rows;
-
-  std::unordered_map<C::col_t, Legion::PhysicalRegion> m_regions;
-
-#ifdef HYPERION_USE_CASACORE
-  // the values of this map are of type mr_t<M> for some M
-  std::unordered_map<C::col_t, std::any> m_mrs;
-#endif
 };
 
 } // end namespace hyperion
 
-#endif // HYPERION_MS_SP_WINDOW_COLUMNS_H_
+#endif // HYPERION_MS_SP_WINDOW_TABLE_H_
 
 // Local Variables:
 // mode: c++
