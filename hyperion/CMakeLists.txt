@@ -12,6 +12,7 @@ if (BUILD_CASACORE)
   ExternalProject_Get_Property(casacore_build INSTALL_DIR)
   set(
     CASACORE_LIBRARIES
+    "${INSTALL_DIR}/lib/libcasa_ms.so"
     "${INSTALL_DIR}/lib/libcasa_measures.so"
     "${INSTALL_DIR}/lib/libcasa_scimath.so"
     "${INSTALL_DIR}/lib/libcasa_scimath_f.so"

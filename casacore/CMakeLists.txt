@@ -16,7 +16,10 @@ set(casacore_USE_OPENMP OFF CACHE BOOL "Use OpenMP from casacore")
 set(casacore_USE_MPI OFF CACHE BOOL "Use MPI from casacore")
 set(casacore_USE_STACKTRACE OFF CACHE BOOL "Show stacktrace in case of casacore exception")
 set(casacore_CASA_DEFAULT_ALIGNMENT "32" CACHE STRING "Default alignment of casa::AlignedAllocator")
-set(casacore_MODULE "measures" STRING BOOL "casacore modules to build")
+# TODO: casacore "ms" module is needed only for testing, not production, where
+# "measures" module would be sufficient. This difference should be accounted in
+# the top level CMakeLists.txt
+set(casacore_MODULE "ms" CACHE STRING "casacore modules to build")
 set(casacore_CMAKE_BUILD_TYPE "Release" CACHE STRING "CMAKE_BUILD_TYPE definition for casacore")
 set(casacore_BUILD_TESTING OFF CACHE BOOL "Build casacore test suite")
 set(casacore_DATA_DIR "" CACHE STRING "Measures data directory")
