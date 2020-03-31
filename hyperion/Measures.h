@@ -25,8 +25,6 @@
 # include <tuple>
 # include <vector>
 
-# include <experimental/mdspan>
-
 # include <casacore/tables/Tables.h>
 # include <casacore/measures/Measures.h>
 # include <casacore/measures/Measures/MBaseline.h>
@@ -67,24 +65,36 @@ struct MClassT {
   // get(const casacore::MeasureHolder& mh);
 };
 
-template <typename M>
+template <hyperion::TypeTag DT, unsigned MRANK>
+struct QType {
+  //typedef type;
+};
+
+template<hyperion::TypeTag DT>
+struct QType<DT, 0> {
+  typedef typename DataType<DT>::ValueType type;
+};
+
+template<hyperion::TypeTag DT>
+struct QType<DT, 1> {
+  typedef casacore::Vector<typename DataType<DT>::ValueType> type;
+};
+
+template <typename M, unsigned MRANK>
 struct MClassTBase {
 
   typedef M type;
 
+  static constexpr const unsigned mrank = MRANK;
+
   template <hyperion::TypeTag DT>
   static M
   load(
-    const std::experimental::mdspan<
-      typename DataType<DT>::ValueType,
-      std::experimental::dynamic_extent>& vs,
+    const typename QType<DT, MRANK>::type& v,
     const char* units,
     const casacore::MeasRef<M>& mr) {
 
-    casacore::Vector<typename DataType<DT>::ValueType> cv(vs.extent(0));
-    for (size_t i = 0; i < vs.extent(0); ++i)
-      cv[i] = vs(i);
-    return M(M::MVType(casacore::Quantum(cv, units)), mr);
+    return M(typename M::MVType(casacore::Quantum(v, units)), mr);
   }
 
   template <hyperion::TypeTag DT>
@@ -92,22 +102,15 @@ struct MClassTBase {
   store(
     const M& meas,
     const char *units,
-    std::experimental::mdspan<
-      typename DataType<DT>::ValueType,
-      std::experimental::dynamic_extent>& vs) {
+    typename QType<DT, MRANK>::type& v) {
 
-    auto p = meas.get(units).getValue();
-    assert(p.size() == vs.extent(0));
-    for (size_t i = 0; i < vs.extent(0); ++i)
-      vs(i) = p[i];
+    v = meas.get(units).getValue();
   }
 };
 
 template <>
 struct HYPERION_API MClassT<MClass::M_BASELINE>
-  : public MClassTBase<casacore::MBaseline> {
-
-  static constexpr const unsigned mrank = 1;
+  : public MClassTBase<casacore::MBaseline, 1> {
 
   static const std::string name;
 
@@ -124,9 +127,7 @@ struct HYPERION_API MClassT<MClass::M_BASELINE>
 
 template <>
 struct HYPERION_API MClassT<MClass::M_DIRECTION>
-  : public MClassTBase<casacore::MDirection> {
-
-  static constexpr const unsigned mrank = 1;
+  : public MClassTBase<casacore::MDirection, 1> {
 
   static const std::string name;
 
@@ -143,9 +144,7 @@ struct HYPERION_API MClassT<MClass::M_DIRECTION>
 
 template <>
 struct HYPERION_API MClassT<MClass::M_DOPPLER>
-  : public MClassTBase<casacore::MDoppler> {
-
-  static constexpr const unsigned mrank = 0;
+  : public MClassTBase<casacore::MDoppler, 0> {
 
   static const std::string name;
 
@@ -162,9 +161,7 @@ struct HYPERION_API MClassT<MClass::M_DOPPLER>
 
 template <>
 struct HYPERION_API MClassT<MClass::M_EARTH_MAGNETIC>
-  : public MClassTBase<casacore::MEarthMagnetic> {
-
-  static constexpr const unsigned mrank = 1;
+  : public MClassTBase<casacore::MEarthMagnetic, 1> {
 
   static const std::string name;
 
@@ -181,9 +178,7 @@ struct HYPERION_API MClassT<MClass::M_EARTH_MAGNETIC>
 
 template <>
 struct HYPERION_API MClassT<MClass::M_EPOCH>
-  : public MClassTBase<casacore::MEpoch> {
-
-  static constexpr const unsigned mrank = 0;
+  : public MClassTBase<casacore::MEpoch, 0> {
 
   static const std::string name;
 
@@ -200,9 +195,7 @@ struct HYPERION_API MClassT<MClass::M_EPOCH>
 
 template <>
 struct HYPERION_API MClassT<MClass::M_FREQUENCY>
-  : public MClassTBase<casacore::MFrequency> {
-
-  static constexpr const unsigned mrank = 0;
+  : public MClassTBase<casacore::MFrequency, 0> {
 
   static const std::string name;
 
@@ -219,9 +212,7 @@ struct HYPERION_API MClassT<MClass::M_FREQUENCY>
 
 template <>
 struct HYPERION_API MClassT<MClass::M_POSITION>
-  : public MClassTBase<casacore::MPosition> {
-
-  static constexpr const unsigned mrank = 1;
+  : public MClassTBase<casacore::MPosition, 1> {
 
   static const std::string name;
 
@@ -238,9 +229,7 @@ struct HYPERION_API MClassT<MClass::M_POSITION>
 
 template <>
 struct HYPERION_API MClassT<MClass::M_RADIAL_VELOCITY>
-  : public MClassTBase<casacore::MRadialVelocity> {
-
-  static constexpr const unsigned mrank = 0;
+  : public MClassTBase<casacore::MRadialVelocity, 0> {
 
   static const std::string name;
 
@@ -257,9 +246,7 @@ struct HYPERION_API MClassT<MClass::M_RADIAL_VELOCITY>
 
 template <>
 struct HYPERION_API MClassT<MClass::M_UVW>
-  : public MClassTBase<casacore::Muvw> {
-
-  static constexpr const unsigned mrank = 1;
+  : public MClassTBase<casacore::Muvw, 1> {
 
   static const std::string name;
 

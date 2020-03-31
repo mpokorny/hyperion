@@ -45,26 +45,31 @@ template <
   hyperion::MClass MC,
   unsigned INDEX_RANK,
   unsigned COLUMN_RANK,
+  unsigned M_RANK,
   unsigned MV_SIZE,
   typename COORD_T>
 class MeasReaderMixin
   : public T {
+};
+
+template <
+  typename T,
+  hyperion::TypeTag DT,
+  hyperion::MClass MC,
+  unsigned INDEX_RANK,
+  unsigned COLUMN_RANK,
+  typename COORD_T>
+class MeasReaderMixin<T, DT, MC, INDEX_RANK, COLUMN_RANK, 0, 1, COORD_T>
+  : public T {
 public:
   using T::T;
 
-  static const constexpr unsigned M_RANK = MClassT<MC>::m_rank;
-
-  static_assert(M_RANK <= 1);
-  static_assert(MV_SIZE > 0);
-  static_assert((M_RANK == 1) || (MV_SIZE == 1));
-
   typename MClassT<MC>::type
-  read(const Legion::Point<COLUMN_RANK - M_RANK, COORD_T>& pt) const {
+  read(const Legion::Point<COLUMN_RANK, COORD_T>& pt) {
 
     return
-      MClassT<MC>::load<DT>(
-        std::experimental::mdspan<typename DataType<DT>::ValueType, MV_SIZE>(
-          T::m_value.ptr(pt)),
+      MClassT<MC>::template load<DT>(
+        T::m_value.read(pt),
         T::m_units,
         T::m_meas_ref.meas_ref_at(pt));
   }
@@ -78,27 +83,105 @@ template <
   unsigned COLUMN_RANK,
   unsigned MV_SIZE,
   typename COORD_T>
-class MeasWriterMixin
+class MeasReaderMixin<T, DT, MC, INDEX_RANK, COLUMN_RANK, 1, MV_SIZE, COORD_T>
   : public T {
 public:
   using T::T;
 
-  static const constexpr unsigned M_RANK = MClassT<MC>::m_rank;
-
-  static_assert(M_RANK <= 1);
   static_assert(MV_SIZE > 0);
-  static_assert((M_RANK == 1) || (MV_SIZE == 1));
+
+  typename MClassT<MC>::type
+  read(const Legion::Point<COLUMN_RANK - 1, COORD_T>& pt) {
+
+    Legion::Point<COLUMN_RANK, COORD_T> ept;
+    for (size_t i = 0; i < COLUMN_RANK - 1; ++i)
+      ept[i] = pt[i];
+    casacore::Vector<typename DataType<DT>::ValueType> vs(MV_SIZE);
+    for (size_t i = 0; i < MV_SIZE; ++i) {
+      ept[COLUMN_RANK - 1] = i;
+      vs[i] = T::m_value.read(ept);
+    }
+    return
+      MClassT<MC>::template load<DT>(
+        vs,
+        T::m_units,
+        T::m_meas_ref.meas_ref_at(pt));
+  }
+};
+
+template <
+  typename T,
+  hyperion::TypeTag DT,
+  hyperion::MClass MC,
+  unsigned INDEX_RANK,
+  unsigned COLUMN_RANK,
+  unsigned M_RANK,
+  unsigned MV_SIZE,
+  typename COORD_T>
+class MeasWriterMixin
+  : public T {
+public:
+  using T::T;
+};
+
+template <
+  typename T,
+  hyperion::TypeTag DT,
+  hyperion::MClass MC,
+  unsigned INDEX_RANK,
+  unsigned COLUMN_RANK,
+  typename COORD_T>
+class MeasWriterMixin<T, DT, MC, INDEX_RANK, COLUMN_RANK, 0, 1, COORD_T>
+  : public T {
+public:
+  using T::T;
 
   void
   write(
-    const Legion::Point<COLUMN_RANK - M_RANK, COORD_T>& pt,
+    const Legion::Point<COLUMN_RANK, COORD_T>& pt,
     const typename MClassT<MC>::type& val) {
 
-    MClassT<MC>::store<DT>(
+    typename DataType<DT>::ValueType v;
+    MClassT<MC>::template store<DT>(
       T::m_meas_ref.convert_at(pt)(val),
       T::m_units,
-      std::experimental::mdspan<typename DataType<DT>::ValueType, MV_SIZE>(
-        T::m_value.ptr(pt)));
+      v);
+    T::m_value.write(pt, v);
+  }
+};
+
+template <
+  typename T,
+  hyperion::TypeTag DT,
+  hyperion::MClass MC,
+  unsigned INDEX_RANK,
+  unsigned COLUMN_RANK,
+  unsigned MV_SIZE,
+  typename COORD_T>
+class MeasWriterMixin<T, DT, MC, INDEX_RANK, COLUMN_RANK, 1, MV_SIZE, COORD_T>
+  : public T {
+public:
+  using T::T;
+
+  static_assert(MV_SIZE > 0);
+
+  void
+  write(
+    const Legion::Point<COLUMN_RANK - 1, COORD_T>& pt,
+    const typename MClassT<MC>::type& val) {
+
+    casacore::Vector<typename DataType<DT>::ValueType> vs(MV_SIZE);
+    MClassT<MC>::template store<DT>(
+      T::m_meas_ref.convert_at(pt)(val),
+      T::m_units,
+      vs);
+    Legion::Point<COLUMN_RANK, COORD_T> ept;
+    for (size_t i = 0; i < COLUMN_RANK - 1; ++i)
+      ept[i] = pt[i];
+    for (size_t i = 0; i < MV_SIZE; ++i) {
+      ept[COLUMN_RANK - 1] = i;
+      T::m_value.write(ept, vs[i]);
+    }
   }
 };
 #endif //HYPERION_USE_CASACORE
@@ -423,6 +506,11 @@ public:
   domain() const {
     return PhysicalColumn::domain();
   }
+
+  Legion::Rect<COLUMN_RANK>
+  rect() const {
+    return PhysicalColumn::domain();
+  }
 };
 
 #ifdef HYPERION_USE_CASACORE
@@ -510,7 +598,7 @@ class PhysicalColumnTMD
   : public PhysicalColumn {
 public:
 
-  static const constexpr unsigned M_RANK = MClassT<MC>::m_rank;
+  static const constexpr unsigned M_RANK = MClassT<MC>::mrank;
 
   static_assert(MV_SIZE > 0);
   static_assert(M_RANK <= 1);
@@ -579,15 +667,18 @@ public:
 
     MeasRefAccessor(const mrb_t* mr) {
       std::visit(overloaded {
-          [this](simple_mrb_t& mr) {
+          [this](const simple_mrb_t& mr) {
             m_mr = std::dynamic_pointer_cast<MR_t>(mr);
             m_convert.setOut(*m_mr);
           },
-          [this](ref_mrb_t& mr) {
+          [this](const ref_mrb_t& mr) {
             auto& [mrs, rmap, rcodes_pr, fid] = mr;
+            std::vector<std::shared_ptr<MR_t>> tmrs;
+            for (auto& m : mrs)
+              tmrs.push_back(std::dynamic_pointer_cast<MR_t>(m));
             m_mrv =
               std::make_tuple(
-                mrs,
+                tmrs,
                 rmap,
                 RefcodeAccessor(rcodes_pr, fid));
           }
@@ -605,22 +696,21 @@ public:
           *mrs[
             rmap.at(
               rcodes.read(
-                reinterpret_cast<Legion::Point<INDEX_RANK, Legion::coord_t>&>(
+                reinterpret_cast<const Legion::Point<INDEX_RANK, Legion::coord_t>&>(
                   pt)))]);
       }
       return m_convert;
     }
 
     MR_t&
-    meas_ref_at(const Legion::Point<COLUMN_RANK - M_RANK, Legion::coord_t>& pt)
-      const {
+    meas_ref_at(const Legion::Point<COLUMN_RANK - M_RANK, Legion::coord_t>& pt) {
       if (m_mrv) {
         auto& [mrs, rmap, rcodes] = m_mrv.value();
         m_mr =
           mrs[
             rmap.at(
               rcodes.read(
-                reinterpret_cast<Legion::Point<INDEX_RANK, Legion::coord_t>&>(
+                reinterpret_cast<const Legion::Point<INDEX_RANK, Legion::coord_t>&>(
                   pt)))];
       }
       return *m_mr;
@@ -660,6 +750,11 @@ public:
 
   Legion::DomainT<COLUMN_RANK>
   domain() const {
+    return PhysicalColumn::domain();
+  }
+
+  Legion::Rect<COLUMN_RANK>
+  rect() const {
     return PhysicalColumn::domain();
   }
 
@@ -711,6 +806,7 @@ public:
         MC,
         INDEX_RANK,
         COLUMN_RANK,
+        MClassT<MC>::mrank,
         MV_SIZE,
         COORD_T> {
     typedef MeasWriterMixin<
@@ -719,6 +815,7 @@ public:
       MC,
       INDEX_RANK,
       COLUMN_RANK,
+      MClassT<MC>::mrank,
       MV_SIZE,
       COORD_T> T;
   public:
@@ -733,6 +830,7 @@ public:
         MC,
         INDEX_RANK,
         COLUMN_RANK,
+        MClassT<MC>::mrank,
         MV_SIZE,
         COORD_T> {
     typedef MeasReaderMixin<
@@ -741,6 +839,7 @@ public:
       MC,
       INDEX_RANK,
       COLUMN_RANK,
+      MClassT<MC>::mrank,
       MV_SIZE,
       COORD_T> T;
   public:
@@ -756,12 +855,14 @@ public:
           MC,
           INDEX_RANK,
           COLUMN_RANK,
+          MClassT<MC>::mrank,
           MV_SIZE,
           COORD_T>,
         DT,
         MC,
         INDEX_RANK,
         COLUMN_RANK,
+        MClassT<MC>::mrank,
         MV_SIZE,
         COORD_T> {
     typedef MeasReaderMixin<
@@ -771,12 +872,14 @@ public:
         MC,
         INDEX_RANK,
         COLUMN_RANK,
+        MClassT<MC>::mrank,
         MV_SIZE,
         COORD_T>,
       DT,
       MC,
       INDEX_RANK,
       COLUMN_RANK,
+      MClassT<MC>::mrank,
       MV_SIZE,
       COORD_T> T;
   public:
