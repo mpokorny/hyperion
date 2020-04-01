@@ -99,7 +99,7 @@ if (USE_CASACORE)
   add_test(
     NAME MSSpWindowTableUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-    ./utMSWpWindowTable -ll:io 1)
+    ./utMSSpWindowTable -ll:io 1)
   set_tests_properties(
     MSSpWindowTableUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)
@@ -111,7 +111,7 @@ if (USE_CASACORE)
   add_test(
     NAME MSFieldTableUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-    ./utMSWpWindowTable -ll:io 1)
+    ./utMSFieldTable -ll:io 1)
   set_tests_properties(
     MSFieldTableUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)
