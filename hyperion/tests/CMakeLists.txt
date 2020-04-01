@@ -115,6 +115,18 @@ if (USE_CASACORE)
   set_tests_properties(
     MSFieldTableUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)
+
+  add_executable(utMSDataDescriptionTable utMSDataDescriptionTable.cc)
+  set_target_properties(utMSDataDescriptionTable PROPERTIES
+    CXX_STANDARD 17
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+  add_test(
+    NAME MSDataDescriptionTableUnitTest
+    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+    ./utMSDataDescriptionTable -ll:io 1)
+  set_tests_properties(
+    MSDataDescriptionTableUnitTest PROPERTIES
+    FIXTURES_REQUIRED T0MS)
 endif()
 
 add_subdirectory(data)
