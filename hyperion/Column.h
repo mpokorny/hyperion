@@ -79,13 +79,15 @@ struct HYPERION_API Column {
     Req keywords;
     Req measref;
     Req column_space;
+    Legion::MappingTagID tag;
   };
 
   static constexpr const Requirements default_requirements{
     Req{READ_ONLY, EXCLUSIVE, false},
     Req{READ_ONLY, EXCLUSIVE, true},
     Req{READ_ONLY, EXCLUSIVE, true},
-    Req{READ_ONLY, EXCLUSIVE, true}
+    Req{READ_ONLY, EXCLUSIVE, true},
+    0
   };
 
   static constexpr const Legion::FieldID COLUMN_INDEX_VALUE_FID = 0;
