@@ -25,25 +25,6 @@ using namespace hyperion;
 
 HYPERION_FOREACH_MS_TABLE(DEFS);
 
-MSTableColumnsBase::Regions
-MSTableColumnsBase::RegionsInfo::regions(
-  const std::vector<Legion::PhysicalRegion>& prs) const {
-
-  MSTableColumnsBase::Regions result;
-  result.values = prs[values];
-#ifdef HYPERION_USE_CASACORE
-  if (meas_refs_size > 0) {
-    result.meas_refs.reserve(meas_refs_size);
-    for (unsigned i = 0; i < meas_refs_size; ++i)
-      result.meas_refs.push_back(prs[meas_refs_0 + i]);
-  }
-  if (has_ref_column)
-    result.ref_column = {prs[ref_column], ref_column_fid};
-#endif // HYPERION_USE_CASACORE
-  return result;
-
-}
-
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2
