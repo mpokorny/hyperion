@@ -1,5 +1,5 @@
 set(hyperion_LEGION_GIT_REPO "https://github.com/StanfordLegion/legion.git" CACHE STRING "Legion repository")
-set(hyperion_LEGION_TAG "90133d6" CACHE STRING "Legion repository git tag")
+set(hyperion_LEGION_TAG "legion-20.03.0" CACHE STRING "Legion repository git tag")
 
 set(Legion_MAX_DIM ${MAX_DIM} STRING "Maximum number of dimensions")
 list(APPEND Legion_ARGS Legion_MAX_DIM)
