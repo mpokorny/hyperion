@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_MS_DATA_DESCRIPTION_COLUMNS_H_
-#define HYPERION_MS_DATA_DESCRIPTION_COLUMNS_H_
+#ifndef HYPERION_MS_DATA_DESCRIPTION_TABLE_H_
+#define HYPERION_MS_DATA_DESCRIPTION_TABLE_H_
 
 #include <hyperion/hyperion.h>
-#include <hyperion/Column.h>
+#include <hyperion/PhysicalTable.h>
+#include <hyperion/PhysicalColumn.h>
 #include <hyperion/MSTableColumns.h>
 
 #pragma GCC visibility push(default)
@@ -27,23 +28,16 @@
 
 namespace hyperion {
 
-class HYPERION_API MSDataDescriptionColumns
-  : public MSTableColumnsBase {
+class /*HYPERION_API*/ MSDataDescriptionTable
+  : public PhysicalTable {
 public:
 
   typedef MSTableColumns<MS_DATA_DESCRIPTION> C;
 
-  MSDataDescriptionColumns(
-    Legion::Runtime* rt,
-    const Legion::RegionRequirement& rows_requirement,
-    const std::unordered_map<std::string, Regions>& regions);
+  MSDataDescriptionTable(const PhysicalTable& pt)
+    : PhysicalTable(pt) {}
 
   static const constexpr unsigned row_rank = 1;
-
-  Legion::DomainT<row_rank>
-  rows() const {
-    return m_rows;
-  }
 
   //
   // SPECTRAL_WINDOW_ID
@@ -52,27 +46,27 @@ public:
     row_rank
     + C::element_ranks[C::col_t::MS_DATA_DESCRIPTION_COL_SPECTRAL_WINDOW_ID];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using SpectralWindowIdAccessor =
-    FieldAccessor<
-      HYPERION_TYPE_INT,
-      spectral_window_id_rank,
-      MODE,
-      CHECK_BOUNDS>;
-
   bool
   has_spectral_window_id() const {
     return
-      m_regions.count(C::col_t::MS_DATA_DESCRIPTION_COL_SPECTRAL_WINDOW_ID) > 0;
+      m_columns
+      .count(HYPERION_COLUMN_NAME(DATA_DESCRIPTION, SPECTRAL_WINDOW_ID)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  SpectralWindowIdAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    row_rank,
+    spectral_window_id_rank,
+    A,
+    COORD_T>
   spectral_window_id() const {
     return
-      SpectralWindowIdAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_DATA_DESCRIPTION_COL_SPECTRAL_WINDOW_ID),
-        C::fid(C::col_t::MS_DATA_DESCRIPTION_COL_SPECTRAL_WINDOW_ID));
+      decltype(spectral_window_id())(
+        *m_columns
+        .at(HYPERION_COLUMN_NAME(DATA_DESCRIPTION, SPECTRAL_WINDOW_ID)));
   }
 
   //
@@ -82,23 +76,26 @@ public:
     row_rank
     + C::element_ranks[C::col_t::MS_DATA_DESCRIPTION_COL_POLARIZATION_ID];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using PolarizationIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, polarization_id_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_polarization_id() const {
     return
-      m_regions.count(C::col_t::MS_DATA_DESCRIPTION_COL_POLARIZATION_ID) > 0;
+      m_columns
+      .count(HYPERION_COLUMN_NAME(DATA_DESCRIPTION, POLARIZATION_ID)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  PolarizationIdAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    row_rank,
+    polarization_id_rank,
+    A,
+    COORD_T>
   polarization_id() const {
     return
-      PolarizationIdAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_DATA_DESCRIPTION_COL_POLARIZATION_ID),
-        C::fid(C::col_t::MS_DATA_DESCRIPTION_COL_POLARIZATION_ID));
+      decltype(polarization_id())(
+        *m_columns.at(HYPERION_COLUMN_NAME(DATA_DESCRIPTION, POLARIZATION_ID)));
   }
 
   //
@@ -106,23 +103,19 @@ public:
   //
   static const constexpr unsigned lag_id_rank =
     row_rank + C::element_ranks[C::col_t::MS_DATA_DESCRIPTION_COL_LAG_ID];
-
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using LagIdAccessor =
-    FieldAccessor<HYPERION_TYPE_INT, lag_id_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_lag_id() const {
-    return m_regions.count(C::col_t::MS_DATA_DESCRIPTION_COL_LAG_ID) > 0;
+    return m_columns.count(HYPERION_COLUMN_NAME(DATA_DESCRIPTION, LAG_ID)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  LagIdAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, lag_id_rank, A, COORD_T>
   lag_id() const {
     return
-      LagIdAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_DATA_DESCRIPTION_COL_LAG_ID),
-        C::fid(C::col_t::MS_DATA_DESCRIPTION_COL_LAG_ID));
+      decltype(lag_id())(
+        *m_columns.at(HYPERION_COLUMN_NAME(DATA_DESCRIPTION, LAG_ID)));
   }
 
   //
@@ -131,29 +124,21 @@ public:
   static const constexpr unsigned flag_row_rank =
     row_rank + C::element_ranks[C::col_t::MS_DATA_DESCRIPTION_COL_FLAG_ROW];
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS>
-  using FlagRowAccessor =
-    FieldAccessor<HYPERION_TYPE_BOOL, flag_row_rank, MODE, CHECK_BOUNDS>;
-
   bool
   has_flag_row() const {
-    return m_regions.count(C::col_t::MS_DATA_DESCRIPTION_COL_FLAG_ROW) > 0;
+    return
+      m_columns.count(HYPERION_COLUMN_NAME(DATA_DESCRIPTION, FLAG_ROW)) > 0;
   }
 
-  template <legion_privilege_mode_t MODE, bool CHECK_BOUNDS=false>
-  FlagRowAccessor<MODE, CHECK_BOUNDS>
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, flag_row_rank, A, COORD_T>
   flag_row() const {
     return
-      FlagRowAccessor<MODE, CHECK_BOUNDS>(
-        m_regions.at(C::col_t::MS_DATA_DESCRIPTION_COL_FLAG_ROW),
-        C::fid(C::col_t::MS_DATA_DESCRIPTION_COL_FLAG_ROW));
+      decltype(flag_row())(
+        *m_columns.at(HYPERION_COLUMN_NAME(DATA_DESCRIPTION, FLAG_ROW)));
   }
-
-private:
-
-  Legion::DomainT<row_rank> m_rows;
-
-  std::unordered_map<C::col_t, Legion::PhysicalRegion> m_regions;
 };
 
 } // end namespace hyperion
