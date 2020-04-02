@@ -49,6 +49,12 @@ DefaultMapper::premap_task(
   const Mapping::Mapper::PremapTaskInput& input,
   Mapping::Mapper::PremapTaskOutput& output) {
 
+  // The choice of requirement tag or requirements index to select the layout
+  // constraint doesn't work if there are too many requirements. TODO: emit a
+  // message suggesting that cgroup_shift value be increased when this assertion
+  // is violated
+  assert(task.regions.size() <= cgroup_tag(cgroup_min));
+
   // Iterate over the premap regions
   bool has_variant_info = false;
   VariantInfo info;
@@ -314,6 +320,12 @@ DefaultMapper::map_task(
   const Task& task,
   const Mapping::Mapper::MapTaskInput&input,
   Mapping::Mapper::MapTaskOutput& output) {
+
+  // The choice of requirement tag or requirements index to select the layout
+  // constraint doesn't work if there are too many requirements. TODO: emit a
+  // message suggesting that cgroup_shift value be increased when this assertion
+  // is violated
+  assert(task.regions.size() <= cgroup_tag(cgroup_min));
 
   Processor::Kind target_kind = task.target_proc.kind();
   // Get the variant that we are going to use to map this task

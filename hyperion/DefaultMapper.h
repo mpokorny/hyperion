@@ -34,11 +34,15 @@ public:
 
   // column group ids saved to RegionRequirement tag values must be left shifted
   // by "cgroup_shift" bits in order to maintain the MappingTagID values used by
-  // the Legion DefaultMapper
+  // the Legion DefaultMapper as well as allow functionality like the Legion
+  // default mapper when the number of RegionRequirements is small enough (<=
+  // cgroup_tag(cgroup_min))
   static const constexpr unsigned cgroup_shift = 8;
   // number of bits allocated to column group ids
   static const constexpr unsigned cgroup_bits = 8;
+  // minimum cgroup value (NOT cgroup tag value)
   static const constexpr unsigned cgroup_min = 0;
+  // maximum cgroup value (NOT cgroup tag value)
   static const constexpr unsigned cgroup_max = (1u << cgroup_bits) - 2;
 
   static constexpr Legion::MappingTagID
