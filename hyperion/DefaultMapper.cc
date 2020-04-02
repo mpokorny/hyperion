@@ -25,6 +25,16 @@ cgroup(unsigned tag) {
      & ((1 << DefaultMapper::cgroup_bits) - 1));
 }
 
+static unsigned
+layout_index(const std::vector<RegionRequirement>& regions, unsigned idx) {
+  unsigned result = cgroup(regions[idx].tag);
+  if (result == 0)
+    result = idx;
+  else
+    result = regions[idx].tag;
+  return result;
+}
+
 DefaultMapper::DefaultMapper(
   Machine machine,
   Runtime* rt,
@@ -195,7 +205,7 @@ DefaultMapper::premap_task(
               task.target_proc,
               target_memory,
               task.regions[it->first],
-              cgroup(task.regions[it->first].tag),
+              layout_index(task.regions, it->first),
               needed_fields,
               layout_constraints,
               true/*needs check*/,
@@ -278,7 +288,7 @@ DefaultMapper::premap_task(
           task.target_proc,
           target_memory,
           task.regions[it->first],
-          cgroup(task.regions[it->first].tag),
+          layout_index(task.regions, it->first),
           needed_fields,
           layout_constraints,
           true/*needs check*/,
@@ -366,7 +376,7 @@ DefaultMapper::map_task(
                 task.target_proc,
                 target_memory,
                 task.regions[*it],
-                cgroup(task.regions[*it].tag),
+                layout_index(task.regions, *it),
                 copy,
                 layout_constraints,
                 false/*needs constraint check*/,
@@ -435,7 +445,7 @@ DefaultMapper::map_task(
                   task.target_proc,
                   target_memory,
                   task.regions[idx],
-                  cgroup(task.regions[idx].tag),
+                  layout_index(task.regions, idx),
                   copy,
                   layout_constraints,
                   needs_field_constraint_check,
@@ -519,7 +529,7 @@ DefaultMapper::map_task(
             task.target_proc,
             target_memory,
             task.regions[idx],
-            cgroup(task.regions[idx].tag),
+            layout_index(task.regions, idx),
             missing_fields[idx],
             layout_constraints,
             needs_field_constraint_check,
@@ -581,7 +591,7 @@ DefaultMapper::map_task(
           task.target_proc,
           target_memory,
           task.regions[idx],
-          cgroup(task.regions[idx].tag),
+          layout_index(task.regions, idx),
           missing_fields[idx],
           layout_constraints,
           needs_field_constraint_check,

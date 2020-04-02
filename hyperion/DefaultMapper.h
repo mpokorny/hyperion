@@ -38,10 +38,13 @@ public:
   static const constexpr unsigned cgroup_shift = 8;
   // number of bits allocated to column group ids
   static const constexpr unsigned cgroup_bits = 8;
+  static const constexpr unsigned cgroup_min = 0;
+  static const constexpr unsigned cgroup_max = (1u << cgroup_bits) - 2;
 
-  static constexpr unsigned
+  static constexpr Legion::MappingTagID
   cgroup_tag(unsigned group) {
-    return (group & ((1u << cgroup_bits) - 1)) << cgroup_shift;
+    assert(cgroup_min <= group && group <= cgroup_max);
+    return ((group + 1) & ((1u << cgroup_bits) - 1)) << cgroup_shift;
   }
 
   virtual void

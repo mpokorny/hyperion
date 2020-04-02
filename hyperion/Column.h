@@ -19,6 +19,7 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 #include <hyperion/Keywords.h>
+#include <hyperion/DefaultMapper.h>
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
 # pragma GCC visibility push(default)
@@ -87,7 +88,7 @@ struct HYPERION_API Column {
     Req{READ_ONLY, EXCLUSIVE, true},
     Req{READ_ONLY, EXCLUSIVE, true},
     Req{READ_ONLY, EXCLUSIVE, true},
-    0
+    DefaultMapper::cgroup_tag(0)
   };
 
   static constexpr const Legion::FieldID COLUMN_INDEX_VALUE_FID = 0;
