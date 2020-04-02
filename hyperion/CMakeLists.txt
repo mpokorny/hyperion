@@ -127,6 +127,8 @@ list(APPEND HYPERION_SRC
   ColumnSpace.cc
   ColumnSpacePartition.h
   ColumnSpacePartition.cc
+  DefaultMapper.h
+  DefaultMapper.cc
   c_util.h
   Keywords.h
   Keywords.cc
