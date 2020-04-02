@@ -736,7 +736,7 @@ Table::requirements(
   // requirement has already been added when iterating through columns
   std::map<LogicalRegion, std::tuple<bool, RegionRequirement>> md_reqs;
   std::map<
-    std::tuple<LogicalRegion, PrivilegeMode, CoherenceProperty>,
+    std::tuple<LogicalRegion, PrivilegeMode, CoherenceProperty, MappingTagID>,
     std::tuple<bool, RegionRequirement>> val_reqs;
   for (PointInDomainIterator<1> pid(tdom);
        pid();
@@ -765,7 +765,7 @@ Table::requirements(
       auto vfs_pid = vfs.read(*pid);
       if (vfs_pid != no_column) {
         decltype(val_reqs)::key_type rg_rq =
-          {vlr, reqs.values.privilege, reqs.values.coherence};
+          {vlr, reqs.values.privilege, reqs.values.coherence, reqs.tag};
         if (val_reqs.count(rg_rq) == 0) {
           LogicalRegion parent = vlr;
           if (column_parents.count(nms_pid) > 0)
@@ -777,7 +777,8 @@ Table::requirements(
                  vlr,
                  reqs.values.privilege,
                  reqs.values.coherence,
-                 parent)};
+                 parent,
+                 reqs.tag)};
           } else {
             LogicalPartition lp;
             if (partitions.count(css_pid) == 0) {
@@ -797,7 +798,8 @@ Table::requirements(
                  0,
                  reqs.values.privilege,
                  reqs.values.coherence,
-                 parent)};
+                 parent,
+                 reqs.tag)};
           }
         }
         std::get<1>(val_reqs[rg_rq]).add_field(vfs_pid, reqs.values.mapped);
@@ -864,7 +866,7 @@ Table::requirements(
         }
       }
       decltype(val_reqs)::key_type rg_rq =
-        {vlr, reqs.values.privilege, reqs.values.coherence};
+        {vlr, reqs.values.privilege, reqs.values.coherence, reqs.tag};
       if (vlr != LogicalRegion::NO_REGION) {
         auto& [added, rq] = val_reqs.at(rg_rq);
         if (!added) {
