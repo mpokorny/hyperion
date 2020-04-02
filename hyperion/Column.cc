@@ -16,6 +16,7 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 #include <hyperion/Column.h>
+#include <hyperion/DefaultMapper.h>
 
 #include <mappers/default_mapper.h>
 
@@ -70,7 +71,14 @@ index_column(
     LogicalPartition col_lp =
       rt->get_logical_partition(ctx, col_req.region, ip);
 
-    IndexTaskLauncher task(task_id, cs, TaskArgument(NULL, 0), ArgumentMap());
+    IndexTaskLauncher task(
+      task_id,
+      cs,
+      TaskArgument(NULL, 0),
+      ArgumentMap(),
+      Predicate::TRUE_PRED,
+      false,
+      default_mapper);
     task.add_region_requirement(
       RegionRequirement(col_lp, 0, READ_ONLY, EXCLUSIVE, col_req.region));
     task.add_field(0, *col_req.privilege_fields.begin());
@@ -211,6 +219,9 @@ Column::preregister_index_accumulate_task() {
     index_accumulate_task_id[(unsigned)DT],
     index_accumulate_task_name[(unsigned)DT].c_str());
   registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+  registrar.add_layout_constraint_set(
+    DefaultMapper::cgroup_tag(0),
+    default_layout);
   registrar.set_leaf();
   registrar.set_idempotent();
   // registrar.set_replicable();

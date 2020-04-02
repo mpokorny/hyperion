@@ -16,6 +16,7 @@
 #include <hyperion/TableReadTask.h>
 #include <hyperion/PhysicalTable.h>
 #include <hyperion/PhysicalColumn.h>
+#include <hyperion/DefaultMapper.h>
 
 #include <casacore/casa/aipstype.h>
 #include <casacore/casa/Arrays.h>
@@ -184,6 +185,9 @@ TableReadTask::preregister_tasks() {
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
     registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
     registrar.set_leaf();
+    registrar.add_layout_constraint_set(
+      DefaultMapper::cgroup_tag(0),
+      default_layout);
     Runtime::preregister_task_variant<impl>(registrar, TASK_NAME);
   }
 }
@@ -247,7 +251,8 @@ column_reqs(PrivilegeMode privilege) {
     Column::Req{privilege, EXCLUSIVE, true},
     Column::default_requirements.keywords,
     Column::default_requirements.measref,
-    Column::default_requirements.column_space};
+    Column::default_requirements.column_space,
+    Column::default_requirements.tag};
 };
 
 std::tuple<

@@ -21,6 +21,7 @@
 #include <hyperion/TableBuilder.h>
 #include <hyperion/TableReadTask.h>
 #include <hyperion/Measures.h>
+#include <hyperion/DefaultMapper.h>
 
 #include <hyperion/testing/TestSuiteDriver.h>
 #include <hyperion/testing/TestRecorder.h>
@@ -507,7 +508,10 @@ read_full_ms(
       TableReadTask::TASK_ID,
       rt->get_index_partition_color_space(parts[0].get_index_partition()),
       TaskArgument(&args, sizeof(args)),
-      ArgumentMap());
+      ArgumentMap(),
+      Predicate::TRUE_PRED,
+      false,
+      default_mapper);
     for (auto& rq : reqs)
       read.add_region_requirement(rq);
     rt->execute_index_space(ctx, read);
@@ -531,7 +535,9 @@ read_full_ms(
   args.table[sizeof(args.table) - 1] = '\0';
   TaskLauncher verify_task(
     VERIFY_COLUMN_TASK,
-    TaskArgument(&args, sizeof(args)));
+    TaskArgument(&args, sizeof(args)),
+    Predicate::TRUE_PRED,
+    default_mapper);
   for (size_t i = 0; i < expected_columns.size(); ++i) {
     auto col = cols.at(expected_columns[i]);
     args.dt = col.dt;
@@ -612,6 +618,9 @@ main(int argc, char** argv) {
 
   TaskVariantRegistrar registrar(VERIFY_COLUMN_TASK, "verify_column_task");
   registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
+  registrar.add_layout_constraint_set(
+    DefaultMapper::cgroup_tag(0),
+    default_layout);
   Runtime::preregister_task_variant<verify_column_task>(
     registrar,
     "verify_column_task");

@@ -18,6 +18,7 @@
 #include <hyperion/Table.h>
 #include <hyperion/MSAntennaTable.h>
 #include <hyperion/TableReadTask.h>
+#include <hyperion/DefaultMapper.h>
 
 #include <hyperion/testing/TestSuiteDriver.h>
 #include <hyperion/testing/TestRecorder.h>
@@ -201,8 +202,11 @@ ms_test(
           WRITE_ONLY));
     TableReadTask::Args args;
     fstrcpy(args.table_path, tpath);
-    TaskLauncher
-      read(TableReadTask::TASK_ID, TaskArgument(&args, sizeof(args)));
+    TaskLauncher read(
+      TableReadTask::TASK_ID,
+      TaskArgument(&args, sizeof(args)),
+      Predicate::TRUE_PRED,
+      default_mapper);
     for (auto& rq : reqs)
       read.add_region_requirement(rq);
     rt->execute_task(ctx, read);
@@ -213,8 +217,11 @@ ms_test(
     VerifyAntennaTableArgs args;
     fstrcpy(args.table_path, tpath);
     auto reqs = std::get<0>(table.requirements(ctx, rt));
-    TaskLauncher
-      verify(VERIFY_ANTENNA_TABLE_TASK, TaskArgument(&args, sizeof(args)));
+    TaskLauncher verify(
+      VERIFY_ANTENNA_TABLE_TASK,
+      TaskArgument(&args, sizeof(args)),
+      Predicate::TRUE_PRED,
+      default_mapper);
     verify.add_region_requirement(task->regions[0]);
     verify.add_region_requirement(task->regions[1]);
     for (auto& rq : reqs)
@@ -234,6 +241,9 @@ main(int argc, char** argv) {
     TaskVariantRegistrar
       registrar(VERIFY_ANTENNA_TABLE_TASK, "verify_antenna_table");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_layout_constraint_set(
+      DefaultMapper::cgroup_tag(0),
+      default_layout);
     Runtime::preregister_task_variant<verify_antenna_table>(
       registrar,
       "verify_antenna_table");

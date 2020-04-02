@@ -21,6 +21,7 @@ f * Copyright 2020 Associated Universities, Inc. Washington DC, USA.
 #include <hyperion/Table.h>
 #include <hyperion/ColumnSpacePartition.h>
 #include <hyperion/PhysicalTable.h>
+#include <hyperion/DefaultMapper.h>
 
 #include <algorithm>
 #include <array>
@@ -420,10 +421,11 @@ table_test_suite(
           std::vector<std::pair<Table0Axes,coord_t>>{
             {Table0Axes::ROW, BLOCK_SZ}});
 
-      TaskLauncher
-        pttask(
-          VERIFY_PARTITIONS_TASK,
-          TaskArgument(&BLOCK_SZ, sizeof(BLOCK_SZ)));
+      TaskLauncher pttask(
+        VERIFY_PARTITIONS_TASK,
+        TaskArgument(&BLOCK_SZ, sizeof(BLOCK_SZ)),
+        Predicate::TRUE_PRED,
+        default_mapper);
       pttask.add_region_requirement(task->regions[0]);
       pttask.add_region_requirement(task->regions[1]);
       for (auto& r : treqs)
@@ -442,10 +444,11 @@ table_test_suite(
           std::vector<std::pair<Table0Axes,coord_t>>{
             {Table0Axes::ROW, BLOCK_SZ}});
 
-      TaskLauncher
-        pttask(
-          VERIFY_PARTITIONS_TASK,
-          TaskArgument(&BLOCK_SZ, sizeof(BLOCK_SZ)));
+      TaskLauncher pttask(
+        VERIFY_PARTITIONS_TASK,
+        TaskArgument(&BLOCK_SZ, sizeof(BLOCK_SZ)),
+        Predicate::TRUE_PRED,
+        default_mapper);
       pttask.add_region_requirement(task->regions[0]);
       pttask.add_region_requirement(task->regions[1]);
       for (auto& r : treqs)
@@ -474,6 +477,9 @@ main(int argc, char* argv[]) {
     TaskVariantRegistrar
       registrar(VERIFY_PARTITIONS_TASK, "verify_partitions_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.add_layout_constraint_set(
+      DefaultMapper::cgroup_tag(0),
+      default_layout);
     registrar.set_idempotent();
     Runtime::preregister_task_variant<verify_partitions_task>(
       registrar,
