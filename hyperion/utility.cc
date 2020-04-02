@@ -20,6 +20,7 @@
 #include <hyperion/ColumnSpace.h>
 #include <hyperion/ColumnSpacePartition.h>
 #include <hyperion/Column.h>
+#include <hyperion/DefaultMapper.h>
 
 #ifdef HYPERION_USE_HDF5
 # include <hyperion/hdf5.h>
@@ -357,8 +358,45 @@ hyperion::add_row_major_order_constraint(
   return lc.add_constraint(OrderingConstraint(dims, true));
 }
 
+Legion::LayoutConstraintID hyperion::default_layout;
+
+Legion::MapperID hyperion::default_mapper;
+
+void
+hyperion::register_default_mapper(
+  Machine machine,
+  Runtime* rt,
+  const std::set<Processor>& local_procs) {
+
+  for (auto& proc : local_procs)
+    rt->add_mapper(
+      default_mapper,
+      new DefaultMapper(machine, rt, proc),
+      proc);
+}
+
 void
 hyperion::preregister_all() {
+
+  LayoutConstraintRegistrar registrar(FieldSpace::NO_SPACE, "hyperion_default");
+  for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
+    std::vector<DimensionKind> dims(rank + 1);
+    auto d = dims.rbegin();
+    *d++ = DimensionKind::DIM_F;
+    std::generate(
+      d,
+      dims.rend(),
+      [n = static_cast<int>(DimensionKind::DIM_X)]() mutable {
+        return static_cast<DimensionKind>(n++);
+      });
+    registrar.add_constraint(OrderingConstraint(dims, false));
+  }
+  default_layout = Runtime::preregister_layout(registrar);
+
+  default_mapper = Runtime::generate_static_mapper_id();
+
+  Runtime::add_registration_callback(register_default_mapper);
+
 #ifdef HYPERION_USE_HDF5
   H5DatatypeManager::preregister_datatypes();
 #endif

@@ -33,6 +33,7 @@
 # include <memory>
 # include <numeric>
 # include <optional>
+# include <set>
 # include <type_traits>
 # include <unordered_map>
 # include <unordered_set>
@@ -1432,11 +1433,21 @@ add_row_major_order_constraint(
   unsigned rank);
 
 HYPERION_API void
+register_default_mapper(
+  Legion::Machine machine,
+  Legion::Runtime* rt,
+  const std::set<Legion::Processor>& local_procs);
+
+HYPERION_API void
 preregister_all();
 
 // FIXME: rename this function
 HYPERION_API void
 register_tasks(Legion::Context context, Legion::Runtime* runtime);
+
+HYPERION_API extern Legion::LayoutConstraintID default_layout;
+
+HYPERION_API extern Legion::MapperID default_mapper;
 
 #if LEGION_MAX_DIM == 1
 
