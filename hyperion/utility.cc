@@ -355,7 +355,7 @@ hyperion::add_row_major_order_constraint(
     [n = 0]() mutable {
       return static_cast<legion_dimension_kind_t>(n++);
     });
-  return lc.add_constraint(OrderingConstraint(dims, true));
+  return lc.add_constraint(OrderingConstraint(dims, false));
 }
 
 Legion::LayoutConstraintID hyperion::default_layout;
