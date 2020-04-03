@@ -868,7 +868,7 @@ Table::requirements(
       }
       decltype(val_reqs)::key_type rg_rq =
         {vlr, reqs.values.privilege, reqs.values.coherence, reqs.tag};
-      if (vlr != LogicalRegion::NO_REGION) {
+      if (vfs.read(*pid) != no_column) {
         auto& [added, rq] = val_reqs.at(rg_rq);
         if (!added) {
           reqs_result.push_back(rq);
