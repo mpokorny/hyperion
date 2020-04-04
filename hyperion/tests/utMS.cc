@@ -616,6 +616,12 @@ ms_test_suite(
 int
 main(int argc, char** argv) {
 
+  testing::TestSuiteDriver driver =
+    testing::TestSuiteDriver::make<ms_test_suite>(
+      MS_TEST_SUITE,
+      "ms_test_suite",
+      200);
+
   TaskVariantRegistrar registrar(VERIFY_COLUMN_TASK, "verify_column_task");
   registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
   registrar.add_layout_constraint_set(
@@ -624,12 +630,6 @@ main(int argc, char** argv) {
   Runtime::preregister_task_variant<verify_column_task>(
     registrar,
     "verify_column_task");
-
-  testing::TestSuiteDriver driver =
-    testing::TestSuiteDriver::make<ms_test_suite>(
-      MS_TEST_SUITE,
-      "ms_test_suite",
-      200);
 
   return driver.start(argc, argv);
 }

@@ -236,6 +236,8 @@ ms_test(
 int
 main(int argc, char** argv) {
 
+  testing::TestSuiteDriver driver =
+    testing::TestSuiteDriver::make<ms_test>(MS_TEST_TASK, "ms_test");
   {
     // verify_antenna_table
     TaskVariantRegistrar
@@ -247,10 +249,7 @@ main(int argc, char** argv) {
     Runtime::preregister_task_variant<verify_antenna_table>(
       registrar,
       "verify_antenna_table");
-
   }
-  testing::TestSuiteDriver driver =
-    testing::TestSuiteDriver::make<ms_test>(MS_TEST_TASK, "ms_test");
 
   return driver.start(argc, argv);
 }

@@ -598,6 +598,11 @@ main(int argc, char* argv[]) {
 
   AxesRegistrar::register_axes<Table0Axes>();
 
+  testing::TestSuiteDriver driver =
+    testing::TestSuiteDriver::make<table_test_suite>(
+      TABLE_TEST_SUITE,
+      "table_test_suite");
+
   {
     TaskVariantRegistrar
       registrar(VERIFY_TABLE_COLUMNS_TASK, "verify_table_columns_task");
@@ -611,11 +616,6 @@ main(int argc, char* argv[]) {
       registrar,
       "verify_table_columns_task");
   }
-
-  testing::TestSuiteDriver driver =
-    testing::TestSuiteDriver::make<table_test_suite>(
-      TABLE_TEST_SUITE,
-      "table_test_suite");
 
   return driver.start(argc, argv);
 }

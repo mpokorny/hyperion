@@ -261,6 +261,8 @@ ms_test(
 int
 main(int argc, char** argv) {
 
+  testing::TestSuiteDriver driver =
+    testing::TestSuiteDriver::make<ms_test>(MS_TEST_TASK, "ms_test");
   {
     // verify_spw_table
     TaskVariantRegistrar
@@ -274,8 +276,6 @@ main(int argc, char** argv) {
       "verify_spw_table");
 
   }
-  testing::TestSuiteDriver driver =
-    testing::TestSuiteDriver::make<ms_test>(MS_TEST_TASK, "ms_test");
 
   return driver.start(argc, argv);
 }
