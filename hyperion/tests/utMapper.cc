@@ -277,11 +277,6 @@ mapper_test_suite(
   Column::Requirements aos_cm_creqs = Column::default_requirements;
   aos_cm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
   aos_cm_creqs.tag = aos_col_major;
-  // TODO: setting requirements for foo is a workaround for a failure in table
-  // column sub-selection
-  Column::Requirements foo_creqs = Column::default_requirements;
-  foo_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  foo_creqs.tag = 0;
   auto [reqs, parts] =
     tb.requirements(
       ctx,
@@ -292,7 +287,7 @@ mapper_test_suite(
        {"c1", soa_rm_creqs},
        {"c2", aos_cm_creqs},
        {"c3", aos_cm_creqs},
-       {"foo", foo_creqs/*std::nullopt*/}});
+       {"foo", std::nullopt}});
   TaskLauncher verify(
     VERIFY_LAYOUTS_TASK,
     TaskArgument(NULL, 0),
@@ -309,6 +304,8 @@ mapper_test_suite(
 
 int
 main(int argc, char** argv) {
+
+  AxesRegistrar::register_axes<Table0Axes>();
 
   testing::TestSuiteDriver driver =
     testing::TestSuiteDriver::make<mapper_test_suite>(
