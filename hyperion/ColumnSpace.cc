@@ -16,7 +16,6 @@
 #include <hyperion/ColumnSpace.h>
 #include <hyperion/Column.h>
 #include <hyperion/Table.h>
-#include <hyperion/DefaultMapper.h>
 
 using namespace hyperion;
 
@@ -301,11 +300,7 @@ ColumnSpace::reindexed(
   args.allow_rows = allow_rows;
   args.element_rank = element_rank;
   args.column_is = column_is;
-  TaskLauncher task(
-    reindexed_task_id,
-    TaskArgument(&args, sizeof(args)),
-    Predicate::TRUE_PRED,
-    default_mapper);
+  TaskLauncher task(reindexed_task_id, TaskArgument(&args, sizeof(args)));
   {
     RegionRequirement req(metadata_lr, READ_ONLY, EXCLUSIVE, metadata_lr);
     req.add_field(AXIS_VECTOR_FID);
@@ -708,10 +703,7 @@ ColumnSpace::compute_row_mapping(
     compute_row_mapping_task_id,
     bounds,
     TaskArgument(&args, sizeof(args)),
-    ArgumentMap(),
-    Predicate::TRUE_PRED,
-    false,
-    default_mapper);
+    ArgumentMap());
 
   for (auto& lr : index_column_lrs) {
     RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
@@ -742,9 +734,6 @@ ColumnSpace::preregister_tasks() {
     reindexed_task_id = Runtime::generate_static_task_id();
     TaskVariantRegistrar registrar(reindexed_task_id, reindexed_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.add_layout_constraint_set(
-      DefaultMapper::cgroup_tag(0),
-      default_layout);
     registrar.set_idempotent();
     Runtime::preregister_task_variant<
       reindexed_result_t,
@@ -758,9 +747,6 @@ ColumnSpace::preregister_tasks() {
     TaskVariantRegistrar
       registrar(compute_row_mapping_task_id, compute_row_mapping_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.add_layout_constraint_set(
-      DefaultMapper::cgroup_tag(0),
-      default_layout);
     registrar.set_idempotent();
     registrar.set_leaf();
     Runtime::preregister_task_variant<compute_row_mapping_task>(

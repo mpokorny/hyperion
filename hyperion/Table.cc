@@ -16,7 +16,6 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/Table.h>
 #include <hyperion/PhysicalTable.h>
-#include <hyperion/DefaultMapper.h>
 
 #include <mappers/default_mapper.h>
 
@@ -1913,11 +1912,7 @@ Table::partition_rows(
     .get_result<index_column_space_result_t>()
     .value();
   args.ics_is = index_cs.column_is;
-  TaskLauncher task(
-    partition_rows_task_id,
-    TaskArgument(&args, sizeof(args)),
-    Predicate::TRUE_PRED,
-    default_mapper);
+  TaskLauncher task(partition_rows_task_id, TaskArgument(&args, sizeof(args)));
   RegionRequirement
     req(index_cs.metadata_lr, READ_ONLY, EXCLUSIVE, index_cs.metadata_lr);
   req.add_field(ColumnSpace::AXIS_VECTOR_FID);
@@ -2153,9 +2148,7 @@ Table::reindexed(
 
     TaskLauncher task(
       reindexed_task_id,
-      TaskArgument(args_buffer.get(), args_buffer_sz),
-      Predicate::TRUE_PRED,
-      default_mapper);
+      TaskArgument(args_buffer.get(), args_buffer_sz));
     for (auto& r : reqs)
       task.add_region_requirement(r);
     return rt->execute_task(ctx, task);
@@ -2507,7 +2500,7 @@ Table::reindexed(
   // copy values from old table to new
   {
     const unsigned min_block_size = 1000000;
-    CopyLauncher index_column_copier(Predicate::TRUE_PRED, default_mapper);
+    CopyLauncher index_column_copier;
     auto dflds = result_tbl.columns(ctx, rt).get_result<columns_result_t>();
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
@@ -2586,10 +2579,7 @@ Table::reindexed(
           reindex_copy_values_task_id,
           cs,
           TaskArgument(&args, sizeof(args)),
-          ArgumentMap(),
-          Predicate::TRUE_PRED,
-          false,
-          default_mapper);
+          ArgumentMap());
         task.add_region_requirement(
           RegionRequirement(
             rctlp,
@@ -2815,9 +2805,6 @@ Table::preregister_tasks() {
     TaskVariantRegistrar
       registrar(partition_rows_task_id, partition_rows_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.add_layout_constraint_set(
-      DefaultMapper::cgroup_tag(0),
-      default_layout);
     registrar.set_idempotent();
     Runtime::preregister_task_variant<
       ColumnSpacePartition,
@@ -2831,9 +2818,6 @@ Table::preregister_tasks() {
     TaskVariantRegistrar
       registrar(reindexed_task_id, reindexed_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.add_layout_constraint_set(
-      DefaultMapper::cgroup_tag(0),
-      default_layout);
     registrar.set_idempotent();
     Runtime::preregister_task_variant<LogicalRegion, reindexed_task>(
       registrar,
@@ -2845,9 +2829,6 @@ Table::preregister_tasks() {
     TaskVariantRegistrar
       registrar(reindex_copy_values_task_id, reindex_copy_values_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.add_layout_constraint_set(
-      DefaultMapper::cgroup_tag(0),
-      default_layout);
     registrar.set_idempotent();
     Runtime::preregister_task_variant<reindex_copy_values_task>(
         registrar,

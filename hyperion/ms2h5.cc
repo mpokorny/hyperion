@@ -545,10 +545,7 @@ public:
         READ_TABLES_FROM_MS_TASK_ID,
         tables_map_cs,
         TaskArgument(&args, sizeof(args)),
-        ArgumentMap(),
-        Predicate::TRUE_PRED,
-        false,
-        default_mapper);
+        ArgumentMap());
       {
         RegionRequirement req(lp, 0, READ_ONLY, EXCLUSIVE, table_info_lr);
         req.add_field(TABLE_NAME_FID);
@@ -580,9 +577,7 @@ public:
       fstrcpy(create_args.h5_path, h5.c_str());
       TaskLauncher write(
         CREATE_H5_TASK_ID,
-        TaskArgument(&create_args, sizeof(create_args)),
-        Predicate::TRUE_PRED,
-        default_mapper);
+        TaskArgument(&create_args, sizeof(create_args)));
       {
         RegionRequirement
           req(table_info_lr, READ_ONLY, EXCLUSIVE, table_info_lr);
@@ -643,9 +638,7 @@ public:
       fstrcpy(rd_args.table_path, tpath);
       TaskLauncher task(
         READ_MS_TABLE_COLUMNS_TASK_ID,
-        TaskArgument(&rd_args, sizeof(rd_args)),
-        Predicate::TRUE_PRED,
-        default_mapper);
+        TaskArgument(&rd_args, sizeof(rd_args)));
       auto reqs =
         std::get<0>(
           ptables[i].requirements(
@@ -681,6 +674,7 @@ public:
 int
 main(int argc, char** argv) {
 
+  hyperion::preregister_all();
   TopLevelTask::register_task();
   {
     // read_tables_from_ms_task
@@ -688,9 +682,6 @@ main(int argc, char** argv) {
       READ_TABLES_FROM_MS_TASK_ID,
       read_tables_from_ms_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
-    registrar.add_layout_constraint_set(
-      DefaultMapper::cgroup_tag(0),
-      default_layout);
     Runtime::preregister_task_variant<
       read_tables_from_ms_result_t,
       read_tables_from_ms_task>(
@@ -702,9 +693,6 @@ main(int argc, char** argv) {
     TaskVariantRegistrar
       registrar(READ_MS_TABLE_COLUMNS_TASK_ID, read_ms_table_columns_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.add_layout_constraint_set(
-      DefaultMapper::cgroup_tag(0),
-      default_layout);
     Runtime::preregister_task_variant<read_ms_table_columns_task>(
       registrar,
       read_ms_table_columns_task_name);
@@ -713,15 +701,11 @@ main(int argc, char** argv) {
     // create_h5_task
     TaskVariantRegistrar registrar(CREATE_H5_TASK_ID, create_h5_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.add_layout_constraint_set(
-      DefaultMapper::cgroup_tag(0),
-      default_layout);
     Runtime::preregister_task_variant<create_h5_result_t, create_h5_task>(
       registrar,
       create_h5_task_name);
   }
   Runtime::set_top_level_task_id(TopLevelTask::TASK_ID);
-  hyperion::preregister_all();
   return Runtime::start(argc, argv);
 }
 
