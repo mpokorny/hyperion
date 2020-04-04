@@ -646,7 +646,7 @@ Table::requirements(
     auto fs = fields_pr.get_logical_region().get_field_space();
     auto fa = rt->create_field_allocator(ctx, fs);
     // TODO: can col_select_fid be a local field?
-    col_select_fid = fa.allocate_field(sizeof(int));
+    col_select_fid = fa.allocate_field(sizeof(Point<1>));
   }
   auto col_select_pr =
     rt->map_region(
@@ -661,10 +661,10 @@ Table::requirements(
 
   const FieldAccessor<
     WRITE_ONLY,
-    int,
+    Point<1>,
     1,
     coord_t,
-    AffineAccessor<int, 1, coord_t>>
+    AffineAccessor<Point<1>, 1, coord_t>>
     sel_flags(col_select_pr, col_select_fid);
   bool all_cols_selected = true;
   bool some_cols_selected = false;
@@ -837,8 +837,8 @@ Table::requirements(
     auto lr = rt->get_logical_subregion_by_color(ctx, lp, 1);
     reqs_result.push_back(
       table_fields_requirement(
-        fields_pr.get_logical_region(),
         lr,
+        fields_parent,
         table_privilege));
     rt->destroy_index_partition(ctx, ip);
     rt->destroy_index_space(ctx, cs);
