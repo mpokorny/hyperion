@@ -302,8 +302,12 @@ table_fields_requirement(
   LogicalRegion parent,
   PrivilegeMode mode) {
 
-  RegionRequirement
-    result(lr, mode, EXCLUSIVE, parent, DefaultMapper::Tags::aos_row_major);
+  RegionRequirement result(
+    lr,
+    mode,
+    EXCLUSIVE,
+    parent,
+    DefaultMapper::LayoutTag::AOS_ROW_MAJOR);
 #define ADD_F(F) result.add_field(static_cast<FieldID>(F));
   FOREACH_TABLE_FIELD_FID(ADD_F);
 #undef ADD_F

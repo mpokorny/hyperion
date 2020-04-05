@@ -632,16 +632,16 @@ DefaultMapper::map_task(
 void
 DefaultMapper::add_layouts(TaskVariantRegistrar& registrar) {
   registrar.add_layout_constraint_set(
-    Tags::soa_row_major,
+    LayoutTag::SOA_ROW_MAJOR,
     soa_row_major_layout);
   registrar.add_layout_constraint_set(
-    Tags::soa_column_major,
+    LayoutTag::SOA_COLUMN_MAJOR,
     soa_column_major_layout);
   registrar.add_layout_constraint_set(
-    Tags::aos_row_major,
+    LayoutTag::AOS_ROW_MAJOR,
     aos_row_major_layout);
   registrar.add_layout_constraint_set(
-    Tags::aos_column_major,
+    LayoutTag::AOS_COLUMN_MAJOR,
     aos_column_major_layout);
 }
 

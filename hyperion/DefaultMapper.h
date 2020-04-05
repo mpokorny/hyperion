@@ -43,11 +43,11 @@ public:
   // number of bits allocated to column group ids
   static const constexpr unsigned layout_tag_bits = 8;
 
-  enum Tags {
-    soa_row_major = 1 << layout_tag_shift,
-    soa_column_major = 2 << layout_tag_shift,
-    aos_row_major = 3 << layout_tag_shift,
-    aos_column_major = 4 << layout_tag_shift
+  enum LayoutTag {
+    SOA_ROW_MAJOR = (1 << layout_tag_shift),
+    SOA_COLUMN_MAJOR = (2 << layout_tag_shift),
+    AOS_ROW_MAJOR = (3 << layout_tag_shift),
+    AOS_COLUMN_MAJOR = (4 << layout_tag_shift)
   };
 
   static void

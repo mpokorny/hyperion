@@ -269,10 +269,10 @@ mapper_test_suite(
   Table tb = Table::create(ctx, rt, {{cs1, true, tfs1}, {cs2, false, tfs2}});
   Column::Requirements soa_rm_creqs = Column::default_requirements;
   soa_rm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  soa_rm_creqs.tag = DefaultMapper::Tags::soa_row_major;
+  soa_rm_creqs.tag = DefaultMapper::LayoutTag::SOA_ROW_MAJOR;
   Column::Requirements aos_cm_creqs = Column::default_requirements;
   aos_cm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  aos_cm_creqs.tag = DefaultMapper::Tags::aos_column_major;
+  aos_cm_creqs.tag = DefaultMapper::LayoutTag::AOS_COLUMN_MAJOR;
   auto [reqs, parts] =
     tb.requirements(
       ctx,
