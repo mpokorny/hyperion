@@ -16,6 +16,7 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/Table.h>
 #include <hyperion/PhysicalTable.h>
+#include <hyperion/DefaultMapper.h>
 
 #include <mappers/default_mapper.h>
 
@@ -301,7 +302,8 @@ table_fields_requirement(
   LogicalRegion parent,
   PrivilegeMode mode) {
 
-  RegionRequirement result(lr, mode, EXCLUSIVE, parent);
+  RegionRequirement
+    result(lr, mode, EXCLUSIVE, parent, DefaultMapper::Tags::aos_row_major);
 #define ADD_F(F) result.add_field(static_cast<FieldID>(F));
   FOREACH_TABLE_FIELD_FID(ADD_F);
 #undef ADD_F
