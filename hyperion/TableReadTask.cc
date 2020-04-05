@@ -185,9 +185,7 @@ TableReadTask::preregister_tasks() {
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
     registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
     registrar.set_leaf();
-    registrar.add_layout_constraint_set(
-      DefaultMapper::cgroup_tag(0),
-      default_layout);
+    DefaultMapper::add_layouts(registrar);
     Runtime::preregister_task_variant<impl>(registrar, TASK_NAME);
   }
 }

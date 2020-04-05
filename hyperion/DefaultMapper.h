@@ -16,6 +16,8 @@
 #ifndef HYPERION_DEFAULT_MAPPER_H_
 #define HYPERION_DEFAULT_MAPPER_H_
 
+#include <hyperion/hyperion.h>
+
 #pragma GCC visibility push(default)
 # include <mappers/default_mapper.h>
 # include <legion/legion_mapping.h>
@@ -23,7 +25,7 @@
 
 namespace hyperion {
 
-class DefaultMapper
+class HYPERION_API DefaultMapper
   : public Legion::Mapping::DefaultMapper {
 public:
 
@@ -32,24 +34,24 @@ public:
     Legion::Runtime* rt,
     Legion::Processor local);
 
-  // column group ids saved to RegionRequirement tag values must be left shifted
-  // by "cgroup_shift" bits in order to maintain the MappingTagID values used by
-  // the Legion DefaultMapper as well as allow functionality like the Legion
-  // default mapper when the number of RegionRequirements is small enough (<=
-  // cgroup_tag(cgroup_min))
-  static const constexpr unsigned cgroup_shift = 8;
+  // layout tag ids saved to RegionRequirement are always in a bitfield left
+  // shifted by "layout_tag_shift" bits in order to maintain the MappingTagID
+  // values used by the Legion DefaultMapper as well as allow functionality like
+  // the Legion default mapper when the number of RegionRequirements is small
+  // enough (<= 1 << layout_tag_shift)
+  static const constexpr unsigned layout_tag_shift = 8;
   // number of bits allocated to column group ids
-  static const constexpr unsigned cgroup_bits = 8;
-  // minimum cgroup value (NOT cgroup tag value)
-  static const constexpr unsigned cgroup_min = 0;
-  // maximum cgroup value (NOT cgroup tag value)
-  static const constexpr unsigned cgroup_max = (1u << cgroup_bits) - 2;
+  static const constexpr unsigned layout_tag_bits = 8;
 
-  static constexpr Legion::MappingTagID
-  cgroup_tag(unsigned group) {
-    assert(cgroup_min <= group && group <= cgroup_max);
-    return ((group + 1) & ((1u << cgroup_bits) - 1)) << cgroup_shift;
-  }
+  enum Tags {
+    soa_row_major = 1 << layout_tag_shift,
+    soa_column_major = 2 << layout_tag_shift,
+    aos_row_major = 3 << layout_tag_shift,
+    aos_column_major = 4 << layout_tag_shift
+  };
+
+  static void
+  add_layouts(Legion::TaskVariantRegistrar& registrar);
 
   virtual void
   premap_task(

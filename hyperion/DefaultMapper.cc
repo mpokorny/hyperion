@@ -14,25 +14,17 @@
  * limitations under the License.
  */
 #include <hyperion/DefaultMapper.h>
+#include <hyperion/utility.h>
 
 using namespace hyperion;
 using namespace Legion;
 
-static constexpr unsigned
-cgroup(unsigned tag) {
-  return
-    ((tag >> DefaultMapper::cgroup_shift)
-     & ((1 << DefaultMapper::cgroup_bits) - 1));
-}
-
 static unsigned
 layout_index(const std::vector<RegionRequirement>& regions, unsigned idx) {
-  unsigned result = cgroup(regions[idx].tag);
-  if (result == 0)
-    result = idx;
-  else
-    result = regions[idx].tag;
-  return result;
+  unsigned layout =
+    ((regions[idx].tag >> DefaultMapper::layout_tag_shift)
+     & ((1 << DefaultMapper::layout_tag_bits) - 1));
+  return ((layout == 0) ? idx : regions[idx].tag);
 }
 
 DefaultMapper::DefaultMapper(
@@ -51,9 +43,9 @@ DefaultMapper::premap_task(
 
   // The choice of requirement tag or requirements index to select the layout
   // constraint doesn't work if there are too many requirements. TODO: emit a
-  // message suggesting that cgroup_shift value be increased when this assertion
-  // is violated
-  assert(task.regions.size() <= cgroup_tag(cgroup_min));
+  // message suggesting that layout_tag_shift value be increased when this
+  // assertion is violated
+  assert(task.regions.size() <= (1u << layout_tag_shift));
 
   // Iterate over the premap regions
   bool has_variant_info = false;
@@ -323,9 +315,9 @@ DefaultMapper::map_task(
 
   // The choice of requirement tag or requirements index to select the layout
   // constraint doesn't work if there are too many requirements. TODO: emit a
-  // message suggesting that cgroup_shift value be increased when this assertion
-  // is violated
-  assert(task.regions.size() <= cgroup_tag(cgroup_min));
+  // message suggesting that layout_tag_shift value be increased when this
+  // assertion is violated
+  assert(task.regions.size() <= (1u << layout_tag_shift));
 
   Processor::Kind target_kind = task.target_proc.kind();
   // Get the variant that we are going to use to map this task
@@ -635,6 +627,22 @@ DefaultMapper::map_task(
       }
     }
   }
+}
+
+void
+DefaultMapper::add_layouts(TaskVariantRegistrar& registrar) {
+  registrar.add_layout_constraint_set(
+    Tags::soa_row_major,
+    soa_row_major_layout);
+  registrar.add_layout_constraint_set(
+    Tags::soa_column_major,
+    soa_column_major_layout);
+  registrar.add_layout_constraint_set(
+    Tags::aos_row_major,
+    aos_row_major_layout);
+  registrar.add_layout_constraint_set(
+    Tags::aos_column_major,
+    aos_column_major_layout);
 }
 
 // Local Variables:

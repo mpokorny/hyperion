@@ -358,44 +358,92 @@ hyperion::add_row_major_order_constraint(
   return lc.add_constraint(OrderingConstraint(dims, false));
 }
 
-Legion::LayoutConstraintID hyperion::default_layout;
-
-Legion::MapperID hyperion::default_mapper;
+Legion::MapperID hyperion::mapper;
+Legion::LayoutConstraintID hyperion::soa_row_major_layout;
+Legion::LayoutConstraintID hyperion::soa_column_major_layout;
+Legion::LayoutConstraintID hyperion::aos_row_major_layout;
+Legion::LayoutConstraintID hyperion::aos_column_major_layout;
 
 void
-hyperion::register_default_mapper(
+hyperion::register_mapper(
   Machine machine,
   Runtime* rt,
   const std::set<Processor>& local_procs) {
 
   for (auto& proc : local_procs)
-    rt->add_mapper(
-      default_mapper,
-      new DefaultMapper(machine, rt, proc),
-      proc);
+    rt->add_mapper(mapper, new DefaultMapper(machine, rt, proc), proc);
 }
 
 void
 hyperion::preregister_all() {
 
-  LayoutConstraintRegistrar registrar(FieldSpace::NO_SPACE, "hyperion_default");
-  for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
-    std::vector<DimensionKind> dims(rank + 1);
-    auto d = dims.rbegin();
-    *d++ = DimensionKind::DIM_F;
-    std::generate(
-      d,
-      dims.rend(),
-      [n = static_cast<int>(DimensionKind::DIM_X)]() mutable {
-        return static_cast<DimensionKind>(n++);
-      });
-    registrar.add_constraint(OrderingConstraint(dims, false));
+  {
+    LayoutConstraintRegistrar registrar(FieldSpace::NO_SPACE, "soa_row_major");
+    for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
+      std::vector<DimensionKind> dims(rank + 1);
+      auto d = dims.rbegin();
+      *d++ = DimensionKind::DIM_F;
+      std::generate(
+        d,
+        dims.rend(),
+        [n = static_cast<int>(DimensionKind::DIM_X)]() mutable {
+          return static_cast<DimensionKind>(n++);
+        });
+      registrar.add_constraint(OrderingConstraint(dims, false));
+    }
+    soa_row_major_layout = Runtime::preregister_layout(registrar);
   }
-  default_layout = Runtime::preregister_layout(registrar);
+  {
+    LayoutConstraintRegistrar registrar(FieldSpace::NO_SPACE, "soa_column_major");
+    for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
+      std::vector<DimensionKind> dims(rank + 1);
+      auto d = dims.rbegin();
+      *d++ = DimensionKind::DIM_F;
+      std::generate(
+        d,
+        dims.rend(),
+        [n = static_cast<int>(DimensionKind::DIM_X + rank - 1)]() mutable {
+          return static_cast<DimensionKind>(n--);
+        });
+      registrar.add_constraint(OrderingConstraint(dims, false));
+    }
+    soa_column_major_layout = Runtime::preregister_layout(registrar);
+  }
+  {
+    LayoutConstraintRegistrar registrar(FieldSpace::NO_SPACE, "aos_row_major");
+    for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
+      std::vector<DimensionKind> dims(rank + 1);
+      auto d = dims.begin();
+      *d++ = DimensionKind::DIM_F;
+      std::generate(
+        d,
+        dims.end(),
+        [n = static_cast<int>(DimensionKind::DIM_X + rank - 1)]() mutable {
+          return static_cast<DimensionKind>(n--);
+        });
+      registrar.add_constraint(OrderingConstraint(dims, false));
+    }
+    aos_row_major_layout = Runtime::preregister_layout(registrar);
+  }
+  {
+    LayoutConstraintRegistrar registrar(FieldSpace::NO_SPACE, "aos_column_major");
+    for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
+      std::vector<DimensionKind> dims(rank + 1);
+      auto d = dims.begin();
+      *d++ = DimensionKind::DIM_F;
+      std::generate(
+        d,
+        dims.end(),
+        [n = static_cast<int>(DimensionKind::DIM_X)]() mutable {
+          return static_cast<DimensionKind>(n++);
+        });
+      registrar.add_constraint(OrderingConstraint(dims, false));
+    }
+    aos_column_major_layout = Runtime::preregister_layout(registrar);
+  }
 
-  default_mapper = Runtime::generate_static_mapper_id();
-
-  Runtime::add_registration_callback(register_default_mapper);
+  mapper = Runtime::generate_static_mapper_id();
+  Runtime::add_registration_callback(register_mapper);
 
 #ifdef HYPERION_USE_HDF5
   H5DatatypeManager::preregister_datatypes();

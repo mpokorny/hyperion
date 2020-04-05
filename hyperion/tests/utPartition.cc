@@ -1,5 +1,5 @@
 /*
-f * Copyright 2020 Associated Universities, Inc. Washington DC, USA.
+ * Copyright 2020 Associated Universities, Inc. Washington DC, USA.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -425,7 +425,7 @@ table_test_suite(
         VERIFY_PARTITIONS_TASK,
         TaskArgument(&BLOCK_SZ, sizeof(BLOCK_SZ)),
         Predicate::TRUE_PRED,
-        default_mapper);
+        mapper);
       pttask.add_region_requirement(task->regions[0]);
       pttask.add_region_requirement(task->regions[1]);
       for (auto& r : treqs)
@@ -448,7 +448,7 @@ table_test_suite(
         VERIFY_PARTITIONS_TASK,
         TaskArgument(&BLOCK_SZ, sizeof(BLOCK_SZ)),
         Predicate::TRUE_PRED,
-        default_mapper);
+        mapper);
       pttask.add_region_requirement(task->regions[0]);
       pttask.add_region_requirement(task->regions[1]);
       for (auto& r : treqs)
@@ -482,10 +482,8 @@ main(int argc, char* argv[]) {
     TaskVariantRegistrar
       registrar(VERIFY_PARTITIONS_TASK, "verify_partitions_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.add_layout_constraint_set(
-      DefaultMapper::cgroup_tag(0),
-      default_layout);
     registrar.set_idempotent();
+    DefaultMapper::add_layouts(registrar);
     Runtime::preregister_task_variant<verify_partitions_task>(
       registrar,
       "verify_partitions_task");

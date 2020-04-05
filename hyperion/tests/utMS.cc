@@ -511,7 +511,7 @@ read_full_ms(
       ArgumentMap(),
       Predicate::TRUE_PRED,
       false,
-      default_mapper);
+      mapper);
     for (auto& rq : reqs)
       read.add_region_requirement(rq);
     rt->execute_index_space(ctx, read);
@@ -537,7 +537,7 @@ read_full_ms(
     VERIFY_COLUMN_TASK,
     TaskArgument(&args, sizeof(args)),
     Predicate::TRUE_PRED,
-    default_mapper);
+    mapper);
   for (size_t i = 0; i < expected_columns.size(); ++i) {
     auto col = cols.at(expected_columns[i]);
     args.dt = col.dt;
@@ -624,9 +624,7 @@ main(int argc, char** argv) {
 
   TaskVariantRegistrar registrar(VERIFY_COLUMN_TASK, "verify_column_task");
   registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
-  registrar.add_layout_constraint_set(
-    DefaultMapper::cgroup_tag(0),
-    default_layout);
+  DefaultMapper::add_layouts(registrar);
   Runtime::preregister_task_variant<verify_column_task>(
     registrar,
     "verify_column_task");

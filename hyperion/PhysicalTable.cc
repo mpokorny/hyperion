@@ -106,6 +106,7 @@ PhysicalTable::create(
     auto css_pid = css.read(*pid);
     if (css_pid.is_empty())
       break;
+    auto nms_pid = nms.read(*pid);
     if (md_regions.count(css_pid) == 0) {
       if (reqs == reqs_end || prs == prs_end)
         return result;
@@ -119,7 +120,6 @@ PhysicalTable::create(
     std::variant<PhysicalRegion, LogicalRegion> values = vss_pid;
     std::optional<Keywords::pair<PhysicalRegion>> kw_prs;
     std::optional<MeasRef::DataRegions> mr_drs;
-    auto nms_pid = nms.read(*pid);
     auto vfs_pid = vfs.read(*pid);
     if (vfs_pid != Table::no_column) {
       std::tuple<FieldID, ColumnSpace> fid_cs = {vfs_pid, css_pid};

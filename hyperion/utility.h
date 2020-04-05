@@ -1433,7 +1433,7 @@ add_row_major_order_constraint(
   unsigned rank);
 
 HYPERION_API void
-register_default_mapper(
+register_mapper(
   Legion::Machine machine,
   Legion::Runtime* rt,
   const std::set<Legion::Processor>& local_procs);
@@ -1445,9 +1445,11 @@ preregister_all();
 HYPERION_API void
 register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
-HYPERION_API extern Legion::LayoutConstraintID default_layout;
-
-HYPERION_API extern Legion::MapperID default_mapper;
+HYPERION_API extern Legion::MapperID mapper;
+HYPERION_API extern Legion::LayoutConstraintID soa_row_major_layout;
+HYPERION_API extern Legion::LayoutConstraintID soa_column_major_layout;
+HYPERION_API extern Legion::LayoutConstraintID aos_row_major_layout;
+HYPERION_API extern Legion::LayoutConstraintID aos_column_major_layout;
 
 #if LEGION_MAX_DIM == 1
 

@@ -35,7 +35,7 @@ enum struct Table0Axes {
 };
 
 enum {
-  COL_FOO,
+  COL_FOO = 1000,
   COL_C0,
   COL_C1,
   COL_C2,
@@ -72,10 +72,6 @@ hyperion::Axes<Table0Axes>::h5_datatype = h5_dt();
 #endif
 
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
-
-const MappingTagID soa_row_major = DefaultMapper::cgroup_tag(0);
-LayoutConstraintID aos_col_major_layout;
-const MappingTagID aos_col_major = DefaultMapper::cgroup_tag(1);
 
 constexpr unsigned nx = 3;
 constexpr unsigned ny = 2;
@@ -182,8 +178,8 @@ verify_layouts_task(
   PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>
     pc3(*pt.column("c3").value());
 
-  auto a0 = pc0.accessor<READ_ONLY>().ptr({0, 0});
-  auto a1 = pc1.accessor<READ_ONLY>().ptr({0, 0});
+  auto a0 = pc0.accessor<WRITE_ONLY>().ptr({0, 0});
+  auto a1 = pc1.accessor<WRITE_ONLY>().ptr({0, 0});
   if (a0 < a1)
     recorder.expect_true(
       "In SOA, c1 array begins at c0 array end",
@@ -199,8 +195,8 @@ verify_layouts_task(
     "c1 array has SOA row-major layout",
     TE(verify_soa_row_major_layout(pc1)));
 
-  auto a2 = pc2.accessor<READ_ONLY>().ptr({0, 0});
-  auto a3 = pc3.accessor<READ_ONLY>().ptr({0, 0});
+  auto a2 = pc2.accessor<WRITE_ONLY>().ptr({0, 0});
+  auto a3 = pc3.accessor<WRITE_ONLY>().ptr({0, 0});
   if (a2 < a3)
     recorder.expect_true(
       "In AOS, c2 array is interleaved with c3 array",
@@ -273,10 +269,10 @@ mapper_test_suite(
   Table tb = Table::create(ctx, rt, {{cs1, true, tfs1}, {cs2, false, tfs2}});
   Column::Requirements soa_rm_creqs = Column::default_requirements;
   soa_rm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  soa_rm_creqs.tag = soa_row_major;
+  soa_rm_creqs.tag = DefaultMapper::Tags::soa_row_major;
   Column::Requirements aos_cm_creqs = Column::default_requirements;
   aos_cm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  aos_cm_creqs.tag = aos_col_major;
+  aos_cm_creqs.tag = DefaultMapper::Tags::aos_column_major;
   auto [reqs, parts] =
     tb.requirements(
       ctx,
@@ -292,7 +288,7 @@ mapper_test_suite(
     VERIFY_LAYOUTS_TASK,
     TaskArgument(NULL, 0),
     Predicate::TRUE_PRED,
-    default_mapper);
+    mapper);
   verify.add_region_requirement(task->regions[0]);
   verify.add_region_requirement(task->regions[1]);
   for (auto& r : reqs)
@@ -314,19 +310,9 @@ main(int argc, char** argv) {
       200);
 
   {
-    LayoutConstraintRegistrar lcr(FieldSpace::NO_SPACE, "aos_col_major_layout");
-    std::vector<DimensionKind> dims2{DIM_F, DIM_X, DIM_Y};
-    lcr.add_constraint(OrderingConstraint(dims2, false));
-    aos_col_major_layout = Runtime::preregister_layout(lcr);
-
     TaskVariantRegistrar registrar(VERIFY_LAYOUTS_TASK, "verify_layouts_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.add_layout_constraint_set(
-      soa_row_major,
-      default_layout);
-    registrar.add_layout_constraint_set(
-      aos_col_major,
-      aos_col_major_layout);
+    DefaultMapper::add_layouts(registrar);
     Runtime::preregister_task_variant<verify_layouts_task>(
       registrar,
       "verify_layouts_task");

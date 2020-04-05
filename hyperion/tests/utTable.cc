@@ -501,8 +501,8 @@ table_test_suite(
       TaskLauncher pttask(
         VERIFY_TABLE_COLUMNS_TASK,
         TaskArgument(NULL, 0),
-      Predicate::TRUE_PRED,
-      default_mapper);
+        Predicate::TRUE_PRED,
+        mapper);
       pttask.add_region_requirement(task->regions[0]);
       pttask.add_region_requirement(task->regions[1]);
       for (auto& r : reqs)
@@ -607,9 +607,7 @@ main(int argc, char* argv[]) {
     TaskVariantRegistrar
       registrar(VERIFY_TABLE_COLUMNS_TASK, "verify_table_columns_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.add_layout_constraint_set(
-      DefaultMapper::cgroup_tag(0),
-      default_layout);
+    DefaultMapper::add_layouts(registrar);
     registrar.set_idempotent();
     registrar.set_leaf();
     Runtime::preregister_task_variant<verify_table_columns_task>(

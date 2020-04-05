@@ -203,7 +203,7 @@ read_ms_table_columns_task(
     ArgumentMap(),
     Predicate::TRUE_PRED,
     false,
-    default_mapper);
+    mapper);
   for (auto& rq : reqs)
     read.add_region_requirement(rq);
   rt->execute_index_space(ctx, read);

@@ -129,7 +129,7 @@ ms_test(
       TableReadTask::TASK_ID,
       TaskArgument(&args, sizeof(args)),
       Predicate::TRUE_PRED,
-      default_mapper);
+      mapper);
     for (auto& rq : reqs)
       read.add_region_requirement(rq);
     rt->execute_task(ctx, read);
@@ -144,7 +144,7 @@ ms_test(
       VERIFY_DATA_DESCRIPTION_TABLE_TASK,
       TaskArgument(&args, sizeof(args)),
       Predicate::TRUE_PRED,
-      default_mapper);
+      mapper);
     verify.add_region_requirement(task->regions[0]);
     verify.add_region_requirement(task->regions[1]);
     for (auto& rq : reqs)
@@ -167,9 +167,7 @@ main(int argc, char** argv) {
       VERIFY_DATA_DESCRIPTION_TABLE_TASK,
       "verify_data_description_table");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.add_layout_constraint_set(
-      DefaultMapper::cgroup_tag(0),
-      default_layout);
+    DefaultMapper::add_layouts(registrar);
     Runtime::preregister_task_variant<verify_data_description_table>(
       registrar,
       "verify_data_description_table");

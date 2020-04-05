@@ -88,7 +88,7 @@ struct HYPERION_API Column {
     Req{READ_ONLY, EXCLUSIVE, true},
     Req{READ_ONLY, EXCLUSIVE, true},
     Req{READ_ONLY, EXCLUSIVE, true},
-    DefaultMapper::cgroup_tag(0)
+    DefaultMapper::Tags::soa_row_major
   };
 
   static constexpr const Legion::FieldID COLUMN_INDEX_VALUE_FID = 0;
