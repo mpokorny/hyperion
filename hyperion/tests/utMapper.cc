@@ -39,7 +39,11 @@ enum {
   COL_C0,
   COL_C1,
   COL_C2,
-  COL_C3
+  COL_C3,
+  COL_C4,
+  COL_C5,
+  COL_C6,
+  COL_C7
 };
 
 template <>
@@ -125,7 +129,7 @@ bool
 verify_soa_row_major_layout(
   const PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>& pc) {
 
-  auto a = pc.accessor<READ_ONLY>();
+  auto a = pc.accessor<WRITE_ONLY>();
   bool result = true;
   for (PointInRectIterator<2> pir(pc.rect()); result && pir(); pir++)
     result = a.ptr(*pir) == a.ptr({0, 0}) + pir[0] * ny + pir[1];
@@ -133,13 +137,35 @@ verify_soa_row_major_layout(
 }
 
 bool
+verify_soa_column_major_layout(
+  const PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>& pc) {
+
+  auto a = pc.accessor<WRITE_ONLY>();
+  bool result = true;
+  for (PointInRectIterator<2> pir(pc.rect()); result && pir(); pir++)
+    result = a.ptr(*pir) == a.ptr({0, 0}) + pir[1] * nx + pir[0];
+  return result;
+}
+
+bool
 verify_aos_column_major_layout(
   const PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>& pc) {
 
-  auto a = pc.accessor<READ_ONLY>();
+  auto a = pc.accessor<WRITE_ONLY>();
   bool result = true;
   for (PointInRectIterator<2> pir(pc.rect()); result && pir(); pir++)
     result = a.ptr(*pir) == a.ptr({0, 0}) + 2 * (pir[1] * nx + pir[0]);
+  return result;
+}
+
+bool
+verify_aos_row_major_layout(
+  const PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>& pc) {
+
+  auto a = pc.accessor<WRITE_ONLY>();
+  bool result = true;
+  for (PointInRectIterator<2> pir(pc.rect()); result && pir(); pir++)
+    result = a.ptr(*pir) == a.ptr({0, 0}) + 2 * (pir[0] * ny + pir[1]);
   return result;
 }
 
@@ -177,6 +203,14 @@ verify_layouts_task(
     pc2(*pt.column("c2").value());
   PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>
     pc3(*pt.column("c3").value());
+  PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>
+    pc4(*pt.column("c4").value());
+  PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>
+    pc5(*pt.column("c5").value());
+  PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>
+    pc6(*pt.column("c6").value());
+  PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>
+    pc7(*pt.column("c7").value());
 
   auto a0 = pc0.accessor<WRITE_ONLY>().ptr({0, 0});
   auto a1 = pc1.accessor<WRITE_ONLY>().ptr({0, 0});
@@ -187,7 +221,7 @@ verify_layouts_task(
   else
     recorder.expect_true(
       "In SOA, c0 array begins at c1 array end",
-      TE(a1 == a0 + nx * ny));
+      TE(a0 == a1 + nx * ny));
   recorder.expect_true(
     "c0 array has SOA row-major layout",
     TE(verify_soa_row_major_layout(pc0)));
@@ -199,18 +233,52 @@ verify_layouts_task(
   auto a3 = pc3.accessor<WRITE_ONLY>().ptr({0, 0});
   if (a2 < a3)
     recorder.expect_true(
-      "In AOS, c2 array is interleaved with c3 array",
-      TE(a3 == a2 + 1));
+      "In SOA, c3 array begins at c2 array end",
+      TE(a3 == a2 + nx * ny));
   else
     recorder.expect_true(
-      "In AOS, c2 array is interleaved with c3 array",
-      TE(a2 == a3 + 1));
+      "In SOA, c2 array begins at c3 array end",
+      TE(a2 == a3 + nx * ny));
   recorder.expect_true(
-    "c2 array has AOS column-major layout",
-    TE(verify_aos_column_major_layout(pc2)));
+    "c2 array has SOA column-major layout",
+    TE(verify_soa_column_major_layout(pc2)));
   recorder.expect_true(
-    "c3 array has AOS column-major layout",
-    TE(verify_aos_column_major_layout(pc3)));
+    "c3 array has SOA column-major layout",
+    TE(verify_soa_column_major_layout(pc3)));
+
+  auto a4 = pc4.accessor<WRITE_ONLY>().ptr({0, 0});
+  auto a5 = pc5.accessor<WRITE_ONLY>().ptr({0, 0});
+  if (a4 < a5)
+    recorder.expect_true(
+      "In AOS, c4 array is interleaved with c5 array",
+      TE(a5 == a4 + 1));
+  else
+    recorder.expect_true(
+      "In AOS, c4 array is interleaved with c5 array",
+      TE(a4 == a5 + 1));
+  recorder.expect_true(
+    "c4 array has AOS column-major layout",
+    TE(verify_aos_column_major_layout(pc4)));
+  recorder.expect_true(
+    "c5 array has AOS column-major layout",
+    TE(verify_aos_column_major_layout(pc5)));
+
+  auto a6 = pc6.accessor<WRITE_ONLY>().ptr({0, 0});
+  auto a7 = pc7.accessor<WRITE_ONLY>().ptr({0, 0});
+  if (a6 < a7)
+    recorder.expect_true(
+      "In AOS, c6 array is interleaved with c7 array",
+      TE(a7 == a6 + 1));
+  else
+    recorder.expect_true(
+      "In AOS, c6 array is interleaved with c7 array",
+      TE(a6 == a7 + 1));
+  recorder.expect_true(
+    "c6 array has AOS row-major layout",
+    TE(verify_aos_row_major_layout(pc6)));
+  recorder.expect_true(
+    "c7 array has AOS row-major layout",
+    TE(verify_aos_row_major_layout(pc7)));
 }
 
 void
@@ -251,7 +319,19 @@ mapper_test_suite(
        HYPERION_TYPE_UINT, COL_C2, Keywords(), MeasRef(), std::nullopt)},
     {"c3",
      TableField(
-       HYPERION_TYPE_UINT, COL_C3, Keywords(), MeasRef(), std::nullopt)}};
+       HYPERION_TYPE_UINT, COL_C3, Keywords(), MeasRef(), std::nullopt)},
+    {"c4",
+     TableField(
+       HYPERION_TYPE_UINT, COL_C4, Keywords(), MeasRef(), std::nullopt)},
+    {"c5",
+     TableField(
+       HYPERION_TYPE_UINT, COL_C5, Keywords(), MeasRef(), std::nullopt)},
+    {"c6",
+     TableField(
+       HYPERION_TYPE_UINT, COL_C6, Keywords(), MeasRef(), std::nullopt)},
+    {"c7",
+     TableField(
+       HYPERION_TYPE_UINT, COL_C7, Keywords(), MeasRef(), std::nullopt)}};
   // add a dummy column for the A0 axis only (the index axis)
   IndexSpace is1 = rt->create_index_space(ctx, Rect<1>(0, nx - 1));
   ColumnSpace cs1 =
@@ -270,9 +350,15 @@ mapper_test_suite(
   Column::Requirements soa_rm_creqs = Column::default_requirements;
   soa_rm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
   soa_rm_creqs.tag = DefaultMapper::LayoutTag::SOA_ROW_MAJOR;
+  Column::Requirements soa_cm_creqs = Column::default_requirements;
+  soa_cm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
+  soa_cm_creqs.tag = DefaultMapper::LayoutTag::SOA_COLUMN_MAJOR;
   Column::Requirements aos_cm_creqs = Column::default_requirements;
   aos_cm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
   aos_cm_creqs.tag = DefaultMapper::LayoutTag::AOS_COLUMN_MAJOR;
+  Column::Requirements aos_rm_creqs = Column::default_requirements;
+  aos_rm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
+  aos_rm_creqs.tag = DefaultMapper::LayoutTag::AOS_ROW_MAJOR;
   auto [reqs, parts] =
     tb.requirements(
       ctx,
@@ -281,8 +367,12 @@ mapper_test_suite(
       READ_ONLY,
       {{"c0", soa_rm_creqs},
        {"c1", soa_rm_creqs},
-       {"c2", aos_cm_creqs},
-       {"c3", aos_cm_creqs},
+       {"c2", soa_cm_creqs},
+       {"c3", soa_cm_creqs},
+       {"c4", aos_cm_creqs},
+       {"c5", aos_cm_creqs},
+       {"c6", aos_rm_creqs},
+       {"c7", aos_rm_creqs},
        {"foo", std::nullopt}});
   TaskLauncher verify(
     VERIFY_LAYOUTS_TASK,
