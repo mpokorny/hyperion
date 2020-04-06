@@ -47,6 +47,11 @@ public:
   virtual ~TestRecorder() {
   }
 
+  void
+  update_position() {
+    m_log_iter.go_to_end();
+  }
+
   template <legion_privilege_mode_t M>
   void
   append(const TestResult<M>& tr) {

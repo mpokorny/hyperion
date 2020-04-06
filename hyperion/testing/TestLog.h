@@ -341,6 +341,12 @@ public:
     return !m_pid();
   }
 
+  void
+  go_to_end() {
+    while (!at_end() && m_state[*m_pid] != UNKNOWN)
+      this->operator++();
+  }
+
   friend void
   swap(TestLogIterator& lhs, TestLogIterator& rhs) {
     lhs.swap(rhs);
@@ -513,6 +519,12 @@ public:
     return !m_pid();
   }
 
+  void
+  go_to_end() {
+    while (!at_end() && m_state[*m_pid] != UNKNOWN)
+      this->operator++();
+  }
+
   TestResult<READ_ONLY>
   operator*() const {
     return TestResult<READ_ONLY>{
@@ -655,6 +667,12 @@ public:
   bool
   at_end() const {
     return !m_pid();
+  }
+
+  void
+  go_to_end() {
+    while (!at_end() && m_state[*m_pid] != UNKNOWN)
+      this->operator++();
   }
 
   TestResult<READ_WRITE>
@@ -809,6 +827,12 @@ public:
   bool
   at_end() const {
     return !m_pid();
+  }
+
+  void
+  go_to_end() {
+    while (!at_end() && m_state[*m_pid] != UNKNOWN)
+      this->operator++();
   }
 
   TestResult<WRITE_DISCARD>
