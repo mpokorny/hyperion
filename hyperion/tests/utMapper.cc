@@ -367,10 +367,13 @@ mapper_test_suite(
       READ_ONLY,
       {{"c0", soa_rm_creqs},
        {"c1", soa_rm_creqs},
+
        {"c2", soa_cm_creqs},
        {"c3", soa_cm_creqs},
+
        {"c4", aos_cm_creqs},
        {"c5", aos_cm_creqs},
+
        {"c6", aos_rm_creqs},
        {"c7", aos_rm_creqs},
        {"foo", std::nullopt}});
