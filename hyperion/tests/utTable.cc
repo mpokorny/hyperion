@@ -519,6 +519,9 @@ table_test_suite(
     }
   }
 
+  rt->remap_region(ctx, regions[0]);
+  rt->remap_region(ctx, regions[1]);
+  recorder.update_position();
   // do tests of column removal and addition in this task, since field additions
   // and removals must be lexically scoped, and this task is where we initially
   // added the columns we're about to remove
