@@ -36,7 +36,8 @@ using namespace std::string_literals;
 
 enum {
   TABLE_TEST_SUITE,
-  VERIFY_TABLE_COLUMNS_TASK
+  VERIFY_TABLE_COLUMNS_TASK,
+  VERIFY_COLUMN_GROUPS_TASK
 };
 
 enum struct Table0Axes {
@@ -370,6 +371,45 @@ verify_table_columns_task(
 }
 
 void
+verify_column_groups_task(
+  const Task* task,
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime* rt) {
+
+  testing::TestRecorder<READ_WRITE> recorder(
+    testing::TestLog<READ_WRITE>(
+      task->regions[0].region,
+      regions[0],
+      task->regions[1].region,
+      regions[1],
+      ctx,
+      rt));
+
+  auto [pt, rit, pit] =
+    PhysicalTable::create(
+      rt,
+      task->regions.begin() + 2,
+      task->regions.end(),
+      regions.begin() + 2,
+      regions.end()).value();
+  assert(rit == task->regions.end());
+  assert(pit == regions.end());
+
+  auto prx = std::get<PhysicalRegion>(pt.column("X").value()->values());
+  auto pry = std::get<PhysicalRegion>(pt.column("Y").value()->values());
+  auto prz = std::get<PhysicalRegion>(pt.column("Z").value()->values());
+
+  recorder.expect_true(
+    "Columns X and Y, in a common mapped group, share a PhysicalRegion",
+    TE(prx == pry));
+  recorder.expect_false(
+    "Columns X and Z, in different mapped groups, "
+    "have different PhysicalRegions",
+    TE(prx == prz));
+}
+
+void
 table_test_suite(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
@@ -518,7 +558,32 @@ table_test_suite(
       rt->detach_external_resource(ctx, pr);
     }
   }
-
+  {
+    Column::Requirements reqA = Column::default_requirements;
+    reqA.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
+    reqA.group = 88;
+    Column::Requirements reqB = Column::default_requirements;
+    reqB.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
+    reqB.group = 42;
+    auto reqs = std::get<0>(
+      table0.requirements(
+        ctx,
+        rt,
+        ColumnSpacePartition(),
+        READ_ONLY,
+        {{"X", reqA}, {"Y", reqA}, {"Z", reqB}, {"W", std::nullopt}}));
+    TaskLauncher vcgtask(
+      VERIFY_COLUMN_GROUPS_TASK,
+      TaskArgument(NULL, 0),
+      Predicate::TRUE_PRED,
+      mapper);
+    vcgtask.add_region_requirement(task->regions[0]);
+    vcgtask.add_region_requirement(task->regions[1]);
+    for (auto& r : reqs)
+      vcgtask.add_region_requirement(r);
+    rt->unmap_all_regions(ctx);
+    rt->execute_task(ctx, vcgtask);
+  }
   rt->remap_region(ctx, regions[0]);
   rt->remap_region(ctx, regions[1]);
   recorder.update_position();
@@ -616,6 +681,17 @@ main(int argc, char* argv[]) {
     Runtime::preregister_task_variant<verify_table_columns_task>(
       registrar,
       "verify_table_columns_task");
+  }
+  {
+    TaskVariantRegistrar
+      registrar(VERIFY_COLUMN_GROUPS_TASK, "verify_column_groups_task");
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    DefaultMapper::add_layouts(registrar);
+    registrar.set_idempotent();
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<verify_column_groups_task>(
+      registrar,
+      "verify_column_groups_task");
   }
 
   return driver.start(argc, argv);

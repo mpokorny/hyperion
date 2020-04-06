@@ -81,6 +81,7 @@ struct HYPERION_API Column {
     Req measref;
     Req column_space;
     Legion::MappingTagID tag;
+    unsigned group;
   };
 
   static constexpr const Requirements default_requirements{
@@ -88,7 +89,8 @@ struct HYPERION_API Column {
     Req{READ_ONLY, EXCLUSIVE, true},
     Req{READ_ONLY, EXCLUSIVE, true},
     Req{READ_ONLY, EXCLUSIVE, true},
-    DefaultMapper::LayoutTag::SOA_ROW_MAJOR
+    DefaultMapper::LayoutTag::SOA_ROW_MAJOR,
+    0
   };
 
   static constexpr const Legion::FieldID COLUMN_INDEX_VALUE_FID = 0;

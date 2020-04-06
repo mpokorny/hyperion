@@ -250,7 +250,8 @@ column_reqs(PrivilegeMode privilege) {
     Column::default_requirements.keywords,
     Column::default_requirements.measref,
     Column::default_requirements.column_space,
-    Column::default_requirements.tag};
+    Column::default_requirements.tag,
+    0};
 };
 
 std::tuple<
