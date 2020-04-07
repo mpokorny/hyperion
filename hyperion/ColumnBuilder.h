@@ -53,6 +53,12 @@ struct ColumnArgs {
   IndexTreeL index_tree;
 };
 
+/**
+ * Build a Column from a MeasurementSet column
+ *
+ * Provides a means of creating the arguments required for a Column instance
+ * by scanning a MeasurementSet table column row by row *via* a TableBuilder.
+ */
 template <MSTables D>
 class ColumnBuilder
   : public KeywordsBuilder {
@@ -60,11 +66,14 @@ public:
 
   typedef typename MSTable<D>::Axes AxesT;
 
+  /**
+   * Construct a Column *via* TableBuilder
+   */
   ColumnBuilder(
-    const std::string& name,
-    TypeTag datatype,
-    unsigned fid,
-    const std::vector<AxesT>& axes)
+    const std::string& name, /**< [in] column name */
+    hyperion::TypeTag datatype, /**< [in] column data type */
+    unsigned fid, /**< [in] column values field id */
+    const std::vector<AxesT>& axes /**< [in] column axes */)
     : KeywordsBuilder()
     , m_name(name)
     , m_datatype(datatype)
@@ -78,41 +87,77 @@ public:
 
   virtual ~ColumnBuilder() {}
 
+  /**
+   * Column name
+   */
   const std::string&
   name() const {
     return m_name;
   }
 
-  TypeTag
+  /**
+   * Column data type
+   *
+   * Column data type (as hyperion::TypeTag)
+   */
+  hyperion::TypeTag
   datatype() const {
     return m_datatype;
   }
 
+  /**
+   * Column axes
+   */
   const std::vector<AxesT>&
   axes() const {
     return m_axes;
   }
 
+  /**
+   * Column index space
+   *
+   * Column index space (as IndexTreeL).
+   */
   const IndexTreeL&
   index_tree() const {
     return m_index_tree;
   }
 
+  /**
+   * Column rank
+   */
   unsigned
   rank() const {
     return m_axes.size();
   }
 
+  /**
+   * Number of column rows
+   */
   size_t
   num_rows() const {
     return m_num_rows;
   }
 
+  /**
+   * Is the column empty?
+   *
+   * @return true if and only if the column index space is empty
+   */
   bool
   empty() const {
     return index_tree().size() == 0;
   }
 
+  /**
+   * Column measure
+   *
+   * Values associated with a casacore::Measure that is in the MeasurementSet
+   * column
+   *
+   * @return std::optional of a std::tuple of elements representing a column
+   * measure (including row-based measures)
+   */
   const std::optional<
     std::tuple<
       hyperion::MClass,
@@ -122,6 +167,9 @@ public:
     return m_meas_record;
   }
 
+  /**
+   * Set values for the column measure
+   */
   void
   set_meas_record(
     std::tuple<
@@ -132,9 +180,19 @@ public:
     m_meas_record = std::move(rec);
   }
 
+  /**
+   * Add a row
+   *
+   * @param[in] any The shape of the row element
+   */
   virtual void
   add_row(const std::any&) = 0;
 
+  /**
+   * Construct the ColumnArgs
+   *
+   * Construct the ColumnArgs value needed to, in turn, construct a Column.
+   */
   ColumnArgs
   column(Legion::Context ctx, Legion::Runtime* rt) const {
 
@@ -168,6 +226,13 @@ public:
 
 protected:
 
+  /**
+   * Increase the index space by one row
+   *
+   * Used by add_row() to append one row to the column index space
+   *
+   * @param[in] element_tree IndexTreeL representing the element shape
+   */
   void
   set_next_row(const IndexTreeL& element_tree) {
     auto row_index = m_num_rows++;
@@ -197,6 +262,9 @@ private:
   m_meas_record;
 };
 
+/**
+ * ColumnBuilder for a scalar MS column
+ */
 template <MSTables D>
 class ScalarColumnBuilder
   : public ColumnBuilder<D> {
@@ -206,9 +274,16 @@ public:
     : ColumnBuilder<D>(name, datatype, fid, {MSTable<D>::ROW_AXIS}) {
   }
 
+  /**
+   * Create a ScalarColumnBuilder generator function
+   *
+   *  @return lambda that returns a std::unique_ptr<ScalarColumnBuilder<D>>
+   */
   template <typename T>
   static auto
-  generator(const std::string& name, unsigned fid) {
+  generator(
+    const std::string& name /**< [in] column name */,
+    unsigned fid /**< values field id */) {
     return
       [=]() {
         return
@@ -227,6 +302,9 @@ public:
   }
 };
 
+/**
+ * ColumnBuilder for an array MS column
+ */
 template <MSTables D, int ARRAYDIM>
 class ArrayColumnBuilder
   : public ColumnBuilder<D> {
@@ -248,13 +326,19 @@ public:
 
   virtual ~ArrayColumnBuilder() {}
 
+  /**
+   * Create an ArrayColumnBuilder generator function
+   *
+   *  @return lambda that takes a vector of AxesT, and returns a
+   *  std::unique_ptr<ArrayColumnBuilder<D>>
+   */
   template <typename T>
   static auto
   generator(
-    const std::string& name,
-    unsigned fid,
+    const std::string& name, /**< [in] column name */
+    unsigned fid, /**< [in] column value field id */
     std::function<std::array<size_t, ARRAYDIM>(const std::any&)>
-    element_shape) {
+    element_shape /**< [in] conversion from cell shape to array of sizes */) {
 
     return
       [=](const std::vector<AxesT>& axes) {
@@ -287,8 +371,6 @@ private:
 };
 
 } // end namespace hyperion
-
-#endif // HYPERION_USE_CASACORE
 
 #endif // HYPERION_COLUMN_BUILDER_H_
 

@@ -33,12 +33,26 @@
 
 namespace hyperion {
 
+/**
+ * Logical table column
+ *
+ *  Maintains metadata about the column, including keywords, measures and
+ *  Legion::LogicalRegion name.
+ */
 struct HYPERION_API Column {
 
+  /**
+   * Create an empty Column
+   */
   Column() {}
 
+  /**
+   * Create a Column
+   *
+   * Copies argument values
+   */
   Column(
-    TypeTag dt_,
+    hyperion::TypeTag dt_,
     Legion::FieldID fid_,
 #ifdef HYPERION_USE_CASACORE
     const MeasRef& mr_,
@@ -57,11 +71,19 @@ struct HYPERION_API Column {
   , csp(csp_)
   , vlr(vlr_) {}
 
+  /**
+   * Is Column valid?
+   *
+   * @return true, if and only if the index space for the column is valid
+   */
   bool
   is_valid() const {
     return csp.is_valid();
   }
 
+  /**
+   * Arguments for a region requirement
+   */
   struct Req {
     Legion::PrivilegeMode privilege;
     Legion::CoherenceProperty coherence;
@@ -75,15 +97,23 @@ struct HYPERION_API Column {
     }
   };
 
+  /**
+   * Arguments for all region requirements
+   *
+   * Includes all regions referenced by the Column, as well as mapper arguments
+   */
   struct Requirements {
-    Req values;
-    Req keywords;
-    Req measref;
-    Req column_space;
-    Legion::MappingTagID tag;
-    unsigned group;
+    Req values; /**< values region */
+    Req keywords; /**< keywords regions */
+    Req measref; /**< measref regions */
+    Req column_space; /**< column space region */
+    Legion::MappingTagID tag; /**< values region mapping tag */
+    unsigned group; /**< values regions mapping group id */
   };
 
+  /**
+   * Default Requirements
+   */
   static constexpr const Requirements default_requirements{
     Req{READ_ONLY, EXCLUSIVE, false},
     Req{READ_ONLY, EXCLUSIVE, true},
@@ -93,31 +123,49 @@ struct HYPERION_API Column {
     0
   };
 
+  /**
+   * Column index value field id
+   */
   static constexpr const Legion::FieldID COLUMN_INDEX_VALUE_FID = 0;
+
+  /**
+   * Column index rows field id
+   */
   static constexpr const Legion::FieldID COLUMN_INDEX_ROWS_FID = 1;
   typedef std::vector<Legion::DomainPoint> COLUMN_INDEX_ROWS_TYPE;
 
+  /**
+   * Create a column index Legion::LogicalRegion
+   */
   Legion::LogicalRegion
   create_index(Legion::Context ctx, Legion::Runtime* rt) const;
 
+  /**
+   * Register (indexing) tasks
+   *
+   * Must be called be Legion runtime starts
+   */
   static void
   preregister_tasks();
 
-  TypeTag dt;
-  Legion::FieldID fid;
+  hyperion::TypeTag dt; /**< value data type (as hyperion::TypeTag)*/
+  Legion::FieldID fid; /**< value Legion::FieldID */
 #ifdef HYPERION_USE_CASACORE
-  MeasRef mr;
-  std::optional<hyperion::string> rc;
+  MeasRef mr; /**< column MeasRef */
+  std::optional<hyperion::string> rc; /**< measure reference column name */
 #endif
-  Keywords kw;
-  ColumnSpace csp;
-  Legion::LogicalRegion vlr;
+  Keywords kw; /**< column keywords */
+  ColumnSpace csp; /**< column ColumnSpace */
+  Legion::LogicalRegion vlr; /**< column values region */
 
 // protected:
 
 //   friend class Legion::LegionTaskWrapper;
 
-  template <TypeTag DT>
+  /**
+   * Task to compute a column index
+   */
+  template <hyperion::TypeTag DT>
   static acc_field_redop_rhs<typename DataType<DT>::ValueType>
   index_accumulate_task(
     const Legion::Task* task,
@@ -125,8 +173,14 @@ struct HYPERION_API Column {
     Legion::Context,
     Legion::Runtime* rt);
 
+  /**
+   * Legion::TaskIDs for typed index_accumulate_task<DT>
+   */
   static Legion::TaskID index_accumulate_task_id[HYPERION_NUM_TYPE_TAGS];
 
+  /**
+   * Names of typed index_accumulate_task<DT>
+   */
   static std::string index_accumulate_task_name[HYPERION_NUM_TYPE_TAGS];
 
 private:

@@ -25,6 +25,11 @@
 #define HYPERION_API __attribute__((visibility("default")))
 #define HYPERION_LOCAL __attribute__((visibility("hidden")))
 
+/**
+ * \namespace hyperion
+ * \brief Top-level hyperion namespace
+ *
+ */
 #endif // HYPERION_HYPERION_H_
 
 // Local Variables:
