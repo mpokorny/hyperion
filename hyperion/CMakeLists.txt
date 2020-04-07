@@ -122,7 +122,6 @@ list(APPEND HYPERION_SRC
   Column.cc
   # Column_c.cc
   # Column_c.h
-  ColumnBuilder.h
   ColumnSpace.h
   ColumnSpace.cc
   ColumnSpacePartition.h
@@ -158,6 +157,7 @@ list(APPEND HYPERION_SRC
 
 if(USE_CASACORE)
   list(APPEND HYPERION_SRC
+    ColumnBuilder.h
     TableBuilder.h
     TableBuilder.cc
     TableReadTask.cc

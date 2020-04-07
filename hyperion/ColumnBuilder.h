@@ -17,30 +17,34 @@
 #define HYPERION_COLUMN_BUILDER_H_
 
 #include <hyperion/hyperion.h>
-# include <hyperion/IndexTree.h>
-# include <hyperion/TableField.h>
-#ifdef HYPERION_USE_CASACORE
-# include <hyperion/utility.h>
-# include <hyperion/KeywordsBuilder.h>
-# include <hyperion/MSTable.h>
-# include <hyperion/MeasRef.h>
+#include <hyperion/utility.h>
+#include <hyperion/IndexTree.h>
+#include <hyperion/TableField.h>
+#include <hyperion/KeywordsBuilder.h>
+#include <hyperion/MSTable.h>
+#include <hyperion/MeasRef.h>
 
-# pragma GCC visibility push(default)
-#  include <any>
-#  include <cassert>
-#  include <functional>
-#  include <memory>
-#  include <numeric>
-#  include <optional>
-#  include <vector>
-# pragma GCC visibility pop
+#pragma GCC visibility push(default)
+# include <any>
+# include <cassert>
+# include <functional>
+# include <memory>
+# include <numeric>
+# include <optional>
+# include <vector>
+#pragma GCC visibility pop
 
-# include <casacore/casa/BasicSL/String.h>
-# include <casacore/casa/Containers/Record.h>
-# include <casacore/measures/Measures/MeasureHolder.h>
+#include <casacore/casa/BasicSL/String.h>
+#include <casacore/casa/Containers/Record.h>
+#include <casacore/measures/Measures/MeasureHolder.h>
 
 namespace hyperion {
 
+/**
+ *  Values sufficient for constructing a Column.
+ *
+ *  Returned from ColumnBuilder::column()
+ */
 struct ColumnArgs {
   std::string name;
   TableField tf;
@@ -153,12 +157,9 @@ public:
       TableField(
         datatype(),
         m_fid,
-        Keywords::create(ctx, rt, keywords())
-#ifdef HYPERION_USE_CASACORE
-        , mr
-        , ref_column
-#endif
-        ),
+        Keywords::create(ctx, rt, keywords()),
+        mr,
+        ref_column),
       Axes<AxesT>::uid,
       map_to_int(axes()),
       itree
