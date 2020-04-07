@@ -10,7 +10,7 @@ env:
 compiler:
   - gcc
 before_install:
-  - sudo apt-get install -y git-lfs gfortran libhdf5-dev libhdf5-100 flex bison liblapack-dev casacore-dev casacore-data
+  - sudo apt-get install -y git-lfs gfortran libhdf5-dev libhdf5-100 flex bison liblapack-dev casacore-dev casacore-data doxygen
 install:
   - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
   - mkdir -p ${DEPS_DIR} && cd ${DEPS_DIR}
