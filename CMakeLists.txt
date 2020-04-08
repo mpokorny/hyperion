@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(GNUInstallDirs)
 
 find_package(ZLIB REQUIRED)
-find_package(Casacore COMPONENTS measures)
+find_package(Casacore COMPONENTS ms)
 find_package(HDF5 QUIET)
 find_package(yaml-cpp QUIET)
 
