@@ -368,6 +368,18 @@ HYPERION_API std::unordered_map<
       std::unordered_map<std::string, std::string>>>
 all_table_fields(Legion::Context ctx, Legion::Runtime* rt, hid_t loc_id);
 
+HYPERION_API std::unordered_map<std::string, std::string>
+get_table_column_paths(
+  hid_t file_id,
+  const std::string& table_path,
+  const std::unordered_set<std::string>& columns);
+
+HYPERION_API std::unordered_map<std::string, std::string>
+get_table_column_paths(
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
+  const std::string& table_path,
+  const std::unordered_set<std::string>& columns);
+
 HYPERION_API Legion::PhysicalRegion
 attach_keywords(
   Legion::Context context,

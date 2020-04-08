@@ -316,13 +316,13 @@ create_h5_task(
           H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
     hdf5::write_table(rt, table_grp_id, tables[i]);
     CHECK_H5(H5Gclose(table_grp_id));
-    // FIXME: don't guess at HDF5 column value paths
-    std::string tpath = std::string("/") + names[i].val + "/";
-    for (auto& [cname, pc] : tables[i].columns()) {
-      if (pc->fid() != Table::no_column)
-        cmap[cname] = tpath + cname + "/hyperion:col"; // <<< HERE
-    }
-    column_maps.push_back(cmap);
+    auto cols = tables[i].columns();
+    std::unordered_set<std::string> cnames;
+    for (auto& [cname, pc] : cols)
+      cnames.insert(cname);
+    std::string tpath = std::string("/") + names[i].val;
+    column_maps.push_back(
+      hdf5::get_table_column_paths(file_id, tpath, cnames));
   }
   CHECK_H5(H5Gclose(root_grp_id));
   CHECK_H5(H5Fclose(file_id));

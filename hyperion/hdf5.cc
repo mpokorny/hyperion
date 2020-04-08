@@ -1952,6 +1952,47 @@ hyperion::hdf5::all_table_fields(Context ctx, Runtime* rt, hid_t loc_id) {
   return acc_all_tflds.acc;
 }
 
+std::unordered_map<std::string, std::string>
+hyperion::hdf5::get_table_column_paths(
+  hid_t file_id,
+  const std::string& table_path,
+  const std::unordered_set<std::string>& columns) {
+
+  std::unordered_map<std::string, std::string> result;
+  htri_t table_exists =
+    CHECK_H5(H5Lexists(file_id, table_path.c_str(), H5P_DEFAULT));
+  if (table_exists > 0) {
+    for (auto& col : columns) {
+      auto col_path = table_path + "/" + col;
+      htri_t col_exists =
+        CHECK_H5(H5Lexists(file_id, col_path.c_str(), H5P_DEFAULT));
+      if (col_exists > 0) {
+        auto col_ds_path = col_path + "/" + HYPERION_COLUMN_DS;
+        htri_t col_ds_exists =
+          CHECK_H5(H5Lexists(file_id, col_ds_path.c_str(), H5P_DEFAULT));
+        if (col_ds_exists > 0)
+          result[col] = col_ds_path;
+      }
+    }
+  }
+  return result;
+}
+
+std::unordered_map<std::string, std::string>
+hyperion::hdf5::get_table_column_paths(
+  const CXX_FILESYSTEM_NAMESPACE::path& file_path,
+  const std::string& table_path,
+  const std::unordered_set<std::string>& columns) {
+
+  std::unordered_map<std::string, std::string> result;
+  hid_t file_id = H5Fopen(file_path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+  if (file_id >= 0) {
+    result = get_table_column_paths(file_id, table_path, columns);
+    CHECK_H5(H5Fclose(file_id));
+  }
+  return result;
+}
+
 PhysicalRegion
 hyperion::hdf5::attach_keywords(
   Context ctx,
