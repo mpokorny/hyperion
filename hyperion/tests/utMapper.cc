@@ -359,24 +359,25 @@ mapper_test_suite(
   Column::Requirements aos_rm_creqs = Column::default_requirements;
   aos_rm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
   aos_rm_creqs.tag = DefaultMapper::LayoutTag::AOS_ROW_MAJOR;
-  auto [reqs, parts] =
-    tb.requirements(
-      ctx,
-      rt,
-      ColumnSpacePartition(),
-      READ_ONLY,
-      {{"c0", soa_rm_creqs},
-       {"c1", soa_rm_creqs},
+  auto reqs =
+    std::get<0>(
+      tb.requirements(
+        ctx,
+        rt,
+        ColumnSpacePartition(),
+        READ_ONLY,
+        {{"c0", soa_rm_creqs},
+         {"c1", soa_rm_creqs},
 
-       {"c2", soa_cm_creqs},
-       {"c3", soa_cm_creqs},
+         {"c2", soa_cm_creqs},
+         {"c3", soa_cm_creqs},
 
-       {"c4", aos_cm_creqs},
-       {"c5", aos_cm_creqs},
+         {"c4", aos_cm_creqs},
+         {"c5", aos_cm_creqs},
 
-       {"c6", aos_rm_creqs},
-       {"c7", aos_rm_creqs},
-       {"foo", std::nullopt}});
+         {"c6", aos_rm_creqs},
+         {"c7", aos_rm_creqs},
+         {"foo", std::nullopt}}));
   TaskLauncher verify(
     VERIFY_LAYOUTS_TASK,
     TaskArgument(NULL, 0),
