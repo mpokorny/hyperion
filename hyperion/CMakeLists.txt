@@ -189,7 +189,7 @@ add_library(hyperion SHARED ${HYPERION_SRC})
 set(hyperion_COMPILE_DEFINITIONS "")
 if(USE_HDF5)
   list(APPEND
-    hyperion_COMPILE_DEFINITIONS "H5_NO_DEPRECATED_SYMBOLS")
+    hyperion_COMPILE_DEFINITIONS "H5_USE_110_API")
 endif()
 
 list(APPEND
