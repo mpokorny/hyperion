@@ -855,9 +855,11 @@ void
 MeasRef::destroy(Context ctx, Runtime* rt) {
   for (auto&lr : {&metadata_lr, &values_lr, &index_lr}) {
     if (*lr != LogicalRegion::NO_REGION) {
-      rt->destroy_field_space(ctx, lr->get_field_space());
-      rt->destroy_index_space(ctx, lr->get_index_space());
+      auto fs = lr->get_field_space();
+      auto is = lr->get_index_space();
       rt->destroy_logical_region(ctx, *lr);
+      rt->destroy_field_space(ctx, fs);
+      rt->destroy_index_space(ctx, is);
       *lr = LogicalRegion::NO_REGION;
     }
   }

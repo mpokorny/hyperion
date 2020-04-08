@@ -236,9 +236,11 @@ index_column_task_test_suite(
           rt->unmap_region(ctx, pr);
           return result;
         }));
-    rt->destroy_index_space(ctx, cx.get_index_space());
-    rt->destroy_field_space(ctx, cx.get_field_space());
+    auto is = cx.get_index_space();
+    auto fs = cx.get_field_space();
     rt->destroy_logical_region(ctx, cx);
+    rt->destroy_field_space(ctx, fs);
+    rt->destroy_index_space(ctx, is);
   }
   {
     auto cy = fy.get_result<LogicalRegion>();
@@ -291,9 +293,11 @@ index_column_task_test_suite(
           rt->unmap_region(ctx, pr);
           return result;
         }));
-    rt->destroy_index_space(ctx, cy.get_index_space());
-    rt->destroy_field_space(ctx, cy.get_field_space());
+    auto is = cy.get_index_space();
+    auto fs = cy.get_field_space();
     rt->destroy_logical_region(ctx, cy);
+    rt->destroy_field_space(ctx, fs);
+    rt->destroy_index_space(ctx, is);
   }
   rt->detach_external_resource(ctx, col_x);
   rt->detach_external_resource(ctx, col_y);

@@ -188,9 +188,11 @@ ColumnSpace::destroy(Context ctx, Runtime* rt, bool destroy_index_space) {
   if (metadata_lr != LogicalRegion::NO_REGION) {
     if (destroy_index_space && column_is != IndexSpace::NO_SPACE)
       rt->destroy_index_space(ctx, column_is);
-    rt->destroy_index_space(ctx, metadata_lr.get_index_space());
-    rt->destroy_field_space(ctx, metadata_lr.get_field_space());
+    auto is = metadata_lr.get_index_space();
+    auto fs = metadata_lr.get_field_space();
     rt->destroy_logical_region(ctx, metadata_lr);
+    rt->destroy_index_space(ctx, is);
+    rt->destroy_field_space(ctx, fs);
     metadata_lr = LogicalRegion::NO_REGION;
   }
 }

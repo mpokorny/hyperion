@@ -658,9 +658,11 @@ public:
     for (auto& t : tables)
       t.destroy(ctx, rt);
 
-    rt->destroy_field_space(ctx, table_info_lr.get_field_space());
-    rt->destroy_index_space(ctx, table_info_lr.get_index_space());
+    auto fs = table_info_lr.get_field_space();
+    auto is = table_info_lr.get_index_space();
     rt->destroy_logical_region(ctx, table_info_lr);
+    rt->destroy_field_space(ctx, fs);
+    rt->destroy_index_space(ctx, is);
   }
 
   static void

@@ -215,12 +215,15 @@ void
 Keywords::destroy(Context ctx, Runtime* rt) {
   if (type_tags_lr != LogicalRegion::NO_REGION) {
     assert(values_lr != LogicalRegion::NO_REGION);
-    rt->destroy_field_space(ctx, type_tags_lr.get_field_space());
-    rt->destroy_field_space(ctx, values_lr.get_field_space());
+    auto tt_fs = type_tags_lr.get_field_space();
+    auto v_fs = values_lr.get_field_space();
     // type_tags and values share one IndexSpace
-    rt->destroy_index_space(ctx, type_tags_lr.get_index_space());
+    auto is = type_tags_lr.get_index_space();
     rt->destroy_logical_region(ctx, type_tags_lr);
     rt->destroy_logical_region(ctx, values_lr);
+    rt->destroy_field_space(ctx, tt_fs);
+    rt->destroy_field_space(ctx, v_fs);
+    rt->destroy_index_space(ctx, is);
     type_tags_lr = LogicalRegion::NO_REGION;
     values_lr = LogicalRegion::NO_REGION;
   }

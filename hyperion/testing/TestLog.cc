@@ -86,9 +86,6 @@ TestLogReference::TestLogReference(
       ::new(fails.ptr(*pid)) std::string;
     }
     runtime->unmap_region(context, pr);
-
-    // runtime->destroy_field_space(context, fs);
-    // runtime->destroy_index_space(context, is);
   }
 
   {
@@ -108,9 +105,6 @@ TestLogReference::TestLogReference(
       m_abort_state_handle,
       0,
       false);
-
-    // runtime->destroy_field_space(context, fs);
-    // runtime->destroy_index_space(context, is);
   }
 }
 
@@ -126,8 +120,20 @@ TestLogReference::TestLogReference(
 
 TestLogReference::~TestLogReference() {
   if (m_own_regions) {
-    m_runtime->destroy_logical_region(m_context, m_log_handle);
-    m_runtime->destroy_logical_region(m_context, m_abort_state_handle);
+    {
+      auto fs = m_log_handle.get_field_space();
+      auto is = m_log_handle.get_index_space();
+      m_runtime->destroy_logical_region(m_context, m_log_handle);
+      m_runtime->destroy_index_space(m_context, is);
+      m_runtime->destroy_field_space(m_context, fs);
+    }
+    {
+      auto fs = m_abort_state_handle.get_field_space();
+      auto is = m_abort_state_handle.get_index_space();
+      m_runtime->destroy_logical_region(m_context, m_abort_state_handle);
+      m_runtime->destroy_index_space(m_context, is);
+      m_runtime->destroy_field_space(m_context, fs);
+    }
   }
 }
 

@@ -1697,8 +1697,9 @@ Table::remove_columns(
       if (fids.size() == 0) {
         if (destroy_orphan_column_spaces)
           csp.destroy(ctx, rt, true);
-        rt->destroy_field_space(ctx, vlr.get_field_space());
+        auto fs = vlr.get_field_space();
         rt->destroy_logical_region(ctx, vlr);
+        rt->destroy_field_space(ctx, fs);
       }
     }
   }
@@ -1751,8 +1752,9 @@ Table::destroy(
       if (vss_pid != LogicalRegion::NO_REGION
           && destroyed_vlr.count(vss_pid) == 0) {
         destroyed_vlr.insert(vss_pid);
-        rt->destroy_field_space(ctx, vss_pid.get_field_space());
+        auto fs = vss_pid.get_field_space();
         rt->destroy_logical_region(ctx, vss_pid);
+        rt->destroy_field_space(ctx, fs);
       }
       if (destroy_column_space_components
           && destroyed_cs.count(css_pid) == 0) {
@@ -1762,9 +1764,11 @@ Table::destroy(
     }
     rt->unmap_region(ctx, fields_pr);
 
-    rt->destroy_index_space(ctx, fields_lr.get_index_space());
-    rt->destroy_field_space(ctx, fields_lr.get_field_space());
+    auto is = fields_lr.get_index_space();
+    auto fs = fields_lr.get_field_space();
     rt->destroy_logical_region(ctx, fields_lr);
+    rt->destroy_field_space(ctx, fs);
+    rt->destroy_index_space(ctx, is);
     fields_lr = LogicalRegion::NO_REGION;
   }
 }
@@ -2636,18 +2640,20 @@ Table::reindexed(
 #pragma GCC diagnostic pop
     auto& [lr, pr] = lr_pr;
     rt->unmap_region(ctx, pr);
-    rt->destroy_field_space(ctx, lr.get_field_space());
+    auto fs = lr.get_field_space();
     // DON'T do this: rt->destroy_index_space(ctx, lr.get_index_space());
     rt->destroy_logical_region(ctx, lr);
+    rt->destroy_field_space(ctx, fs);
   }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [csp, rcsp_rlr] : reindexed) {
     auto& [rcsp, rlr] = rcsp_rlr;
 #pragma GCC diagnostic pop
-    rt->destroy_field_space(ctx, rlr.get_field_space());
+    auto fs = rlr.get_field_space();
     // DON'T destroy index space
     rt->destroy_logical_region(ctx, rlr);
+    rt->destroy_field_space(ctx, fs);
   }
   return result_tbl.fields_lr;
 }
