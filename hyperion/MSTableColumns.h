@@ -91,6 +91,8 @@ const std::array<const char*, 0> MSTableColumns<T>::column_names;
     static constexpr Legion::FieldID fid(col_t c) {                     \
       return c + MS_##T##_COL_FID_BASE;                                 \
     }                                                                   \
+    static constexpr Legion::FieldID user_fid_base =                    \
+      MS_##T##_COL_USER_FID_BASE;                                       \
     static const std::unordered_map<col_t, const char*> units;          \
     static const std::map<col_t, const char*> measure_names;            \
     static std::optional<col_t>                                         \
