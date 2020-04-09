@@ -348,51 +348,14 @@ table_test_suite(
       w_is,
       false);
 
-#ifdef HYPERION_USE_CASACORE
-  casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
-  casacore::MeasRef<casacore::MDirection>
-    direction(casacore::MDirection::J2000);
   std::vector<std::pair<std::string, TableField>> xyz_fields{
-    {"X",
-     TableField(
-       HYPERION_TYPE_UINT,
-       COL_X,
-       Keywords(),
-       MeasRef(),
-       std::nullopt)},
-    {"Y",
-     TableField(
-       HYPERION_TYPE_UINT,
-       COL_Y,
-       Keywords(),
-       MeasRef(),
-       std::nullopt)},
-    {"Z",
-     TableField(
-       HYPERION_TYPE_UINT,
-       COL_Z,
-       Keywords(),
-       MeasRef(),
-       std::nullopt)}
+    {"X", TableField(HYPERION_TYPE_UINT, COL_X)},
+    {"Y", TableField(HYPERION_TYPE_UINT, COL_Y)},
+    {"Z", TableField(HYPERION_TYPE_UINT, COL_Z)}
   };
   std::vector<std::pair<std::string, TableField>> w_fields{
-    {"W",
-     TableField(HYPERION_TYPE_UINT, COL_W, Keywords(), MeasRef(), std::nullopt)}
+    {"W", TableField(HYPERION_TYPE_UINT, COL_W)}
   };
-#else
-  std::vector<std::pair<std::string, TableField>> xyz_fields{
-    {"X",
-     TableField(HYPERION_TYPE_UINT, COL_X, Keywords())},
-    {"Y",
-     TableField(HYPERION_TYPE_UINT, COL_Y, Keywords())},
-    {"Z",
-     TableField(HYPERION_TYPE_UINT, COL_Z, Keywords())}
-  };
-  std::vector<std::pair<std::string, TableField>> w_fields{
-    {"W",
-     TableField(HYPERION_TYPE_UINT, COL_W, Keywords())}
-  };
-#endif
 
   auto table0 =
     Table::create(

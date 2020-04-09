@@ -484,24 +484,16 @@ table_test_suite(
        MeasRef::create(ctx, rt, utc),
        std::nullopt)}
   };
-  std::vector<std::pair<std::string, TableField>> w_fields{
-    {"W",
-     TableField(HYPERION_TYPE_UINT, COL_W, Keywords(), MeasRef(), std::nullopt)}
-  };
 #else
   std::vector<std::pair<std::string, TableField>> xyz_fields{
-    {"X",
-     TableField(HYPERION_TYPE_UINT, COL_X, Keywords())},
-    {"Y",
-     TableField(HYPERION_TYPE_UINT, COL_Y, Keywords())},
-    {"Z",
-     TableField(HYPERION_TYPE_UINT, COL_Z, Keywords())}
-  };
-  std::vector<std::pair<std::string, TableField>> w_fields{
-    {"W",
-     TableField(HYPERION_TYPE_UINT, COL_W, Keywords())}
+    {"X", TableField(HYPERION_TYPE_UINT, COL_X)},
+    {"Y", TableField(HYPERION_TYPE_UINT, COL_Y)},
+    {"Z", TableField(HYPERION_TYPE_UINT, COL_Z)}
   };
 #endif
+  std::vector<std::pair<std::string, TableField>> w_fields{
+    {"W", TableField(HYPERION_TYPE_UINT, COL_W)}
+  };
 
   auto table0 =
     Table::create(

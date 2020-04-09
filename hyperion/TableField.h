@@ -36,10 +36,10 @@ struct HYPERION_API TableField {
   TableField(
     TypeTag dt_,
     Legion::FieldID fid_,
-    const Keywords& kw_
+    const Keywords& kw_ = Keywords()
 #ifdef HYPERION_USE_CASACORE
-    , const MeasRef& mr_
-    , const std::optional<hyperion::string>& rc_
+    , const MeasRef& mr_ = MeasRef()
+    , const std::optional<hyperion::string>& rc_ = std::nullopt
 #endif
     )
   : dt(dt_)

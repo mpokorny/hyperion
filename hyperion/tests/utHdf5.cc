@@ -372,11 +372,11 @@ table_tests(
   };
 #else
   std::vector<std::pair<std::string, TableField>> xy_fields{
-    {"X", TableField(HYPERION_TYPE_UINT, COL_X, Keywords())},
-    {"Y", TableField(HYPERION_TYPE_UINT, COL_Y, Keywords())}
+    {"X", TableField(HYPERION_TYPE_UINT, COL_X)},
+    {"Y", TableField(HYPERION_TYPE_UINT, COL_Y)}
   };
   std::vector<std::pair<std::string, TableField>> z_fields{
-    {"Z", TableField(HYPERION_TYPE_UINT, COL_Z, Keywords())}
+    {"Z", TableField(HYPERION_TYPE_UINT, COL_Z)}
   };
 #endif
 

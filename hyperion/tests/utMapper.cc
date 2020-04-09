@@ -308,30 +308,14 @@ mapper_test_suite(
       is2,
       false);
   std::vector<std::pair<std::string, TableField>> tfs2{
-    {"c0",
-     TableField(
-       HYPERION_TYPE_UINT, COL_C0, Keywords(), MeasRef(), std::nullopt)},
-    {"c1",
-     TableField(
-       HYPERION_TYPE_UINT, COL_C1, Keywords(), MeasRef(), std::nullopt)},
-    {"c2",
-     TableField(
-       HYPERION_TYPE_UINT, COL_C2, Keywords(), MeasRef(), std::nullopt)},
-    {"c3",
-     TableField(
-       HYPERION_TYPE_UINT, COL_C3, Keywords(), MeasRef(), std::nullopt)},
-    {"c4",
-     TableField(
-       HYPERION_TYPE_UINT, COL_C4, Keywords(), MeasRef(), std::nullopt)},
-    {"c5",
-     TableField(
-       HYPERION_TYPE_UINT, COL_C5, Keywords(), MeasRef(), std::nullopt)},
-    {"c6",
-     TableField(
-       HYPERION_TYPE_UINT, COL_C6, Keywords(), MeasRef(), std::nullopt)},
-    {"c7",
-     TableField(
-       HYPERION_TYPE_UINT, COL_C7, Keywords(), MeasRef(), std::nullopt)}};
+    {"c0", TableField(HYPERION_TYPE_UINT, COL_C0)},
+    {"c1", TableField(HYPERION_TYPE_UINT, COL_C1)},
+    {"c2", TableField(HYPERION_TYPE_UINT, COL_C2)},
+    {"c3", TableField(HYPERION_TYPE_UINT, COL_C3)},
+    {"c4", TableField(HYPERION_TYPE_UINT, COL_C4)},
+    {"c5", TableField(HYPERION_TYPE_UINT, COL_C5)},
+    {"c6", TableField(HYPERION_TYPE_UINT, COL_C6)},
+    {"c7", TableField(HYPERION_TYPE_UINT, COL_C7)}};
   // add a dummy column for the A0 axis only (the index axis)
   IndexSpace is1 = rt->create_index_space(ctx, Rect<1>(0, nx - 1));
   ColumnSpace cs1 =
@@ -342,9 +326,7 @@ mapper_test_suite(
       is1,
       false);
   std::vector<std::pair<std::string, TableField>> tfs1{
-    {"foo",
-     TableField(
-       HYPERION_TYPE_UINT, COL_FOO, Keywords(), MeasRef(), std::nullopt)}};
+    {"foo", TableField(HYPERION_TYPE_UINT, COL_FOO)}};
 
   Table tb = Table::create(ctx, rt, {{cs1, true, tfs1}, {cs2, false, tfs2}});
   Column::Requirements soa_rm_creqs = Column::default_requirements;
