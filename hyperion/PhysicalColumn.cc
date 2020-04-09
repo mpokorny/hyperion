@@ -52,8 +52,14 @@ PhysicalColumn::column() const {
     map(m_refcol, [](const auto& nm_pc){ return std::get<0>(nm_pc); }),
 #endif
     kws,
-    ColumnSpace(m_parent.get_index_space(), m_metadata.get_logical_region()),
+    column_space(),
     m_parent);
+}
+
+ColumnSpace
+PhysicalColumn::column_space() const {
+  return
+    ColumnSpace(m_parent.get_index_space(), m_metadata.get_logical_region());
 }
 
 ColumnSpace::AXIS_VECTOR_TYPE

@@ -224,6 +224,9 @@ public:
   Column
   column() const;
 
+  ColumnSpace
+  column_space() const;
+
   ColumnSpace::AXIS_VECTOR_TYPE
   axes() const;
 
