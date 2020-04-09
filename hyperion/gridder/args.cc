@@ -37,6 +37,8 @@ read_config(const YAML::Node& config) {
       args.min_block = val;
     else if (key == args.pa_step.tag)
       args.pa_step = val;
+    else if (key == args.pa_min_block.tag)
+      args.pa_min_block = val;
     else if (key == args.w_planes.tag)
       args.w_planes = val;
     else
@@ -92,6 +94,8 @@ load_config(
             gridder_args.min_block = args.min_block.value();
           if (args.pa_step)
             gridder_args.pa_step = args.pa_step.value();
+          if (args.pa_min_block)
+            gridder_args.pa_min_block = args.pa_min_block.value();
           if (args.w_planes)
             gridder_args.w_planes = args.w_planes.value();
         }
@@ -121,6 +125,7 @@ hyperion::gridder::as_args(YAML::Node&& node) {
   size_t min_block = node[ArgsBase::min_block_tag].as<size_t>();
   PARALLACTIC_ANGLE_TYPE pa_step =
     node[ArgsBase::pa_step_tag].as<PARALLACTIC_ANGLE_TYPE>();
+  size_t pa_min_block = node[ArgsBase::pa_min_block_tag].as<size_t>();
   int w_planes = node[ArgsBase::w_planes_tag].as<int>();
   return
     Args<VALUE_ARGS>(
@@ -129,6 +134,7 @@ hyperion::gridder::as_args(YAML::Node&& node) {
       echo,
       min_block,
       pa_step,
+      pa_min_block,
       w_planes);
 }
 
@@ -233,6 +239,8 @@ hyperion::gridder::get_args(
         gridder_args.h5_path = val;
       else if (match == gridder_args.pa_step.tag)
         gridder_args.pa_step = val;
+      else if (match == gridder_args.pa_min_block.tag)
+        gridder_args.pa_min_block = val;
       else if (match == gridder_args.w_planes.tag)
         gridder_args.w_planes = val;
       else if (match == gridder_args.min_block.tag)
@@ -278,6 +286,12 @@ hyperion::gridder::validate_args(const Args<VALUE_ARGS>& args) {
     arg_error(errs, args.pa_step, "invalid");
     break;
   }
+
+  if (args.pa_min_block.value() == INVALID_MIN_BLOCK_SIZE_VALUE)
+    arg_error(
+      errs,
+      args.pa_min_block,
+      "invalid, value must be at least one");
 
   if (args.w_planes.value() <= INVALID_W_PROJ_PLANES_VALUE)
     arg_error(

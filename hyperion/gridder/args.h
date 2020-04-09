@@ -273,6 +273,7 @@ struct ArgsBase {
   static const constexpr char* echo_tag = "echo";
   static const constexpr char* min_block_tag = "min_block";
   static const constexpr char* pa_step_tag = "pa_step";
+  static const constexpr char* pa_min_block_tag = "pa_min_block";
   static const constexpr char* w_planes_tag = "w_proj_planes";
 
   static const std::vector<std::string>&
@@ -283,6 +284,7 @@ struct ArgsBase {
       echo_tag,
       min_block_tag,
       pa_step_tag,
+      pa_min_block_tag,
       w_planes_tag
     };
     return result;
@@ -297,6 +299,7 @@ struct Args
   ArgType<bool, false, &echo_tag, G> echo;
   ArgType<size_t, false, &min_block_tag, G> min_block;
   ArgType<PARALLACTIC_ANGLE_TYPE, false, &pa_step_tag, G> pa_step;
+  ArgType<size_t, false, &pa_min_block_tag, G> pa_min_block;
   ArgType<int, false, &w_planes_tag, G> w_planes;
 
   Args() {}
@@ -307,6 +310,7 @@ struct Args
     const typename decltype(echo)::type& echo_,
     const typename decltype(min_block)::type& min_block_,
     const typename decltype(pa_step)::type& pa_step_,
+    const typename decltype(pa_min_block)::type& pa_min_block_,
     const typename decltype(w_planes)::type& w_planes_) {
 
     h5_path = h5_path_;
@@ -314,6 +318,7 @@ struct Args
     echo = echo_;
     min_block = min_block_;
     pa_step = pa_step_;
+    pa_min_block = pa_min_block_;
     w_planes = w_planes_;
   }
 
@@ -324,6 +329,7 @@ struct Args
       && echo
       && min_block
       && pa_step
+      && pa_min_block
       && w_planes;
   }
 
@@ -340,6 +346,7 @@ struct Args
           echo.value(),
           min_block.value(),
           pa_step.value(),
+          pa_min_block.value(),
           w_planes.value());
     return result;
   }
@@ -357,6 +364,8 @@ struct Args
       result[min_block.tag] = min_block.value();
     if (pa_step)
       result[pa_step.tag] = pa_step.value();
+    if (pa_min_block)
+      result[pa_min_block.tag] = pa_min_block.value();
     if (w_planes)
       result[w_planes.tag] = w_planes.value();
     return result;
