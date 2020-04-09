@@ -328,7 +328,8 @@ PhysicalTable::requirements(
   PrivilegeMode table_privilege,
   const std::map<std::string, std::optional<Column::Requirements>>&
     column_requirements,
-  const Column::Requirements& default_column_requirements) const {
+  const std::optional<Column::Requirements>&
+    default_column_requirements) const {
 
   std::unordered_map<std::string, LogicalRegion> column_parents;
   for (auto& [nm, ppc] : m_columns)

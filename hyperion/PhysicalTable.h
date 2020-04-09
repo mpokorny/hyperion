@@ -101,7 +101,7 @@ public:
     Legion::PrivilegeMode table_privilege = READ_ONLY,
     const std::map<std::string, std::optional<Column::Requirements>>&
       column_requirements = {},
-    const Column::Requirements& default_column_requirements =
+    const std::optional<Column::Requirements>& default_column_requirements =
       Column::default_requirements) const;
 
   const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&

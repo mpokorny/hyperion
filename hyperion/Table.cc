@@ -590,7 +590,8 @@ Table::requirements(
   PrivilegeMode table_privilege,
   const std::map<std::string, std::optional<Column::Requirements>>&
     column_requirements,
-  const Column::Requirements& default_column_requirements) const {
+  const std::optional<Column::Requirements>&
+    default_column_requirements) const {
 
   auto fields_pr =
     rt->map_region(
@@ -626,8 +627,9 @@ Table::requirements(
   const ColumnSpacePartition& table_partition,
   PrivilegeMode table_privilege,
   const std::map<std::string, std::optional<Column::Requirements>>&
-      column_requirements,
-  const Column::Requirements& default_column_requirements) {
+    column_requirements,
+  const std::optional<Column::Requirements>&
+    default_column_requirements) {
 
   const NameAccessor<READ_ONLY>
     nms(fields_pr, static_cast<FieldID>(TableFieldsFid::NM));
@@ -696,10 +698,15 @@ Table::requirements(
       auto vfs_pid = vfs.read(*pid);
       auto nms_pid = nms.read(*pid);
       if (vfs_pid == no_column
-          || column_requirements.count(nms_pid) == 0
-          || column_requirements.at(nms_pid)) {
+          || (default_column_requirements
+              && (column_requirements.count(nms_pid) == 0
+                  || column_requirements.at(nms_pid)))
+          || (!default_column_requirements
+              && (column_requirements.count(nms_pid) > 0
+                  && column_requirements.at(nms_pid)))) {
         assert((vfs_pid == no_column) == (nms_pid.size() == 0));
-        Column::Requirements colreqs = default_column_requirements;
+        Column::Requirements colreqs =
+          default_column_requirements.value_or(Column::default_requirements);
         if (vfs_pid != no_column && column_requirements.count(nms_pid) > 0)
           colreqs = column_requirements.at(nms_pid).value();
         column_regions[nms_pid] = {css_pid.metadata_lr, vss.read(*pid), colreqs};
