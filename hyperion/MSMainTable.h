@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_MS_MAIN_COLUMNS_H_
-#define HYPERION_MS_MAIN_COLUMNS_H_
+#ifndef HYPERION_MS_MAIN_TABLE_H_
+#define HYPERION_MS_MAIN_TABLE_H_
 
 #include <hyperion/hyperion.h>
 #include <hyperion/PhysicalTable.h>
@@ -878,7 +878,7 @@ public:
 
 } // end namespace hyperion
 
-#endif // HYPERION_MAIN_COLUMNS_H_
+#endif // HYPERION_MAIN_TABLE_H_
 
 // Local Variables:
 // mode: c++
