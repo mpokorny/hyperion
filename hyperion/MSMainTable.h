@@ -30,6 +30,7 @@
 
 namespace hyperion {
 
+template <MSTable<MS_MAIN>::Axes ...Axes>
 class MSMainTable
   : public PhysicalTable {
 public:
@@ -39,13 +40,17 @@ public:
   MSMainTable(const PhysicalTable& pt)
     : PhysicalTable(pt) {}
 
-  static const constexpr unsigned row_rank = 1;
+  static const constexpr unsigned row_rank = sizeof...(Axes);
 
   //
   // TIME
   //
   static const constexpr unsigned time_rank =
-    row_rank + C::element_ranks[C::col_t::MS_MAIN_COL_TIME];
+    std::conditional<
+      ((MAIN_TIME == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_MAIN_COL_TIME];
 
   bool
   has_time() const {
@@ -55,7 +60,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, time_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_DOUBLE,
+    time_rank - C::element_ranks[C::col_t::MS_MAIN_COL_TIME],
+    time_rank,
+    A,
+    COORD_T>
   time() const {
     return decltype(time())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, TIME)));
   }
@@ -73,7 +83,7 @@ public:
   PhysicalColumnTMD<
     HYPERION_TYPE_DOUBLE,
     MClass::M_EPOCH,
-    row_rank,
+    time_rank - C::element_ranks[C::col_t::MS_MAIN_COL_TIME],
     time_rank,
     1,
     A,
@@ -89,7 +99,11 @@ public:
   // TIME_EXTRA_PREC
   //
   static const constexpr unsigned time_extra_prec_rank =
-    row_rank + C::element_ranks[C::col_t::MS_MAIN_COL_TIME_EXTRA_PREC];
+    std::conditional<
+      ((MAIN_TIME_EXTRA_PREC == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_MAIN_COL_TIME_EXTRA_PREC];
 
   bool
   has_time_extra_prec() const {
@@ -101,7 +115,8 @@ public:
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<
     HYPERION_TYPE_DOUBLE,
-    row_rank,
+    time_extra_prec_rank
+      - C::element_ranks[C::col_t::MS_MAIN_COL_TIME_EXTRA_PREC],
     time_extra_prec_rank,
     A,
     COORD_T>
@@ -115,7 +130,11 @@ public:
   // ANTENNA1
   //
   static const constexpr unsigned antenna1_rank =
-    row_rank + C::element_ranks[C::col_t::MS_MAIN_COL_ANTENNA1];
+    std::conditional<
+      ((MAIN_ANTENNA1 == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_MAIN_COL_ANTENNA1];
 
   bool
   has_antenna1() const {
@@ -125,7 +144,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, antenna1_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    antenna1_rank - C::element_ranks[C::col_t::MS_MAIN_COL_ANTENNA1],
+    antenna1_rank,
+    A,
+    COORD_T>
   antenna1() const {
     return
       decltype(antenna1())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, ANTENNA1)));
@@ -135,7 +159,11 @@ public:
   // ANTENNA2
   //
   static const constexpr unsigned antenna2_rank =
-    row_rank + C::element_ranks[C::col_t::MS_MAIN_COL_ANTENNA2];
+    std::conditional<
+      ((MAIN_ANTENNA2 == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_MAIN_COL_ANTENNA2];
 
   bool
   has_antenna2() const {
@@ -145,7 +173,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, antenna2_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    antenna2_rank - C::element_ranks[C::col_t::MS_MAIN_COL_ANTENNA2],
+    antenna2_rank,
+    A,
+    COORD_T>
   antenna2() const {
     return
       decltype(antenna2())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, ANTENNA2)));
@@ -155,7 +188,11 @@ public:
   // ANTENNA3
   //
   static const constexpr unsigned antenna3_rank =
-    row_rank + C::element_ranks[C::col_t::MS_MAIN_COL_ANTENNA3];
+    std::conditional<
+      ((MAIN_ANTENNA3 == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_MAIN_COL_ANTENNA3];
 
   bool
   has_antenna3() const {
@@ -165,7 +202,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, antenna3_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    antenna3_rank - C::element_ranks[C::col_t::MS_MAIN_COL_ANTENNA3],
+    antenna3_rank,
+    A,
+    COORD_T>
   antenna3() const {
     return
       decltype(antenna3())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, ANTENNA3)));
@@ -175,7 +217,11 @@ public:
   // FEED1
   //
   static const constexpr unsigned feed1_rank =
-    row_rank + C::element_ranks[C::col_t::MS_MAIN_COL_FEED1];
+    std::conditional<
+      ((MAIN_FEED1 == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_MAIN_COL_FEED1];
 
   bool
   has_feed1() const {
@@ -185,7 +231,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, feed1_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    feed1_rank - C::element_ranks[C::col_t::MS_MAIN_COL_FEED1],
+    feed1_rank,
+    A,
+    COORD_T>
   feed1() const {
     return
       decltype(feed1())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, FEED1)));
@@ -195,7 +246,11 @@ public:
   // FEED2
   //
   static const constexpr unsigned feed2_rank =
-    row_rank + C::element_ranks[C::col_t::MS_MAIN_COL_FEED2];
+    std::conditional<
+      ((MAIN_FEED2 == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_MAIN_COL_FEED2];
 
   bool
   has_feed2() const {
@@ -205,7 +260,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, feed2_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    feed2_rank - C::element_ranks[C::col_t::MS_MAIN_COL_FEED2],
+    feed2_rank,
+    A,
+    COORD_T>
   feed2() const {
     return
       decltype(feed2())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, FEED2)));
@@ -215,7 +275,11 @@ public:
   // FEED3
   //
   static const constexpr unsigned feed3_rank =
-    row_rank + C::element_ranks[C::col_t::MS_MAIN_COL_FEED3];
+    std::conditional<
+      ((MAIN_FEED3 == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_MAIN_COL_FEED3];
 
   bool
   has_feed3() const {
@@ -225,7 +289,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, feed3_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    feed3_rank - C::element_ranks[C::col_t::MS_MAIN_COL_FEED3],
+    feed3_rank,
+    A,
+    COORD_T>
   feed3() const {
     return
       decltype(feed3())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, FEED3)));
@@ -235,7 +304,11 @@ public:
   // DATA_DESC_ID
   //
   static const constexpr unsigned data_desc_id_rank =
-    row_rank + C::element_ranks[C::col_t::MS_MAIN_COL_DATA_DESC_ID];
+    std::conditional<
+      ((MAIN_DATA_DESC_ID == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_MAIN_COL_DATA_DESC_ID];
 
   bool
   has_data_desc_id() const {
@@ -245,7 +318,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, data_desc_id_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    data_desc_id_rank - C::element_ranks[C::col_t::MS_MAIN_COL_DATA_DESC_ID],
+    data_desc_id_rank,
+    A,
+    COORD_T>
   data_desc_id() const {
     return
       decltype(data_desc_id())(
@@ -256,7 +334,11 @@ public:
   // PROCESSOR_ID
   //
   static const constexpr unsigned processor_id_rank =
-    row_rank + C::element_ranks[C::col_t::MS_MAIN_COL_PROCESSOR_ID];
+    std::conditional<
+      ((MAIN_PROCESSOR_ID == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_MAIN_COL_PROCESSOR_ID];
 
   bool
   has_processor_id() const {
@@ -266,7 +348,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, processor_id_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    processor_id_rank - C::element_ranks[C::col_t::MS_MAIN_COL_PROCESSOR_ID],
+    processor_id_rank,
+    A,
+    COORD_T>
   processor_id() const {
     return
       decltype(processor_id())(
@@ -277,7 +364,11 @@ public:
   // PHASE_ID
   //
   static const constexpr unsigned phase_id_rank =
-    row_rank + C::element_ranks[C::col_t::MS_MAIN_COL_PHASE_ID];
+    std::conditional<
+      ((MAIN_PHASE_ID == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_MAIN_COL_PHASE_ID];
 
   bool
   has_phase_id() const {
@@ -287,7 +378,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, phase_id_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    phase_id_rank - C::element_ranks[C::col_t::MS_MAIN_COL_PHASE_ID],
+    phase_id_rank,
+    A,
+    COORD_T>
   phase_id() const {
     return
       decltype(phase_id())(
@@ -298,7 +394,11 @@ public:
   // FIELD_ID
   //
   static const constexpr unsigned field_id_rank =
-    row_rank + C::element_ranks[C::col_t::MS_MAIN_COL_FIELD_ID];
+    std::conditional<
+      ((MAIN_FIELD_ID == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_MAIN_COL_FIELD_ID];
 
   bool
   has_field_id() const {
@@ -308,7 +408,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, field_id_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    field_id_rank - C::element_ranks[C::col_t::MS_MAIN_COL_FIELD_ID],
+    field_id_rank,
+    A,
+    COORD_T>
   field_id() const {
     return
       decltype(field_id())(

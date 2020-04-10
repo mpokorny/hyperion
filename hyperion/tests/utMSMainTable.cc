@@ -73,7 +73,7 @@ verify_main_table(
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
-  MSMainTable table(pt);
+  MSMainTable<MAIN_ROW> table(pt);
 
   const VerifyTableArgs *args =
     static_cast<const VerifyTableArgs*>(task->args);
