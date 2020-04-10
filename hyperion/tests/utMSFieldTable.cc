@@ -107,7 +107,11 @@ verify_field_table(
       [&]() {
         auto col = ms_field.timeMeas();
         auto tm_col = table.time_meas<AffineAccessor>();
-        auto tm_meas = tm_col.meas_accessor<READ_ONLY>(rt, "s");
+        auto tm_meas =
+          tm_col.meas_accessor<READ_ONLY>(
+            rt,
+            MSFieldTable::C::units.at(
+              MSFieldTable::C::col_t::MS_FIELD_COL_TIME));
         bool result = true;
         for (PointInRectIterator<1> pir(tm_col.rect(), false);
              result && pir();
@@ -134,7 +138,11 @@ verify_field_table(
       [&]() {
         auto col = ms_field.delayDirMeasCol();
         auto dd_col = table.delay_dir_meas();
-        auto dd_meas = dd_col.meas_accessor<READ_ONLY>(rt, "rad");
+        auto dd_meas =
+          dd_col.meas_accessor<READ_ONLY>(
+            rt,
+            MSFieldTable::C::units.at(
+              MSFieldTable::C::col_t::MS_FIELD_COL_DELAY_DIR));
         bool result = true;
         std::optional<coord_t> prev_row;
         std::optional<Point<2>> prev_midx;
@@ -166,24 +174,28 @@ verify_field_table(
     testing::TestEval(
       [&]() {
         auto col = ms_field.phaseDirMeasCol();
-        auto dd_col = table.phase_dir_meas();
-        auto dd_meas = dd_col.meas_accessor<READ_ONLY>(rt, "rad");
+        auto pd_col = table.phase_dir_meas();
+        auto pd_meas =
+          pd_col.meas_accessor<READ_ONLY>(
+            rt,
+            MSFieldTable::C::units.at(
+              MSFieldTable::C::col_t::MS_FIELD_COL_PHASE_DIR));
         bool result = true;
         std::optional<coord_t> prev_row;
         std::optional<Point<2>> prev_midx;
-        cc::Vector<cc::MDirection> ccdds;
-        for (PointInDomainIterator<3> pid(dd_col.domain(), false);
+        cc::Vector<cc::MDirection> ccpds;
+        for (PointInDomainIterator<3> pid(pd_col.domain(), false);
              result && pid();
              pid++) {
           if (pid[0] != prev_row.value_or(pid[0] + 1)) {
             prev_row = pid[0];
-            col.get(prev_row.value(), ccdds, true);
+            col.get(prev_row.value(), ccpds, true);
           }
           Point<2> midx(pid[0], pid[1]);
           if (!prev_midx || midx != prev_midx.value()) {
             prev_midx = midx;
-            auto dd = dd_meas.read(midx);
-            result = (dd.getValue() == ccdds(pid[1]).getValue());
+            auto pd = pd_meas.read(midx);
+            result = (pd.getValue() == ccpds(pid[1]).getValue());
           }
         }
         return result;
@@ -199,24 +211,28 @@ verify_field_table(
     testing::TestEval(
       [&]() {
         auto col = ms_field.referenceDirMeasCol();
-        auto dd_col = table.reference_dir_meas();
-        auto dd_meas = dd_col.meas_accessor<READ_ONLY>(rt, "rad");
+        auto rd_col = table.reference_dir_meas();
+        auto rd_meas =
+          rd_col.meas_accessor<READ_ONLY>(
+            rt,
+            MSFieldTable::C::units.at(
+              MSFieldTable::C::col_t::MS_FIELD_COL_REFERENCE_DIR));
         bool result = true;
         std::optional<coord_t> prev_row;
         std::optional<Point<2>> prev_midx;
-        cc::Vector<cc::MDirection> ccdds;
-        for (PointInDomainIterator<3> pid(dd_col.domain(), false);
+        cc::Vector<cc::MDirection> ccrds;
+        for (PointInDomainIterator<3> pid(rd_col.domain(), false);
              result && pid();
              pid++) {
           if (pid[0] != prev_row.value_or(pid[0] + 1)) {
             prev_row = pid[0];
-            col.get(prev_row.value(), ccdds, true);
+            col.get(prev_row.value(), ccrds, true);
           }
           Point<2> midx(pid[0], pid[1]);
           if (!prev_midx || midx != prev_midx.value()) {
             prev_midx = midx;
-            auto dd = dd_meas.read(midx);
-            result = (dd.getValue() == ccdds(pid[1]).getValue());
+            auto rd = rd_meas.read(midx);
+            result = (rd.getValue() == ccrds(pid[1]).getValue());
           }
         }
         return result;

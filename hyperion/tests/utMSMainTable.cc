@@ -102,8 +102,8 @@ verify_main_table(
         auto time_meas =
           time_col.meas_accessor<READ_ONLY>(
             rt,
-            MSTableColumns<MS_MAIN>::units.at(
-              MSTableColumns<MS_MAIN>::col_t::MS_MAIN_COL_TIME));
+            MSMainTable<MAIN_ROW>::C::units.at(
+              MSMainTable<MAIN_ROW>::C::col_t::MS_MAIN_COL_TIME));
         bool result = true;
         for (PointInRectIterator<1> pir(time_col.rect());
              result && pir();
@@ -170,8 +170,8 @@ verify_main_table(
         auto time_centroid_meas =
           time_centroid_col.meas_accessor<READ_ONLY>(
             rt,
-            MSTableColumns<MS_MAIN>::units.at(
-              MSTableColumns<MS_MAIN>::col_t::MS_MAIN_COL_TIME_CENTROID));
+            MSMainTable<MAIN_ROW>::C::units.at(
+              MSMainTable<MAIN_ROW>::C::col_t::MS_MAIN_COL_TIME_CENTROID));
         bool result = true;
         for (PointInRectIterator<1> pir(time_centroid_col.rect());
              result && pir();
@@ -219,8 +219,8 @@ verify_main_table(
         auto uvw_meas =
           uvw_col.meas_accessor<READ_ONLY>(
             rt,
-            MSTableColumns<MS_MAIN>::units.at(
-              MSTableColumns<MS_MAIN>::col_t::MS_MAIN_COL_UVW));
+            MSMainTable<MAIN_ROW>::C::units.at(
+              MSMainTable<MAIN_ROW>::C::col_t::MS_MAIN_COL_UVW));
         std::optional<coord_t> prev_row;
         bool result = true;
         for (PointInRectIterator<2> pir(uvw_col.rect(), false);

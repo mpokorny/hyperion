@@ -111,7 +111,11 @@ verify_antenna_table(
       [&]() {
         auto col = ms_antenna.positionMeas();
         auto position_col = table.position_meas<AffineAccessor>();
-        auto position_meas = position_col.meas_accessor<READ_ONLY>(rt, "m");
+        auto position_meas =
+          position_col.meas_accessor<READ_ONLY>(
+            rt,
+            MSAntennaTable::C::units.at(
+              MSAntennaTable::C::col_t::MS_ANTENNA_COL_POSITION));
         bool result = true;
         std::optional<coord_t> prev_row;
         for (PointInRectIterator<2> pir(position_col.rect(), false);
@@ -139,7 +143,11 @@ verify_antenna_table(
       [&]() {
         auto col = ms_antenna.offsetMeas();
         auto offset_col = table.offset_meas<AffineAccessor>();
-        auto offset_meas = offset_col.meas_accessor<READ_ONLY>(rt, "m");
+        auto offset_meas =
+          offset_col.meas_accessor<READ_ONLY>(
+            rt,
+            MSAntennaTable::C::units.at(
+              MSAntennaTable::C::col_t::MS_ANTENNA_COL_OFFSET));
         bool result = true;
         std::optional<coord_t> prev_row;
           for (PointInRectIterator<2> pir(offset_col.rect(), false);

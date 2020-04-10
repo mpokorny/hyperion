@@ -110,7 +110,11 @@ verify_spw_table(
       [&]() {
         auto col = ms_spw.refFrequencyMeas();
         auto rf_col = table.ref_frequency_meas<AffineAccessor>();
-        auto rf_meas = rf_col.meas_accessor<READ_ONLY>(rt, "Hz");
+        auto rf_meas =
+          rf_col.meas_accessor<READ_ONLY>(
+            rt,
+            MSSpWindowTable::C::units.at(
+              MSSpWindowTable::C::col_t::MS_SPECTRAL_WINDOW_COL_REF_FREQUENCY));
         bool result = true;
         for (PointInRectIterator<1> pir(rf_col.rect(), false);
              result && pir();
@@ -134,7 +138,11 @@ verify_spw_table(
       [&]() {
         auto col = ms_spw.chanFreqMeas();
         auto cf_col = table.chan_freq_meas();
-        auto cf_meas = cf_col.meas_accessor<READ_ONLY>(rt, "Hz");
+        auto cf_meas =
+          cf_col.meas_accessor<READ_ONLY>(
+            rt,
+            MSSpWindowTable::C::units.at(
+              MSSpWindowTable::C::col_t::MS_SPECTRAL_WINDOW_COL_CHAN_FREQ));
         bool result = true;
         std::optional<coord_t> prev_row;
         cc::Vector<cc::MFrequency> cccfs;
