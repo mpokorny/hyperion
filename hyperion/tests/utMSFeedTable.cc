@@ -73,7 +73,7 @@ verify_feed_table(
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
-  MSFeedTable table(pt);
+  MSFeedTable<FEED_ROW> table(pt);
 
   const VerifyTableArgs *args =
     static_cast<const VerifyTableArgs*>(task->args);

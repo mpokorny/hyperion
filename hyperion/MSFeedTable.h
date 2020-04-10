@@ -20,6 +20,7 @@
 #include <hyperion/PhysicalTable.h>
 #include <hyperion/PhysicalColumn.h>
 #include <hyperion/MSTableColumns.h>
+#include <hyperion/MSTable.h>
 
 #pragma GCC visibility push(default)
 # include <casacore/measures/Measures/MEpoch.h>
@@ -31,7 +32,8 @@
 
 namespace hyperion {
 
-class HYPERION_API MSFeedTable
+template <MSTable<MS_FEED>::Axes ...Axes>
+class MSFeedTable
   : public PhysicalTable {
 public:
 
@@ -40,13 +42,17 @@ public:
   MSFeedTable(const PhysicalTable& pt)
     : PhysicalTable(pt) {}
 
-  static const constexpr unsigned row_rank = 1;
+  static const constexpr unsigned row_rank = sizeof...(Axes);
 
   //
   // ANTENNA_ID
   //
   static const constexpr unsigned antenna_id_rank =
-    row_rank + C::element_ranks[C::col_t::MS_FEED_COL_ANTENNA_ID];
+    std::conditional<
+      ((FEED_ANTENNA_ID == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_FEED_COL_ANTENNA_ID];
 
   bool
   has_antenna_id() const {
@@ -56,7 +62,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, antenna_id_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    antenna_id_rank - C::element_ranks[C::col_t::MS_FEED_COL_ANTENNA_ID],
+    antenna_id_rank,
+    A,
+    COORD_T>
   antenna_id() const {
     return
       decltype(antenna_id())(
@@ -67,7 +78,11 @@ public:
   // FEED_ID
   //
   static const constexpr unsigned feed_id_rank =
-    row_rank + C::element_ranks[C::col_t::MS_FEED_COL_FEED_ID];
+    std::conditional<
+      ((FEED_FEED_ID == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_FEED_COL_FEED_ID];
 
   bool
   has_feed_id() const {
@@ -77,7 +92,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, feed_id_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    feed_id_rank - C::element_ranks[C::col_t::MS_FEED_COL_FEED_ID],
+    feed_id_rank,
+    A,
+    COORD_T>
   feed_id() const {
     return
       decltype(feed_id())(*m_columns.at(HYPERION_COLUMN_NAME(FEED, FEED_ID)));
@@ -87,7 +107,11 @@ public:
   // SPECTRAL_WINDOW_ID
   //
   static const constexpr unsigned spectral_window_id_rank =
-    row_rank + C::element_ranks[C::col_t::MS_FEED_COL_SPECTRAL_WINDOW_ID];
+    std::conditional<
+      ((FEED_SPECTRAL_WINDOW_ID == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_FEED_COL_SPECTRAL_WINDOW_ID];
 
   bool
   has_spectral_window_id() const {
@@ -97,7 +121,13 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, spectral_window_id_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_INT,
+    spectral_window_id_rank
+      - C::element_ranks[C::col_t::MS_FEED_COL_SPECTRAL_WINDOW_ID],
+    spectral_window_id_rank,
+    A,
+    COORD_T>
   spectral_window_id() const {
     return
       decltype(spectral_window_id())(
@@ -108,7 +138,11 @@ public:
   // TIME
   //
   static const constexpr unsigned time_rank =
-    row_rank + C::element_ranks[C::col_t::MS_FEED_COL_TIME];
+    std::conditional<
+      ((FEED_TIME == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_FEED_COL_TIME];
 
   bool
   has_time() const {
@@ -118,7 +152,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, time_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_DOUBLE,
+    time_rank - C::element_ranks[C::col_t::MS_FEED_COL_TIME],
+    time_rank,
+    A,
+    COORD_T>
   time() const {
     return decltype(time())(*m_columns.at(HYPERION_COLUMN_NAME(FEED, TIME)));
   }
@@ -136,7 +175,7 @@ public:
   PhysicalColumnTMD<
     HYPERION_TYPE_DOUBLE,
     MClass::M_EPOCH,
-    row_rank,
+    time_rank - C::element_ranks[C::col_t::MS_FEED_COL_TIME],
     time_rank,
     1,
     A,
@@ -151,7 +190,11 @@ public:
   // INTERVAL
   //
   static const constexpr unsigned interval_rank =
-    row_rank + C::element_ranks[C::col_t::MS_FEED_COL_INTERVAL];
+    std::conditional<
+      ((FEED_INTERVAL == Axes) || ...),
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value
+    + C::element_ranks[C::col_t::MS_FEED_COL_INTERVAL];
 
   bool
   has_interval() const {
@@ -161,7 +204,12 @@ public:
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, interval_rank, A, COORD_T>
+  PhysicalColumnTD<
+    HYPERION_TYPE_DOUBLE,
+    interval_rank - C::element_ranks[C::col_t::MS_FEED_COL_INTERVAL],
+    interval_rank,
+    A,
+    COORD_T>
   interval() const {
     return
       decltype(interval())(*m_columns.at(HYPERION_COLUMN_NAME(FEED, INTERVAL)));
