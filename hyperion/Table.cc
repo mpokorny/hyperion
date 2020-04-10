@@ -184,19 +184,21 @@ Table::attach_columns(
         omitted_columns
         /*, column requirements are not be used other than to declare omitted
          *  columns */))[0];
-  unsigned index_rank = 0;
+  std::string axes_uid;
+  std::vector<int> index_axes;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [cs, ixcs, vlr, nm_tfs] : all_columns.fields) {
 #pragma GCC diagnostic pop
     if (ixcs) {
       auto pr = rt->map_region(ctx, cs.requirements(READ_ONLY, EXCLUSIVE));
-      index_rank = ColumnSpace::size(ColumnSpace::axes(pr));
+      index_axes = ColumnSpace::from_axis_vector(ColumnSpace::axes(pr));
+      axes_uid = ColumnSpace::axes_uid(pr);
       rt->unmap_region(ctx, pr);
       break;
     }
   }
-  assert(index_rank != 0);
+  assert(index_axes.size() > 0);
 
   std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> pcols;
 #pragma GCC diagnostic push
@@ -238,7 +240,7 @@ Table::attach_columns(
             rt,
             tf.dt,
             tf.fid,
-            index_rank,
+            index_axes.size(),
             metadata.value(),
             ((column_parents.count(nm) > 0) ? column_parents.at(nm) : vlr),
             vlr,
@@ -275,7 +277,9 @@ Table::attach_columns(
   PhysicalTable result(
     table_req.parent,
     rt->map_region(ctx, table_req),
-    pcols);
+    pcols,
+    axes_uid,
+    index_axes);
   result.attach_columns(ctx, rt, file_path, column_paths, column_modes);
   return result;
 }

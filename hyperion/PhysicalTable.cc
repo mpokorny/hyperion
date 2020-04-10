@@ -23,13 +23,23 @@ PhysicalTable::PhysicalTable(
   LogicalRegion table_parent,
   PhysicalRegion table_pr,
   const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
-  columns)
+  columns,
+  const std::string& axes_uid,
+  const std::vector<int>& index_axes)
   : m_table_parent(table_parent)
   , m_table_pr(table_pr)
-  , m_columns(columns) {}
+  , m_columns(columns)
+  , m_axes_uid(axes_uid)
+  , m_index_axes(index_axes) {
+}
 
 PhysicalTable::PhysicalTable(const PhysicalTable& other)
-  : PhysicalTable(other.m_table_parent, other.m_table_pr, other.m_columns) {
+  : PhysicalTable(
+    other.m_table_parent,
+    other.m_table_pr,
+    other.m_columns,
+    other.m_axes_uid,
+    other.m_index_axes) {
   m_attached = other.m_attached;
 }
 
@@ -37,7 +47,9 @@ PhysicalTable::PhysicalTable(PhysicalTable&& other)
   : PhysicalTable(
     std::move(other).m_table_parent,
     std::move(other).m_table_pr,
-    std::move(other).m_columns) {
+    std::move(other).m_columns,
+    std::move(other).m_axes_uid,
+    std::move(other).m_index_axes) {
   m_attached = std::move(other).m_attached;
 }
 
@@ -199,8 +211,24 @@ PhysicalTable::create(
     }
   }
 #endif
+  std::string axes_uid;
+  std::vector<int> index_axes;
+  auto ics = index_column_space(rt, table_parent, table_pr);
+  if (ics) {
+    auto& ics_md = md_regions.at(css.read(ics.value()));
+    axes_uid = ColumnSpace::axes_uid(ics_md);
+    index_axes = ColumnSpace::from_axis_vector(ColumnSpace::axes(ics_md));
+  }
   return
-    std::make_tuple(PhysicalTable(table_parent, table_pr, columns), reqs, prs);
+    std::make_tuple(
+      PhysicalTable(
+        table_parent,
+        table_pr,
+        columns,
+        axes_uid,
+        index_axes),
+      reqs,
+      prs);
 }
 
 Table
@@ -212,17 +240,17 @@ PhysicalTable::table() const {
     Table(m_table_pr.get_logical_region(), m_table_parent, column_parents);
 }
 
-std::optional<ColumnSpace::AXIS_SET_UID_TYPE>
+std::optional<std::string>
 PhysicalTable::axes_uid() const {
-  std::optional<ColumnSpace::AXIS_SET_UID_TYPE> result;
-  if (m_columns.size() > 0) {
-    const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
-      au(
-        std::get<1>(*m_columns.begin())->m_metadata,
-        ColumnSpace::AXIS_SET_UID_FID);
-    result = au[0];
-  }
+  std::optional<std::string> result;
+  if (m_columns.size() > 0)
+    result = m_axes_uid;
   return result;
+}
+
+const std::vector<int>&
+PhysicalTable::index_axes() const {
+  return m_index_axes;
 }
 
 std::optional<std::shared_ptr<PhysicalColumn>>

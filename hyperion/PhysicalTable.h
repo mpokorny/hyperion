@@ -37,7 +37,9 @@ public:
     Legion::LogicalRegion table_parent,
     Legion::PhysicalRegion table_pr,
     const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
-    columns);
+    columns,
+    const std::string& axes_uid,
+    const std::vector<int>& index_axes);
 
   PhysicalTable(const PhysicalTable& other);
 
@@ -58,8 +60,11 @@ public:
   Table
   table() const;
 
-  std::optional<ColumnSpace::AXIS_SET_UID_TYPE>
+  std::optional<std::string>
   axes_uid() const;
+
+  const std::vector<int>&
+  index_axes() const;
 
   std::optional<std::shared_ptr<PhysicalColumn>>
   column(const std::string& name) const;
@@ -197,6 +202,10 @@ protected:
   std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> m_columns;
 
   std::unordered_map<std::string, Legion::PhysicalRegion> m_attached;
+
+  std::string m_axes_uid;
+
+  std::vector<int> m_index_axes;
 };
 
 } // end namespace hyperion
