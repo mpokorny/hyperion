@@ -31,7 +31,7 @@
 
 namespace hyperion {
 
-class MSFeedTable
+class HYPERION_API MSFeedTable
   : public PhysicalTable {
 public:
 
