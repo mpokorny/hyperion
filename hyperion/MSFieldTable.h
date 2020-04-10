@@ -34,14 +34,17 @@
 
 namespace hyperion {
 
-class /*HYPERION_API*/ MSFieldTable
+class HYPERION_API MSFieldTable
   : public PhysicalTable {
 public:
 
   typedef MSTableColumns<MS_FIELD> C;
 
   MSFieldTable(const PhysicalTable& pt)
-    : PhysicalTable(pt) {}
+    : PhysicalTable(pt) {
+    assert(pt.axes_uid() == Axes<typename MSTable<MS_FIELD>::Axes>::uid);
+    assert(pt.index_axes() == std::vector{static_cast<int>(FIELD_ROW)});
+  }
 
   static const constexpr unsigned row_rank = 1;
 

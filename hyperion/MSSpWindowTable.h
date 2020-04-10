@@ -32,14 +32,19 @@
 
 namespace hyperion {
 
-class /*HYPERION_API*/ MSSpWindowTable
+class HYPERION_API MSSpWindowTable
   : public PhysicalTable {
 public:
 
   typedef MSTableColumns<MS_SPECTRAL_WINDOW> C;
 
   MSSpWindowTable(const PhysicalTable& pt)
-    : PhysicalTable(pt) {}
+    : PhysicalTable(pt) {
+    assert(
+      pt.axes_uid() == Axes<typename MSTable<MS_SPECTRAL_WINDOW>::Axes>::uid);
+    assert(
+      pt.index_axes() == std::vector{static_cast<int>(SPECTRAL_WINDOW_ROW)});
+  }
 
   static const constexpr unsigned row_rank = 1;
 

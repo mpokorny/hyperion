@@ -28,14 +28,19 @@
 
 namespace hyperion {
 
-class /*HYPERION_API*/ MSDataDescriptionTable
+class HYPERION_API MSDataDescriptionTable
   : public PhysicalTable {
 public:
 
   typedef MSTableColumns<MS_DATA_DESCRIPTION> C;
 
   MSDataDescriptionTable(const PhysicalTable& pt)
-    : PhysicalTable(pt) {}
+    : PhysicalTable(pt) {
+    assert(
+      pt.axes_uid() == Axes<typename MSTable<MS_DATA_DESCRIPTION>::Axes>::uid);
+    assert(
+      pt.index_axes() == std::vector{static_cast<int>(DATA_DESCRIPTION_ROW)});
+  }
 
   static const constexpr unsigned row_rank = 1;
 

@@ -32,7 +32,7 @@
 
 namespace hyperion {
 
-template <MSTable<MS_FEED>::Axes ...Axes>
+template <MSTable<MS_FEED>::Axes ...AXES>
 class MSFeedTable
   : public PhysicalTable {
 public:
@@ -40,16 +40,19 @@ public:
   typedef MSTableColumns<MS_FEED> C;
 
   MSFeedTable(const PhysicalTable& pt)
-    : PhysicalTable(pt) {}
+    : PhysicalTable(pt) {
+    assert(pt.axes_uid() == Axes<typename MSTable<MS_FEED>::Axes>::uid);
+    assert(pt.index_axes() == std::vector{static_cast<int>(AXES)...});
+  }
 
-  static const constexpr unsigned row_rank = sizeof...(Axes);
+  static const constexpr unsigned row_rank = sizeof...(AXES);
 
   //
   // ANTENNA_ID
   //
   static const constexpr unsigned antenna_id_rank =
     std::conditional<
-      ((FEED_ANTENNA_ID == Axes) || ...),
+      ((FEED_ANTENNA_ID == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_FEED_COL_ANTENNA_ID];
@@ -79,7 +82,7 @@ public:
   //
   static const constexpr unsigned feed_id_rank =
     std::conditional<
-      ((FEED_FEED_ID == Axes) || ...),
+      ((FEED_FEED_ID == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_FEED_COL_FEED_ID];
@@ -108,7 +111,7 @@ public:
   //
   static const constexpr unsigned spectral_window_id_rank =
     std::conditional<
-      ((FEED_SPECTRAL_WINDOW_ID == Axes) || ...),
+      ((FEED_SPECTRAL_WINDOW_ID == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_FEED_COL_SPECTRAL_WINDOW_ID];
@@ -139,7 +142,7 @@ public:
   //
   static const constexpr unsigned time_rank =
     std::conditional<
-      ((FEED_TIME == Axes) || ...),
+      ((FEED_TIME == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_FEED_COL_TIME];
@@ -191,7 +194,7 @@ public:
   //
   static const constexpr unsigned interval_rank =
     std::conditional<
-      ((FEED_INTERVAL == Axes) || ...),
+      ((FEED_INTERVAL == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_FEED_COL_INTERVAL];

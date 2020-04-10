@@ -30,7 +30,7 @@
 
 namespace hyperion {
 
-template <MSTable<MS_MAIN>::Axes ...Axes>
+template <MSTable<MS_MAIN>::Axes ...AXES>
 class MSMainTable
   : public PhysicalTable {
 public:
@@ -38,16 +38,19 @@ public:
   typedef MSTableColumns<MS_MAIN> C;
 
   MSMainTable(const PhysicalTable& pt)
-    : PhysicalTable(pt) {}
+    : PhysicalTable(pt) {
+    assert(pt.axes_uid() == Axes<typename MSTable<MS_MAIN>::Axes>::uid);
+    assert(pt.index_axes() == std::vector{static_cast<int>(AXES)...});
+  }
 
-  static const constexpr unsigned row_rank = sizeof...(Axes);
+  static const constexpr unsigned row_rank = sizeof...(AXES);
 
   //
   // TIME
   //
   static const constexpr unsigned time_rank =
     std::conditional<
-      ((MAIN_TIME == Axes) || ...),
+      ((MAIN_TIME == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_MAIN_COL_TIME];
@@ -100,7 +103,7 @@ public:
   //
   static const constexpr unsigned time_extra_prec_rank =
     std::conditional<
-      ((MAIN_TIME_EXTRA_PREC == Axes) || ...),
+      ((MAIN_TIME_EXTRA_PREC == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_MAIN_COL_TIME_EXTRA_PREC];
@@ -131,7 +134,7 @@ public:
   //
   static const constexpr unsigned antenna1_rank =
     std::conditional<
-      ((MAIN_ANTENNA1 == Axes) || ...),
+      ((MAIN_ANTENNA1 == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_MAIN_COL_ANTENNA1];
@@ -160,7 +163,7 @@ public:
   //
   static const constexpr unsigned antenna2_rank =
     std::conditional<
-      ((MAIN_ANTENNA2 == Axes) || ...),
+      ((MAIN_ANTENNA2 == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_MAIN_COL_ANTENNA2];
@@ -189,7 +192,7 @@ public:
   //
   static const constexpr unsigned antenna3_rank =
     std::conditional<
-      ((MAIN_ANTENNA3 == Axes) || ...),
+      ((MAIN_ANTENNA3 == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_MAIN_COL_ANTENNA3];
@@ -218,7 +221,7 @@ public:
   //
   static const constexpr unsigned feed1_rank =
     std::conditional<
-      ((MAIN_FEED1 == Axes) || ...),
+      ((MAIN_FEED1 == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_MAIN_COL_FEED1];
@@ -247,7 +250,7 @@ public:
   //
   static const constexpr unsigned feed2_rank =
     std::conditional<
-      ((MAIN_FEED2 == Axes) || ...),
+      ((MAIN_FEED2 == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_MAIN_COL_FEED2];
@@ -276,7 +279,7 @@ public:
   //
   static const constexpr unsigned feed3_rank =
     std::conditional<
-      ((MAIN_FEED3 == Axes) || ...),
+      ((MAIN_FEED3 == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_MAIN_COL_FEED3];
@@ -305,7 +308,7 @@ public:
   //
   static const constexpr unsigned data_desc_id_rank =
     std::conditional<
-      ((MAIN_DATA_DESC_ID == Axes) || ...),
+      ((MAIN_DATA_DESC_ID == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_MAIN_COL_DATA_DESC_ID];
@@ -335,7 +338,7 @@ public:
   //
   static const constexpr unsigned processor_id_rank =
     std::conditional<
-      ((MAIN_PROCESSOR_ID == Axes) || ...),
+      ((MAIN_PROCESSOR_ID == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_MAIN_COL_PROCESSOR_ID];
@@ -365,7 +368,7 @@ public:
   //
   static const constexpr unsigned phase_id_rank =
     std::conditional<
-      ((MAIN_PHASE_ID == Axes) || ...),
+      ((MAIN_PHASE_ID == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_MAIN_COL_PHASE_ID];
@@ -395,7 +398,7 @@ public:
   //
   static const constexpr unsigned field_id_rank =
     std::conditional<
-      ((MAIN_FIELD_ID == Axes) || ...),
+      ((MAIN_FIELD_ID == AXES) || ...),
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value
     + C::element_ranks[C::col_t::MS_MAIN_COL_FIELD_ID];
