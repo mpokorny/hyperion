@@ -148,6 +148,18 @@ if (USE_CASACORE)
   set_tests_properties(
     MSMainTableUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)
+
+  add_executable(utMSFeedTable utMSFeedTable.cc)
+  set_target_properties(utMSFeedTable PROPERTIES
+    CXX_STANDARD 17
+    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+  add_test(
+    NAME MSFeedTableUnitTest
+    COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
+    ./utMSFeedTable -ll:io 1)
+  set_tests_properties(
+    MSFeedTableUnitTest PROPERTIES
+    FIXTURES_REQUIRED T0MS)
 endif()
 
 add_subdirectory(data)
