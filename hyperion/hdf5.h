@@ -16,6 +16,7 @@
 #ifndef HYPERION_HDF_HDF5_H_
 #define HYPERION_HDF_HDF5_H_
 
+#include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 #include <hyperion/IndexTree.h>
 #include <hyperion/Keywords.h>
@@ -41,9 +42,7 @@
 
 namespace hyperion {
 
-class Table;
 class Column;
-class Keywords;
 class ColumnSpace;
 class PhysicalTable;
 class PhysicalColumn;

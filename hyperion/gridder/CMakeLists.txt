@@ -8,7 +8,7 @@ if (USE_HDF5 AND USE_CASACORE)
     target_include_directories(gridder
       PUBLIC ${Legion_INSTALL_DIR}/include
       PUBLIC ${YAML_CPP_INCLUDE_DIR}
-      PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
+      PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../..
       PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..
       PUBLIC ${HDF5_INCLUDE_DIRS})
     install(TARGETS gridder RUNTIME DESTINATION bin)
