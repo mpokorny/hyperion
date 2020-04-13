@@ -344,7 +344,10 @@ main(int argc, char** argv) {
     TaskVariantRegistrar
       registrar(VERIFY_MAIN_TABLE_TASK, "verify_main_table");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    DefaultMapper::add_layouts(registrar);
+    registrar.add_layout_constraint_set(
+      DefaultMapper::to_mapping_tag(DefaultMapper::default_column_layout_tag),
+      soa_row_major_layout);
+    DefaultMapper::add_table_layout_constraint(registrar);
     Runtime::preregister_task_variant<verify_main_table>(
       registrar,
       "verify_main_table");

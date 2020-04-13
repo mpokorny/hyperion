@@ -446,7 +446,10 @@ main(int argc, char* argv[]) {
       registrar(VERIFY_PARTITIONS_TASK, "verify_partitions_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_idempotent();
-    DefaultMapper::add_layouts(registrar);
+    registrar.add_layout_constraint_set(
+      DefaultMapper::to_mapping_tag(DefaultMapper::default_column_layout_tag),
+      soa_row_major_layout);
+    DefaultMapper::add_table_layout_constraint(registrar);
     Runtime::preregister_task_variant<verify_partitions_task>(
       registrar,
       "verify_partitions_task");

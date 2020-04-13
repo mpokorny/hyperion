@@ -167,7 +167,10 @@ main(int argc, char** argv) {
       VERIFY_DATA_DESCRIPTION_TABLE_TASK,
       "verify_data_description_table");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    DefaultMapper::add_layouts(registrar);
+    registrar.add_layout_constraint_set(
+      DefaultMapper::to_mapping_tag(DefaultMapper::default_column_layout_tag),
+      soa_row_major_layout);
+    DefaultMapper::add_table_layout_constraint(registrar);
     Runtime::preregister_task_variant<verify_data_description_table>(
       registrar,
       "verify_data_description_table");

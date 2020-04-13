@@ -17,6 +17,7 @@
 #define HYPERION_DEFAULT_MAPPER_H_
 
 #include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
 
 #pragma GCC visibility push(default)
 # include <mappers/default_mapper.h>
@@ -43,15 +44,20 @@ public:
   // number of bits allocated to column group ids
   static const constexpr unsigned layout_tag_bits = 8;
 
-  enum LayoutTag {
-    SOA_ROW_MAJOR = (1 << layout_tag_shift),
-    SOA_COLUMN_MAJOR = (2 << layout_tag_shift),
-    AOS_ROW_MAJOR = (3 << layout_tag_shift),
-    AOS_COLUMN_MAJOR = (4 << layout_tag_shift)
-  };
+  typedef unsigned LayoutTag;
 
-  static void
-  add_layouts(Legion::TaskVariantRegistrar& registrar);
+  static const constexpr LayoutTag table_layout_tag = 0;
+
+  static const constexpr LayoutTag default_column_layout_tag = 1;
+
+  static constexpr Legion::MappingTagID
+  to_mapping_tag(LayoutTag ltag, unsigned flags = 0) {
+    return
+      (static_cast<Legion::MappingTagID>(ltag + 1) << layout_tag_shift) | flags;
+  }
+
+  static Legion::TaskVariantRegistrar
+  add_table_layout_constraint(Legion::TaskVariantRegistrar& registrar);
 
   virtual void
   premap_task(

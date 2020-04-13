@@ -108,7 +108,6 @@ struct HYPERION_API Column {
     Req measref; /**< measref regions */
     Req column_space; /**< column space region */
     Legion::MappingTagID tag; /**< values region mapping tag */
-    unsigned group; /**< values regions mapping group id */
   };
 
   /**
@@ -119,8 +118,7 @@ struct HYPERION_API Column {
     Req{READ_ONLY, EXCLUSIVE, true},
     Req{READ_ONLY, EXCLUSIVE, true},
     Req{READ_ONLY, EXCLUSIVE, true},
-    DefaultMapper::LayoutTag::SOA_ROW_MAJOR,
-    0
+    DefaultMapper::to_mapping_tag(DefaultMapper::default_column_layout_tag)
   };
 
   /**

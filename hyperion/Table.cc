@@ -311,7 +311,8 @@ table_fields_requirement(
     mode,
     EXCLUSIVE,
     parent,
-    DefaultMapper::LayoutTag::AOS_ROW_MAJOR);
+    DefaultMapper::to_mapping_tag(
+      DefaultMapper::table_layout_tag));
 #define ADD_F(F) result.add_field(static_cast<FieldID>(F));
   FOREACH_TABLE_FIELD_FID(ADD_F);
 #undef ADD_F
@@ -761,7 +762,7 @@ Table::requirements(
   // requirement has already been added when iterating through columns
   std::map<LogicalRegion, std::tuple<bool, RegionRequirement>> md_reqs;
   std::map<
-    std::tuple<LogicalRegion, PrivilegeMode, CoherenceProperty, MappingTagID, unsigned>,
+    std::tuple<LogicalRegion, PrivilegeMode, CoherenceProperty, MappingTagID>,
     std::tuple<bool, RegionRequirement>> val_reqs;
   for (PointInDomainIterator<1> pid(tdom);
        pid();
@@ -790,11 +791,7 @@ Table::requirements(
       auto vfs_pid = vfs.read(*pid);
       if (vfs_pid != no_column) {
         decltype(val_reqs)::key_type rg_rq =
-          {vlr,
-           reqs.values.privilege,
-           reqs.values.coherence,
-           reqs.tag,
-           reqs.group};
+          {vlr, reqs.values.privilege, reqs.values.coherence, reqs.tag};
         if (val_reqs.count(rg_rq) == 0) {
           LogicalRegion parent = vlr;
           if (column_parents.count(nms_pid) > 0)
@@ -890,14 +887,10 @@ Table::requirements(
         }
       }
       decltype(val_reqs)::key_type rg_rq =
-        {vlr,
-         reqs.values.privilege,
-         reqs.values.coherence,
-         reqs.tag,
-         reqs.group};
+        {vlr, reqs.values.privilege, reqs.values.coherence, reqs.tag};
       if (vfs.read(*pid) != no_column) {
         auto& [added, rq] = val_reqs.at(rg_rq);
-        if (!added) {
+        if (!added && rq.privilege_fields.size() > 0) {
           reqs_result.push_back(rq);
           added = true;
         }

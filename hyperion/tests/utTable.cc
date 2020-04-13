@@ -52,6 +52,9 @@ enum {
   COL_Z
 };
 
+const unsigned group1 = 88;
+const unsigned group2 = 42;
+
 template <>
 struct hyperion::Axes<Table0Axes> {
   static const constexpr char* uid = "Table0Axes";
@@ -553,10 +556,10 @@ table_test_suite(
   {
     Column::Requirements reqA = Column::default_requirements;
     reqA.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-    reqA.group = 88;
+    reqA.tag = DefaultMapper::to_mapping_tag(group1);
     Column::Requirements reqB = Column::default_requirements;
     reqB.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-    reqB.group = 42;
+    reqB.tag = DefaultMapper::to_mapping_tag(group2);
     auto reqs = std::get<0>(
       table0.requirements(
         ctx,
@@ -667,9 +670,12 @@ main(int argc, char* argv[]) {
     TaskVariantRegistrar
       registrar(VERIFY_TABLE_COLUMNS_TASK, "verify_table_columns_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    DefaultMapper::add_layouts(registrar);
+    registrar.add_layout_constraint_set(
+      DefaultMapper::to_mapping_tag(DefaultMapper::default_column_layout_tag),
+      soa_row_major_layout);
     registrar.set_idempotent();
     registrar.set_leaf();
+    DefaultMapper::add_table_layout_constraint(registrar);
     Runtime::preregister_task_variant<verify_table_columns_task>(
       registrar,
       "verify_table_columns_task");
@@ -678,9 +684,18 @@ main(int argc, char* argv[]) {
     TaskVariantRegistrar
       registrar(VERIFY_COLUMN_GROUPS_TASK, "verify_column_groups_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    DefaultMapper::add_layouts(registrar);
+    registrar.add_layout_constraint_set(
+      DefaultMapper::to_mapping_tag(DefaultMapper::default_column_layout_tag),
+      soa_row_major_layout);
+    registrar.add_layout_constraint_set(
+      DefaultMapper::to_mapping_tag(group1),
+      soa_row_major_layout);
+    registrar.add_layout_constraint_set(
+      DefaultMapper::to_mapping_tag(group2),
+      soa_row_major_layout);
     registrar.set_idempotent();
     registrar.set_leaf();
+    DefaultMapper::add_table_layout_constraint(registrar);
     Runtime::preregister_task_variant<verify_column_groups_task>(
       registrar,
       "verify_column_groups_task");

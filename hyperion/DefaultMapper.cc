@@ -21,10 +21,10 @@ using namespace Legion;
 
 static unsigned
 layout_index(const std::vector<RegionRequirement>& regions, unsigned idx) {
-  unsigned layout =
-    ((regions[idx].tag >> DefaultMapper::layout_tag_shift)
-     & ((1 << DefaultMapper::layout_tag_bits) - 1));
-  return ((layout == 0) ? idx : regions[idx].tag);
+  return
+    ((regions[idx].tag >= (1uL << DefaultMapper::layout_tag_shift))
+     ? regions[idx].tag
+     : idx);
 }
 
 DefaultMapper::DefaultMapper(
@@ -34,18 +34,21 @@ DefaultMapper::DefaultMapper(
   : Mapping::DefaultMapper(rt->get_mapper_runtime(), machine, local) {
 }
 
+Legion::TaskVariantRegistrar
+DefaultMapper::add_table_layout_constraint(Legion::TaskVariantRegistrar& registrar) {
+  return
+    registrar
+    .add_layout_constraint_set(
+      to_mapping_tag(table_layout_tag),
+      aos_row_major_layout);
+}
+
 void
 DefaultMapper::premap_task(
   const Mapping::MapperContext ctx,
   const Task& task,
   const Mapping::Mapper::PremapTaskInput& input,
   Mapping::Mapper::PremapTaskOutput& output) {
-
-  // The choice of requirement tag or requirements index to select the layout
-  // constraint doesn't work if there are too many requirements. TODO: emit a
-  // message suggesting that layout_tag_shift value be increased when this
-  // assertion is violated
-  assert(task.regions.size() <= (1u << layout_tag_shift));
 
   // Iterate over the premap regions
   bool has_variant_info = false;
@@ -312,12 +315,6 @@ DefaultMapper::map_task(
   const Task& task,
   const Mapping::Mapper::MapTaskInput&input,
   Mapping::Mapper::MapTaskOutput& output) {
-
-  // The choice of requirement tag or requirements index to select the layout
-  // constraint doesn't work if there are too many requirements. TODO: emit a
-  // message suggesting that layout_tag_shift value be increased when this
-  // assertion is violated
-  assert(task.regions.size() <= (1u << layout_tag_shift));
 
   Processor::Kind target_kind = task.target_proc.kind();
   // Get the variant that we are going to use to map this task
@@ -627,22 +624,6 @@ DefaultMapper::map_task(
       }
     }
   }
-}
-
-void
-DefaultMapper::add_layouts(TaskVariantRegistrar& registrar) {
-  registrar.add_layout_constraint_set(
-    LayoutTag::SOA_ROW_MAJOR,
-    soa_row_major_layout);
-  registrar.add_layout_constraint_set(
-    LayoutTag::SOA_COLUMN_MAJOR,
-    soa_column_major_layout);
-  registrar.add_layout_constraint_set(
-    LayoutTag::AOS_ROW_MAJOR,
-    aos_row_major_layout);
-  registrar.add_layout_constraint_set(
-    LayoutTag::AOS_COLUMN_MAJOR,
-    aos_column_major_layout);
 }
 
 // Local Variables:
