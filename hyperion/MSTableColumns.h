@@ -63,71 +63,14 @@ struct MSTableDefs {
       MS_##T##_COLUMN_ELEMENT_RANKS;                                    \
     static const constexpr unsigned fid_base =                          \
       MS_##T##_COL_FID_BASE;                                            \
+    static const constexpr unsigned user_fid_base =                     \
+      MS_##T##_COL_USER_FID_BASE;                                       \
     static const std::unordered_map<col_t, const char*> units;          \
     static const std::map<col_t, const char*> measure_names;            \
   };
 
 HYPERION_FOREACH_MS_TABLE_Tt(MSTDEF);
 
-#ifdef FOO
-
-template <MSTables T>
-struct MSTableColumns {
-  //typedef ColEnums;
-  static const std::array<const char*, 0> column_names;
-};
-
-template <MSTables T>
-const std::array<const char*, 0> MSTableColumns<T>::column_names;
-
-#define MSTC(T, t)                                                      \
-  template <>                                                           \
-  struct HYPERION_API MSTableColumns<MS_##T> {                          \
-    typedef ms_##t##_col_t col_t;                                       \
-    static const constexpr std::array<const char*, MS_##T##_NUM_COLS>   \
-      column_names = MS_##T##_COLUMN_NAMES;                             \
-    static const constexpr std::array<unsigned, MS_##T##_NUM_COLS>      \
-      element_ranks = MS_##T##_COLUMN_ELEMENT_RANKS;                    \
-    static constexpr Legion::FieldID fid(col_t c) {                     \
-      return c + MS_##T##_COL_FID_BASE;                                 \
-    }                                                                   \
-    static constexpr Legion::FieldID user_fid_base =                    \
-      MS_##T##_COL_USER_FID_BASE;                                       \
-    static const std::unordered_map<col_t, const char*> units;          \
-    static const std::map<col_t, const char*> measure_names;            \
-    static std::optional<col_t>                                         \
-    lookup_col(const std::string& nm) {                                 \
-      auto col =                                                        \
-        std::find_if(                                                   \
-          column_names.begin(),                                         \
-          column_names.end(),                                           \
-          [&nm](std::string cn) {                                       \
-            return cn == nm;                                            \
-          });                                                           \
-      if (col != column_names.end())                                    \
-        return                                                          \
-          static_cast<col_t>(std::distance(column_names.begin(), col)); \
-      return std::nullopt;                                              \
-    }                                                                   \
-    typedef std::array<                                                 \
-      std::optional<MSTableColumnsBase::RegionsInfo>, \
-      MS_##T##_NUM_COLS> \
-      region_infos_t;                                                   \
-    static std::unordered_map<col_t, MSTableColumnsBase::Regions>       \
-      regions(                                                          \
-        const region_infos_t& infos,                                    \
-        const std::vector<Legion::PhysicalRegion>& prs) {               \
-      std::unordered_map<col_t, MSTableColumnsBase::Regions> result;    \
-      for (unsigned i = 0; i < MS_##T##_NUM_COLS; ++i) {                \
-        if (infos[i])                                                   \
-          result[static_cast<col_t>(i)] =                               \
-            infos[i].value().regions(prs);                              \
-      }                                                                 \
-      return result;                                                    \
-    }                                                                   \
-  };
-HYPERION_FOREACH_MS_TABLE_Tt(MSTC);
-#else
 template <MSTables T>
 struct MSTableColumns {
   typedef typename MSTableDefs<T>::col_t col_t;
@@ -143,6 +86,9 @@ struct MSTableColumns {
   static constexpr Legion::FieldID fid(col_t c) {
     return c + MSTableDefs<T>::fid_base;
   }
+
+  static const constexpr Legion::FieldID user_fid_base =
+    MSTableDefs<T>::user_fid_base;
 
   static const std::unordered_map<col_t, const char*> units;
 
@@ -173,9 +119,7 @@ const std::map<typename MSTableColumns<T>::col_t, const char*>
 MSTableColumns<T>::measure_names =
   MSTableDefs<T>::measure_names;
 
-#endif // FOO
-
-#define HYPERION_COLUMN_NAME(T, C)              \
+#define HYPERION_COLUMN_NAME(T, C)                    \
   MSTableColumns<MS_##T>::column_names[               \
     MSTableColumns<MS_##T>::col_t::MS_##T##_COL_##C]
 
