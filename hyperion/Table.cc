@@ -653,30 +653,36 @@ Table::requirements(
     vss(fields_pr, static_cast<FieldID>(TableFieldsFid::VS));
 
   // add a flag field as the basis of a partition by column selection
-  FieldID col_select_fid;
+  FieldID col_select_fid = 10;
+  LogicalRegion col_select_lr;
   {
-    auto fs = fields_pr.get_logical_region().get_field_space();
+    auto fs = rt->create_field_space(ctx);
     auto fa = rt->create_field_allocator(ctx, fs);
-    // TODO: can col_select_fid be a local field?
-    col_select_fid = fa.allocate_field(sizeof(Point<1>));
+    // FIXME: It would be better to allocate a field with a statically defined
+    // id, but there appears to be an issue with calling this method multiple
+    // times for the same Table when that is done. Not sure whether that's a
+    // Legion issue or not.
+    fa.allocate_field(sizeof(Point<1>), col_select_fid);
+    col_select_lr =
+      rt->create_logical_region(ctx, fields_parent.get_index_space(), fs);
   }
   auto col_select_pr =
     rt->map_region(
       ctx,
       RegionRequirement(
-        fields_pr.get_logical_region(),
+        col_select_lr,
         {col_select_fid},
         {col_select_fid},
         WRITE_ONLY,
         EXCLUSIVE,
-        fields_parent));
+        col_select_lr));
 
   const FieldAccessor<
     WRITE_ONLY,
     Point<1>,
     1,
     coord_t,
-    AffineAccessor<Point<1>, 1, coord_t>>
+    GenericAccessor<Point<1>, 1, coord_t>>
     sel_flags(col_select_pr, col_select_fid);
   bool all_cols_selected = true;
   bool some_cols_selected = false;
@@ -713,12 +719,14 @@ Table::requirements(
           default_column_requirements.value_or(Column::default_requirements);
         if (vfs_pid != no_column && column_requirements.count(nms_pid) > 0)
           colreqs = column_requirements.at(nms_pid).value();
-        column_regions[nms_pid] = {css_pid.metadata_lr, vss.read(*pid), colreqs};
+        column_regions[nms_pid] =
+          {css_pid.metadata_lr, vss.read(*pid), colreqs};
         if (cs_reqs.count(css_pid) == 0) {
           cs_reqs[css_pid] = colreqs.column_space;
         } else {
           // FIXME: log a warning, and return empty result;
-          // warning: inconsistent requirements on shared Column metadata regions
+          // warning: inconsistent requirements on shared Column metadata
+          // regions
           assert(cs_reqs[css_pid] == colreqs.column_space);
         }
 #ifdef HYPERION_USE_CASACORE
@@ -726,10 +734,10 @@ Table::requirements(
         if (rcs_pid.size() > 0)
           mrc_reqs[rcs_pid] = colreqs;
 #endif
-        sel_flags[*pid] = 1;
+        sel_flags.write(*pid, 1);
         some_cols_selected = true;
       } else {
-        sel_flags[*pid] = 0;
+        sel_flags.write(*pid, 0);
         all_cols_selected = false;
       }
     }
@@ -850,8 +858,8 @@ Table::requirements(
     auto ip =
       rt->create_partition_by_field(
         ctx,
-        fields_pr.get_logical_region(),
-        fields_parent,
+        col_select_lr,
+        col_select_lr,
         col_select_fid,
         cs);
     auto lp = rt->get_logical_partition(ctx, fields_parent, ip);
@@ -864,11 +872,6 @@ Table::requirements(
     rt->destroy_index_partition(ctx, ip);
     rt->destroy_index_space(ctx, cs);
     lps_result.push_back(lp);
-  }
-  {
-    auto fs = fields_pr.get_logical_region().get_field_space();
-    auto fa = rt->create_field_allocator(ctx, fs);
-    fa.free_field(col_select_fid);
   }
 
   // add requirements for all logical regions in all selected columns
@@ -927,6 +930,11 @@ Table::requirements(
       }
 #endif
     }
+  }
+  {
+    auto fs = col_select_lr.get_field_space();
+    rt->destroy_logical_region(ctx, col_select_lr);
+    rt->destroy_field_space(ctx, fs);
   }
   return {reqs_result, lps_result};
 }
