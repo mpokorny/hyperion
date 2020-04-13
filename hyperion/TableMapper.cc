@@ -30,8 +30,9 @@ layout_index(const std::vector<RegionRequirement>& regions, unsigned idx) {
 TableMapper::TableMapper(
   Machine machine,
   Runtime* rt,
-  Processor local)
-  : Mapping::DefaultMapper(rt->get_mapper_runtime(), machine, local) {
+  Processor local,
+  const char* name)
+  : Mapping::DefaultMapper(rt->get_mapper_runtime(), machine, local, name, true) {
 }
 
 Legion::TaskVariantRegistrar

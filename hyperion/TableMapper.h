@@ -33,7 +33,8 @@ public:
   TableMapper(
     Legion::Machine machine,
     Legion::Runtime* rt,
-    Legion::Processor local);
+    Legion::Processor local,
+    const char* name);
 
   // layout tag ids saved to RegionRequirement are always in a bitfield left
   // shifted by "layout_tag_shift" bits in order to maintain the MappingTagID
