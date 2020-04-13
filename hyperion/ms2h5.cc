@@ -18,7 +18,6 @@
 #include <hyperion/Table.h>
 #include <hyperion/PhysicalTable.h>
 #include <hyperion/TableReadTask.h>
-#include <hyperion/DefaultMapper.h>
 
 #include <algorithm>
 #include <cassert>
@@ -203,7 +202,7 @@ read_ms_table_columns_task(
     ArgumentMap(),
     Predicate::TRUE_PRED,
     false,
-    mapper);
+    table_mapper);
   for (auto& rq : reqs)
     read.add_region_requirement(rq);
   rt->execute_index_space(ctx, read);

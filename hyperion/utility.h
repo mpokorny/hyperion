@@ -1445,7 +1445,7 @@ preregister_all();
 HYPERION_API void
 register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
-HYPERION_API extern Legion::MapperID mapper;
+HYPERION_API extern Legion::MapperID table_mapper;
 HYPERION_API extern Legion::LayoutConstraintID soa_row_major_layout;
 HYPERION_API extern Legion::LayoutConstraintID soa_column_major_layout;
 HYPERION_API extern Legion::LayoutConstraintID aos_row_major_layout;

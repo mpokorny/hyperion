@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_DEFAULT_MAPPER_H_
-#define HYPERION_DEFAULT_MAPPER_H_
+#ifndef HYPERION_TABLE_MAPPER_H_
+#define HYPERION_TABLE_MAPPER_H_
 
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
@@ -26,11 +26,11 @@
 
 namespace hyperion {
 
-class HYPERION_API DefaultMapper
+class HYPERION_API TableMapper
   : public Legion::Mapping::DefaultMapper {
 public:
 
-  DefaultMapper(
+  TableMapper(
     Legion::Machine machine,
     Legion::Runtime* rt,
     Legion::Processor local);
@@ -77,7 +77,7 @@ public:
 
 } // end namespace hyperion
 
-#endif // HYPERION_DEFAULT_MAPPER_H_
+#endif // HYPERION_TABLE_MAPPER_H_
 
 // Local Variables:
 // mode: c++

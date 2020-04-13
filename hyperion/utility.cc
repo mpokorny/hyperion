@@ -20,7 +20,7 @@
 #include <hyperion/ColumnSpace.h>
 #include <hyperion/ColumnSpacePartition.h>
 #include <hyperion/Column.h>
-#include <hyperion/DefaultMapper.h>
+#include <hyperion/TableMapper.h>
 
 #ifdef HYPERION_USE_HDF5
 # include <hyperion/hdf5.h>
@@ -358,7 +358,7 @@ hyperion::add_row_major_order_constraint(
   return lc.add_constraint(OrderingConstraint(dims, false));
 }
 
-Legion::MapperID hyperion::mapper;
+Legion::MapperID hyperion::table_mapper;
 Legion::LayoutConstraintID hyperion::soa_row_major_layout;
 Legion::LayoutConstraintID hyperion::soa_column_major_layout;
 Legion::LayoutConstraintID hyperion::aos_row_major_layout;
@@ -370,15 +370,24 @@ hyperion::register_mapper(
   Runtime* rt,
   const std::set<Processor>& local_procs) {
 
-  for (auto& proc : local_procs)
-    rt->add_mapper(mapper, new DefaultMapper(machine, rt, proc), proc);
+  for (auto& proc : local_procs) {
+    const size_t buffer_size = 64;
+    char *name = static_cast<char*>(std::malloc(buffer_size * sizeof(char)));
+    std::snprintf(
+      name,
+      buffer_size - 1,
+      "TableMapper on Processor " IDFMT "",
+      proc.id);
+    rt->add_mapper(table_mapper, new TableMapper(machine, rt, proc, name), proc);
+  }
 }
 
 void
 hyperion::preregister_all() {
 
   {
-    LayoutConstraintRegistrar registrar(FieldSpace::NO_SPACE, "soa_row_major");
+    LayoutConstraintRegistrar
+      registrar(FieldSpace::NO_SPACE, "soa_row_major");
     for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
       std::vector<DimensionKind> dims(rank + 1);
       auto d = dims.rbegin();
@@ -394,7 +403,8 @@ hyperion::preregister_all() {
     soa_row_major_layout = Runtime::preregister_layout(registrar);
   }
   {
-    LayoutConstraintRegistrar registrar(FieldSpace::NO_SPACE, "soa_column_major");
+    LayoutConstraintRegistrar
+      registrar(FieldSpace::NO_SPACE, "soa_column_major");
     for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
       std::vector<DimensionKind> dims(rank + 1);
       auto d = dims.rbegin();
@@ -410,7 +420,8 @@ hyperion::preregister_all() {
     soa_column_major_layout = Runtime::preregister_layout(registrar);
   }
   {
-    LayoutConstraintRegistrar registrar(FieldSpace::NO_SPACE, "aos_row_major");
+    LayoutConstraintRegistrar
+      registrar(FieldSpace::NO_SPACE, "aos_row_major");
     for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
       std::vector<DimensionKind> dims(rank + 1);
       auto d = dims.begin();
@@ -426,7 +437,8 @@ hyperion::preregister_all() {
     aos_row_major_layout = Runtime::preregister_layout(registrar);
   }
   {
-    LayoutConstraintRegistrar registrar(FieldSpace::NO_SPACE, "aos_column_major");
+    LayoutConstraintRegistrar
+      registrar(FieldSpace::NO_SPACE, "aos_column_major");
     for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
       std::vector<DimensionKind> dims(rank + 1);
       auto d = dims.begin();
@@ -442,7 +454,7 @@ hyperion::preregister_all() {
     aos_column_major_layout = Runtime::preregister_layout(registrar);
   }
 
-  mapper = Runtime::generate_static_mapper_id();
+  table_mapper = Runtime::generate_static_mapper_id();
   Runtime::add_registration_callback(register_mapper);
 
 #ifdef HYPERION_USE_HDF5

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <hyperion/DefaultMapper.h>
+#include <hyperion/TableMapper.h>
 #include <hyperion/utility.h>
 
 using namespace hyperion;
@@ -22,12 +22,12 @@ using namespace Legion;
 static unsigned
 layout_index(const std::vector<RegionRequirement>& regions, unsigned idx) {
   return
-    ((regions[idx].tag >= (1uL << DefaultMapper::layout_tag_shift))
+    ((regions[idx].tag >= (1uL << TableMapper::layout_tag_shift))
      ? regions[idx].tag
      : idx);
 }
 
-DefaultMapper::DefaultMapper(
+TableMapper::TableMapper(
   Machine machine,
   Runtime* rt,
   Processor local)
@@ -35,7 +35,7 @@ DefaultMapper::DefaultMapper(
 }
 
 Legion::TaskVariantRegistrar
-DefaultMapper::add_table_layout_constraint(Legion::TaskVariantRegistrar& registrar) {
+TableMapper::add_table_layout_constraint(Legion::TaskVariantRegistrar& registrar) {
   return
     registrar
     .add_layout_constraint_set(
@@ -44,7 +44,7 @@ DefaultMapper::add_table_layout_constraint(Legion::TaskVariantRegistrar& registr
 }
 
 void
-DefaultMapper::premap_task(
+TableMapper::premap_task(
   const Mapping::MapperContext ctx,
   const Task& task,
   const Mapping::Mapper::PremapTaskInput& input,
@@ -310,7 +310,7 @@ DefaultMapper::premap_task(
 }
 
 void
-DefaultMapper::map_task(
+TableMapper::map_task(
   const Mapping::MapperContext ctx,
   const Task& task,
   const Mapping::Mapper::MapTaskInput&input,

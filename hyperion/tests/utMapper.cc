@@ -19,7 +19,7 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/Table.h>
 #include <hyperion/PhysicalTable.h>
-#include <hyperion/DefaultMapper.h>
+#include <hyperion/TableMapper.h>
 
 using namespace hyperion;
 using namespace Legion;
@@ -338,16 +338,16 @@ mapper_test_suite(
   Table tb = Table::create(ctx, rt, {{cs1, true, tfs1}, {cs2, false, tfs2}});
   Column::Requirements soa_rm_creqs = Column::default_requirements;
   soa_rm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  soa_rm_creqs.tag = DefaultMapper::to_mapping_tag(SOA_ROW_MAJOR);
+  soa_rm_creqs.tag = TableMapper::to_mapping_tag(SOA_ROW_MAJOR);
   Column::Requirements soa_cm_creqs = Column::default_requirements;
   soa_cm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  soa_cm_creqs.tag = DefaultMapper::to_mapping_tag(SOA_COLUMN_MAJOR);
+  soa_cm_creqs.tag = TableMapper::to_mapping_tag(SOA_COLUMN_MAJOR);
   Column::Requirements aos_cm_creqs = Column::default_requirements;
   aos_cm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  aos_cm_creqs.tag = DefaultMapper::to_mapping_tag(AOS_COLUMN_MAJOR);
+  aos_cm_creqs.tag = TableMapper::to_mapping_tag(AOS_COLUMN_MAJOR);
   Column::Requirements aos_rm_creqs = Column::default_requirements;
   aos_rm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  aos_rm_creqs.tag = DefaultMapper::to_mapping_tag(AOS_ROW_MAJOR);
+  aos_rm_creqs.tag = TableMapper::to_mapping_tag(AOS_ROW_MAJOR);
   auto reqs =
     std::get<0>(
       tb.requirements(
@@ -372,7 +372,7 @@ mapper_test_suite(
     VERIFY_LAYOUTS_TASK,
     TaskArgument(NULL, 0),
     Predicate::TRUE_PRED,
-    mapper);
+    table_mapper);
   verify.add_region_requirement(task->regions[0]);
   verify.add_region_requirement(task->regions[1]);
   for (auto& r : reqs)
@@ -396,18 +396,18 @@ main(int argc, char** argv) {
   {
     TaskVariantRegistrar registrar(VERIFY_LAYOUTS_TASK, "verify_layouts_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    DefaultMapper::add_table_layout_constraint(registrar);
+    TableMapper::add_table_layout_constraint(registrar);
     registrar.add_layout_constraint_set(
-      DefaultMapper::to_mapping_tag(SOA_ROW_MAJOR),
+      TableMapper::to_mapping_tag(SOA_ROW_MAJOR),
       soa_row_major_layout);
     registrar.add_layout_constraint_set(
-      DefaultMapper::to_mapping_tag(SOA_COLUMN_MAJOR),
+      TableMapper::to_mapping_tag(SOA_COLUMN_MAJOR),
       soa_column_major_layout);
     registrar.add_layout_constraint_set(
-      DefaultMapper::to_mapping_tag(AOS_ROW_MAJOR),
+      TableMapper::to_mapping_tag(AOS_ROW_MAJOR),
       aos_row_major_layout);
     registrar.add_layout_constraint_set(
-      DefaultMapper::to_mapping_tag(AOS_COLUMN_MAJOR),
+      TableMapper::to_mapping_tag(AOS_COLUMN_MAJOR),
       aos_column_major_layout);
     Runtime::preregister_task_variant<verify_layouts_task>(
       registrar,

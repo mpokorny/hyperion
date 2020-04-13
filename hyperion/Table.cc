@@ -16,7 +16,7 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/Table.h>
 #include <hyperion/PhysicalTable.h>
-#include <hyperion/DefaultMapper.h>
+#include <hyperion/TableMapper.h>
 
 #include <mappers/default_mapper.h>
 
@@ -311,8 +311,8 @@ table_fields_requirement(
     mode,
     EXCLUSIVE,
     parent,
-    DefaultMapper::to_mapping_tag(
-      DefaultMapper::table_layout_tag));
+    TableMapper::to_mapping_tag(
+      TableMapper::table_layout_tag));
 #define ADD_F(F) result.add_field(static_cast<FieldID>(F));
   FOREACH_TABLE_FIELD_FID(ADD_F);
 #undef ADD_F

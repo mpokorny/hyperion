@@ -16,6 +16,7 @@
 #include <hyperion/TableReadTask.h>
 #include <hyperion/PhysicalTable.h>
 #include <hyperion/PhysicalColumn.h>
+#include <hyperion/TableMapper.h>
 
 #include <casacore/casa/aipstype.h>
 #include <casacore/casa/Arrays.h>
@@ -184,10 +185,10 @@ TableReadTask::preregister_tasks() {
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
     registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
     registrar.set_leaf();
-    DefaultMapper::add_table_layout_constraint(registrar);
+    TableMapper::add_table_layout_constraint(registrar);
     registrar.add_layout_constraint_set(
-      DefaultMapper::to_mapping_tag(
-        DefaultMapper::default_column_layout_tag),
+      TableMapper::to_mapping_tag(
+        TableMapper::default_column_layout_tag),
       soa_row_major_layout);
     Runtime::preregister_task_variant<impl>(registrar, TASK_NAME);
   }

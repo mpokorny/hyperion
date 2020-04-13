@@ -19,7 +19,7 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 #include <hyperion/Keywords.h>
-#include <hyperion/DefaultMapper.h>
+#include <hyperion/TableMapper.h>
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
 # pragma GCC visibility push(default)
@@ -118,7 +118,7 @@ struct HYPERION_API Column {
     Req{READ_ONLY, EXCLUSIVE, true},
     Req{READ_ONLY, EXCLUSIVE, true},
     Req{READ_ONLY, EXCLUSIVE, true},
-    DefaultMapper::to_mapping_tag(DefaultMapper::default_column_layout_tag)
+    TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag)
   };
 
   /**

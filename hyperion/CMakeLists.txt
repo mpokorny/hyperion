@@ -126,8 +126,6 @@ list(APPEND HYPERION_SRC
   ColumnSpace.cc
   ColumnSpacePartition.h
   ColumnSpacePartition.cc
-  DefaultMapper.h
-  DefaultMapper.cc
   c_util.h
   Keywords.h
   Keywords.cc
@@ -154,6 +152,8 @@ list(APPEND HYPERION_SRC
   # Table_c.h
   TableField.h
   TableField.cc
+  TableMapper.h
+  TableMapper.cc
   KeywordsBuilder.h)
 
 if(USE_CASACORE)

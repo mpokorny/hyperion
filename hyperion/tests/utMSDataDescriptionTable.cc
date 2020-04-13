@@ -18,7 +18,7 @@
 #include <hyperion/Table.h>
 #include <hyperion/MSDataDescriptionTable.h>
 #include <hyperion/TableReadTask.h>
-#include <hyperion/DefaultMapper.h>
+#include <hyperion/TableMapper.h>
 
 #include <hyperion/testing/TestSuiteDriver.h>
 #include <hyperion/testing/TestRecorder.h>
@@ -129,7 +129,7 @@ ms_test(
       TableReadTask::TASK_ID,
       TaskArgument(&args, sizeof(args)),
       Predicate::TRUE_PRED,
-      mapper);
+      table_mapper);
     for (auto& rq : reqs)
       read.add_region_requirement(rq);
     rt->execute_task(ctx, read);
@@ -144,7 +144,7 @@ ms_test(
       VERIFY_DATA_DESCRIPTION_TABLE_TASK,
       TaskArgument(&args, sizeof(args)),
       Predicate::TRUE_PRED,
-      mapper);
+      table_mapper);
     verify.add_region_requirement(task->regions[0]);
     verify.add_region_requirement(task->regions[1]);
     for (auto& rq : reqs)
@@ -168,9 +168,9 @@ main(int argc, char** argv) {
       "verify_data_description_table");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.add_layout_constraint_set(
-      DefaultMapper::to_mapping_tag(DefaultMapper::default_column_layout_tag),
+      TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
       soa_row_major_layout);
-    DefaultMapper::add_table_layout_constraint(registrar);
+    TableMapper::add_table_layout_constraint(registrar);
     Runtime::preregister_task_variant<verify_data_description_table>(
       registrar,
       "verify_data_description_table");

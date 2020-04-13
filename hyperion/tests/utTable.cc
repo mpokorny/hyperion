@@ -21,7 +21,7 @@
 #include <hyperion/Table.h>
 #include <hyperion/ColumnSpacePartition.h>
 #include <hyperion/PhysicalTable.h>
-#include <hyperion/DefaultMapper.h>
+#include <hyperion/TableMapper.h>
 
 #include <algorithm>
 #include <array>
@@ -537,7 +537,7 @@ table_test_suite(
         VERIFY_TABLE_COLUMNS_TASK,
         TaskArgument(NULL, 0),
         Predicate::TRUE_PRED,
-        mapper);
+        table_mapper);
       pttask.add_region_requirement(task->regions[0]);
       pttask.add_region_requirement(task->regions[1]);
       for (auto& r : reqs)
@@ -556,10 +556,10 @@ table_test_suite(
   {
     Column::Requirements reqA = Column::default_requirements;
     reqA.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-    reqA.tag = DefaultMapper::to_mapping_tag(group1);
+    reqA.tag = TableMapper::to_mapping_tag(group1);
     Column::Requirements reqB = Column::default_requirements;
     reqB.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-    reqB.tag = DefaultMapper::to_mapping_tag(group2);
+    reqB.tag = TableMapper::to_mapping_tag(group2);
     auto reqs = std::get<0>(
       table0.requirements(
         ctx,
@@ -571,7 +571,7 @@ table_test_suite(
       VERIFY_COLUMN_GROUPS_TASK,
       TaskArgument(NULL, 0),
       Predicate::TRUE_PRED,
-      mapper);
+      table_mapper);
     vcgtask.add_region_requirement(task->regions[0]);
     vcgtask.add_region_requirement(task->regions[1]);
     for (auto& r : reqs)
@@ -671,11 +671,11 @@ main(int argc, char* argv[]) {
       registrar(VERIFY_TABLE_COLUMNS_TASK, "verify_table_columns_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.add_layout_constraint_set(
-      DefaultMapper::to_mapping_tag(DefaultMapper::default_column_layout_tag),
+      TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
       soa_row_major_layout);
     registrar.set_idempotent();
     registrar.set_leaf();
-    DefaultMapper::add_table_layout_constraint(registrar);
+    TableMapper::add_table_layout_constraint(registrar);
     Runtime::preregister_task_variant<verify_table_columns_task>(
       registrar,
       "verify_table_columns_task");
@@ -685,17 +685,17 @@ main(int argc, char* argv[]) {
       registrar(VERIFY_COLUMN_GROUPS_TASK, "verify_column_groups_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.add_layout_constraint_set(
-      DefaultMapper::to_mapping_tag(DefaultMapper::default_column_layout_tag),
+      TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
       soa_row_major_layout);
     registrar.add_layout_constraint_set(
-      DefaultMapper::to_mapping_tag(group1),
+      TableMapper::to_mapping_tag(group1),
       soa_row_major_layout);
     registrar.add_layout_constraint_set(
-      DefaultMapper::to_mapping_tag(group2),
+      TableMapper::to_mapping_tag(group2),
       soa_row_major_layout);
     registrar.set_idempotent();
     registrar.set_leaf();
-    DefaultMapper::add_table_layout_constraint(registrar);
+    TableMapper::add_table_layout_constraint(registrar);
     Runtime::preregister_task_variant<verify_column_groups_task>(
       registrar,
       "verify_column_groups_task");
