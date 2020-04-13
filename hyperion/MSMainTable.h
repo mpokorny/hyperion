@@ -23,7 +23,9 @@
 
 #pragma GCC visibility push(default)
 # include <casacore/measures/Measures/MEpoch.h>
+# include <casacore/measures/Measures/MCEpoch.h>
 # include <casacore/measures/Measures/Muvw.h>
+# include <casacore/measures/Measures/MCuvw.h>
 
 # include <unordered_map>
 #pragma GCC visibility pop
