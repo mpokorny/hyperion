@@ -490,11 +490,12 @@ ColumnSpace::reindexed(
   const AxisSetUIDAccessor<READ_ONLY> auid(metadata_pr, AXIS_SET_UID_FID);
   auto current_axes = from_axis_vector(avs[0]);
 
-  assert((size_t)column_is.get_dim() - element_rank == current_axes.size());
-  assert(current_axes.back() == 0);
+  //assert((size_t)column_is.get_dim() - element_rank == current_axes.size());
+  assert(current_axes.size() >= element_rank + 1);
+  assert(current_axes[current_axes.size() - element_rank - 1] == 0);
 
   std::vector<std::pair<int, coord_t>> parts;
-  for (size_t i = 0; i < current_axes.size(); ++i)
+  for (size_t i = 0; i < current_axes.size() - element_rank; ++i)
     parts.emplace_back(current_axes[i], 1);
 
   ColumnSpacePartition partition =
@@ -509,7 +510,7 @@ ColumnSpace::reindexed(
   unsigned olddim = (unsigned)column_is.get_dim();
   unsigned newdim =
     current_axes.size() - 1
-    + index_column_lrs.size() + element_rank
+    + index_column_lrs.size()
     + (allow_rows ? 1 : 0);
   reindexed_result_t result;
   switch (olddim * LEGION_MAX_DIM + newdim) {
