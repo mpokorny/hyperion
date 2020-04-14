@@ -928,6 +928,23 @@ hyperion::hdf5::write_columnspace(
     CHECK_H5(H5Aclose(id));
     CHECK_H5(H5Sclose(ds));
   }
+  {
+    auto uid = ColumnSpace::axes_uid(csp_md);
+    hsize_t dims = 1;
+    hid_t ds = CHECK_H5(H5Screate_simple(1, &dims, NULL));
+    hid_t dt = H5DatatypeManager::datatype<HYPERION_TYPE_STRING>();
+    hid_t id =
+      CHECK_H5(
+        H5Acreate(
+          csp_grp_id,
+          HYPERION_COLUMN_SPACE_AXES_UID,
+          dt,
+          ds,
+          H5P_DEFAULT, H5P_DEFAULT));
+    CHECK_H5(H5Awrite(id, dt, uid.val));
+    CHECK_H5(H5Aclose(id));
+    CHECK_H5(H5Sclose(ds));
+  }
   auto itree = index_space_as_tree(rt, csp_is);
   // TODO: it would make more sense to simply write the index tree into
   // a dataset for the ColumnSpace (and replace the ColumnSpace group
@@ -947,6 +964,7 @@ hyperion::hdf5::write_columnspace(
   hid_t table_axes_dt) {
 
   RegionRequirement req(csp.metadata_lr, READ_ONLY, EXCLUSIVE, csp.metadata_lr);
+  req.add_field(ColumnSpace::AXIS_SET_UID_FID);
   req.add_field(ColumnSpace::AXIS_VECTOR_FID);
   req.add_field(ColumnSpace::INDEX_FLAG_FID);
   auto pr = rt->map_region(ctx, req);
@@ -1695,6 +1713,24 @@ hyperion::hdf5::init_columnspace(
     CHECK_H5(H5Aread(iflg_id, H5T_NATIVE_HBOOL, &is_index));
     CHECK_H5(H5Aclose(iflg_id));
   }
+  std::string axes_uid;
+  {
+    htri_t au_exists =
+      CHECK_H5(H5Aexists(csp_grp_id, HYPERION_COLUMN_SPACE_AXES_UID));
+    if (au_exists == 0)
+      return ColumnSpace();
+    hid_t au_id =
+      CHECK_H5(
+        H5Aopen(csp_grp_id, HYPERION_COLUMN_SPACE_AXES_UID, H5P_DEFAULT));
+    hyperion::string au;
+    CHECK_H5(
+      H5Aread(
+        au_id,
+        H5DatatypeManager::datatype<HYPERION_TYPE_STRING>(),
+        au.val));
+    CHECK_H5(H5Aclose(au_id));
+    axes_uid = au;
+  }
   std::optional<IndexTreeL> ixtree =
     read_index_tree_binary(csp_grp_id, HYPERION_COLUMN_SPACE_INDEX_TREE);
   assert(ixtree);
@@ -1709,7 +1745,7 @@ hyperion::hdf5::init_columnspace(
       ctx,
       rt,
       axes,
-      AxesRegistrar::match_axes_datatype(table_axes_dt).value(),
+      axes_uid,
       tree_index_space(it, ctx, rt),
       is_index);
 }
@@ -1733,6 +1769,7 @@ acc_csp_fn(
     acc->csps[name] =
       init_columnspace(acc->ctx, acc->rt, group, acc->table_axes_dt, name);
   }
+
   return 0;
 }
 
