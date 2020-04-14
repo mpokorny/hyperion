@@ -838,7 +838,7 @@ Table::requirements(
   if (all_cols_selected) {
     reqs_result.push_back(
       table_fields_requirement(
-        fields_pr.get_logical_region(),
+        fields_parent,
         fields_parent,
         table_privilege));
   } else if (some_cols_selected) {
@@ -861,7 +861,6 @@ Table::requirements(
     rt->destroy_index_space(ctx, cs);
     lps_result.push_back(lp);
   }
-
   // add requirements for all logical regions in all selected columns
   for (PointInDomainIterator<1> pid(tdom); pid(); pid++) {
     if (css.read(*pid).is_empty())
