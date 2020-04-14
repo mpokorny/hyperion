@@ -292,12 +292,28 @@ PhysicalTable::index_column_space(
 std::optional<std::shared_ptr<PhysicalColumn>>
 PhysicalTable::index_column(Runtime* rt) const {
   return
-    map(
+    flatMap(
       index_column_space(rt),
-      [this](const auto& ics) {
+      [this, rt](const auto& idx)
+      -> std::optional<std::shared_ptr<PhysicalColumn>> {
         const Table::NameAccessor<READ_ONLY>
           nms(m_table_pr, static_cast<FieldID>(TableFieldsFid::NM));
-        return m_columns.at(nms.read(ics));
+        const Table::ColumnSpaceAccessor<READ_ONLY>
+          css(m_table_pr, static_cast<FieldID>(TableFieldsFid::CS));
+        auto icss = css.read(idx);
+        for (PointInDomainIterator<1> pid(
+               rt->get_index_space_domain(m_table_parent.get_index_space()));
+             pid();
+             pid++) {
+          if (idx != *pid) {
+            auto css_pid = css.read(*pid);
+            if (css_pid == icss)
+              return m_columns.at(nms.read(*pid));
+            if (css.read(*pid).is_empty())
+              break;
+          }
+        }
+        return std::nullopt;
       });
 }
 
