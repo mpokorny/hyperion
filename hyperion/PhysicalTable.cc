@@ -486,7 +486,7 @@ PhysicalTable::add_columns(
         if (nocol != new_fields.end())
           new_fields.erase(nocol);
         if (new_fields.size() > 0) {
-          RegionRequirement req(vlr, READ_WRITE, EXCLUSIVE, vlr);
+          RegionRequirement req(vlr, WRITE_DISCARD, EXCLUSIVE, vlr);
           req.add_fields(new_fields, false);
           vpr = rt->map_region(ctx, req);
         }
