@@ -288,7 +288,7 @@ public:
 
 #ifdef HYPERION_USE_CASACORE
 
-  const std::optional<MeasRef::DataRegions>
+  const std::optional<MeasRef::DataRegions>&
   mr_drs() const {
     return m_mr_drs;
   };
