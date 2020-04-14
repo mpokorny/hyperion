@@ -561,6 +561,9 @@ PhysicalTable::remove_columns(
       if (cols.count(nm) > 0) {
         css.push_back(cs);
         cs_md_prs.push_back(m_columns.at(nm)->m_metadata);
+        m_columns.erase(nm);
+        if (m_attached.count(nm) > 0)
+          m_attached.erase(nm);
         break;
       }
     }
@@ -818,7 +821,7 @@ PhysicalTable::detach_columns(
   std::set<PhysicalRegion> detached;
   for (auto& nm : columns) {
     if (m_attached.count(nm) > 0) {
-      auto pr = m_attached.at(nm);
+      PhysicalRegion pr = m_attached.at(nm);
       m_columns.at(nm)->m_values = pr.get_logical_region();
       if (detached.count(pr) == 0) {
         rt->detach_external_resource(ctx, pr);
@@ -826,9 +829,12 @@ PhysicalTable::detach_columns(
       }
     }
   }
-  for (auto& [nm, pr] : m_attached)
-    if (detached.count(pr) > 0)
-      m_attached.erase(nm);
+  for (auto it = m_attached.begin(); it != m_attached.end();) {
+    if (detached.count(it->second) > 0)
+      it = m_attached.erase(it);
+    else
+      ++it;
+  }
 }
 
 void
