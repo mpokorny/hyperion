@@ -492,31 +492,37 @@ PhysicalTable::add_columns(
         }
         auto& md_pr = cs_md_prs[cs_idxs[cs.metadata_lr]];
         for (auto& [nm, tf] : nm_tfs) {
-          // create kws for Keywords
-          std::optional<Keywords::pair<PhysicalRegion>> kws;
-          if (!tf.kw.is_empty()) {
-            std::vector<FieldID> fids;
-            fids.resize(tf.kw.size(rt));
-            std::iota(fids.begin(), fids.end(), 0);
-            auto reqs = tf.kw.requirements(rt, fids, READ_WRITE, false).value();
-            auto prs =
-              reqs.map([&ctx, rt](const auto& rq) { return rt->map_region(ctx, rq); });
-            kws = prs;
-          }
-          // create mr_drs for MeasRef
-          std::optional<MeasRef::DataRegions> mr_drs;
-          if (!tf.mr.is_empty()) {
-            auto [mrq, vrq, oirq] = tf.mr.requirements(READ_WRITE, false);
-            MeasRef::DataRegions prs;
-            prs.metadata = rt->map_region(ctx, mrq);
-            prs.values = rt->map_region(ctx, vrq);
-            if (oirq)
-              prs.index = rt->map_region(ctx, oirq.value());
-            mr_drs = prs;
-          }
-          if (tf.rc)
-            refcols[nm] = tf.rc.value();
-          if (m_columns.count(nm) == 0) {
+          auto newcol = std::find(new_fields.begin(), new_fields.end(), tf.fid);
+          if (newcol != new_fields.end()) {
+            // create kws for Keywords
+            std::optional<Keywords::pair<PhysicalRegion>> kws;
+            if (!tf.kw.is_empty()) {
+              std::vector<FieldID> fids;
+              fids.resize(tf.kw.size(rt));
+              std::iota(fids.begin(), fids.end(), 0);
+              auto reqs =
+                tf.kw.requirements(rt, fids, READ_WRITE, false).value();
+              auto prs =
+                reqs.map(
+                  [&ctx, rt](const auto& rq) {
+                    return rt->map_region(ctx, rq);
+                  });
+              kws = prs;
+            }
+            // create mr_drs for MeasRef
+            std::optional<MeasRef::DataRegions> mr_drs;
+            if (!tf.mr.is_empty()) {
+              auto [mrq, vrq, oirq] = tf.mr.requirements(READ_WRITE, false);
+              MeasRef::DataRegions prs;
+              prs.metadata = rt->map_region(ctx, mrq);
+              prs.values = rt->map_region(ctx, vrq);
+              if (oirq)
+                prs.index = rt->map_region(ctx, oirq.value());
+              mr_drs = prs;
+            }
+            if (tf.rc)
+              refcols[nm] = tf.rc.value();
+            assert(m_columns.count(nm) == 0);
             m_columns.emplace(
               nm,
               std::make_shared<PhysicalColumn>(
