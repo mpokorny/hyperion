@@ -164,14 +164,6 @@ Table::attach_columns(
   }
   auto all_columns = columns(ctx, rt).get_result<columns_result_t>();
   auto all_columns_map = column_map(all_columns);
-  std::map<std::string, std::optional<Column::Requirements>> omitted_columns;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [nm, col] : all_columns_map) {
-#pragma GCC diagnostic pop
-    if (colnames.count(nm) == 0)
-      omitted_columns[nm] = std::nullopt;
-  }
   // TODO: implement a more direct way to compute the table region requirements
   // for the set of attached columns
   RegionRequirement table_req =
@@ -181,9 +173,8 @@ Table::attach_columns(
         rt,
         ColumnSpacePartition(),
         table_privilege,
-        omitted_columns
-        /*, column requirements are not be used other than to declare omitted
-         *  columns */))[0];
+        {},
+        std::nullopt))[0];
   std::string axes_uid;
   std::vector<int> index_axes;
 #pragma GCC diagnostic push
