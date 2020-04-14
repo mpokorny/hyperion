@@ -692,6 +692,8 @@ PhysicalTable::reindexed(
     css(m_table_pr, static_cast<FieldID>(TableFieldsFid::CS));
   const Table::NameAccessor<READ_ONLY>
     nms(m_table_pr, static_cast<FieldID>(TableFieldsFid::NM));
+  const Table::ValueFidAccessor<READ_ONLY>
+    vfs(m_table_pr, static_cast<FieldID>(TableFieldsFid::VF));
 
   std::vector<std::tuple<coord_t, Table::ColumnRegions>> cregions;
   for (PointInDomainIterator<1> pid(
@@ -700,27 +702,28 @@ PhysicalTable::reindexed(
        pid++) {
     if (css.read(*pid).is_empty())
       break;
-    auto& ppc = m_columns.at(nms.read(*pid));
-    if (std::holds_alternative<PhysicalRegion>(ppc->values())) {
-      Table::ColumnRegions cr;
-      cr.values = {ppc->parent(), std::get<PhysicalRegion>(ppc->values())};
-      cr.metadata = ppc->metadata();
-      if (ppc->kws()) {
-        auto& kws = ppc->kws().value();
-        cr.kw_type_tags = kws.type_tags;
-        cr.kw_values = kws.values;
+    if (vfs.read(*pid) != Table::no_column) {
+      auto& ppc = m_columns.at(nms.read(*pid));
+      if (std::holds_alternative<PhysicalRegion>(ppc->values())) {
+        Table::ColumnRegions cr;
+        cr.values = {ppc->parent(), std::get<PhysicalRegion>(ppc->values())};
+        cr.metadata = ppc->metadata();
+        if (ppc->kws()) {
+          auto& kws = ppc->kws().value();
+          cr.kw_type_tags = kws.type_tags;
+          cr.kw_values = kws.values;
+        }
+        if (ppc->mr_drs()) {
+          auto& mr_drs = ppc->mr_drs().value();
+          cr.mr_metadata = mr_drs.metadata;
+          cr.mr_values = mr_drs.values;
+          cr.mr_index = mr_drs.index;
+        }
+        cregions.emplace_back(*pid, cr);
+      } else {
+        // the column values have not been mapped, which is an error
+        assert(false);
       }
-      if (ppc->mr_drs()) {
-        auto& mr_drs = ppc->mr_drs().value();
-        cr.mr_metadata = mr_drs.metadata;
-        cr.mr_values = mr_drs.values;
-        cr.mr_index = mr_drs.index;
-      }
-      cregions.emplace_back(*pid, cr);
-    } else {
-      // the column values have not been mapped, which is an error unless this
-      // column has no values (e.g, it's the index column)
-      assert(ppc->fid() == Table::no_column);
     }
   }
   return
