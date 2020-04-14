@@ -517,7 +517,7 @@ hyperion::AxesRegistrar::match_axes_datatype(hid_t hid) {
       axes_.begin(),
       axes_.end(),
       [&hid](auto& ua) {
-        return H5Tequal(std::get<1>(ua).h5_datatype, hid) > 0;
+        return std::get<1>(ua).h5_datatype == hid;
       });
   return
     (ad != axes_.end()) ? std::get<0>(*ad) : std::optional<std::string>();
