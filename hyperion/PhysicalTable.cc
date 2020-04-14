@@ -798,9 +798,11 @@ PhysicalTable::attach_columns(
     auto pr1 = rt->attach_external_resource(ctx, attach);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-    for (auto& [fid, nm] : fid_nms)
+    for (auto& [fid, nm] : fid_nms) {
 #pragma GCC diagnostic pop
+      m_columns.at(nm)->m_values = pr1;
       m_attached[nm] = pr1;
+    }
   }
   return true;
 }
@@ -814,9 +816,10 @@ PhysicalTable::detach_columns(
   // TODO: we must detach all columns sharing the PhysicalRegion, should there
   // be an error when not all such columns are named in "columns"?
   std::set<PhysicalRegion> detached;
-  for (auto& col : columns) {
-    if (m_attached.count(col) > 0) {
-      auto pr = m_attached.at(col);
+  for (auto& nm : columns) {
+    if (m_attached.count(nm) > 0) {
+      auto pr = m_attached.at(nm);
+      m_columns.at(nm)->m_values = pr.get_logical_region();
       if (detached.count(pr) == 0) {
         rt->detach_external_resource(ctx, pr);
         detached.insert(pr);
