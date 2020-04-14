@@ -2649,9 +2649,10 @@ Table::reindexed(
   }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [csp, rcsp_rlr] : reindexed) {
-    auto& [rcsp, rlr] = rcsp_rlr;
+  for (auto& [csp, rcsp_rlr_lcid] : reindexed) {
+    auto& [rcsp, rlr, lcid] = rcsp_rlr_lcid;
 #pragma GCC diagnostic pop
+    rt->release_layout(lcid);
     auto fs = rlr.get_field_space();
     // DON'T destroy index space
     rt->destroy_logical_region(ctx, rlr);

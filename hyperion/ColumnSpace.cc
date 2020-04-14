@@ -322,7 +322,7 @@ ColumnSpace::reindexed(
 }
 
 template <unsigned OLDDIM, unsigned NEWDIM>
-static std::tuple<ColumnSpace, LogicalRegion>
+static std::tuple<ColumnSpace, LogicalRegion, LayoutConstraintID>
 compute_reindexed(
   Context ctx,
   Runtime *rt,
@@ -340,6 +340,7 @@ compute_reindexed(
   // logical region over rows_is with a field for the rectangle in the new
   // column index space for each value in row_is
   auto row_map_fs = rt->create_field_space(ctx);
+  LayoutConstraintID row_map_lc_id;
   {
     auto fa = rt->create_field_allocator(ctx, row_map_fs);
     fa.allocate_field(
@@ -349,9 +350,7 @@ compute_reindexed(
     LayoutConstraintRegistrar lc(row_map_fs);
     add_row_major_order_constraint(lc, rows_is.get_dim())
       .add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
-    // TODO: free LayoutConstraintID returned from following call...maybe
-    // generate field spaces and constraints once at startup
-    rt->register_layout(lc);
+    row_map_lc_id = rt->register_layout(lc);
   }
   // row_map_lr is a mapping from current column row index to a rectangle in
   // the new (reindexed) column index space
@@ -471,7 +470,8 @@ compute_reindexed(
   return
     std::make_tuple(
       ColumnSpace::create(ctx, rt, new_axes, axes_set_uid, new_is, false),
-      row_map_lr);
+      row_map_lr,
+      row_map_lc_id);
 }
 
 ColumnSpace::reindexed_result_t

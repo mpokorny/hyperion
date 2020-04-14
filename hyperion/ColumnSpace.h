@@ -278,7 +278,11 @@ struct HYPERION_API ColumnSpace {
   // reindexed_result_t fields:
   // - new ColumnSpace
   // - mapping from "row" in old index space to regions in new index space
-  typedef std::tuple<ColumnSpace, Legion::LogicalRegion> reindexed_result_t;
+  // - layout constraint for FieldSpace of returned LogicalRegion
+  typedef std::tuple<
+    ColumnSpace,
+    Legion::LogicalRegion,
+    Legion::LayoutConstraintID> reindexed_result_t;
 
   /**
    * FieldID for "row rectangles" used during reindexing
