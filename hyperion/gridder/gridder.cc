@@ -77,7 +77,7 @@ default_config() {
     result.echo = std::string("false");
     result.min_block = std::string("100000");
     result.pa_step = std::string("360.0");
-    result.pa_min_block = std::string("100000");
+    result.pa_block = std::string("1000");
     result.w_planes = std::string("1");
     computed = true;
   }
