@@ -582,6 +582,25 @@ init_parallactic_angles(
     rt->destroy_logical_partition(ctx, lp);
 }
 
+template <typename gridder::args_t G>
+void
+show_help(const gridder::Args<G>& args) {
+  std::ostringstream oss;
+  oss << "Usage: gridder [LEGION OPTIONS] [GRIDDER OPTIONS]"
+      << std::endl
+      << "  valid GRIDDER OPTIONS (all options have values):"
+      << std::endl;
+  size_t max_tag_len = 0;
+  std::map<std::string, std::string> h = args.help();
+  for (auto& [tag, desc] : h)
+    max_tag_len = std::max(tag.size(), max_tag_len);
+  for (auto& [tag, desc] : h) {
+    oss << std::setw(max_tag_len + 4) << std::right << tag
+        << std::string(": ") << desc
+        << std::endl;
+  }
+  std::cout << oss.str();
+}
 
 void
 gridder_task(
@@ -598,6 +617,10 @@ gridder_task(
   {
     const InputArgs& input_args = Runtime::get_input_args();
     gridder::Args<gridder::OPT_STRING_ARGS> some_str_args = default_config();
+    if (gridder::has_help_flag(input_args)) {
+      show_help(some_str_args);
+      return;
+    }
     if (gridder::get_args(input_args, some_str_args)) {
       if (!some_str_args.h5_path) {
         std::cerr << "Path to HDF5 data [--"
@@ -736,7 +759,7 @@ gridder_task(
   init_parallactic_angles(
     ctx,
     rt,
-    g_args->pa_min_block.value(),
+    g_args->pa_block.value(),
     ptables.at(MS_MAIN),
     ptables.at(MS_DATA_DESCRIPTION),
     ptables.at(MS_ANTENNA),

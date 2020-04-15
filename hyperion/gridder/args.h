@@ -56,18 +56,25 @@ struct ArgsCompletion<OPT_STRING_ARGS> {
   static const constexpr args_t val = STRING_ARGS;
 };
 
-template <typename T, bool OPT, const char* const* TAG, args_t G>
+template <
+  typename T,
+  bool OPT,
+  const char* const* TAG,
+  const char* const* DESC,
+  args_t G>
 struct ArgType {
   static const constexpr char* tag = *TAG;
 };
-template <typename T, const char* const* TAG>
-struct ArgType<T, false, TAG, VALUE_ARGS> {
+template <typename T, const char* const* TAG, const char* const* DESC>
+struct ArgType<T, false, TAG, DESC, VALUE_ARGS> {
   typedef T type;
 
   T val;
 
   static const constexpr char* tag = *TAG;
 
+  static const constexpr char* desc = *DESC;
+
   T
   value() const {
     return val;
@@ -82,13 +89,15 @@ struct ArgType<T, false, TAG, VALUE_ARGS> {
     return true;
   }
 };
-template <typename T, const char* const* TAG>
-struct ArgType<T, true, TAG, VALUE_ARGS> {
+template <typename T, const char* const* TAG, const char* const* DESC>
+struct ArgType<T, true, TAG, DESC, VALUE_ARGS> {
   typedef std::optional<T> type;
 
   std::optional<T> val;
 
   static const constexpr char* tag = *TAG;
+
+  static const constexpr char* desc = *DESC;
 
   T
   value() const {
@@ -109,14 +118,16 @@ struct ArgType<T, true, TAG, VALUE_ARGS> {
     return val.has_value();
   }
 };
-template <typename T, const char* const* TAG>
-struct ArgType<T, false, TAG, STRING_ARGS> {
+template <typename T, const char* const* TAG, const char* const* DESC>
+struct ArgType<T, false, TAG, DESC, STRING_ARGS> {
   typedef std::string type;
 
   std::string val;
 
   static const constexpr char* tag = *TAG;
 
+  static const constexpr char* desc = *DESC;
+
   std::string
   value() const {
     return val;
@@ -131,13 +142,15 @@ struct ArgType<T, false, TAG, STRING_ARGS> {
     return true;
   }
 };
-template <typename T, const char* const* TAG>
-struct ArgType<T, true, TAG, STRING_ARGS> {
+template <typename T, const char* const* TAG, const char* const* DESC>
+struct ArgType<T, true, TAG, DESC, STRING_ARGS> {
   typedef std::optional<std::string> type;
 
   std::optional<std::string> val;
 
   static const constexpr char* tag = *TAG;
+
+  static const constexpr char* desc = *DESC;
 
   std::string
   value() const {
@@ -158,13 +171,15 @@ struct ArgType<T, true, TAG, STRING_ARGS> {
     return val.has_value();
   }
 };
-template <typename T, const char* const* TAG>
-struct ArgType<T, false, TAG, OPT_VALUE_ARGS> {
+template <typename T, const char* const* TAG, const char* const* DESC>
+struct ArgType<T, false, TAG, DESC, OPT_VALUE_ARGS> {
   typedef std::optional<T> type;
 
   std::optional<T> val;
 
   static const constexpr char* tag = *TAG;
+
+  static const constexpr char* desc = *DESC;
 
   T
   value() const {
@@ -185,13 +200,15 @@ struct ArgType<T, false, TAG, OPT_VALUE_ARGS> {
     return val.has_value();
   }
 };
-template <typename T, const char* const* TAG>
-struct ArgType<T, true, TAG, OPT_VALUE_ARGS> {
+template <typename T, const char* const* TAG, const char* const* DESC>
+struct ArgType<T, true, TAG, DESC, OPT_VALUE_ARGS> {
   typedef std::optional<T> type;
 
   std::optional<T> val;
 
   static const constexpr char* tag = *TAG;
+
+  static const constexpr char* desc = *DESC;
 
   T
   value() const {
@@ -212,13 +229,15 @@ struct ArgType<T, true, TAG, OPT_VALUE_ARGS> {
     return val.has_value();
   }
 };
-template <typename T, const char* const* TAG>
-struct ArgType<T, false, TAG, OPT_STRING_ARGS> {
+template <typename T, const char* const* TAG, const char* const* DESC>
+struct ArgType<T, false, TAG, DESC, OPT_STRING_ARGS> {
   typedef std::optional<std::string> type;
 
   std::optional<std::string> val;
 
   static const constexpr char* tag = *TAG;
+
+  static const constexpr char* desc = *DESC;
 
   std::string
   value() const {
@@ -239,13 +258,15 @@ struct ArgType<T, false, TAG, OPT_STRING_ARGS> {
     return val.has_value();
   }
 };
-template <typename T, const char* const* TAG>
-struct ArgType<T, true, TAG, OPT_STRING_ARGS> {
+template <typename T, const char* const* TAG, const char* const* DESC>
+struct ArgType<T, true, TAG, DESC, OPT_STRING_ARGS> {
   typedef std::optional<std::string> type;
 
   std::optional<std::string> val;
 
   static const constexpr char* tag = *TAG;
+
+  static const constexpr char* desc = *DESC;
 
   std::string
   value() const {
@@ -269,12 +290,32 @@ struct ArgType<T, true, TAG, OPT_STRING_ARGS> {
 
 struct ArgsBase {
   static const constexpr char* h5_path_tag = "h5";
+  static const constexpr char* h5_path_desc =
+    "path to MS-derived HDF5 file [REQUIRED]";
+
   static const constexpr char* config_path_tag = "configuration";
+  static const constexpr char* config_path_desc =
+    "path to gridder configuration file";
+
   static const constexpr char* echo_tag = "echo";
+  static const constexpr char* echo_desc =
+    "echo configuration parameters to stdout (true/false)";
+
   static const constexpr char* min_block_tag = "min_block";
+  static const constexpr char* min_block_desc =
+    "gridding block size (number of rows)";
+
   static const constexpr char* pa_step_tag = "pa_step";
-  static const constexpr char* pa_min_block_tag = "pa_min_block";
+  static const constexpr char* pa_step_desc =
+    "parallactic angle bin size (degrees)";
+
+  static const constexpr char* pa_block_tag = "pa_block";
+  static const constexpr char* pa_block_desc =
+    "parallactic angle computation block size (number of rows)";
+
   static const constexpr char* w_planes_tag = "w_proj_planes";
+  static const constexpr char* w_planes_desc =
+    "number of W-projection planes";
 
   static const std::vector<std::string>&
   tags() {
@@ -284,7 +325,7 @@ struct ArgsBase {
       echo_tag,
       min_block_tag,
       pa_step_tag,
-      pa_min_block_tag,
+      pa_block_tag,
       w_planes_tag
     };
     return result;
@@ -294,13 +335,28 @@ struct ArgsBase {
 template <args_t G>
 struct Args
   : public ArgsBase {
-  ArgType<CXX_FILESYSTEM_NAMESPACE::path, false, &h5_path_tag, G> h5_path;
-  ArgType<CXX_FILESYSTEM_NAMESPACE::path, true, &config_path_tag, G> config_path;
-  ArgType<bool, false, &echo_tag, G> echo;
-  ArgType<size_t, false, &min_block_tag, G> min_block;
-  ArgType<PARALLACTIC_ANGLE_TYPE, false, &pa_step_tag, G> pa_step;
-  ArgType<size_t, false, &pa_min_block_tag, G> pa_min_block;
-  ArgType<int, false, &w_planes_tag, G> w_planes;
+  ArgType<
+    CXX_FILESYSTEM_NAMESPACE::path,
+    false,
+    &h5_path_tag,
+    &h5_path_desc,
+    G> h5_path;
+  ArgType<
+    CXX_FILESYSTEM_NAMESPACE::path,
+    true,
+    &config_path_tag,
+    &config_path_desc,
+    G> config_path;
+  ArgType<bool, false, &echo_tag, &echo_desc, G> echo;
+  ArgType<size_t, false, &min_block_tag, &min_block_desc, G> min_block;
+  ArgType<
+    PARALLACTIC_ANGLE_TYPE,
+    false,
+    &pa_step_tag,
+    &pa_step_desc,
+    G> pa_step;
+  ArgType<size_t, false, &pa_block_tag, &pa_block_desc, G> pa_block;
+  ArgType<int, false, &w_planes_tag, &w_planes_desc, G> w_planes;
 
   Args() {}
 
@@ -310,7 +366,7 @@ struct Args
     const typename decltype(echo)::type& echo_,
     const typename decltype(min_block)::type& min_block_,
     const typename decltype(pa_step)::type& pa_step_,
-    const typename decltype(pa_min_block)::type& pa_min_block_,
+    const typename decltype(pa_block)::type& pa_block_,
     const typename decltype(w_planes)::type& w_planes_) {
 
     h5_path = h5_path_;
@@ -318,7 +374,7 @@ struct Args
     echo = echo_;
     min_block = min_block_;
     pa_step = pa_step_;
-    pa_min_block = pa_min_block_;
+    pa_block = pa_block_;
     w_planes = w_planes_;
   }
 
@@ -329,7 +385,7 @@ struct Args
       && echo
       && min_block
       && pa_step
-      && pa_min_block
+      && pa_block
       && w_planes;
   }
 
@@ -346,7 +402,7 @@ struct Args
           echo.value(),
           min_block.value(),
           pa_step.value(),
-          pa_min_block.value(),
+          pa_block.value(),
           w_planes.value());
     return result;
   }
@@ -364,16 +420,32 @@ struct Args
       result[min_block.tag] = min_block.value();
     if (pa_step)
       result[pa_step.tag] = pa_step.value();
-    if (pa_min_block)
-      result[pa_min_block.tag] = pa_min_block.value();
+    if (pa_block)
+      result[pa_block.tag] = pa_block.value();
     if (w_planes)
       result[w_planes.tag] = w_planes.value();
     return result;
+  }
+
+  std::map<std::string, std::string>
+  help() const {
+    return
+      { {h5_path_tag, h5_path_desc}
+      , {config_path_tag, config_path_desc}
+      , {echo_tag, echo_desc}
+      , {min_block_tag, min_block_desc}
+      , {pa_step_tag, pa_step_desc}
+      , {pa_block_tag, pa_block_desc}
+      , {w_planes_tag, w_planes_desc}
+      };
   }
 };
 
 Args<VALUE_ARGS>
 as_args(YAML::Node&& node);
+
+bool
+has_help_flag(const Legion::InputArgs& args);
 
 bool
 get_args(const Legion::InputArgs& args, Args<OPT_STRING_ARGS>& gridder_args);
