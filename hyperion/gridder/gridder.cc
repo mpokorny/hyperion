@@ -495,25 +495,12 @@ void
 init_parallactic_angles(
   Context ctx,
   Runtime* rt,
-  size_t min_block_size,
+  size_t block_size,
   const PhysicalTable& main_table,
   const PhysicalTable& data_description_table,
   const PhysicalTable& antenna_table,
   const Table& feed_table) {
 
-  auto index_column_space =
-    main_table.index_column(rt).value()->column_space();
-  auto index_size =
-    rt->get_index_space_domain(index_column_space.column_is).get_volume();
-
-  assert(index_column_space.column_is.get_dim() == 1);
-  size_t num_subregions =
-    rt->select_tunable_value(
-      ctx,
-      Mapping::DefaultMapper::DefaultTunables::DEFAULT_TUNABLE_GLOBAL_CPUS)
-    .get_result<size_t>();
-  num_subregions = min_divisor(index_size, min_block_size, num_subregions);
-  size_t block_size = (index_size + num_subregions - 1) / num_subregions;
   ColumnSpacePartition partition =
     main_table.partition_rows(ctx, rt, {block_size});
   IndexTaskLauncher task(
