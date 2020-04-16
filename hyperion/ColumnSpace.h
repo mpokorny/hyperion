@@ -94,7 +94,7 @@ struct HYPERION_API ColumnSpace {
   ColumnSpace() {}
 
   /**
-   * Construct a ColumnSpac
+   * Construct a ColumnSpace
    */
   ColumnSpace(
     const Legion::IndexSpace& column_is,
@@ -275,10 +275,14 @@ struct HYPERION_API ColumnSpace {
     Legion::PrivilegeMode privilege,
     Legion::CoherenceProperty coherence) const;
 
-  // reindexed_result_t fields:
-  // - new ColumnSpace
-  // - mapping from "row" in old index space to regions in new index space
-  // - layout constraint for FieldSpace of returned LogicalRegion
+  /**
+   * Type of value returned from reindexed()
+   *
+   * Fields are
+   * - new ColumnSpace
+   * - mapping from "row" in old index space to regions in new index space
+   * - layout constraint for FieldSpace of returned LogicalRegion
+   */
   typedef std::tuple<
     ColumnSpace,
     Legion::LogicalRegion,
@@ -354,6 +358,9 @@ struct HYPERION_API ColumnSpace {
 
 //   friend class Legion::LegionTaskWrapper;
 
+  /**
+   * Initialization task
+   */
   static void
   init_task(
     const Legion::Task* task,
@@ -361,6 +368,9 @@ struct HYPERION_API ColumnSpace {
     Legion::Context ctx,
     Legion::Runtime *rt);
 
+  /**
+   * Reindexing task
+   */
   static reindexed_result_t
   reindexed_task(
     const Legion::Task* task,
@@ -368,6 +378,11 @@ struct HYPERION_API ColumnSpace {
     Legion::Context ctx,
     Legion::Runtime *rt);
 
+  /**
+   * Helper task for reindexing
+   *
+   * Computes mapping between index spaces
+   */
   static void
   compute_row_mapping_task(
     const Legion::Task* task,

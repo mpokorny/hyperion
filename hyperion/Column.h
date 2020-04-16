@@ -183,6 +183,9 @@ struct HYPERION_API Column {
 
 private:
 
+  /**
+   * Register task for index_accumulate_task<DT>()
+   */
   template <TypeTag DT>
   static void
   preregister_index_accumulate_task();
