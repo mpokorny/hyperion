@@ -61,7 +61,7 @@ TestLogReference::TestLogReference(
       m_log_handle,
       ABORT_FID,
       false);
-    RegionRequirement req(m_log_handle, WRITE_DISCARD, EXCLUSIVE, m_log_handle);
+    RegionRequirement req(m_log_handle, WRITE_ONLY, EXCLUSIVE, m_log_handle);
     req.add_field(NAME_FID);
     req.add_field(FAIL_INFO_FID);
     PhysicalRegion pr = runtime->map_region(context, req);

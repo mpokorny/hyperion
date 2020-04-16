@@ -33,8 +33,13 @@ namespace testing {
 class HYPERION_API TestSuiteDriver {
 public:
 
-  static Legion::TaskID TASK_ID;
-  static constexpr const char* TASK_NAME = "test_suite_driver_task";
+  static Legion::TaskID DRIVER_TASK_ID;
+  static constexpr const char* DRIVER_TASK_NAME =
+    "test_suite_driver_task";
+
+  static Legion::TaskID REPORTER_TASK_ID;
+  static constexpr const char* REPORTER_TASK_NAME =
+    "test_suite_driver_reporter_task";
 
   typedef void (*task_ptr_t)(
     const Legion::Task*,
@@ -96,12 +101,19 @@ public:
   };
 
   static void
-  impl(
+  driver_task(
     const Legion::Task*,
     const std::vector<Legion::PhysicalRegion>&,
     Legion::Context context,
     Legion::Runtime* runtime,
     const TaskArgs& args);
+
+  static void
+  reporter_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context context,
+    Legion::Runtime* runtime);
 
 protected:
 
@@ -110,14 +122,28 @@ protected:
     m_args.test_suite_task = test_suite_task;
     m_args.log_length = log_length;
 
-    TASK_ID = Legion::Runtime::generate_static_task_id();
-    Legion::TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
-    registrar.add_constraint(Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
-    Legion::Runtime::preregister_task_variant<TaskArgs, impl>(
-      registrar,
-      m_args,
-      TASK_NAME);
-    Legion::Runtime::set_top_level_task_id(TASK_ID);
+    {
+      DRIVER_TASK_ID = Legion::Runtime::generate_static_task_id();
+      Legion::TaskVariantRegistrar
+        registrar(DRIVER_TASK_ID, DRIVER_TASK_NAME);
+      registrar.add_constraint(
+        Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
+      Legion::Runtime::preregister_task_variant<TaskArgs, driver_task>(
+        registrar,
+        m_args,
+        DRIVER_TASK_NAME);
+      Legion::Runtime::set_top_level_task_id(DRIVER_TASK_ID);
+    }
+    {
+      REPORTER_TASK_ID = Legion::Runtime::generate_static_task_id();
+      Legion::TaskVariantRegistrar
+        registrar(REPORTER_TASK_ID, REPORTER_TASK_NAME);
+      registrar.add_constraint(
+        Legion::ProcessorConstraint(Legion::Processor::LOC_PROC));
+      Legion::Runtime::preregister_task_variant<reporter_task>(
+        registrar,
+        REPORTER_TASK_NAME);
+    }
     preregister_all();
   }
 

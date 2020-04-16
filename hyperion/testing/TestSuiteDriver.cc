@@ -21,37 +21,26 @@ using namespace hyperion;
 using namespace hyperion::testing;
 using namespace Legion;
 
-Legion::TaskID TestSuiteDriver::TASK_ID;
-
-int
-TestSuiteDriver::start(int argc, char* argv[]) {
-  return Runtime::start(argc, argv);
-}
-
 void
-TestSuiteDriver::impl(
+TestSuiteDriver::reporter_task(
   const Task* task,
-  const std::vector<PhysicalRegion>&,
+  const std::vector<PhysicalRegion>& regions,
   Context context,
-  Runtime* runtime,
-  const TestSuiteDriver::TaskArgs& args) {
+  Runtime* runtime) {
 
-  OpsManager::register_ops(runtime);
-
-  // initialize the test log
-  TestLogReference logref(args.log_length, context, runtime);
-
-  // run the test suite
-  TaskLauncher test(args.test_suite_task, TaskArgument());
-  auto reqs = logref.requirements<READ_WRITE>();
-  test.add_region_requirement(reqs[0]);
-  test.add_region_requirement(reqs[1]);
-  runtime->execute_task(context, test);
+  TestLog<READ_WRITE>
+    log(
+      task->regions[0].region,
+      regions[0],
+      task->regions[1].region,
+      regions[1],
+      context,
+      runtime);
 
   // print out the test log
   std::ostringstream oss;
-  TestLog<READ_ONLY>(logref, context, runtime).for_each(
-    [&oss](auto& it) {
+  log.for_each(
+    [&oss](const TestLogIterator<READ_WRITE>& it) {
       auto test_result = *it;
       switch (test_result.state) {
       case TestState::SUCCESS:
@@ -77,7 +66,48 @@ TestSuiteDriver::impl(
       }
     });
   std::cout << oss.str();
+}
 
+Legion::TaskID TestSuiteDriver::DRIVER_TASK_ID;
+Legion::TaskID TestSuiteDriver::REPORTER_TASK_ID;
+
+int
+TestSuiteDriver::start(int argc, char* argv[]) {
+  return Runtime::start(argc, argv);
+}
+
+void
+TestSuiteDriver::driver_task(
+  const Task* task,
+  const std::vector<PhysicalRegion>&,
+  Context context,
+  Runtime* runtime,
+  const TestSuiteDriver::TaskArgs& args) {
+
+  OpsManager::register_ops(runtime);
+
+  // initialize the test log
+  TestLogReference logref(args.log_length, context, runtime);
+
+  // run the test suite
+  {
+    TaskLauncher test(args.test_suite_task, TaskArgument());
+    auto reqs = logref.requirements<READ_WRITE>();
+    test.add_region_requirement(reqs[0]);
+    test.add_region_requirement(reqs[1]);
+    runtime->unmap_all_regions(context);
+    runtime->execute_task(context, test);
+  }
+  {
+    TaskLauncher report(REPORTER_TASK_ID, TaskArgument(NULL, 0));
+    // NB: although READ_ONLY privileges ought to be sufficient for the reporter
+    // task, TestLogReference<READ_ONLY> appears broken (for the abort state
+    // region, it seems), so we use READ_WRITE privileges instead
+    auto reqs = logref.requirements<READ_WRITE>();
+    report.add_region_requirement(reqs[0]);
+    report.add_region_requirement(reqs[1]);
+    runtime->execute_task(context, report);
+  }
 }
 
 // Local Variables:

@@ -31,7 +31,6 @@ set_target_properties(hyperion_testing PROPERTIES
 add_dependencies(hyperion_testing hyperion TestRunner)
 target_include_directories(hyperion_testing
   PRIVATE ${Legion_INSTALL_DIR}/include
-  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}../..
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 if (USE_CASACORE)
 target_include_directories(hyperion_testing PRIVATE ${casacore_INCLUDE_DIR})

@@ -180,6 +180,7 @@ test_log_test_suite(
     reqs.begin(),
     reqs.end(),
     [&subtasks](auto& req) { subtasks.add_region_requirement(req); });
+  runtime->unmap_all_regions(ctx);
   runtime->execute_index_space(ctx, subtasks);
 }
 
