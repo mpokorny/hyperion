@@ -72,14 +72,17 @@ hid_t
 h5_dt() {
   hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
   Table0Axes a = Table0Axes::ROW;
-  herr_t err = H5Tenum_insert(result, "ROW", &a);
+  [[maybe_unused]] herr_t err = H5Tenum_insert(result, "ROW", &a);
   assert(err >= 0);
   a = Table0Axes::X;
   err = H5Tenum_insert(result, "X", &a);
+  assert(err >= 0);
   a = Table0Axes::Y;
   err = H5Tenum_insert(result, "Y", &a);
+  assert(err >= 0);
   a = Table0Axes::ZP;
   err = H5Tenum_insert(result, "ZP", &a);
+  assert(err >= 0);
   return result;
 }
 
@@ -326,7 +329,7 @@ table_tests(
     table0_z[2 * i + 1] = table0_y[i];
   }
 
-  const float ms_vn = -42.1f;
+  // const float ms_vn = -42.1f;
   hyperion::string ms_nm("test");
   std::string fname = "h5.XXXXXX";
   

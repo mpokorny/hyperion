@@ -69,10 +69,11 @@ hid_t
 h5_dt() {
   hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
   Table0Axes a = Table0Axes::ROW;
-  herr_t err = H5Tenum_insert(result, "ROW", &a);
+  [[maybe_unused]] herr_t err = H5Tenum_insert(result, "ROW", &a);
   assert(err >= 0);
   a = Table0Axes::W;
   err = H5Tenum_insert(result, "W", &a);
+  assert(err >= 0);
   return result;
 }
 
