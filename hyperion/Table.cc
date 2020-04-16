@@ -1005,7 +1005,7 @@ do_domains_conform(
   PointInDomainIterator<OBJECT_RANK> opid(object, false);
   PointInDomainIterator<SUBJECT_RANK> spid(subject, false);
   while (result && spid() && opid()) {
-    Point<OBJECT_RANK> pt;
+    Point<OBJECT_RANK> pt(0);
     while (result && spid()) {
       for (size_t i = 0; i < OBJECT_RANK; ++i)
         pt[i] = spid[i];
