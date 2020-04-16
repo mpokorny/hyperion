@@ -43,7 +43,7 @@ enum {
 // maximum length of paths (MS and HDF5)
 #define MAX_PATHLEN 1024
 // minimum number of rows to read per task in parallel
-#define MIN_BLOCK_ROWS 100000
+#define ROW_BLOCK_SZ 100000
 // maximum number of tables
 #define MAX_TABLES 100
 
@@ -178,18 +178,7 @@ read_ms_table_columns_task(
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
-  auto index_column = table.index_column(rt).value();
-  assert(index_column->parent().get_index_space().get_dim() == 1);
-  auto num_rows =
-    rt->get_index_space_domain(index_column->parent().get_index_space())
-    .get_volume();
-  size_t num_io_processors = task->futures[0].get_result<size_t>();
-  size_t block_rows =
-    num_rows / min_divisor(num_rows, MIN_BLOCK_ROWS, num_io_processors);
-  assert(block_rows >= std::min((size_t)MIN_BLOCK_ROWS, num_rows));
-
-  auto row_part =
-    table.partition_rows(ctx, rt, {std::make_optional<size_t>(block_rows)});
+  auto row_part = table.partition_rows(ctx, rt, {ROW_BLOCK_SZ});
   auto [reqs, parts] =
     TableReadTask::requirements(ctx, rt, table, row_part, READ_WRITE);
 
@@ -622,10 +611,6 @@ public:
 
     // use read_ms_table_columns_task to read values from MS into regions of the
     // PhysicalTables
-    auto nios =
-      rt->select_tunable_value(
-        ctx,
-        Mapping::DefaultMapper::DefaultTunables::DEFAULT_TUNABLE_GLOBAL_IOS);
     Column::Requirements colreq = Column::default_requirements;
     colreq.values = Column::Req{READ_WRITE, EXCLUSIVE, false};
     for (size_t i = 0; i < ptables.size(); ++i) {
@@ -650,7 +635,6 @@ public:
       ptables[i].unmap_regions(ctx, rt);
       for (auto& rq : reqs)
         task.add_region_requirement(rq);
-      task.add_future(nios);
       rt->execute_task(ctx, task);
     }
 
