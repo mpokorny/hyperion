@@ -93,7 +93,7 @@ measure_index_trees(
   auto radial_velocity = frame.radialVelocity();
   if (radial_velocity != nullptr)
     components[MeasRef::ArrayComponent::RADIAL_VELOCITY] = radial_velocity;
-  auto comet = frame.comet();
+  [[maybe_unused]] auto comet = frame.comet();
   assert(comet == nullptr);
 
   MeasureIndexTrees result;
@@ -434,6 +434,7 @@ instantiate<1>(MeasRef::DataRegions prs, Domain metadata_domain) {
   // macro expansion in the switch statement in make() that's used to select
   // the call to instantiate<D>()
   assert(false);
+  return {};
 }
 
 template <int DIM>
@@ -498,6 +499,7 @@ MeasRef::mclass(Legion::PhysicalRegion pr) {
 #undef MC
     default:
       assert(false);
+      return M_NONE;
       break;
   }
 }

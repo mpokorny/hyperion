@@ -503,7 +503,7 @@ read_full_ms(
     auto [reqs, parts] = TableReadTask::requirements(ctx, rt, table, row_part);
 
     TableReadTask::Args args;
-    std::strncpy(args.table_path, t0_path.c_str(), sizeof(args.table_path));
+    std::strncpy(args.table_path, t0_path.c_str(), sizeof(args.table_path) - 1);
     IndexTaskLauncher read(
       TableReadTask::TASK_ID,
       rt->get_index_partition_color_space(parts[0].get_index_partition()),

@@ -396,6 +396,7 @@ hyperion::hdf5::write_measure(
 #undef SP
     default:
       assert(false);
+      sp = -1;
       break;
   }
   {
@@ -636,6 +637,7 @@ hyperion::hdf5::write_column(
 #undef DT
       default:
         assert(false);
+        dt = -1;
         break;
     }
 
@@ -786,6 +788,7 @@ hyperion::hdf5::write_column(
 #undef DT
       default:
         assert(false);
+        dt = -1;
         break;
     }
 
@@ -1386,7 +1389,7 @@ std::vector<T>
 copy_mr_ds(hid_t ds) {
 
   hid_t spc = CHECK_H5(H5Dget_space(ds));
-  int rank = CHECK_H5(H5Sget_simple_extent_ndims(spc));
+  [[maybe_unused]] int rank = CHECK_H5(H5Sget_simple_extent_ndims(spc));
   assert(rank > 0);
   hssize_t npts = H5Sget_simple_extent_npoints(spc);
   std::vector<T> result(npts);

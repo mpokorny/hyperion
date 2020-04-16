@@ -201,7 +201,10 @@ public:
     }
     HYPERION_FOREACH_MCLASS(CREATE)
 #undef CREATE
-    else assert(false);
+    else {
+      assert(false);
+      return MeasRef();
+    }
   }
 
   template <typename Ms>

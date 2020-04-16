@@ -336,6 +336,7 @@ hyperion::add_field(
     HYPERION_FOREACH_DATATYPE(ALLOC_FLD);
   default:
     assert(false);
+    result = AUTO_GENERATE_ID;
     break;
   }
 #undef ALLOC_FLD
@@ -576,10 +577,10 @@ hyperion::H5DatatypeManager::preregister_datatypes() {
   {
     hid_t dt = H5Tenum_create(H5T_NATIVE_UINT);
 
-#define DTINSERT(T) do {                          \
-      unsigned val = HYPERION_TYPE_##T;              \
-      herr_t err = H5Tenum_insert(dt, #T, &val);  \
-      assert(err >= 0);                           \
+#define DTINSERT(T) do {                                            \
+      unsigned val = HYPERION_TYPE_##T;                             \
+      [[maybe_unused]] herr_t err = H5Tenum_insert(dt, #T, &val);   \
+      assert(err >= 0);                                             \
     } while(0);
     HYPERION_FOREACH_BARE_DATATYPE(DTINSERT);
 #undef DTINSERT
@@ -591,10 +592,11 @@ hyperion::H5DatatypeManager::preregister_datatypes() {
 #ifdef HYPERION_USE_CASACORE
   {
     hid_t dt = H5Tenum_create(H5T_NATIVE_UINT);
-#define MCINSERT(MC) do {                                               \
-      unsigned val = MC;                                                \
-      herr_t err = H5Tenum_insert(dt, MClassT<MC>::name.c_str(), &val); \
-      assert(err >= 0);                                                 \
+#define MCINSERT(MC) do {                                     \
+      unsigned val = MC;                                      \
+      [[maybe_unused]] herr_t err =                           \
+        H5Tenum_insert(dt, MClassT<MC>::name.c_str(), &val);  \
+      assert(err >= 0);                                       \
     } while(0);
     HYPERION_FOREACH_MCLASS(MCINSERT);
 #undef MCINSERT
@@ -676,7 +678,7 @@ hyperion::H5DatatypeManager::create(
 
   hid_t result = H5Fcreate(path.c_str(), flags, fcpl_t, fapl_t);
   if (result >= 0) {
-    herr_t rc = commit_derived(result);
+    [[maybe_unused]] herr_t rc = commit_derived(result);
     assert(rc >= 0);
   }
   return result;

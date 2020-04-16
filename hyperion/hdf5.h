@@ -470,6 +470,7 @@ struct HYPERION_API string_index_tree_serdez {
   deserialize(IndexTreeL&, const void*) {
     // TODO
     assert(false);
+    return 0;
   }
 };
 

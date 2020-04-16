@@ -392,7 +392,7 @@ h5_axes_dt()  {
   for (unsigned char a = 0;
        a <= static_cast<unsigned char>(Axes<T>::num_axes - 1);
        ++a) {
-    herr_t err = H5Tenum_insert(result, Axes<T>::names[a].c_str(), &a);
+    [[maybe_unused]] herr_t err = H5Tenum_insert(result, Axes<T>::names[a].c_str(), &a);
     assert(err >= 0);
   }
   return result;

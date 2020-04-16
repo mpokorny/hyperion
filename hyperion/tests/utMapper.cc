@@ -71,10 +71,11 @@ hid_t
 h5_dt() {
   hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
   Table0Axes a = Table0Axes::A0;
-  herr_t err = H5Tenum_insert(result, "A0", &a);
+  [[maybe_unused]] herr_t err = H5Tenum_insert(result, "A0", &a);
   assert(err >= 0);
   a = Table0Axes::A1;
   err = H5Tenum_insert(result, "A1", &a);
+  assert(err >= 0);
   return result;
 }
 
