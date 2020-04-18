@@ -51,6 +51,60 @@ else ()
   endif ()
 endif ()
 
+set(Legion_MAX_DIM ${MAX_DIM} STRING "Maximum number of dimensions")
+list(APPEND Legion_ARGS Legion_MAX_DIM)
+
+set(Legion_OUTPUT_LEVEL "DEBUG" CACHE STRING "Compile time logging level")
+list(APPEND Legion_ARGS Legion_OUTPUT_LEVEL)
+
+set(Legion_USE_OpenMP OFF CACHE BOOL "Use OpenMP")
+list(APPEND Legion_ARGS Legion_USE_OpenMP)
+
+set(Legion_USE_Python OFF CACHE BOOL "Use Python")
+list(APPEND Legion_ARGS Legion_USE_Python)
+
+set(Legion_USE_CUDA ${USE_CUDA} CACHE BOOL "Enable support for the CUDA runtime")
+list(APPEND Legion_ARGS Legion_USE_CUDA)
+
+set(Legion_USE_GASNet OFF CACHE BOOL "Enable the distributed GASNet backend")
+list(APPEND Legion_ARGS Legion_USE_GASNet)
+
+set(Legion_GASNet_CONDUIT "ibv" CACHE STRING "GASNet conduit")
+list(APPEND Legion_ARGS Legion_GASNet_CONDUIT)
+
+set(Legion_GASNet_ROOT "" CACHE STRING "GASNet root directory")
+list(APPEND Legion_ARGS Legion_GASNet_ROOT)
+
+set(Legion_USE_LLVM OFF CACHE BOOL "Use LLVM JIT operations")
+list(APPEND Legion_ARGS Legion_USE_LLVM)
+
+if(Legion_USE_LLVM)
+  set(Legion_ALLOW_MISSING_LLVM_LIBS ON BOOL)
+  set(Legion_LINK_LLVM_LIBS OFF BOOL)
+  # TODO: set LLVM_CONFIG_EXECUTABLE to env var LLVM_CONFIG, if set
+else()
+  set(Legion_ALLOW_MISSING_LLVM_LIBS OFF BOOL)
+  set(Legion_LINK_LLVM_LIBS ON BOOL)
+endif()
+
+set(Legion_USE_HDF5 ${USE_HDF5} BOOL "Enable support for HDF5")
+list(APPEND Legion_ARGS Legion_USE_HDF5)
+
+set(Legion_USE_LIBDL ON CACHE BOOL "Enable support for libdl")
+list(APPEND Legion_ARGS Legion_USE_LIBDL)
+
+set(Legion_USE_ZLIB ${ZLIB_FOUND} BOOL "Use zlib")
+list(APPEND Legion_ARGS Legion_USE_ZLIB)
+
+set(Legion_USE_HWLOC OFF CACHE BOOL "Use hwloc for topology awareness")
+list(APPEND Legion_ARGS Legion_USE_HWLOC)
+
+set(Legion_MAX_FIELDS 512 CACHE STRING "Maximum number of fields allocated to a single field space")
+list(APPEND Legion_ARGS Legion_MAX_FIELDS)
+
+set(Legion_ENABLE_TLS OFF CACHE BOOL "Enable support for TLS storage of Legion context")
+list(APPEND Legion_ARGS Legion_ENABLE_TLS)
+
 enable_testing()
 
 add_subdirectory(legion)
