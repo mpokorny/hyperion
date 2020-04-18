@@ -1,8 +1,13 @@
 cmake_minimum_required(VERSION 3.13)
-project(hyperion)
+project(hyperion
+  LANGUAGES CXX C)
+
+cmake_policy(SET CMP0077 NEW)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
 include(GNUInstallDirs)
+include(CheckLanguage)
 
 find_package(ZLIB REQUIRED)
 find_package(Casacore COMPONENTS ms)
@@ -17,12 +22,22 @@ set(USE_HDF5 ${HDF5_FOUND} CACHE BOOL "Use HDF5")
 set(USE_CASACORE ON CACHE BOOL "Use casacore")
 set(CASACORE_ROOT_DIR "" CACHE STRING "casacore installation root path")
 set(USE_YAML ${yaml-cpp_FOUND} CACHE BOOL "Use YAML")
+check_language(CUDA)
+if (NOT "${CMAKE_CUDA_COMPILER}" STREQUAL "NOTFOUND")
+  set(HAVE_CUDA ON)
+else()
+  set(HAVE_CUDA OFF)
+endif()
+set(USE_CUDA ${HAVE_CUDA} CACHE BOOL "Use CUDA")
 
 if (USE_HDF5)
   find_package(HDF5 REQUIRED)
 endif ()
 if (USE_YAML)
   find_package(yaml-cpp REQUIRED)
+endif()
+if (USE_CUDA)
+  enable_language(CUDA)
 endif()
 
 if (USE_CASACORE AND NOT CASACORE_FOUND)

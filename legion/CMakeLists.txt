@@ -13,7 +13,7 @@ list(APPEND Legion_ARGS Legion_USE_OpenMP)
 set(Legion_USE_Python OFF CACHE BOOL "Use Python")
 list(APPEND Legion_ARGS Legion_USE_Python)
 
-set(Legion_USE_CUDA OFF CACHE BOOL "Enable support for the CUDA runtime")
+set(Legion_USE_CUDA ${USE_CUDA} CACHE BOOL "Enable support for the CUDA runtime")
 list(APPEND Legion_ARGS Legion_USE_CUDA)
 
 set(Legion_USE_GASNet OFF CACHE BOOL "Enable the distributed GASNet backend")
