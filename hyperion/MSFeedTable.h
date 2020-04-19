@@ -23,12 +23,14 @@
 #include <hyperion/MSTable.h>
 
 #pragma GCC visibility push(default)
-# include <casacore/measures/Measures/MEpoch.h>
-# include <casacore/measures/Measures/MCEpoch.h>
-# include <casacore/measures/Measures/MPosition.h>
-# include <casacore/measures/Measures/MCPosition.h>
-# include <casacore/measures/Measures/MDirection.h>
-# include <casacore/measures/Measures/MCDirection.h>
+# ifdef HYPERION_USE_CASACORE
+#  include <casacore/measures/Measures/MEpoch.h>
+#  include <casacore/measures/Measures/MCEpoch.h>
+#  include <casacore/measures/Measures/MPosition.h>
+#  include <casacore/measures/Measures/MCPosition.h>
+#  include <casacore/measures/Measures/MDirection.h>
+#  include <casacore/measures/Measures/MCDirection.h>
+# endif // HYPERION_USE_CASACORE
 
 # include <unordered_map>
 #pragma GCC visibility pop

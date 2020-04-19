@@ -1853,7 +1853,9 @@ Table::columns(
           vss_pid,
           std::vector<columns_result_t::tbl_fld_t>()};
       if (vfs_pid != no_column) {
+#ifdef HYPERION_USE_CASACORE
         auto rcs_pid = rcs.read(*pid);
+#endif
         columns_result_t::tbl_fld_t tf = {
           nms.read(*pid),
           TableField(
@@ -2423,6 +2425,7 @@ Table::reindexed(
         const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
           auid(crg.metadata, ColumnSpace::AXIS_SET_UID_FID);
         axuid = auid[0];
+#ifdef HYPERION_USE_CASACORE
         std::optional<MeasRef::DataRegions> odrs;
         if (crg.mr_metadata) {
           MeasRef::DataRegions drs;
@@ -2431,6 +2434,7 @@ Table::reindexed(
           drs.index = crg.mr_index;
           odrs = drs;
         }
+#endif
         std::optional<Keywords::pair<PhysicalRegion>> okwrs;
         if (crg.kw_values) {
           Keywords::pair<PhysicalRegion> kwrs;

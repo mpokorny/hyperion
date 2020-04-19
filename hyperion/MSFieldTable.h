@@ -22,10 +22,12 @@
 #include <hyperion/MSTableColumns.h>
 
 #pragma GCC visibility push(default)
-# include <casacore/measures/Measures/MDirection.h>
-# include <casacore/measures/Measures/MCDirection.h>
-# include <casacore/measures/Measures/MEpoch.h>
-# include <casacore/measures/Measures/MCEpoch.h>
+# ifdef HYPERION_USE_CASACORE
+#  include <casacore/measures/Measures/MDirection.h>
+#  include <casacore/measures/Measures/MCDirection.h>
+#  include <casacore/measures/Measures/MEpoch.h>
+#  include <casacore/measures/Measures/MCEpoch.h>
+# endif // HYPERION_USE_CASACORE
 
 # include <any>
 # include <unordered_map>
@@ -436,6 +438,7 @@ public:
         *m_columns.at(HYPERION_COLUMN_NAME(FIELD, FLAG_ROW)));
   }
 
+#ifdef HYPERION_USE_CASACORE
 private:
 
   static casacore::MDirection
@@ -443,7 +446,7 @@ private:
     const std::vector<casacore::MDirection>& dir_poly,
     double interTime,
     double timeOrigin);
-
+#endif // HYPERION_USE_CASACORE
 };
 
 } // end namespace hyperion

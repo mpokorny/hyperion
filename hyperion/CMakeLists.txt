@@ -139,7 +139,6 @@ list(APPEND HYPERION_SRC
   MSAntennaTable.h
   MSDataDescriptionTable.h
   MSFieldTable.h
-  MSFieldTable.cc
   MSMainTable.h
   MSSpWindowTable.h
   PhysicalColumn.h
@@ -168,7 +167,8 @@ if(USE_CASACORE)
     Measures.h
     Measures.cc
     MeasRef.h
-    MeasRef.cc)
+    MeasRef.cc
+    MSFieldTable.cc)
   set(HYPERION_USE_CASACORE ON)
 endif()
 if(USE_HDF5)

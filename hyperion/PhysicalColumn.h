@@ -340,12 +340,12 @@ protected:
   friend class Table;
   friend class PhysicalTable;
 
+#ifdef HYPERION_USE_CASACORE
   void
   set_refcol(const std::string& name, const std::shared_ptr<PhysicalColumn>& col) {
     m_refcol = std::make_tuple(name, col);
   }
-
-protected:
+#endif // HYPERION_USE_CASACORE
 
   hyperion::TypeTag m_dt;
 

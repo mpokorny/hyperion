@@ -131,7 +131,9 @@ PhysicalTable::create(
     LogicalRegion parent;
     std::variant<PhysicalRegion, LogicalRegion> values = vss_pid;
     std::optional<Keywords::pair<PhysicalRegion>> kw_prs;
+#ifdef HYPERION_USE_CASACORE
     std::optional<MeasRef::DataRegions> mr_drs;
+#endif
     auto vfs_pid = vfs.read(*pid);
     if (vfs_pid != Table::no_column) {
       std::tuple<FieldID, ColumnSpace> fid_cs = {vfs_pid, css_pid};
@@ -509,6 +511,7 @@ PhysicalTable::add_columns(
                   });
               kws = prs;
             }
+#ifdef HYPERION_USE_CASACORE
             // create mr_drs for MeasRef
             std::optional<MeasRef::DataRegions> mr_drs;
             if (!tf.mr.is_empty()) {
@@ -522,6 +525,7 @@ PhysicalTable::add_columns(
             }
             if (tf.rc)
               refcols[nm] = tf.rc.value();
+#endif
             assert(m_columns.count(nm) == 0);
             m_columns.emplace(
               nm,
@@ -543,8 +547,10 @@ PhysicalTable::add_columns(
         }
       }
     }
+#ifdef HYPERION_USE_CASACORE
     for (auto& [c, rc] : refcols)
       m_columns[c]->set_refcol(rc, m_columns[rc]);
+#endif
   }
   return result;
 }
@@ -722,12 +728,14 @@ PhysicalTable::reindexed(
           cr.kw_type_tags = kws.type_tags;
           cr.kw_values = kws.values;
         }
+#ifdef HYPERION_USE_CASACORE
         if (ppc->mr_drs()) {
           auto& mr_drs = ppc->mr_drs().value();
           cr.mr_metadata = mr_drs.metadata;
           cr.mr_values = mr_drs.values;
           cr.mr_index = mr_drs.index;
         }
+#endif
         cregions.emplace_back(*pid, cr);
       } else {
         // the column values have not been mapped, which is an error

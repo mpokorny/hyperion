@@ -717,6 +717,7 @@ hyperion::index_space_as_tree(Runtime* rt, IndexSpace is) {
   return result;
 }
 
+#ifdef HYPERION_USE_CASACORE
 std::pair<
   std::string,
   std::vector<
@@ -750,6 +751,7 @@ hyperion::from_ms(
 
 #undef FROM_MS_TABLE
 }
+#endif // HYPERION_USE_CASACORE
 
 // Local Variables:
 // mode: c++

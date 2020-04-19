@@ -22,8 +22,10 @@
 #include <hyperion/MSTableColumns.h>
 
 #pragma GCC visibility push(default)
-# include <casacore/measures/Measures/MPosition.h>
-# include <casacore/measures/Measures/MCPosition.h>
+# ifdef HYPERION_USE_CASACORE
+#  include <casacore/measures/Measures/MPosition.h>
+#  include <casacore/measures/Measures/MCPosition.h>
+# endif // HYPERION_USE_CASACORE
 
 # include <unordered_map>
 #pragma GCC visibility pop

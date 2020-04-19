@@ -38,9 +38,10 @@
 # include <unordered_map>
 # include <unordered_set>
 
+# include CXX_FILESYSTEM_HEADER
+
 # ifdef HYPERION_USE_HDF5
 #  include <hdf5.h>
-#  include CXX_FILESYSTEM_HEADER
 # endif
 
 # ifdef HYPERION_USE_CASACORE
@@ -166,6 +167,7 @@ partition_over_default_tunable(
 HYPERION_API IndexTreeL
 index_space_as_tree(Legion::Runtime* rt, Legion::IndexSpace is);
 
+#ifdef HYPERION_USE_CASACORE
 HYPERION_API std::pair<
   std::string,
   std::vector<
@@ -178,6 +180,7 @@ from_ms(
   Legion::Runtime* runtime,
   const CXX_FILESYSTEM_NAMESPACE::path& path,
   const std::unordered_set<std::string>& column_selections);
+#endif // HYPERION_USE_CASACORE
 
 template <
   typename OPEN,
