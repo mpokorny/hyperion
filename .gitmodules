@@ -1,4 +1,4 @@
 [submodule "legion"]
 	path = legion
-	url = git@github.com:mpokorny/legion.git
+	url = https://github.com/mpokorny/legion.git
 	branch = hyperion
