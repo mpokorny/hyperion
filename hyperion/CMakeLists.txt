@@ -247,7 +247,9 @@ if (USE_HDF5 AND USE_CASACORE)
     PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..
     PUBLIC ${CASACORE_INCLUDE_DIR}
     PUBLIC ${HDF5_INCLUDE_DIRS})
-  install(TARGETS ms2h5 RUNTIME DESTINATION bin)
+  install(TARGETS ms2h5
+    RUNTIME DESTINATION bin
+    RENAME hy_ms2h5)
 endif()
 
 add_subdirectory(gridder)
