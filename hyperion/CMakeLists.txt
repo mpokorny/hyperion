@@ -224,8 +224,8 @@ if (USE_HDF5)
 endif()
 target_link_libraries(hyperion PUBLIC std::filesystem)
 #target_link_libraries(hyperion PUBLIC mdspan)
-target_link_libraries(hyperion PRIVATE Legion)
-target_link_libraries(hyperion PRIVATE Realm)
+target_link_libraries(hyperion PUBLIC Legion)
+target_link_libraries(hyperion PUBLIC Realm)
 set_target_properties(hyperion PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(hyperion PROPERTIES SOVERSION ${SOVERSION})
 install(TARGETS hyperion EXPORT HyperionConfig
@@ -242,10 +242,14 @@ if (USE_HDF5 AND USE_CASACORE)
     CXX_STANDARD 17
     COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
   target_link_libraries(ms2h5 hyperion)
+  target_link_directories(hyperion
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../legion/lib>)
   target_include_directories(ms2h5
-    PUBLIC ${Legion_INSTALL_DIR}/include
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..
-    PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../legion/runtime>
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../legion/runtime>
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/..>
     PUBLIC ${CASACORE_INCLUDE_DIR}
     PUBLIC ${HDF5_INCLUDE_DIRS})
   install(TARGETS ms2h5
