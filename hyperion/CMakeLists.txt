@@ -203,7 +203,8 @@ target_include_directories(hyperion
   PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
   PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../legion/runtime>
   PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/..>
-  PUBLIC $<INSTALL_INTERFACE:include>)
+  PUBLIC $<INSTALL_INTERFACE:include>
+  PUBLIC $<INSTALL_INTERFACE:include/hyperion>)
 target_link_directories(hyperion
   PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../legion/lib>)
 if (USE_CASACORE)
