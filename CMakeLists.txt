@@ -13,6 +13,7 @@ find_package(ZLIB REQUIRED)
 find_package(Casacore COMPONENTS ms)
 find_package(HDF5 QUIET)
 find_package(yaml-cpp QUIET)
+find_package(Filesystem REQUIRED COMPONENTS Final Experimental)
 
 set(MAX_DIM 7 CACHE STRING "Maximum index space dimension")
 set(MAX_STRING_SIZE 64 CACHE STRING "Maximum string size")
@@ -51,61 +52,24 @@ else ()
   endif ()
 endif ()
 
-set(Legion_MAX_DIM ${MAX_DIM} STRING "Maximum number of dimensions")
-list(APPEND Legion_ARGS Legion_MAX_DIM)
-
-set(Legion_OUTPUT_LEVEL "DEBUG" CACHE STRING "Compile time logging level")
-list(APPEND Legion_ARGS Legion_OUTPUT_LEVEL)
-
-set(Legion_USE_OpenMP OFF CACHE BOOL "Use OpenMP")
-list(APPEND Legion_ARGS Legion_USE_OpenMP)
-
-set(Legion_USE_Python OFF CACHE BOOL "Use Python")
-list(APPEND Legion_ARGS Legion_USE_Python)
-
-set(Legion_USE_CUDA ${USE_CUDA} CACHE BOOL "Enable support for the CUDA runtime")
-list(APPEND Legion_ARGS Legion_USE_CUDA)
-
-set(Legion_USE_GASNet OFF CACHE BOOL "Enable the distributed GASNet backend")
-list(APPEND Legion_ARGS Legion_USE_GASNet)
-
-set(Legion_GASNet_CONDUIT "ibv" CACHE STRING "GASNet conduit")
-list(APPEND Legion_ARGS Legion_GASNet_CONDUIT)
-
-set(Legion_GASNet_ROOT "" CACHE STRING "GASNet root directory")
-list(APPEND Legion_ARGS Legion_GASNet_ROOT)
-
-set(Legion_USE_LLVM OFF CACHE BOOL "Use LLVM JIT operations")
-list(APPEND Legion_ARGS Legion_USE_LLVM)
-
-if(Legion_USE_LLVM)
-  set(Legion_ALLOW_MISSING_LLVM_LIBS ON BOOL)
-  set(Legion_LINK_LLVM_LIBS OFF BOOL)
-  # TODO: set LLVM_CONFIG_EXECUTABLE to env var LLVM_CONFIG, if set
-else()
-  set(Legion_ALLOW_MISSING_LLVM_LIBS OFF BOOL)
-  set(Legion_LINK_LLVM_LIBS ON BOOL)
-endif()
-
-set(Legion_USE_HDF5 ${USE_HDF5} BOOL "Enable support for HDF5")
-list(APPEND Legion_ARGS Legion_USE_HDF5)
-
-set(Legion_USE_LIBDL ON CACHE BOOL "Enable support for libdl")
-list(APPEND Legion_ARGS Legion_USE_LIBDL)
-
-set(Legion_USE_ZLIB ${ZLIB_FOUND} BOOL "Use zlib")
-list(APPEND Legion_ARGS Legion_USE_ZLIB)
-
-set(Legion_USE_HWLOC OFF CACHE BOOL "Use hwloc for topology awareness")
-list(APPEND Legion_ARGS Legion_USE_HWLOC)
-
-set(Legion_MAX_FIELDS 512 CACHE STRING "Maximum number of fields allocated to a single field space")
-list(APPEND Legion_ARGS Legion_MAX_FIELDS)
-
-set(Legion_ENABLE_TLS OFF CACHE BOOL "Enable support for TLS storage of Legion context")
-list(APPEND Legion_ARGS Legion_ENABLE_TLS)
-
 enable_testing()
+
+# use, i.e. don't skip the full RPATH for the build tree
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+
+# when building, don't use the install RPATH already
+# (but later on when installing)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+
+# add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+# the RPATH to be used when installing, but only if it's not a system directory
+list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_FULL_LIBDIR}/hyperion" isSystemDir)
+if("${isSystemDir}" STREQUAL "-1")
+  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}/hyperion")
+endif("${isSystemDir}" STREQUAL "-1")
 
 add_subdirectory(legion)
 if (BUILD_REGENT)

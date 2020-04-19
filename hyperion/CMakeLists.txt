@@ -1,13 +1,9 @@
 set(SOVERSION 1)
 
-find_package(Filesystem REQUIRED COMPONENTS Final Experimental)
-
 #------------------------------------------------------------------------------#
 # Legion libraries
 #------------------------------------------------------------------------------#
 
-ExternalProject_Get_Property(legion_build INSTALL_DIR)
-set(Legion_INSTALL_DIR ${INSTALL_DIR})
 if (BUILD_CASACORE)
   ExternalProject_Get_Property(casacore_build INSTALL_DIR)
   set(
@@ -183,8 +179,8 @@ endif ()
 
 configure_file(hyperion_config.h.in hyperion_config.h)
 
-set(HYPERION_INCLUDE HYPERION_SRC)
-list(FILTER HYPERION_INCLUDE INCLUDE REGEX ".*\.h")
+set(HYPERION_INCLUDE ${HYPERION_SRC})
+list(FILTER HYPERION_INCLUDE INCLUDE REGEX ".*\\.h")
 
 add_library(hyperion SHARED ${HYPERION_SRC})
 set(hyperion_COMPILE_DEFINITIONS "")
@@ -201,15 +197,15 @@ list(APPEND
 set_target_properties(hyperion PROPERTIES
   CXX_STANDARD 17
   COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
-add_dependencies(hyperion legion_build)
+add_dependencies(hyperion Legion)
 target_include_directories(hyperion
-  PUBLIC $<BUILD_INTERFACE:${Legion_INSTALL_DIR}/include>
+  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../legion/runtime>
   PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../legion/runtime>
   PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/..>
   PUBLIC $<INSTALL_INTERFACE:include>)
 target_link_directories(hyperion
-  PUBLIC $<BUILD_INTERFACE:${Legion_INSTALL_DIR}/lib64>
-  PUBLIC $<BUILD_INTERFACE:${Legion_INSTALL_DIR}/lib>)
+  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../legion/lib>)
 if (USE_CASACORE)
   if (BUILD_CASACORE)
     add_dependencies(hyperion casacore_build)
@@ -227,14 +223,15 @@ if (USE_HDF5)
 endif()
 target_link_libraries(hyperion PUBLIC std::filesystem)
 #target_link_libraries(hyperion PUBLIC mdspan)
-target_link_libraries(hyperion PUBLIC legion)
-target_link_libraries(hyperion PUBLIC realm)
+target_link_libraries(hyperion PRIVATE Legion)
+target_link_libraries(hyperion PRIVATE Realm)
 set_target_properties(hyperion PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(hyperion PROPERTIES SOVERSION ${SOVERSION})
 install(TARGETS hyperion EXPORT HyperionConfig
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES HYPERION_INCLUDE DESTINATION include/hyperion)
+install(FILES ${HYPERION_INCLUDE}
+  DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}/hyperion)
 install(EXPORT HyperionConfig DESTINATION share/hyperion/cmake)
 export(TARGETS hyperion FILE HyperionConfig.cmake)
 
