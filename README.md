@@ -67,6 +67,10 @@ Executable binaries are installed into `CMAKE_INSTALL_PREFIX/bin`, header files 
 make install
 ```
 
+## Build and install via Spack
+
+A preliminary Spack package file for *hyperion* exists in this repository.
+
 ## Using the software
 
 There is currently one complete application, *ms2h5*, and another, *gridder*, undergoing continuing development.
