@@ -37,22 +37,29 @@ class Hyperion(CMakePackage):
     # Add dependencies if required.
     depends_on('cmake@3.13:', type='build')
 
+    variant('max_dim', default='7', description='Maximum index space rank',
+            values=('4','5','6','7','8','9'), multi=False)
     variant('casacore', default=True, description='Enable casacore support')
     variant('hdf5', default=True, description='Enable HDF5 support')
     variant('yaml', default=True, description='Enable YAML support')
     variant('llvm', default=False, description='Enable LLVM support')
-    variant('max_dim', default='7', description='Maximum index space rank',
-            values=('4','5','6','7','8','9'), multi=False)
+    variant('cuda', default=False, description='Enable CUDA support')
+
     variant('debug', default=False, description='Enable debug flags')
     variant('lg_debug', default=False, description='Enable Legion debug flags')
     variant('lg_bounds_checks', default=False, description='Enable Legion bounds checks')
     variant('lg_privilege_checks', default=False, description='Enable Legion privilege checks')
+    variant('lg_mpi', default=False, description='Legion MPI backend')
+    variant('lg_gasnet', default=False, description='Legion GASNet backend')
 
     depends_on('zlib')
     depends_on('casacore', when='+casacore')
     depends_on('hdf5+threadsafe+szip~mpi', when='+hdf5')
     depends_on('yaml-cpp', when='+yaml')
     depends_on('llvm@6.0.1', when='+llvm')
+    depends_on('cuda', when='+cuda', type=('build', 'link', 'run'))
+    depends_on('mpi', when='+lg_mpi')
+    depends_on('gasnet+par~aligned-segments segment=fast', when='+lg_gasnet')
     # not sure how to make this a dependency only for running tests
     depends_on('python@3:', type='run')
 
@@ -66,6 +73,13 @@ class Hyperion(CMakePackage):
         args.append(self.define_from_variant('MAX_DIM', 'max_dim'))
         args.append(self.define_from_variant('Legion_BOUNDS_CHECKS', 'lg_bounds_checks'))
         args.append(self.define_from_variant('Legion_PRIVILEGE_CHECKS', 'lg_privilege_checks'))
+        backends = ''
+        if '+lg_mpi' in spec:
+            backends = backends + ',mpi'
+        if '+lg_gasnet' in spec:
+            backends = backends + ',gasnet1'
+        if len(backends) > 0:
+            args.append('-DLegion_NETWORKS=' + backends[1:])
 
         if '+debug' in spec:
             args.append('-DCMAKE_BUILD_TYPE=Debug')
