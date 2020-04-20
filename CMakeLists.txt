@@ -52,6 +52,10 @@ else ()
   endif ()
 endif ()
 
+set(Legion_CMAKE_BUILD_TYPE "Release" CACHE STRING "Legion build type")
+set(Legion_BOUNDS_CHECKS OFF CACHE BOOL "Enable Legion bounds checks")
+set(Legion_PRIVILEGE_CHECKS OFF CACHE BOOL "Enable Legion privilege checks")
+
 enable_testing()
 
 # use, i.e. don't skip the full RPATH for the build tree
