@@ -14,7 +14,6 @@ Several dependencies are optional, and while the software will build without the
 * Required
   * [CMake](https://cmake.org/), version 3.13 or later
   * zlib
-  * curses
   * git
   * git-lfs [for test data, currently no way to avoid this]
 * Optional
@@ -33,13 +32,13 @@ Several dependencies are optional, and while the software will build without the
 
 The dependence on *casacore* is optional, but *hyperion* can be built using *casacore* whether or not *casacore* is already installed on your system. To build *hyperion* without any dependency on *casacore*, simply use `-DUSE_CASACORE=OFF` in the arguments to `cmake`. When `cmake` arguments include `-DUSE_CASACORE=ON` and *casacore* is found by *CMake*, *hyperion* will be built against your *casacore* installation. To provide a hint to locating *casacore*, you may use the `CASACORE_ROOT_DIR` *CMake* variable. If `-DUSE_CASACORE=ON` and no *casacore* installation is found on your system (which can also be forced by setting `-DCASACORE_ROOT_DIR=""`), *casacore* will be downloaded and built as a *CMake* external project for *hyperion*. One variable to consider using when building *casacore* through *hyperion* is `casacore_DATA_DIR`, which provides the path to an instance of the *casacore* data directory. If, however, *casacore* will be built through *hyperion* and `casacore_DATA_DIR` is left undefined, the build script will download, and install within the build directory, a recent copy of the geodetic and ephemerides data automatically. For Ubuntu systems, the required *casacore* components and the *casacore* data are available in the `casacore-dev` and `casacore-data` packages, respectively.
 
-*Legion* itself is always built as a *CMake* external project for *hyperion*. The main reason for this arrangement is that the *hyperion* libraries are intended to be used by application code; since the *hyperion* libraries also depend on a specific *Legion* configuration, this arrangement is intended to help avoid incompatibilities between the instances of the *Legion* libraries used to build *hyperion* and those used to build an application. Other approaches to this issue may be considered in the future. Most *Legion* *CMake* build options are available from the top-level *hyperion* `cmake` command (see `legion/CMakeLists.txt` for details.) However, as configuration of *Legion* may also affect the configuration of *hyperion*, a few variables have been lifted to the top level. Those variables are currently `MAX_DIM` and `USE_HDF5`, which correspond within the *Legion* build to `Legion_MAX_DIM` and `Legion_USE_HDF5`, respectively.
+*Legion* itself is always built from a git submodule. A few of its configuration variables have been lifted to the top level `CMakeLists.txt` file, whereas others are set from the *hyperion* configuration to ensure consistency.
 
-### Instructions
+### Build instructions
 First, clone the repository.
 ``` shell
 $ cd /my/hyperion/source/directory
-$ git clone https://github.com/mpokorny/hyperion .
+$ git clone --recursive https://github.com/mpokorny/hyperion .
 ```
 
 Create a build directory, and invoke `cmake`. It is recommended to use `-DBUILD_REGENT=OFF` (the default) at this time, as the *hyperion* C API is not up to date.
@@ -60,7 +59,13 @@ $ cd /my/hyperion/build/directory
 $ make test
 ```
 
-Installation of the software is not currently supported! You must run *hyperion* applications from the build directory.
+### Install instructions
+
+Executable binaries are installed into `CMAKE_INSTALL_PREFIX/bin`, header files into `CMAKE_INSTALL_PREFIX/include/hyperion`, and libraries into `CMAKE_INSTALL_PREFIX/lib64`. *Legion* header files are also installed into `CMAKE_INSTALL_PREFIX/include/hyperion`, and libraries into `CMAKE_INSTALL_PREFIX/lib64/hyperion`. Note that the `RPATH` of the main *hyperion* library is set to include the directory into which the *Legion* libraries are installed.
+
+``` shell
+make install
+```
 
 ## Using the software
 
