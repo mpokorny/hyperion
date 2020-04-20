@@ -12,7 +12,6 @@ if (USE_HDF5 AND USE_CASACORE)
       PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..
       PUBLIC ${HDF5_INCLUDE_DIRS})
     install(TARGETS gridder
-      RUNTIME DESTINATION bin
-      RENAME hy_gridder)
+      RUNTIME DESTINATION bin)
   endif ()
 endif()
