@@ -34,9 +34,10 @@ class Hyperion(CMakePackage):
 
     version('master', branch='master', submodules=True)
 
-    # Add dependencies if required.
+    # CMake build dependency
     depends_on('cmake@3.13:', type='build')
 
+    # Top-level hyperion variants
     variant('max_dim', default='7', description='Maximum index space rank',
             values=('4','5','6','7','8','9'), multi=False)
     variant('casacore', default=True, description='Enable casacore support')
@@ -44,14 +45,19 @@ class Hyperion(CMakePackage):
     variant('yaml', default=True, description='Enable YAML support')
     variant('llvm', default=False, description='Enable LLVM support')
     variant('cuda', default=False, description='Enable CUDA support')
-
+    variant('cuda_arch', default=(), description='Target CUDA compute capabilities',
+            values=('30','32','35','50','52','53','60','61','62','70','72','75'), multi=True)
     variant('debug', default=False, description='Enable debug flags')
+
+    # Variants for Legion sub-project
     variant('lg_debug', default=False, description='Enable Legion debug flags')
     variant('lg_bounds_checks', default=False, description='Enable Legion bounds checks')
     variant('lg_privilege_checks', default=False, description='Enable Legion privilege checks')
     variant('lg_mpi', default=False, description='Legion MPI backend')
     variant('lg_gasnet', default=False, description='Legion GASNet backend')
+    variant('lg_hijack_cudart', default=True, description='Enable Legion CUDA runtime hijack')
 
+    # Remaining dependencies
     depends_on('zlib')
     depends_on('casacore', when='+casacore')
     depends_on('hdf5+threadsafe+szip~mpi', when='+hdf5')
@@ -73,6 +79,8 @@ class Hyperion(CMakePackage):
         args.append(self.define_from_variant('MAX_DIM', 'max_dim'))
         args.append(self.define_from_variant('Legion_BOUNDS_CHECKS', 'lg_bounds_checks'))
         args.append(self.define_from_variant('Legion_PRIVILEGE_CHECKS', 'lg_privilege_checks'))
+        args.append(self.define_from_variant('Legion_HIJACK_CUDART', 'lg_hijack_cudart'))
+
         backends = ''
         if '+lg_mpi' in spec:
             backends = backends + ',mpi'
@@ -80,6 +88,13 @@ class Hyperion(CMakePackage):
             backends = backends + ',gasnet1'
         if len(backends) > 0:
             args.append('-DLegion_NETWORKS=' + backends[1:])
+
+        archs = ''
+        for a in ['30','32','35','50','52','53','60','61','62','70','72','75']:
+            if 'cuda_arch=' + a in spec:
+                archs = archs + ',' + a
+        if len(archs) > 0:
+            args.append('-DCUDA_ARCH=' + archs[1:])
 
         if '+debug' in spec:
             args.append('-DCMAKE_BUILD_TYPE=Debug')
