@@ -38,6 +38,7 @@ if (USE_YAML)
   find_package(yaml-cpp REQUIRED)
 endif()
 if (USE_CUDA)
+  set(CUDA_ARCH "" CACHE STRING "Comma-separated list of CUDA architectures to build for (e.g. 60,70)")
   enable_language(CUDA)
 endif()
 
