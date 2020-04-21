@@ -77,9 +77,9 @@ class Hyperion(CMakePackage):
         args.append(self.define_from_variant('USE_HDF5', 'hdf5'))
         args.append(self.define_from_variant('USE_YAML', 'yaml'))
         args.append(self.define_from_variant('MAX_DIM', 'max_dim'))
+        args.append(self.define_from_variant('USE_CUDA', 'cuda'))
         args.append(self.define_from_variant('Legion_BOUNDS_CHECKS', 'lg_bounds_checks'))
         args.append(self.define_from_variant('Legion_PRIVILEGE_CHECKS', 'lg_privilege_checks'))
-        args.append(self.define_from_variant('Legion_HIJACK_CUDART', 'lg_hijack_cudart'))
 
         backends = ''
         if '+lg_mpi' in spec:
@@ -89,12 +89,14 @@ class Hyperion(CMakePackage):
         if len(backends) > 0:
             args.append('-DLegion_NETWORKS=' + backends[1:])
 
-        archs = ''
-        for a in ['30','32','35','50','52','53','60','61','62','70','72','75']:
-            if 'cuda_arch=' + a in spec:
-                archs = archs + ',' + a
-        if len(archs) > 0:
-            args.append('-DCUDA_ARCH=' + archs[1:])
+        if '+cuda' in spec:
+            archs = ''
+            for a in ['30','32','35','50','52','53','60','61','62','70','72','75']:
+                if 'cuda_arch=' + a in spec:
+                    archs = archs + ',' + a
+            if len(archs) > 0:
+                args.append('-DCUDA_ARCH=' + archs[1:])
+            args.append(self.define_from_variant('Legion_HIJACK_CUDART', 'lg_hijack_cudart'))
 
         if '+debug' in spec:
             args.append('-DCMAKE_BUILD_TYPE=Debug')
