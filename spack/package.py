@@ -51,11 +51,15 @@ class Hyperion(CMakePackage):
 
     # Variants for Legion sub-project
     variant('lg_debug', default=False, description='Enable Legion debug flags')
+    variant('lg_output_level', default='debug', description='Legion compile time logging level',
+            values=('spew', 'debug', 'info', 'print', 'warning', 'error', 'fatal', 'none'), multi=False)
     variant('lg_bounds_checks', default=False, description='Enable Legion bounds checks')
     variant('lg_privilege_checks', default=False, description='Enable Legion privilege checks')
     variant('lg_mpi', default=False, description='Legion MPI backend')
     variant('lg_gasnet', default=False, description='Legion GASNet backend')
     variant('lg_hijack_cudart', default=True, description='Enable Legion CUDA runtime hijack')
+    variant('lg_build', default=(), description='Extra Legion build targets',
+            values=('all', 'apps', 'bindings', 'examples', 'tutorial', 'tests'), multi=True)
 
     # Remaining dependencies
     depends_on('zlib')
@@ -80,6 +84,14 @@ class Hyperion(CMakePackage):
         args.append(self.define_from_variant('USE_CUDA', 'cuda'))
         args.append(self.define_from_variant('Legion_BOUNDS_CHECKS', 'lg_bounds_checks'))
         args.append(self.define_from_variant('Legion_PRIVILEGE_CHECKS', 'lg_privilege_checks'))
+
+        for lv in ('spew', 'debug', 'info', 'print', 'warning', 'error', 'fatal', 'none'):
+            if 'lg_output_level=' + lv in spec:
+                args.append('-DLegion_OUTPUT_LEVEL=' + lv.upper())
+
+        for bld in ('all', 'apps', 'bindings', 'examples', 'tutorial', 'tests'):
+            if 'lg_build=' + bld in spec:
+                args.append('-DLegion_BUILD_' + bld.upper() + '=ON')
 
         backends = ''
         if '+lg_mpi' in spec:
