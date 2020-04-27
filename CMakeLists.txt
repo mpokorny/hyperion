@@ -16,6 +16,7 @@ find_package(yaml-cpp QUIET)
 find_package(Filesystem REQUIRED COMPONENTS Final Experimental)
 
 set(MAX_DIM 7 CACHE STRING "Maximum index space dimension")
+set_property(CACHE MAX_DIM PROPERTY STRINGS 1 2 3 4 5 6 7 8 9)
 set(MAX_STRING_SIZE 64 CACHE STRING "Maximum string size")
 set(MAX_NUM_TABLE_COLUMNS 30 CACHE STRING "Maximum number of table columns")
 set(BUILD_REGENT OFF CACHE BOOL "Build Regent")
