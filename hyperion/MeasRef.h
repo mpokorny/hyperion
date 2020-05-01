@@ -161,6 +161,15 @@ public:
     return metadata_lr == Legion::LogicalRegion::NO_REGION;
   }
 
+  uint_least8_t
+  num_regions() const {
+    unsigned result = 0;
+    for (auto lr : {metadata_lr, values_lr, index_lr})
+      if (lr != Legion::LogicalRegion::NO_REGION)
+        ++result;
+    return result;
+  }
+
   MClass
   mclass(Legion::Context ctx, Legion::Runtime* rt) const;
 

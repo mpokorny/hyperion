@@ -132,7 +132,7 @@ struct HYPERION_API ColumnSpace {
   /**
    * Is the ColumnSpace empty?
    *
-   * @return true, if and only if the index space is not empty
+   * @return true, if and only if the index space is empty
    */
   bool
   is_empty() const;

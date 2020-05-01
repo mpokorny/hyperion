@@ -168,10 +168,10 @@ attach_table0_col(
     .only_kind(Memory::SYSTEM_MEM)
     .first();
 
-  AttachLauncher task(EXTERNAL_INSTANCE, col.vlr, col.vlr);
+  AttachLauncher task(EXTERNAL_INSTANCE, col.region, col.region);
   task.attach_array_soa(base, false, {col.fid}, local_sysmem);
   PhysicalRegion result = runtime->attach_external_resource(context, task);
-  AcquireLauncher acq(col.vlr, col.vlr, result);
+  AcquireLauncher acq(col.region, col.region, result);
   acq.add_field(col.fid);
   runtime->issue_acquire(context, acq);
   return result;
@@ -239,7 +239,7 @@ verify_partitions_task(
     xyz_part.project_onto(
       ctx,
       rt,
-      colW->parent().get_index_space(),
+      colW->region().get_index_space(),
       colW->metadata());
   for (PointInRectIterator<1> p(
          rt->get_index_partition_color_space(xyz_part.column_ip));
@@ -362,12 +362,11 @@ table_test_suite(
     Table::create(
       ctx,
       rt,
-      {{xyz_space, true, xyz_fields}, {w_space, false, w_fields}});
+      xyz_space,
+      {{xyz_space, xyz_fields}, {w_space, w_fields}});
 
   {
-    auto cols =
-      Table::column_map(
-        table0.columns(ctx, rt).get<Table::columns_result_t>());
+    auto cols = table0.columns();
 
     std::unordered_map<std::string, PhysicalRegion> col_prs;
     for (auto& c : {"W"s, "X"s, "Y"s, "Z"s})
@@ -429,7 +428,7 @@ table_test_suite(
     }
   }
 
-  table0.destroy(ctx, rt, true, true);
+  table0.destroy(ctx, rt);
 }
 
 int

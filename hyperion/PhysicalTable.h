@@ -34,12 +34,17 @@ class HYPERION_API PhysicalTable {
 public:
 
   PhysicalTable(
-    Legion::LogicalRegion table_parent,
-    Legion::PhysicalRegion table_pr,
+    const Legion::PhysicalRegion& index_col_md,
+    const Legion::LogicalRegion& index_col_parent,
+    const std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>&
+      index_col,
+    const Legion::LogicalRegion& fields_parent,
+    const std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>&
+      fixed_fields,
+    const std::optional<
+      std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>>& free_fields,
     const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
-    columns,
-    const std::string& axes_uid,
-    const std::vector<int>& index_axes);
+      columns);
 
   PhysicalTable(const PhysicalTable& other);
 
@@ -58,37 +63,31 @@ public:
     const std::vector<Legion::PhysicalRegion>::const_iterator& prs_end);
 
   Table
-  table() const;
+  table(Legion::Context ctx, Legion::Runtime* rt) const;
 
   std::optional<std::string>
   axes_uid() const;
 
-  const std::vector<int>&
+  std::vector<int>
   index_axes() const;
+
+  unsigned
+  index_rank() const;
+
+  ColumnSpace
+  index_column_space(Legion::Context ctx, Legion::Runtime* rt) const;
+
+  Legion::IndexSpace
+  index_column_space_index_space() const;
+
+  const Legion::PhysicalRegion&
+  index_column_space_metadata() const;
 
   std::optional<std::shared_ptr<PhysicalColumn>>
   column(const std::string& name) const;
 
-  std::optional<Legion::Point<1>>
-  index_column_space(Legion::Runtime* rt) const;
-
-  static std::optional<Legion::Point<1>>
-  index_column_space(
-    Legion::Runtime* rt,
-    const Legion::LogicalRegion& parent,
-    const Legion::PhysicalRegion& pr);
-
-  std::optional<std::shared_ptr<PhysicalColumn>>
-  index_column(Legion::Runtime* rt) const;
-
-  unsigned
-  index_rank(Legion::Runtime* rt) const;
-
-  static unsigned
-  index_rank(
-    Legion::Runtime* rt,
-    const Legion::LogicalRegion& parent,
-    const Legion::PhysicalRegion& pr);
+  const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
+  columns() const;
 
   bool
   is_conformant(
@@ -109,31 +108,20 @@ public:
     const std::optional<Column::Requirements>& default_column_requirements =
       Column::default_requirements) const;
 
-  const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
-  columns() const {
-    return m_columns;
-  }
-
-  decltype(Table::columns_result_t::fields)
-  column_fields(Legion::Runtime *rt) const;
-
   bool
   add_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<
+    std::vector<
       std::tuple<
         ColumnSpace,
-        bool,
-        std::vector<std::pair<std::string, TableField>>>>& columns);
+        std::vector<std::pair<std::string, TableField>>>>&& columns);
 
   bool
   remove_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::unordered_set<std::string>& columns,
-    bool destroy_orphan_column_spaces = true,
-    bool destroy_field_data = true);
+    const std::unordered_set<std::string>& columns);
 
   void
   unmap_regions(Legion::Context ctx, Legion::Runtime* rt) const;
@@ -147,7 +135,7 @@ public:
     Legion::Runtime* rt,
     const std::vector<std::optional<size_t>>& block_sizes) const;
 
-  Legion::LogicalRegion
+  Table
   reindexed(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -155,7 +143,7 @@ public:
     bool allow_rows) const;
 
   template <typename D>
-  Legion::LogicalRegion
+  Table
   reindexed(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -193,11 +181,34 @@ public:
   void
   release_columns(Legion::Context ctx, Legion::Runtime* rt);
 
+  static void
+  preregister_tasks();
+
+  static void
+  reindex_copy_values_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime *rt);
+
+  static Legion::TaskID reindex_copy_values_task_id;
+
+  static const char* reindex_copy_values_task_name;
+
 protected:
 
-  Legion::LogicalRegion m_table_parent;
+  Legion::PhysicalRegion m_index_col_md;
 
-  Legion::PhysicalRegion m_table_pr;
+  Legion::LogicalRegion m_index_col_parent;
+
+  std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion> m_index_col;
+
+  Legion::LogicalRegion m_fields_parent;
+
+  std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion> m_fixed_fields;
+
+  std::optional<std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>>
+    m_free_fields;
 
   std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> m_columns;
 

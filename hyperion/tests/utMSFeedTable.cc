@@ -230,11 +230,8 @@ ms_test(
   const CXX_FILESYSTEM_NAMESPACE::path tpath = "data/t0.ms/FEED";
 
   // create the table
-  auto table =
-    Table::create(
-      ctx,
-      rt,
-      std::get<1>(from_ms(ctx, rt, tpath, {"*"})));
+  auto [nm, index_cs, fields] = from_ms(ctx, rt, tpath, {"*"});
+  auto table = Table::create(ctx, rt, index_cs, std::move(fields));
 
   // read values from MS
   {

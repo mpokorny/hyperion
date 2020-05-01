@@ -79,6 +79,11 @@ public:
   bool
   is_empty() const;
 
+  uint_least8_t
+  num_regions() const {
+    return (is_empty() ? 0 : 2);
+  }
+
   size_t
   size(Legion::Runtime* rt) const;
 

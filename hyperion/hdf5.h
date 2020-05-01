@@ -66,6 +66,7 @@ namespace hdf5 {
 #define HYPERION_COLUMN_SPACE_AXES_UID HYPERION_NAMESPACE_PREFIX "axes_uid"
 #define HYPERION_COLUMN_SPACE_FLAG HYPERION_NAMESPACE_PREFIX "iflag"
 #define HYPERION_COLUMN_SPACE_INDEX_TREE HYPERION_NAMESPACE_PREFIX "indexes"
+#define HYPERION_INDEX_COLUMN_SPACE_GROUP HYPERION_NAMESPACE_PREFIX "tblidx"
 #ifdef HYPERION_USE_CASACORE
 #define HYPERION_MEASURE_GROUP HYPERION_NAMESPACE_PREFIX "measure"
 #define HYPERION_MEAS_REF_MCLASS_DS HYPERION_NAMESPACE_PREFIX "mclass"
@@ -282,7 +283,7 @@ HYPERION_API void
 write_column(
   Legion::Runtime* rt,
   hid_t col_grp_id,
-  const std::string& csp_name,
+  const std::string& cs_name,
   const PhysicalColumn& column);
 
 HYPERION_API void
@@ -290,23 +291,23 @@ write_column(
   Legion::Context ctx,
   Legion::Runtime* rt,
   hid_t col_grp_id,
-  const std::string& csp_name,
+  const std::string& cs_name,
   const Column& column);
 
 HYPERION_API void
 write_columnspace(
   Legion::Runtime* rt,
-  hid_t csp_grp_id,
-  const Legion::PhysicalRegion& csp_md,
-  const Legion::IndexSpace& csp_is,
+  hid_t cs_grp_id,
+  const Legion::PhysicalRegion& cs_md,
+  const Legion::IndexSpace& cs_is,
   hid_t table_axes_dt);
 
 HYPERION_API void
 write_columnspace(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  hid_t csp_grp_id,
-  const ColumnSpace& csp,
+  hid_t cs_grp_id,
+  const ColumnSpace& cs,
   hid_t table_axes_dt);
 
 HYPERION_API void
@@ -339,7 +340,7 @@ init_columnspace(
   Legion::Runtime* rt,
   hid_t table_grp_id,
   hid_t table_axes_dt,
-  const std::string& csp_name);
+  const std::string& cs_name);
 
 HYPERION_API
   std::optional<

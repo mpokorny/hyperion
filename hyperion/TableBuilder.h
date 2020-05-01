@@ -65,6 +65,11 @@ public:
     return m_name;
   }
 
+  size_t
+  num_rows() const {
+    return m_num_rows;
+  }
+
   template <typename T>
   std::optional<std::string>
   add_scalar_column(
@@ -121,10 +126,7 @@ public:
   }
 
   std::vector<
-    std::tuple<
-      ColumnSpace,
-      bool,
-      std::vector<std::pair<std::string, TableField>>>>
+    std::tuple<ColumnSpace, std::vector<std::pair<std::string, TableField>>>>
   columns(Legion::Context ctx, Legion::Runtime* rt) const {
     // sort the ColumnArgs in order to put instances with common index_tree
     // values next to one another
@@ -149,18 +151,12 @@ public:
     // collect TableFields with common ColumnSpaces by iterating through
     // "col_args" in its sort order
     std::vector<
-      std::tuple<
-        ColumnSpace,
-        bool,
-        std::vector<std::pair<std::string, TableField>>>> result;
+      std::tuple<ColumnSpace, std::vector<std::pair<std::string, TableField>>>>
+      result;
     IndexTreeL prev;
-    bool have_ixcs = false;
     for (auto& ca : col_args) {
       assert(ca.index_tree != IndexTreeL());
       if (ca.index_tree != prev) {
-        bool is_ixcs = ca.index_tree.rank().value() == 1;
-        assert(!(have_ixcs && is_ixcs));
-        have_ixcs = have_ixcs || is_ixcs;
         prev = ca.index_tree;
         auto csp =
           ColumnSpace::create(
@@ -172,10 +168,9 @@ public:
             false);
         result.emplace_back(
           csp,
-          is_ixcs,
           std::vector<std::pair<std::string, TableField>>());
       }
-      std::get<2>(result.back()).emplace_back(ca.name, ca.tf);
+      std::get<1>(result.back()).emplace_back(ca.name, ca.tf);
     }
     return result;
   }
@@ -460,7 +455,7 @@ struct HYPERION_API TableBuilder {
 //   Table& table);
 
 template <MSTables T>
-std::pair<std::string, Table::fields_t>
+std::tuple<std::string, ColumnSpace, Table::fields_t>
 from_ms(
   Legion::Context ctx,
   Legion::Runtime* rt,
@@ -474,10 +469,15 @@ from_ms(
 
   auto builder = TableBuilder::from_ms<T>(table_path, column_selections);
 
+  Legion::IndexSpace column_is =
+    rt->create_index_space(ctx, Legion::Rect<1>(0, builder.num_rows() - 1));
+  std::vector<typename MSTable<T>::Axes> axes = {MSTable<T>::ROW_AXIS};
+  auto index_cs = ColumnSpace::create(ctx, rt, axes, column_is, false);
+
   // FIXME: awaiting keyword support in Tables
   //initialize_keywords_from_ms(ctx, rt, table_path, result);
 
-  return std::make_pair(builder.name(), builder.columns(ctx, rt));
+  return std::make_tuple(builder.name(), index_cs, builder.columns(ctx, rt));
 }
 
 } // end namespace hyperion

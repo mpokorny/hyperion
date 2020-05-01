@@ -168,13 +168,11 @@ HYPERION_API IndexTreeL
 index_space_as_tree(Legion::Runtime* rt, Legion::IndexSpace is);
 
 #ifdef HYPERION_USE_CASACORE
-HYPERION_API std::pair<
+HYPERION_API std::tuple<
   std::string,
+  ColumnSpace,
   std::vector<
-    std::tuple<
-    ColumnSpace,
-      bool,
-      std::vector<std::pair<std::string, TableField>>>>>
+    std::tuple<ColumnSpace, std::vector<std::pair<std::string, TableField>>>>>
 from_ms(
   Legion::Context ctx,
   Legion::Runtime* runtime,

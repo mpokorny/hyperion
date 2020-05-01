@@ -740,8 +740,10 @@ gridder_task(
     .add_columns(
       ctx,
       rt,
-      {{ptables.at(MS_ANTENNA).index_column(rt).value()->column_space(),
-        true,
+      {{ptables
+            .at(MS_ANTENNA)
+            .column(HYPERION_COLUMN_NAME(ANTENNA, NAME)).value()
+            ->column_space(),
         {{antenna_class_column_name,
           TableField(antenna_class_dt, antenna_class_fid)}}}});
   init_antenna_classes(ctx, rt, ptables.at(MS_ANTENNA));
@@ -753,8 +755,10 @@ gridder_task(
     .add_columns(
       ctx,
       rt,
-      {{ptables.at(MS_MAIN).index_column(rt).value()->column_space(),
-        true,
+      {{ptables
+            .at(MS_MAIN)
+            .column(HYPERION_COLUMN_NAME(MAIN, ANTENNA1)).value()
+            ->column_space(),
         {{parallactic_angle_column_name,
           TableField(parallactic_angle_dt, parallactic_angle_fid)}}}});
   init_parallactic_angles(

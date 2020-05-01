@@ -336,7 +336,7 @@ mapper_test_suite(
   std::vector<std::pair<std::string, TableField>> tfs1{
     {"foo", TableField(HYPERION_TYPE_UINT, COL_FOO)}};
 
-  Table tb = Table::create(ctx, rt, {{cs1, true, tfs1}, {cs2, false, tfs2}});
+  Table tb = Table::create(ctx, rt, cs1, {{cs1, tfs1}, {cs2, tfs2}});
   Column::Requirements soa_rm_creqs = Column::default_requirements;
   soa_rm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
   soa_rm_creqs.tag = TableMapper::to_mapping_tag(SOA_ROW_MAJOR);
@@ -355,7 +355,7 @@ mapper_test_suite(
         ctx,
         rt,
         ColumnSpacePartition(),
-        READ_ONLY,
+        READ_WRITE,
         {{"c0", soa_rm_creqs},
          {"c1", soa_rm_creqs},
 
@@ -380,7 +380,7 @@ mapper_test_suite(
     verify.add_region_requirement(r);
   rt->execute_task(ctx, verify);
 
-  tb.destroy(ctx, rt, true, true);
+  tb.destroy(ctx, rt);
 }
 
 int

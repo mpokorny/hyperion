@@ -163,10 +163,10 @@ attach_table0_col(
     .only_kind(Memory::SYSTEM_MEM)
     .first();
 
-  AttachLauncher task(EXTERNAL_INSTANCE, col.vlr, col.vlr);
+  AttachLauncher task(EXTERNAL_INSTANCE, col.region, col.region);
   task.attach_array_soa(base, false, {col.fid}, local_sysmem);
   PhysicalRegion result = runtime->attach_external_resource(context, task);
-  AcquireLauncher acq(col.vlr, col.vlr, result);
+  AcquireLauncher acq(col.region, col.region, result);
   acq.add_field(col.fid);
   runtime->issue_acquire(context, acq);
   return result;
@@ -387,10 +387,9 @@ table_tests(
     Table::create(
       ctx,
       rt,
-      {{xy_space, true, xy_fields}, {z_space, false, z_fields}});
-  auto cols0 =
-    Table::column_map(
-      tb0.columns(ctx, rt).get<Table::columns_result_t>());
+      xy_space,
+      {{xy_space, xy_fields}, {z_space, z_fields}});
+  auto cols0 = tb0.columns();
 
   int fd = mkstemp(fname.data());
   assert(fd != -1);
@@ -430,17 +429,8 @@ table_tests(
     auto [tb1, tb1_paths] = init_table(ctx, rt, root_loc, "table1");
 
     // read back metadata
-    auto oics =
-      tb1
-      .index_column_space(ctx, rt)
-      .get_result<Table::index_column_space_result_t>();
-    recorder.assert_true(
-      "Table initialized from HDF5 is not empty",
-      TE(!Table::is_empty(oics)));
 
-    auto cols1 =
-      Table::column_map(
-        tb1.columns(ctx, rt).get<Table::columns_result_t>());
+    auto cols1 = tb1.columns();
     {
       recorder.assert_true(
         "Column X logically recreated",
@@ -457,11 +447,11 @@ table_tests(
         TE(!cx.rc.has_value()));
       recorder.expect_true(
         "Column X has expected axes",
-        TE(cx.csp.axes(ctx, rt)) ==
+        TE(cx.cs.axes(ctx, rt)) ==
         map_to_int(std::vector<Table0Axes>{Table0Axes::ROW}));
       recorder.expect_true(
         "Column X has expected indexes",
-        TE(index_space_as_tree(rt, cx.csp.column_is))
+        TE(index_space_as_tree(rt, cx.cs.column_is))
         == IndexTreeL(TABLE0_NUM_ROWS));
 #ifdef HYPERION_USE_CASACORE
       recorder.expect_true(
@@ -485,11 +475,11 @@ table_tests(
         TE(!cy.rc.has_value()));
       recorder.expect_true(
         "Column Y has expected axes",
-        TE(cy.csp.axes(ctx, rt)) ==
+        TE(cy.cs.axes(ctx, rt)) ==
         map_to_int(std::vector<Table0Axes>{Table0Axes::ROW}));
       recorder.expect_true(
         "Column Y has expected indexes",
-        TE(index_space_as_tree(rt, cy.csp.column_is))
+        TE(index_space_as_tree(rt, cy.cs.column_is))
         == IndexTreeL(TABLE0_NUM_ROWS));
 #ifdef HYPERION_USE_CASACORE
       recorder.expect_true(
@@ -513,11 +503,11 @@ table_tests(
         TE(!cz.rc.has_value()));
       recorder.expect_true(
         "Column Z has expected axes",
-        TE(cz.csp.axes(ctx, rt)) ==
+        TE(cz.cs.axes(ctx, rt)) ==
         map_to_int(std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP}));
       recorder.expect_true(
         "Column Z has expected indexes",
-        TE(index_space_as_tree(rt, cz.csp.column_is))
+        TE(index_space_as_tree(rt, cz.cs.column_is))
         == IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
 #ifdef HYPERION_USE_CASACORE
       recorder.expect_true(
@@ -631,9 +621,7 @@ table_tests(
     assert(fid >= 0);
     root_loc = H5Gopen(fid, "/", H5P_DEFAULT);
     auto [tb1, tb1_paths] = init_table(ctx, rt, root_loc, "table1");
-    auto cols1 =
-      Table::column_map(
-        tb1.columns(ctx, rt).get<Table::columns_result_t>());
+    auto cols1 = tb1.columns();
     auto tb1_xy_pr =
       attach_table_columns(
         ctx,

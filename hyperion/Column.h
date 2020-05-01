@@ -39,7 +39,7 @@ namespace hyperion {
  *  Maintains metadata about the column, including keywords, measures and
  *  Legion::LogicalRegion name.
  */
-struct HYPERION_API Column {
+struct /*HYPERION_API*/ Column {
 
   /**
    * Create an empty Column
@@ -54,22 +54,24 @@ struct HYPERION_API Column {
   Column(
     hyperion::TypeTag dt_,
     Legion::FieldID fid_,
+    const ColumnSpace& cs_,
+    const Legion::LogicalRegion& region_,
+    const Keywords& kw_ = Keywords()
 #ifdef HYPERION_USE_CASACORE
-    const MeasRef& mr_,
-    const std::optional<string>& rc_,
+    , const MeasRef& mr_ = MeasRef()
+    , const std::optional<hyperion::string>& rc_ = std::nullopt
 #endif
-    const Keywords& kw_,
-    const ColumnSpace& csp_,
-    const Legion::LogicalRegion& vlr_)
+    )
   : dt(dt_)
   , fid(fid_)
+  , cs(cs_)
+  , region(region_)
+  , kw(kw_)
 #ifdef HYPERION_USE_CASACORE
   , mr(mr_)
   , rc(rc_)
 #endif
-  , kw(kw_)
-  , csp(csp_)
-  , vlr(vlr_) {}
+   {}
 
   /**
    * Is Column valid?
@@ -78,7 +80,7 @@ struct HYPERION_API Column {
    */
   bool
   is_valid() const {
-    return csp.is_valid();
+    return cs.is_valid();
   }
 
   /**
@@ -148,13 +150,13 @@ struct HYPERION_API Column {
 
   hyperion::TypeTag dt; /**< value data type (as hyperion::TypeTag)*/
   Legion::FieldID fid; /**< value Legion::FieldID */
+  ColumnSpace cs; /**< column ColumnSpace */
+  Legion::LogicalRegion region; /**< column values region */
+  Keywords kw;/**< column keywords */
 #ifdef HYPERION_USE_CASACORE
   MeasRef mr; /**< column MeasRef */
   std::optional<hyperion::string> rc; /**< measure reference column name */
 #endif
-  Keywords kw; /**< column keywords */
-  ColumnSpace csp; /**< column ColumnSpace */
-  Legion::LogicalRegion vlr; /**< column values region */
 
 // protected:
 

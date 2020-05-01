@@ -136,10 +136,10 @@ attach_table0_col(Context ctx, Runtime* rt, const Column& col, unsigned *base) {
     .only_kind(Memory::SYSTEM_MEM)
     .first();
 
-  AttachLauncher task(EXTERNAL_INSTANCE, col.vlr, col.vlr);
+  AttachLauncher task(EXTERNAL_INSTANCE, col.region, col.region);
   task.attach_array_soa(base, false, {col.fid}, local_sysmem);
   PhysicalRegion result = rt->attach_external_resource(ctx, task);
-  AcquireLauncher acq(col.vlr, col.vlr, result);
+  AcquireLauncher acq(col.region, col.region, result);
   acq.add_field(col.fid);
   rt->issue_acquire(ctx, acq);
   return result;
@@ -156,16 +156,7 @@ test_totally_reindexed_table(
   const std::string& prefix,
   testing::TestRecorder<READ_WRITE>& recorder) {
 
-  auto oics =
-    tb
-    .index_column_space(ctx, rt)
-    .get_result<Table::index_column_space_result_t>();
-
-  recorder.assert_true(
-    prefix + " reindexed table is not empty",
-    TE(!Table::is_empty(oics)));
-  auto ics = oics.value();
-
+  auto ics = tb.index_column_space(ctx, rt);
   std::vector<Table0Axes> ixax;
   if (x_before_y)
     ixax = {Table0Axes::X, Table0Axes::Y};
@@ -183,10 +174,7 @@ test_totally_reindexed_table(
         return axes == map_to_int(ixax);
       }));
 
-  auto cols =
-    Table::column_map(
-      tb.columns(ctx, rt)
-      .template get_result<Table::columns_result_t>());
+  auto cols = tb.columns();
   {
     recorder.assert_true(
       prefix + " reindexed table has 'X' column",
@@ -195,7 +183,7 @@ test_totally_reindexed_table(
     auto& cx = cols.at("X");
     {
       RegionRequirement
-        req(cx.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cx.csp.metadata_lr);
+        req(cx.cs.metadata_lr, READ_ONLY, EXCLUSIVE, cx.cs.metadata_lr);
       req.add_field(ColumnSpace::AXIS_VECTOR_FID);
       req.add_field(ColumnSpace::AXIS_SET_UID_FID);
       req.add_field(ColumnSpace::INDEX_FLAG_FID);
@@ -223,7 +211,7 @@ test_totally_reindexed_table(
       prefix + " reindexed 'X' column has expected size",
       testing::TestEval(
         [&cx, &ctx, rt]() {
-          auto is = cx.vlr.get_index_space();
+          auto is = cx.region.get_index_space();
           auto dom = rt->get_index_space_domain(ctx, is);
           Rect<1> r(dom.bounds<1,coord_t>());
           return r == Rect<1>(0, TABLE0_NUM_X - 1);
@@ -232,7 +220,7 @@ test_totally_reindexed_table(
       prefix + " reindexed 'X' column has expected values",
       testing::TestEval(
         [&cx, &ctx, rt]() {
-          RegionRequirement req(cx.vlr, READ_ONLY, EXCLUSIVE, cx.vlr);
+          RegionRequirement req(cx.region, READ_ONLY, EXCLUSIVE, cx.region);
           req.add_field(cx.fid);
           PhysicalRegion pr = rt->map_region(ctx, req);
           const FieldAccessor<
@@ -254,7 +242,7 @@ test_totally_reindexed_table(
     auto& cy = cols.at("Y");
     {
       RegionRequirement
-        req(cy.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cy.csp.metadata_lr);
+        req(cy.cs.metadata_lr, READ_ONLY, EXCLUSIVE, cy.cs.metadata_lr);
       req.add_field(ColumnSpace::AXIS_VECTOR_FID);
       req.add_field(ColumnSpace::AXIS_SET_UID_FID);
       req.add_field(ColumnSpace::INDEX_FLAG_FID);
@@ -282,7 +270,7 @@ test_totally_reindexed_table(
       prefix + " reindexed 'Y' column has expected size",
       testing::TestEval(
         [&cy, &ctx, rt]() {
-          auto is = cy.vlr.get_index_space();
+          auto is = cy.region.get_index_space();
           auto dom = rt->get_index_space_domain(ctx, is);
           Rect<1> r(dom.bounds<1,coord_t>());
           return r == Rect<1>(0, TABLE0_NUM_Y - 1);
@@ -291,7 +279,7 @@ test_totally_reindexed_table(
       prefix + " reindexed 'Y' column has expected values",
       testing::TestEval(
         [&cy, &ctx, rt]() {
-          RegionRequirement req(cy.vlr, READ_ONLY, EXCLUSIVE, cy.vlr);
+          RegionRequirement req(cy.region, READ_ONLY, EXCLUSIVE, cy.region);
           req.add_field(cy.fid);
           PhysicalRegion pr = rt->map_region(ctx, req);
           const FieldAccessor<
@@ -312,7 +300,7 @@ test_totally_reindexed_table(
     auto& cz = cols.at("Z");
     {
       RegionRequirement
-        req(cz.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cz.csp.metadata_lr);
+        req(cz.cs.metadata_lr, READ_ONLY, EXCLUSIVE, cz.cs.metadata_lr);
       req.add_field(ColumnSpace::AXIS_VECTOR_FID);
       req.add_field(ColumnSpace::AXIS_SET_UID_FID);
       req.add_field(ColumnSpace::INDEX_FLAG_FID);
@@ -339,7 +327,7 @@ test_totally_reindexed_table(
       prefix + " reindexed 'Z' column has expected size",
       testing::TestEval(
         [&cz, &x_before_y, &ctx, rt]() {
-          auto is = cz.vlr.get_index_space();
+          auto is = cz.region.get_index_space();
           auto dom = rt->get_index_space_domain(ctx, is);
           Rect<2> r(dom.bounds<2,coord_t>());
           coord_t r0, r1;
@@ -357,7 +345,7 @@ test_totally_reindexed_table(
       prefix + " reindexed 'Z' column has expected values",
       testing::TestEval(
         [&cz, &x_before_y, &ctx, rt]() {
-          RegionRequirement req(cz.vlr, READ_ONLY, EXCLUSIVE, cz.vlr);
+          RegionRequirement req(cz.region, READ_ONLY, EXCLUSIVE, cz.region);
           req.add_field(cz.fid);
           PhysicalRegion pr = rt->map_region(ctx, req);
           const FieldAccessor<
@@ -433,13 +421,11 @@ reindexed_test_suite(
     {"Z", TableField(HYPERION_TYPE_UINT, COL_Z)}
   };
 
-  auto table0 = Table::create(ctx, rt, {{xyz_space, true, xyz_fields}});
+  auto table0 = Table::create(ctx, rt, xyz_space, {{xyz_space, xyz_fields}});
   {
     std::unordered_map<std::string, PhysicalRegion> col_prs;
     {
-      auto cols =
-        Table::column_map(
-          table0.columns(ctx, rt).get<Table::columns_result_t>());
+      auto cols = table0.columns();
       std::unordered_map<std::string, unsigned*> col_arrays{
         {"X", table0_x},
         {"Y", table0_y},
@@ -462,7 +448,7 @@ reindexed_test_suite(
           std::vector<Table0Axes>{Table0Axes::X, Table0Axes::Y},
           false);
 
-      auto tb = Table(f.get_result<LogicalRegion>());
+      auto tb = f.get_result<Table>();
       test_totally_reindexed_table(ctx, rt, tb, true, "Totally", recorder);
       //tb.destroy(ctx, rt); FIXME
     }
@@ -476,17 +462,10 @@ reindexed_test_suite(
             rt,
             std::vector<Table0Axes>{Table0Axes::Y},
             true);
-        tby = Table(f.get_result<LogicalRegion>());
+        tby = f.get_result<Table>();
       }
       {
-        auto oics_y =
-          tby
-          .index_column_space(ctx, rt)
-          .get_result<Table::index_column_space_result_t>();
-        recorder.assert_true(
-          "Partially reindexed table is not empty",
-          TE(!Table::is_empty(oics_y)));
-        auto ics_y = oics_y.value();
+        auto ics_y = tby.index_column_space(ctx, rt);
 
         recorder.expect_true(
           "Partially reindexed table has ('Y', 'ROW') index axes",
@@ -498,10 +477,7 @@ reindexed_test_suite(
                   std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::ROW});
             }));
 
-        auto cols =
-          Table::column_map(
-            tby.columns(ctx, rt)
-            .template get_result<Table::columns_result_t>());
+        auto cols = tby.columns();
         {
           recorder.assert_true(
             "Partially reindexed table has 'Y' column",
@@ -510,7 +486,7 @@ reindexed_test_suite(
           auto& cy = cols.at("Y");
           {
             RegionRequirement
-              req(cy.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cy.csp.metadata_lr);
+              req(cy.cs.metadata_lr, READ_ONLY, EXCLUSIVE, cy.cs.metadata_lr);
             req.add_field(ColumnSpace::AXIS_VECTOR_FID);
             req.add_field(ColumnSpace::AXIS_SET_UID_FID);
             req.add_field(ColumnSpace::INDEX_FLAG_FID);
@@ -538,7 +514,7 @@ reindexed_test_suite(
             "Partially reindexed 'Y' column has expected size",
             testing::TestEval(
               [&cy, &ctx, rt]() {
-                auto is = cy.vlr.get_index_space();
+                auto is = cy.region.get_index_space();
                 auto dom = rt->get_index_space_domain(ctx, is);
                 Rect<1> r(dom.bounds<1,coord_t>());
                 return r == Rect<1>(0, TABLE0_NUM_Y - 1);
@@ -547,7 +523,8 @@ reindexed_test_suite(
             "Partially reindexed 'Y' column has expected values",
             testing::TestEval(
               [&cy, &ctx, rt]() {
-                RegionRequirement req(cy.vlr, READ_ONLY, EXCLUSIVE, cy.vlr);
+                RegionRequirement
+                  req(cy.region, READ_ONLY, EXCLUSIVE, cy.region);
                 req.add_field(cy.fid);
                 PhysicalRegion pr = rt->map_region(ctx, req);
                 const FieldAccessor<
@@ -568,7 +545,7 @@ reindexed_test_suite(
           auto& cx = cols.at("X");
           {
             RegionRequirement
-              req(cx.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cx.csp.metadata_lr);
+              req(cx.cs.metadata_lr, READ_ONLY, EXCLUSIVE, cx.cs.metadata_lr);
             req.add_field(ColumnSpace::AXIS_VECTOR_FID);
             req.add_field(ColumnSpace::AXIS_SET_UID_FID);
             req.add_field(ColumnSpace::INDEX_FLAG_FID);
@@ -597,7 +574,7 @@ reindexed_test_suite(
             "Partially reindexed 'X' column has expected size",
             testing::TestEval(
               [&cx, &ctx, rt]() {
-                auto is = cx.vlr.get_index_space();
+                auto is = cx.region.get_index_space();
                 auto dom = rt->get_index_space_domain(ctx, is);
                 Rect<2> r(dom.bounds<2,coord_t>());
                 return r == Rect<2>(
@@ -608,7 +585,8 @@ reindexed_test_suite(
             "Partially reindexed 'X' column has expected values",
             testing::TestEval(
               [&cx, &ctx, rt]() {
-                RegionRequirement req(cx.vlr, READ_ONLY, EXCLUSIVE, cx.vlr);
+                RegionRequirement
+                  req(cx.region, READ_ONLY, EXCLUSIVE, cx.region);
                 req.add_field(cx.fid);
                 PhysicalRegion pr = rt->map_region(ctx, req);
                 const FieldAccessor<
@@ -631,7 +609,7 @@ reindexed_test_suite(
           auto& cz = cols.at("Z");
           {
             RegionRequirement
-              req(cz.csp.metadata_lr, READ_ONLY, EXCLUSIVE, cz.csp.metadata_lr);
+              req(cz.cs.metadata_lr, READ_ONLY, EXCLUSIVE, cz.cs.metadata_lr);
             req.add_field(ColumnSpace::AXIS_VECTOR_FID);
             req.add_field(ColumnSpace::AXIS_SET_UID_FID);
             req.add_field(ColumnSpace::INDEX_FLAG_FID);
@@ -660,7 +638,7 @@ reindexed_test_suite(
             "Partially reindexed 'Z' column has expected size",
             testing::TestEval(
               [&cz, &ctx, rt]() {
-                auto is = cz.vlr.get_index_space();
+                auto is = cz.region.get_index_space();
                 auto dom = rt->get_index_space_domain(ctx, is);
                 Rect<2> r(dom.bounds<2,coord_t>());
                 return
@@ -673,7 +651,8 @@ reindexed_test_suite(
             "Partially reindexed 'Z' column has expected values",
             testing::TestEval(
               [&cz, &ctx, rt]() {
-                RegionRequirement req(cz.vlr, READ_ONLY, EXCLUSIVE, cz.vlr);
+                RegionRequirement
+                  req(cz.region, READ_ONLY, EXCLUSIVE, cz.region);
                 req.add_field(cz.fid);
                 PhysicalRegion pr = rt->map_region(ctx, req);
                 const FieldAccessor<
@@ -699,7 +678,7 @@ reindexed_test_suite(
             rt,
             std::vector<Table0Axes>{Table0Axes::Y, Table0Axes::X},
             false);
-        tbyx = Table(f.get_result<LogicalRegion>());
+        tbyx = f.get_result<Table>();
       }
       test_totally_reindexed_table(
         ctx,

@@ -25,6 +25,7 @@
 
 #pragma GCC visibility push(default)
 # include <array>
+# include <limits>
 # include <map>
 # include <string>
 # include <type_traits>
@@ -35,77 +36,77 @@
 
 namespace hyperion {
 
-enum class TableFieldsFid {
-  NM,
-  DT,
-  KW,
-#ifdef HYPERION_USE_CASACORE
-  MR,
-  RC,
-#endif
-  CS,
-  VF,
-  VS
-};
-
-template <TableFieldsFid F>
-struct TableFieldsType {
-  typedef void type;
-};
-template<>
-struct TableFieldsType<TableFieldsFid::NM> {
-  typedef string type;
-};
-template<>
-struct TableFieldsType<TableFieldsFid::DT> {
-  typedef hyperion::TypeTag type;
-};
-template<>
-struct TableFieldsType<TableFieldsFid::KW> {
-  typedef Keywords type;
-};
-#ifdef HYPERION_USE_CASACORE
-template<>
-struct TableFieldsType<TableFieldsFid::MR> {
-  typedef MeasRef type;
-};
-template<>
-struct TableFieldsType<TableFieldsFid::RC> {
-  typedef string type;
-};
-#endif
-template<>
-struct TableFieldsType<TableFieldsFid::CS> {
-  typedef ColumnSpace type;
-};
-template<>
-struct TableFieldsType<TableFieldsFid::VF> {
-  typedef Legion::FieldID type;
-};
-template<>
-struct TableFieldsType<TableFieldsFid::VS> {
-  typedef Legion::LogicalRegion type;
-};
-
 class PhysicalTable;
 
 class HYPERION_API Table {
 
   // FIXME: add support for table keywords
 
+private:
+
+  template <
+    Legion::PrivilegeMode MODE,
+    typename F,
+    bool CHECK_BOUNDS=false>
+    using Accessor =
+    Legion::FieldAccessor<
+      MODE,
+      F,
+      1,
+      Legion::coord_t,
+      Legion::GenericAccessor<F, 1, Legion::coord_t>,
+      CHECK_BOUNDS>;
+
+protected:
+
+  friend class PhysicalTable;
+
+  typedef Legion::LogicalRegion cgroup_t;
+
+  struct ColumnDesc {
+    hyperion::string name;
+    hyperion::TypeTag dt;
+    Legion::FieldID fid;
+    uint_least8_t n_kw;
+#ifdef HYPERION_USE_CASACORE
+    hyperion::string refcol;
+    uint_least8_t n_mr;
+#endif
+  };
+
+  static const constexpr Legion::FieldID cgroup_fid = 0;
+
+  static const constexpr Legion::FieldID column_desc_fid = 1;
+
+  static const cgroup_t cgroup_none;
+
+  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
+  using CGroupAccessor = Accessor<MODE, cgroup_t, CHECK_BOUNDS>;
+
+  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
+  using ColumnDescAccessor = Accessor<MODE, ColumnDesc, CHECK_BOUNDS>;
+
+  static Legion::RegionRequirement
+  table_fields_requirement(
+    Legion::LogicalRegion lr,
+    Legion::LogicalRegion parent,
+    Legion::PrivilegeMode mode);
+
+  static Legion::RegionRequirement
+  table_fields_requirement(
+    Legion::LogicalPartition lp,
+    Legion::ProjectionID proj,
+    Legion::LogicalRegion parent,
+    Legion::PrivilegeMode mode);
+
 public:
 
   static const constexpr size_t MAX_COLUMNS = HYPERION_MAX_NUM_TABLE_COLUMNS;
 
-  struct columns_result_t {
-    typedef std::tuple<hyperion::string, TableField> tbl_fld_t;
+  struct add_columns_result_t {
+    typedef std::tuple<std::string, Column> col_t;
 
-    std::vector<
-      std::tuple<
-        ColumnSpace,
-        bool,
-        Legion::LogicalRegion,
-        std::vector<tbl_fld_t>>> fields;
+    std::vector<col_t> cols;
 
     size_t
     legion_buffer_size(void) const;
@@ -117,96 +118,59 @@ public:
     legion_deserialize(const void* buffer);
   };
 
-private:
-
-  template <
-    Legion::PrivilegeMode MODE,
-    TableFieldsFid F,
-    bool CHECK_BOUNDS=false>
-  using Accessor =
-    Legion::FieldAccessor<
-      MODE,
-      typename TableFieldsType<F>::type,
-      1,
-      Legion::coord_t,
-      Legion::GenericAccessor<
-        typename TableFieldsType<F>::type,
-        1,
-        Legion::coord_t>,
-      CHECK_BOUNDS>;
-
 public:
-
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
-  using NameAccessor =
-    Accessor<MODE, TableFieldsFid::NM, CHECK_BOUNDS>;
-
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
-  using DatatypeAccessor =
-    Accessor<MODE, TableFieldsFid::DT, CHECK_BOUNDS>;
-
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
-  using KeywordsAccessor =
-    Accessor<MODE, TableFieldsFid::KW, CHECK_BOUNDS>;
-
-#ifdef HYPERION_USE_CASACORE
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
-  using MeasRefAccessor =
-    Accessor<MODE, TableFieldsFid::MR, CHECK_BOUNDS>;
-
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
-  using RefColumnAccessor =
-    Accessor<MODE, TableFieldsFid::RC, CHECK_BOUNDS>;
-#endif
-
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
-  using ColumnSpaceAccessor =
-    Accessor<MODE, TableFieldsFid::CS, CHECK_BOUNDS>;
-
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
-  using ValueFidAccessor =
-    Accessor<MODE, TableFieldsFid::VF, CHECK_BOUNDS>;
-
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=false>
-  using ValuesAccessor =
-    Accessor<MODE, TableFieldsFid::VS, CHECK_BOUNDS>;
 
   Table() {}
 
-  Table(const Legion::LogicalRegion& fields_lr_)
-  : fields_lr(fields_lr_) {}
+  Table(
+    Legion::Runtime* rt,
+    ColumnSpace&& index_col_cs,
+    const Legion::LogicalRegion& index_col_region,
+    const Legion::LogicalRegion& fields_lr_,
+    const std::unordered_map<std::string, Column>& columns);
 
   Table(
+    ColumnSpace&& index_col_cs,
+    const Legion::LogicalRegion& index_col_parent,    
+    const Legion::LogicalRegion& index_col_region,
     const Legion::LogicalRegion& fields_lr_,
-    const std::optional<Legion::LogicalRegion>& fields_parent_,
-    const std::unordered_map<std::string, Legion::LogicalRegion>&
-    column_parents_)
-    : fields_lr(fields_lr_)
-    , fields_parent(fields_parent_)
-    , column_parents(column_parents_) {}
+    const Legion::LogicalRegion& fixed_fields_lr_,
+    const Legion::LogicalRegion& free_fields_lr_,
+    const std::unordered_map<std::string, Column>& columns)
+    : m_index_col_cs(index_col_cs)
+    , m_index_col_parent(index_col_parent)
+    , m_index_col_region(index_col_region)
+    , m_fields_lr(fields_lr_)
+    , m_fixed_fields_lr(fixed_fields_lr_)
+    , m_free_fields_lr(free_fields_lr_)
+    , m_columns(columns) {}
 
   typedef std::vector<
     std::tuple<
       ColumnSpace,
-      bool,
       std::vector<std::pair<std::string, TableField>>>> fields_t;
 
   static Table
-  create(Legion::Context ctx, Legion::Runtime* rt, const fields_t& fields);
+  create(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    ColumnSpace&& index_cs,
+    fields_t&& fields);
 
-  typedef std::optional<ColumnSpace> index_column_space_result_t;
+  static Table
+  create(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const ColumnSpace& index_cs,
+    fields_t&& fields) {
+    return create(ctx, rt, index_cs.clone(ctx, rt), std::move(fields));
+  }
 
-  Legion::Future /* index_column_space_result_t */
+  ColumnSpace
   index_column_space(Legion::Context ctx, Legion::Runtime* rt) const;
 
-  static index_column_space_result_t
-  index_column_space(
-    Legion::Runtime* rt,
-    const Legion::LogicalRegion& fields_parent,
-    const Legion::PhysicalRegion& fields_pr);
-
-  static bool
-  is_empty(const index_column_space_result_t& index_cs);
+  bool
+  is_empty() const;
 
   // Any LogicalPartitions returned from requirements() should eventually be
   // destroyed by the caller. Such LogicalPartitions should only appear when
@@ -230,10 +194,15 @@ public:
   requirements(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const Legion::LogicalRegion& fields_parent,
-    const Legion::PhysicalRegion& fields_pr,
-    const std::unordered_map<std::string, Legion::LogicalRegion>&
-      column_parents,
+    const ColumnSpace& index_col_cs,
+    const Legion::LogicalRegion& index_col_parent,
+    const Legion::LogicalRegion& index_col_region,
+    const Legion::LogicalRegion& fields_lr,
+    const std::optional<
+      std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>>& fixed_fields,
+    const std::optional<
+      std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>>& free_fields,
+    const std::unordered_map<std::string, Column>& columns,
     const ColumnSpacePartition& table_partition = ColumnSpacePartition(),
     Legion::PrivilegeMode table_privilege = READ_ONLY,
     const std::map<std::string, std::optional<Column::Requirements>>&
@@ -250,54 +219,45 @@ public:
   static bool
   is_conformant(
     Legion::Runtime* rt,
-    const Legion::LogicalRegion& fields_parent,
-    const Legion::PhysicalRegion& fields_pr,
-    const std::optional<std::tuple<Legion::IndexSpace, Legion::PhysicalRegion>>&
-    index_cs,
+    const std::unordered_map<std::string, Column>& columns,
+    const std::tuple<Legion::IndexSpace, Legion::PhysicalRegion>& index_cs,
     const Legion::IndexSpace& cs_is,
     const Legion::PhysicalRegion& cs_md_pr);
 
-  Legion::Future /* bool */
-  add_columns(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const fields_t& fields) const;
+  bool
+  add_columns(Legion::Context ctx, Legion::Runtime* rt, fields_t&& fields);
 
-  static bool
+  static std::unordered_map<std::string, Column>
   add_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<
+    std::vector<
       std::tuple<
         ColumnSpace,
-        bool,
         size_t,
-        std::vector<std::pair<hyperion::string, TableField>>>>& columns,
-    const std::vector<Legion::LogicalRegion>& val_lrs,
-    const Legion::LogicalRegion& fields_parent,
-    const Legion::PhysicalRegion& fields_pr,
-    const std::optional<
-      std::tuple<Legion::IndexSpace, Legion::PhysicalRegion>>& index_cs,
-    const std::vector<Legion::PhysicalRegion>& csp_md_prs);
+        std::vector<std::pair<hyperion::string, TableField>>>>&& new_columns,
+    const std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>&
+      free_fields,
+    const std::unordered_map<std::string, Column>& columns,
+    const std::vector<Legion::PhysicalRegion>& cs_md_prs,
+    const std::tuple<Legion::IndexSpace, Legion::PhysicalRegion>& index_cs);
 
   bool
   remove_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::unordered_set<std::string>& columns,
-    bool destroy_orphan_column_spaces=true,
-    bool destroy_field_data=true);
+    const std::unordered_set<std::string>& columns);
 
   static bool
   remove_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::set<hyperion::string>& columns,
-    bool destroy_orphan_column_spaces,
-    bool destroy_field_data,
-    const Legion::LogicalRegion& fields_parent,
-    const Legion::PhysicalRegion& fields_pr,
-    const std::vector<ColumnSpace>& cs,
+    const std::set<hyperion::string>& rm_columns,
+    bool has_fixed_fields,
+    const std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>&
+      free_fields,
+    const std::unordered_map<std::string, Column>& columns,
+    const std::vector<ColumnSpace>& css,
     const std::vector<Legion::PhysicalRegion>& cs_md_prs);
 
   // each element of the block_sizes vector is the block size on the
@@ -321,7 +281,7 @@ public:
 
   bool
   is_valid() const {
-    return fields_lr != Legion::LogicalRegion::NO_REGION;
+    return m_fields_lr != Legion::LogicalRegion::NO_REGION;
   }
 
   // 'allow_rows' is intended to support the case where reindexing may not
@@ -333,7 +293,7 @@ public:
   // an empty value. TODO: remove degenerate axes after the fact, and do that
   // automatically in this method, which would allow us to remove the
   // 'allow_rows' argument.
-  Legion::Future /* LogicalRegion */
+  Legion::Future /* Table */
   reindexed(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -341,7 +301,7 @@ public:
     bool allow_rows) const;
 
   template <typename D>
-  Legion::Future /* LogicalRegion */
+  Legion::Future /* Table */
   reindexed(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -357,46 +317,13 @@ public:
     return reindexed(ctx, rt, iax, allow_rows);
   }
 
-  struct ColumnRegions {
-    std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion> values;
-    Legion::PhysicalRegion metadata;
-    std::optional<Legion::PhysicalRegion> mr_metadata;
-    std::optional<Legion::PhysicalRegion> mr_values;
-    std::optional<Legion::PhysicalRegion> mr_index;
-    std::optional<Legion::PhysicalRegion> kw_type_tags;
-    std::optional<Legion::PhysicalRegion> kw_values;
-  };
-
-  static Legion::LogicalRegion
-  reindexed(
-    Legion::Context ctx,
-    Legion::Runtime *rt,
-    const std::vector<std::pair<int, std::string>>& index_axes,
-    bool allow_rows,
-    const Legion::LogicalRegion& fields_parent,
-    const Legion::PhysicalRegion& fields_pr,
-    const Legion::PhysicalRegion& index_cs_md_pr,
-    const std::vector<std::tuple<Legion::coord_t, ColumnRegions>>&
-    column_regions);
-
   void
-  destroy(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    bool destroy_column_space_components=false,
-    bool destroy_field_data=false);
+  destroy(Legion::Context ctx, Legion::Runtime* rt);
 
-  Legion::Future /* columns_result_t */
-  columns(Legion::Context ctx, Legion::Runtime *rt) const;
-
-  static columns_result_t
-  columns(
-    Legion::Runtime *rt,
-    const Legion::LogicalRegion& fields_parent,
-    const Legion::PhysicalRegion& fields_pr);
-
-  static std::unordered_map<std::string, Column>
-  column_map(const columns_result_t& columns_result);
+  const std::unordered_map<std::string, Column>&
+  columns() const {
+    return m_columns;
+  }
 
   // boolean values in 'column_modes': (read-only, restricted, mapped)
   PhysicalTable
@@ -412,24 +339,37 @@ public:
   static void
   preregister_tasks();
 
-  static const constexpr Legion::FieldID no_column = AUTO_GENERATE_ID;
+protected:
 
-  Legion::LogicalRegion fields_lr;
+  friend class PhysicalTable;
 
-  std::optional<Legion::LogicalRegion> fields_parent;
+  static const constexpr Legion::FieldID m_index_col_fid = 0;
 
-  std::unordered_map<std::string, Legion::LogicalRegion> column_parents;
+  static const constexpr TypeTag m_index_col_dt = HYPERION_TYPE_BOOL;
+
+  ColumnSpace m_index_col_cs;
+
+  Legion::LogicalRegion m_index_col_parent;
+
+  Legion::LogicalRegion m_index_col_region;
+
+  Legion::LogicalRegion m_fields_lr;
+
+  Legion::LogicalRegion m_fixed_fields_lr;
+
+  Legion::LogicalRegion m_free_fields_lr;
+
+  static const constexpr Legion::coord_t fixed_fields_color = 0;
+
+  static const constexpr Legion::coord_t free_fields_color = 1;
+
+  Legion::LogicalPartition fields_partition;
+
+  std::unordered_map<std::string, Column> m_columns;
 
 // protected:
 
 //   friend class Legion::LegionTaskWrapper;
-
-  static index_column_space_result_t
-  index_column_space_task(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime *rt);
 
   static bool
   is_conformant_task(
@@ -445,21 +385,14 @@ public:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static bool
+  static add_columns_result_t
   add_columns_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static columns_result_t
-  columns_task(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime *rt);
-
-  static Legion::LogicalRegion
+  static Table
   reindexed_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
@@ -473,17 +406,6 @@ public:
     Legion::Context ctx,
     Legion::Runtime *rt);
 
-  static void
-  reindex_copy_values_task(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime *rt);
-
-  static Legion::TaskID index_column_space_task_id;
-
-  static const char* index_column_space_task_name;
-
   static Legion::TaskID is_conformant_task_id;
 
   static const char* is_conformant_task_name;
@@ -496,10 +418,6 @@ public:
 
   static const char* add_columns_task_name;
 
-  static Legion::TaskID columns_task_id;
-
-  static const char* columns_task_name;
-
   static Legion::TaskID reindexed_task_id;
 
   static const char* reindexed_task_name;
@@ -508,9 +426,16 @@ public:
 
   static const char* reindex_column_space_task_name;
 
-  static Legion::TaskID reindex_copy_values_task_id;
+public:
 
-  static const char* reindex_copy_values_task_name;
+  size_t
+  legion_buffer_size(void) const;
+
+  size_t
+  legion_serialize(void* buffer) const;
+
+  size_t
+  legion_deserialize(const void* buffer);
 };
 
 } // end namespace hyperion

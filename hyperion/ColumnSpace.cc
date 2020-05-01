@@ -469,7 +469,13 @@ compute_reindexed(
 
   return
     std::make_tuple(
-      ColumnSpace::create(ctx, rt, new_axes, axes_set_uid, new_is, false),
+      ColumnSpace::create(
+        ctx,
+        rt,
+        new_axes,
+        axes_set_uid,
+        std::move(new_is),
+        false),
       row_map_lr,
       row_map_lc_id);
 }

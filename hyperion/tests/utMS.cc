@@ -410,19 +410,21 @@ read_full_ms(
   testing::TestRecorder<READ_WRITE> recorder(log);
 
   static const std::string t0_path("data/t0.ms");
-  auto [table_name, table_fields] = from_ms(ctx, rt, t0_path, {"*"});
-  auto table = Table::create(ctx, rt, table_fields);
-  auto ics =
-    table
-    .index_column_space(ctx, rt)
-    .get_result<Table::index_column_space_result_t>()
-    .value();
-  recorder.assert_true(
-    "t0.ms MAIN table successfully read",
-    !Table::is_empty(ics));
+  auto [table_name, table_ics, table_fields] = from_ms(ctx, rt, t0_path, {"*"});
   recorder.expect_true(
     "main table name is 'MAIN'",
     TE(table_name) == "MAIN");
+  {
+    auto ixax = table_ics.axes(ctx, rt);
+    recorder.assert_true(
+      "t0.ms MAIN index is ROW",
+      TE(ixax.size() == 1
+         && ixax[0] == static_cast<int>(MSTable<MS_MAIN>::ROW_AXIS)));
+  }
+  auto table = Table::create(ctx, rt, table_ics, std::move(table_fields));
+  recorder.assert_true(
+    "t0.ms MAIN table successfully read",
+    TE(!table.is_empty()));
 
   std::vector<std::string> expected_columns{
     "UVW",
@@ -450,9 +452,7 @@ read_full_ms(
     // "WEIGHT_SPECTRUM"
   };
   
-  auto cols =
-    Table::column_map(
-      table.columns(ctx, rt).get_result<Table::columns_result_t>());
+  auto cols = table.columns();
 
   recorder.assert_true(
     "table has expected columns",
@@ -506,7 +506,7 @@ read_full_ms(
     std::strncpy(args.table_path, t0_path.c_str(), sizeof(args.table_path) - 1);
     IndexTaskLauncher read(
       TableReadTask::TASK_ID,
-      rt->get_index_partition_color_space(parts[0].get_index_partition()),
+      rt->get_index_partition_color_space(parts[1].get_index_partition()),
       TaskArgument(&args, sizeof(args)),
       ArgumentMap(),
       Predicate::TRUE_PRED,
@@ -557,7 +557,7 @@ read_full_ms(
         verify_task.add_region_requirement(req);
       });
     if (col.is_valid()) {
-      RegionRequirement req(col.vlr, READ_ONLY, EXCLUSIVE, col.vlr);
+      RegionRequirement req(col.region, READ_ONLY, EXCLUSIVE, col.region);
       req.add_field(col.fid);
       verify_task.add_region_requirement(req);
       args.has_values = true;

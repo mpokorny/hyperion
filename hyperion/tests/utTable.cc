@@ -172,10 +172,10 @@ attach_table0_col(
     .only_kind(Memory::SYSTEM_MEM)
     .first();
 
-  AttachLauncher task(EXTERNAL_INSTANCE, col.vlr, col.vlr);
+  AttachLauncher task(EXTERNAL_INSTANCE, col.region, col.region);
   task.attach_array_soa(base, false, {col.fid}, local_sysmem);
   PhysicalRegion result = runtime->attach_external_resource(context, task);
-  AcquireLauncher acq(col.vlr, col.vlr, result);
+  AcquireLauncher acq(col.region, col.region, result);
   acq.add_field(col.fid);
   runtime->issue_acquire(context, acq);
   return result;
@@ -503,7 +503,8 @@ table_test_suite(
     Table::create(
       ctx,
       rt,
-      {{xyz_space, true, xyz_fields}, {w_space, false, w_fields}});
+      xyz_space,
+      {{xyz_space, xyz_fields}, {w_space, w_fields}});
 
 // #ifdef HYPERION_USE_CASACORE
 //   recorder.expect_true(
@@ -525,9 +526,7 @@ table_test_suite(
 // #endif
 
   {
-    auto cols =
-      Table::column_map(
-        table0.columns(ctx, rt).get<Table::columns_result_t>());
+    auto cols = table0.columns();
 
     std::unordered_map<std::string, PhysicalRegion> col_prs;
     for (auto& c : {"W"s, "X"s, "Y"s, "Z"s})
@@ -587,14 +586,13 @@ table_test_suite(
   // and removals must be lexically scoped, and this task is where we initially
   // added the columns we're about to remove
   {
-    auto rm = table0.remove_columns(ctx, rt, {"W"}, false, false);
+    auto rm = table0.remove_columns(ctx, rt, {"W"});
     recorder.expect_true(
       "Call to remove 'W' returned TRUE",
       TE(rm));
   }
   {
-    auto cols =
-      Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());
+    auto cols = table0.columns();
     recorder.expect_true(
       "Column 'W' successfully removed from table",
       TE(cols.find("W") == cols.end()));
@@ -605,14 +603,13 @@ table_test_suite(
          && cols.find("Z") != cols.end()));
   }
   {
-    auto rm = table0.remove_columns(ctx, rt, {"X", "Z"}, false, false);
+    auto rm = table0.remove_columns(ctx, rt, {"X", "Z"});
     recorder.expect_true(
       "Call to remove 'X' and 'Z' returned TRUE",
       TE(rm));
   }
   {
-    auto cols =
-      Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());
+    auto cols = table0.columns();
     recorder.expect_true(
       "Columns 'X' and 'Z' successfully removed from table",
       TE(cols.find("X") == cols.end()
@@ -622,39 +619,50 @@ table_test_suite(
       TE(cols.find("Y") != cols.end()));
   }
   {
-    auto add = table0.add_columns(ctx, rt, {{w_space, false, w_fields}});
+    // need a new instance of w_space, as the previous was owned and deleted by
+    // the table0
+    auto w_space =
+      ColumnSpace::create(
+        ctx,
+        rt,
+        std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::W},
+        w_is,
+        false);
+    auto add = table0.add_columns(ctx, rt, {{w_space, w_fields}});
     recorder.expect_true(
       "Call to add 'W' returned TRUE",
-      TE(add.get_result<bool>()));
+      TE(add));
   }
   {
-    auto cols =
-      Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());
+    auto cols = table0.columns();
     recorder.expect_true(
       "Column 'W' successfully added to table",
       TE(cols.find("W") != cols.end()));
   }
-  xyz_fields.erase(xyz_fields.begin() + 1);
   {
-    auto add = table0.add_columns(ctx, rt, {{xyz_space, true, xyz_fields}});
+    auto cs = table0.columns().at("Y").cs;
+    std::vector<std::pair<std::string, TableField>> xz_fields{
+      {"X", TableField(HYPERION_TYPE_UINT, COL_X)},
+      {"Z", TableField(HYPERION_TYPE_UINT, COL_Z)}
+    };
+    auto add = table0.add_columns(ctx, rt, {{cs, xz_fields}});
     recorder.expect_true(
       "Call to add 'X' and 'Z' returned TRUE",
-      TE(add.get_result<bool>()));
+      TE(add));
   }
   {
-    auto cols =
-      Table::column_map(table0.columns(ctx, rt).get<Table::columns_result_t>());
+    auto cols = table0.columns();
     recorder.expect_true(
       "Columns 'X' and 'Z' successfully added to table",
       TE(cols.find("X") != cols.end()
          && cols.find("Z") != cols.end()));
-    auto csp = cols.at("Y").csp;
+    auto cs = cols.at("Y").cs;
     recorder.expect_true(
       "Columns 'X' and 'Z' share 'Y's ColumnSpace",
-      TE(cols.at("X").csp == csp && cols.at("Z").csp == csp));
+      TE(cols.at("X").cs == cs && cols.at("Z").cs == cs));
   }
 
-  table0.destroy(ctx, rt, true, true);
+  table0.destroy(ctx, rt);
 }
 
 int

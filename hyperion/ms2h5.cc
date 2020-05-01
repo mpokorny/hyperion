@@ -31,7 +31,7 @@ using namespace Legion;
 
 enum {
   TOP_LEVEL_TASK_ID,
-  READ_TABLES_FROM_MS_TASK_ID,
+  READ_TABLE_FROM_MS_TASK_ID,
   READ_MS_TABLE_COLUMNS_TASK_ID,
   CREATE_H5_TASK_ID,
 };
@@ -110,13 +110,10 @@ struct ReadTableFromMSArgs {
   char ms_path[MAX_PATHLEN];
 };
 
-const char* read_tables_from_ms_task_name =
-                 "read_tables_from_ms";
+const char* read_table_from_ms_task_name = "read_table_from_ms";
 
-typedef std::array<LogicalRegion, MAX_TABLES> read_tables_from_ms_result_t;
-
-read_tables_from_ms_result_t
-read_tables_from_ms_task(
+Table
+read_table_from_ms_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
@@ -126,29 +123,15 @@ read_tables_from_ms_task(
     static_cast<const ReadTableFromMSArgs*>(task->args);
 
   const NameAccessor<READ_ONLY> names(regions[0], TABLE_NAME_FID);
-
+  std::string tname = names[task->index_point];
   CXX_FILESYSTEM_NAMESPACE::path ms_path = std::string(args->ms_path);
-
-  read_tables_from_ms_result_t result;
-  size_t i = 0;
-  for (PointInDomainIterator<1> pid(
-         rt->get_index_space_domain(task->regions[0].region.get_index_space()));
-       pid();
-       pid++) {
-    assert(i < MAX_TABLES);
-    CXX_FILESYSTEM_NAMESPACE::path tpath;
-    if (names[*pid] != "MAIN")
-      tpath = ms_path / std::string(names[*pid]);
-    else
-      tpath = ms_path;
-    auto table =
-      Table::create(
-        ctx,
-        rt,
-        std::get<1>(from_ms(ctx, rt, tpath, {"*"})));
-    result[i++] = table.fields_lr;
-  }
-  return result;
+  CXX_FILESYSTEM_NAMESPACE::path tpath;
+  if (tname != "MAIN")
+    tpath = ms_path / tname;
+  else
+    tpath = ms_path;
+  auto [nm, index_cs, fields] = from_ms(ctx, rt, tpath, {"*"});
+  return Table::create(ctx, rt, index_cs, std::move(fields));
 }
 
 struct ReadMSTableColumnsTaskArgs {
@@ -497,7 +480,8 @@ public:
     // create LogicalRegion for table names and fields
     LogicalRegion table_info_lr;
     {
-      IndexSpace is = rt->create_index_space(ctx, Rect<1>(0, table_names.size() - 1));
+      IndexSpace is =
+        rt->create_index_space(ctx, Rect<1>(0, table_names.size() - 1));
       FieldSpace fs = rt->create_field_space(ctx);
       FieldAllocator fa = rt->create_field_allocator(ctx, fs);
       fa.allocate_field(sizeof(hyperion::string), TABLE_NAME_FID);
@@ -506,7 +490,8 @@ public:
 
     // copy table names to field in table_info_lr
     {
-      RegionRequirement req(table_info_lr, WRITE_ONLY, EXCLUSIVE, table_info_lr);
+      RegionRequirement
+        req(table_info_lr, WRITE_ONLY, EXCLUSIVE, table_info_lr);
       req.add_field(TABLE_NAME_FID);
       auto pr = rt->map_region(ctx, req);
       const NameAccessor<WRITE_ONLY> names(pr, TABLE_NAME_FID);
@@ -518,20 +503,15 @@ public:
     // construct Table for each MS table
     std::vector<Table> tables;
     {
+      auto table_info_is = table_info_lr.get_index_space();
       auto ipart =
-        partition_over_default_tunable(
-          ctx,
-          rt,
-          table_info_lr.get_index_space(),
-          4, // TODO: find a good value
-          Mapping::DefaultMapper::DefaultTunables::DEFAULT_TUNABLE_GLOBAL_IOS);
+        rt->create_equal_partition(ctx, table_info_is, table_info_is);
       auto lp = rt->get_logical_partition(ctx, table_info_lr, ipart);
       ReadTableFromMSArgs args;
       fstrcpy(args.ms_path, ms.c_str());
-      IndexSpace tables_map_cs = rt->get_index_partition_color_space_name(ctx, ipart);
       IndexTaskLauncher task(
-        READ_TABLES_FROM_MS_TASK_ID,
-        tables_map_cs,
+        READ_TABLE_FROM_MS_TASK_ID,
+        table_info_is,
         TaskArgument(&args, sizeof(args)),
         ArgumentMap());
       {
@@ -547,15 +527,10 @@ public:
       // We're going to need privileges on the Tables in create_h5_task, so wait
       // on tables_map and construct Tables from results
       for (PointInRectIterator<1> pir(
-             rt->get_index_space_domain(tables_map_cs));
+             rt->get_index_space_domain(table_info_is));
            pir();
-           pir++) {
-        auto ary = tables_map.get_result<read_tables_from_ms_result_t>(*pir);
-        auto lrp = ary.begin();
-        while (lrp != ary.end() && *lrp != LogicalRegion::NO_REGION)
-          tables.emplace_back(*lrp++);
-      }
-      rt->destroy_index_space(ctx, tables_map_cs);
+           pir++)
+        tables.emplace_back(tables_map.get_result<Table>(*pir));
     }
 
     // Create HDF5 file.
@@ -662,16 +637,14 @@ main(int argc, char** argv) {
   hyperion::preregister_all();
   TopLevelTask::register_task();
   {
-    // read_tables_from_ms_task
+    // read_table_from_ms_task
     TaskVariantRegistrar registrar(
-      READ_TABLES_FROM_MS_TASK_ID,
-      read_tables_from_ms_task_name);
+      READ_TABLE_FROM_MS_TASK_ID,
+      read_table_from_ms_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
-    Runtime::preregister_task_variant<
-      read_tables_from_ms_result_t,
-      read_tables_from_ms_task>(
+    Runtime::preregister_task_variant<Table, read_table_from_ms_task>(
         registrar,
-        read_tables_from_ms_task_name);
+        read_table_from_ms_task_name);
   }
   {
     // read_ms_table_columns_task

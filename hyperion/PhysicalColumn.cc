@@ -44,22 +44,24 @@ PhysicalColumn::column() const {
           kwv.values.get_logical_region()});
   }
 
-  return Column(
-    m_dt,
-    m_fid,
+  return
+    Column(
+      m_dt,
+      m_fid,
+      column_space(),
+      m_region,
+      kws
 #ifdef HYPERION_USE_CASACORE
-    mr,
-    map(m_refcol, [](const auto& nm_pc){ return std::get<0>(nm_pc); }),
+      , mr
+      , map(m_refcol, [](const auto& nm_pc){ return std::get<0>(nm_pc); })
 #endif
-    kws,
-    column_space(),
-    m_parent);
+      );
 }
 
 ColumnSpace
 PhysicalColumn::column_space() const {
   return
-    ColumnSpace(m_parent.get_index_space(), m_metadata.get_logical_region());
+    ColumnSpace(m_region.get_index_space(), m_metadata.get_logical_region());
 }
 
 ColumnSpace::AXIS_VECTOR_TYPE
@@ -117,7 +119,7 @@ PhysicalColumn::mrb(Runtime* rt) const {
 LogicalRegion
 PhysicalColumn::create_index(Context ctx, Runtime* rt) const {
 
-  auto col = Column();
+  auto col = column();
   return col.create_index(ctx, rt);
 }
 

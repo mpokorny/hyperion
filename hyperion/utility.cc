@@ -21,6 +21,7 @@
 #include <hyperion/ColumnSpacePartition.h>
 #include <hyperion/Column.h>
 #include <hyperion/TableMapper.h>
+#include <hyperion/PhysicalTable.h>
 
 #ifdef HYPERION_USE_HDF5
 # include <hyperion/hdf5.h>
@@ -470,6 +471,7 @@ hyperion::preregister_all() {
 
   TreeIndexSpaceTask::preregister_task();
   Table::preregister_tasks();
+  PhysicalTable::preregister_tasks();
   ColumnSpace::preregister_tasks();
   ColumnSpacePartition::preregister_tasks();
   Column::preregister_tasks();
@@ -718,13 +720,11 @@ hyperion::index_space_as_tree(Runtime* rt, IndexSpace is) {
 }
 
 #ifdef HYPERION_USE_CASACORE
-std::pair<
+std::tuple<
   std::string,
+  ColumnSpace,
   std::vector<
-    std::tuple<
-      ColumnSpace,
-      bool,
-      std::vector<std::pair<std::string, TableField>>>>>
+    std::tuple<ColumnSpace, std::vector<std::pair<std::string, TableField>>>>>
 hyperion::from_ms(
   Context ctx,
   Runtime* rt,

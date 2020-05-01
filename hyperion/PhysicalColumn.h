@@ -195,7 +195,7 @@ public:
     Legion::FieldID fid,
     unsigned index_rank,
     const Legion::PhysicalRegion& metadata,
-    const Legion::LogicalRegion& parent,
+    const Legion::LogicalRegion& region,
     const std::variant<Legion::PhysicalRegion, Legion::LogicalRegion>& values,
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
@@ -209,10 +209,10 @@ public:
     , m_index_rank(index_rank)
     , m_metadata(metadata)
     , m_domain(
-      (parent != Legion::LogicalRegion::NO_REGION)
-      ? rt->get_index_space_domain(parent.get_index_space())
+      (region != Legion::LogicalRegion::NO_REGION)
+      ? rt->get_index_space_domain(region.get_index_space())
       : Legion::Domain::NO_DOMAIN)
-    , m_parent(parent)
+    , m_region(region)
     , m_values(values)
     , m_kws(kws)
 #ifdef HYPERION_USE_CASACORE
@@ -272,14 +272,29 @@ public:
   }
 
   const Legion::LogicalRegion&
-  parent() const {
-    return m_parent;
+  region() const {
+    return m_region;
   };
 
   const std::variant<Legion::PhysicalRegion, Legion::LogicalRegion>&
   values() const {
     return m_values;
   };
+
+  Legion::LogicalRegion
+  values_lr() const {
+    return
+      std::visit(
+        overloaded {
+          [](const Legion::PhysicalRegion& pr) {
+            return pr.get_logical_region();
+          },
+          [](const Legion::LogicalRegion& lr) {
+            return lr;
+          }
+        },
+        values());
+  }
 
   const std::optional<Keywords::pair<Legion::PhysicalRegion>>&
   kws() const {
@@ -326,7 +341,7 @@ protected:
   , m_index_rank(from.m_index_rank)
   , m_metadata(from.m_metadata)
   , m_domain(from.m_domain)
-  , m_parent(from.m_parent)
+  , m_region(from.m_region)
   , m_values(from.m_values)
   , m_kws(from.m_kws)
 #ifdef HYPERION_USE_CASACORE
@@ -355,11 +370,11 @@ protected:
 
   Legion::PhysicalRegion m_metadata;
 
-  // maintain m_domain in order to allow checks in narrowing copy constructors to
-  // PhysicalColumn variants (w.o. needing Legion::Runtime instance)
+  // maintain m_domain in order to allow checks in narrowing copy constructors
+  // to PhysicalColumn variants (w.o. needing Legion::Runtime instance)
   Legion::Domain m_domain;
 
-  Legion::LogicalRegion m_parent;
+  Legion::LogicalRegion m_region;
 
   // allow an optional values region, to support a PhysicalColumn without values
   // (e.g, some Table index column spaces)
@@ -388,7 +403,7 @@ public:
     Legion::FieldID fid,
     unsigned index_rank,
     const Legion::PhysicalRegion& metadata,
-    const Legion::LogicalRegion& parent,
+    const Legion::LogicalRegion& region,
     const std::variant<Legion::PhysicalRegion, Legion::LogicalRegion>& values,
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
@@ -403,7 +418,7 @@ public:
       DT,
       index_rank,
       metadata,
-      parent,
+      region,
       values,
       kws
 #ifdef HYPERION_USE_CASACORE
@@ -454,7 +469,7 @@ public:
     Legion::Runtime* rt,
     Legion::FieldID fid,
     const Legion::PhysicalRegion& metadata,
-    const Legion::LogicalRegion& parent,
+    const Legion::LogicalRegion& region,
     const std::variant<Legion::PhysicalRegion, Legion::LogicalRegion>& values,
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
@@ -469,7 +484,7 @@ public:
       DT,
       INDEX_RANK,
       metadata,
-      parent,
+      region,
       values,
       kws
 #ifdef HYPERION_USE_CASACORE
@@ -483,7 +498,7 @@ public:
     // FIXME: change assertions to exceptions
     assert(DT == m_dt);
     assert(INDEX_RANK == m_index_rank);
-    assert(COLUMN_RANK == m_parent.get_index_space().get_dim());
+    assert(COLUMN_RANK == m_region.get_index_space().get_dim());
   }
 
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
@@ -531,7 +546,7 @@ public:
     Legion::FieldID fid,
     unsigned index_rank,
     const Legion::PhysicalRegion& metadata,
-    const Legion::LogicalRegion& parent,
+    const Legion::LogicalRegion& region,
     const std::variant<Legion::PhysicalRegion, Legion::LogicalRegion>& values,
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws,
     const std::optional<MeasRef::DataRegions>& mr_drs,
@@ -543,7 +558,7 @@ public:
       DT,
       index_rank,
       metadata,
-      parent,
+      region,
       values,
       kws,
       mr_drs,
@@ -610,7 +625,7 @@ public:
     Legion::Runtime* rt,
     Legion::FieldID fid,
     const Legion::PhysicalRegion& metadata,
-    const Legion::LogicalRegion& parent,
+    const Legion::LogicalRegion& region,
     const std::variant<Legion::PhysicalRegion, Legion::LogicalRegion>& values,
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws,
     const std::optional<MeasRef::DataRegions>& mr_drs,
@@ -622,7 +637,7 @@ public:
       DT,
       INDEX_RANK,
       metadata,
-      parent,
+      region,
       values,
       kws,
       mr_drs,
@@ -633,7 +648,7 @@ public:
     // FIXME: change assertions to exceptions
     assert(DT == m_dt);
     assert(INDEX_RANK == m_index_rank);
-    assert(COLUMN_RANK == m_parent.get_index_space().get_dim());
+    assert(COLUMN_RANK == m_region.get_index_space().get_dim());
     assert(m_mr_drs);
     assert(MeasRef::mclass(m_mr_drs.value().metadata) == MC);
     if (M_RANK == 1) {
