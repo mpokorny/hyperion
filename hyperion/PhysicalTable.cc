@@ -224,6 +224,36 @@ PhysicalTable::create(
       prs);
 }
 
+std::optional<
+  std::tuple<
+    std::vector<PhysicalTable>,
+    std::vector<RegionRequirement>::const_iterator,
+    std::vector<PhysicalRegion>::const_iterator>>
+PhysicalTable::create_many(
+  Runtime *rt,
+  const std::vector<RegionRequirement>::const_iterator& reqs_begin,
+  const std::vector<RegionRequirement>::const_iterator& reqs_end,
+  const std::vector<PhysicalRegion>::const_iterator& prs_begin,
+  const std::vector<PhysicalRegion>::const_iterator& prs_end,
+  std::optional<unsigned> max_number) {
+
+  std::remove_cv_t<std::remove_reference_t<decltype(reqs_begin)>> rit =
+    reqs_begin;
+  std::remove_cv_t<std::remove_reference_t<decltype(prs_begin)>> pit =
+    prs_begin;
+  std::vector<PhysicalTable> tables;
+  while (rit != reqs_end && pit != prs_end
+         && tables.size() < max_number.value_or(tables.size() + 1)) {
+    auto opt = create(rt, rit, reqs_end, pit, prs_end);
+    if (!opt)
+      return std::nullopt;
+    tables.push_back(std::move(std::get<0>(opt.value())));
+    rit = std::get<1>(opt.value());
+    pit = std::get<2>(opt.value());
+  }
+  return std::make_tuple(tables, rit, pit);
+}
+
 Table
 PhysicalTable::table(Context ctx, Runtime* rt) const {
   std::unordered_map<std::string, Column> columns;

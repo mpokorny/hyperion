@@ -255,27 +255,20 @@ create_h5_task(
 
   const NameAccessor<READ_ONLY> names(regions[0], TABLE_NAME_FID);
 
-  std::vector<PhysicalTable> tables;
-  auto rq_it = task->regions.begin() + 1;
-  auto pr_it = regions.begin() + 1;
-  while (rq_it != task->regions.end() && pr_it != regions.end()) {
-    auto [pt, rit, pit] =
-      PhysicalTable::create(
-        rt,
-        rq_it,
-        task->regions.end(),
-        pr_it,
-        regions.end())
-      .value();
-    tables.push_back(std::move(pt));
-    rq_it = rit;
-    pr_it = pit;
-  }
-  assert(rq_it == task->regions.end() && pr_it == regions.end());
+  auto [tables, rit, pit] =
+    PhysicalTable::create_many(
+      rt,
+      task->regions.begin() + 1,
+      task->regions.end(),
+      regions.begin() + 1,
+      regions.end())
+    .value();
+  assert(rit == task->regions.end() && pit == regions.end());
 
   // initialize HDF5 file with all tables
   std::vector<std::unordered_map<std::string, std::string>> column_maps;
-  hid_t file_id = CHECK_H5(H5DatatypeManager::create(args->h5_path, H5F_ACC_EXCL));
+  hid_t file_id =
+    CHECK_H5(H5DatatypeManager::create(args->h5_path, H5F_ACC_EXCL));
   hid_t root_grp_id = CHECK_H5(H5Gopen(file_id, "/", H5P_DEFAULT));
   for (size_t i = 0; i < tables.size(); ++i) {
     std::unordered_map<std::string, std::string> cmap;

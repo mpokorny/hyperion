@@ -62,6 +62,19 @@ public:
     const std::vector<Legion::PhysicalRegion>::const_iterator& prs_begin,
     const std::vector<Legion::PhysicalRegion>::const_iterator& prs_end);
 
+  static std::optional<
+    std::tuple<
+      std::vector<PhysicalTable>,
+      std::vector<Legion::RegionRequirement>::const_iterator,
+      std::vector<Legion::PhysicalRegion>::const_iterator>>
+  create_many(
+    Legion::Runtime *rt,
+    const std::vector<Legion::RegionRequirement>::const_iterator& reqs_begin,
+    const std::vector<Legion::RegionRequirement>::const_iterator& reqs_end,
+    const std::vector<Legion::PhysicalRegion>::const_iterator& prs_begin,
+    const std::vector<Legion::PhysicalRegion>::const_iterator& prs_end,
+    std::optional<unsigned> max_number = std::nullopt);
+
   Table
   table(Legion::Context ctx, Legion::Runtime* rt) const;
 
