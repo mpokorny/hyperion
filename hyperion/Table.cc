@@ -130,21 +130,18 @@ Table::attach_columns(
     if (column_modes.count(nm) > 0)
       colnames.insert(nm);
   }
-  // TODO: implement a more direct way to compute the table region requirements
-  // for the set of attached columns
-  auto table_reqs =
-    std::get<0>(
-      requirements(
-        ctx,
-        rt,
-        ColumnSpacePartition(),
-        table_privilege,
-        {},
-        std::nullopt));
+
+  std::map<std::string, std::optional<Column::Requirements>> omitted;
+  for (auto& [nm, col] : m_columns)
+    if (colnames.count(nm) == 0)
+      omitted[nm] = std::nullopt;
+  auto [table_reqs, table_parts] =
+    requirements(ctx, rt, ColumnSpacePartition(), table_privilege, omitted);
   PhysicalRegion index_col_md = rt->map_region(ctx, table_reqs[0]);
   unsigned idx_rank = ColumnSpace::size(ColumnSpace::axes(index_col_md));
   std::tuple<LogicalRegion, PhysicalRegion> index_col =
     {table_reqs[1].region, rt->map_region(ctx, table_reqs[1])};
+
   std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> pcols;
   for (auto& [nm, col] : m_columns) {
     std::optional<PhysicalRegion> metadata;
@@ -228,11 +225,13 @@ Table::attach_columns(
     index_col_md,
     table_reqs[1].parent,
     index_col,
-    table_reqs[2].parent,
+    m_fields_lr, // FIXME
     fixed_fields,
     free_fields,
     pcols);
   result.attach_columns(ctx, rt, file_path, column_paths, column_modes);
+  for (auto& p : table_parts)
+    rt->destroy_logical_partition(ctx, p);
   return result;
 }
 
@@ -591,9 +590,8 @@ Table::requirements(
       (table_privilege == READ_ONLY) ? unprivileged_pts : free_pts));
 
   // create the partition of the table fields by privilege vs no privilege
-  assert(fixed_pts.size() > 0); // FIXME: this implies no columns were selected
   LogicalPartition use_lp;
-  {
+  if (fixed_pts.size() > 0) { // some columns are selected
     auto nparts =
       std::min(fixed_pts.size(), (size_t)1)
       + std::min(free_pts.size(), (size_t)1);
@@ -684,7 +682,8 @@ Table::requirements(
     }
   }
   std::vector<LogicalPartition> lps_result;
-  lps_result.push_back(use_lp);
+  if (use_lp != LogicalPartition::NO_PART)
+    lps_result.push_back(use_lp);
   for (auto& [csp, lp] : partitions)
     lps_result.push_back(lp);
 
@@ -746,13 +745,13 @@ Table::requirements(
           table_fields_requirement(free_lp, 0, fields_lr, table_privilege));
     }
   }
-  assert(fixed_pts.size() > 0);
-  reqs_result
-    .push_back(
-      table_fields_requirement(
-        rt->get_logical_subregion_by_color(ctx, use_lp, fixed_fields_color),
-        fields_lr,
-        READ_ONLY));
+  if (fixed_pts.size() > 0)
+    reqs_result
+      .push_back(
+        table_fields_requirement(
+          rt->get_logical_subregion_by_color(ctx, use_lp, fixed_fields_color),
+          fields_lr,
+          READ_ONLY));
 
   // add requirements for all logical regions in all selected columns
   for (auto& olrpr : {fixed_fields, free_fields}) {
