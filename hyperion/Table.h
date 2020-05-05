@@ -367,6 +367,7 @@ protected:
 
   std::unordered_map<std::string, Column> m_columns;
 
+public:
 // protected:
 
 //   friend class Legion::LegionTaskWrapper;
@@ -425,8 +426,6 @@ protected:
   static Legion::TaskID reindex_column_space_task_id;
 
   static const char* reindex_column_space_task_name;
-
-public:
 
   size_t
   legion_buffer_size(void) const;
