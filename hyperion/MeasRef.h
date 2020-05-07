@@ -156,6 +156,15 @@ public:
     std::optional<Legion::RegionRequirement>>
     requirements(Legion::PrivilegeMode mode, bool mapped = true) const;
 
+  static std::tuple<
+    Legion::RegionRequirement,
+    Legion::RegionRequirement,
+    std::optional<Legion::RegionRequirement>>
+  requirements(
+    const DataRegions& drs,
+    Legion::PrivilegeMode mode,
+    bool mapped = true);
+
   bool
   is_empty() const {
     return metadata_lr == Legion::LogicalRegion::NO_REGION;

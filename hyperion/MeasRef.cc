@@ -461,11 +461,39 @@ MeasRef::requirements(
   mreq.add_field(MEASURE_CLASS_FID, mapped);
   mreq.add_field(REF_TYPE_FID, mapped);
   mreq.add_field(NUM_VALUES_FID, mapped);
-  RegionRequirement
-    vreq(values_lr, mode, EXCLUSIVE, values_lr);
+  RegionRequirement vreq(values_lr, mode, EXCLUSIVE, values_lr);
   vreq.add_field(0, mapped);
   std::optional<RegionRequirement> ireq;
   if (index_lr != LogicalRegion::NO_REGION) {
+    RegionRequirement req(index_lr, mode, EXCLUSIVE, index_lr);
+    req.add_field(M_CODE_FID, mapped);
+    ireq = req;
+  }
+
+  return std::make_tuple(mreq, vreq, ireq);
+}
+
+std::tuple<
+  RegionRequirement,
+  RegionRequirement,
+  std::optional<RegionRequirement>>
+MeasRef::requirements(
+  const MeasRef::DataRegions& drs,
+  PrivilegeMode mode,
+  bool mapped) {
+
+  auto& [md, vl, oidx] = drs;
+  auto metadata_lr = md.get_logical_region();
+  RegionRequirement mreq(metadata_lr, mode, EXCLUSIVE, metadata_lr);
+  mreq.add_field(MEASURE_CLASS_FID, mapped);
+  mreq.add_field(REF_TYPE_FID, mapped);
+  mreq.add_field(NUM_VALUES_FID, mapped);
+  auto values_lr = vl.get_logical_region();
+  RegionRequirement vreq(values_lr, mode, EXCLUSIVE, values_lr);
+  vreq.add_field(0, mapped);
+  std::optional<RegionRequirement> ireq;
+  if (oidx) {
+    auto index_lr = oidx.value().get_logical_region();
     RegionRequirement req(index_lr, mode, EXCLUSIVE, index_lr);
     req.add_field(M_CODE_FID, mapped);
     ireq = req;

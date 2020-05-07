@@ -317,17 +317,214 @@ PhysicalTable::requirements(
   ColumnSpace index_col_cs(
     std::get<0>(m_index_col).get_index_space(),
     m_index_col_md.get_logical_region());
-  return
-    Table::requirements(
-      ctx,
-      rt,
-      index_col_cs,
-      std::get<0>(m_index_col),
-      m_index_col_parent,
-      cols,
-      table_partition,
-      column_requirements,
-      default_column_requirements);
+
+  // collect requirement parameters for each column
+  std::map<std::string, Column::Requirements> column_reqs;
+  {
+#ifdef HYPERION_USE_CASACORE
+    std::map<std::string, Column::Requirements> mrc_reqs;
+#endif
+    std::map<LogicalRegion, Column::Req> lr_mdreqs;
+    for (auto& [nm, ppc] : m_columns) {
+      if ((default_column_requirements
+           && (column_requirements.count(nm) == 0
+               || column_requirements.at(nm)))
+          || (!default_column_requirements
+              && (column_requirements.count(nm) > 0
+                  && column_requirements.at(nm)))) {
+        Column::Requirements colreqs =
+          default_column_requirements.value_or(Column::default_requirements);
+        if (column_requirements.count(nm) > 0)
+          colreqs = column_requirements.at(nm).value();
+        column_reqs[nm] = colreqs;
+        if (lr_mdreqs.count(ppc->region()) == 0) {
+          lr_mdreqs[ppc->region()] = colreqs.column_space;
+        } else {
+          // FIXME: log a warning, and return empty result;
+          // warning: inconsistent requirements on shared Column metadata
+          // regions
+          assert(lr_mdreqs[ppc->region()] == colreqs.column_space);
+        }
+#ifdef HYPERION_USE_CASACORE
+        if (ppc->refcol())
+          mrc_reqs[std::get<0>(ppc->refcol().value())] = colreqs;
+#endif
+      }
+    }
+
+#ifdef HYPERION_USE_CASACORE
+    // apply mode of value column to its measure reference column
+    for (auto& [nm, rq] : mrc_reqs)
+      column_reqs.at(nm) = rq;
+#endif
+  }
+  // create requirements, applying table_partition as needed
+  std::map<LogicalRegion, LogicalPartition> partitions;
+  if (table_partition.is_valid()) {
+    auto& lr = std::get<0>(m_index_col);
+    if (table_partition.column_space.column_is != lr.get_index_space()) {
+      auto csp =
+        table_partition.project_onto(
+          ctx,
+          rt,
+          lr.get_index_space(),
+          m_index_col_md);
+      auto lp = rt->get_logical_partition(ctx, lr, csp.column_ip);
+      csp.destroy(ctx, rt);
+      partitions[lr] = lp;
+    } else {
+      auto lp = rt->get_logical_partition(ctx, lr, table_partition.column_ip);
+      partitions[lr] = lp;
+    }
+  }
+
+  // boolean elements in value of following maps is used to track whether the
+  // requirement has already been added when iterating through columns
+  std::map<LogicalRegion, std::tuple<bool, RegionRequirement>> md_reqs;
+  std::map<
+    std::tuple<LogicalRegion, PrivilegeMode, CoherenceProperty, MappingTagID>,
+    std::tuple<bool, RegionRequirement>> val_reqs;
+  for (auto& [nm, ppc] : m_columns) {
+    if (column_reqs.count(nm) > 0) {
+      auto& reqs = column_reqs.at(nm);
+      auto cs = ppc->column_space();
+      if (md_reqs.count(ppc->region()) == 0)
+        md_reqs[ppc->region()] =
+          {false,
+           cs.requirements(
+             reqs.column_space.privilege,
+             reqs.column_space.coherence)};
+      decltype(val_reqs)::key_type rg_rq =
+        {ppc->region(), reqs.values.privilege, reqs.values.coherence, reqs.tag};
+      if (val_reqs.count(rg_rq) == 0) {
+        if (!table_partition.is_valid()) {
+          val_reqs[rg_rq] =
+            {false,
+             RegionRequirement(
+               ppc->region(),
+               reqs.values.privilege,
+               reqs.values.coherence,
+               ppc->region(),
+               reqs.tag)};
+        } else {
+          LogicalPartition lp;
+          if (partitions.count(ppc->region()) == 0) {
+            auto csp =
+              table_partition.project_onto(
+                ctx,
+                rt,
+                ppc->region().get_index_space(),
+                ppc->metadata());
+            assert(csp.column_space == cs);
+            lp = rt->get_logical_partition(ctx, ppc->region(), csp.column_ip);
+            csp.destroy(ctx, rt);
+            partitions[ppc->region()] = lp;
+          } else {
+            lp = partitions[ppc->region()];
+          }
+          val_reqs[rg_rq] =
+            {false,
+             RegionRequirement(
+               lp,
+               0,
+               reqs.values.privilege,
+               reqs.values.coherence,
+               ppc->region(),
+               reqs.tag)};
+        }
+      }
+      std::get<1>(val_reqs[rg_rq]).add_field(ppc->fid(), reqs.values.mapped);
+    }
+  }
+  std::vector<LogicalPartition> lps_result;
+  for (auto& [csp, lp] : partitions)
+    lps_result.push_back(lp);
+
+  // gather all requirements, in order set by this traversal of fields
+  std::vector<RegionRequirement> reqs_result;
+
+  // start with index_col ColumnSpace metadata
+  reqs_result.push_back(index_col_cs.requirements(READ_ONLY, EXCLUSIVE));
+  // next, index_col index space partition
+  {
+    auto& lr = std::get<0>(m_index_col);
+    if (table_partition.is_valid()) {
+      RegionRequirement req(
+        partitions[lr],
+        0,
+        {Table::m_index_col_fid},
+        {}, // always remains unmapped!
+        WRITE_ONLY,
+        EXCLUSIVE,
+        lr);
+      reqs_result.push_back(req);
+    } else {
+      RegionRequirement req(
+        lr,
+        {Table::m_index_col_fid},
+        {}, // always remains unmapped!
+        WRITE_ONLY,
+        EXCLUSIVE,
+        lr);
+      reqs_result.push_back(req);
+    }
+  }
+  Table::Desc desc_result;
+  desc_result.num_columns = column_reqs.size();
+  assert(desc_result.num_columns <= desc_result.columns.size());
+
+  // add requirements for all logical regions in all selected columns
+  size_t desc_idx = 0;
+  for (auto& [nm, ppc] : m_columns) {
+    if (column_reqs.count(nm) > 0) {
+      auto cdesc = ppc->column().desc(nm);
+      auto& reqs = column_reqs.at(nm);
+      {
+        auto& [added, rq] = md_reqs.at(ppc->region());
+        if (!added) {
+          reqs_result.push_back(rq);
+          added = true;
+        }
+      }
+      decltype(val_reqs)::key_type rg_rq =
+        {ppc->region(), reqs.values.privilege, reqs.values.coherence, reqs.tag};
+      auto& [added, rq] = val_reqs.at(rg_rq);
+      cdesc.region = rq.parent;
+      if (!added) {
+        reqs_result.push_back(rq);
+        added = true;
+      }
+      if (cdesc.n_kw > 0) {
+        auto rqs =
+          Keywords::requirements(
+            rt,
+            ppc->kws().value(),
+            reqs.keywords.privilege,
+            reqs.keywords.mapped);
+        reqs_result.push_back(rqs.type_tags);
+        reqs_result.push_back(rqs.values);
+      }
+
+#ifdef HYPERION_USE_CASACORE
+      if (cdesc.n_mr > 0) {
+        auto [mrq, vrq, oirq] =
+          MeasRef::requirements(
+            ppc->mr_drs().value(),
+            reqs.measref.privilege,
+            reqs.measref.mapped);
+        assert(cdesc.n_mr == 2 || cdesc.n_mr == 3);
+        reqs_result.push_back(mrq);
+        reqs_result.push_back(vrq);
+        if (oirq) {
+          assert(cdesc.n_mr == 3);
+          reqs_result.push_back(oirq.value());
+        }
+      }
+#endif
+      desc_result.columns[desc_idx++] = cdesc;
+    }
+  }
+  return {reqs_result, lps_result, desc_result};
 }
 
 bool

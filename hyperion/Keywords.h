@@ -138,6 +138,13 @@ public:
     return result;
   }
 
+  static pair<Legion::RegionRequirement>
+  requirements(
+    Legion::Runtime *rt,
+    const pair<Legion::PhysicalRegion>& prs,
+    Legion::PrivilegeMode mode,
+    bool mapped = true);
+
   template <typename T>
   bool
   write(

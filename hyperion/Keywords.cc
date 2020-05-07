@@ -211,6 +211,26 @@ Keywords::create(
   return Keywords(Keywords::pair<LogicalRegion>{tts, vals});
 }
 
+Keywords::pair<Legion::RegionRequirement>
+Keywords::requirements(
+  Runtime *rt,
+  const Keywords::pair<PhysicalRegion>& prs,
+  PrivilegeMode mode,
+  bool mapped) {
+
+  auto ttlr = prs.type_tags.get_logical_region();
+  auto vllr = prs.values.get_logical_region();
+  Legion::RegionRequirement tt(ttlr, READ_ONLY, EXCLUSIVE, ttlr);
+  Legion::RegionRequirement vl(vllr, mode, EXCLUSIVE, vllr);
+  std::vector<FieldID> fids;
+  rt->get_field_space_fields(ttlr.get_field_space(), fids);
+  for (auto& fid : fids) {
+    tt.add_field(fid, mapped);
+    vl.add_field(fid, mapped);
+  }
+  return pair<RegionRequirement>{tt, vl};
+}
+
 void
 Keywords::destroy(Context ctx, Runtime* rt) {
   if (type_tags_lr != LogicalRegion::NO_REGION) {
