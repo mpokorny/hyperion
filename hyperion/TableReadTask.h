@@ -39,7 +39,8 @@ public:
 
   static std::tuple<
     std::vector<Legion::RegionRequirement>,
-    std::vector<Legion::LogicalPartition>>
+    std::vector<Legion::LogicalPartition>,
+    Table::Desc>
   requirements(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -49,7 +50,8 @@ public:
 
   static std::tuple<
     std::vector<Legion::RegionRequirement>,
-    std::vector<Legion::LogicalPartition>>
+    std::vector<Legion::LogicalPartition>,
+    Table::Desc>
   requirements(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -60,6 +62,7 @@ public:
   struct Args {
     // path to MS table
     char table_path[1024];
+    Table::Desc table_desc;
   };
 
   static void

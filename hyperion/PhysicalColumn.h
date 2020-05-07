@@ -196,7 +196,8 @@ public:
     unsigned index_rank,
     const Legion::PhysicalRegion& metadata,
     const Legion::LogicalRegion& region,
-    const std::variant<Legion::PhysicalRegion, Legion::LogicalRegion>& values,
+    const Legion::LogicalRegion& parent,
+    const std::optional<Legion::PhysicalRegion>& values,
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
     , const std::optional<MeasRef::DataRegions>& mr_drs
@@ -213,6 +214,7 @@ public:
       ? rt->get_index_space_domain(region.get_index_space())
       : Legion::Domain::NO_DOMAIN)
     , m_region(region)
+    , m_parent(parent)
     , m_values(values)
     , m_kws(kws)
 #ifdef HYPERION_USE_CASACORE
@@ -241,7 +243,7 @@ public:
   accessor() const {
     return
       Legion::FieldAccessor<MODE, FT, N, COORD_T, A, CHECK_BOUNDS>(
-        std::get<Legion::PhysicalRegion>(m_values),
+        m_values.value(),
         m_fid);
   }
 
@@ -276,7 +278,12 @@ public:
     return m_region;
   };
 
-  const std::variant<Legion::PhysicalRegion, Legion::LogicalRegion>&
+  const Legion::LogicalRegion&
+  parent() const {
+    return m_parent;
+  };
+
+  const std::optional<Legion::PhysicalRegion>&
   values() const {
     return m_values;
   };
@@ -284,16 +291,10 @@ public:
   Legion::LogicalRegion
   values_lr() const {
     return
-      std::visit(
-        overloaded {
-          [](const Legion::PhysicalRegion& pr) {
-            return pr.get_logical_region();
-          },
-          [](const Legion::LogicalRegion& lr) {
-            return lr;
-          }
-        },
-        values());
+      map(
+        m_values,
+        [](const auto& pr) { return pr.get_logical_region(); })
+      .value_or(m_region);
   }
 
   const std::optional<Keywords::pair<Legion::PhysicalRegion>>&
@@ -342,6 +343,7 @@ protected:
   , m_metadata(from.m_metadata)
   , m_domain(from.m_domain)
   , m_region(from.m_region)
+  , m_parent(from.m_parent)
   , m_values(from.m_values)
   , m_kws(from.m_kws)
 #ifdef HYPERION_USE_CASACORE
@@ -376,9 +378,11 @@ protected:
 
   Legion::LogicalRegion m_region;
 
+  Legion::LogicalRegion m_parent;
+
   // allow an optional values region, to support a PhysicalColumn without values
   // (e.g, some Table index column spaces)
-  std::variant<Legion::PhysicalRegion, Legion::LogicalRegion> m_values;
+  std::optional<Legion::PhysicalRegion> m_values;
 
   std::optional<Keywords::pair<Legion::PhysicalRegion>> m_kws;
 
@@ -404,7 +408,8 @@ public:
     unsigned index_rank,
     const Legion::PhysicalRegion& metadata,
     const Legion::LogicalRegion& region,
-    const std::variant<Legion::PhysicalRegion, Legion::LogicalRegion>& values,
+    const Legion::LogicalRegion& parent,
+    const std::optional<Legion::PhysicalRegion>& values,
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
     , const std::optional<MeasRef::DataRegions>& mr_drs
@@ -419,6 +424,7 @@ public:
       index_rank,
       metadata,
       region,
+      parent,
       values,
       kws
 #ifdef HYPERION_USE_CASACORE
@@ -470,7 +476,8 @@ public:
     Legion::FieldID fid,
     const Legion::PhysicalRegion& metadata,
     const Legion::LogicalRegion& region,
-    const std::variant<Legion::PhysicalRegion, Legion::LogicalRegion>& values,
+    const Legion::LogicalRegion& parent,
+    const std::optional<Legion::PhysicalRegion>& values,
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
     , const std::optional<MeasRef::DataRegions>& mr_drs
@@ -485,6 +492,7 @@ public:
       INDEX_RANK,
       metadata,
       region,
+      parent,
       values,
       kws
 #ifdef HYPERION_USE_CASACORE
@@ -547,7 +555,8 @@ public:
     unsigned index_rank,
     const Legion::PhysicalRegion& metadata,
     const Legion::LogicalRegion& region,
-    const std::variant<Legion::PhysicalRegion, Legion::LogicalRegion>& values,
+    const Legion::LogicalRegion& parent,
+    const std::optional<Legion::PhysicalRegion>& values,
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws,
     const std::optional<MeasRef::DataRegions>& mr_drs,
     const std::optional<
@@ -559,6 +568,7 @@ public:
       index_rank,
       metadata,
       region,
+      parent,
       values,
       kws,
       mr_drs,
@@ -626,7 +636,8 @@ public:
     Legion::FieldID fid,
     const Legion::PhysicalRegion& metadata,
     const Legion::LogicalRegion& region,
-    const std::variant<Legion::PhysicalRegion, Legion::LogicalRegion>& values,
+    const Legion::LogicalRegion& parent,
+    const std::optional<Legion::PhysicalRegion>& values,
     const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws,
     const std::optional<MeasRef::DataRegions>& mr_drs,
     const std::optional<
@@ -638,6 +649,7 @@ public:
       INDEX_RANK,
       metadata,
       region,
+      parent,
       values,
       kws,
       mr_drs,

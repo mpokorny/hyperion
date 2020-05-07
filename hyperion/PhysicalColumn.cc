@@ -50,6 +50,7 @@ PhysicalColumn::column() const {
       m_fid,
       column_space(),
       m_region,
+      m_parent,
       kws
 #ifdef HYPERION_USE_CASACORE
       , mr
@@ -105,7 +106,7 @@ PhysicalColumn::mrb(Runtime* rt) const {
         std::make_tuple(
           std::move(smrb),
           rmap,
-          std::get<PhysicalRegion>(ppc->m_values),
+          ppc->m_values.value(),
           ppc->m_fid);
     } else {
       result = smrb[0];

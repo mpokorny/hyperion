@@ -136,6 +136,7 @@ read_table_from_ms_task(
 
 struct ReadMSTableColumnsTaskArgs {
   char table_path[MAX_PATHLEN];
+  Table::Desc desc;
 };
 
 const char* read_ms_table_columns_task_name = "read_ms_table_columns";
@@ -153,6 +154,7 @@ read_ms_table_columns_task(
   auto [table, rit, pit] =
     PhysicalTable::create(
       rt,
+      args->desc,
       task->regions.begin(),
       task->regions.end(),
       regions.begin(),
@@ -162,14 +164,15 @@ read_ms_table_columns_task(
   assert(pit == regions.end());
 
   auto row_part = table.partition_rows(ctx, rt, {ROW_BLOCK_SZ});
-  auto [reqs, parts] =
+  auto [reqs, parts, desc] =
     TableReadTask::requirements(ctx, rt, table, row_part, READ_WRITE);
 
   TableReadTask::Args tr_args;
   fstrcpy(tr_args.table_path, args->table_path);
+  tr_args.table_desc = args->desc;
   IndexTaskLauncher read(
     TableReadTask::TASK_ID,
-    rt->get_index_partition_color_space(parts[0].get_index_partition()),
+    rt->get_index_partition_color_space(parts[1].get_index_partition()),
     TaskArgument(&tr_args, sizeof(tr_args)),
     ArgumentMap(),
     Predicate::TRUE_PRED,
@@ -186,6 +189,8 @@ read_ms_table_columns_task(
 
 struct CreateH5Args {
   char h5_path[MAX_PATHLEN];
+  unsigned n_tables;
+  Table::DescM<50> desc;
 };
 
 const char* create_h5_task_name = "create_h5";
@@ -252,12 +257,16 @@ create_h5_task(
   assert(regions.size() >= 1);
 
   const CreateH5Args* args = static_cast<const CreateH5Args*>(task->args);
-
+  std::vector<Table::Desc> desc;
+  desc.reserve(args->n_tables);
+  for (size_t i = 0; i < args->n_tables; ++i)
+    desc.push_back(args->desc[i]);
   const NameAccessor<READ_ONLY> names(regions[0], TABLE_NAME_FID);
 
   auto [tables, rit, pit] =
     PhysicalTable::create_many(
       rt,
+      desc,
       task->regions.begin() + 1,
       task->regions.end(),
       regions.begin() + 1,
@@ -531,6 +540,7 @@ public:
     {
       CreateH5Args create_args;
       fstrcpy(create_args.h5_path, h5.c_str());
+      create_args.n_tables = tables.size();
       TaskLauncher write(
         CREATE_H5_TASK_ID,
         TaskArgument(&create_args, sizeof(create_args)));
@@ -544,16 +554,11 @@ public:
       // written, any read privilege triggers a Legion warning or error
       Column::Requirements colreq = Column::default_requirements;
       colreq.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
+      size_t i = 0;
       for (auto& t : tables) {
-        auto reqs =
-          std::get<0>(
-            t.requirements(
-              ctx,
-              rt,
-              ColumnSpacePartition(),
-              READ_ONLY,
-              {},
-              colreq));
+        auto [reqs, parts, desc] =
+          t.requirements(ctx, rt, ColumnSpacePartition(), {}, colreq);
+        create_args.desc[i++] = desc;
         for (auto& rq : reqs)
           write.add_region_requirement(rq);
       }
@@ -573,8 +578,7 @@ public:
 #pragma GCC diagnostic pop
         column_modes[nm] = {false, true, false};
       ptables.push_back(
-        tables[i]
-        .attach_columns(ctx, rt, READ_ONLY, h5, column_paths[i], column_modes));
+        tables[i].attach_columns(ctx, rt, h5, column_paths[i], column_modes));
     }
 
     // use read_ms_table_columns_task to read values from MS into regions of the
@@ -591,18 +595,12 @@ public:
       TaskLauncher task(
         READ_MS_TABLE_COLUMNS_TASK_ID,
         TaskArgument(&rd_args, sizeof(rd_args)));
-      auto reqs =
-        std::get<0>(
-          ptables[i].requirements(
-            ctx,
-            rt,
-            ColumnSpacePartition(),
-            READ_ONLY,
-            {},
-            colreq));
+      auto [reqs, parts, desc] =
+        ptables[i].requirements(ctx, rt, ColumnSpacePartition(), {}, colreq);
       ptables[i].unmap_regions(ctx, rt);
       for (auto& rq : reqs)
         task.add_region_requirement(rq);
+      rd_args.desc = desc;
       rt->execute_task(ctx, task);
     }
 

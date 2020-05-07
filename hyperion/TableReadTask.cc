@@ -206,6 +206,7 @@ TableReadTask::impl(
   auto [table, rit, pit] =
     PhysicalTable::create(
       rt,
+      args->table_desc,
       task->regions.begin(),
       task->regions.end(),
       regions.begin() ,
@@ -259,7 +260,8 @@ column_reqs(PrivilegeMode privilege) {
 
 std::tuple<
   std::vector<RegionRequirement>,
-  std::vector<LogicalPartition>>
+  std::vector<LogicalPartition>,
+  Table::Desc>
 TableReadTask::requirements(
   Context ctx,
   Runtime* rt,
@@ -277,14 +279,14 @@ TableReadTask::requirements(
       ctx,
       rt,
       table_partition,
-      READ_ONLY,
       {},
       column_reqs(columns_privilege));
 }
 
 std::tuple<
   std::vector<RegionRequirement>,
-  std::vector<LogicalPartition>>
+  std::vector<LogicalPartition>,
+  Table::Desc>
 TableReadTask::requirements(
   Context ctx,
   Runtime* rt,
@@ -302,7 +304,6 @@ TableReadTask::requirements(
       ctx,
       rt,
       table_partition,
-      READ_ONLY,
       {},
       column_reqs(columns_privilege));
 }

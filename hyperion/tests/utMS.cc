@@ -500,13 +500,15 @@ read_full_ms(
       table
       .partition_rows(ctx, rt, {std::make_optional<size_t>(2000)})
       .get_result<ColumnSpacePartition>();
-    auto [reqs, parts] = TableReadTask::requirements(ctx, rt, table, row_part);
+    auto [reqs, parts, desc] =
+      TableReadTask::requirements(ctx, rt, table, row_part);
 
     TableReadTask::Args args;
     std::strncpy(args.table_path, t0_path.c_str(), sizeof(args.table_path) - 1);
+    args.table_desc = desc;
     IndexTaskLauncher read(
       TableReadTask::TASK_ID,
-      rt->get_index_partition_color_space(parts[1].get_index_partition()),
+      rt->get_index_partition_color_space(row_part.column_ip),
       TaskArgument(&args, sizeof(args)),
       ArgumentMap(),
       Predicate::TRUE_PRED,

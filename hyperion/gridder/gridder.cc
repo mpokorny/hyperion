@@ -178,9 +178,12 @@ classify_antennas_task(
   Context ctx,
   Runtime* rt) {
 
+  const Table::Desc* desc = static_cast<const Table::Desc*>(task->args);
+
   auto [pt, rit, pit] =
     PhysicalTable::create(
       rt,
+      *desc,
       task->regions.begin(),
       task->regions.end(),
       regions.begin(),
@@ -304,16 +307,20 @@ compute_parallactic_angles_task(
   Context ctx,
   Runtime* rt) {
 
+  const Table::DescM<4>* tdescs =
+    static_cast<const Table::DescM<4>*>(task->args);
+
   // main table columns
-  auto [pt0, reqs0, prs0] =
-    PhysicalTable::create(
+  auto [pts, reqs0, prs0] =
+    PhysicalTable::create_many(
       rt,
+      *tdescs,
       task->regions.begin(),
       task->regions.end(),
       regions.begin(),
       regions.end())
     .value();
-  MSMainTable<MAIN_ROW> main(pt0);
+  MSMainTable<MAIN_ROW> main(pts[0]);
   typedef decltype(main)::C MainCols;
   auto main_antenna1_col = main.antenna1<AffineAccessor>();
   auto main_antenna1 =
@@ -333,24 +340,18 @@ compute_parallactic_angles_task(
     main.row_rank,
     main.row_rank,
     AffineAccessor> main_parallactic_angle_col(
-      *pt0.column(parallactic_angle_column_name).value());
+      *pts[0].column(parallactic_angle_column_name).value());
   auto main_parallactic_angle =
     main_parallactic_angle_col.accessor<WRITE_ONLY, CHECK_BOUNDS>();
 
   // data description table columns
-  auto [pt1, reqs1, prs1] =
-    PhysicalTable::create(rt, reqs0, task->regions.end(), prs0, regions.end())
-    .value();
-  MSDataDescriptionTable data_desc(pt1);
+  MSDataDescriptionTable data_desc(pts[1]);
   auto dd_spectral_window_id =
     data_desc.spectral_window_id<AffineAccessor>()
     .accessor<READ_ONLY, CHECK_BOUNDS>();
 
   // antenna table columns
-  auto [pt2, reqs2, prs2] =
-    PhysicalTable::create(rt, reqs1, task->regions.end(), prs1, regions.end())
-    .value();
-  MSAntennaTable antenna(pt2);
+  MSAntennaTable antenna(pts[2]);
   typedef decltype(antenna)::C AntennaCols;
   auto antenna_mount =
     antenna.mount<AffineAccessor>().accessor<READ_ONLY, CHECK_BOUNDS>();
@@ -361,10 +362,7 @@ compute_parallactic_angles_task(
       AntennaCols::units.at(AntennaCols::col_t::MS_ANTENNA_COL_POSITION));
 
   // feed table columns
-  auto [pt3, reqs3, prs3] =
-    PhysicalTable::create(rt, reqs2, task->regions.end(), prs2, regions.end())
-    .value();
-  MSFeedTable<FEED_AXES> feed(pt3);
+  MSFeedTable<FEED_AXES> feed(pts[3]);
   typedef decltype(feed)::C FeedCols;
   auto feed_time =
     feed.time_meas<AffineAccessor>().meas_accessor<READ_ONLY, CHECK_BOUNDS>(
@@ -467,19 +465,17 @@ init_antenna_classes(
   default_colreqs.values.mapped = true;
   Column::Requirements class_colreq = Column::default_requirements;
   class_colreq.values = Column::Req{WRITE_ONLY, EXCLUSIVE, true};
-  auto reqs =
-    std::get<0>(
-      antenna_table
-      .requirements(
-        ctx,
-        rt,
-        ColumnSpacePartition(),
-        READ_ONLY,
-        {{antenna_class_column_name, class_colreq}},
-        default_colreqs));
+  auto [reqs, parts, desc] =
+    antenna_table
+    .requirements(
+      ctx,
+      rt,
+      ColumnSpacePartition(),
+      {{antenna_class_column_name, class_colreq}},
+      default_colreqs);
   TaskLauncher task(
     CLASSIFY_ANTENNAS_TASK_ID,
-    TaskArgument(NULL, 0),
+    TaskArgument(&desc, sizeof(desc)),
     Predicate::TRUE_PRED,
     table_mapper);
   task.enable_inlining = true;
@@ -504,10 +500,11 @@ init_parallactic_angles(
 
   ColumnSpacePartition partition =
     main_table.partition_rows(ctx, rt, {block_size});
+  Table::DescM<4> tdescs;
   IndexTaskLauncher task(
     COMPUTE_PARALLACTIC_ANGLES_TASK_ID,
     rt->get_index_partition_color_space_name(partition.column_ip),
-    TaskArgument(NULL, 0),
+    TaskArgument(&tdescs, sizeof(tdescs)),
     ArgumentMap(),
     Predicate::TRUE_PRED,
     false,
@@ -515,13 +512,12 @@ init_parallactic_angles(
 
   Column::Requirements pareqs = Column::default_requirements;
   pareqs.values.privilege = WRITE_ONLY;
-  auto [main_reqs, main_parts] =
+  auto [main_reqs, main_parts, main_desc] =
     main_table
     .requirements(
       ctx,
       rt,
       partition,
-      READ_ONLY,
       {{parallactic_angle_column_name, pareqs},
        {HYPERION_COLUMN_NAME(MAIN, ANTENNA1),
         Column::default_requirements},
@@ -536,51 +532,53 @@ init_parallactic_angles(
       std::nullopt);
   for (auto& rq : main_reqs)
     task.add_region_requirement(rq);
+  tdescs[0] = main_desc;
   main_table.unmap_regions(ctx, rt);
 
-  auto dd_reqs =
-    std::get<0>(
-      data_description_table
-      .requirements(
-        ctx,
-        rt,
-        ColumnSpacePartition(),
-        READ_ONLY,
-        {{HYPERION_COLUMN_NAME(DATA_DESCRIPTION, SPECTRAL_WINDOW_ID),
-          Column::default_requirements}},
-        std::nullopt));
+  auto [dd_reqs, dd_parts, dd_desc] =
+    data_description_table
+    .requirements(
+      ctx,
+      rt,
+      ColumnSpacePartition(),
+      {{HYPERION_COLUMN_NAME(DATA_DESCRIPTION, SPECTRAL_WINDOW_ID),
+        Column::default_requirements}},
+      std::nullopt);
   for (auto& rq : dd_reqs)
     task.add_region_requirement(rq);
+  tdescs[1] = dd_desc;
   data_description_table.unmap_regions(ctx, rt);
 
-  auto ant_reqs =
-    std::get<0>(
-      antenna_table
-      .requirements(
-        ctx,
-        rt,
-        ColumnSpacePartition(),
-        READ_ONLY,
-        {{HYPERION_COLUMN_NAME(ANTENNA, MOUNT),
-          Column::default_requirements},
-         {HYPERION_COLUMN_NAME(ANTENNA, POSITION),
-          Column::default_requirements}},
-        std::nullopt));
+  auto [ant_reqs, ant_parts, ant_desc] =
+    antenna_table
+    .requirements(
+      ctx,
+      rt,
+      ColumnSpacePartition(),
+      {{HYPERION_COLUMN_NAME(ANTENNA, MOUNT),
+        Column::default_requirements},
+       {HYPERION_COLUMN_NAME(ANTENNA, POSITION),
+        Column::default_requirements}},
+      std::nullopt);
   for (auto& rq : ant_reqs)
     task.add_region_requirement(rq);
+  tdescs[2] = ant_desc;
   antenna_table.unmap_regions(ctx, rt);
 
-  auto feed_reqs = std::get<0>(feed_table.requirements(ctx, rt));
+  auto [feed_reqs, feed_parts, feed_desc] = feed_table.requirements(ctx, rt);
   for (auto& rq : feed_reqs)
     task.add_region_requirement(rq);
+  tdescs[3] = feed_desc;
 
   rt->execute_index_space(ctx, task);
-  main_table.remap_regions(ctx, rt);
-  data_description_table.remap_regions(ctx, rt);
-  antenna_table.remap_regions(ctx, rt);
 
-  for (auto& lp : main_parts)
-    rt->destroy_logical_partition(ctx, lp);
+  for (const PhysicalTable* tbp :
+         {&main_table, &data_description_table, &antenna_table})
+    tbp->remap_regions(ctx, rt);
+  for (std::vector<LogicalPartition>* lps :
+         {&main_parts, &dd_parts, &ant_parts, &feed_parts})
+    for (auto& lp : *lps)
+      rt->destroy_logical_partition(ctx, lp);
 }
 
 template <typename gridder::args_t G>
@@ -714,13 +712,7 @@ gridder_task(
     }
     ptables.emplace(
       mst,
-      tb.attach_columns(
-        ctx,
-        rt,
-        READ_WRITE,
-        g_args->h5_path.value(),
-        pths,
-        modes));
+      tb.attach_columns(ctx, rt, g_args->h5_path.value(), pths, modes));
   }
 
   // re-index some tables

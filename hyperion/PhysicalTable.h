@@ -35,14 +35,9 @@ public:
 
   PhysicalTable(
     const Legion::PhysicalRegion& index_col_md,
-    const Legion::LogicalRegion& index_col_parent,
     const std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>&
       index_col,
-    const Legion::LogicalRegion& fields_parent,
-    const std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>&
-      fixed_fields,
-    const std::optional<
-      std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>>& free_fields,
+    const Legion::LogicalRegion& index_col_parent,
     const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
       columns);
 
@@ -57,10 +52,41 @@ public:
       std::vector<Legion::PhysicalRegion>::const_iterator>>
   create(
     Legion::Runtime *rt,
+    const Table::Desc& desc,
     const std::vector<Legion::RegionRequirement>::const_iterator& reqs_begin,
     const std::vector<Legion::RegionRequirement>::const_iterator& reqs_end,
     const std::vector<Legion::PhysicalRegion>::const_iterator& prs_begin,
     const std::vector<Legion::PhysicalRegion>::const_iterator& prs_end);
+
+  template <size_t N>
+  static std::optional<
+    std::tuple<
+      std::vector<PhysicalTable>,
+      std::vector<Legion::RegionRequirement>::const_iterator,
+      std::vector<Legion::PhysicalRegion>::const_iterator>>
+  create_many(
+    Legion::Runtime *rt,
+    const Table::DescM<N>& desc,
+    const std::vector<Legion::RegionRequirement>::const_iterator& reqs_begin,
+    const std::vector<Legion::RegionRequirement>::const_iterator& reqs_end,
+    const std::vector<Legion::PhysicalRegion>::const_iterator& prs_begin,
+    const std::vector<Legion::PhysicalRegion>::const_iterator& prs_end) {
+
+    std::remove_cv_t<std::remove_reference_t<decltype(reqs_begin)>> rit =
+      reqs_begin;
+    std::remove_cv_t<std::remove_reference_t<decltype(prs_begin)>> pit =
+      prs_begin;
+    std::vector<PhysicalTable> tables;
+    for (size_t i = 0; i < N && rit != reqs_end && pit != prs_end; ++i) {
+      auto opt = create(rt, desc[i], rit, reqs_end, pit, prs_end);
+      if (!opt)
+        return std::nullopt;
+      tables.push_back(std::move(std::get<0>(opt.value())));
+      rit = std::get<1>(opt.value());
+      pit = std::get<2>(opt.value());
+    }
+    return std::make_tuple(tables, rit, pit);
+  }
 
   static std::optional<
     std::tuple<
@@ -69,11 +95,11 @@ public:
       std::vector<Legion::PhysicalRegion>::const_iterator>>
   create_many(
     Legion::Runtime *rt,
+    const std::vector<Table::Desc>& desc,
     const std::vector<Legion::RegionRequirement>::const_iterator& reqs_begin,
     const std::vector<Legion::RegionRequirement>::const_iterator& reqs_end,
     const std::vector<Legion::PhysicalRegion>::const_iterator& prs_begin,
-    const std::vector<Legion::PhysicalRegion>::const_iterator& prs_end,
-    std::optional<unsigned> max_number = std::nullopt);
+    const std::vector<Legion::PhysicalRegion>::const_iterator& prs_end);
 
   Table
   table(Legion::Context ctx, Legion::Runtime* rt) const;
@@ -110,12 +136,12 @@ public:
 
   std::tuple<
     std::vector<Legion::RegionRequirement>,
-    std::vector<Legion::LogicalPartition>>
+    std::vector<Legion::LogicalPartition>,
+    Table::Desc>
   requirements(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ColumnSpacePartition& table_partition = ColumnSpacePartition(),
-    Legion::PrivilegeMode table_privilege = READ_ONLY,
     const std::map<std::string, std::optional<Column::Requirements>>&
       column_requirements = {},
     const std::optional<Column::Requirements>& default_column_requirements =
@@ -212,16 +238,9 @@ protected:
 
   Legion::PhysicalRegion m_index_col_md;
 
-  Legion::LogicalRegion m_index_col_parent;
-
   std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion> m_index_col;
 
-  Legion::LogicalRegion m_fields_parent;
-
-  std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion> m_fixed_fields;
-
-  std::optional<std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>>
-    m_free_fields;
+  Legion::LogicalRegion m_index_col_parent;
 
   std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> m_columns;
 

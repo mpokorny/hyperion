@@ -193,9 +193,12 @@ verify_layouts_task(
       ctx,
       rt));
 
+  const Table::Desc* desc = static_cast<const Table::Desc*>(task->args);
+
   auto [pt, rit, pit] =
     PhysicalTable::create(
       rt,
+      *desc,
       task->regions.begin() + 2,
       task->regions.end(),
       regions.begin() + 2,
@@ -349,29 +352,27 @@ mapper_test_suite(
   Column::Requirements aos_rm_creqs = Column::default_requirements;
   aos_rm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
   aos_rm_creqs.tag = TableMapper::to_mapping_tag(AOS_ROW_MAJOR);
-  auto reqs =
-    std::get<0>(
-      tb.requirements(
-        ctx,
-        rt,
-        ColumnSpacePartition(),
-        READ_WRITE,
-        {{"c0", soa_rm_creqs},
-         {"c1", soa_rm_creqs},
+  auto [reqs, parts, desc] =
+    tb.requirements(
+      ctx,
+      rt,
+      ColumnSpacePartition(),
+      {{"c0", soa_rm_creqs},
+       {"c1", soa_rm_creqs},
 
-         {"c2", soa_cm_creqs},
-         {"c3", soa_cm_creqs},
+       {"c2", soa_cm_creqs},
+       {"c3", soa_cm_creqs},
 
-         {"c4", aos_cm_creqs},
-         {"c5", aos_cm_creqs},
+       {"c4", aos_cm_creqs},
+       {"c5", aos_cm_creqs},
 
-         {"c6", aos_rm_creqs},
-         {"c7", aos_rm_creqs},
-         {"foo", std::nullopt}},
-        std::nullopt));
+       {"c6", aos_rm_creqs},
+       {"c7", aos_rm_creqs},
+       {"foo", std::nullopt}},
+      std::nullopt);
   TaskLauncher verify(
     VERIFY_LAYOUTS_TASK,
-    TaskArgument(NULL, 0),
+    TaskArgument(&desc, sizeof(desc)),
     Predicate::TRUE_PRED,
     table_mapper);
   verify.add_region_requirement(task->regions[0]);

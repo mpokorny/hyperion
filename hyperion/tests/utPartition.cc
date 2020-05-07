@@ -205,6 +205,11 @@ verify_w(
   return result;
 }
 
+struct VerifyPartitionsArgs {
+  Table::Desc desc;
+  unsigned block_sz;
+};
+
 void
 verify_partitions_task(
   const Task* task,
@@ -221,9 +226,13 @@ verify_partitions_task(
       ctx,
       rt));
 
+  const VerifyPartitionsArgs* args =
+    static_cast<const VerifyPartitionsArgs*>(task->args);
+
   auto [pt, rit, pit] =
     PhysicalTable::create(
       rt,
+      args->desc,
       task->regions.begin() + 2,
       task->regions.end(),
       regions.begin() + 2,
@@ -231,7 +240,7 @@ verify_partitions_task(
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
-  const unsigned *BLOCK_SZ = static_cast<const unsigned*>(task->args);
+  const unsigned BLOCK_SZ = args->block_sz;
   ColumnSpacePartition xyz_part =
     task->futures[0].get_result<ColumnSpacePartition>();
   auto colW = pt.column("W").value();
@@ -257,7 +266,7 @@ verify_partitions_task(
                    rt->get_index_space_domain(xyz_p_is));
                  result && pid();
                  pid++) {
-              result = pid[0] / *BLOCK_SZ == p[0];
+              result = pid[0] / BLOCK_SZ == p[0];
             }
             return result;
           }));
@@ -284,7 +293,7 @@ verify_partitions_task(
                    rt->get_index_space_domain(w_p_is));
                  result && pid();
                  pid++)
-              result = pid[0] / *BLOCK_SZ == p[0];
+              result = pid[0] / BLOCK_SZ == p[0];
             return result;
           }));
       auto col = pt.column("W");
@@ -371,7 +380,9 @@ table_test_suite(
     std::unordered_map<std::string, PhysicalRegion> col_prs;
     for (auto& c : {"W"s, "X"s, "Y"s, "Z"s})
       col_prs[c] = attach_table0_col(ctx, rt, cols.at(c), col_arrays.at(c));
-    auto treqs = std::get<0>(table0.requirements(ctx, rt));
+    auto [treqs, parts, tdesc] = table0.requirements(ctx, rt);
+    VerifyPartitionsArgs args;
+    args.desc = tdesc;
     rt->unmap_all_regions(ctx);
     {
       unsigned NUM_PARTS = 3;
@@ -384,9 +395,10 @@ table_test_suite(
           std::vector<std::pair<Table0Axes,coord_t>>{
             {Table0Axes::ROW, BLOCK_SZ}});
 
+      args.block_sz = BLOCK_SZ;
       TaskLauncher pttask(
         VERIFY_PARTITIONS_TASK,
-        TaskArgument(&BLOCK_SZ, sizeof(BLOCK_SZ)),
+        TaskArgument(&args, sizeof(args)),
         Predicate::TRUE_PRED,
         table_mapper);
       pttask.add_region_requirement(task->regions[0]);
@@ -407,9 +419,10 @@ table_test_suite(
           std::vector<std::pair<Table0Axes,coord_t>>{
             {Table0Axes::ROW, BLOCK_SZ}});
 
+      args.block_sz = BLOCK_SZ;
       TaskLauncher pttask(
         VERIFY_PARTITIONS_TASK,
-        TaskArgument(&BLOCK_SZ, sizeof(BLOCK_SZ)),
+        TaskArgument(&args, sizeof(args)),
         Predicate::TRUE_PRED,
         table_mapper);
       pttask.add_region_requirement(task->regions[0]);

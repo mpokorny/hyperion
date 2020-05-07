@@ -21,30 +21,21 @@ using namespace Legion;
 
 PhysicalTable::PhysicalTable(
   const PhysicalRegion& index_col_md,
-  const LogicalRegion& index_col_parent,
   const std::tuple<LogicalRegion, PhysicalRegion>& index_col,
-  const LogicalRegion& fields_parent,
-  const std::tuple<LogicalRegion, PhysicalRegion>& fixed_fields,
-  const std::optional<std::tuple<LogicalRegion, PhysicalRegion>>& free_fields,
+  const LogicalRegion& index_col_parent,
   const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
     columns)
   : m_index_col_md(index_col_md)
-  , m_index_col_parent(index_col_parent)
   , m_index_col(index_col)
-  , m_fields_parent(fields_parent)
-  , m_fixed_fields(fixed_fields)
-  , m_free_fields(free_fields)
+  , m_index_col_parent(index_col_parent)
   , m_columns(columns) {
 }
 
 PhysicalTable::PhysicalTable(const PhysicalTable& other)
   : PhysicalTable(
     other.m_index_col_md,
-    other.m_index_col_parent,
     other.m_index_col,
-    other.m_fields_parent,
-    other.m_fixed_fields,
-    other.m_free_fields,
+    other.m_index_col_parent,
     other.m_columns) {
   m_attached = other.m_attached;
 }
@@ -52,11 +43,8 @@ PhysicalTable::PhysicalTable(const PhysicalTable& other)
 PhysicalTable::PhysicalTable(PhysicalTable&& other)
   : PhysicalTable(
     std::move(other).m_index_col_md,
-    std::move(other).m_index_col_parent,
     std::move(other).m_index_col,
-    std::move(other).m_fields_parent,
-    std::move(other).m_fixed_fields,
-    std::move(other).m_free_fields,
+    std::move(other).m_index_col_parent,
     std::move(other).m_columns) {
   m_attached = std::move(other).m_attached;
 }
@@ -68,6 +56,7 @@ std::optional<
     std::vector<PhysicalRegion>::const_iterator>>
 PhysicalTable::create(
   Runtime *rt,
+  const Table::Desc& desc,
   const std::vector<RegionRequirement>::const_iterator& reqs_begin,
   const std::vector<RegionRequirement>::const_iterator& reqs_end,
   const std::vector<PhysicalRegion>::const_iterator& prs_begin,
@@ -93,56 +82,33 @@ PhysicalTable::create(
   std::tuple<LogicalRegion, PhysicalRegion> index_col =
     {reqs++->region, *prs++};
 
-  if (reqs == reqs_end || prs == prs_end)
-    return result;
-  LogicalRegion fields_parent = reqs->parent;
-  std::optional<std::tuple<LogicalRegion, PhysicalRegion>> free_fields;
-  // N.B: contrary to normal ordering of fixed field before free field
-  // arguments, the free fields region will appear before the fixed fields
-  // region, if it is present; this design allows us to check the privilege of
-  // the first region to determine whether a free fields region exists
-  if (reqs->privilege != READ_ONLY)
-    free_fields = {reqs++->region, *prs++};
-  if (reqs == reqs_end || prs == prs_end)
-    return result;
-  std::tuple<LogicalRegion, PhysicalRegion> fixed_fields =
-    {reqs++->region, *prs++};
-
-  auto& [lr, pr] = fixed_fields;
-  const Table::CGroupAccessor<READ_ONLY> cgroups(pr, Table::cgroup_fid);
-  const Table::ColumnDescAccessor<READ_ONLY> cdescs(pr, Table::column_desc_fid);
-
   std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> columns;
   std::unordered_map<std::string, std::string> refcols;
-  std::map<Table::cgroup_t, PhysicalRegion> md_regions;
+  std::map<LogicalRegion, PhysicalRegion> md_regions;
   std::map<
-    std::tuple<Table::cgroup_t, FieldID>,
-    std::tuple<LogicalRegion, PhysicalRegion>>
+    std::tuple<LogicalRegion, FieldID>,
+    std::tuple<LogicalRegion, LogicalRegion, PhysicalRegion>>
     value_regions;
 
   unsigned idx_rank = ColumnSpace::size(ColumnSpace::axes(index_col_md));
-  for (PointInDomainIterator<1> pid(
-         rt->get_index_space_domain(lr.get_index_space()));
-       pid();
-       pid++) {
-
-    auto cgroup = cgroups.read(*pid);
-    assert(cgroup != Table::cgroup_none);
-    auto cdesc = cdescs.read(*pid);
-    if (md_regions.count(cgroup) == 0) {
+  for (size_t i = 0; i < desc.num_columns; ++i) {
+    auto& cdesc = desc.columns[i];
+    if (md_regions.count(cdesc.region) == 0) {
       if (reqs == reqs_end || prs == prs_end)
         return result;
-      md_regions[cgroup] = *prs;
+      md_regions[cdesc.region] = *prs;
       ++reqs;
       ++prs;
     }
 
-    std::tuple<Table::cgroup_t, FieldID> vkey = {cgroup, cdesc.fid};
+    std::tuple<LogicalRegion, FieldID> vkey = {cdesc.region, cdesc.fid};
     if (value_regions.count(vkey) == 0) {
       if (reqs == reqs_end || prs == prs_end)
         return result;
+      assert(cdesc.region == reqs->parent);
       for (auto& fid : reqs->privilege_fields)
-        value_regions[{cgroup, fid}] = {reqs->region, *prs};
+        value_regions[{cdesc.region, fid}]
+          = {reqs->region, reqs->parent, *prs};
       ++reqs;
       ++prs;
     }
@@ -184,7 +150,7 @@ PhysicalTable::create(
         refcols[cdesc.name] = cdesc.refcol;
     }
 #endif
-    auto& [region, values] = value_regions.at(vkey);
+    auto& [region, parent, values] = value_regions.at(vkey);
     columns.emplace(
       cdesc.name,
       std::make_shared<PhysicalColumn>(
@@ -192,15 +158,16 @@ PhysicalTable::create(
         cdesc.dt,
         cdesc.fid,
         idx_rank,
-        md_regions.at(cgroup),
+        md_regions.at(parent),
         region,
+        parent,
         values,
         kw_prs
 #ifdef HYPERION_USE_CASACORE
         , mr_drs
         , std::nullopt
 #endif
-        ));
+        ));    
   }
 #ifdef HYPERION_USE_CASACORE
   for (auto& [nm, ppc] : columns) {
@@ -212,14 +179,7 @@ PhysicalTable::create(
 #endif
   return
     std::make_tuple(
-      PhysicalTable(
-        index_col_md,
-        index_col_parent,
-        index_col,
-        fields_parent,
-        fixed_fields,
-        free_fields,
-        columns),
+      PhysicalTable(index_col_md, index_col, index_col_parent, columns),
       reqs,
       prs);
 }
@@ -231,20 +191,20 @@ std::optional<
     std::vector<PhysicalRegion>::const_iterator>>
 PhysicalTable::create_many(
   Runtime *rt,
+  const std::vector<Table::Desc>& desc,
   const std::vector<RegionRequirement>::const_iterator& reqs_begin,
   const std::vector<RegionRequirement>::const_iterator& reqs_end,
   const std::vector<PhysicalRegion>::const_iterator& prs_begin,
-  const std::vector<PhysicalRegion>::const_iterator& prs_end,
-  std::optional<unsigned> max_number) {
+  const std::vector<PhysicalRegion>::const_iterator& prs_end) {
 
   std::remove_cv_t<std::remove_reference_t<decltype(reqs_begin)>> rit =
     reqs_begin;
   std::remove_cv_t<std::remove_reference_t<decltype(prs_begin)>> pit =
     prs_begin;
   std::vector<PhysicalTable> tables;
-  while (rit != reqs_end && pit != prs_end
-         && tables.size() < max_number.value_or(tables.size() + 1)) {
-    auto opt = create(rt, rit, reqs_end, pit, prs_end);
+  auto descp = desc.begin();
+  while (descp != desc.end() && rit != reqs_end && pit != prs_end) {
+    auto opt = create(rt, *descp++, rit, reqs_end, pit, prs_end);
     if (!opt)
       return std::nullopt;
     tables.push_back(std::move(std::get<0>(opt.value())));
@@ -257,20 +217,13 @@ PhysicalTable::create_many(
 Table
 PhysicalTable::table(Context ctx, Runtime* rt) const {
   std::unordered_map<std::string, Column> columns;
-  for (auto& [nm, ppc] : m_columns) {
+  for (auto& [nm, ppc] : m_columns)
     columns[nm] = ppc->column();
-  }
-  LogicalRegion free_fields_lr = LogicalRegion::NO_REGION;
-  if (m_free_fields)
-    free_fields_lr = std::get<0>(m_free_fields.value());
   return
     Table(
       index_column_space(ctx, rt),
-      m_index_col_parent,
       std::get<0>(m_index_col),
-      m_fields_parent,
-      std::get<0>(m_fixed_fields),
-      free_fields_lr,
+      m_index_col_parent,
       columns);
 }
 
@@ -344,12 +297,14 @@ PhysicalTable::is_conformant(
       cs_md_pr);
 }
 
-std::tuple<std::vector<RegionRequirement>, std::vector<LogicalPartition>>
+std::tuple<
+  std::vector<RegionRequirement>,
+  std::vector<LogicalPartition>,
+  Table::Desc>
 PhysicalTable::requirements(
   Context ctx,
   Runtime* rt,
   const ColumnSpacePartition& table_partition,
-  PrivilegeMode table_privilege,
   const std::map<std::string, std::optional<Column::Requirements>>&
     column_requirements,
   const std::optional<Column::Requirements>&
@@ -367,14 +322,10 @@ PhysicalTable::requirements(
       ctx,
       rt,
       index_col_cs,
-      m_index_col_parent,
       std::get<0>(m_index_col),
-      m_fields_parent,
-      m_fixed_fields,
-      m_free_fields,
+      m_index_col_parent,
       cols,
       table_partition,
-      table_privilege,
       column_requirements,
       default_column_requirements);
 }
@@ -387,9 +338,6 @@ PhysicalTable::add_columns(
     std::tuple<
       ColumnSpace,
       std::vector<std::pair<std::string, TableField>>>>&& cols) {
-
-  if (!m_free_fields)
-    return cols.size() == 0;
 
   std::vector<
     std::tuple<
@@ -431,30 +379,25 @@ PhysicalTable::add_columns(
       ctx,
       rt,
       std::move(new_columns),
-      m_free_fields.value(),
       current_cols,
       cs_md_prs,
       index_cs);
 
   // create (unmapped) PhysicalColumns for added column values
   std::map<
-    Table::cgroup_t,
-    std::tuple<
-      std::variant<PhysicalRegion, LogicalRegion>,
-      std::vector<FieldID>>> new_fields;
+    LogicalRegion,
+    std::tuple<std::vector<FieldID>, std::optional<PhysicalRegion>>> new_fields;
   for (auto& [nm, col] : added) {
-    auto cg = col.region;
-    if (new_fields.count(cg) == 0)
-      new_fields[cg] = {col.region, {col.fid}};
+    if (new_fields.count(col.region) == 0)
+      new_fields[col.region] = {{col.fid}, std::nullopt};
     else
-      std::get<1>(new_fields[cg]).push_back(col.fid);
+      std::get<0>(new_fields[col.region]).push_back(col.fid);
   }
-  for (auto& [cg, prlr_fids] : new_fields) {
-    auto& [prlr, fids] = prlr_fids;
-    auto& lr = std::get<LogicalRegion>(prlr);
+  for (auto& [lr, fids_pr] : new_fields) {
+    auto& [fids, pr] = fids_pr;
     RegionRequirement req(lr, WRITE_DISCARD, EXCLUSIVE, lr);
     req.add_fields(fids, false);
-    prlr = rt->map_region(ctx, req);
+    pr= rt->map_region(ctx, req);
   }
 
   unsigned idx_rank = index_rank();
@@ -499,7 +442,8 @@ PhysicalTable::add_columns(
         idx_rank,
         cs_md_prs[cs_idxs[col.cs.metadata_lr]],
         col.region,
-        std::get<0>(new_fields.at(col.region)),
+        col.parent,
+        std::get<1>(new_fields.at(col.region)),
         kws
 #ifdef HYPERION_USE_CASACORE
         , mr_drs
@@ -507,6 +451,14 @@ PhysicalTable::add_columns(
 #endif
         ));
   }
+#ifdef HYPERION_USE_CASACORE
+  for (auto& [nm, col] : added) {
+    if (refcols.count(nm) > 0) {
+      auto& rc = refcols.at(nm);
+      m_columns.at(nm)->set_refcol(rc, m_columns.at(rc));
+    }
+  }
+#endif
   return added.size() > 0;
 }
 
@@ -515,9 +467,6 @@ PhysicalTable::remove_columns(
   Context ctx,
   Runtime* rt,
   const std::unordered_set<std::string>& cols) {
-
-  if (!m_free_fields)
-    return cols.size() == 0;
 
   std::vector<ColumnSpace> css;
   std::vector<PhysicalRegion> cs_md_prs;
@@ -529,9 +478,6 @@ PhysicalTable::remove_columns(
       }
     }
   }
-  std::set<hyperion::string> hcols;
-  for (auto& c : cols)
-    hcols.insert(c);
 
   std::unordered_map<std::string, Column> columns;
   for (auto& [nm, ppc] : m_columns)
@@ -541,19 +487,32 @@ PhysicalTable::remove_columns(
     Table::remove_columns(
       ctx,
       rt,
-      hcols,
-      true,
-      m_free_fields.value(),
+      cols,
       columns,
       css,
       cs_md_prs);
 
   if (result) {
-    std::vector<ColumnSpace> css;
-    std::vector<PhysicalRegion> cs_md_prs;
-    for (auto& nm : cols) {
+    std::map<LogicalRegion, ColumnSpace> lrcss;
+    for (auto& [nm, col] : columns) {
+      if (lrcss.count(col.region) == 0)
+        lrcss[col.region] = col.cs;
+      col.kw.destroy(ctx, rt);
+#ifdef HYPERION_USE_CASACORE
+      col.mr.destroy(ctx, rt);
+#endif
       m_columns.erase(nm);
-      m_attached.erase(nm);      
+      m_attached.erase(nm);
+    }
+    for (auto& [lr, cs] : lrcss) {
+      std::vector<FieldID> fids;
+      rt->get_field_space_fields(lr.get_field_space(), fids);
+      if (fids.size() == 0) {
+        cs.destroy(ctx, rt, true);
+        auto fs = lr.get_field_space();
+        rt->destroy_logical_region(ctx, lr);
+        rt->destroy_field_space(ctx, fs);
+      }
     }
   }
   return result;
@@ -571,8 +530,8 @@ for_all_column_regions(
     fn(md);
     done.insert(md);
   }
-  if (std::holds_alternative<PhysicalRegion>(column->values())) {
-    auto& v = std::get<PhysicalRegion>(column->values());
+  if (column->values()) {
+    auto& v = column->values().value();
     if (done.count(v) == 0) {
       fn(v);
       done.insert(v);
@@ -622,9 +581,6 @@ PhysicalTable::unmap_regions(Context ctx, Runtime* rt) const {
   }
   rt->unmap_region(ctx, m_index_col_md);
   rt->unmap_region(ctx, std::get<1>(m_index_col));
-  rt->unmap_region(ctx, std::get<1>(m_fixed_fields));
-  if (m_free_fields)
-    rt->unmap_region(ctx, std::get<1>(m_free_fields.value()));
 }
 
 void
@@ -642,9 +598,6 @@ PhysicalTable::remap_regions(Context ctx, Runtime* rt) const {
   }
   rt->remap_region(ctx, m_index_col_md);
   rt->remap_region(ctx, std::get<1>(m_index_col));
-  rt->remap_region(ctx, std::get<1>(m_fixed_fields));
-  if (m_free_fields)
-    rt->remap_region(ctx, std::get<1>(m_free_fields.value()));
 }
 
 ColumnSpacePartition
@@ -877,7 +830,7 @@ PhysicalTable::reindexed(
       index_axes.end(),
       [this, &missing](auto& d_nm) {
         auto& [d, nm] = d_nm;
-        if (m_columns.count(nm) == 0) 
+        if (m_columns.count(nm) == 0)
           missing.insert(nm);
       });
     if (missing.size() > 0) {
@@ -1058,8 +1011,8 @@ PhysicalTable::reindexed(
     const unsigned min_block_size = 1000000;
     CopyLauncher index_column_copier;
     auto dcols = result_tbl.columns();
-    // collect columns by cgroup
-    std::map<Table::cgroup_t, std::map<std::string, Column>> grouped_dcols;
+    // collect columns by value LogicalRegion
+    std::map<LogicalRegion, std::map<std::string, Column>> grouped_dcols;
     for (auto& [nm, dcol] : dcols) {
       if (grouped_dcols.count(dcol.region) == 0)
         grouped_dcols[dcol.region] = {{nm, dcol}};
@@ -1077,7 +1030,7 @@ PhysicalTable::reindexed(
         dav(dcs_md_pr, ColumnSpace::AXIS_VECTOR_FID);
       const ColumnSpace::IndexFlagAccessor<READ_ONLY>
         difl(dcs_md_pr, ColumnSpace::INDEX_FLAG_FID);
-      
+
       if (difl[0]) {
         // an index column in result Table
         LogicalRegion slr;
@@ -1268,7 +1221,7 @@ PhysicalTable::detach_columns(
   for (auto& nm : columns) {
     if (m_attached.count(nm) > 0) {
       PhysicalRegion pr = m_attached.at(nm);
-      m_columns.at(nm)->m_values = pr.get_logical_region();
+      m_columns.at(nm)->m_values.reset();
       if (detached.count(pr) == 0) {
         rt->detach_external_resource(ctx, pr);
         detached.insert(pr);

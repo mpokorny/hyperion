@@ -46,6 +46,7 @@ enum {
 
 struct VerifyTableArgs {
   char table_path[1024];
+  Table::Desc desc;
 };
 
 void
@@ -64,9 +65,12 @@ verify_spw_table(
     rt);
   testing::TestRecorder<READ_WRITE> recorder(log);
 
+  const VerifyTableArgs *args = static_cast<const VerifyTableArgs*>(task->args);
+
   auto [pt, rit, pit] =
     PhysicalTable::create(
       rt,
+      args->desc,
       task->regions.begin() + 2,
       task->regions.end(),
       regions.begin() + 2,
@@ -77,8 +81,6 @@ verify_spw_table(
 
   MSSpWindowTable table(pt);
 
-  const VerifyTableArgs *args =
-    static_cast<const VerifyTableArgs*>(task->args);
   CXX_FILESYSTEM_NAMESPACE::path spw_path(args->table_path);
   cc::MeasurementSet ms(
     spw_path.parent_path().string(),
@@ -222,16 +224,16 @@ ms_test(
 
   // read values from MS
   {
-    auto reqs =
-      std::get<0>(
-        TableReadTask::requirements(
-          ctx,
-          rt,
-          table,
-          ColumnSpacePartition(),
-          WRITE_ONLY));
+    auto [reqs, parts, desc] =
+      TableReadTask::requirements(
+        ctx,
+        rt,
+        table,
+        ColumnSpacePartition(),
+        WRITE_ONLY);
     TableReadTask::Args args;
     fstrcpy(args.table_path, tpath);
+    args.table_desc = desc;
     TaskLauncher read(
       TableReadTask::TASK_ID,
       TaskArgument(&args, sizeof(args)),
@@ -246,7 +248,8 @@ ms_test(
   {
     VerifyTableArgs args;
     fstrcpy(args.table_path, tpath);
-    auto reqs = std::get<0>(table.requirements(ctx, rt));
+    auto [reqs, parts, desc] = table.requirements(ctx, rt);
+    args.desc = desc;
     TaskLauncher verify(
       VERIFY_SPW_TABLE_TASK,
       TaskArgument(&args, sizeof(args)),

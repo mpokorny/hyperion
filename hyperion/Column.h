@@ -56,6 +56,7 @@ struct /*HYPERION_API*/ Column {
     Legion::FieldID fid_,
     const ColumnSpace& cs_,
     const Legion::LogicalRegion& region_,
+    const Legion::LogicalRegion& parent_,
     const Keywords& kw_ = Keywords()
 #ifdef HYPERION_USE_CASACORE
     , const MeasRef& mr_ = MeasRef()
@@ -66,6 +67,7 @@ struct /*HYPERION_API*/ Column {
   , fid(fid_)
   , cs(cs_)
   , region(region_)
+  , parent(parent_)
   , kw(kw_)
 #ifdef HYPERION_USE_CASACORE
   , mr(mr_)
@@ -124,6 +126,41 @@ struct /*HYPERION_API*/ Column {
   };
 
   /**
+   * Column descriptor
+   *
+   * Used in task arguments associated with Tables
+   */
+  struct Desc {
+    hyperion::string name;
+    hyperion::TypeTag dt;
+    Legion::FieldID fid;
+    Legion::LogicalRegion region;
+    uint_least8_t n_kw;
+#ifdef HYPERION_USE_CASACORE
+    hyperion::string refcol;
+    uint_least8_t n_mr;
+#endif
+  };
+
+  /**
+   * Create Desc for this Column with the given name
+   */
+  Desc
+  desc(const std::string& name) const {
+    return Desc{
+      name,
+        dt,
+        fid,
+        region,
+        kw.num_regions()
+#ifdef HYPERION_USE_CASACORE
+        , rc.value_or(hyperion::string())
+        , mr.num_regions()
+#endif
+        };
+  }
+
+  /**
    * Column index value field id
    */
   static constexpr const Legion::FieldID COLUMN_INDEX_VALUE_FID = 0;
@@ -152,6 +189,7 @@ struct /*HYPERION_API*/ Column {
   Legion::FieldID fid; /**< value Legion::FieldID */
   ColumnSpace cs; /**< column ColumnSpace */
   Legion::LogicalRegion region; /**< column values region */
+  Legion::LogicalRegion parent; /**< column values parent region */
   Keywords kw;/**< column keywords */
 #ifdef HYPERION_USE_CASACORE
   MeasRef mr; /**< column MeasRef */

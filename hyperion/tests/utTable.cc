@@ -223,9 +223,12 @@ verify_table_columns_task(
       ctx,
       rt));
 
+  const Table::Desc* desc = static_cast<const Table::Desc*>(task->args);
+
   auto [pt, rit, pit] =
     PhysicalTable::create(
       rt,
+      *desc,
       task->regions.begin() + 2,
       task->regions.end(),
       regions.begin() + 2,
@@ -390,9 +393,12 @@ verify_column_groups_task(
       ctx,
       rt));
 
+  const Table::Desc* desc = static_cast<const Table::Desc*>(task->args);
+
   auto [pt, rit, pit] =
     PhysicalTable::create(
       rt,
+      *desc,
       task->regions.begin() + 2,
       task->regions.end(),
       regions.begin() + 2,
@@ -400,9 +406,9 @@ verify_column_groups_task(
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
-  auto prx = std::get<PhysicalRegion>(pt.column("X").value()->values());
-  auto pry = std::get<PhysicalRegion>(pt.column("Y").value()->values());
-  auto prz = std::get<PhysicalRegion>(pt.column("Z").value()->values());
+  auto prx = pt.column("X").value()->values().value();
+  auto pry = pt.column("Y").value()->values().value();
+  auto prz = pt.column("Z").value()->values().value();
 
   recorder.expect_true(
     "Columns X and Y, in a common mapped group, share a PhysicalRegion",
@@ -532,10 +538,10 @@ table_test_suite(
     for (auto& c : {"W"s, "X"s, "Y"s, "Z"s})
       col_prs[c] = attach_table0_col(ctx, rt, cols.at(c), col_arrays.at(c));
     {
-      auto reqs = std::get<0>(table0.requirements(ctx, rt));
+      auto [reqs, parts, desc] = table0.requirements(ctx, rt);
       TaskLauncher pttask(
         VERIFY_TABLE_COLUMNS_TASK,
-        TaskArgument(NULL, 0),
+        TaskArgument(&desc, sizeof(desc)),
         Predicate::TRUE_PRED,
         table_mapper);
       pttask.add_region_requirement(task->regions[0]);
@@ -560,16 +566,15 @@ table_test_suite(
     Column::Requirements reqB = Column::default_requirements;
     reqB.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
     reqB.tag = TableMapper::to_mapping_tag(group2);
-    auto reqs = std::get<0>(
+    auto [reqs, parts, desc] =
       table0.requirements(
         ctx,
         rt,
         ColumnSpacePartition(),
-        READ_ONLY,
-        {{"X", reqA}, {"Y", reqA}, {"Z", reqB}, {"W", std::nullopt}}));
+        {{"X", reqA}, {"Y", reqA}, {"Z", reqB}, {"W", std::nullopt}});
     TaskLauncher vcgtask(
       VERIFY_COLUMN_GROUPS_TASK,
-      TaskArgument(NULL, 0),
+      TaskArgument(&desc, sizeof(desc)),
       Predicate::TRUE_PRED,
       table_mapper);
     vcgtask.add_region_requirement(task->regions[0]);
