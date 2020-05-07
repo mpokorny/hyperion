@@ -169,10 +169,10 @@ read_ms_table_columns_task(
 
   TableReadTask::Args tr_args;
   fstrcpy(tr_args.table_path, args->table_path);
-  tr_args.table_desc = args->desc;
+  tr_args.table_desc = desc;
   IndexTaskLauncher read(
     TableReadTask::TASK_ID,
-    rt->get_index_partition_color_space(parts[1].get_index_partition()),
+    rt->get_index_partition_color_space(row_part.column_ip),
     TaskArgument(&tr_args, sizeof(tr_args)),
     ArgumentMap(),
     Predicate::TRUE_PRED,
@@ -180,6 +180,7 @@ read_ms_table_columns_task(
     table_mapper);
   for (auto& rq : reqs)
     read.add_region_requirement(rq);
+  table.unmap_regions(ctx, rt);
   rt->execute_index_space(ctx, read);
 
   row_part.destroy(ctx, rt);
