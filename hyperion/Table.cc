@@ -440,14 +440,25 @@ Table::requirements(
   // create requirements, applying table_partition as needed
   std::map<ColumnSpace, LogicalPartition> partitions;
   if (table_partition.is_valid()) {
-    auto csp =
-      table_partition.project_onto(ctx.value(), rt.value(), index_col_cs)
-      .get_result<ColumnSpacePartition>();
-    auto lp =
-      rt.value()
-      ->get_logical_partition(ctx.value(), index_col_region, csp.column_ip);
-    csp.destroy(ctx.value(), rt.value());
-    partitions[index_col_cs] = lp;
+    if (table_partition.column_space.column_is
+        != index_col_region.get_index_space()) {
+      auto csp =
+        table_partition.project_onto(ctx.value(), rt.value(), index_col_cs)
+        .get_result<ColumnSpacePartition>();
+      auto lp =
+        rt.value()
+        ->get_logical_partition(ctx.value(), index_col_region, csp.column_ip);
+      csp.destroy(ctx.value(), rt.value());
+      partitions[index_col_cs] = lp;
+    } else {
+      auto lp =
+        rt.value()
+        ->get_logical_partition(
+          ctx.value(),
+          index_col_region,
+          table_partition.column_ip);
+      partitions[index_col_cs] = lp;
+    }
   }
 
   // boolean elements in value of following maps is used to track whether the
@@ -557,6 +568,7 @@ Table::requirements(
       decltype(val_reqs)::key_type rg_rq =
         {col.region, reqs.values.privilege, reqs.values.coherence, reqs.tag};
       auto& [added, rq] = val_reqs.at(rg_rq);
+      cdesc.region = rq.parent;
       if (!added) {
         reqs_result.push_back(rq);
         added = true;
