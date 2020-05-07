@@ -163,8 +163,12 @@ public:
     const std::optional<Column::Requirements>& default_column_requirements =
       Column::default_requirements) const;
 
+private:
+
   std::tuple<std::vector<Legion::RegionRequirement>, Desc>
   requirements() const;
+
+public:
 
   static std::tuple<
     std::vector<Legion::RegionRequirement>,
