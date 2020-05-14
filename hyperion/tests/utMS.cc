@@ -107,7 +107,7 @@ verify_scalar_column(
             }));                                                        \
         break;                                                          \
       }
-      HYPERION_FOREACH_DATATYPE(CMP);
+      HYPERION_FOREACH_CC_DATATYPE(CMP);
       default:
         assert(false);
         break;
@@ -212,7 +212,7 @@ verify_array_column(
         }                                                             \
         break;                                                        \
       }
-      HYPERION_FOREACH_DATATYPE(CMP);
+      HYPERION_FOREACH_CC_DATATYPE(CMP);
       default:
         assert(false);
         break;
@@ -310,7 +310,7 @@ verify_column_task(
             }                                                           \
             break;                                                      \
           }
-          HYPERION_FOREACH_RECORD_DATATYPE(CMP_KW)
+          HYPERION_FOREACH_CC_RECORD_DATATYPE(CMP_KW)
 #undef CMP_KW
         default:
             break;
@@ -333,7 +333,7 @@ verify_column_task(
               switch (kws.dataType(f)) {
 #define CMP_KW(DT)                                  \
                 case DataType<DT>::CasacoreTypeTag:
-                HYPERION_FOREACH_RECORD_DATATYPE(CMP_KW)
+                HYPERION_FOREACH_CC_RECORD_DATATYPE(CMP_KW)
                   ++num_expected;
                   break; // break is here intentionally
 #undef CMP_KW

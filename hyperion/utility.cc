@@ -39,6 +39,20 @@
 using namespace hyperion;
 using namespace Legion;
 
+#define HYPERION_FOREACH_BARE_DATATYPE(__func__)  \
+  __func__(BOOL)                                  \
+  __func__(CHAR)                                  \
+  __func__(UCHAR)                                 \
+  __func__(SHORT)                                 \
+  __func__(USHORT)                                \
+  __func__(INT)                                   \
+  __func__(UINT)                                  \
+  __func__(FLOAT)                                 \
+  __func__(DOUBLE)                                \
+  __func__(COMPLEX)                               \
+  __func__(DCOMPLEX)                              \
+  __func__(STRING)
+
 void
 hyperion::toupper(std::string& s) {
   std::transform(

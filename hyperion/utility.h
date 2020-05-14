@@ -1001,7 +1001,7 @@ template <>
 struct DataType<HYPERION_TYPE_BOOL> {
   typedef bool ValueType;
   constexpr static const char* s = "bool";
-  constexpr static int id = 0;
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_BOOL);
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_BOOL_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_BOOL_REDOP;
@@ -1028,7 +1028,7 @@ template <>
 struct DataType<HYPERION_TYPE_CHAR> {
   typedef char ValueType;
   constexpr static const char* s = "char";
-  constexpr static int id = 1;
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_CHAR);
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_CHAR_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_CHAR_REDOP;
@@ -1055,7 +1055,7 @@ template <>
 struct DataType<HYPERION_TYPE_UCHAR> {
   typedef unsigned char ValueType;
   constexpr static const char* s = "uChar";
-  constexpr static int id = 2;
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_UCHAR);
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_UCHAR_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_UCHAR_REDOP;
@@ -1082,7 +1082,7 @@ template <>
 struct DataType<HYPERION_TYPE_SHORT> {
   typedef short ValueType;
   constexpr static const char* s = "short";
-  constexpr static int id = 3;
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_SHORT);
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_SHORT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_SHORT_REDOP;
@@ -1109,7 +1109,7 @@ template <>
 struct DataType<HYPERION_TYPE_USHORT> {
   typedef unsigned short ValueType;
   constexpr static const char* s = "uShort";
-  constexpr static int id = 4;
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_USHORT);
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_USHORT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_USHORT_REDOP;
@@ -1136,7 +1136,7 @@ template <>
 struct DataType<HYPERION_TYPE_INT> {
   typedef int ValueType;
   constexpr static const char* s = "int";
-  constexpr static int id = 5;
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_INT);
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_INT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_INT_REDOP;
@@ -1163,7 +1163,7 @@ template <>
 struct DataType<HYPERION_TYPE_UINT> {
   typedef unsigned int ValueType;
   constexpr static const char* s = "uInt";
-  constexpr static int id = 6;
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_UINT);
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_UINT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_UINT_REDOP;
@@ -1190,7 +1190,7 @@ template <>
 struct DataType<HYPERION_TYPE_FLOAT> {
   typedef float ValueType;
   constexpr static const char* s = "float";
-  constexpr static int id = 7;
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_FLOAT);
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_FLOAT_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_FLOAT_REDOP;
@@ -1217,7 +1217,7 @@ template <>
 struct DataType<HYPERION_TYPE_DOUBLE> {
   typedef double ValueType;
   constexpr static const char* s = "double";
-  constexpr static int id = 8;
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_DOUBLE);
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_DOUBLE_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_DOUBLE_REDOP;
@@ -1244,7 +1244,7 @@ template <>
 struct DataType<HYPERION_TYPE_COMPLEX> {
   typedef std::complex<float> ValueType;
   constexpr static const char* s = "complex";
-  constexpr static int id = 9;
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_COMPLEX);
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_COMPLEX_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_COMPLEX_REDOP;
@@ -1271,7 +1271,7 @@ template <>
 struct DataType<HYPERION_TYPE_DCOMPLEX> {
   typedef std::complex<double> ValueType;
   constexpr static const char* s = "dComplex";
-  constexpr static int id = 10;
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_DCOMPLEX);
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_DCOMPLEX_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_DCOMPLEX_REDOP;
@@ -1298,7 +1298,7 @@ template <>
 struct DataType<HYPERION_TYPE_STRING> {
   typedef hyperion::string ValueType;
   constexpr static const char* s = "string";
-  constexpr static int id = 11;
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_STRING);
   constexpr static size_t serdez_size = sizeof(ValueType);
   constexpr static int af_serdez_id = OpsManager::ACC_FIELD_STRING_SID;
   constexpr static int af_redop_id = OpsManager::ACC_FIELD_STRING_REDOP;
@@ -1362,9 +1362,10 @@ H5DatatypeManager::datatype() {
 }
 #endif
 
-#define NUM_HYPERION_DATATYPES (DataType<HYPERION_TYPE_STRING>::id + 1)
+// TODO: rename some of the following macros to indicate their limitation to
+// casacore equivalent datatypes
 
-#define HYPERION_FOREACH_DATATYPE(__func__)              \
+#define HYPERION_FOREACH_CC_DATATYPE(__func__)              \
   __func__(HYPERION_TYPE_BOOL)              \
   __func__(HYPERION_TYPE_CHAR)              \
   __func__(HYPERION_TYPE_UCHAR)             \
@@ -1378,7 +1379,12 @@ H5DatatypeManager::datatype() {
   __func__(HYPERION_TYPE_DCOMPLEX)          \
   __func__(HYPERION_TYPE_STRING)
 
-#define HYPERION_FOREACH_RECORD_DATATYPE(__func__)  \
+#define HYPERION_FOREACH_DATATYPE(__func__)\
+  HYPERION_FOREACH_CC_DATATYPE(__func__) \
+  __func__(HYPERION_TYPE_RECT2) \
+  __func__(HYPERION_TYPE_RECT3)
+
+#define HYPERION_FOREACH_CC_RECORD_DATATYPE(__func__)  \
   __func__(HYPERION_TYPE_BOOL)                     \
   __func__(HYPERION_TYPE_UCHAR)                    \
   __func__(HYPERION_TYPE_SHORT)                    \
@@ -1389,20 +1395,6 @@ H5DatatypeManager::datatype() {
   __func__(HYPERION_TYPE_COMPLEX)                  \
   __func__(HYPERION_TYPE_DCOMPLEX)                 \
   __func__(HYPERION_TYPE_STRING)
-
-#define HYPERION_FOREACH_BARE_DATATYPE(__func__)  \
-  __func__(BOOL)          \
-  __func__(CHAR)          \
-  __func__(UCHAR)         \
-  __func__(SHORT)         \
-  __func__(USHORT)        \
-  __func__(INT)           \
-  __func__(UINT)          \
-  __func__(FLOAT)         \
-  __func__(DOUBLE)        \
-  __func__(COMPLEX)       \
-  __func__(DCOMPLEX)      \
-  __func__(STRING)
 
 template <typename T>
 struct ValueType {

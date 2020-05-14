@@ -168,7 +168,7 @@ read_column(
         assert(false);                                        \
       }                                                       \
       break;
-    HYPERION_FOREACH_DATATYPE(READ_COL);
+    HYPERION_FOREACH_CC_DATATYPE(READ_COL);
 #undef READ_COL
     default:
       assert(false);

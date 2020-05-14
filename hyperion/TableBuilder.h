@@ -280,7 +280,7 @@ protected:
           case DataType<DT>::CasacoreTypeTag:   \
             scol->add_keyword(name, DT);        \
             break;
-          HYPERION_FOREACH_DATATYPE(ADD_KW);
+          HYPERION_FOREACH_CC_DATATYPE(ADD_KW);
 #undef ADD_KW
         default:
           // ignore other kw types, like Table
@@ -381,7 +381,7 @@ public:
                 result.template add_from_table_column<DT>(  \
                   table, nm, fid, axes, array_names);       \
               break;
-            HYPERION_FOREACH_DATATYPE(ADD_FROM_TCOL);
+            HYPERION_FOREACH_CC_DATATYPE(ADD_FROM_TCOL);
 #undef ADD_FROM_TCOL
           default:
             assert(false);
