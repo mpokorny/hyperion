@@ -193,6 +193,12 @@ hyperion::OpsManager::register_ops(Runtime* rt) {
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>>(
       serdez_id(ACC_FIELD_DCOMPLEX_SID));
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<HYPERION_TYPE_RECT2>::ValueType>>(
+      serdez_id(ACC_FIELD_RECT2_SID));
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<HYPERION_TYPE_RECT3>::ValueType>>(
+      serdez_id(ACC_FIELD_RECT3_SID));
 
   Runtime::register_reduction_op<bool_or_redop>(
     reduction_id(BOOL_OR_REDOP));
@@ -272,6 +278,18 @@ hyperion::OpsManager::register_ops(Runtime* rt) {
     acc_field_redop<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    reduction_id(ACC_FIELD_RECT2_REDOP),
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<HYPERION_TYPE_RECT2>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_RECT2>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_RECT2>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    reduction_id(ACC_FIELD_RECT3_REDOP),
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<HYPERION_TYPE_RECT3>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_RECT3>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_RECT3>::ValueType>::fold_fn);
 #else
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_STRING>::ValueType>>(
@@ -309,6 +327,12 @@ hyperion::OpsManager::register_ops(Runtime* rt) {
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_DCOMPLEX>::ValueType>>(
       reduction_id(ACC_FIELD_DCOMPLEX_REDOP));
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<HYPERION_TYPE_RECT2>::ValueType>>(
+      reduction_id(ACC_FIELD_RECT2_REDOP));
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<HYPERION_TYPE_RECT3>::ValueType>>(
+      reduction_id(ACC_FIELD_RECT3_REDOP));
 #endif // WITH_ACC_FIELD_REDOP_SERDEZ
 
 #define REGISTER_POINT_ADD_REDOP(DIM)                   \
@@ -590,6 +614,26 @@ hyperion::H5DatatypeManager::preregister_datatypes() {
   }
 
   datatypes_[FIELD_ID_H5T] = H5T_NATIVE_UINT;
+  {
+    hid_t dt = H5Tcreate(H5T_COMPOUND, 4 * sizeof(Legion::coord_t));
+    static_assert(sizeof(Legion::coord_t) == 8);
+    H5Tinsert(dt, "lo0", 0, H5T_NATIVE_INT64);
+    H5Tinsert(dt, "lo1", 1 * sizeof(Legion::coord_t), H5T_NATIVE_INT64);
+    H5Tinsert(dt, "hi0", 2 * sizeof(Legion::coord_t), H5T_NATIVE_INT64);
+    H5Tinsert(dt, "hi1", 3 * sizeof(Legion::coord_t), H5T_NATIVE_INT64);
+    datatypes_[RECT2_H5T] = dt;
+  }
+  {
+    hid_t dt = H5Tcreate(H5T_COMPOUND, 6 * sizeof(Legion::coord_t));
+    static_assert(sizeof(Legion::coord_t) == 8);
+    H5Tinsert(dt, "lo0", 0, H5T_NATIVE_INT64);
+    H5Tinsert(dt, "lo1", 1 * sizeof(Legion::coord_t), H5T_NATIVE_INT64);
+    H5Tinsert(dt, "lo2", 2 * sizeof(Legion::coord_t), H5T_NATIVE_INT64);
+    H5Tinsert(dt, "hi0", 3 * sizeof(Legion::coord_t), H5T_NATIVE_INT64);
+    H5Tinsert(dt, "hi1", 4 * sizeof(Legion::coord_t), H5T_NATIVE_INT64);
+    H5Tinsert(dt, "hi2", 5 * sizeof(Legion::coord_t), H5T_NATIVE_INT64);
+    datatypes_[RECT3_H5T] = dt;
+  }
 
 #ifdef HYPERION_USE_CASACORE
   {

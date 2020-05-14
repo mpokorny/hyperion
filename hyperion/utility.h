@@ -802,6 +802,8 @@ public:
     ACC_FIELD_DOUBLE_SID,
     ACC_FIELD_COMPLEX_SID,
     ACC_FIELD_DCOMPLEX_SID,
+    ACC_FIELD_RECT2_SID,
+    ACC_FIELD_RECT3_SID,
 
     NUM_SIDS
   };
@@ -823,6 +825,8 @@ public:
     ACC_FIELD_DOUBLE_REDOP,
     ACC_FIELD_COMPLEX_REDOP,
     ACC_FIELD_DCOMPLEX_REDOP,
+    ACC_FIELD_RECT2_REDOP,
+    ACC_FIELD_RECT3_REDOP,
 
     // this must be at the end
     POINT_ADD_REDOP_BASE
@@ -895,6 +899,8 @@ public:
     STRING_H5T,
     DATATYPE_H5T,
     FIELD_ID_H5T,
+    RECT2_H5T,
+    RECT3_H5T,
 #ifdef HYPERION_USE_CASACORE
     MEASURE_CLASS_H5T,
 #endif
@@ -1314,6 +1320,39 @@ struct DataType<HYPERION_TYPE_STRING> {
     return std::strcmp(a.val, b.val) == 0;
   }
 };
+
+template <>
+struct DataType<HYPERION_TYPE_RECT2> {
+  typedef Legion::Rect<2> ValueType;
+  constexpr static const char* s = "rect2";
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_RECT2);
+  constexpr static size_t serdez_size = sizeof(ValueType);
+  constexpr static int af_serdez_id = OpsManager::ACC_FIELD_RECT2_SID;
+  constexpr static int af_redop_id = OpsManager::ACC_FIELD_RECT2_REDOP;
+#ifdef HYPERION_USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::RECT2_H5T;
+#endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
+};
+
+template <>
+struct DataType<HYPERION_TYPE_RECT3> {
+  typedef Legion::Rect<3> ValueType;
+  constexpr static const char* s = "rect3";
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_RECT3);
+  constexpr static size_t serdez_size = sizeof(ValueType);
+  constexpr static int af_serdez_id = OpsManager::ACC_FIELD_RECT3_SID;
+  constexpr static int af_redop_id = OpsManager::ACC_FIELD_RECT3_REDOP;
+#ifdef HYPERION_USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::RECT3_H5T;
+#endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
+};
+
 
 #ifdef HYPERION_USE_HDF5
 template <TypeTag DT>
@@ -2608,6 +2647,26 @@ operator<(const std::complex<F>& a, const std::complex<F>& b) {
 }
 } // end namespace std
 #endif
+
+namespace hyperion {
+template <int N, typename C>
+bool
+operator<(const Legion::Point<N, C>& a, const Legion::Point<N, C>& b) {
+  bool result = true;
+  for (size_t i = 0; result && i < N; ++i)
+    result = a[i] < b[i];
+  return result;
+}
+template <int N, typename C>
+bool
+operator<(const Legion::Rect<N, C>& a, const Legion::Rect<N, C>& b) {
+  if (a.lo < b.lo)
+    return true;
+  if (b.lo < a.lo)
+    return false;
+  return a.hi < b.hi;
+}
+} // end namespace std
 
 #endif // HYPERION_UTILITY_H_
 
