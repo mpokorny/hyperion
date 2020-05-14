@@ -237,12 +237,18 @@ public:
     typename FT,
     int N,
     typename COORD_T = Legion::coord_t,
-    typename A = Legion::GenericAccessor<FT, N, COORD_T>,
+    template<typename, int, typename> typename A = Legion::GenericAccessor,
     bool CHECK_BOUNDS = false>
-  Legion::FieldAccessor<MODE, FT, N, COORD_T, A, CHECK_BOUNDS>
+  Legion::FieldAccessor<MODE, FT, N, COORD_T, A<FT, N, COORD_T>, CHECK_BOUNDS>
   accessor() const {
     return
-      Legion::FieldAccessor<MODE, FT, N, COORD_T, A, CHECK_BOUNDS>(
+      Legion::FieldAccessor<
+        MODE,
+        FT,
+        N,
+        COORD_T,
+        A<FT, N, COORD_T>,
+        CHECK_BOUNDS>(
         m_values.value(),
         m_fid);
   }
@@ -454,7 +460,7 @@ public:
         typename DataType<DT>::ValueType,
         N,
         COORD_T,
-        A<typename DataType<DT>::ValueType, N, COORD_T>,
+        A,
         CHECK_BOUNDS>();
   }
 };
@@ -524,7 +530,7 @@ public:
         typename DataType<DT>::ValueType,
         COLUMN_RANK,
         COORD_T,
-        A<typename DataType<DT>::ValueType, COLUMN_RANK, COORD_T>,
+        A,
         CHECK_BOUNDS>();
   }
 
@@ -597,7 +603,7 @@ public:
         typename DataType<DT>::ValueType,
         N,
         COORD_T,
-        A<typename DataType<DT>::ValueType, N, COORD_T>,
+        A,
         CHECK_BOUNDS>();
   }
 
@@ -774,7 +780,7 @@ public:
         typename DataType<DT>::ValueType,
         COLUMN_RANK,
         COORD_T,
-        A<typename DataType<DT>::ValueType, COLUMN_RANK, COORD_T>,
+        A,
         CHECK_BOUNDS>();
   }
 
