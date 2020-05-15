@@ -164,7 +164,8 @@ if(USE_CASACORE)
     Measures.cc
     MeasRef.h
     MeasRef.cc
-    MSFieldTable.cc)
+    MSFieldTable.cc
+    NullIO.cc)
   set(HYPERION_USE_CASACORE ON)
 endif()
 if(USE_HDF5)
