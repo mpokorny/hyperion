@@ -48,6 +48,7 @@
 #  include <casacore/casa/aipstype.h>
 #  include <casacore/casa/Arrays/IPosition.h>
 #  include <casacore/casa/BasicSL/String.h>
+#  include <casacore/casa/Containers/Record.h>
 #  include <casacore/casa/Utilities/DataType.h>
 # endif
 #pragma GCC visibility pop
@@ -596,6 +597,34 @@ public:
   destroy(IndexTreeL&) {
   }
 };
+
+#ifdef HYPERION_USE_CASACORE
+/**
+ * Serialization/deserialization for casacore Records
+ *
+ * Can be used as the basis of serdez functions for other casacore types that
+ * are convertible to and from Records
+ */
+class record_serdez {
+public:
+  typedef casacore::Record FIELD_TYPE;
+
+  static const size_t MAX_SERIALIZED_SIZE = 1 << 13;
+
+  static size_t
+  serialized_size(const FIELD_TYPE& val);
+
+  static size_t
+  serialize(const FIELD_TYPE& val, void *buffer);
+
+  static size_t
+  deserialize(FIELD_TYPE& val, const void *buffer);
+
+  static void
+  destroy(FIELD_TYPE& val);
+};
+
+#endif
 
 class HYPERION_LOCAL bool_or_redop {
 public:

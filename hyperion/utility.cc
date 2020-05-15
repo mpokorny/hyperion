@@ -31,6 +31,10 @@
 # include <hyperion/TableBuilder.h>
 # include <hyperion/TableReadTask.h>
 # include <hyperion/Measures.h>
+# include <casacore/casa/IO/AipsIO.h>
+# include <casacore/casa/IO/MemoryIO.h>
+# include <hyperion/NullIO.h>
+namespace cc = casacore;
 #endif
 
 # include <algorithm>
@@ -133,6 +137,39 @@ hyperion::column_is_axis(
       });
   return (colax != axes.end()) ? *colax : std::optional<int>();
 }
+
+#ifdef HYPERION_USE_CASACORE
+size_t
+hyperion::record_serdez::serialized_size(const cc::Record& val) {
+  NullIO nio;
+  cc::AipsIO io(&nio);
+  auto start = io.getpos();
+  io << val;
+  return io.getpos() - start;
+}
+
+size_t
+hyperion::record_serdez::serialize(const cc::Record& val, void *buffer) {
+  cc::MemoryIO memio(buffer, MAX_SERIALIZED_SIZE, cc::ByteIO::OpenOption::New);
+  cc::AipsIO io(&memio);
+  auto start = io.getpos();
+  io << val;
+  return io.getpos() - start;
+}
+
+size_t
+hyperion::record_serdez::deserialize(cc::Record& val, const void *buffer) {
+  cc::MemoryIO memio(const_cast<void*>(buffer), MAX_SERIALIZED_SIZE);
+  cc::AipsIO io(&memio);
+  auto start = io.getpos();
+  io >> val;
+  return io.getpos() - start;
+}
+
+void
+hyperion::record_serdez::destroy(cc::Record& val) {}
+
+#endif
 
 std::ostream&
 operator<<(std::ostream& stream, const hyperion::string& str) {
