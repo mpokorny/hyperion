@@ -10,7 +10,7 @@ include(GNUInstallDirs)
 include(CheckLanguage)
 
 find_package(ZLIB REQUIRED)
-find_package(Casacore COMPONENTS ms)
+find_package(Casacore)
 find_package(HDF5 QUIET)
 find_package(yaml-cpp QUIET)
 find_package(Filesystem REQUIRED COMPONENTS Final Experimental)

@@ -50,6 +50,7 @@
 #  include <casacore/casa/BasicSL/String.h>
 #  include <casacore/casa/Containers/Record.h>
 #  include <casacore/casa/Utilities/DataType.h>
+#  include <casacore/coordinates/Coordinates/CoordinateSystem.h>
 # endif
 #pragma GCC visibility pop
 
@@ -624,6 +625,25 @@ public:
   destroy(FIELD_TYPE& val);
 };
 
+class coordinate_system_serdez {
+public:
+  typedef casacore::CoordinateSystem FIELD_TYPE;
+
+  static const size_t MAX_SERIALIZED_SIZE = record_serdez::MAX_SERIALIZED_SIZE;
+
+  static size_t
+  serialized_size(const FIELD_TYPE& val);
+
+  static size_t
+  serialize(const FIELD_TYPE& val, void *buffer);
+
+  static size_t
+  deserialize(FIELD_TYPE& val, const void *buffer);
+
+  static void
+  destroy(FIELD_TYPE& val);
+};
+
 #endif
 
 class HYPERION_LOCAL bool_or_redop {
@@ -834,6 +854,9 @@ public:
     ACC_FIELD_RECT2_SID,
     ACC_FIELD_RECT3_SID,
 
+#ifdef HYPERION_USE_CASACORE
+    CC_COORDINATE_SYSTEM_SID,
+#endif
     NUM_SIDS
   };
 

@@ -169,6 +169,39 @@ hyperion::record_serdez::deserialize(cc::Record& val, const void *buffer) {
 void
 hyperion::record_serdez::destroy(cc::Record& val) {}
 
+size_t
+coordinate_system_serdez::serialized_size(const cc::CoordinateSystem& val) {
+
+  cc::Record rec;
+  val.save(rec, "CS");
+  return record_serdez::serialized_size(rec);
+}
+
+size_t
+coordinate_system_serdez::serialize(
+  const cc::CoordinateSystem& val,
+  void *buffer) {
+
+  cc::Record rec;
+  val.save(rec, "CS");
+  return record_serdez::serialize(rec, buffer);
+}
+
+size_t
+coordinate_system_serdez::deserialize(
+  cc::CoordinateSystem& val,
+  const void *buffer) {
+
+  cc::Record rec;
+  auto result = record_serdez::deserialize(rec, buffer);
+  val = *cc::CoordinateSystem::restore(rec, "CS");
+  return result;
+}
+
+void
+coordinate_system_serdez::destroy(cc::CoordinateSystem& val) {
+}
+
 #endif
 
 std::ostream&
@@ -250,6 +283,9 @@ hyperion::OpsManager::register_ops(Runtime* rt) {
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_RECT3>::ValueType>>(
       serdez_id(ACC_FIELD_RECT3_SID));
+
+  Runtime::register_custom_serdez_op<coordinate_system_serdez>(
+      serdez_id(CC_COORDINATE_SYSTEM_SID));
 
   Runtime::register_reduction_op<bool_or_redop>(
     reduction_id(BOOL_OR_REDOP));
