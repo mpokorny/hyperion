@@ -625,7 +625,7 @@ public:
   destroy(FIELD_TYPE& val);
 };
 
-class coordinate_system_serdez {
+class HYPERION_API coordinate_system_serdez {
 public:
   typedef casacore::CoordinateSystem FIELD_TYPE;
 

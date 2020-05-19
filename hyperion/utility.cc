@@ -170,7 +170,8 @@ void
 hyperion::record_serdez::destroy(cc::Record& val) {}
 
 size_t
-coordinate_system_serdez::serialized_size(const cc::CoordinateSystem& val) {
+hyperion::coordinate_system_serdez::serialized_size(
+  const cc::CoordinateSystem& val) {
 
   cc::Record rec;
   val.save(rec, "CS");
@@ -178,7 +179,7 @@ coordinate_system_serdez::serialized_size(const cc::CoordinateSystem& val) {
 }
 
 size_t
-coordinate_system_serdez::serialize(
+hyperion::coordinate_system_serdez::serialize(
   const cc::CoordinateSystem& val,
   void *buffer) {
 
@@ -188,7 +189,7 @@ coordinate_system_serdez::serialize(
 }
 
 size_t
-coordinate_system_serdez::deserialize(
+hyperion::coordinate_system_serdez::deserialize(
   cc::CoordinateSystem& val,
   const void *buffer) {
 
@@ -199,7 +200,7 @@ coordinate_system_serdez::deserialize(
 }
 
 void
-coordinate_system_serdez::destroy(cc::CoordinateSystem& val) {
+hyperion::coordinate_system_serdez::destroy(cc::CoordinateSystem& val) {
 }
 
 #endif
