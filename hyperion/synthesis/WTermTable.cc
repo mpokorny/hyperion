@@ -64,7 +64,7 @@ hyperion::synthesis::WTermTable::compute_cfs_task(
   Runtime* rt) {
 
   const ComputeCFSTaskArgs& args =
-    *static_cast<ComputeCFSTaskArgs*>(task->args);
+    *static_cast<const ComputeCFSTaskArgs*>(task->args);
 
   auto [pt, rit, pit] =
     PhysicalTable::create(
