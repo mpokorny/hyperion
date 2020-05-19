@@ -91,17 +91,20 @@ hyperion::synthesis::WTermTable::compute_cfs_task(
   const coord_t& x_hi = rect.hi[1];
   const coord_t& y_lo = rect.lo[2];
   const coord_t& y_hi = rect.hi[2];
+  typedef typename cf_table_axis<CF_W>::type fp_t;
   for (coord_t w_idx = w_lo; w_idx <= w_hi; ++w_idx) {
-    const double twoPiW = 2.0 * pi * ws[w_idx];
+    const fp_t twoPiW = (fp_t)2.0 * (fp_t)pi * ws[w_idx];
     for (coord_t x_idx = x_lo; x_idx <= x_hi; ++x_idx) {
-      const double l = args.cell_size[0] * x_idx;
-      const double l2 = l * l;
+      const fp_t l = args.cell_size[0] * x_idx;
+      const fp_t l2 = l * l;
       for (coord_t y_idx = y_lo; y_idx <= y_hi; ++y_idx) {
-        const double m = args.cell_size[1] * y_idx;
-        const double r2 = l2 + m * m;
-        const double phase =
-          ((r2 <= 1.0) ? (twoPiW * (std::sqrt(1.0 - r2) - 1.0)) : 0.0);
-        values[{w_idx, x_idx, y_idx}] = std::polar(1.0, phase);
+        const fp_t m = args.cell_size[1] * y_idx;
+        const fp_t r2 = l2 + m * m;
+        const fp_t phase =
+          ((r2 <= (fp_t)1.0)
+           ? (twoPiW * (std::sqrt((fp_t)1.0 - r2) - (fp_t)1.0))
+           : (fp_t)0.0);
+        values[{w_idx, x_idx, y_idx}] = std::polar((fp_t)1.0, phase);
       }
     }
   }

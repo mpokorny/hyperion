@@ -116,16 +116,18 @@ hyperion::synthesis::PSTermTable::compute_cfs_task(
   const coord_t& x_hi = rect.hi[1];
   const coord_t& y_lo = rect.lo[2];
   const coord_t& y_hi = rect.hi[2];
+  typedef typename cf_table_axis<CF_PB_SCALE>::type fp_t;
   for (coord_t pb_idx = pb_lo; pb_idx <= pb_hi; ++pb_idx) {
-    const auto pb_scale = pb_scales[pb_idx];
+    const fp_t pb_scale = pb_scales[pb_idx];
     for (coord_t x_idx = x_lo; x_idx <= x_hi; ++x_idx) {
-      const float xp = x_idx * x_idx;
+      const fp_t xp = x_idx * x_idx;
       for (coord_t y_idx = y_lo; y_idx <= y_hi; ++y_idx) {
-        const float yp = std::sqrt(xp + y_idx * y_idx) * pb_scale;
-        const float v = (float)spheroidal(yp) * (1.0f - yp * yp);
+        const fp_t yp = std::sqrt(xp + y_idx * y_idx) * pb_scale;
+        const fp_t v =
+          static_cast<fp_t>(spheroidal(yp)) * ((fp_t)1.0 - yp * yp);
         // we're creating PS terms that are intended to be multiplied in some
         // domain, thus, if v == 0.0, we'll just multiply by 1.0
-        values[{pb_idx, x_idx, y_idx}] = ((v > 0.0) ? v : 1.0);
+        values[{pb_idx, x_idx, y_idx}] = ((v > (fp_t)0.0) ? v : (fp_t)1.0);
       }
     }
   }
