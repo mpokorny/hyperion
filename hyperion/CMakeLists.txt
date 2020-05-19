@@ -249,6 +249,9 @@ if (USE_HDF5 AND USE_CASACORE)
     RUNTIME DESTINATION bin)
 endif()
 
+if (USE_CASACORE)
+  add_subdirectory(synthesis)
+endif()
 add_subdirectory(gridder)
 
 add_subdirectory(testing)
