@@ -120,6 +120,16 @@ public:
     , m_index_col_parent(index_col_parent)
     , m_columns(columns) {}
 
+  Table(const Table& t);
+
+  Table(Table&& t);
+
+  Table&
+  operator=(const Table& rhs);
+
+  Table&
+  operator=(Table&& rhs);
+
   typedef std::vector<
     std::tuple<
       ColumnSpace,

@@ -107,6 +107,37 @@ Table::Table(
   assert(m_index_col_cs.column_is == m_index_col_region.get_index_space());
 }
 
+Table::Table(const Table& other)
+  : m_index_col_cs(other.m_index_col_cs)
+  , m_index_col_region(other.m_index_col_region)
+  , m_index_col_parent(other.m_index_col_parent)
+  , m_columns(other.m_columns) {}
+
+Table::Table(Table&& other)
+  : m_index_col_cs(other.m_index_col_cs)
+  , m_index_col_region(other.m_index_col_region)
+  , m_index_col_parent(other.m_index_col_parent)
+  , m_columns(std::move(other).m_columns) {}
+
+Table&
+Table::operator=(const Table& rhs) {
+  Table tmp(rhs);
+  m_index_col_cs = tmp.m_index_col_cs;
+  m_index_col_region = tmp.m_index_col_region;
+  m_index_col_parent = tmp.m_index_col_parent;
+  m_columns = tmp.m_columns;
+  return *this;
+}
+
+Table&
+Table::operator=(Table&& rhs) {
+  m_index_col_cs = std::move(rhs).m_index_col_cs;
+  m_index_col_region = std::move(rhs).m_index_col_region;
+  m_index_col_parent = std::move(rhs).m_index_col_parent;
+  m_columns = std::move(rhs).m_columns;
+  return *this;
+}
+
 PhysicalTable
 Table::attach_columns(
   Context ctx,
