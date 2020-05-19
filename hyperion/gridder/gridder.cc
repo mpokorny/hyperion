@@ -33,6 +33,9 @@
 
 #include <hyperion/gridder/gridder.h>
 #include <hyperion/gridder/args.h>
+#include <hyperion/synthesis/CFTableBase.h>
+#include <hyperion/synthesis/PSTermTable.h>
+#include <hyperion/synthesis/WTermTable.h>
 
 #include <algorithm>
 #include <array>
@@ -763,6 +766,10 @@ gridder_task(
     itables.at(MS_FEED));
 
   // TODO: the rest goes here
+  synthesis::PSTermTable ps_term(ctx, rt, 30, 30, {0.4f});
+  synthesis::WTermTable w_term(ctx, rt, 30, 30, {0.01, 0.01}, {0.4, 0.25, 0.1});
+
+  //gridder::compute_cf_task<1>(NULL, {}, ctx, rt);
 
   // clean up
   //
@@ -824,6 +831,9 @@ main(int argc, char* argv[]) {
       "compute_parallactic_angles_task");
   }
   //Runtime::register_reduction_op<LastPointRedop<1>>(LAST_POINT_REDOP);
+  synthesis::CFTableBase::preregister_all();
+  synthesis::PSTermTable::preregister_tasks();
+  synthesis::WTermTable::preregister_tasks();
   return Runtime::start(argc, argv);
 }
 
