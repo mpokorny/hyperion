@@ -113,8 +113,8 @@ cmake_push_check_state()
 
 set(CMAKE_REQUIRED_QUIET ${Filesystem_FIND_QUIETLY})
 
-# All of our tests required C++17 or later
-set(CMAKE_CXX_STANDARD 17)
+# All of our tests required C++14 or later
+set(CMAKE_CXX_STANDARD 14)
 
 # Normalize and check the component list we were given
 set(want_components ${Filesystem_FIND_COMPONENTS})
@@ -162,10 +162,12 @@ if(_CXX_FILESYSTEM_HAVE_HEADER)
     set(_have_fs TRUE)
     set(_fs_header filesystem)
     set(_fs_namespace std::filesystem)
+    set(_cxx_std_17 TRUE)
 elseif(_CXX_FILESYSTEM_HAVE_EXPERIMENTAL_HEADER)
     set(_have_fs TRUE)
     set(_fs_header experimental/filesystem)
     set(_fs_namespace std::experimental::filesystem)
+    set(_cxx_std_17 FALSE)
 else()
     set(_have_fs FALSE)
 endif()
@@ -208,7 +210,11 @@ if(CXX_FILESYSTEM_HAVE_FS)
 
     if(can_link)
         add_library(std::filesystem INTERFACE IMPORTED)
-        target_compile_features(std::filesystem INTERFACE cxx_std_17)
+        if(_cxx_std_17)
+          target_compile_features(std::filesystem INTERFACE cxx_std_17)
+        else()
+          target_compile_features(std::filesystem INTERFACE cxx_std_14)
+        endif()
         set(_found TRUE)
 
         if(CXX_FILESYSTEM_NO_LINK_NEEDED)
