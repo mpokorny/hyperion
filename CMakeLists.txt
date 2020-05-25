@@ -1,39 +1,40 @@
-cmake_minimum_required(VERSION 3.13)
-project(hyperion
-  LANGUAGES CXX C)
+cmake_minimum_required(VERSION 3.14)
+project(hyperion)
+enable_testing()
 
 cmake_policy(SET CMP0077 NEW)
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
-include(GNUInstallDirs)
-include(CheckLanguage)
-
-find_package(ZLIB REQUIRED)
-find_package(Filesystem REQUIRED COMPONENTS Final Experimental)
-find_package(Casacore) # this doesn't accept "QUIET"
-find_package(HDF5)
-find_package(yaml-cpp)
+option(USE_HDF5 "Use HDF5" ON)
+option(USE_CASACORE "Use casacore" ON)
+option(USE_OPENMP "Use OpenMP" OFF)
+option(USE_CUDA "Use CUDA" OFF)
+option(USE_KOKKOS "Use Kokkos" OFF)
+option(BUILD_CASACORE "Build casacore" OFF)
+mark_as_advanced(BUILD_CASACORE)
 
 set(MAX_DIM 7 CACHE STRING "Maximum index space dimension")
 set_property(CACHE MAX_DIM PROPERTY STRINGS 1 2 3 4 5 6 7 8 9)
-set(MAX_STRING_SIZE 64 CACHE STRING "Maximum string size")
-set(MAX_NUM_TABLE_COLUMNS 100 CACHE STRING "Maximum number of table columns (> 50)")
-set(BUILD_REGENT OFF CACHE BOOL "Build Regent")
-set(USE_HDF5 ${HDF5_FOUND} CACHE BOOL "Use HDF5")
-set(USE_CASACORE ON CACHE BOOL "Use casacore")
-set(CASACORE_ROOT_DIR "" CACHE STRING "casacore installation root path")
-set(USE_YAML ${yaml-cpp_FOUND} CACHE BOOL "Use YAML")
-set(USE_OPENMP OFF CACHE STRING "Use OpenMP")
-set(USE_KOKKOS OFF CACHE BOOL "Use Kokkos")
 
-check_language(CUDA)
-if (NOT "${CMAKE_CUDA_COMPILER}" STREQUAL "NOTFOUND")
-  set(HAVE_CUDA ON)
-else()
-  set(HAVE_CUDA OFF)
+set(BUILD_ARCH "native" CACHE STRING "Target CPU microarchitecture")
+string(TOLOWER ${BUILD_ARCH} BUILD_ARCH)
+
+if (USE_HDF5)
+  find_package(HDF5 REQUIRED)
 endif()
-set(USE_CUDA ${HAVE_CUDA} CACHE BOOL "Use CUDA")
+
+if (USE_CASACORE AND NOT BUILD_CASACORE)
+  find_package(Casacore REQUIRED)
+endif()
+
+if (USE_OPENMP)
+  find_package(OpenMP REQUIRED)
+endif()
+
+if(USE_CUDA)
+  set(CUDA_ARCH "" CACHE STRING "Comma-separated list of target CUDA architectures (e.g. 60,70)")
+endif()
 
 set(KOKKOS_COMPONENTS kokkos kokkoscore)
 set(KOKKOS_DEVICES Serial)
@@ -44,38 +45,71 @@ if(USE_CUDA)
   list(APPEND KOKKOS_COMPONENTS CUDA)
   list(APPEND KOKKOS_DEVICES CUDA)
 endif()
+
 if(USE_KOKKOS)
   find_package(Kokkos REQUIRED COMPONENTS ${KOKKOS_COMPONENTS})
   kokkos_check(DEVICES ${KOKKOS_DEVICES})
+
+  function(map_to_kokkos_arch arch_map input_list output_list)
+    foreach(arch IN LISTS input_list)
+      list(FIND ${arch_map} ${arch} arch_index)
+      if(NOT arch_index EQUAL -1)
+        math(EXPR arch_index "${arch_index} + 1")
+        list(GET arch_map ${arch_index} arch_name)
+        list(APPEND output_list ${arch_name})
+      else()
+        message(WARNING "'${arch}' does not map to a Kokkos host or device architecture")
+      endif()
+    endforeach()
+  endfunction()
+
+  if(BUILD_MARCH)
+    set(cpu_arch_map
+      thunderx2 THUNDERX2
+      zen ZEN
+      zen2 ZEN2
+      steamroller KAVERI
+      excavator CARIZO
+      power7 POWER7
+      power8 POWER8
+      power9 POWER9
+      power8le POWER8
+      power9le POWER9
+      sandybridge SNB
+      haswell HSW
+      mic_knl KNL
+      cannonlake SKX
+      cascadelake SKX
+      westmere WSM
+      ivybridge SNB
+      broadwell BDW
+      skylake SKX
+      icelake SKX
+      skylake_avx512 SKX)
+
+    map_to_kokkos_arch(cpu_arch_map BUILD_MARCH cpu_arch_name)
+    kokkos_check(ARCH ${cpu_arch_name})
+  endif()
+
+  if(USE_CUDA)
+    set(cuda_arch_map
+      30 KEPLER30
+      32 KEPLER32
+      35 KEPLER35
+      37 KEPLER37
+      50 MAXWELL50
+      52 MAXWELL52
+      53 MAXWELL53
+      60 PASCAL60
+      61 PASCAL61
+      70 VOLTA70
+      72 VOLTA72
+      75 TURING75)
+    string(REPLACE "," ";" cuda_arch_list CUDA_ARCH)
+    map_to_kokkos_arch(cuda_arch_map cuda_arch_list cuda_arch_names)
+    kokkos_check(ARCH ${cuda_arch_names})
+  endif()
 endif()
-
-if (USE_HDF5)
-  find_package(HDF5 REQUIRED)
-endif ()
-if (USE_YAML)
-  find_package(yaml-cpp REQUIRED)
-endif()
-if (USE_CUDA)
-  set(CUDA_ARCH "" CACHE STRING "Comma-separated list of CUDA architectures to build for (e.g. 60,70)")
-  enable_language(CUDA)
-endif()
-
-if (USE_CASACORE AND NOT CASACORE_FOUND)
-  message(STATUS "Building casacore within project")
-  set(BUILD_CASACORE ON)
-else ()
-  message(STATUS "Using casacore installation at ${CASACORE_ROOT_DIR}")
-  set(BUILD_CASACORE OFF)
-  if (USE_CASACORE AND NOT CASACORE_ROOT_DIR STREQUAL "" AND NOT CASACORE_FOUND)
-    message(FATAL_ERROR "USE_CASACORE is ON, yet casacore package was not found at ${CASACORE_ROOT_DIR}")
-  endif ()
-endif ()
-
-set(Legion_CMAKE_BUILD_TYPE "Release" CACHE STRING "Legion build type")
-set(Legion_BOUNDS_CHECKS OFF CACHE BOOL "Enable Legion bounds checks")
-set(Legion_PRIVILEGE_CHECKS OFF CACHE BOOL "Enable Legion privilege checks")
-
-enable_testing()
 
 # use, i.e. don't skip the full RPATH for the build tree
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
@@ -94,13 +128,19 @@ if("${isSystemDir}" STREQUAL "-1")
   set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}/hyperion")
 endif("${isSystemDir}" STREQUAL "-1")
 
-add_subdirectory(legion)
-if (BUILD_REGENT)
-  add_subdirectory(terra)
-  add_subdirectory(regent)
-endif ()
-if (BUILD_CASACORE)
-  add_subdirectory(casacore)
-endif ()
+include(GNUInstallDirs)
+
 add_subdirectory(hyperion)
-add_subdirectory(docs)
+add_subdirectory(dependencies)
+
+# include(CheckLanguage)
+# include(CheckCXXCompilerFlag)
+# check_cxx_compiler_flag("--host-only" COMPILER_SUPPORTS_HOST_ONLY)
+# if(COMPILER_SUPPORTS_HOST_ONLY)
+#   set(HOST_ONLY "--host-only")
+# endif()
+
+#find_package(ZLIB REQUIRED)
+#find_package(HDF5 QUIET)
+
+#add_subdirectory(docs)

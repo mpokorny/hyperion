@@ -72,13 +72,6 @@ class Hyperion(CMakePackage):
     depends_on('cuda', when='+cuda', type=('build', 'link', 'run'))
     depends_on('mpi', when='+lg_mpi')
     depends_on('gasnet+par~aligned-segments segment=fast', when='+lg_gasnet')
-    depends_on('kokkos+openmp std=17', when='+kokkos+openmp~cuda')
-    depends_on('kokkos std=17', when='+kokkos~cuda~openmp')
-    for arch in ('30','32','35','50','52','53','60','61','62','70','72','75'):
-        depends_on(f'kokkos+openmp+cuda+cuda_lambda+cuda_relocatable_device_code cuda_arch={arch} +wrapper std=14',
-                   when=f'+kokkos+openmp+cuda cuda_arch={arch}')
-        depends_on('kokkos+cuda+cuda_lambda+cuda_relocatable_device_code cuda_arch={arch} +wrapper std=14',
-                   when='+kokkos+cuda~openmp cuda_arch={arch}')
 
     # not sure how to make this a dependency only for running tests
     depends_on('python@3:', type='run')
@@ -89,11 +82,11 @@ class Hyperion(CMakePackage):
 
         args.append(self.define_from_variant('USE_CASACORE', 'casacore'))
         args.append(self.define_from_variant('USE_HDF5', 'hdf5'))
-        args.append(self.define_from_variant('USE_YAML', 'yaml'))
         args.append(self.define_from_variant('MAX_DIM', 'max_dim'))
         args.append(self.define_from_variant('USE_OPENMP', 'openmp'))
         args.append(self.define_from_variant('USE_CUDA', 'cuda'))
         args.append(self.define_from_variant('USE_KOKKOS', 'kokkos'))
+        args.append(self.define_from_variant('gridder_USE_YAML', 'yaml'))
         args.append(self.define_from_variant('Legion_BOUNDS_CHECKS', 'lg_bounds_checks'))
         args.append(self.define_from_variant('Legion_PRIVILEGE_CHECKS', 'lg_privilege_checks'))
 
@@ -126,5 +119,7 @@ class Hyperion(CMakePackage):
             args.append('-DCMAKE_BUILD_TYPE=Debug')
         if '+lg_debug' in spec:
             args.append('-DLegion_CMAKE_BUILD_TYPE=Debug')
+
+        args.append('-DBUILD_ARCH:STRING=none')
 
         return args

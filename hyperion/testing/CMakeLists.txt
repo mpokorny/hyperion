@@ -25,16 +25,8 @@ set(TESTING_INCLUDE TESTING_SRC)
 list(FILTER TESTING_INCLUDE INCLUDE REGEX ".*\.h")
 
 add_library(hyperion_testing SHARED ${TESTING_SRC})
-set_target_properties(hyperion_testing PROPERTIES
-  CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+set_host_target_properties(hyperion_testing)
 add_dependencies(hyperion_testing hyperion TestRunner)
-target_include_directories(hyperion_testing
-  PRIVATE ${Legion_INSTALL_DIR}/include
-  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../..)
-if (USE_CASACORE)
-target_include_directories(hyperion_testing PRIVATE ${casacore_INCLUDE_DIR})
-endif()
 target_link_libraries(hyperion_testing PUBLIC hyperion)
 set_target_properties(hyperion_testing PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(hyperion_testing PROPERTIES SOVERSION ${SOVERSION})

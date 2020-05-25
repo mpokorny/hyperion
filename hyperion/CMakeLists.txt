@@ -1,117 +1,130 @@
+find_package(Filesystem COMPONENTS Experimental)
+
+if(USE_KOKKOS)
+  kokkos_check(DEVICES ${KOKKOS_DEVICES})
+  if(USE_CUDA)
+    target_link_options(Kokkos::kokkoscore INTERFACE "SHELL: --cudart none")
+    target_link_options(Kokkos::kokkoscontainers INTERFACE "SHELL: --cudart none")
+  endif()
+  if(USE_OPENMP)
+    get_property(
+      linkopts
+      TARGET Kokkos::kokkoscore
+      PROPERTY
+      INTERFACE_LINK_OPTIONS)
+    list(REMOVE_ITEM linkopts "-fopenmp")
+    set_property(
+      TARGET Kokkos::kokkoscore
+      PROPERTY INTERFACE_LINK_OPTIONS
+      ${linkopts})
+
+    get_property(
+      linkopts TARGET Kokkos::kokkoscontainers
+      PROPERTY INTERFACE_LINK_OPTIONS)
+    list(REMOVE_ITEM linkopts "-fopenmp")
+    set_property(
+      TARGET Kokkos::kokkoscontainers
+      PROPERTY INTERFACE_LINK_OPTIONS
+      ${linkopts})
+  endif()
+endif()
+
+enable_language(CXX)
+
+set(hyperion_CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+set(hyperion_USE_CASACORE ${USE_CASACORE})
+set(hyperion_USE_HDF5 ${USE_HDF5})
+set(hyperion_USE_CUDA ${USE_CUDA})
+set(hyperion_USE_OPENMP ${USE_OPENMP})
+set(hyperion_USE_KOKKOS ${USE_KOKKOS})
+
+set(hyperion_MAX_STRING_SIZE 64 CACHE STRING "Maximum string size")
+set(hyperion_MAX_NUM_TABLE_COLUMNS 100 CACHE STRING "Maximum number of table columns (> 50)")
+
+# if(hyperion_USE_CUDA)
+#   enable_language(CUDA)
+# endif()
+
+set(CMAKE_BUILD_TYPE ${hyperion_CMAKE_BUILD_TYPE})
+
 set(SOVERSION 1)
 
-#------------------------------------------------------------------------------#
-# Legion libraries
-#------------------------------------------------------------------------------#
-
-if (BUILD_CASACORE)
-  ExternalProject_Get_Property(casacore_build INSTALL_DIR)
-  set(
-    CASACORE_LIBRARIES
-    "${INSTALL_DIR}/lib/libcasa_ms.so"
-    "${INSTALL_DIR}/lib/libcasa_measures.so"
-    "${INSTALL_DIR}/lib/libcasa_scimath.so"
-    "${INSTALL_DIR}/lib/libcasa_scimath_f.so"
-    "${INSTALL_DIR}/lib/libcasa_tables.so"
-    "${INSTALL_DIR}/lib/libcasa_casa.so")
-  set(CASACORE_INCLUDE_DIR ${INSTALL_DIR}/include)
-endif ()
-
-#------------------------------------------------------------------------------#
-#
-# Legion compile option compatibility
-#
-#------------------------------------------------------------------------------#
-
-#------------------------------------------------------------------------------#
-# Architecture
-#------------------------------------------------------------------------------#
-if(BUILD_MARCH AND BUILD_MCPU)
-  message(FATAL_ERROR "BUILD_MARCH and BUILD_MCPU are incompatible")
-endif()
-
-# Try -march first. On platforms that don't support it, GCC will issue
-# a hard error, so we'll know not to use it.
-if(BUILD_MARCH)
-  set(INTERNAL_BUILD_MARCH ${BUILD_MARCH})
-else()
-  set(INTERNAL_BUILD_MARCH "native")
-endif()
-
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag("-march=${INTERNAL_BUILD_MARCH}" COMPILER_SUPPORTS_MARCH)
-if(COMPILER_SUPPORTS_MARCH)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${INTERNAL_BUILD_MARCH}")
-elseif(BUILD_MARCH)
-  message(FATAL_ERROR "The flag -march=${INTERNAL_BUILD_MARCH} is not supported by the compiler")
-else()
-  unset(INTERNAL_BUILD_MARCH)
-endif()
+if(NOT USE_KOKKOS)
+  if(NOT BUILD_ARCH STREQUAL "none")
+    check_cxx_compiler_flag("-march=${BUILD_ARCH}" COMPILER_SUPPORTS_MARCH)
+    if(COMPILER_SUPPORTS_MARCH)
+      add_compile_options("-march=${BUILD_ARCH}")
+    else()
+      message(STATUS "The flag -march=${BUILD_ARCH} is not supported by the compiler")
+    endif()
 
-# Try -mcpu. We do this second because it is deprecated on x86, but
-# GCC won't issue a hard error, so we can't tell if it worked or not.
-if (NOT INTERNAL_BUILD_MARCH)
-  if(BUILD_MCPU)
-    set(INTERNAL_BUILD_MCPU ${BUILD_MCPU})
-  else()
-    set(INTERNAL_BUILD_MCPU "native")
+    check_cxx_compiler_flag("-mtune=${BUILD_ARCH}" COMPILER_SUPPORTS_MTUNE)
+    if(COMPILER_SUPPORTS_MTUNE)
+      add_compile_options("-mtune=${BUILD_ARCH}")
+    else()
+      message(STATUS "The flag -mtune=${BUILD_ARCH} is not supported by the compiler")
+    endif()
   endif()
-
-  check_cxx_compiler_flag("-mcpu=${INTERNAL_BUILD_MCPU}" COMPILER_SUPPORTS_MCPU)
-  if(COMPILER_SUPPORTS_MCPU)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=${INTERNAL_BUILD_MCPU}")
-  elseif(BUILD_MCPU)
-    message(FATAL_ERROR "The flag -mcpu=${INTERNAL_BUILD_MCPU} is not supported by the compiler")
-  else()
-    unset(INTERNAL_BUILD_MCPU)
-  endif()
-endif()
-
-# Add flags for Power architectures
-check_cxx_compiler_flag("-maltivec -Werror" COMPILER_SUPPORTS_MALTIVEC)
-if(COMPILER_SUPPORTS_MALTIVEC)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -maltivec")
-endif()
-check_cxx_compiler_flag("-mabi=altivec -Werror" COMPILER_SUPPORTS_MABI_ALTIVEC)
-if(COMPILER_SUPPORTS_MABI_ALTIVEC)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mabi=altivec")
-endif()
-check_cxx_compiler_flag("-mvsx -Werror" COMPILER_SUPPORTS_MVSX)
-if(COMPILER_SUPPORTS_MVSX)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mvsx")
 endif()
 
 # Legion can't handle certain optimizations. See:
 # https://github.com/StanfordLegion/legion/issues/168#issuecomment-244582958
 check_cxx_compiler_flag("-fno-strict-aliasing" COMPILER_SUPPORTS_NO_STRICT_ALIASING)
 if(COMPILER_SUPPORTS_NO_STRICT_ALIASING)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-strict-aliasing")
+  add_compile_options("-fno-strict-aliasing")
 endif()
 
 #------------------------------------------------------------------------------#
 # hyperion library
 #------------------------------------------------------------------------------#
 
-set(CMAKE_CXX_FLAGS
-  "${CMAKE_CXX_FLAGS} -Wall -fvisibility=hidden")
-# For clang, will need the following
-# set(CMAKE_CXX_FLAGS
-#   "${CMAKE_CXX_FLAGS} -Wall -fvisibility=hidden -frelaxed-template-template-args") 
-# TODO: add -Werror
+add_compile_options(-Wall -fvisibility=hidden $<$<CONFIG:Debug>:-g>)
+add_compile_definitions($<$<CONFIG:Debug>:HYPERION_DEBUG>)
 
-set(CMAKE_CXX_FLAGS_DEBUG
-  "${CMAKE_CXX_FLAGS_DEBUG} -Og -DHYPERION_DEBUG")
+check_cxx_compiler_flag("-Og" COMPILER_SUPORTS_DEBUG_OPTIMIZE)
+if(COMPILER_SUPORTS_DEBUG_OPTIMIZE)
+  add_compile_options($<$<CONFIG:Debug>:-Og>)
+else()
+  add_compile_options($<$<CONFIG:Debug>:-O0>)
+endif()
 
-list(APPEND HYPERION_SRC
+set(MAX_STRING_SIZE ${hyperion_MAX_STRING_SIZE})
+set(MAX_NUM_TABLE_COLUMNS ${hyperion_MAX_NUM_TABLE_COLUMNS})
+
+set(CXX_STANDARD 17)
+
+set(HYPERION_USE_CASACORE ${hyperion_USE_CASACORE})
+set(HYPERION_USE_HDF5 ${hyperion_USE_HDF5})
+configure_file(hyperion_config.h.in hyperion_config.h)
+
+set(hyperion_COMPILE_DEFINITIONS "")
+if(hyperion_USE_HDF5)
+  add_compile_definitions(H5_USE_110_API)
+endif()
+
+function(set_host_target_properties target)
+  set_target_properties(${target} PROPERTIES
+    CXX_STANDARD ${CXX_STANDARD}
+    CXX_EXTENSIONS ON)
+  if(hyperion_USE_CUDA)
+    target_compile_options(${target} PRIVATE ${HOST_ONLY})
+    target_link_options(hyperion PRIVATE "-cudart" "none")
+  endif()
+endfunction()
+
+add_library(hyperion SHARED)
+target_sources(hyperion
+  PRIVATE
   hyperion_c.h
-  Grids_c.cc
-  Grids_c.h
+  # Grids_c.cc
+  # Grids_c.h
   Grids.h
   IndexTree.h
   tree_index_space.cc
   tree_index_space.h
   utility.cc
-  utility.h
+  #utility.h
   utility_c.cc
   utility_c.h
   Column.h
@@ -125,8 +138,8 @@ list(APPEND HYPERION_SRC
   c_util.h
   Keywords.h
   Keywords.cc
-  MSTable.cc
   MSTable.h
+  MSTable.cc
   MSTable_c.cc
   MSTable_c.h
   MSTableColumns_c.h
@@ -151,8 +164,8 @@ list(APPEND HYPERION_SRC
   TableMapper.cc
   KeywordsBuilder.h)
 
-if(USE_CASACORE)
-  list(APPEND HYPERION_SRC
+if(hyperion_USE_CASACORE)
+  target_sources(hyperion PRIVATE
     ColumnBuilder.h
     TableBuilder.h
     TableBuilder.cc
@@ -166,44 +179,19 @@ if(USE_CASACORE)
     MeasRef.cc
     MSFieldTable.cc
     NullIO.cc)
-  set(HYPERION_USE_CASACORE ON)
 endif()
-if(USE_HDF5)
-  list(APPEND HYPERION_SRC
+if(hyperion_USE_HDF5)
+  target_sources(hyperion PRIVATE
     hdf5.h
     hdf5.cc)
-  set(HYPERION_USE_HDF5 ON)
-endif()
-if (USE_YAML)
-  set(HYPERION_USE_YAML ON)
-endif ()
-
-configure_file(hyperion_config.h.in hyperion_config.h)
-
-set(HYPERION_INCLUDE ${HYPERION_SRC})
-list(FILTER HYPERION_INCLUDE INCLUDE REGEX ".*\\.h")
-
-add_library(hyperion SHARED ${HYPERION_SRC})
-set(hyperion_COMPILE_DEFINITIONS "")
-if(USE_HDF5)
-  list(APPEND
-    hyperion_COMPILE_DEFINITIONS "H5_USE_110_API")
 endif()
 
-set_target_properties(hyperion PROPERTIES
-  CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
-add_dependencies(hyperion Legion)
-target_include_directories(hyperion
-  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../legion/runtime>
-  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
-  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../legion/runtime>
-  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/..>
-  PUBLIC $<INSTALL_INTERFACE:include>
-  PUBLIC $<INSTALL_INTERFACE:include/hyperion>)
-target_link_directories(hyperion
-  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../legion/lib>)
-if (USE_CASACORE)
+set_host_target_properties(hyperion)
+target_include_directories(hyperion PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/..>
+  $<INSTALL_INTERFACE:include>)
+if (hyperion_USE_CASACORE)
   if (BUILD_CASACORE)
     add_dependencies(hyperion casacore_build)
     target_include_directories(hyperion
@@ -214,14 +202,18 @@ if (USE_CASACORE)
   endif ()
   target_link_libraries(hyperion PUBLIC ${CASACORE_LIBRARIES})
 endif()
-if (USE_HDF5)
+if (hyperion_USE_HDF5)
   target_include_directories(hyperion PUBLIC ${HDF5_INCLUDE_DIRS})
   target_link_libraries(hyperion PUBLIC ${HDF5_LIBRARIES})
 endif()
 target_link_libraries(hyperion PUBLIC std::filesystem)
-#target_link_libraries(hyperion PUBLIC mdspan)
-target_link_libraries(hyperion PRIVATE Legion)
-target_link_libraries(hyperion PRIVATE Realm)
+target_link_libraries(hyperion PRIVATE LegionRuntime)
+target_link_libraries(hyperion PRIVATE RealmRuntime)
+# lift Legion include interface to hyperion (link interface has been
+# incorporated into hyperion)
+target_include_directories(hyperion
+  INTERFACE $<TARGET_PROPERTY:LegionRuntime,INTERFACE_INCLUDE_DIRECTORIES>)
+
 set_target_properties(hyperion PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(hyperion PROPERTIES SOVERSION ${SOVERSION})
 install(TARGETS hyperion EXPORT HyperionConfig
@@ -232,24 +224,15 @@ install(FILES ${HYPERION_INCLUDE}
 install(EXPORT HyperionConfig DESTINATION share/hyperion/cmake)
 export(TARGETS hyperion FILE HyperionConfig.cmake)
 
-if (USE_HDF5 AND USE_CASACORE)
+if (hyperion_USE_HDF5 AND hyperion_USE_CASACORE)
   add_executable(ms2h5 ms2h5.cc)
-  set_target_properties(ms2h5 PROPERTIES
-    CXX_STANDARD 17
-    COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+  set_host_target_properties(ms2h5)
   target_link_libraries(ms2h5 hyperion)
-  target_include_directories(ms2h5
-    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../legion/runtime>
-    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
-    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../legion/runtime>
-    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/..>
-    PUBLIC ${CASACORE_INCLUDE_DIR}
-    PUBLIC ${HDF5_INCLUDE_DIRS})
   install(TARGETS ms2h5
     RUNTIME DESTINATION bin)
 endif()
 
-if (USE_CASACORE)
+if (hyperion_USE_CASACORE)
   add_subdirectory(synthesis)
 endif()
 add_subdirectory(gridder)

@@ -1,12 +1,6 @@
-include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}/../../..
-  ${Legion_INSTALL_DIR}/include)
-link_libraries(hyperion_testing)
-
 add_executable(utTestLog utTestLog.cc)
-set_target_properties(utTestLog PROPERTIES
-  CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+set_host_target_properties(utTestLog)
+target_link_libraries(utTestLog hyperion_testing)
 add_test(
   NAME cpTestLogExpected
   COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/utTestLog.expected
@@ -25,9 +19,8 @@ set_tests_properties(
   FIXTURES_REQUIRED TestLogExpected)
 
 add_executable(utTestRecorder utTestRecorder.cc)
-set_target_properties(utTestRecorder PROPERTIES
-  CXX_STANDARD 17
-  COMPILE_DEFINITIONS "${hyperion_COMPILE_DEFINITIONS}")
+set_host_target_properties(utTestRecorder)
+target_link_libraries(utTestRecorder hyperion_testing)
 add_test(
   NAME cpTestRecorderExpected
   COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/utTestRecorder.expected
