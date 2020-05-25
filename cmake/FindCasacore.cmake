@@ -62,6 +62,8 @@
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+find_package(PkgConfig REQUIRED)
+
 # - casacore_resolve_dependencies(_result)
 #
 # Resolve the Casacore library dependencies for the given components. 
@@ -131,12 +133,18 @@ endmacro(casacore_find_library _name)
 #   Usage: casacore_find_package(name [REQUIRED])
 #
 macro(casacore_find_package _name)
+  find_package(${_name} QUIET)
+  if(${_name}_FOUND)
+    message(STATUS "Found ${_name}, version ${${_name}_VERSION}")
+  else()
+    string(TOLOWER ${_name} lower_name)
+    pkg_check_modules(${_name} REQUIRED ${lower_name})
+  endif()
   if("${ARGN}" MATCHES "^REQUIRED$" AND
       Casacore_FIND_REQUIRED AND
-      NOT CASACORE_MAKE_REQUIRED_EXTERNALS_OPTIONAL)
-    find_package(${_name} REQUIRED)
-  else()
-    find_package(${_name})
+      NOT CASACORE_MAKE_REQUIRED_EXTERNALS_OPTIONAL AND
+      NOT ${_name}_FOUND)
+    message(FATAL_ERROR "Required package ${_name} not found")
   endif()
   if(${_name}_FOUND)
     list(APPEND CASACORE_INCLUDE_DIRS ${${_name}_INCLUDE_DIRS})
