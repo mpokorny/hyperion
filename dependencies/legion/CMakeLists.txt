@@ -1,7 +1,6 @@
 include(FetchContent)
 
-set(BUILD_SHARED_LIBS OFF)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(BUILD_SHARED_LIBS ON)
 
 set(Legion_CMAKE_BUILD_TYPE "Release" CACHE STRING "Legion CMake build type")
 option(Legion_BOUNDS_CHECKS OFF)

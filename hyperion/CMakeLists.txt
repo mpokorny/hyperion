@@ -206,12 +206,8 @@ if (hyperion_USE_HDF5)
   target_link_libraries(hyperion PUBLIC ${HDF5_LIBRARIES})
 endif()
 target_link_libraries(hyperion PUBLIC std::filesystem)
-target_link_libraries(hyperion PRIVATE LegionRuntime)
-target_link_libraries(hyperion PRIVATE RealmRuntime)
-# lift Legion include interface to hyperion (link interface has been
-# incorporated into hyperion)
-target_include_directories(hyperion
-  INTERFACE $<TARGET_PROPERTY:LegionRuntime,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(hyperion PUBLIC LegionRuntime)
+target_link_libraries(hyperion PUBLIC RealmRuntime)
 
 set_target_properties(hyperion PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(hyperion PROPERTIES SOVERSION ${SOVERSION})
