@@ -72,6 +72,14 @@ class Hyperion(CMakePackage):
     depends_on('cuda', when='+cuda', type=('build', 'link', 'run'))
     depends_on('mpi', when='+lg_mpi')
     depends_on('gasnet+par~aligned-segments segment=fast', when='+lg_gasnet')
+    depends_on('kokkos+openmp std=17', when='+kokkos+openmp~cuda')
+    depends_on('kokkos std=17', when='+kokkos~cuda~openmp')
+    # FIXME: don't require nvcc_wrapper when compiling with Clang
+    for arch in ('30','32','35','50','52','53','60','61','62','70','72','75'):
+        depends_on(f'kokkos+openmp+cuda+cuda_lambda+cuda_relocatable_device_code cuda_arch={arch} +wrapper std=14 ~cuda_host_init_check',
+                   when=f'+kokkos+openmp+cuda cuda_arch={arch}')
+        depends_on('kokkos+cuda+cuda_lambda+cuda_relocatable_device_code cuda_arch={arch} +wrapper std=14 ~cuda_host_init_check',
+                   when='+kokkos+cuda~openmp cuda_arch={arch}')
 
     # not sure how to make this a dependency only for running tests
     depends_on('python@3:', type='run')
@@ -121,5 +129,5 @@ class Hyperion(CMakePackage):
             args.append('-DLegion_CMAKE_BUILD_TYPE=Debug')
 
         args.append('-DBUILD_ARCH:STRING=none')
-
+        args.append("-DCMAKE_CXX_COMPILER=%s" % self.spec["kokkos"].kokkos_cxx)
         return args
