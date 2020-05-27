@@ -6,6 +6,23 @@ cmake_policy(SET CMP0077 NEW)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
+# Set a default build type if none was specified
+set(default_build_type Release)
+if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
+  set(default_build_type Debug)
+endif()
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
+    STRING "Choose the type of build." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+    "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+
 option(USE_HDF5 "Use HDF5" ON)
 option(USE_CASACORE "Use casacore" ON)
 option(USE_OPENMP "Use OpenMP" OFF)
