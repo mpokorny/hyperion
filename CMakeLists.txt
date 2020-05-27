@@ -130,6 +130,8 @@ if(USE_KOKKOS)
   endif()
 endif()
 
+include(GNUInstallDirs)
+
 # use, i.e. don't skip the full RPATH for the build tree
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
 
@@ -147,19 +149,21 @@ if("${isSystemDir}" STREQUAL "-1")
   set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}/hyperion")
 endif("${isSystemDir}" STREQUAL "-1")
 
-include(GNUInstallDirs)
-
-add_subdirectory(hyperion)
-add_subdirectory(dependencies)
+include(CheckCXXCompilerFlag)
 
 # include(CheckLanguage)
-# include(CheckCXXCompilerFlag)
-# check_cxx_compiler_flag("--host-only" COMPILER_SUPPORTS_HOST_ONLY)
-# if(COMPILER_SUPPORTS_HOST_ONLY)
-#   set(HOST_ONLY "--host-only")
-# endif()
+if(USE_KOKKOS)
+  # for nvcc_wrapper
+  check_cxx_compiler_flag(--host-only COMPILER_SUPPORTS_HOST_ONLY)
+  if(COMPILER_SUPPORTS_HOST_ONLY)
+    set(HOST_ONLY --host-only)
+  endif()
+endif()
 
 #find_package(ZLIB REQUIRED)
 #find_package(HDF5 QUIET)
+
+add_subdirectory(dependencies)
+add_subdirectory(hyperion)
 
 #add_subdirectory(docs)

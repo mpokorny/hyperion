@@ -3,7 +3,7 @@ include(FetchContent)
 FetchContent_Declare(
   legion
   GIT_REPOSITORY https://github.com/mpokorny/legion.git
-  GIT_TAG ce26f5ecdbf56417058d0377c6ff38e35d80fdf7) # ~legion-20.03.0
+  GIT_TAG 41e80ef9e16f1443238114ab0c5bace2028e3435) # ~legion-20.03.0
 add_subdirectory(legion)
 
 if(USE_CASACORE AND BUILD_CASACORE)

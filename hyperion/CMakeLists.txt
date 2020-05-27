@@ -2,31 +2,31 @@ find_package(Filesystem COMPONENTS Experimental)
 
 if(USE_KOKKOS)
   kokkos_check(DEVICES ${KOKKOS_DEVICES})
-  if(USE_CUDA)
-    target_link_options(Kokkos::kokkoscore INTERFACE "SHELL: --cudart none")
-    target_link_options(Kokkos::kokkoscontainers INTERFACE "SHELL: --cudart none")
-  endif()
-  if(USE_OPENMP)
-    get_property(
-      linkopts
-      TARGET Kokkos::kokkoscore
-      PROPERTY
-      INTERFACE_LINK_OPTIONS)
-    list(REMOVE_ITEM linkopts "-fopenmp")
-    set_property(
-      TARGET Kokkos::kokkoscore
-      PROPERTY INTERFACE_LINK_OPTIONS
-      ${linkopts})
+  # if(USE_CUDA)
+  #   target_link_options(Kokkos::kokkoscore INTERFACE "SHELL: --cudart none")
+  #   target_link_options(Kokkos::kokkoscontainers INTERFACE "SHELL: --cudart none")
+  # endif()
+  # if(USE_OPENMP)
+  #   get_property(
+  #     linkopts
+  #     TARGET Kokkos::kokkoscore
+  #     PROPERTY
+  #     INTERFACE_LINK_OPTIONS)
+  #   list(REMOVE_ITEM linkopts "-fopenmp")
+  #   set_property(
+  #     TARGET Kokkos::kokkoscore
+  #     PROPERTY INTERFACE_LINK_OPTIONS
+  #     ${linkopts})
 
-    get_property(
-      linkopts TARGET Kokkos::kokkoscontainers
-      PROPERTY INTERFACE_LINK_OPTIONS)
-    list(REMOVE_ITEM linkopts "-fopenmp")
-    set_property(
-      TARGET Kokkos::kokkoscontainers
-      PROPERTY INTERFACE_LINK_OPTIONS
-      ${linkopts})
-  endif()
+  #   get_property(
+  #     linkopts TARGET Kokkos::kokkoscontainers
+  #     PROPERTY INTERFACE_LINK_OPTIONS)
+  #   list(REMOVE_ITEM linkopts "-fopenmp")
+  #   set_property(
+  #     TARGET Kokkos::kokkoscontainers
+  #     PROPERTY INTERFACE_LINK_OPTIONS
+  #     ${linkopts})
+  # endif()
 endif()
 
 enable_language(CXX)
@@ -92,6 +92,11 @@ endif()
 set(MAX_STRING_SIZE ${hyperion_MAX_STRING_SIZE})
 set(MAX_NUM_TABLE_COLUMNS ${hyperion_MAX_NUM_TABLE_COLUMNS})
 
+# TODO: clean up the interaction between C++ standard and compiler. When using
+# Kokkos' "nvcc_wrapper" compiler, we can't normally use c++17 (since nvcc from
+# CUDA 10.2.89 doesn't know c++14, which is enforced by nvicc_wrapper), but the
+# wrapper can be "tricked" by also setting CXX_EXTENSIONS (provides gnu++17,
+# which nvcc_wrapper allows). This arrangement is fragile.
 set(CXX_STANDARD 17)
 
 set(HYPERION_USE_CASACORE ${hyperion_USE_CASACORE})
@@ -106,9 +111,9 @@ function(set_host_target_properties target)
   set_target_properties(${target} PROPERTIES
     CXX_STANDARD ${CXX_STANDARD}
     CXX_EXTENSIONS ON)
-  if(hyperion_USE_CUDA)
+  if(hyperion_USE_CUDA AND HOST_ONLY)
     target_compile_options(${target} PRIVATE ${HOST_ONLY})
-    target_link_options(hyperion PRIVATE "-cudart" "none")
+    #target_link_options(${target} PRIVATE "-cudart" "none")
   endif()
 endfunction()
 
