@@ -135,18 +135,18 @@ column_is_axis(
 template <size_t N>
 char *
 fstrcpy(char(& dest)[N], const std::string& src) {
-  auto n = std::min(N - 1, src.size());
+  auto n = std::min(N, src.size() + 1);
   std::strncpy(&dest[0], src.c_str(), n);
-  dest[n] = '\0';
+  dest[n - 1] = '\0';
   return &dest[0];
 }
 
 template <size_t N>
 char *
 fstrcpy(char(& dest)[N], const char* src) {
-  auto n = std::min(N - 1, std::strlen(src));
+  auto n = std::min(N, std::strlen(src) + 1);
   std::strncpy(&dest[0], src, n);
-  dest[n] = '\0';
+  dest[n - 1] = '\0';
   return &dest[0];
 }
 
