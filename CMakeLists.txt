@@ -63,25 +63,25 @@ if(USE_CUDA)
   list(APPEND KOKKOS_DEVICES CUDA)
 endif()
 
+macro(map_to_arch arch_map input_list output_list)
+  foreach(arch IN LISTS input_list)
+    list(FIND ${arch_map} ${arch} arch_index)
+    if(NOT arch_index EQUAL -1)
+      math(EXPR arch_index "${arch_index} + 1")
+      list(GET arch_map ${arch_index} arch_name)
+      list(APPEND output_list ${arch_name})
+    else()
+      message(WARNING "'${arch}' does not map to a known architecture")
+    endif()
+  endforeach()
+endmacro()
+
 if(USE_KOKKOS)
   find_package(Kokkos REQUIRED COMPONENTS ${KOKKOS_COMPONENTS})
   kokkos_check(DEVICES ${KOKKOS_DEVICES})
 
-  function(map_to_kokkos_arch arch_map input_list output_list)
-    foreach(arch IN LISTS input_list)
-      list(FIND ${arch_map} ${arch} arch_index)
-      if(NOT arch_index EQUAL -1)
-        math(EXPR arch_index "${arch_index} + 1")
-        list(GET arch_map ${arch_index} arch_name)
-        list(APPEND output_list ${arch_name})
-      else()
-        message(WARNING "'${arch}' does not map to a Kokkos host or device architecture")
-      endif()
-    endforeach()
-  endfunction()
-
-  if(BUILD_MARCH)
-    set(cpu_arch_map
+  if(NOT BUILD_ARCH STREQUAL "none")
+    set(kokkos_cpu_arch_map
       thunderx2 THUNDERX2
       zen ZEN
       zen2 ZEN2
@@ -94,7 +94,8 @@ if(USE_KOKKOS)
       power9le POWER9
       sandybridge SNB
       haswell HSW
-      mic_knl KNL
+      mic-knl KNL
+      knl KNL
       cannonlake SKX
       cascadelake SKX
       westmere WSM
@@ -102,14 +103,15 @@ if(USE_KOKKOS)
       broadwell BDW
       skylake SKX
       icelake SKX
+      skylake-avx512 SKX
       skylake_avx512 SKX)
 
-    map_to_kokkos_arch(cpu_arch_map BUILD_MARCH cpu_arch_name)
+    map_to_arch(kokkos_cpu_arch_map BUILD_ARCH cpu_arch_name)
     kokkos_check(ARCH ${cpu_arch_name})
   endif()
 
   if(USE_CUDA)
-    set(cuda_arch_map
+    set(kokkos_cuda_arch_map
       30 KEPLER30
       32 KEPLER32
       35 KEPLER35
@@ -123,7 +125,7 @@ if(USE_KOKKOS)
       72 VOLTA72
       75 TURING75)
     string(REPLACE "," ";" cuda_arch_list CUDA_ARCH)
-    map_to_kokkos_arch(cuda_arch_map cuda_arch_list cuda_arch_names)
+    map_to_arch(kokkos_cuda_arch_map cuda_arch_list cuda_arch_names)
     kokkos_check(ARCH ${cuda_arch_names})
   endif()
 endif()
