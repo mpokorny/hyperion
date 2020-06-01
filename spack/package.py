@@ -78,8 +78,8 @@ class Hyperion(CMakePackage):
     for arch in ('30','32','35','50','52','53','60','61','62','70','72','75'):
         depends_on(f'kokkos+openmp+cuda+cuda_lambda+cuda_relocatable_device_code cuda_arch={arch} +wrapper std=14 ~cuda_host_init_check',
                    when=f'+kokkos+openmp+cuda cuda_arch={arch}')
-        depends_on('kokkos+cuda+cuda_lambda+cuda_relocatable_device_code cuda_arch={arch} +wrapper std=14 ~cuda_host_init_check',
-                   when='+kokkos+cuda~openmp cuda_arch={arch}')
+        depends_on(f'kokkos+cuda+cuda_lambda+cuda_relocatable_device_code cuda_arch={arch} +wrapper std=14 ~cuda_host_init_check',
+                   when=f'+kokkos+cuda~openmp cuda_arch={arch}')
 
     # not sure how to make this a dependency only for running tests
     depends_on('python@3:', type='run')
