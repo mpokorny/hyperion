@@ -122,8 +122,7 @@ function(set_host_target_properties target)
 endfunction()
 
 add_library(hyperion SHARED)
-target_sources(hyperion
-  PRIVATE
+target_sources(hyperion PRIVATE
   hyperion_c.h
   # Grids_c.cc
   # Grids_c.h
