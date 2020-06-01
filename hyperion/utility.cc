@@ -285,8 +285,10 @@ hyperion::OpsManager::register_ops(Runtime* rt) {
     acc_field_serdez<DataType<HYPERION_TYPE_RECT3>::ValueType>>(
       serdez_id(ACC_FIELD_RECT3_SID));
 
+#ifdef HYPERION_USE_CASACORE
   Runtime::register_custom_serdez_op<coordinate_system_serdez>(
       serdez_id(CC_COORDINATE_SYSTEM_SID));
+#endif
 
   Runtime::register_reduction_op<bool_or_redop>(
     reduction_id(BOOL_OR_REDOP));
