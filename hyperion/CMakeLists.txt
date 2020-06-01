@@ -52,8 +52,6 @@ endif()
 
 set(CMAKE_BUILD_TYPE ${hyperion_CMAKE_BUILD_TYPE})
 
-set(SOVERSION 1)
-
 include(CheckCXXCompilerFlag)
 if(NOT USE_KOKKOS)
   if(NOT BUILD_ARCH STREQUAL "none")
@@ -84,8 +82,8 @@ endif()
 # hyperion library
 #------------------------------------------------------------------------------#
 
-#add_compile_options(-Wall -fvisibility=hidden $<$<CONFIG:Debug>:-g>)
-add_compile_options(-Wall $<$<CONFIG:Debug>:-g>)
+add_compile_options(-Wall -fvisibility=hidden $<$<CONFIG:Debug>:-g>)
+#add_compile_options(-Wall $<$<CONFIG:Debug>:-g>)
 add_compile_definitions($<$<CONFIG:Debug>:HYPERION_DEBUG>)
 
 check_cxx_compiler_flag("-Og" COMPILER_SUPORTS_DEBUG_OPTIMIZE)
@@ -196,6 +194,10 @@ if(hyperion_USE_HDF5)
     hdf5.cc)
 endif()
 
+set_target_properties(hyperion PROPERTIES
+  VERSION 0
+  SOVERSION 0.1.0)
+
 set_host_target_properties(hyperion)
 target_include_directories(hyperion PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
@@ -220,8 +222,6 @@ target_link_libraries(hyperion PUBLIC std::filesystem)
 target_link_libraries(hyperion PUBLIC LegionRuntime)
 target_link_libraries(hyperion PUBLIC RealmRuntime)
 
-set_target_properties(hyperion PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_target_properties(hyperion PROPERTIES SOVERSION ${SOVERSION})
 install(TARGETS hyperion EXPORT HyperionConfig
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
