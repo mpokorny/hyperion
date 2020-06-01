@@ -79,7 +79,8 @@ endif()
 # hyperion library
 #------------------------------------------------------------------------------#
 
-add_compile_options(-Wall -fvisibility=hidden $<$<CONFIG:Debug>:-g>)
+#add_compile_options(-Wall -fvisibility=hidden $<$<CONFIG:Debug>:-g>)
+add_compile_options(-Wall $<$<CONFIG:Debug>:-g>)
 add_compile_definitions($<$<CONFIG:Debug>:HYPERION_DEBUG>)
 
 check_cxx_compiler_flag("-Og" COMPILER_SUPORTS_DEBUG_OPTIMIZE)
