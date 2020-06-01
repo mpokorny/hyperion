@@ -21,18 +21,16 @@
 #include <hyperion/PhysicalColumn.h>
 #include <hyperion/MSTableColumns.h>
 
-#pragma GCC visibility push(default)
-# ifdef HYPERION_USE_CASACORE
-#  include <casacore/measures/Measures/MDirection.h>
-#  include <casacore/measures/Measures/MCDirection.h>
-#  include <casacore/measures/Measures/MEpoch.h>
-#  include <casacore/measures/Measures/MCEpoch.h>
-# endif // HYPERION_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
+# include <casacore/measures/Measures/MDirection.h>
+# include <casacore/measures/Measures/MCDirection.h>
+# include <casacore/measures/Measures/MEpoch.h>
+# include <casacore/measures/Measures/MCEpoch.h>
+#endif // HYPERION_USE_CASACORE
 
-# include <any>
-# include <unordered_map>
-# include <vector>
-#pragma GCC visibility pop
+#include <any>
+#include <unordered_map>
+#include <vector>
 
 namespace hyperion {
 

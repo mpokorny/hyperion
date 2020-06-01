@@ -19,25 +19,23 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 
-#pragma GCC visibility push(default)
-# include <memory>
-# include <optional>
-# include <tuple>
-# include <vector>
+#include <memory>
+#include <optional>
+#include <tuple>
+#include <vector>
 
-# include <casacore/tables/Tables.h>
-# include <casacore/measures/Measures.h>
-# include <casacore/measures/Measures/MBaseline.h>
-# include <casacore/measures/Measures/MDirection.h>
-# include <casacore/measures/Measures/MDoppler.h>
-# include <casacore/measures/Measures/MEarthMagnetic.h>
-# include <casacore/measures/Measures/MEpoch.h>
-# include <casacore/measures/Measures/MFrequency.h>
-# include <casacore/measures/Measures/MPosition.h>
-# include <casacore/measures/Measures/MRadialVelocity.h>
-# include <casacore/measures/Measures/Muvw.h>
-# include <casacore/measures/Measures/MeasureHolder.h>
-#pragma GCC visibility pop
+#include <casacore/tables/Tables.h>
+#include <casacore/measures/Measures.h>
+#include <casacore/measures/Measures/MBaseline.h>
+#include <casacore/measures/Measures/MDirection.h>
+#include <casacore/measures/Measures/MDoppler.h>
+#include <casacore/measures/Measures/MEarthMagnetic.h>
+#include <casacore/measures/Measures/MEpoch.h>
+#include <casacore/measures/Measures/MFrequency.h>
+#include <casacore/measures/Measures/MPosition.h>
+#include <casacore/measures/Measures/MRadialVelocity.h>
+#include <casacore/measures/Measures/Muvw.h>
+#include <casacore/measures/Measures/MeasureHolder.h>
 
 namespace hyperion {
 

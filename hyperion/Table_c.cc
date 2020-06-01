@@ -20,13 +20,11 @@
 # include <hyperion/hdf5.h>
 #endif
 
-#pragma GCC visibility push(default)
-# include <legion/legion_c_util.h>
+#include <legion/legion_c_util.h>
 
-# include <cstdlib>
-# include <cstring>
-# include <memory>
-#pragma GCC visibility pop
+#include <cstdlib>
+#include <cstring>
+#include <memory>
 
 using namespace hyperion;
 using namespace hyperion::CObjectWrapper;

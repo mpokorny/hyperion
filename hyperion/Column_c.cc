@@ -17,10 +17,8 @@
 #include <hyperion/Column_c.h>
 #include <hyperion/Column.h>
 
-#pragma GCC visibility push(default)
-# include <vector>
-# include <legion/legion_c_util.h>
-#pragma GCC visibility pop
+#include <vector>
+#include <legion/legion_c_util.h>
 
 using namespace hyperion;
 using namespace hyperion::CObjectWrapper;

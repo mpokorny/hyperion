@@ -19,15 +19,13 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 
-#pragma GCC visibility push(default)
-# include <algorithm>
-# include <any>
-# include <optional>
-# include <string>
-# include <tuple>
-# include <unordered_map>
-# include <vector>
-#pragma GCC visibility pop
+#include <algorithm>
+#include <any>
+#include <optional>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <vector>
 
 namespace hyperion {
 

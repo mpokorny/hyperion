@@ -19,10 +19,8 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 
-#pragma GCC visibility push(default)
-# include <mappers/default_mapper.h>
-# include <legion/legion_mapping.h>
-#pragma GCC visibility pop
+#include <mappers/default_mapper.h>
+#include <legion/legion_mapping.h>
 
 namespace hyperion {
 

@@ -23,16 +23,14 @@
 #include <hyperion/ColumnSpacePartition.h>
 #include <hyperion/TableField.h>
 
-#pragma GCC visibility push(default)
-# include <array>
-# include <limits>
-# include <map>
-# include <string>
-# include <type_traits>
-# include <unordered_map>
-# include <utility>
-# include <vector>
-#pragma GCC visibility pop
+#include <array>
+#include <limits>
+#include <map>
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace hyperion {
 

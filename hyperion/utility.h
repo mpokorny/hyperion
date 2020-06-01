@@ -20,39 +20,37 @@
 #include <hyperion/IndexTree.h>
 #include <hyperion/utility_c.h>
 
-#pragma GCC visibility push(default)
-# include <mappers/default_mapper.h>
+#include <mappers/default_mapper.h>
 
-# include <algorithm>
-# include <array>
-# include <atomic>
-# include <cassert>
-# include <complex>
-# include <cstring>
-# include <limits>
-# include <memory>
-# include <numeric>
-# include <optional>
-# include <set>
-# include <type_traits>
-# include <unordered_map>
-# include <unordered_set>
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <cassert>
+#include <complex>
+#include <cstring>
+#include <limits>
+#include <memory>
+#include <numeric>
+#include <optional>
+#include <set>
+#include <type_traits>
+#include <unordered_map>
+#include <unordered_set>
 
-# include CXX_FILESYSTEM_HEADER
+#include CXX_FILESYSTEM_HEADER
 
-# ifdef HYPERION_USE_HDF5
-#  include <hdf5.h>
-# endif
+#ifdef HYPERION_USE_HDF5
+# include <hdf5.h>
+#endif
 
-# ifdef HYPERION_USE_CASACORE
-#  include <casacore/casa/aipstype.h>
-#  include <casacore/casa/Arrays/IPosition.h>
-#  include <casacore/casa/BasicSL/String.h>
-#  include <casacore/casa/Containers/Record.h>
-#  include <casacore/casa/Utilities/DataType.h>
-#  include <casacore/coordinates/Coordinates/CoordinateSystem.h>
-# endif
-#pragma GCC visibility pop
+#ifdef HYPERION_USE_CASACORE
+# include <casacore/casa/aipstype.h>
+# include <casacore/casa/Arrays/IPosition.h>
+# include <casacore/casa/BasicSL/String.h>
+# include <casacore/casa/Containers/Record.h>
+# include <casacore/casa/Utilities/DataType.h>
+# include <casacore/coordinates/Coordinates/CoordinateSystem.h>
+#endif
 
 // The following reiterates a constant in Realm -- unfortunately there is no way
 // to either import or discover its value. Hopefully the impact is minor, as

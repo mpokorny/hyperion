@@ -21,10 +21,8 @@
 #include <hyperion/PhysicalColumn.h>
 #include <hyperion/MSTableColumns.h>
 
-#pragma GCC visibility push(default)
-# include <unordered_map>
-# include <vector>
-#pragma GCC visibility pop
+#include <unordered_map>
+#include <vector>
 
 namespace hyperion {
 

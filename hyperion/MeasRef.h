@@ -20,15 +20,13 @@
 #include <hyperion/utility.h>
 #include <hyperion/Measures.h>
 
-#pragma GCC visibility push(default)
-# include <array>
-# include <memory>
-# include <optional>
-# include <unordered_map>
-# include <vector>
+#include <array>
+#include <memory>
+#include <optional>
+#include <unordered_map>
+#include <vector>
 
-# include <casacore/measures/Measures.h>
-#pragma GCC visibility pop
+#include <casacore/measures/Measures.h>
 
 namespace hyperion {
 

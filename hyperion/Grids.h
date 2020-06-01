@@ -16,9 +16,7 @@
 #ifndef HYPERION_GRIDS_H_
 #define HYPERION_GRIDS_H_
 
-#pragma GCC visibility push(default)
-# include <tuple>
-#pragma GCC visibility pop
+#include <tuple>
 
 #include <hyperion/hyperion.h>
 

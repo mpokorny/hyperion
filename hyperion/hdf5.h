@@ -26,19 +26,17 @@
 # include <hyperion/MeasRef.h>
 #endif
 
-#pragma GCC visibility push(default)
-# include <cassert>
-# include <cstdint>
-# include <cstring>
-# include <exception>
-# include CXX_FILESYSTEM_HEADER
-# include <optional>
-# include <string>
-# include <unordered_set>
-# include <vector>
+#include <cassert>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include CXX_FILESYSTEM_HEADER
+#include <optional>
+#include <string>
+#include <unordered_set>
+#include <vector>
 
-# include <hdf5.h>
-#pragma GCC visibility pop
+#include <hdf5.h>
 
 namespace hyperion {
 

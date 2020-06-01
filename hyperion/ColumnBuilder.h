@@ -24,15 +24,13 @@
 #include <hyperion/MSTable.h>
 #include <hyperion/MeasRef.h>
 
-#pragma GCC visibility push(default)
-# include <any>
-# include <cassert>
-# include <functional>
-# include <memory>
-# include <numeric>
-# include <optional>
-# include <vector>
-#pragma GCC visibility pop
+#include <any>
+#include <cassert>
+#include <functional>
+#include <memory>
+#include <numeric>
+#include <optional>
+#include <vector>
 
 #include <casacore/casa/BasicSL/String.h>
 #include <casacore/casa/Containers/Record.h>

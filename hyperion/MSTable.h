@@ -20,15 +20,13 @@
 #include <hyperion/utility.h>
 #include <hyperion/MSTable_c.h>
 
-#pragma GCC visibility push(default)
-# include <memory>
-# include <string>
-# include <vector>
+#include <memory>
+#include <string>
+#include <vector>
 
-# ifdef HYPERION_USE_HDF5
-#  include <hdf5.h>
-# endif // HYPERION_USE_HDF5
-#pragma GCC visibility pop
+#ifdef HYPERION_USE_HDF5
+# include <hdf5.h>
+#endif // HYPERION_USE_HDF5
 
 namespace hyperion {
 

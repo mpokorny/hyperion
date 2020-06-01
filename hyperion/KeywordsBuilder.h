@@ -20,11 +20,9 @@
 #include <hyperion/utility.h>
 #include <hyperion/Keywords.h>
 
-#pragma GCC visibility push(default)
-# include <string>
-# include <tuple>
-# include <vector>
-#pragma GCC visibility pop
+#include <string>
+#include <tuple>
+#include <vector>
 
 namespace hyperion {
 

@@ -19,13 +19,11 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/testing/TestRecorder.h>
 
-#pragma GCC visibility push(default)
 #include <optional>
 #include <ostream>
 #include <sstream>
 #include <typeinfo>
 #include <type_traits>
-#pragma GCC visibility pop
 
 namespace hyperion{
 namespace testing {

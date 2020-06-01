@@ -23,20 +23,18 @@
 #endif
 #include <hyperion/Table.h>
 
-#pragma GCC visibility push(default)
-# ifdef HYPERION_USE_CASACORE
-#  include <casacore/measures/Measures/MeasRef.h>
-# endif
+#ifdef HYPERION_USE_CASACORE
+# include <casacore/measures/Measures/MeasRef.h>
+#endif
 
-# include <algorithm>
-# include <array>
-# include <cstring>
-# include <iterator>
-# include <optional>
-# include <unordered_map>
-# include <variant>
-# include <vector>
-#pragma GCC visibility pop
+#include <algorithm>
+#include <array>
+#include <cstring>
+#include <iterator>
+#include <optional>
+#include <unordered_map>
+#include <variant>
+#include <vector>
 
 namespace hyperion {
 

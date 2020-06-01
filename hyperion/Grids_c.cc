@@ -18,9 +18,7 @@
 
 #include <hyperion/hyperion_c.h>
 
-#pragma GCC visibility push(default)
-# include <legion/legion_c_util.h>
-#pragma GCC visibility pop
+#include <legion/legion_c_util.h>
 
 void
 block_and_halo_partitions_1d(

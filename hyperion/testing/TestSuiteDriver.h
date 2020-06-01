@@ -19,9 +19,7 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 
-#pragma GCC visibility push(default)
-# include <array>
-#pragma GCC visibility pop
+#include <array>
 
 #ifndef TEST_SUITE_DRIVER_LOG_LENGTH
 # define TEST_SUITE_DRIVER_LOG_LENGTH 100

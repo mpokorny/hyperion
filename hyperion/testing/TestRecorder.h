@@ -20,9 +20,7 @@
 #include <hyperion/testing/TestLog.h>
 #include <hyperion/testing/TestExpression.h>
 
-#pragma GCC visibility push(default)
-# include <exception>
-#pragma GCC visibility pop
+#include <exception>
 
 namespace hyperion {
 namespace testing {

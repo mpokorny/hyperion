@@ -21,16 +21,14 @@
 #include <hyperion/utility.h>
 #include <hyperion/Column.h>
 
-#pragma GCC visibility push(default)
-# include <array>
-# include <cstring>
-# include <memory>
-# include <new>
-# include <type_traits>
-# include <unordered_map>
+#include <array>
+#include <cstring>
+#include <memory>
+#include <new>
+#include <type_traits>
+#include <unordered_map>
 
-# include <casacore/tables/Tables.h>
-#pragma GCC visibility pop
+#include <casacore/tables/Tables.h>
 
 namespace hyperion {
 

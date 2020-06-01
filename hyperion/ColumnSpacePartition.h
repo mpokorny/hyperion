@@ -20,11 +20,9 @@
 #include <hyperion/utility.h>
 #include <hyperion/ColumnSpace.h>
 
-#pragma GCC visibility push(default)
-# include <array>
-# include <string>
-# include <vector>
-#pragma GCC visibility pop
+#include <array>
+#include <string>
+#include <vector>
 
 namespace hyperion {
 

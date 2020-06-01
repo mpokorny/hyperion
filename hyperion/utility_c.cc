@@ -16,9 +16,7 @@
 #include <hyperion/utility_c.h>
 #include <hyperion/utility.h>
 
-#pragma GCC visibility push(default)
-# include <legion/legion_c_util.h>
-#pragma GCC visibility pop
+#include <legion/legion_c_util.h>
 
 void
 preregister_all() {

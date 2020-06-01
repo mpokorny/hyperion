@@ -22,13 +22,11 @@
 #include <hyperion/ColumnSpace.h>
 #include <hyperion/PhysicalTable.h>
 
-#pragma GCC visibility push(default)
-# include <algorithm>
-# include <cstring>
-# include <numeric>
-# include <optional>
-# include <sstream>
-#pragma GCC visibility pop
+#include <algorithm>
+#include <cstring>
+#include <numeric>
+#include <optional>
+#include <sstream>
 
 using namespace hyperion::hdf5;
 using namespace hyperion;

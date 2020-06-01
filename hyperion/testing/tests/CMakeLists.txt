@@ -1,3 +1,13 @@
+set(LEGION_ARGS "")
+if(hyperion_USE_KOKKOS)
+  if(hyperion_USE_OPENMP)
+    list(APPEND LEGION_ARGS -ll:ocpu 1 -ll:onuma 0)
+  endif()
+  if(hyperion_USE_CUDA)
+    list(APPEND LEGION_ARGS -ll:gpu 1)
+  endif()
+endif()
+
 add_executable(utTestLog utTestLog.cc)
 set_host_target_properties(utTestLog)
 target_link_libraries(utTestLog hyperion_testing)
@@ -13,7 +23,7 @@ add_test(
   COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../TestRunner.py
           --compare-with ${CMAKE_CURRENT_BINARY_DIR}/utTestLog.expected
           --compare-by line
-          ./utTestLog)
+          ./utTestLog ${LEGION_ARGS})
 set_tests_properties(
   TestLogUnitTest PROPERTIES
   FIXTURES_REQUIRED TestLogExpected)
@@ -33,7 +43,7 @@ add_test(
   COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../TestRunner.py
           --compare-with ${CMAKE_CURRENT_BINARY_DIR}/utTestRecorder.expected
           --compare-by line
-          ./utTestRecorder)
+          ./utTestRecorder ${LEGION_ARGS})
 set_tests_properties(
   TestRecorderUnitTest PROPERTIES
   FIXTURES_REQUIRED TestRecorderExpected)

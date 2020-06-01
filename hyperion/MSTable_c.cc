@@ -17,13 +17,11 @@
 #include <hyperion/MSTable.h>
 #include <hyperion/c_util.h>
 
-#pragma GCC visibility push(default)
-# include <algorithm>
-# include <array>
-# include <cassert>
-# include <cstring>
-# include <mutex>
-#pragma GCC visibility pop
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cstring>
+#include <mutex>
 
 using namespace hyperion;
 

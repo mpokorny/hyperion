@@ -16,18 +16,16 @@
 #ifndef HYPERION_INDEX_TREE_H_
 #define HYPERION_INDEX_TREE_H_
 
-#pragma GCC visibility push(default)
-# include <algorithm>
-# include <limits>
-# include <numeric>
-# include <optional>
-# include <ostream>
-# include <sstream>
-# include <stdexcept>
-# include <string>
-# include <tuple>
-# include <vector>
-#pragma GCC visibility pop
+#include <algorithm>
+#include <limits>
+#include <numeric>
+#include <optional>
+#include <ostream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <tuple>
+#include <vector>
 
 namespace hyperion {
 

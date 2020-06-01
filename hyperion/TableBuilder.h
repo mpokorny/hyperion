@@ -28,19 +28,17 @@
 #include <hyperion/Measures.h>
 #include <hyperion/tree_index_space.h>
 
-#pragma GCC visibility push(default)
-# include <algorithm>
-# include <cassert>
-# include <functional>
-# include <memory>
-# include <unordered_map>
-# include <unordered_set>
-# include <vector>
+#include <algorithm>
+#include <cassert>
+#include <functional>
+#include <memory>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
-# include <casacore/casa/aipstype.h>
-# include <casacore/casa/BasicSL/String.h>
-# include <casacore/tables/Tables.h>
-#pragma GCC visibility pop
+#include <casacore/casa/aipstype.h>
+#include <casacore/casa/BasicSL/String.h>
+#include <casacore/tables/Tables.h>
 
 namespace hyperion {
 

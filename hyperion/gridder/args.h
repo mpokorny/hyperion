@@ -17,14 +17,12 @@
 
 #include <hyperion/gridder/gridder.h>
 
-#pragma GCC visibility push(default)
-# include CXX_FILESYSTEM_HEADER
-# include <optional>
-# include <string>
-# include <vector>
+#include CXX_FILESYSTEM_HEADER
+#include <optional>
+#include <string>
+#include <vector>
 
-# include <yaml-cpp/yaml.h>
-#pragma GCC visibility pop
+#include <yaml-cpp/yaml.h>
 
 namespace hyperion {
 namespace gridder {

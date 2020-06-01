@@ -22,10 +22,8 @@
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
 #endif
-#pragma GCC visibility push(default)
-# include <optional>
-# include <vector>
-#pragma GCC visibility pop
+#include <optional>
+#include <vector>
 
 namespace hyperion {
 

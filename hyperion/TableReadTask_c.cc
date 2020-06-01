@@ -17,9 +17,7 @@
 #include <hyperion/TableReadTask.h>
 #include <hyperion/c_util.h>
 
-#pragma GCC visibility push(default)
-# include <legion/legion_c_util.h>
-#pragma GCC visibility pop
+#include <legion/legion_c_util.h>
 
 using namespace hyperion;
 

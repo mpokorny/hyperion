@@ -23,14 +23,12 @@
 # include <hyperion/MeasRef.h>
 #endif // HYPERION_USE_CASACORE
 
-#pragma GCC visibility push(default)
-# include <any>
-# include <memory>
-# include <optional>
-# include <unordered_map>
-# include <variant>
-# include <vector>
-#pragma GCC visibility pop
+#include <any>
+#include <memory>
+#include <optional>
+#include <unordered_map>
+#include <variant>
+#include <vector>
 
 namespace hyperion {
 

@@ -20,9 +20,7 @@
 #include <hyperion/utility.h>
 #include <hyperion/Table.h>
 
-#pragma GCC visibility push(default)
-# include <vector>
-#pragma GCC visibility pop
+#include <vector>
 
 namespace hyperion {
 

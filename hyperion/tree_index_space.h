@@ -20,12 +20,10 @@
 #include <hyperion/utility.h>
 #include <hyperion/IndexTree.h>
 
-#pragma GCC visibility push(default)
-# include <algorithm>
-# include <limits>
-# include <ostream>
-# include <vector>
-#pragma GCC visibility pop
+#include <algorithm>
+#include <limits>
+#include <ostream>
+#include <vector>
 
 namespace hyperion {
 

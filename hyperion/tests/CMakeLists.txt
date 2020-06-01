@@ -1,3 +1,13 @@
+set(LEGION_ARGS "")
+if(hyperion_USE_KOKKOS)
+  if(hyperion_USE_OPENMP)
+    list(APPEND LEGION_ARGS -ll:ocpu 1 -ll:onuma 0)
+  endif()
+  if(hyperion_USE_CUDA)
+    list(APPEND LEGION_ARGS -ll:gpu 1)
+  endif()
+endif()
+
 # add_executable(utIndexColumnTask utIndexColumnTask.cc)
 # set_target_properties(utIndexColumnTask PROPERTIES
 #   CXX_STANDARD ${CXX_STANDARD}
@@ -13,7 +23,7 @@ target_link_libraries(utReindexed hyperion hyperion_testing)
 add_test(
   NAME ReindexedUnitTest
   COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-  ./utReindexed)
+          ./utReindexed ${LEGION_ARGS})
 
 add_executable(utTable utTable.cc)
 set_host_target_properties(utTable)
@@ -21,7 +31,7 @@ target_link_libraries(utTable hyperion hyperion_testing)
 add_test(
   NAME TableUnitTest
   COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-          ./utTable)
+          ./utTable ${LEGION_ARGS})
 
 add_executable(utPartition utPartition.cc)
 set_host_target_properties(utPartition)
@@ -29,7 +39,7 @@ target_link_libraries(utPartition hyperion hyperion_testing)
 add_test(
   NAME PartitionUnitTest
   COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-  ./utPartition)
+          ./utPartition ${LEGION_ARGS})
 
 add_executable(utMapper utMapper.cc)
 set_host_target_properties(utMapper)
@@ -37,7 +47,7 @@ target_link_libraries(utMapper hyperion hyperion_testing)
 add_test(
   NAME DefaultMapperUnitTest
   COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-  ./utMapper)
+          ./utMapper ${LEGION_ARGS})
 
 if (USE_HDF5)
   add_executable(utHdf5 utHdf5.cc)
@@ -46,7 +56,7 @@ if (USE_HDF5)
   add_test(
     NAME Hdf5UnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-            ./utHdf5)
+            ./utHdf5 ${LEGION_ARGS})
 endif()
 
 if (USE_CASACORE)
@@ -56,7 +66,7 @@ if (USE_CASACORE)
   add_test(
     NAME MSUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-    ./utMS -ll:io 1)
+            ./utMS -ll:io 1 ${LEGION_ARGS})
   set_tests_properties(
     MSUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)
@@ -67,7 +77,7 @@ if (USE_CASACORE)
   add_test(
     NAME MeasRefUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-            ./utMeasRef)
+            ./utMeasRef ${LEGION_ARGS})
 
   add_executable(utMSAntennaTable utMSAntennaTable.cc)
   set_host_target_properties(utMSAntennaTable)
@@ -75,7 +85,7 @@ if (USE_CASACORE)
   add_test(
     NAME MSAntennaTableUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-    ./utMSAntennaTable -ll:io 1)
+            ./utMSAntennaTable -ll:io 1 ${LEGION_ARGS})
   set_tests_properties(
     MSAntennaTableUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)
@@ -86,7 +96,7 @@ if (USE_CASACORE)
   add_test(
     NAME MSSpWindowTableUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-    ./utMSSpWindowTable -ll:io 1)
+            ./utMSSpWindowTable -ll:io 1 ${LEGION_ARGS})
   set_tests_properties(
     MSSpWindowTableUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)
@@ -97,7 +107,7 @@ if (USE_CASACORE)
   add_test(
     NAME MSFieldTableUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-    ./utMSFieldTable -ll:io 1)
+            ./utMSFieldTable -ll:io 1 ${LEGION_ARGS})
   set_tests_properties(
     MSFieldTableUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)
@@ -108,7 +118,7 @@ if (USE_CASACORE)
   add_test(
     NAME MSDataDescriptionTableUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-    ./utMSDataDescriptionTable -ll:io 1)
+            ./utMSDataDescriptionTable -ll:io 1 ${LEGION_ARGS})
   set_tests_properties(
     MSDataDescriptionTableUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)
@@ -119,7 +129,7 @@ if (USE_CASACORE)
   add_test(
     NAME MSMainTableUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-    ./utMSMainTable -ll:io 1)
+            ./utMSMainTable -ll:io 1 ${LEGION_ARGS})
   set_tests_properties(
     MSMainTableUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)
@@ -130,7 +140,7 @@ if (USE_CASACORE)
   add_test(
     NAME MSFeedTableUnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
-    ./utMSFeedTable -ll:io 1)
+            ./utMSFeedTable -ll:io 1 ${LEGION_ARGS})
   set_tests_properties(
     MSFeedTableUnitTest PROPERTIES
     FIXTURES_REQUIRED T0MS)

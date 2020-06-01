@@ -20,13 +20,11 @@
 #include <hyperion/PhysicalColumn.h>
 #include <hyperion/Table.h>
 
-#pragma GCC visibility push(default)
-# include <memory>
-# include <optional>
-# include <string>
-# include <unordered_map>
-# include <vector>
-#pragma GCC visibility pop
+#include <memory>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace hyperion {
 

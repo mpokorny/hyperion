@@ -19,9 +19,7 @@
 #include <hyperion/synthesis/CFTableBase.h>
 #include <hyperion/synthesis/CFPhysicalTable.h>
 
-#pragma GCC visibility push(default)
-# include <memory>
-#pragma GCC visibility pop
+#include <memory>
 
 namespace hyperion {
 namespace synthesis {

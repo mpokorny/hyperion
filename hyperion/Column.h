@@ -20,15 +20,13 @@
 #include <hyperion/utility.h>
 #include <hyperion/Keywords.h>
 #include <hyperion/TableMapper.h>
+
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
-# pragma GCC visibility push(default)
-#  include <optional>
-# pragma GCC visibility pop
+# include <optional>
 #endif
-#pragma GCC visibility push(default)
-# include <string>
-#pragma GCC visibility pop
+#include <string>
+
 #include <hyperion/ColumnSpace.h>
 
 namespace hyperion {
@@ -39,7 +37,7 @@ namespace hyperion {
  *  Maintains metadata about the column, including keywords, measures and
  *  Legion::LogicalRegion name.
  */
-struct /*HYPERION_API*/ Column {
+struct HYPERION_API Column {
 
   /**
    * Create an empty Column

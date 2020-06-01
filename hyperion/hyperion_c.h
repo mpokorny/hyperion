@@ -16,9 +16,7 @@
 #ifndef HYPERION_HYPERION_C_H_
 #define HYPERION_HYPERION_C_H_
 
-#pragma GCC visibility push(default)
 #include <legion/legion_c.h>
-#pragma GCC visibility pop
 
 #include <hyperion/hyperion_config.h>
 

@@ -19,10 +19,8 @@
 #include <hyperion/hyperion_c.h>
 
 #ifdef __cplusplus
-#pragma GCC visibility push(default)
-# include <memory>
-# include <legion/legion_c_util.h>
-#pragma GCC visibility pop
+#include <memory>
+#include <legion/legion_c_util.h>
 
 namespace hyperion {
 namespace CObjectWrapper {

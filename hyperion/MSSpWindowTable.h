@@ -21,16 +21,14 @@
 #include <hyperion/PhysicalColumn.h>
 #include <hyperion/MSTableColumns.h>
 
-#pragma GCC visibility push(default)
-# ifdef HYPERION_USE_CASACORE
-#  include <casacore/measures/Measures/MFrequency.h>
-#  include <casacore/measures/Measures/MCFrequency.h>
-# endif // HYPERION_USE_CASACORE
+#ifdef HYPERION_USE_CASACORE
+# include <casacore/measures/Measures/MFrequency.h>
+# include <casacore/measures/Measures/MCFrequency.h>
+#endif // HYPERION_USE_CASACORE
 
-# include <any>
-# include <unordered_map>
-# include <vector>
-#pragma GCC visibility pop
+#include <any>
+#include <unordered_map>
+#include <vector>
 
 namespace hyperion {
 
