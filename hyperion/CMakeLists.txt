@@ -37,9 +37,14 @@ option(hyperion_USE_HDF5 "Use HDF5 in hyperion" ${USE_HDF5})
 option(hyperion_USE_CUDA "Use CUDA in hyperion" ${USE_CUDA})
 option(hyperion_USE_OPENMP "Use OpenMP in hyperion" ${USE_OPENMP})
 option(hyperion_USE_KOKKOS "Use Kokkos in hyperion" ${USE_KOKKOS})
+option(hyperion_USE_YAML "Use YAML in hyperion" ON)
 
 set(hyperion_MAX_STRING_SIZE 64 CACHE STRING "Maximum string size")
 set(hyperion_MAX_NUM_TABLE_COLUMNS 100 CACHE STRING "Maximum number of table columns (> 50)")
+
+if(hyperion_USE_YAML)
+  find_package(yaml-cpp REQUIRED)
+endif()
 
 # if(hyperion_USE_CUDA)
 #   enable_language(CUDA)
