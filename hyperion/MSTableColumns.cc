@@ -25,6 +25,21 @@ using namespace hyperion;
 
 HYPERION_FOREACH_MS_TABLE(DEFS);
 
+#if __cplusplus < 201703L
+
+#define COLCONST(T)                                                     \
+  const constexpr std::array<const char*, MSTableDefs<MS_##T>::num_cols> \
+  MSTableColumns<MS_##T>::column_names;                                 \
+  const std::unordered_map<typename MSTableColumns<MS_##T>::col_t, const char*> \
+  MSTableColumns<MS_##T>::units =                                       \
+                  MSTableDefs<MS_##T>::units;                           \
+  const std::map<typename MSTableColumns<MS_##T>::col_t, const char*>   \
+  MSTableColumns<MS_##T>::measure_names =                               \
+                  MSTableDefs<MS_##T>::measure_names;
+
+HYPERION_FOREACH_MS_TABLE(COLCONST);
+#endif
+
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2

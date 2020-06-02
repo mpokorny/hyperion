@@ -27,7 +27,11 @@ enum {
   MEAS_REF_TEST_SUITE,
 };
 
+#if __cplusplus >= 201703L
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
+#else
+#define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
+#endif
 
 void
 meas_ref_test_suite(
@@ -58,7 +62,7 @@ meas_ref_test_suite(
       TE(mr_tai.mclass(ctx, rt) == M_EPOCH));
     recorder.expect_false(
       "Readback of MEpoch::Ref region cannot be instantiated as another class",
-      testing::TestEval(
+      testing::TestEval<std::function<bool()>>(
         [&mr_tai, &ctx, rt](){
           auto ref = std::get<0>(mr_tai.make<casacore::MDirection>(ctx, rt));
           return ref.size() == 1;
@@ -78,7 +82,7 @@ meas_ref_test_suite(
       TE(ref[0]->offset() == nullptr));
     recorder.expect_true(
       "Instance of MEpoch::Ref region has expected frame",
-      testing::TestEval(
+      testing::TestEval<std::function<bool()>>(
         [&ref](){
           auto frame = ref[0]->getFrame();
           return
@@ -111,7 +115,7 @@ meas_ref_test_suite(
     auto ref = std::get<0>(mr_1950.make<casacore::MEpoch>(ctx, rt));
     recorder.expect_true(
       "Instance of MEpoch::Ref with offset region has same MEpoch value as original",
-      testing::TestEval(
+      testing::TestEval<std::function<bool()>>(
         [&v20_50, &ref]() {
           auto ep = casacore::MEpoch(v20_50, *ref[0]);
           return ep.getValue() == v20_50;

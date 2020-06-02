@@ -40,7 +40,11 @@ enum {
   VERIFY_ANTENNA_TABLE_TASK
 };
 
+#if __cplusplus >= 201703L
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
+#else
+#define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
+#endif
 
 struct VerifyTableArgs {
   char table_path[1024];
@@ -65,7 +69,7 @@ verify_antenna_table(
 
   const VerifyTableArgs *args = static_cast<const VerifyTableArgs*>(task->args);
 
-  auto [pt, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       args->desc,
@@ -74,6 +78,13 @@ verify_antenna_table(
       regions.begin() + 2,
       regions.end())
     .value();
+#if __cplusplus >= 201703L
+  auto& [pt, rit, pit] = ptcr;
+#else // !c++17
+  auto& pt = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -109,7 +120,7 @@ verify_antenna_table(
     TE(table.has_position_meas()));
   recorder.expect_true(
     "Table POSITION measures are correct",
-    testing::TestEval(
+    testing::TestEval<std::function<bool()>>(
       [&]() {
         auto col = ms_antenna.positionMeas();
         auto position_col = table.position_meas<AffineAccessor>();
@@ -119,7 +130,7 @@ verify_antenna_table(
             MSAntennaTable::C::units.at(
               MSAntennaTable::C::col_t::MS_ANTENNA_COL_POSITION));
         bool result = true;
-        std::optional<coord_t> prev_row;
+        CXX_OPTIONAL_NAMESPACE::optional<coord_t> prev_row;
         for (PointInRectIterator<2> pir(position_col.rect(), false);
              result && pir();
              pir++) {
@@ -141,7 +152,7 @@ verify_antenna_table(
     TE(table.has_offset_meas()));
   recorder.expect_true(
     "Table OFFSET measures are correct",
-    testing::TestEval(
+    testing::TestEval<std::function<bool()>>(
       [&]() {
         auto col = ms_antenna.offsetMeas();
         auto offset_col = table.offset_meas<AffineAccessor>();
@@ -151,7 +162,7 @@ verify_antenna_table(
             MSAntennaTable::C::units.at(
               MSAntennaTable::C::col_t::MS_ANTENNA_COL_OFFSET));
         bool result = true;
-        std::optional<coord_t> prev_row;
+        CXX_OPTIONAL_NAMESPACE::optional<coord_t> prev_row;
           for (PointInRectIterator<2> pir(offset_col.rect(), false);
                result && pir();
                pir++) {
@@ -194,27 +205,38 @@ ms_test(
   const CXX_FILESYSTEM_NAMESPACE::path tpath = "data/t0.ms/ANTENNA";
 
   // create the table
-  auto [nm, index_cs, fields] = from_ms(ctx, rt, tpath, {"*"});
-  auto table = Table::create(ctx, rt, index_cs, std::move(fields));
+  auto nm_ics_fields = from_ms(ctx, rt, tpath, {"*"});
+  auto table =
+    Table::create(
+      ctx,
+      rt,
+      std::get<1>(nm_ics_fields),
+      std::move(std::get<2>(nm_ics_fields)));
 
   // read values from MS
   {
-    auto [reqs, parts, desc] =
+    auto reqs =
       TableReadTask::requirements(
         ctx,
         rt,
         table,
         ColumnSpacePartition(),
         WRITE_ONLY);
+#if __cplusplus >= 201703L
+    auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+    auto& treqs = std::get<0>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif // c++17
     TableReadTask::Args args;
     fstrcpy(args.table_path, tpath);
-    args.table_desc = desc;
+    args.table_desc = tdesc;
     TaskLauncher read(
       TableReadTask::TASK_ID,
       TaskArgument(&args, sizeof(args)),
       Predicate::TRUE_PRED,
       table_mapper);
-    for (auto& rq : reqs)
+    for (auto& rq : treqs)
       read.add_region_requirement(rq);
     rt->execute_task(ctx, read);
   }
@@ -223,8 +245,14 @@ ms_test(
   {
     VerifyTableArgs args;
     fstrcpy(args.table_path, tpath);
-    auto [reqs, parts, desc] = table.requirements(ctx, rt);
-    args.desc = desc;
+    auto reqs = table.requirements(ctx, rt);
+#if __cplusplus >= 201703L
+    auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+    auto& treqs = std::get<0>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif // c++17
+    args.desc = tdesc;
     TaskLauncher verify(
       VERIFY_ANTENNA_TABLE_TASK,
       TaskArgument(&args, sizeof(args)),
@@ -232,7 +260,7 @@ ms_test(
       table_mapper);
     verify.add_region_requirement(task->regions[0]);
     verify.add_region_requirement(task->regions[1]);
-    for (auto& rq : reqs)
+    for (auto& rq : treqs)
       verify.add_region_requirement(rq);
     rt->execute_task(ctx, verify);
   }

@@ -22,7 +22,7 @@
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
 #endif
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <vector>
 
 namespace hyperion {
@@ -37,7 +37,8 @@ struct HYPERION_API TableField {
     const Keywords& kw_ = Keywords()
 #ifdef HYPERION_USE_CASACORE
     , const MeasRef& mr_ = MeasRef()
-    , const std::optional<hyperion::string>& rc_ = std::nullopt
+    , const CXX_OPTIONAL_NAMESPACE::optional<hyperion::string>& rc_ =
+      CXX_OPTIONAL_NAMESPACE::nullopt
 #endif
     )
   : dt(dt_)
@@ -60,7 +61,7 @@ struct HYPERION_API TableField {
   Keywords kw;
 #ifdef HYPERION_USE_CASACORE
   MeasRef mr;
-  std::optional<hyperion::string> rc;
+  CXX_OPTIONAL_NAMESPACE::optional<hyperion::string> rc;
 #endif
 };
 

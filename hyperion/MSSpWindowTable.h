@@ -41,9 +41,12 @@ public:
   MSSpWindowTable(const PhysicalTable& pt)
     : PhysicalTable(pt) {
     assert(
-      pt.axes_uid() == Axes<typename MSTable<MS_SPECTRAL_WINDOW>::Axes>::uid);
+      pt.axes_uid()
+      && (pt.axes_uid().value()
+          == Axes<typename MSTable<MS_SPECTRAL_WINDOW>::Axes>::uid));
     assert(
-      pt.index_axes() == std::vector{static_cast<int>(SPECTRAL_WINDOW_ROW)});
+      pt.index_axes()
+      == std::vector<int>{static_cast<int>(SPECTRAL_WINDOW_ROW)});
   }
 
   static const constexpr unsigned row_rank = 1;

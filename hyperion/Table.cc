@@ -34,8 +34,8 @@ to_columns_array(const std::unordered_map<std::string, Column>& cols) {
   std::array<std::tuple<hyperion::string, Column>, N> result;
   assert(cols.size() < N);
   size_t i = 0;
-  for (auto& [nm, col] : cols)
-    result[i++] = {nm, col};
+  for (auto& nm_col : cols)
+    result[i++] = nm_col;
   if (i < N)
     std::get<0>(result[i]) = "";
   return result;
@@ -48,7 +48,12 @@ from_columns_array(
 
   std::unordered_map<std::string, Column> result;
   for (size_t i = 0; i < N && std::get<0>(ary[i]).size() > 0; ++i) {
+#if __cplusplus >= 201703L
     auto& [nm, col] = ary[i];
+#else // !c++17
+    auto& nm = std::get<0>(ary[i]);
+    auto& col = std::get<1>(ary[i]);
+#endif // c++17
     result[nm] = col;
   }
   return result;
@@ -58,7 +63,12 @@ size_t
 Table::add_columns_result_t::legion_buffer_size(void) const {
   size_t result = sizeof(unsigned);
   for (size_t i = 0; i < cols.size(); ++i) {
+#if __cplusplus >= 201703L
     auto& [nm, col] = cols[i];
+#else // !c++17
+    auto& nm = std::get<0>(cols[i]);
+    auto& col = std::get<1>(cols[i]);
+#endif // c++17
     result += (nm.size() + 1) * sizeof(char) + sizeof(col);
   }
   return result;
@@ -70,7 +80,12 @@ Table::add_columns_result_t::legion_serialize(void* buffer) const {
   *reinterpret_cast<unsigned*>(b) = (unsigned)cols.size();
   b += sizeof(unsigned);
   for (size_t i = 0; i < cols.size(); ++i) {
+#if __cplusplus >= 201703L
     auto& [nm, col] = cols[i];
+#else // !c++17
+    auto& nm = std::get<0>(cols[i]);
+    auto& col = std::get<1>(cols[i]);
+#endif // c++17
     std::strcpy(b, nm.c_str());
     b += (nm.size() + 1) * sizeof(char);
     *reinterpret_cast<Column*>(b) = col;
@@ -86,7 +101,12 @@ Table::add_columns_result_t::legion_deserialize(const void* buffer) {
   b += sizeof(n);
   cols.resize(n);
   for (size_t i = 0; i < n; ++i) {
+#if __cplusplus >= 201703L
     auto& [nm, col] = cols[i];
+#else // !c++17
+    auto& nm = std::get<0>(cols[i]);
+    auto& col = std::get<1>(cols[i]);
+#endif // c++17
     nm = std::string(b);
     b += (nm.size() + 1) * sizeof(char);
     col = *reinterpret_cast<const Column*>(b);
@@ -148,34 +168,48 @@ Table::attach_columns(
     column_modes) const {
 
   std::unordered_set<std::string> colnames;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [nm, pth] : column_paths) {
-#pragma GCC diagnostic pop
+  for (auto& nm_pth : column_paths) {
+    auto& nm = std::get<0>(nm_pth);
     if (column_modes.count(nm) > 0)
       colnames.insert(nm);
   }
 
-  std::map<std::string, std::optional<Column::Requirements>> omitted;
-  for (auto& [nm, col] : m_columns)
+  std::map<std::string, CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>>
+    omitted;
+  for (auto& nm_col : m_columns) {
+    auto& nm = std::get<0>(nm_col);
     if (colnames.count(nm) == 0)
-      omitted[nm] = std::nullopt;
+      omitted[nm] = CXX_OPTIONAL_NAMESPACE::nullopt;
+  }
+#if __cplusplus >= 201703L
   auto [table_reqs, table_parts, table_desc] =
     requirements(ctx, rt, ColumnSpacePartition(), omitted);
+#else // !c++17
+  auto reqs = requirements(ctx, rt, ColumnSpacePartition(), omitted);
+  auto& table_reqs = std::get<0>(reqs);
+  auto& table_parts = std::get<1>(reqs);
+#endif // c++17
   PhysicalRegion index_col_md = rt->map_region(ctx, table_reqs[0]);
   unsigned idx_rank = ColumnSpace::size(ColumnSpace::axes(index_col_md));
   std::tuple<LogicalRegion, PhysicalRegion> index_col =
     {table_reqs[1].region, rt->map_region(ctx, table_reqs[1])};
 
   std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> pcols;
-  for (auto& [nm, col] : m_columns) {
-    std::optional<PhysicalRegion> metadata;
+  for (auto& nm_col : m_columns) {
+#if __cplusplus >= 201703L
+    auto& [nm, col] = nm_col;
+#else // !c++17
+    auto& nm = std::get<0>(nm_col);
+    auto& col = std::get<1>(nm_col);
+#endif // c++17
+    CXX_OPTIONAL_NAMESPACE::optional<PhysicalRegion> metadata;
     if (colnames.count(nm) > 0) {
       if (!metadata) {
         auto req = col.cs.requirements(READ_ONLY, EXCLUSIVE);
         metadata = rt->map_region(ctx, req);
       }
-      std::optional<Keywords::pair<Legion::PhysicalRegion>> kws;
+      CXX_OPTIONAL_NAMESPACE::optional<Keywords::pair<Legion::PhysicalRegion>>
+        kws;
       if (!col.kw.is_empty()) {
         auto nkw = col.kw.size(rt);
         std::vector<FieldID> fids(nkw);
@@ -187,14 +221,14 @@ Table::attach_columns(
         kws = kwprs;
       }
 #ifdef HYPERION_USE_CASACORE
-      std::optional<MeasRef::DataRegions> mr_drs;
+      CXX_OPTIONAL_NAMESPACE::optional<MeasRef::DataRegions> mr_drs;
       if (!col.mr.is_empty()) {
-        auto [mrq, vrq, oirq] = col.mr.requirements(READ_ONLY, true);
+        auto rqs = col.mr.requirements(READ_ONLY, true);
         MeasRef::DataRegions prs;
-        prs.metadata = rt->map_region(ctx, mrq);
-        prs.values = rt->map_region(ctx, vrq);
-        if (oirq)
-          prs.index = rt->map_region(ctx, oirq.value());
+        prs.metadata = rt->map_region(ctx, std::get<0>(rqs));
+        prs.values = rt->map_region(ctx, std::get<1>(rqs));
+        if (std::get<2>(rqs))
+          prs.index = rt->map_region(ctx, std::get<2>(rqs).value());
         mr_drs = prs;
       }
 #endif
@@ -207,7 +241,7 @@ Table::attach_columns(
           metadata.value(),
           col.region,
           col.region,
-          std::nullopt,
+          CXX_OPTIONAL_NAMESPACE::nullopt,
           kws
 #ifdef HYPERION_USE_CASACORE
           , mr_drs
@@ -226,10 +260,8 @@ Table::attach_columns(
 #ifdef HYPERION_USE_CASACORE
   // Add pointers to reference columns. This should fail if the reference
   // column was left out of the arguments. FIXME!
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [nm, pc] : pcols) {
-#pragma GCC diagnostic pop
+  for (auto& nm_pc : pcols) {
+    auto& pc = std::get<1>(nm_pc);
     if (pc->refcol()) {
       auto& rcnm = std::get<0>(pc->refcol().value());
       pc->set_refcol(rcnm, pcols.at(rcnm));
@@ -252,30 +284,32 @@ Table::create(
   fields_t&& fields) {
 
   size_t num_cols = 0;
-  for (auto& [cs, tfs] : fields) {
+  for (auto& cs_tfs : fields) {
+#if __cplusplus >= 201703L
+    auto& [cs, tfs] = cs_tfs;
+#else // !c++17
+    auto& cs = std::get<0>(cs_tfs);
+    auto& tfs = std::get<1>(cs_tfs);
+#endif // c++17
     assert(!cs.is_empty());
     assert(cs.is_valid());
     num_cols += tfs.size();
   }
   {
     std::unordered_set<std::string> cnames;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-    for (auto& [cs, nm_tfs] : fields)
-      for (auto& [nm, tf] : nm_tfs)
-#pragma GCC diagnostic pop
-        cnames.insert(nm);
+    for (auto& cs_nm_tfs : fields)
+      for (auto& nm_tf : std::get<1>(cs_nm_tfs))
+        cnames.insert(std::get<0>(nm_tf));
     assert(cnames.count("") == 0);
     assert(cnames.size() == num_cols);
   }
 
   std::vector<PhysicalRegion> cs_md_prs;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [cs, tfs] : fields) {
-#pragma GCC diagnostic pop
+  for (auto& cs_tfs : fields) {
     cs_md_prs.push_back(
-      rt->map_region(ctx, cs.requirements(READ_ONLY, EXCLUSIVE)));
+      rt->map_region(
+        ctx,
+        std::get<0>(cs_tfs).requirements(READ_ONLY, EXCLUSIVE)));
   }
 
   // Create the table index column
@@ -299,10 +333,15 @@ Table::create(
         std::vector<std::pair<hyperion::string, TableField>>>>
       hcols;
     for (size_t i = 0; i < fields.size(); ++i) {
+#if __cplusplus >= 201703L
       auto& [cs, nm_tfs] = fields[i];
+#else // !c++17
+      auto& cs = std::get<0>(fields[i]);
+      auto& nm_tfs = std::get<1>(fields[i]);
+#endif // c++17
       std::vector<std::pair<hyperion::string, TableField>> htfs;
-      for (auto& [nm, tf]: nm_tfs)
-        htfs.emplace_back(nm, tf);
+      for (auto& nm_tf: nm_tfs)
+        htfs.emplace_back(std::get<0>(nm_tf), std::get<1>(nm_tf));
       hcols.emplace_back(cs, i, htfs);
     }
 
@@ -374,9 +413,11 @@ Table::requirements(
   Context ctx,
   Runtime* rt,
   const ColumnSpacePartition& table_partition,
-  const std::map<std::string, std::optional<Column::Requirements>>&
+  const std::map<
+    std::string,
+    CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>>&
     column_requirements,
-  const std::optional<Column::Requirements>&
+  const CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>&
     default_column_requirements) const {
 
   return
@@ -395,10 +436,10 @@ Table::requirements(
 std::tuple<std::vector<Legion::RegionRequirement>, Table::Desc>
 Table::requirements() const {
 
-  auto [reqs, parts, desc] =
+  auto reqs =
     Table::requirements(
-      std::nullopt,
-      std::nullopt,
+      CXX_OPTIONAL_NAMESPACE::nullopt,
+      CXX_OPTIONAL_NAMESPACE::nullopt,
       m_index_col_cs,
       m_index_col_region,
       m_index_col_parent,
@@ -406,7 +447,13 @@ Table::requirements() const {
       ColumnSpacePartition(),
       {},
       Column::default_requirements);
-  return {reqs, desc};
+#if __cplusplus >= 201703L
+  auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+  auto& treqs = std::get<0>(reqs);
+  auto& tdesc = std::get<2>(reqs);
+#endif // c++17
+  return {treqs, tdesc};
 }
 
 std::tuple<
@@ -414,19 +461,21 @@ std::tuple<
   std::vector<LogicalPartition>,
   Table::Desc>
 Table::requirements(
-  std::optional<Context> ctx,
-  std::optional<Runtime*> rt,
+  CXX_OPTIONAL_NAMESPACE::optional<Context> ctx,
+  CXX_OPTIONAL_NAMESPACE::optional<Runtime*> rt,
   const ColumnSpace& index_col_cs,
   const LogicalRegion& index_col_region,
   const LogicalRegion& index_col_parent,
   const std::unordered_map<std::string, Column>& columns,
   const ColumnSpacePartition& table_partition,
-  const std::map<std::string, std::optional<Column::Requirements>>&
+  const std::map<
+    std::string,
+    CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>>&
     column_requirements,
-  const std::optional<Column::Requirements>&
+  const CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>&
     default_column_requirements) {
 
-  assert(!table_partition.is_valid() || (ctx.has_value() && rt.has_value()));
+  assert(!table_partition.is_valid() || (ctx && rt));
 
   // collect requirement parameters for each column
   std::map<std::string, Column::Requirements> column_reqs;
@@ -435,7 +484,13 @@ Table::requirements(
     std::map<std::string, Column::Requirements> mrc_reqs;
 #endif
     std::map<LogicalRegion, Column::Req> lr_mdreqs;
-    for (auto& [nm, col] : columns) {
+    for (auto& nm_col : columns) {
+#if __cplusplus >= 201703L
+      auto& [nm, col] = nm_col;
+#else // !c++17
+      auto& nm = std::get<0>(nm_col);
+      auto& col = std::get<1>(nm_col);
+#endif // c++17
       if ((default_column_requirements
            && (column_requirements.count(nm) == 0
                || column_requirements.at(nm)))
@@ -464,8 +519,13 @@ Table::requirements(
 
 #ifdef HYPERION_USE_CASACORE
     // apply mode of value column to its measure reference column
+#if __cplusplus >= 201703L
     for (auto& [nm, rq] : mrc_reqs)
       column_reqs.at(nm) = rq;
+#else // !c++17
+    for (auto& nm_rq : mrc_reqs)
+      column_reqs.at(std::get<0>(nm_rq)) = std::get<1>(nm_rq);
+#endif // c++17
 #endif
   }
   // create requirements, applying table_partition as needed
@@ -498,7 +558,13 @@ Table::requirements(
   std::map<
     std::tuple<LogicalRegion, PrivilegeMode, CoherenceProperty, MappingTagID>,
     std::tuple<bool, RegionRequirement>> val_reqs;
-  for (auto& [nm, col] : columns) {
+  for (auto& nm_col : columns) {
+#if __cplusplus >= 201703L
+    auto& [nm, col] = nm_col;
+#else // !c++17
+    auto& nm = std::get<0>(nm_col);
+    auto& col = std::get<1>(nm_col);
+#endif // c++17
     if (column_reqs.count(nm) > 0) {
       auto& reqs = column_reqs.at(nm);
       if (md_reqs.count(col.region) == 0)
@@ -549,8 +615,8 @@ Table::requirements(
     }
   }
   std::vector<LogicalPartition> lps_result;
-  for (auto& [csp, lp] : partitions)
-    lps_result.push_back(lp);
+  for (auto& csp_lp : partitions)
+    lps_result.push_back(std::get<1>(csp_lp));
 
   // gather all requirements, in order set by this traversal of fields
   std::vector<RegionRequirement> reqs_result;
@@ -585,12 +651,24 @@ Table::requirements(
 
   // add requirements for all logical regions in all selected columns
   size_t desc_idx = 0;
-  for (auto& [nm, col] : columns) {
+  for (auto& nm_col : columns) {
+#if __cplusplus >= 201703L
+    auto& [nm, col] = nm_col;
+#else // !c++17
+    auto& nm = std::get<0>(nm_col);
+    auto& col = std::get<1>(nm_col);
+#endif // c++17
     if (column_reqs.count(nm) > 0) {
       auto cdesc = col.desc(nm);
       auto& reqs = column_reqs.at(nm);
       {
-        auto& [added, rq] = md_reqs.at(col.region);
+        auto& added_rq = md_reqs.at(col.region);
+#if __cplusplus >= 201703L
+        auto& [added, rq] = added_rq;
+#else // !c++17
+        auto& added = std::get<0>(added_rq);
+        auto& rq = std::get<1>(added_rq);
+#endif // c++17
         if (!added) {
           reqs_result.push_back(rq);
           added = true;
@@ -598,7 +676,13 @@ Table::requirements(
       }
       decltype(val_reqs)::key_type rg_rq =
         {col.region, reqs.values.privilege, reqs.values.coherence, reqs.tag};
-      auto& [added, rq] = val_reqs.at(rg_rq);
+      auto& added_rq = val_reqs.at(rg_rq);
+#if __cplusplus >= 201703L
+      auto& [added, rq] = added_rq;
+#else // !c++17
+      auto& added = std::get<0>(added_rq);
+      auto& rq = std::get<1>(added_rq);
+#endif // c++17
       cdesc.region = rq.parent;
       if (!added) {
         reqs_result.push_back(rq);
@@ -642,14 +726,14 @@ Table::requirements(
 #ifdef HYPERION_USE_CASACORE
       if (cdesc.n_mr > 0) {
         auto& mr = col.mr;
-        auto [mrq, vrq, oirq] =
+        auto rqs =
           mr.requirements(reqs.measref.privilege, reqs.measref.mapped);
         assert(cdesc.n_mr == 2 || cdesc.n_mr == 3);
-        reqs_result.push_back(mrq);
-        reqs_result.push_back(vrq);
-        if (oirq) {
+        reqs_result.push_back(std::get<0>(rqs));
+        reqs_result.push_back(std::get<1>(rqs));
+        if (std::get<2>(rqs)) {
           assert(cdesc.n_mr == 3);
-          reqs_result.push_back(oirq.value());
+          reqs_result.push_back(std::get<2>(rqs).value());
         }
       }
 #endif
@@ -743,12 +827,17 @@ Table::is_conformant(
   // if this ColumnSpace already exists in the Table, conformance must hold
   ColumnSpace cs(cs_is, cs_md_pr.get_logical_region());
   assert(!cs.is_empty());
-  for (auto& [nm, col] : columns) {
-    if (cs == col.cs)
+  for (auto& nm_col : columns) {
+    if (cs == std::get<1>(nm_col).cs)
       return true;
   }
 
+#if __cplusplus >= 201703L
   auto& [index_cs_is, index_cs_md_pr] = index_cs;
+#else // !c++17
+  auto& index_cs_is = std::get<0>(index_cs);
+  auto& index_cs_md_pr = std::get<1>(index_cs);
+#endif // c++17
   const ColumnSpace::AxisSetUIDAccessor<READ_ONLY>
     index_cs_au(index_cs_md_pr, ColumnSpace::AXIS_SET_UID_FID);
   const ColumnSpace::AxisVectorAccessor<READ_ONLY>
@@ -849,7 +938,15 @@ Table::add_columns_task(
        i < args->new_columns.size()
          && std::get<2>(args->new_columns[i]).size() > 0;
        ++i) {
-    auto& [cs, idx, nm, tf] = args->new_columns[i];
+    auto& cs_idx_nm_tf = args->new_columns[i];
+#if __cplusplus >= 201703L
+    auto& [cs, idx, nm, tf] = cs_idx_nm_tf;
+#else // !c++17
+    auto& cs = std::get<0>(cs_idx_nm_tf);
+    auto& idx = std::get<1>(cs_idx_nm_tf);
+    auto& nm = std::get<2>(cs_idx_nm_tf);
+    auto& tf = std::get<3>(cs_idx_nm_tf);
+#endif // c++17
     if (last_cs != cs) {
       if (last_cs.is_valid())
         new_columns.emplace_back(last_cs, last_idx, nm_tfs);
@@ -875,8 +972,15 @@ Table::add_columns_task(
       cs_md_prs,
       index_cs);
   add_columns_result_t result;
-  for (auto& [nm, col] : added)
+  for (auto& nm_col : added) {
+#if __cplusplus >= 201703L
+    auto& [nm, col] = nm_col;
+#else //!c++17
+    auto& nm = std::get<0>(nm_col);
+    auto& col = std::get<1>(nm_col);
+#endif
     result.cols.emplace_back(nm, col);
+  }
   return result;
 }
 
@@ -895,25 +999,37 @@ Table::add_columns(Context ctx, Runtime* rt, fields_t&& new_columns)  {
   reqs.push_back(m_index_col_cs.requirements(READ_ONLY, EXCLUSIVE));
 
   std::map<ColumnSpace, size_t> cs_indexes;
-  for (auto& [nm, col] : m_columns) {
+  for (auto& nm_col : m_columns) {
+    auto& col = std::get<1>(nm_col);
     if (cs_indexes.count(col.cs) == 0) {
-      cs_indexes[col.cs] = cs_indexes.size();
+      size_t i = cs_indexes.size();
+      cs_indexes[col.cs] = i;
       reqs.push_back(col.cs.requirements(READ_ONLY, EXCLUSIVE));
     }
   }
   std::set<std::string> new_cnames;
   {
     size_t i = 0;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-    for (auto& [cs, nm_tfs]: new_columns) {
-#pragma GCC diagnostic pop
+    for (auto& cs_nm_tfs: new_columns) {
+#if __cplusplus >= 201703L
+      auto& [cs, nm_tfs] = cs_nm_tfs;
+#else // !c++17
+      auto& cs = std::get<0>(cs_nm_tfs);
+      auto& nm_tfs = std::get<1>(cs_nm_tfs);
+#endif // c++17
       if (cs_indexes.count(cs) == 0) {
-        cs_indexes[cs] = cs_indexes.size();
+        size_t i = cs_indexes.size();
+        cs_indexes[cs] = i;
         reqs.push_back(cs.requirements(READ_ONLY, EXCLUSIVE));
       }
-      auto idx = cs_indexes[cs];
-      for (auto& [nm, tf]: nm_tfs) {
+      size_t idx = cs_indexes[cs];
+      for (auto& nm_tf: nm_tfs) {
+#if __cplusplus >= 201703L
+        auto& [nm, tf] = nm_tf;
+#else // !c++17
+        auto& nm = std::get<0>(nm_tf);
+        auto& tf = std::get<1>(nm_tf);
+#endif // c++17
         new_cnames.insert(nm);
         assert(i <= args.new_columns.size());
         args.new_columns[i++] = {cs, idx, string(nm), tf};
@@ -928,7 +1044,13 @@ Table::add_columns(Context ctx, Runtime* rt, fields_t&& new_columns)  {
 
   auto added = rt->execute_task(ctx, task).get_result<add_columns_result_t>();
 
-  for (auto& [nm, col] : added.cols) {
+  for (auto& nm_col : added.cols) {
+#if __cplusplus >= 201703L
+    auto& [nm, col] = nm_col;
+#else // !c++17
+    auto& nm = std::get<0>(nm_col);
+    auto& col = std::get<1>(nm_col);
+#endif // c++17
     new_cnames.erase(nm);
     m_columns[nm] = col;
   }
@@ -953,10 +1075,9 @@ Table::add_columns(
 
   // check conformance of all ColumnSpaces in new_columns
   //
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [cs, idx, nmtfs] : new_columns) {
-#pragma GCC diagnostic pop
+  for (auto& cs_idx_nmtfs : new_columns) {
+    auto& cs = std::get<0>(cs_idx_nmtfs);
+    auto& idx = std::get<1>(cs_idx_nmtfs);
     if (!Table::is_conformant(
           rt,
           columns,
@@ -989,12 +1110,9 @@ Table::add_columns(
   // column names must be unique
   {
     std::set<std::string> new_column_names;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-    for (auto& [csp, idx, nmtfs]: new_columns) {
-      for (auto& [hnm, tf]: nmtfs) {
-#pragma GCC diagnostic pop
-        std::string nm = hnm;
+    for (auto& cs_idx_nmtfs: new_columns) {
+      for (auto& hnm_tf: std::get<2>(cs_idx_nmtfs)) {
+        std::string nm = std::get<0>(hnm_tf);
         if (columns.count(nm) > 0 || new_column_names.count(nm) > 0) {
           assert(false);
           return {};
@@ -1019,10 +1137,12 @@ Table::add_columns(
 
   // Create a map from ColumnSpaces to LogicalRegions
   std::map<ColumnSpace, LogicalRegion> lrs;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [nm, col] : columns) {
-#pragma GCC diagnostic pop
+  for (auto& nm_col : columns) {
+#if __cplusplus >= 201703L
+    auto& [nm, col] = nm_col;
+#else // !c++17
+    auto& col = std::get<1>(nm_col);
+#endif // c++17
     if (lrs.count(col.cs) == 0)
       lrs[col.cs] = col.region;
   }
@@ -1030,10 +1150,13 @@ Table::add_columns(
   // add new columns to free_fields_pr
   std::unordered_map<std::string, Column> result;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [cs, idx, nm_tfs] : new_columns) {
-#pragma GCC diagnostic pop
+  for (auto& cs_idx_nmtfs : new_columns) {
+#if __cplusplus >= 201703L
+    auto& [cs, idx, nm_tfs] = cs_idx_nmtfs;
+#else // !c++17
+    auto& cs = std::get<0>(cs_idx_nmtfs);
+    auto& nm_tfs = std::get<2>(cs_idx_nmtfs);
+#endif // c++17
     if (lrs.count(cs) == 0) {
       FieldSpace fs = rt->create_field_space(ctx);
       auto lr = rt->create_logical_region(ctx, cs.column_is, fs);
@@ -1044,7 +1167,9 @@ Table::add_columns(
     FieldSpace fs = region.get_field_space();
     rt->get_field_space_fields(fs, fids);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
-    for (auto& [nm, tf] : nm_tfs) {
+    for (auto& nm_tf : nm_tfs) {
+      auto& nm = std::get<0>(nm_tf);
+      auto& tf = std::get<1>(nm_tf);
       // add field to logical region
       assert(fids.count(tf.fid) == 0);
       switch(tf.dt) {
@@ -1086,7 +1211,13 @@ Table::remove_columns(
 
   std::vector<ColumnSpace> css;
   std::vector<PhysicalRegion> cs_md_prs;
-  for (auto& [nm, col] : m_columns) {
+  for (auto& nm_col : m_columns) {
+#if __cplusplus >= 201703L
+    auto& [nm, col] = nm_col;
+#else // !c++17
+    auto& nm = std::get<0>(nm_col);
+    auto& col = std::get<1>(nm_col);
+#endif // c++17
     if (columns.count(nm) > 0) {
       if (std::find(css.begin(), css.end(), col.cs) == css.end()) {
         cs_md_prs.push_back(
@@ -1112,7 +1243,9 @@ Table::remove_columns(
 #endif
       m_columns.erase(nm);
     }
-    for (auto& [lr, cs] : lrcss) {
+    for (auto& lr_cs : lrcss) {
+      auto& lr = std::get<0>(lr_cs);
+      auto& cs = std::get<1>(lr_cs);
       std::vector<FieldID> fids;
       rt->get_field_space_fields(lr.get_field_space(), fids);
       if (fids.size() == 0) {
@@ -1178,7 +1311,13 @@ Table::destroy(Context ctx, Runtime* rt) {
   std::unordered_set<std::string> free_columns;
   std::vector<ColumnSpace> css;
   std::vector<PhysicalRegion> cs_md_prs;
-  for (auto& [nm, col] : m_columns) {
+  for (auto& nm_col : m_columns) {
+#if __cplusplus >= 201703L
+    auto& [nm, col] = nm_col;
+#else // !c++17
+    auto& nm = std::get<0>(nm_col);
+    auto& col = std::get<1>(nm_col);
+#endif // c++17
     free_columns.insert(nm);
     if (std::find(css.begin(), css.end(), col.cs) == css.end()) {
       css.push_back(col.cs);
@@ -1220,12 +1359,18 @@ Table::partition_rows_task(
   const PartitionRowsTaskArgs* args =
     static_cast<const PartitionRowsTaskArgs*>(task->args);
 
-  std::vector<std::optional<size_t>> block_sizes;
+  std::vector<CXX_OPTIONAL_NAMESPACE::optional<size_t>> block_sizes;
   for (size_t i = 0; i < MAX_COLUMNS; ++i) {
+#if __cplusplus >= 201703L
     auto& [has_value, value] = args->block_sizes[i];
+#else // !c++17
+    auto& has_value = std::get<0>(args->block_sizes[i]);
+    auto& value = std::get<1>(args->block_sizes[i]);
+#endif // c++17
     if (has_value && value == 0)
       break;
-    block_sizes.push_back(has_value ? value : std::optional<size_t>());
+    block_sizes.push_back(
+      has_value ? value : CXX_OPTIONAL_NAMESPACE::optional<size_t>());
   }
 
   return partition_rows(ctx, rt, block_sizes, args->ics_is, regions[0]);
@@ -1235,13 +1380,14 @@ Future /* ColumnSpacePartition */
 Table::partition_rows(
   Context ctx,
   Runtime* rt,
-  const std::vector<std::optional<size_t>>& block_sizes) const {
+  const std::vector<CXX_OPTIONAL_NAMESPACE::optional<size_t>>& block_sizes)
+  const {
 
   PartitionRowsTaskArgs args;
   for (size_t i = 0; i < block_sizes.size(); ++i) {
     assert(block_sizes[i].value_or(1) > 0);
     args.block_sizes[i] =
-      {block_sizes[i].has_value(), block_sizes[i].value_or(0)};
+      {(bool)block_sizes[i], block_sizes[i].value_or(0)};
   }
   args.block_sizes[block_sizes.size()] = {true, 0};
 
@@ -1256,7 +1402,7 @@ ColumnSpacePartition
 Table::partition_rows(
   Context ctx,
   Runtime* rt,
-  const std::vector<std::optional<size_t>>& block_sizes,
+  const std::vector<CXX_OPTIONAL_NAMESPACE::optional<size_t>>& block_sizes,
   const IndexSpace& ics_is,
   const PhysicalRegion& ics_md_pr) {
 
@@ -1271,15 +1417,15 @@ Table::partition_rows(
     return result;
 
   // copy block_sizes, extended to size of ixax with std::nullopt
-  std::vector<std::optional<size_t>> blkszs(ixax_sz);
+  std::vector<CXX_OPTIONAL_NAMESPACE::optional<size_t>> blkszs(ixax_sz);
   {
     auto e = std::copy(block_sizes.begin(), block_sizes.end(), blkszs.begin());
-    std::fill(e, blkszs.end(), std::nullopt);
+    std::fill(e, blkszs.end(), CXX_OPTIONAL_NAMESPACE::nullopt);
   }
 
   std::vector<std::pair<int, coord_t>> parts;
   for (size_t i = 0; i < ixax_sz; ++i)
-    if (blkszs[i].has_value())
+    if (blkszs[i])
       parts.emplace_back(ixax[i], blkszs[i].value());
 
   return ColumnSpacePartition::create(ctx, rt, ics_is, au[0], parts, ics_md_pr);
@@ -1305,7 +1451,7 @@ Table::reindexed_task(
   const ReindexedTaskArgs* args =
     static_cast<const ReindexedTaskArgs*>(task->args);
 
-  auto [ptable, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       args->desc,
@@ -1314,14 +1460,20 @@ Table::reindexed_task(
       regions.begin(),
       regions.end())
     .value();
+#if __cplusplus >= 201703L
+  auto& [ptable, rit, pit] = ptcr;
+#else // !c++17
+  auto& ptable = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
   std::vector<std::pair<int, std::string>> index_axes;
   auto iaxp = args->index_axes.begin();
   while (iaxp < args->index_axes.end() && std::get<0>(*iaxp) >= 0) {
-    auto& [d, nm] = *iaxp;
-    index_axes.emplace_back(d, nm);
+    index_axes.emplace_back(std::get<0>(*iaxp), std::get<1>(*iaxp));
     ++iaxp;
   }
 
@@ -1341,10 +1493,16 @@ Table::reindexed(
     std::copy(index_axes.begin(), index_axes.end(), args.index_axes.begin());
   std::fill(e, args.index_axes.end(), std::make_pair(-1, string()));
 
-  auto [reqs, parts, desc] = requirements(ctx, rt);
-  args.desc = desc;
+  auto reqs = requirements(ctx, rt);
+#if __cplusplus >= 201703L
+  auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+  auto& treqs = std::get<0>(reqs);
+  auto& tdesc = std::get<2>(reqs);
+#endif // c++17
+  args.desc = tdesc;
   TaskLauncher task(reindexed_task_id, TaskArgument(&args, sizeof(args)));
-  for (auto& r : reqs)
+  for (auto& r : treqs)
     task.add_region_requirement(r);
   return rt->execute_task(ctx, task);
 }
@@ -1403,31 +1561,43 @@ Table::preregister_tasks() {
 
 size_t
 Table::legion_buffer_size(void) const {
-  auto [reqs, desc] = requirements();
+#if __cplusplus >= 201703L
+  auto [treqs, tdesc] = requirements();
+#else // !c++17
+  auto reqs = requirements();
+  auto& treqs = std::get<0>(reqs);
+  auto& tdesc = std::get<1>(reqs);
+#endif // c++17
   return
     sizeof(unsigned) // number of columns
-    + desc.num_columns * sizeof(Column::Desc)
+    + tdesc.num_columns * sizeof(Column::Desc)
     + sizeof(unsigned) // number of LogicalRegions
-    + reqs.size() * sizeof(LogicalRegion);
+    + treqs.size() * sizeof(LogicalRegion);
 }
 
 size_t
 Table::legion_serialize(void* buffer) const {
-  auto [reqs, desc] = requirements();
+#if __cplusplus >= 201703L
+  auto [treqs, tdesc] = requirements();
+#else // !c++17
+  auto reqs = requirements();
+  auto& treqs = std::get<0>(reqs);
+  auto& tdesc = std::get<1>(reqs);
+#endif // c++17
 
   char *b = static_cast<char*>(buffer);
 
-  *reinterpret_cast<decltype(desc.num_columns)*>(b) = desc.num_columns;
-  b += sizeof(desc.num_columns);
-  for (size_t i = 0; i < desc.num_columns; ++i) {
-    *reinterpret_cast<decltype(desc.columns)::value_type*>(b) =
-      desc.columns[i];
-    b += sizeof(decltype(desc.columns)::value_type);
+  *reinterpret_cast<decltype(tdesc.num_columns)*>(b) = tdesc.num_columns;
+  b += sizeof(tdesc.num_columns);
+  for (size_t i = 0; i < tdesc.num_columns; ++i) {
+    *reinterpret_cast<decltype(tdesc.columns)::value_type*>(b) =
+      tdesc.columns[i];
+    b += sizeof(decltype(tdesc.columns)::value_type);
   }
 
-  *reinterpret_cast<unsigned*>(b) = static_cast<unsigned>(reqs.size());
+  *reinterpret_cast<unsigned*>(b) = static_cast<unsigned>(treqs.size());
   b += sizeof(unsigned);
-  for (auto& req : reqs) {
+  for (auto& req : treqs) {
     *reinterpret_cast<LogicalRegion*>(b) = req.region;
     b += sizeof(LogicalRegion);
   }
@@ -1501,7 +1671,7 @@ Table::legion_deserialize(const void* buffer) {
       }
       mr = MeasRef(md, vl, ix);
     }
-    std::optional<hyperion::string> rc;
+    CXX_OPTIONAL_NAMESPACE::optional<hyperion::string> rc;
     if (cdesc.refcol.size() > 0)
       rc = cdesc.refcol;
 #endif

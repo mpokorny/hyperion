@@ -22,56 +22,6 @@
 namespace hyperion {
 namespace synthesis {
 
-// helper template classes for handling different table index spaces
-template <cf_table_axes_t...AXES>
-struct axes {};
-
-template <size_t N, cf_table_axes_t A0, typename...AXES>
-struct index_of_ {
-  //typedef ... type;
-};
-
-template <size_t N, cf_table_axes_t A0, cf_table_axes_t ...AXES>
-struct index_of_<N, A0, axes<A0, AXES...>> {
-  typedef std::integral_constant<size_t, N> type;
-};
-
-template <size_t N, cf_table_axes_t A0, cf_table_axes_t A1, cf_table_axes_t ...AXES>
-struct index_of_<N, A0, axes<A1, AXES...>> {
-  typedef typename index_of_<N + 1, A0, axes<AXES...>>::type type;
-};
-
-template <size_t N, cf_table_axes_t A0>
-struct index_of_<N, A0, axes<>> {
-  typedef void type;
-};
-
-template <cf_table_axes_t A0, cf_table_axes_t ...AXES>
-struct index_of
-  : public index_of_<0, A0, axes<AXES...>> {};
-
-template <
-  int M,
-  int N,
-  cf_table_axes_t A0,
-  typename AXES,
-  typename T = typename index_of_<0, A0, AXES>::type,
-  std::enable_if_t<(M <= N), int> = 0>
-struct Pt {
-  Pt(const Legion::Point<N>& _pt)
-    : pt(_pt[T::value]) {};
-  Legion::Point<1> pt;
-};
-
-template <int M, int N, cf_table_axes_t A0, typename AXES>
-struct Pt<M, N, A0, AXES, void> {
-  Pt(const Legion::Point<N>& _pt) {
-    for (size_t i = 0; i < M; ++i)
-      pt[i] = _pt[i];
-  }
-  Legion::Point<M> pt;
-};
-
 template <cf_table_axes_t ...AXES>
 class CFPhysicalTable
   : public hyperion::PhysicalTable {
@@ -79,8 +29,9 @@ public:
 
   CFPhysicalTable(const hyperion::PhysicalTable& pt)
     : hyperion::PhysicalTable(pt) {
-    assert(pt.axes_uid() == hyperion::Axes<cf_table_axes_t>::uid);
-    assert(pt.index_axes() == std::vector{static_cast<int>(AXES)...});
+    assert(pt.axes_uid()
+           && pt.axes_uid().value() == hyperion::Axes<cf_table_axes_t>::uid);
+    assert(pt.index_axes() == std::vector<int>{static_cast<int>(AXES)...});
   }
 
   static const constexpr unsigned row_rank = sizeof...(AXES);
@@ -90,9 +41,9 @@ public:
   //
   static const constexpr unsigned pb_scale_rank =
     std::conditional<
-    ((CF_PB_SCALE == AXES) || ...),
-    std::integral_constant<unsigned, 1>,
-    std::integral_constant<unsigned, row_rank>>::type::value;
+      cf_indexing::includes<CF_PB_SCALE, AXES...>,
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value;
 
   bool
   has_pb_scale() const {
@@ -117,7 +68,7 @@ public:
   template <int N>
   Legion::Point<pb_scale_rank>
   pb_scale_index(const Legion::Point<N>& pt) const {
-    return Pt<row_rank, N, CF_PB_SCALE, axes<AXES...>>(pt).pt;
+    return cf_indexing::Pt<row_rank, N, CF_PB_SCALE, AXES...>(pt).pt;
   }
 
   //
@@ -125,9 +76,9 @@ public:
   //
   static const constexpr unsigned baseline_class_rank =
     std::conditional<
-    ((CF_BASELINE_CLASS == AXES) || ...),
-    std::integral_constant<unsigned, 1>,
-    std::integral_constant<unsigned, row_rank>>::type::value;
+      cf_indexing::includes<CF_BASELINE_CLASS, AXES...>,
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value;
 
   bool
   has_baseline_class() const {
@@ -152,7 +103,7 @@ public:
   template <int N>
   Legion::Point<baseline_class_rank>
   baseline_class_index(const Legion::Point<N>& pt) const {
-    return Pt<row_rank, N, CF_BASELINE_CLASS, axes<AXES...>>(pt).pt;
+    return cf_indexing::Pt<row_rank, N, CF_BASELINE_CLASS, AXES...>(pt).pt;
   }
 
   //
@@ -160,9 +111,9 @@ public:
   //
   static const constexpr unsigned frequency_rank =
     std::conditional<
-    ((CF_FREQUENCY == AXES) || ...),
-    std::integral_constant<unsigned, 1>,
-    std::integral_constant<unsigned, row_rank>>::type::value;
+      cf_indexing::includes<CF_FREQUENCY, AXES...>,
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value;
 
   bool
   has_frequency() const {
@@ -186,7 +137,7 @@ public:
   template <int N>
   Legion::Point<frequency_rank>
   frequency_index(const Legion::Point<N>& pt) const {
-    return Pt<row_rank, N, CF_FREQUENCY, axes<AXES...>>(pt).pt;
+    return cf_indexing::Pt<row_rank, N, CF_FREQUENCY, AXES...>(pt).pt;
   }
 
   //
@@ -194,9 +145,9 @@ public:
   //
   static const constexpr unsigned w_rank =
     std::conditional<
-    ((CF_W == AXES) || ...),
-    std::integral_constant<unsigned, 1>,
-    std::integral_constant<unsigned, row_rank>>::type::value;
+      cf_indexing::includes<CF_W, AXES...>,
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value;
 
   bool
   has_w() const {
@@ -219,7 +170,7 @@ public:
   template <int N>
   Legion::Point<w_rank>
   w_index(const Legion::Point<N>& pt) const {
-    return Pt<row_rank, N, CF_W, axes<AXES...>>(pt).pt;
+    return cf_indexing::Pt<row_rank, N, CF_W, AXES...>(pt).pt;
   }
 
   //
@@ -227,9 +178,9 @@ public:
   //
   static const constexpr unsigned parallactic_angle_rank =
     std::conditional<
-    ((CF_PARALLACTIC_ANGLE == AXES) || ...),
-    std::integral_constant<unsigned, 1>,
-    std::integral_constant<unsigned, row_rank>>::type::value;
+      cf_indexing::includes<CF_PARALLACTIC_ANGLE, AXES...>,
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value;
 
   bool
   has_parallactic_angle() const {
@@ -254,7 +205,7 @@ public:
   template <int N>
   Legion::Point<parallactic_angle_rank>
   parallactic_angle_index(const Legion::Point<N>& pt) const {
-    return Pt<row_rank, N, CF_PARALLACTIC_ANGLE, axes<AXES...>>(pt).pt;
+    return cf_indexing::Pt<row_rank, N, CF_PARALLACTIC_ANGLE, AXES...>(pt).pt;
   }
 
   //
@@ -262,9 +213,9 @@ public:
   //
   static const constexpr unsigned mueller_element_rank =
     std::conditional<
-    ((CF_MUELLER_ELEMENT == AXES) || ...),
-    std::integral_constant<unsigned, 1>,
-    std::integral_constant<unsigned, row_rank>>::type::value;
+      cf_indexing::includes<CF_MUELLER_ELEMENT, AXES...>,
+      std::integral_constant<unsigned, 1>,
+      std::integral_constant<unsigned, row_rank>>::type::value;
 
   bool
   has_mueller_element() const {
@@ -289,7 +240,7 @@ public:
   template <int N>
   Legion::Point<mueller_element_rank>
   mueller_element_index(const Legion::Point<N>& pt) const {
-    return Pt<row_rank, N, CF_MUELLER_ELEMENT, axes<AXES...>>(pt).pt;
+    return cf_indexing::Pt<row_rank, N, CF_MUELLER_ELEMENT, AXES...>(pt).pt;
   }
 
   //

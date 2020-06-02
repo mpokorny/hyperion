@@ -16,10 +16,12 @@
 #ifndef HYPERION_INDEX_TREE_H_
 #define HYPERION_INDEX_TREE_H_
 
+#include <hyperion/hyperion.h>
+
 #include <algorithm>
 #include <limits>
 #include <numeric>
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <ostream>
 #include <sstream>
 #include <stdexcept>
@@ -48,7 +50,12 @@ public:
       ch.end(),
       std::back_inserter(ch1),
       [&end](auto& c) {
+#if __cplusplus >= 201703L
         auto& [n, t] = c;
+#else
+        auto& n = std::get<0>(c);
+        auto& t = std::get<1>(c);
+#endif
         COORD_T last_end = end;
         end += n;
         return std::make_tuple(last_end, n, t);
@@ -81,7 +88,13 @@ public:
           pattern.children().end(),
           std::back_inserter(ch),
           [&offset](auto& c) {
+#if __cplusplus >= 201703L
             auto& [i, n, t] = c;
+#else
+            auto& i = std::get<0>(c);
+            auto& n = std::get<1>(c);
+            auto& t = std::get<2>(c);
+#endif
             return std::make_tuple(i + offset, n, t);
           });
         offset += stride;
@@ -90,7 +103,13 @@ public:
     auto rch = pattern.children().begin();
     auto rch_end = pattern.children().end();
     while (pattern_rem > 0 && rch != rch_end) {
+#if __cplusplus >= 201703L
       auto& [i, n, t] = *rch;
+#else
+      auto& i = std::get<0>(*rch);
+      auto& n = std::get<1>(*rch);
+      auto& t = std::get<2>(*rch);
+#endif
       auto tsz = t.size();
       if (pattern_rem >= tsz) {
         auto nt = std::min(pattern_rem / tsz, static_cast<size_t>(n));
@@ -126,9 +145,16 @@ public:
     else if (other_empty)
       result = false;
     else {
-      auto& [ie, ne, te] = m_children.back();
       auto jch = other.children();
+#if __cplusplus >= 201703L
+      auto& [ie, ne, te] = m_children.back();
       auto& [j0, jn0, jt0]= jch.front();
+#else
+      COORD_T ie, ne, j0, jn0;
+      IndexTree te, jt0;
+      std::tie(ie, ne, te) = m_children.back();
+      std::tie(j0, jn0, jt0) = jch.front();
+#endif
       if (ie + ne <= j0)
         result = true;
       else if (jn0 == 1 && jch.size() == 1 && ie + ne - 1 == j0)
@@ -155,7 +181,13 @@ public:
       return false;
     COORD_T prev_end = i;
     for (auto& ch : m_children) {
+#if __cplusplus >= 201703L
       auto& [lo, n, t] = ch;
+#else
+      auto& lo = std::get<0>(ch);
+      auto& n = std::get<1>(ch);
+      auto& t = std::get<2>(ch);
+#endif
       if (lo != prev_end || t != t0)
         return false;
       prev_end = lo + n;
@@ -232,7 +264,7 @@ public:
           });
   }
 
-  std::optional<unsigned>
+  CXX_OPTIONAL_NAMESPACE::optional<unsigned>
   rank() const {
     if (m_children.size() == 0)
       return 0;
@@ -242,11 +274,11 @@ public:
     auto end = m_children.end();
     IndexTree t;
     std::tie(std::ignore, std::ignore, t) = *ch;
-    std::optional<unsigned> result = t.rank();
+    CXX_OPTIONAL_NAMESPACE::optional<unsigned> result = t.rank();
     while (result && ++ch != end) {
       std::tie(std::ignore, std::ignore, t) = *ch;
       if (result != t.rank())
-        result.reset();
+        result = CXX_OPTIONAL_NAMESPACE::nullopt;
     }
     return (result ? (result.value() + 1) : result);
   }
@@ -264,9 +296,16 @@ public:
         m_children.begin(),
         m_children.end(),
         [&result](const auto& ch){
+#if __cplusplus >= 201703L
           auto& [lo, n, t] = ch;
-          COORD_T hi = lo + n - 1;
           auto& [rlo, rhi] = result[0];
+#else
+          COORD_T lo, n, rlo, rhi;
+          IndexTree t;
+          std::tie(lo, n, t) = ch;
+          std::tie(rlo, rhi) = result[0];
+#endif
+          COORD_T hi = lo + n - 1;
           result[0] = {std::min(rlo, lo), std::max(rhi, hi)};
           extend_envelope(t, result);
         });
@@ -278,7 +317,7 @@ public:
     typename F,
     class = std::enable_if_t<
       std::is_same_v<
-        std::optional<IndexTree<COORD_T>>,
+        CXX_OPTIONAL_NAMESPACE::optional<IndexTree<COORD_T>>,
         std::invoke_result_t<F, const std::vector<COORD_T>&>>>>
   IndexTree
   grow_leaves_at(F&& fn) const {
@@ -296,7 +335,13 @@ public:
       m_children.end(),
       std::back_inserter(sprouted),
       [&sprout](auto& ch) {
+#if __cplusplus >= 201703L
         auto& [i, n, t] = ch;
+#else
+        auto& i = std::get<0>(ch);
+        auto& n = std::get<1>(ch);
+        auto& t = std::get<2>(ch);
+#endif
         if (t != IndexTree())
           return std::make_tuple(i, n, t.grow_leaves(sprout));
         else
@@ -315,7 +360,13 @@ public:
       m_children.end(),
       std::back_inserter(trimmed),
       [&to_height](auto& ch) {
+#if __cplusplus >= 201703L
         auto& [i, n, t] = ch;
+#else
+        auto& i = std::get<0>(ch);
+        auto& n = std::get<1>(ch);
+        auto& t = std::get<2>(ch);
+#endif
         if (to_height > 0)
           return std::make_tuple(i, n, t.pruned(to_height - 1));
         return std::make_tuple(i, n, IndexTree());
@@ -393,7 +444,7 @@ public:
     return IndexTree(newch);
   }
 
-  std::optional<size_t>
+  CXX_OPTIONAL_NAMESPACE::optional<size_t>
   num_repeats(const IndexTree& pattern) const {
     return nr(pattern, true);
   }
@@ -414,7 +465,13 @@ public:
     char* start = buff;
     buff += sizeof(size_t);
     for (auto& ch : m_children) {
+#if __cplusplus >= 201703L
       auto& [i, n, t] = ch;
+#else
+      auto& i = std::get<0>(ch);
+      auto& n = std::get<1>(ch);
+      auto& t = std::get<2>(ch);
+#endif
       *reinterpret_cast<COORD_T *>(buff) = i;
       buff += sizeof(COORD_T);
       *reinterpret_cast<COORD_T *>(buff) = n;
@@ -479,7 +536,13 @@ public:
           m_children.begin(),
           m_children.end(),
           [&sep, &oss, &with_linebreaks, &indent](const auto& ch) {
+#if __cplusplus >= 201703L
             auto& [i, n, t] = ch;
+#else
+            auto& i = std::get<0>(ch);
+            auto& n = std::get<1>(ch);
+            auto& t = std::get<2>(ch);
+#endif
             oss << sep;
             if (with_linebreaks && *sep != '\0') {
               oss << std::endl;
@@ -529,7 +592,13 @@ protected:
             if (compacted.empty()) {
               compacted.push_back(ch);
             } else {
+#if __cplusplus >= 201703L
               auto& [i, n, t] = ch;
+#else
+              auto& i = std::get<0>(ch);
+              auto& n = std::get<1>(ch);
+              auto& t = std::get<2>(ch);
+#endif
               auto& lastc = compacted.back();
               COORD_T* lasti = &std::get<0>(lastc);
               COORD_T* lastn = &std::get<1>(lastc);
@@ -584,8 +653,14 @@ protected:
     auto te = tenv.begin();
     auto te_end = tenv.end();
     while (r != r_end && te != te_end) {
+#if __cplusplus >= 201703L
       auto& [rlo, rhi] = *r;
       auto& [telo, tehi] = *te;
+#else
+      COORD_T rlo, rhi, telo, tehi;
+      std::tie(rlo, rhi) = *r;
+      std::tie(telo, tehi) = *te;
+#endif
       *r = {std::min(rlo, telo), std::max(rhi, tehi)};
       ++r;
       ++te;
@@ -600,7 +675,7 @@ protected:
     typename F,
     class = std::enable_if_t<
       std::is_same_v<
-        std::optional<IndexTree<COORD_T>>,
+        CXX_OPTIONAL_NAMESPACE::optional<IndexTree<COORD_T>>,
         std::invoke_result_t<F, const std::vector<COORD_T>&>>>>
   IndexTree
   grow_at(const std::vector<COORD_T>& here, F&& fn) const {
@@ -609,12 +684,18 @@ protected:
       m_children.begin(),
       m_children.end(),
       [&here, &fn, &sprouted](auto& ch) {
+#if __cplusplus >= 201703L
         auto& [i, n, t] = ch;
+#else
+        auto& i = std::get<0>(ch);
+        auto& n = std::get<1>(ch);
+        auto& t = std::get<2>(ch);
+#endif
         std::vector<COORD_T> coords = here;
         if (t == IndexTree()) {
           for (COORD_T j = 0; j < n; ++j) {
             coords.push_back(i + j);
-            std::optional<IndexTree> ch = fn(coords);
+            CXX_OPTIONAL_NAMESPACE::optional<IndexTree> ch = fn(coords);
             if (ch)
               sprouted.push_back({i + j, 1, ch.value()});
             else
@@ -636,11 +717,11 @@ private:
 
   std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> m_children;
 
-  std::optional<size_t>
+  CXX_OPTIONAL_NAMESPACE::optional<size_t>
   nr(const IndexTree& pattern, bool cycle) const {
 
     if (pattern.rank().value() > rank().value())
-      return std::nullopt;
+      return CXX_OPTIONAL_NAMESPACE::nullopt;
     auto pruned_shape = pruned(pattern.rank().value() - 1);
     auto p_iter = pruned_shape.children().begin();
     auto p_end = pruned_shape.children().end();
@@ -657,7 +738,7 @@ private:
       while (p_iter != p_end && r_iter != r_end) {
         std::tie(i, n, t) = *r_iter;
         if (i + i0 != pi) {
-          return std::nullopt;
+          return CXX_OPTIONAL_NAMESPACE::nullopt;
         } else if (t == pt) {
           auto m = std::min(n, pn);
           result += m * t.size();
@@ -671,18 +752,18 @@ private:
         } else {
           ++p_iter;
           if (p_iter != p_end)
-            return std::nullopt;
+            return CXX_OPTIONAL_NAMESPACE::nullopt;
           auto chnr = pt.nr(t, false);
           if (chnr)
             result += chnr.value();
           else
-            return std::nullopt;
+            return CXX_OPTIONAL_NAMESPACE::nullopt;
         }
         ++r_iter;
       }
       i0 = pi;
       if (!cycle && p_iter != p_end && r_iter == r_end)
-        return std::nullopt;
+        return CXX_OPTIONAL_NAMESPACE::nullopt;
     }
     return result;
   }
@@ -732,7 +813,13 @@ private:
       tree.children().begin(),
       tree.children().end(),
       [&coords](auto& ch) {
+#if __cplusplus >= 201703L
         auto& [i, n, t] = ch;
+#else
+        auto& i = std::get<0>(ch);
+        auto& n = std::get<1>(ch);
+        auto& t = std::get<2>(ch);
+#endif
         if (t == IndexTree<COORD_T>()) {
           std::vector<COORD_T> last = coords.back();
           coords.pop_back();

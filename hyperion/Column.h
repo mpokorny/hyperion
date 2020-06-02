@@ -23,7 +23,7 @@
 
 #ifdef HYPERION_USE_CASACORE
 # include <hyperion/MeasRef.h>
-# include <optional>
+# include CXX_OPTIONAL_HEADER
 #endif
 #include <string>
 
@@ -58,7 +58,8 @@ struct HYPERION_API Column {
     const Keywords& kw_ = Keywords()
 #ifdef HYPERION_USE_CASACORE
     , const MeasRef& mr_ = MeasRef()
-    , const std::optional<hyperion::string>& rc_ = std::nullopt
+    , const CXX_OPTIONAL_NAMESPACE::optional<hyperion::string>& rc_ =
+      CXX_OPTIONAL_NAMESPACE::nullopt
 #endif
     )
   : dt(dt_)
@@ -191,7 +192,8 @@ struct HYPERION_API Column {
   Keywords kw;/**< column keywords */
 #ifdef HYPERION_USE_CASACORE
   MeasRef mr; /**< column MeasRef */
-  std::optional<hyperion::string> rc; /**< measure reference column name */
+  CXX_OPTIONAL_NAMESPACE::optional<hyperion::string>
+    rc; /**< measure reference column name */
 #endif
 
 // protected:

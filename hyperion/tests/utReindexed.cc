@@ -145,7 +145,11 @@ attach_table0_col(Context ctx, Runtime* rt, const Column& col, unsigned *base) {
   return result;
 }
 
+#if __cplusplus >= 201703L
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
+#else
+#define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
+#endif
 
 void
 test_totally_reindexed_table(
@@ -168,7 +172,7 @@ test_totally_reindexed_table(
 
   recorder.expect_true(
     prefix + " reindexed table has " + oss.str() + " index axes",
-    testing::TestEval(
+    testing::TestEval<std::function<bool()>>(
       [&ctx, rt, &ics, &ixax]() {
         auto axes = ics.axes(ctx, rt);
         return axes == map_to_int(ixax);
@@ -209,7 +213,7 @@ test_totally_reindexed_table(
     }
     recorder.assert_true(
       prefix + " reindexed 'X' column has expected size",
-      testing::TestEval(
+      testing::TestEval<std::function<bool()>>(
         [&cx, &ctx, rt]() {
           auto is = cx.region.get_index_space();
           auto dom = rt->get_index_space_domain(ctx, is);
@@ -218,7 +222,7 @@ test_totally_reindexed_table(
         }));
     recorder.expect_true(
       prefix + " reindexed 'X' column has expected values",
-      testing::TestEval(
+      testing::TestEval<std::function<bool()>>(
         [&cx, &ctx, rt]() {
           RegionRequirement req(cx.region, READ_ONLY, EXCLUSIVE, cx.region);
           req.add_field(cx.fid);
@@ -268,7 +272,7 @@ test_totally_reindexed_table(
     }
     recorder.assert_true(
       prefix + " reindexed 'Y' column has expected size",
-      testing::TestEval(
+      testing::TestEval<std::function<bool()>>(
         [&cy, &ctx, rt]() {
           auto is = cy.region.get_index_space();
           auto dom = rt->get_index_space_domain(ctx, is);
@@ -277,7 +281,7 @@ test_totally_reindexed_table(
         }));
     recorder.expect_true(
       prefix + " reindexed 'Y' column has expected values",
-      testing::TestEval(
+      testing::TestEval<std::function<bool()>>(
         [&cy, &ctx, rt]() {
           RegionRequirement req(cy.region, READ_ONLY, EXCLUSIVE, cy.region);
           req.add_field(cy.fid);
@@ -325,7 +329,7 @@ test_totally_reindexed_table(
     }
     recorder.assert_true(
       prefix + " reindexed 'Z' column has expected size",
-      testing::TestEval(
+      testing::TestEval<std::function<bool()>>(
         [&cz, &x_before_y, &ctx, rt]() {
           auto is = cz.region.get_index_space();
           auto dom = rt->get_index_space_domain(ctx, is);
@@ -343,7 +347,7 @@ test_totally_reindexed_table(
         }));
     recorder.expect_true(
       prefix + " reindexed 'Z' column has expected values",
-      testing::TestEval(
+      testing::TestEval<std::function<bool()>>(
         [&cz, &x_before_y, &ctx, rt]() {
           RegionRequirement req(cz.region, READ_ONLY, EXCLUSIVE, cz.region);
           req.add_field(cz.fid);
@@ -353,7 +357,8 @@ test_totally_reindexed_table(
             AffineAccessor<unsigned, 2, coord_t>, true>
             z(pr, cz.fid);
           bool result = true;
-          DomainT<2,coord_t> dom(pr);
+          DomainT<2,coord_t> dom =
+            rt->get_index_space_domain(cz.region.get_index_space());
           coord_t p0 = (x_before_y ? 0 : 1);
           coord_t p1 = 1 - p0;
           for (PointInDomainIterator<2> pid(dom); pid(); pid++)
@@ -469,7 +474,7 @@ reindexed_test_suite(
 
         recorder.expect_true(
           "Partially reindexed table has ('Y', 'ROW') index axes",
-          testing::TestEval(
+          testing::TestEval<std::function<bool()>>(
             [&ctx, rt, &ics_y]() {
               auto ax = ics_y.axes(ctx, rt);
               return ax ==
@@ -512,7 +517,7 @@ reindexed_test_suite(
           }
           recorder.assert_true(
             "Partially reindexed 'Y' column has expected size",
-            testing::TestEval(
+            testing::TestEval<std::function<bool()>>(
               [&cy, &ctx, rt]() {
                 auto is = cy.region.get_index_space();
                 auto dom = rt->get_index_space_domain(ctx, is);
@@ -521,7 +526,7 @@ reindexed_test_suite(
               }));
           recorder.expect_true(
             "Partially reindexed 'Y' column has expected values",
-            testing::TestEval(
+            testing::TestEval<std::function<bool()>>(
               [&cy, &ctx, rt]() {
                 RegionRequirement
                   req(cy.region, READ_ONLY, EXCLUSIVE, cy.region);
@@ -572,7 +577,7 @@ reindexed_test_suite(
           }
           recorder.assert_true(
             "Partially reindexed 'X' column has expected size",
-            testing::TestEval(
+            testing::TestEval<std::function<bool()>>(
               [&cx, &ctx, rt]() {
                 auto is = cx.region.get_index_space();
                 auto dom = rt->get_index_space_domain(ctx, is);
@@ -583,7 +588,7 @@ reindexed_test_suite(
               }));
           recorder.expect_true(
             "Partially reindexed 'X' column has expected values",
-            testing::TestEval(
+            testing::TestEval<std::function<bool()>>(
               [&cx, &ctx, rt]() {
                 RegionRequirement
                   req(cx.region, READ_ONLY, EXCLUSIVE, cx.region);
@@ -594,7 +599,8 @@ reindexed_test_suite(
                   AffineAccessor<unsigned, 2, coord_t>, true>
                   x(pr, cx.fid);
                 bool result = true;
-                DomainT<2,coord_t> dom(pr);
+                DomainT<2,coord_t> dom =
+                  rt->get_index_space_domain(cx.region.get_index_space());
                 for (PointInDomainIterator<2> pid(dom); pid(); pid++)
                   result = result && x[*pid] == OX + pid[1];
                 rt->unmap_region(ctx, pr);
@@ -636,7 +642,7 @@ reindexed_test_suite(
           }
           recorder.assert_true(
             "Partially reindexed 'Z' column has expected size",
-            testing::TestEval(
+            testing::TestEval<std::function<bool()>>(
               [&cz, &ctx, rt]() {
                 auto is = cz.region.get_index_space();
                 auto dom = rt->get_index_space_domain(ctx, is);
@@ -649,7 +655,7 @@ reindexed_test_suite(
               }));
           recorder.expect_true(
             "Partially reindexed 'Z' column has expected values",
-            testing::TestEval(
+            testing::TestEval<std::function<bool()>>(
               [&cz, &ctx, rt]() {
                 RegionRequirement
                   req(cz.region, READ_ONLY, EXCLUSIVE, cz.region);
@@ -660,7 +666,8 @@ reindexed_test_suite(
                   AffineAccessor<unsigned, 2, coord_t>, true>
                   z(pr, cz.fid);
                 bool result = true;
-                DomainT<2,coord_t> dom(pr);
+                DomainT<2,coord_t> dom =
+                  rt->get_index_space_domain(cz.region.get_index_space());
                 for (PointInDomainIterator<2> pid(dom); pid(); pid++)
                   result = result &&
                     z[*pid] == table0_z[pid[1] * TABLE0_NUM_Y + pid[0]];

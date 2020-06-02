@@ -134,7 +134,7 @@ public:
     const std::string& name,
     bool val,
     const std::string& fail_info="") {
-    expect_bool(name, TestVal(val), fail_info, true, false);
+    expect_bool(name, TestVal<bool>(val), fail_info, true, false);
   }
 
   template <template <typename> typename E>
@@ -151,7 +151,7 @@ public:
     const std::string& name,
     bool val,
     const std::string& fail_info="") {
-    expect_bool(name, TestVal(val), fail_info, true, true);
+    expect_bool(name, TestVal<bool>(val), fail_info, true, true);
   }
 
   template <template <typename> typename E>
@@ -170,7 +170,7 @@ public:
     bool val,
     const std::string& fail_info="") {
 
-    expect_bool(name, TestVal(val), fail_info, false, false);
+    expect_bool(name, TestVal<bool>(val), fail_info, false, false);
   }
 
   template <template <typename> typename E>
@@ -188,7 +188,7 @@ public:
     const std::string& name,
     bool val,
     const std::string& fail_info="") {
-    expect_bool(name, TestVal(val), fail_info, false, true);
+    expect_bool(name, TestVal<bool>(val), fail_info, false, true);
   }
 
   template <typename Exc, typename T, template <typename> typename E>
@@ -212,7 +212,7 @@ public:
   template <typename Exc, typename F>
   void
   expect_throw(const std::string& name, const F& f, bool assert=false) {
-    expect_throw<Exc>(name, TestEval(f), assert);
+    expect_throw<Exc>(name, TestEval<F>(f), assert);
   }
 
   template <typename Exc, typename T, template <typename> typename E>
@@ -224,7 +224,7 @@ public:
   template <typename Exc, typename F>
   void
   assert_throw(const std::string& name, const F& f) {
-    expect_throw<Exc>(name, TestEval(f), true);
+    expect_throw<Exc>(name, TestEval<F>(f), true);
   }
 
   template <typename T, template <typename> typename E>

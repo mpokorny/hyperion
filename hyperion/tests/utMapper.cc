@@ -83,7 +83,11 @@ const hid_t
 hyperion::Axes<Table0Axes>::h5_datatype = h5_dt();
 #endif
 
+#if __cplusplus >= 201703L
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
+#else
+#define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
+#endif
 
 constexpr unsigned nx = 3;
 constexpr unsigned ny = 2;
@@ -195,7 +199,7 @@ verify_layouts_task(
 
   const Table::Desc* desc = static_cast<const Table::Desc*>(task->args);
 
-  auto [pt, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       *desc,
@@ -203,6 +207,13 @@ verify_layouts_task(
       task->regions.end(),
       regions.begin() + 2,
       regions.end()).value();
+#if __cplusplus >= 201703L
+  auto& [pt, rit, pit] = ptcr;
+#else
+  auto& pt = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -352,7 +363,7 @@ mapper_test_suite(
   Column::Requirements aos_rm_creqs = Column::default_requirements;
   aos_rm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
   aos_rm_creqs.tag = TableMapper::to_mapping_tag(AOS_ROW_MAJOR);
-  auto [reqs, parts, desc] =
+  auto reqs =
     tb.requirements(
       ctx,
       rt,
@@ -368,16 +379,22 @@ mapper_test_suite(
 
        {"c6", aos_rm_creqs},
        {"c7", aos_rm_creqs},
-       {"foo", std::nullopt}},
-      std::nullopt);
+       {"foo", CXX_OPTIONAL_NAMESPACE::nullopt}},
+      CXX_OPTIONAL_NAMESPACE::nullopt);
+#if __cplusplus >= 201703L
+  auto& [treqs, tparts, tdesc] = reqs;
+#else
+  auto& treqs = std::get<0>(reqs);
+  auto& tdesc = std::get<2>(reqs);
+#endif
   TaskLauncher verify(
     VERIFY_LAYOUTS_TASK,
-    TaskArgument(&desc, sizeof(desc)),
+    TaskArgument(&tdesc, sizeof(tdesc)),
     Predicate::TRUE_PRED,
     table_mapper);
   verify.add_region_requirement(task->regions[0]);
   verify.add_region_requirement(task->regions[1]);
-  for (auto& r : reqs)
+  for (auto& r : treqs)
     verify.add_region_requirement(r);
   rt->execute_task(ctx, verify);
 

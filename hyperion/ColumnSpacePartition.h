@@ -128,8 +128,16 @@ struct HYPERION_API ColumnSpacePartition {
 
     std::vector<std::pair<int, Legion::coord_t>> bsz;
     bsz.reserve(block_sizes.size());
+#if __cplusplus >= 201703L
     for (auto& [d, sz] : block_sizes)
       bsz.emplace_back(static_cast<int>(d), sz);
+#else // !c++17
+    for (auto& d_sz : block_sizes) {
+      auto& d = std::get<0>(d_sz);
+      auto& sz = std::get<1>(d_sz);
+      bsz.emplace_back(static_cast<int>(d), sz);
+    }
+#endif // c++17
     return create(ctx, rt, column_space, Axes<D>::uid, bsz);
   }
 

@@ -19,6 +19,12 @@
 using namespace hyperion;
 using namespace Legion;
 
+// TODO: there's a bunch of straight c++14-isms in this module, without c++17
+// alternatives, because of the complexity the provision of alternatives would
+// have created; when the conversion to c++17 occurs, the c++14 constructions
+// should be replaced with syntactically cleaner c++17 alternatives (but it will
+// take some searching to find them; hint: look for std::get)
+
 PhysicalTable::PhysicalTable(
   const PhysicalRegion& index_col_md,
   const std::tuple<LogicalRegion, PhysicalRegion>& index_col,
@@ -49,7 +55,7 @@ PhysicalTable::PhysicalTable(PhysicalTable&& other)
   m_attached = std::move(other).m_attached;
 }
 
-std::optional<
+CXX_OPTIONAL_NAMESPACE::optional<
   std::tuple<
     PhysicalTable,
     std::vector<RegionRequirement>::const_iterator,
@@ -62,7 +68,7 @@ PhysicalTable::create(
   const std::vector<PhysicalRegion>::const_iterator& prs_begin,
   const std::vector<PhysicalRegion>::const_iterator& prs_end) {
 
-  std::optional<
+  CXX_OPTIONAL_NAMESPACE::optional<
     std::tuple<
       PhysicalTable,
       std::vector<RegionRequirement>::const_iterator,
@@ -113,7 +119,7 @@ PhysicalTable::create(
       ++prs;
     }
 
-    std::optional<Keywords::pair<PhysicalRegion>> kw_prs;
+    CXX_OPTIONAL_NAMESPACE::optional<Keywords::pair<PhysicalRegion>> kw_prs;
     if (cdesc.n_kw > 0) {
       Keywords::pair<PhysicalRegion> kwpair;
       if (reqs == reqs_end || prs == prs_end)
@@ -128,7 +134,7 @@ PhysicalTable::create(
     }
 
 #ifdef HYPERION_USE_CASACORE
-    std::optional<MeasRef::DataRegions> mr_drs;
+    CXX_OPTIONAL_NAMESPACE::optional<MeasRef::DataRegions> mr_drs;
     if (cdesc.n_mr > 0) {
       MeasRef::DataRegions drs;
       if (reqs == reqs_end || prs == prs_end)
@@ -150,7 +156,14 @@ PhysicalTable::create(
         refcols[cdesc.name] = cdesc.refcol;
     }
 #endif
-    auto& [region, parent, values] = value_regions.at(vkey);
+    auto& region_parent_values = value_regions.at(vkey);
+#if __cplusplus >= 201703L
+    auto& [region, parent, values] = region_parent_values;
+#else // !c++17
+    auto& region = std::get<0>(region_parent_values);
+    auto& parent = std::get<1>(region_parent_values);
+    auto& values = std::get<2>(region_parent_values);
+#endif // c++17
     columns.emplace(
       cdesc.name,
       std::make_shared<PhysicalColumn>(
@@ -165,17 +178,30 @@ PhysicalTable::create(
         kw_prs
 #ifdef HYPERION_USE_CASACORE
         , mr_drs
-        , std::nullopt
+        , CXX_OPTIONAL_NAMESPACE::nullopt
 #endif
         ));    
   }
 #ifdef HYPERION_USE_CASACORE
+
+#if __cplusplus >= 201703L
   for (auto& [nm, ppc] : columns) {
     if (refcols.count(nm) > 0) {
       auto& rc = refcols[nm];
       ppc->set_refcol(rc, columns.at(rc));
     }
   }
+#else // !c++17
+  for (auto& nm_ppc : columns) {
+    auto& nm = std::get<0>(nm_ppc);
+    auto& ppc = std::get<1>(nm_ppc);
+    if (refcols.count(nm) > 0) {
+      auto& rc = refcols[nm];
+      ppc->set_refcol(rc, columns.at(rc));
+    }
+  }
+#endif // c++17
+
 #endif
   return
     std::make_tuple(
@@ -184,7 +210,7 @@ PhysicalTable::create(
       prs);
 }
 
-std::optional<
+CXX_OPTIONAL_NAMESPACE::optional<
   std::tuple<
     std::vector<PhysicalTable>,
     std::vector<RegionRequirement>::const_iterator,
@@ -206,7 +232,7 @@ PhysicalTable::create_many(
   while (descp != desc.end() && rit != reqs_end && pit != prs_end) {
     auto opt = create(rt, *descp++, rit, reqs_end, pit, prs_end);
     if (!opt)
-      return std::nullopt;
+      return CXX_OPTIONAL_NAMESPACE::nullopt;
     tables.push_back(std::move(std::get<0>(opt.value())));
     rit = std::get<1>(opt.value());
     pit = std::get<2>(opt.value());
@@ -216,9 +242,7 @@ PhysicalTable::create_many(
 
 Table
 PhysicalTable::table(Context ctx, Runtime* rt) const {
-  std::unordered_map<std::string, Column> columns;
-  for (auto& [nm, ppc] : m_columns)
-    columns[nm] = ppc->column();
+  std::unordered_map<std::string, Column> columns = get_columns();
   return
     Table(
       index_column_space(ctx, rt),
@@ -227,9 +251,9 @@ PhysicalTable::table(Context ctx, Runtime* rt) const {
       columns);
 }
 
-std::optional<std::string>
+CXX_OPTIONAL_NAMESPACE::optional<std::string>
 PhysicalTable::axes_uid() const {
-  std::optional<std::string> result;
+  CXX_OPTIONAL_NAMESPACE::optional<std::string> result;
   std::string au = ColumnSpace::axes_uid(m_index_col_md);
   if (au.size() > 0)
     result = au;
@@ -266,9 +290,9 @@ PhysicalTable::index_column_space_metadata() const {
   return m_index_col_md;
 }
 
-std::optional<std::shared_ptr<PhysicalColumn>>
+CXX_OPTIONAL_NAMESPACE::optional<std::shared_ptr<PhysicalColumn>>
 PhysicalTable::column(const std::string& name) const {
-  std::optional<std::shared_ptr<PhysicalColumn>> result;
+  CXX_OPTIONAL_NAMESPACE::optional<std::shared_ptr<PhysicalColumn>> result;
   if (m_columns.count(name) > 0)
     result = m_columns.at(name);
   return result;
@@ -285,9 +309,7 @@ PhysicalTable::is_conformant(
   const IndexSpace& cs_is,
   const PhysicalRegion& cs_md_pr) const {
 
-  std::unordered_map<std::string, Column> cols;
-  for (auto& [nm, ppc] : m_columns)
-    cols[nm] = ppc->column();
+  std::unordered_map<std::string, Column> cols = get_columns();
   return
     Table::is_conformant(
       rt,
@@ -305,14 +327,14 @@ PhysicalTable::requirements(
   Context ctx,
   Runtime* rt,
   const ColumnSpacePartition& table_partition,
-  const std::map<std::string, std::optional<Column::Requirements>>&
+  const std::map<
+    std::string,
+    CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>>&
     column_requirements,
-  const std::optional<Column::Requirements>&
+  const CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>&
     default_column_requirements) const {
 
-  std::unordered_map<std::string, Column> cols;
-  for (auto& [nm, ppc] : m_columns)
-    cols[nm] = ppc->column();
+  std::unordered_map<std::string, Column> cols = get_columns();
 
   ColumnSpace index_col_cs(
     std::get<0>(m_index_col).get_index_space(),
@@ -325,7 +347,11 @@ PhysicalTable::requirements(
     std::map<std::string, Column::Requirements> mrc_reqs;
 #endif
     std::map<LogicalRegion, Column::Req> lr_mdreqs;
-    for (auto& [nm, ppc] : m_columns) {
+    for (auto& nm_ppc : m_columns) {
+      // just use c++14 construct here, as the loop body is too large to
+      // duplicate
+      auto& nm = std::get<0>(nm_ppc);
+      auto& ppc = std::get<1>(nm_ppc);
       if ((default_column_requirements
            && (column_requirements.count(nm) == 0
                || column_requirements.at(nm)))
@@ -354,8 +380,16 @@ PhysicalTable::requirements(
 
 #ifdef HYPERION_USE_CASACORE
     // apply mode of value column to its measure reference column
+#if __cplusplus >= 201703L
     for (auto& [nm, rq] : mrc_reqs)
       column_reqs.at(nm) = rq;
+#else // !c++17
+    for (auto& nm_rq : mrc_reqs) {
+      auto& nm = std::get<0>(nm_rq);
+      auto& rq = std::get<1>(nm_rq);
+      column_reqs.at(nm) = rq;
+    }
+#endif // c++17
 #endif
   }
   // create requirements, applying table_partition as needed
@@ -384,7 +418,10 @@ PhysicalTable::requirements(
   std::map<
     std::tuple<LogicalRegion, PrivilegeMode, CoherenceProperty, MappingTagID>,
     std::tuple<bool, RegionRequirement>> val_reqs;
-  for (auto& [nm, ppc] : m_columns) {
+  for (auto& nm_ppc : m_columns) {
+    // again, just use c++14 here because of size of loop body
+    auto& nm = std::get<0>(nm_ppc);
+    auto& ppc = std::get<1>(nm_ppc);
     if (column_reqs.count(nm) > 0) {
       auto& reqs = column_reqs.at(nm);
       auto cs = ppc->column_space();
@@ -437,8 +474,8 @@ PhysicalTable::requirements(
     }
   }
   std::vector<LogicalPartition> lps_result;
-  for (auto& [csp, lp] : partitions)
-    lps_result.push_back(lp);
+  for (auto& csp_lp : partitions)
+    lps_result.push_back(std::get<1>(csp_lp));
 
   // gather all requirements, in order set by this traversal of fields
   std::vector<RegionRequirement> reqs_result;
@@ -475,12 +512,21 @@ PhysicalTable::requirements(
 
   // add requirements for all logical regions in all selected columns
   size_t desc_idx = 0;
-  for (auto& [nm, ppc] : m_columns) {
+  for (auto& nm_ppc : m_columns) {
+    // again, c++14 only, due to size of loop body
+    auto& nm = std::get<0>(nm_ppc);
+    auto& ppc = std::get<1>(nm_ppc);
     if (column_reqs.count(nm) > 0) {
       auto cdesc = ppc->column().desc(nm);
       auto& reqs = column_reqs.at(nm);
       {
-        auto& [added, rq] = md_reqs.at(ppc->region());
+        auto& added_rq = md_reqs.at(ppc->region());
+#if __cplusplus >= 201703L
+        auto& [added, rq] = added_rq;
+#else // !c++17
+        auto& added = std::get<0>(added_rq);
+        auto& rq = std::get<1>(added_rq);
+#endif // c++17
         if (!added) {
           reqs_result.push_back(rq);
           added = true;
@@ -488,7 +534,13 @@ PhysicalTable::requirements(
       }
       decltype(val_reqs)::key_type rg_rq =
         {ppc->region(), reqs.values.privilege, reqs.values.coherence, reqs.tag};
-      auto& [added, rq] = val_reqs.at(rg_rq);
+      auto& added_rq = val_reqs.at(rg_rq);
+#if __cplusplus >= 201703L
+      auto& [added, rq] = added_rq;
+#else // !c++17
+      auto& added = std::get<0>(added_rq);
+      auto& rq = std::get<1>(added_rq);
+#endif // c++17
       cdesc.region = rq.parent;
       if (!added) {
         reqs_result.push_back(rq);
@@ -507,11 +559,14 @@ PhysicalTable::requirements(
 
 #ifdef HYPERION_USE_CASACORE
       if (cdesc.n_mr > 0) {
-        auto [mrq, vrq, oirq] =
+        auto rqs =
           MeasRef::requirements(
             ppc->mr_drs().value(),
             reqs.measref.privilege,
             reqs.measref.mapped);
+        auto& mrq = std::get<0>(rqs);
+        auto& vrq = std::get<1>(rqs);
+        auto& oirq = std::get<2>(rqs);
         assert(cdesc.n_mr == 2 || cdesc.n_mr == 3);
         reqs_result.push_back(mrq);
         reqs_result.push_back(vrq);
@@ -544,10 +599,9 @@ PhysicalTable::add_columns(
   std::map<LogicalRegion, size_t> cs_idxs; // metadata_lr
   std::vector<PhysicalRegion> cs_md_prs;
   std::unordered_map<std::string, Column> current_cols;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [nm, ppc] : m_columns) {
-#pragma GCC diagnostic pop
+  for (auto& nm_ppc : m_columns) {
+    auto& nm = std::get<0>(nm_ppc);
+    auto& ppc = std::get<1>(nm_ppc);
     auto md_lr = ppc->m_metadata.get_logical_region();
     if (cs_idxs.count(md_lr) == 0) {
       auto idx = cs_md_prs.size();
@@ -556,7 +610,9 @@ PhysicalTable::add_columns(
     }
     current_cols[nm] = ppc->column();
   }
-  for (auto& [cs, nm_tfs] : cols) {
+  for (auto& cs_nm_tfs : cols) {
+    auto& cs = std::get<0>(cs_nm_tfs);
+    auto& nm_tfs = std::get<1>(cs_nm_tfs);
     if (cs_idxs.count(cs.metadata_lr) == 0) {
       cs_idxs[cs.metadata_lr] = cs_md_prs.size();
       cs_md_prs.push_back(
@@ -565,8 +621,16 @@ PhysicalTable::add_columns(
           cs.requirements(READ_ONLY, EXCLUSIVE)));
     }
     std::vector<std::pair<hyperion::string, TableField>> hnm_tfs;
+#if __cplusplus >= 201703L
     for (auto& [nm, tf] : nm_tfs)
       hnm_tfs.emplace_back(nm, tf);
+#else // !c++17
+    for (auto& nm_tf : nm_tfs) {
+      auto& nm = std::get<0>(nm_tf);
+      auto& tf = std::get<1>(nm_tf);
+      hnm_tfs.emplace_back(nm, tf);
+    }
+#endif // c++17
     new_columns.emplace_back(cs, cs_idxs[cs.metadata_lr], hnm_tfs);
   }
   std::tuple<IndexSpace, PhysicalRegion> index_cs =
@@ -583,25 +647,33 @@ PhysicalTable::add_columns(
   // create (unmapped) PhysicalColumns for added column values
   std::map<
     LogicalRegion,
-    std::tuple<std::vector<FieldID>, std::optional<PhysicalRegion>>> new_fields;
-  for (auto& [nm, col] : added) {
+    std::tuple<
+      std::vector<FieldID>,
+      CXX_OPTIONAL_NAMESPACE::optional<PhysicalRegion>>> new_fields;
+  for (auto& nm_col : added) {
+    auto& col = std::get<1>(nm_col);
     if (new_fields.count(col.region) == 0)
-      new_fields[col.region] = {{col.fid}, std::nullopt};
+      new_fields[col.region] = {{col.fid}, CXX_OPTIONAL_NAMESPACE::nullopt};
     else
       std::get<0>(new_fields[col.region]).push_back(col.fid);
   }
-  for (auto& [lr, fids_pr] : new_fields) {
-    auto& [fids, pr] = fids_pr;
+  for (auto& lr_fids_pr : new_fields) {
+    auto& lr = std::get<0>(lr_fids_pr);
+    auto& fids_pr = std::get<1>(lr_fids_pr);
+    auto& fids = std::get<0>(fids_pr);
+    auto& pr = std::get<1>(fids_pr);
     RegionRequirement req(lr, WRITE_DISCARD, EXCLUSIVE, lr);
     req.add_fields(fids, false);
-    pr= rt->map_region(ctx, req);
+    pr = rt->map_region(ctx, req);
   }
 
   unsigned idx_rank = index_rank();
   std::unordered_map<std::string, std::string> refcols;
-  for (auto& [nm, col] : added) {
+  for (auto& nm_col : added) {
+    auto& nm = std::get<0>(nm_col);
+    auto& col = std::get<1>(nm_col);
     // create kws for Keywords
-    std::optional<Keywords::pair<PhysicalRegion>> kws;
+    CXX_OPTIONAL_NAMESPACE::optional<Keywords::pair<PhysicalRegion>> kws;
     if (!col.kw.is_empty()) {
       std::vector<FieldID> fids;
       fids.resize(col.kw.size(rt));
@@ -616,9 +688,12 @@ PhysicalTable::add_columns(
     }
 #ifdef HYPERION_USE_CASACORE
     // create mr_drs for MeasRef
-    std::optional<MeasRef::DataRegions> mr_drs;
+    CXX_OPTIONAL_NAMESPACE::optional<MeasRef::DataRegions> mr_drs;
     if (!col.mr.is_empty()) {
-      auto [mrq, vrq, oirq] = col.mr.requirements(READ_WRITE, false);
+      auto rqs = col.mr.requirements(READ_WRITE, false);
+      auto& mrq = std::get<0>(rqs);
+      auto& vrq = std::get<1>(rqs);
+      auto& oirq = std::get<2>(rqs);
       MeasRef::DataRegions prs;
       prs.metadata = rt->map_region(ctx, mrq);
       prs.values = rt->map_region(ctx, vrq);
@@ -644,12 +719,13 @@ PhysicalTable::add_columns(
         kws
 #ifdef HYPERION_USE_CASACORE
         , mr_drs
-        , std::nullopt
+        , CXX_OPTIONAL_NAMESPACE::nullopt
 #endif
         ));
   }
 #ifdef HYPERION_USE_CASACORE
-  for (auto& [nm, col] : added) {
+  for (auto& nm_col : added) {
+    auto& nm = std::get<0>(nm_col);
     if (refcols.count(nm) > 0) {
       auto& rc = refcols.at(nm);
       m_columns.at(nm)->set_refcol(rc, m_columns.at(rc));
@@ -667,7 +743,9 @@ PhysicalTable::remove_columns(
 
   std::vector<ColumnSpace> css;
   std::vector<PhysicalRegion> cs_md_prs;
-  for (auto& [nm, pcol] : m_columns) {
+  for (auto& nm_pcol : m_columns) {
+    auto& nm = std::get<0>(nm_pcol);
+    auto& pcol = std::get<1>(nm_pcol);
     if (cols.count(nm) > 0) {
       if (std::find(css.begin(), css.end(), pcol->column_space()) == css.end()) {
         css.push_back(pcol->column_space());
@@ -676,9 +754,7 @@ PhysicalTable::remove_columns(
     }
   }
 
-  std::unordered_map<std::string, Column> columns;
-  for (auto& [nm, ppc] : m_columns)
-    columns[nm] = ppc->column();
+  std::unordered_map<std::string, Column> columns = get_columns();
 
   bool result =
     Table::remove_columns(
@@ -691,7 +767,9 @@ PhysicalTable::remove_columns(
 
   if (result) {
     std::map<LogicalRegion, ColumnSpace> lrcss;
-    for (auto& [nm, col] : columns) {
+    for (auto& nm_col : columns) {
+    auto& nm = std::get<0>(nm_col);
+    auto& col = std::get<1>(nm_col);
       if (lrcss.count(col.region) == 0)
         lrcss[col.region] = col.cs;
       col.kw.destroy(ctx, rt);
@@ -701,7 +779,9 @@ PhysicalTable::remove_columns(
       m_columns.erase(nm);
       m_attached.erase(nm);
     }
-    for (auto& [lr, cs] : lrcss) {
+    for (auto& lr_cs : lrcss) {
+      auto& lr = std::get<0>(lr_cs);
+      auto& cs = std::get<1>(lr_cs);
       std::vector<FieldID> fids;
       rt->get_field_space_fields(lr.get_field_space(), fids);
       if (fids.size() == 0) {
@@ -753,13 +833,8 @@ for_all_column_regions(
       done.insert(dr.index.value());
     }
   }
-  if (column->refcol()) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-    auto& [nm, prc] = column->refcol().value();
-#pragma GCC diagnostic pop
-    for_all_column_regions(prc, done, fn);
-  }
+  if (column->refcol())
+    for_all_column_regions(std::get<1>(column->refcol().value()), done, fn);
 #endif
 }
 
@@ -767,12 +842,9 @@ void
 PhysicalTable::unmap_regions(Context ctx, Runtime* rt) const {
 
   std::set<PhysicalRegion> unmapped;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [nm, pc] : m_columns) {
-#pragma GCC diagnostic pop
+  for (auto& nm_pc : m_columns) {
     for_all_column_regions(
-      pc,
+      std::get<1>(nm_pc),
       unmapped,
       [&ctx, rt](auto& pr) { rt->unmap_region(ctx, pr); });
   }
@@ -786,10 +858,10 @@ PhysicalTable::remap_regions(Context ctx, Runtime* rt) const {
   std::set<PhysicalRegion> remapped;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [nm, pc] : m_columns) {
+  for (auto& nm_pc : m_columns) {
 #pragma GCC diagnostic pop
     for_all_column_regions(
-      pc,
+      std::get<1>(nm_pc),
       remapped,
       [&ctx, rt](auto& pr) { rt->remap_region(ctx, pr); });
   }
@@ -801,7 +873,8 @@ ColumnSpacePartition
 PhysicalTable::partition_rows(
   Context ctx,
   Runtime* rt,
-  const std::vector<std::optional<size_t>>& block_sizes) const {
+  const std::vector<CXX_OPTIONAL_NAMESPACE::optional<size_t>>& block_sizes)
+  const {
 
   return
     Table::partition_rows(
@@ -1026,7 +1099,7 @@ PhysicalTable::reindexed(
       index_axes_extension,
       index_axes.end(),
       [this, &missing](auto& d_nm) {
-        auto& [d, nm] = d_nm;
+        auto& nm = std::get<1>(d_nm);
         if (m_columns.count(nm) == 0)
           missing.insert(nm);
       });
@@ -1040,7 +1113,13 @@ PhysicalTable::reindexed(
   // ColumnSpaces are shared by Columns, so a map from ColumnSpaces to Column
   // names is useful
   std::map<ColumnSpace, std::vector<std::string>> cs_cols;
-  for (auto& [nm, pcol] : m_columns) {
+  for (auto& nm_pcol : m_columns) {
+#if __cplusplus >= 201703L
+    auto& [nm, pcol] = nm_pcol;
+#else // !c++17
+    auto& nm = std::get<0>(nm_pcol);
+    auto& pcol = std::get<1>(nm_pcol);
+#endif // c++17
     auto cs = pcol->column_space();
     if (cs_cols.count(cs) == 0)
       cs_cols[cs] = {nm};
@@ -1055,7 +1134,12 @@ PhysicalTable::reindexed(
     index_axes_extension,
     index_axes.end(),
     [this, &column_index, &index_cols, &ctx, rt](auto& d_nm) {
+#if __cplusplus >= 201703L
       auto& [d, nm] = d_nm;
+#else // !c++17
+      auto& d = std::get<0>(d_nm);
+      auto& nm = std::get<1>(d_nm);
+#endif // c++17
       auto lr = m_columns.at(nm)->create_index(ctx, rt);
       RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
       req.add_field(Column::COLUMN_INDEX_ROWS_FID);
@@ -1078,7 +1162,9 @@ PhysicalTable::reindexed(
         return std::make_pair(d, std::get<0>(index_cols[d]));
       });
 
-    for (auto& [cs, nms] : cs_cols) {
+    for (auto& cs_nms : cs_cols) {
+      auto& cs = std::get<0>(cs_nms);
+      auto& nms = std::get<1>(cs_nms);
       for (auto& nm : nms) {
         auto& col = m_columns.at(nm);
         const ColumnSpace::IndexFlagAccessor<READ_ONLY>
@@ -1108,11 +1194,8 @@ PhysicalTable::reindexed(
   {
     std::vector<int> new_index_axes;
     new_index_axes.reserve(index_axes.size() + ((allow_rows ? 1 : 0)));
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-    for (auto& [d, nm] : index_axes)
-#pragma GCC diagnostic pop
-      new_index_axes.push_back(d);
+    for (auto& d_nm : index_axes)
+      new_index_axes.push_back(std::get<0>(d_nm));
     if (allow_rows)
       new_index_axes.push_back(0);
     unsigned column_spaces_min_rank = 2 * LEGION_MAX_DIM;
@@ -1120,7 +1203,9 @@ PhysicalTable::reindexed(
     std::map<ColumnSpace, std::vector<std::pair<std::string, TableField>>>
       nmtfs;
     std::string axuid;
-    for (auto& [cs, nms] : cs_cols) {
+    for (auto& cs_nms : cs_cols) {
+      auto& cs = std::get<0>(cs_nms);
+      auto& nms = std::get<1>(cs_nms);
       std::vector<std::pair<std::string, TableField>> tfs;
       for (auto& nm : nms) {
         auto& col = m_columns.at(nm);
@@ -1132,9 +1217,11 @@ PhysicalTable::reindexed(
           auid(col->metadata(), ColumnSpace::AXIS_SET_UID_FID);
         axuid = auid[0];
 #ifdef HYPERION_USE_CASACORE
-        std::optional<MeasRef::DataRegions> odrs = col->mr_drs();
+        CXX_OPTIONAL_NAMESPACE::optional<MeasRef::DataRegions> odrs
+          = col->mr_drs();
 #endif
-        std::optional<Keywords::pair<PhysicalRegion>> okwrs = col->kws();
+        CXX_OPTIONAL_NAMESPACE::optional<Keywords::pair<PhysicalRegion>> okwrs
+          = col->kws();
         TableField tf(
           col->dt(),
           col->fid(),
@@ -1210,17 +1297,21 @@ PhysicalTable::reindexed(
     auto dcols = result_tbl.columns();
     // collect columns by value LogicalRegion
     std::map<LogicalRegion, std::map<std::string, Column>> grouped_dcols;
-    for (auto& [nm, dcol] : dcols) {
+    for (auto& nm_dcol : dcols) {
+      auto& nm = std::get<0>(nm_dcol);
+      auto& dcol = std::get<1>(nm_dcol);
       if (grouped_dcols.count(dcol.region) == 0)
         grouped_dcols[dcol.region] = {{nm, dcol}};
       else
         grouped_dcols[dcol.region][nm] = dcol;
     }
     // now copy values by group
-    for (auto& [dcg, dcols] : grouped_dcols) {
+    for (auto& dcg_dcols : grouped_dcols) {
+      auto& dcols = std::get<1>(dcg_dcols);
       // check first element of dcols to determine whether we've got an index
       // column in the result Table
-      auto& [nm, dcol] = *dcols.begin();
+      auto& nm = std::get<0>(*dcols.begin());
+      auto& dcol = std::get<1>(*dcols.begin());
       auto dcs_md_pr =
         rt->map_region(ctx, dcol.cs.requirements(READ_ONLY, EXCLUSIVE));
       const ColumnSpace::AxisVectorAccessor<READ_ONLY>
@@ -1299,7 +1390,9 @@ PhysicalTable::reindexed(
             READ_ONLY,
             EXCLUSIVE,
             rctlr));
-        for (auto& [nm, dcol] : dcols) {
+        for (auto& nm_dcol : dcols) {
+          auto& nm = std::get<0>(nm_dcol);
+          auto& dcol = std::get<1>(nm_dcol);
           auto col = m_columns.at(nm);
           args.dt = col->dt();
           args.fid = col->fid();
@@ -1323,22 +1416,20 @@ PhysicalTable::reindexed(
     rt->issue_copy_operation(ctx, index_column_copier);
   }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [d, lr_pr] : index_cols) {
-#pragma GCC diagnostic pop
-    auto& [lr, pr] = lr_pr;
+  for (auto& d_lr_pr : index_cols) {
+    auto& lr_pr = std::get<1>(d_lr_pr);
+    auto& lr = std::get<0>(lr_pr);
+    auto& pr = std::get<1>(lr_pr);
     rt->unmap_region(ctx, pr);
     auto fs = lr.get_field_space();
     // DON'T do this: rt->destroy_index_space(ctx, lr.get_index_space());
     rt->destroy_logical_region(ctx, lr);
     rt->destroy_field_space(ctx, fs);
   }
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [cs, rcs_rlr_lcid] : reindexed) {
-    auto& [rcs, rlr, lcid] = rcs_rlr_lcid;
-#pragma GCC diagnostic pop
+  for (auto& cs_rcs_rlr_lcid : reindexed) {
+    auto& rcs_rlr_lcid = std::get<1>(cs_rcs_rlr_lcid);
+    auto& rlr = std::get<1>(rcs_rlr_lcid);
+    auto& lcid = std::get<2>(rcs_rlr_lcid);
     rt->release_layout(lcid);
     auto fs = rlr.get_field_space();
     // DON'T destroy index space
@@ -1361,7 +1452,9 @@ PhysicalTable::attach_columns(
     std::tuple<LogicalRegion, std::tuple<bool, bool, bool>>,
     std::vector<std::tuple<FieldID, std::string>>>
     regions;
-  for (auto& [nm, pc] : m_columns) {
+  for (auto& nm_pc : m_columns) {
+    auto& nm = std::get<0>(nm_pc);
+    auto& pc = std::get<1>(nm_pc);
     if (column_paths.count(nm) > 0) {
       if (column_modes.count(nm) == 0) {
         // FIXME: log warning message: missing column path and/or mode
@@ -1379,15 +1472,20 @@ PhysicalTable::attach_columns(
       regions[key].emplace_back(pc->fid(), nm);
     }
   }
-  for (auto& [parent_modes, fid_nms] : regions) {
+  for (auto& parent_modes_fid_nms : regions) {
+    auto& parent_modes = std::get<0>(parent_modes_fid_nms);
+    auto& fid_nms= std::get<1>(parent_modes_fid_nms);
     std::map<FieldID, const char*> field_map;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-    for (auto& [fid, nm] : fid_nms)
-#pragma GCC diagnostic pop
+    for (auto& fid_nm : fid_nms) {
+      auto& fid = std::get<0>(fid_nm);
+      auto& nm = std::get<1>(fid_nm);
       field_map[fid] = column_paths.at(nm).c_str();
-    auto& [parent, modes] = parent_modes;
-    auto& [read_only, restricted, mapped] = modes;
+    }
+    auto& parent = std::get<0>(parent_modes);
+    auto& modes = std::get<1>(parent_modes);
+    auto& read_only = std::get<0>(modes);
+    auto& restricted = std::get<1>(modes);
+    auto& mapped = std::get<2>(modes);
     LogicalRegion lr = m_columns.at(std::get<1>(fid_nms[0]))->values_lr();
     AttachLauncher attach(EXTERNAL_HDF5_FILE, lr, parent, restricted, mapped);
     attach.attach_hdf5(
@@ -1395,10 +1493,8 @@ PhysicalTable::attach_columns(
       field_map,
       read_only ? LEGION_FILE_READ_ONLY : LEGION_FILE_READ_WRITE);
     auto pr1 = rt->attach_external_resource(ctx, attach);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-    for (auto& [fid, nm] : fid_nms) {
-#pragma GCC diagnostic pop
+    for (auto& fid_nm : fid_nms) {
+      auto& nm = std::get<1>(fid_nm);
       m_columns.at(nm)->m_values = pr1;
       m_attached[nm] = pr1;
     }
@@ -1418,7 +1514,7 @@ PhysicalTable::detach_columns(
   for (auto& nm : columns) {
     if (m_attached.count(nm) > 0) {
       PhysicalRegion pr = m_attached.at(nm);
-      m_columns.at(nm)->m_values.reset();
+      m_columns.at(nm)->m_values = CXX_OPTIONAL_NAMESPACE::nullopt;
       if (detached.count(pr) == 0) {
         rt->detach_external_resource(ctx, pr);
         detached.insert(pr);
@@ -1441,6 +1537,22 @@ PhysicalTable::acquire_columns(Context ctx, Runtime* rt) {
 void
 PhysicalTable::release_columns(Context ctx, Runtime* rt) {
 
+}
+
+std::unordered_map<std::string, Column>
+PhysicalTable::get_columns() const {
+  std::unordered_map<std::string, Column> result;
+#if __cplusplus >= 201703L
+  for (auto& [nm, ppc] : m_columns)
+    result[nm] = ppc->column();
+#else // !c++17
+  for (auto& nm_ppc : m_columns) {
+    auto& nm = std::get<0>(nm_ppc);
+    auto& ppc = std::get<1>(nm_ppc);
+    result[nm] = ppc->column();
+  }
+#endif // c++17
+  return result;
 }
 
 void

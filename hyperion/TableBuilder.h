@@ -29,6 +29,7 @@
 #include <hyperion/tree_index_space.h>
 
 #include <algorithm>
+#include CXX_ANY_HEADER
 #include <cassert>
 #include <functional>
 #include <memory>
@@ -69,7 +70,7 @@ public:
   }
 
   template <typename T>
-  std::optional<std::string>
+  CXX_OPTIONAL_NAMESPACE::optional<std::string>
   add_scalar_column(
     const casacore::Table& table,
     const std::string& name,
@@ -82,13 +83,14 @@ public:
   }
 
   template <typename T, int DIM>
-  std::optional<std::string>
+  CXX_OPTIONAL_NAMESPACE::optional<std::string>
   add_array_column(
     const casacore::Table& table,
     const std::string& name,
     unsigned fid,
     const std::vector<Axes>& element_axes,
-    std::function<std::array<size_t, DIM>(const std::any&)> element_shape) {
+    std::function<std::array<size_t, DIM>(const CXX_ANY_NAMESPACE::any&)>
+      element_shape) {
 
     std::vector<Axes> axes {MSTable<D>::ROW_AXIS};
     std::copy(
@@ -105,14 +107,15 @@ public:
   }
 
   void
-  add_row(const std::unordered_map<std::string, std::any>& args) {
+  add_row(const std::unordered_map<std::string, CXX_ANY_NAMESPACE::any>& args) {
     std::for_each(
       m_columns.begin(),
       m_columns.end(),
       [&args](auto& nm_col) {
         const std::string& nm = std::get<0>(nm_col);
         auto nm_arg = args.find(nm);
-        std::any arg = ((nm_arg != args.end()) ? nm_arg->second : std::any());
+        CXX_ANY_NAMESPACE::any arg =
+          ((nm_arg != args.end()) ? nm_arg->second : CXX_ANY_NAMESPACE::any());
         std::get<1>(nm_col)->add_row(arg);
       });
     ++m_num_rows;
@@ -120,7 +123,7 @@ public:
 
   void
   add_row() {
-    add_row(std::unordered_map<std::string, std::any>());
+    add_row(std::unordered_map<std::string, CXX_ANY_NAMESPACE::any>());
   }
 
   std::vector<
@@ -129,10 +132,12 @@ public:
     // sort the ColumnArgs in order to put instances with common index_tree
     // values next to one another
     std::vector<ColumnArgs> col_args;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-    for (auto& [nm, cb] : m_columns) {
-#pragma GCC diagnostic pop
+    for (auto& nm_cb : m_columns) {
+      // the body of this loop is big enough that I don't want to repeat it, so
+      // just use non-c++17 construct here
+      std::string nm;
+      std::shared_ptr<ColumnBuilder<D>> cb;
+      std::tie(nm, cb) = nm_cb;
       auto ca = cb->column(ctx, rt);
       if (ca.index_tree != IndexTreeL()) {
         auto it_match =
@@ -183,10 +188,10 @@ protected:
 
   template <int DIM>
   static std::array<size_t, DIM>
-  size(const std::any& args) {
+  size(const CXX_ANY_NAMESPACE::any& args) {
     std::array<size_t, DIM> result;
-    auto sa = std::any_cast<SizeArgs>(args);
-    std::optional<casacore::IPosition> shape;
+    auto sa = CXX_ANY_NAMESPACE::any_cast<SizeArgs>(args);
+    CXX_OPTIONAL_NAMESPACE::optional<casacore::IPosition> shape;
     if (sa.tcol) {
       if (sa.tcol->hasContent(*sa.row)){
         auto rsh = sa.tcol->shape(*sa.row);
@@ -209,7 +214,7 @@ protected:
   }
 
   template <hyperion::TypeTag DT>
-  std::optional<std::string>
+  CXX_OPTIONAL_NAMESPACE::optional<std::string>
   add_from_table_column(
     const casacore::Table& table,
     const std::string& nm,
@@ -219,7 +224,7 @@ protected:
 
     typedef typename hyperion::DataType<DT>::ValueType VT;
 
-    std::optional<std::string> result;
+    CXX_OPTIONAL_NAMESPACE::optional<std::string> result;
     switch (element_axes.size()) {
     case 0:
       result = add_scalar_column<VT>(table, nm, fid);
@@ -247,17 +252,17 @@ protected:
     return result;
   }
 
-  std::optional<std::string>
+  CXX_OPTIONAL_NAMESPACE::optional<std::string>
   add_column(
     const casacore::Table& table,
     std::unique_ptr<ColumnBuilder<D>>&& col) {
 
-    std::optional<std::string> result;
+    CXX_OPTIONAL_NAMESPACE::optional<std::string> result;
     std::shared_ptr<ColumnBuilder<D>> scol = std::move(col);
     assert(scol->num_rows() == m_num_rows);
     if (m_columns.count(scol->name()) > 0) {
       // this can happen if columns share a measure reference column
-      return std::nullopt;
+      return CXX_OPTIONAL_NAMESPACE::nullopt;
     }
     m_columns[scol->name()] = scol;
     auto mr = get_meas_refs(table, scol->name());
@@ -362,7 +367,7 @@ public:
       actual_column_selections.end(),
       [&table, &result, &tdesc, &element_axes, &array_names, &unreserved_fid]
       (auto& nm) {
-        std::optional<std::string> refcol;
+        CXX_OPTIONAL_NAMESPACE::optional<std::string> refcol;
         auto c = MSTableColumns<D>::lookup_col(nm);
         // "c" will be empty if "nm" belongs to a measure reference column (all
         // of which either are undocumented in the MS standard and therefore are
@@ -400,7 +405,7 @@ public:
 
     // scan rows to get shapes for all selected array columns
     //
-    std::unordered_map<std::string, std::any> args;
+    std::unordered_map<std::string, CXX_ANY_NAMESPACE::any> args;
     // local variable to hold row number, args values contain
     // pointer to this variable
     unsigned row;

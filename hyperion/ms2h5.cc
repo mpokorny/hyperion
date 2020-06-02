@@ -130,8 +130,13 @@ read_table_from_ms_task(
     tpath = ms_path / tname;
   else
     tpath = ms_path;
-  auto [nm, index_cs, fields] = from_ms(ctx, rt, tpath, {"*"});
-  return Table::create(ctx, rt, index_cs, std::move(fields));
+  auto nm_ics_flds = from_ms(ctx, rt, tpath, {"*"});
+  return
+    Table::create(
+      ctx,
+      rt,
+      std::get<1>(nm_ics_flds),
+      std::move(std::get<2>(nm_ics_flds)));
 }
 
 struct ReadMSTableColumnsTaskArgs {
@@ -151,7 +156,7 @@ read_ms_table_columns_task(
   const ReadMSTableColumnsTaskArgs* args =
     static_cast<const ReadMSTableColumnsTaskArgs*>(task->args);
 
-  auto [table, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       args->desc,
@@ -160,16 +165,30 @@ read_ms_table_columns_task(
       regions.begin(),
       regions.end())
     .value();
+#if __cplusplus >= 201703L
+  auto& [table, rit, pit] = ptcr;
+#else // !c++17
+  auto& table = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
   auto row_part = table.partition_rows(ctx, rt, {ROW_BLOCK_SZ});
-  auto [reqs, parts, desc] =
+  auto reqs =
     TableReadTask::requirements(ctx, rt, table, row_part, READ_WRITE);
+#if __cplusplus >= 201703L
+  auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+  auto& treqs = std::get<0>(reqs);
+  auto& tparts = std::get<1>(reqs);
+  auto& tdesc = std::get<2>(reqs);
+#endif // c++17
 
   TableReadTask::Args tr_args;
   fstrcpy(tr_args.table_path, args->table_path);
-  tr_args.table_desc = desc;
+  tr_args.table_desc = tdesc;
   IndexTaskLauncher read(
     TableReadTask::TASK_ID,
     rt->get_index_partition_color_space(row_part.column_ip),
@@ -178,13 +197,13 @@ read_ms_table_columns_task(
     Predicate::TRUE_PRED,
     false,
     table_mapper);
-  for (auto& rq : reqs)
+  for (auto& rq : treqs)
     read.add_region_requirement(rq);
   table.unmap_regions(ctx, rt);
   rt->execute_index_space(ctx, read);
 
   row_part.destroy(ctx, rt);
-  for (auto& p : parts)
+  for (auto& p : tparts)
     rt->destroy_logical_partition(ctx, p);
 }
 
@@ -203,8 +222,8 @@ struct create_h5_result_t {
   legion_buffer_size() const {
     size_t result = 0;
     for (auto& map : maps) {
-      for (auto& [k, v] : map)
-        result += k.size() + 1 + v.size() + 1;
+      for (auto& k_v : map)
+        result += std::get<0>(k_v).size() + 1 + std::get<1>(k_v).size() + 1;
       ++result;
     }
     ++result;
@@ -215,7 +234,13 @@ struct create_h5_result_t {
   legion_serialize(void* buffer) const {
     char *buff = static_cast<char*>(buffer);
     for (auto& map : maps) {
-      for (auto& [k, v] : map) {
+      for (auto& k_v : map) {
+#if __cplusplus >= 201703L
+        auto& [k, v] = k_v;
+#else // !c++17
+        auto& k = std::get<0>(k_v);
+        auto& v = std::get<0>(k_v);
+#endif // c++17
         assert(k.size() > 0 && v.size() > 0);
         std::strcpy(buff, k.c_str());
         buff += k.size() + 1;
@@ -264,7 +289,7 @@ create_h5_task(
     desc.push_back(args->desc[i]);
   const NameAccessor<READ_ONLY> names(regions[0], TABLE_NAME_FID);
 
-  auto [tables, rit, pit] =
+  auto ptcr =
     PhysicalTable::create_many(
       rt,
       desc,
@@ -273,6 +298,13 @@ create_h5_task(
       regions.begin() + 1,
       regions.end())
     .value();
+#if __cplusplus >= 201703L
+  auto& [tables, rit, pit] = ptcr;
+#else // !c++17
+  auto& tables = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end() && pit == regions.end());
 
   // initialize HDF5 file with all tables
@@ -292,8 +324,8 @@ create_h5_task(
     CHECK_H5(H5Gclose(table_grp_id));
     auto cols = tables[i].columns();
     std::unordered_set<std::string> cnames;
-    for (auto& [cname, pc] : cols)
-      cnames.insert(cname);
+    for (auto& cname_pc : cols)
+      cnames.insert(std::get<0>(cname_pc));
     std::string tpath = std::string("/") + names[i].val;
     column_maps.push_back(
       hdf5::get_table_column_paths(file_id, tpath, cnames));
@@ -557,10 +589,15 @@ public:
       colreq.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
       size_t i = 0;
       for (auto& t : tables) {
-        auto [reqs, parts, desc] =
-          t.requirements(ctx, rt, ColumnSpacePartition(), {}, colreq);
-        create_args.desc[i++] = desc;
-        for (auto& rq : reqs)
+        auto reqs = t.requirements(ctx, rt, ColumnSpacePartition(), {}, colreq);
+#if __cplusplus >= 201703L
+        auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+        auto& treqs = std::get<0>(reqs);
+        auto& tdesc = std::get<2>(reqs);
+#endif // c++17
+        create_args.desc[i++] = tdesc;
+        for (auto& rq : treqs)
           write.add_region_requirement(rq);
       }
       column_paths =
@@ -573,11 +610,8 @@ public:
       std::unordered_map<std::string, std::tuple<bool, bool, bool>>
         column_modes;
       // modes are: read-write, restricted, unmapped
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-      for (auto& [nm, pth] : column_paths[i])
-#pragma GCC diagnostic pop
-        column_modes[nm] = {false, true, false};
+      for (auto& nm_pth : column_paths[i])
+        column_modes[std::get<0>(nm_pth)] = {false, true, false};
       ptables.push_back(
         tables[i].attach_columns(ctx, rt, h5, column_paths[i], column_modes));
     }
@@ -596,12 +630,18 @@ public:
       TaskLauncher task(
         READ_MS_TABLE_COLUMNS_TASK_ID,
         TaskArgument(&rd_args, sizeof(rd_args)));
-      auto [reqs, parts, desc] =
+      auto reqs =
         ptables[i].requirements(ctx, rt, ColumnSpacePartition(), {}, colreq);
+#if __cplusplus >= 201703L
+      auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+      auto& treqs = std::get<0>(reqs);
+      auto& tdesc = std::get<2>(reqs);
+#endif // c++17
       ptables[i].unmap_regions(ctx, rt);
-      for (auto& rq : reqs)
+      for (auto& rq : treqs)
         task.add_region_requirement(rq);
-      rd_args.desc = desc;
+      rd_args.desc = tdesc;
       rt->execute_task(ctx, task);
     }
 

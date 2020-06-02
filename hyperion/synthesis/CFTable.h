@@ -73,7 +73,7 @@ public:
       for (size_t i = 0; i < N; ++i)
         fields.emplace_back(
           index_axes_cs[i],
-          std::vector{index_axes_fields[i]});
+          std::vector<std::pair<std::string, TableField>>{index_axes_fields[i]});
     }
 
     // CF columns
@@ -110,24 +110,31 @@ public:
         EXCLUSIVE /* coherence */,
         true /* mapped */
       };
-      auto [reqs, parts, desc] =
+      auto reqs =
         tbl.requirements(
           ctx,
           rt,
           ColumnSpacePartition(),
-          {{CF_VALUE_COLUMN_NAME, std::nullopt},
-           {CF_WEIGHT_COLUMN_NAME, std::nullopt}},
+          {{CF_VALUE_COLUMN_NAME, CXX_OPTIONAL_NAMESPACE::nullopt},
+           {CF_WEIGHT_COLUMN_NAME, CXX_OPTIONAL_NAMESPACE::nullopt}},
           colreqs);
+#if __cplusplus >= 201703L
+      auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+      auto& treqs = std::get<0>(reqs);
+      auto& tdesc = std::get<2>(reqs);
+#endif // c++17
       InitIndexColumnTaskArgs args;
-      args.desc = desc;
-      ((args.values<AXES>() = axes.values), ...);
+      args.desc = tdesc;
+      InitIndexColumnTaskArgs::initializer<AXES...>::init(args, axes...);
+      //((args.values<AXES>() = axes.values), ...);
       std::unique_ptr<char[]> buf =
         std::make_unique<char[]>(args.serialized_size());
       args.serialize(buf.get());
       Legion::TaskLauncher task(
         init_index_column_task_id,
         Legion::TaskArgument(buf.get(), args.serialized_size()));
-      for (auto& r : reqs)
+      for (auto& r : treqs)
         task.add_region_requirement(r);
       rt->execute_task(ctx, task);
     }

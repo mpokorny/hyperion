@@ -24,12 +24,12 @@
 #include <hyperion/MSTable.h>
 #include <hyperion/MeasRef.h>
 
-#include <any>
+#include CXX_ANY_HEADER
 #include <cassert>
 #include <functional>
 #include <memory>
 #include <numeric>
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <vector>
 
 #include <casacore/casa/BasicSL/String.h>
@@ -153,14 +153,14 @@ public:
    * Values associated with a casacore::Measure that is in the MeasurementSet
    * column
    *
-   * @return std::optional of a std::tuple of elements representing a column
-   * measure (including row-based measures)
+   * @return CXX_OPTIONAL_HEADER::optional of a std::tuple of elements
+   * representing a column measure (including row-based measures)
    */
-  const std::optional<
+  const CXX_OPTIONAL_NAMESPACE::optional<
     std::tuple<
       hyperion::MClass,
       std::vector<std::tuple<std::unique_ptr<casacore::MRBase>, unsigned>>,
-      std::optional<std::string>>>&
+      CXX_OPTIONAL_NAMESPACE::optional<std::string>>>&
   meas_record() const {
     return m_meas_record;
   }
@@ -174,7 +174,7 @@ public:
       hyperion::MClass,
       std::vector<
       std::tuple<std::unique_ptr<casacore::MRBase>, unsigned>>,
-      std::optional<std::string>>&& rec) {
+      CXX_OPTIONAL_NAMESPACE::optional<std::string>>&& rec) {
     m_meas_record = std::move(rec);
   }
 
@@ -184,7 +184,7 @@ public:
    * @param[in] any The shape of the row element
    */
   virtual void
-  add_row(const std::any&) = 0;
+  add_row(const CXX_ANY_NAMESPACE::any&) = 0;
 
   /**
    * Construct the ColumnArgs
@@ -199,13 +199,21 @@ public:
     if (itrank && itrank.value() == rank())
       itree = index_tree();
     MeasRef mr;
-    std::optional<std::string> ref_column;
+    CXX_OPTIONAL_NAMESPACE::optional<std::string> ref_column;
     if (m_meas_record) {
       std::tuple<MClass, std::vector<std::tuple<casacore::MRBase*, unsigned>>>
         mrec;
       std::get<0>(mrec) = std::get<0>(m_meas_record.value());
+#if __cplusplus >= 201703L
       for (auto& [mrb, c] : std::get<1>(m_meas_record.value()))
         std::get<1>(mrec).emplace_back(mrb.get(), c);
+#else // !c++17
+      for (auto& mrb_c : std::get<1>(m_meas_record.value())) {
+        const std::unique_ptr<casacore::MRBase>& mrb = std::get<0>(mrb_c);
+        unsigned c = std::get<1>(mrb_c);
+        std::get<1>(mrec).emplace_back(mrb.get(), c);}
+#endif // c++17
+
       mr = std::get<1>(create_named_meas_refs(ctx, rt, {mrec}));
     }
     return ColumnArgs{
@@ -252,11 +260,11 @@ private:
 
   IndexTreeL m_index_tree;
 
-  std::optional<
+  CXX_OPTIONAL_NAMESPACE::optional<
     std::tuple<
       hyperion::MClass,
       std::vector<std::tuple<std::unique_ptr<casacore::MRBase>, unsigned>>,
-      std::optional<std::string>>>
+      CXX_OPTIONAL_NAMESPACE::optional<std::string>>>
   m_meas_record;
 };
 
@@ -295,7 +303,7 @@ public:
   virtual ~ScalarColumnBuilder() {}
 
   void
-  add_row(const std::any&) override {
+  add_row(const CXX_ANY_NAMESPACE::any&) override {
     ColumnBuilder<D>::set_next_row(IndexTreeL());
   }
 };
@@ -315,7 +323,8 @@ public:
     TypeTag datatype,
     unsigned fid,
     const std::vector<AxesT>& axes,
-    std::function<std::array<size_t, ARRAYDIM>(const std::any&)> element_shape)
+    std::function<std::array<size_t, ARRAYDIM>(const CXX_ANY_NAMESPACE::any&)>
+      element_shape)
     : ColumnBuilder<D>(name, datatype, fid, axes)
     , m_element_shape(element_shape) {
 
@@ -335,7 +344,7 @@ public:
   generator(
     const std::string& name, /**< [in] column name */
     unsigned fid, /**< [in] column value field id */
-    std::function<std::array<size_t, ARRAYDIM>(const std::any&)>
+    std::function<std::array<size_t, ARRAYDIM>(const CXX_ANY_NAMESPACE::any&)>
     element_shape /**< [in] conversion from cell shape to array of sizes */) {
 
     return
@@ -350,7 +359,7 @@ public:
   }
 
   void
-  add_row(const std::any& args) override {
+  add_row(const CXX_ANY_NAMESPACE::any& args) override {
     auto ary = m_element_shape(args);
     IndexTreeL t =
       std::accumulate(
@@ -365,7 +374,8 @@ public:
 
 private:
 
-  std::function<std::array<size_t, ARRAYDIM>(const std::any&)> m_element_shape;
+  std::function<std::array<size_t, ARRAYDIM>(const CXX_ANY_NAMESPACE::any&)>
+  m_element_shape;
 };
 
 } // end namespace hyperion

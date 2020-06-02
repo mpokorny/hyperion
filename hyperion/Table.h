@@ -36,6 +36,66 @@ namespace hyperion {
 
 class PhysicalTable;
 
+// helper template classes for handling different table index spaces
+template <typename T>
+struct table_indexing {
+  template <T...AXES>
+  struct axes {};
+
+  template <size_t N, T A0, typename...AXES>
+  struct index_of_ {
+    //typedef ... type;
+  };
+
+  template <size_t N, T A0, T ...AXES>
+  struct index_of_<N, A0, axes<A0, AXES...>> {
+    typedef std::integral_constant<size_t, N> type;
+  };
+
+  template <size_t N, T A0, T A1, T ...AXES>
+  struct index_of_<N, A0, axes<A1, AXES...>> {
+    typedef typename index_of_<N + 1, A0, axes<AXES...>>::type type;
+  };
+
+  template <size_t N, T A0>
+  struct index_of_<N, A0, axes<>> {
+    typedef void type;
+  };
+
+  template <T A0, T ...AXES>
+  struct index_of
+    : public index_of_<0, A0, axes<AXES...>> {};
+
+  template <T A0, T ...AXES>
+  static constexpr bool includes =
+    !std::is_void<typename index_of<A0, AXES...>::type>::value;
+
+  template <
+    int M,
+    int N,
+    T A0,
+    typename AXES,
+    typename V = typename index_of_<0, A0, AXES>::type,
+    std::enable_if_t<(M <= N), int> = 0>
+  struct Pt_ {
+    Pt_(const Legion::Point<N>& _pt)
+      : pt(_pt[V::value]) {};
+    Legion::Point<1> pt;
+  };
+
+  template <int M, int N, T A0, typename AXES>
+  struct Pt_<M, N, A0, AXES, void> {
+    Pt_(const Legion::Point<N>& _pt) {
+      for (size_t i = 0; i < M; ++i)
+        pt[i] = _pt[i];
+    }
+    Legion::Point<M> pt;
+  };
+
+  template <int M, int N, T A0, T...AXES>
+  using Pt = Pt_<M, N, A0, axes<AXES...>>;
+};
+
 class HYPERION_API Table {
 
   // FIXME: add support for table keywords
@@ -89,7 +149,12 @@ public:
       m_columns.end(),
       &result.columns[0],
       [](const auto& nm_col) {
+#if __cplusplus >= 201703L
         auto& [nm, col] = nm_col;
+#else // !c++17
+        auto& nm = std::get<0>(nm_col);
+        auto& col = std::get<1>(nm_col);
+#endif // c++17
         return col.desc(nm);
       });
     return result;
@@ -166,10 +231,12 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ColumnSpacePartition& table_partition = ColumnSpacePartition(),
-    const std::map<std::string, std::optional<Column::Requirements>>&
+    const std::map<
+      std::string,
+      CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>>&
       column_requirements = {},
-    const std::optional<Column::Requirements>& default_column_requirements =
-      Column::default_requirements) const;
+    const CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>&
+      default_column_requirements = Column::default_requirements) const;
 
 private:
 
@@ -183,17 +250,19 @@ public:
     std::vector<Legion::LogicalPartition>,
     Desc>
   requirements(
-    std::optional<Legion::Context> ctx,
-    std::optional<Legion::Runtime*> rt,
+    CXX_OPTIONAL_NAMESPACE::optional<Legion::Context> ctx,
+    CXX_OPTIONAL_NAMESPACE::optional<Legion::Runtime*> rt,
     const ColumnSpace& index_col_cs,
     const Legion::LogicalRegion& index_col_region,
     const Legion::LogicalRegion& index_col_parent,
     const std::unordered_map<std::string, Column>& columns,
     const ColumnSpacePartition& table_partition = ColumnSpacePartition(),
-    const std::map<std::string, std::optional<Column::Requirements>>&
+    const std::map<
+      std::string,
+      CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>>&
       column_requirements = {},
-    const std::optional<Column::Requirements>& default_column_requirements =
-      Column::default_requirements);
+    const CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>&
+      default_column_requirements = Column::default_requirements);
 
   Legion::Future /* bool */
   is_conformant(
@@ -249,13 +318,14 @@ public:
   partition_rows(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<std::optional<size_t>>& block_sizes) const;
+    const std::vector<CXX_OPTIONAL_NAMESPACE::optional<size_t>>& block_sizes)
+    const;
 
   static ColumnSpacePartition
   partition_rows(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<std::optional<size_t>>& block_sizes,
+    const std::vector<CXX_OPTIONAL_NAMESPACE::optional<size_t>>& block_sizes,
     const Legion::IndexSpace& ics_is,
     const Legion::PhysicalRegion& ics_md_pr);
 

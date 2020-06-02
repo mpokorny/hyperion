@@ -172,7 +172,11 @@ attach_table0_col(
   return result;
 }
 
+#if __cplusplus >= 201703L
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
+#else
+#define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
+#endif
 
 struct other_index_tree_serdez {
 
@@ -207,21 +211,21 @@ test_index_tree_attribute(
   auto tree_md = read_index_tree_attr_metadata(grp_id, attr_name.c_str());
   recorder.assert_true(
     std::string("IndexTree attribute ") + attr_name + " metadata exists",
-    tree_md.has_value());
+    (bool)tree_md);
   recorder.expect_true(
     std::string("IndexTree attribute ") + attr_name
     + " metadata has expected serializer id",
-    TE(std::string(tree_md.value())) == binary_index_tree_serdez::id);
+    TE(std::string(tree_md.value()) == binary_index_tree_serdez::id));
   auto optTree =
     read_index_tree_from_attr<binary_index_tree_serdez>(
       grp_id,
       attr_name.c_str());
   recorder.assert_true(
     std::string("IndexTree attribute ") + attr_name + " value exists",
-    optTree.has_value());
+    (bool)optTree);
   recorder.expect_true(
     std::string("IndexTree attribute ") + attr_name + " has expected value",
-    TE(optTree.value()) == tree);
+    TE(optTree.value() == tree));
 
   auto optTree_bad =
     read_index_tree_from_attr<other_index_tree_serdez>(
@@ -230,13 +234,17 @@ test_index_tree_attribute(
   recorder.expect_false(
     std::string("Failure to read IndexTree attribute ") + attr_name
     + " with incorrect deserializer",
-    optTree_bad.has_value());
+    (bool)optTree_bad);
 }
 
 void
 tree_tests(testing::TestRecorder<READ_WRITE>& recorder) {
   std::string fname = "h5.XXXXXX";
+#if __cplusplus < 201703L
+  int fd = mkstemp(const_cast<char*>(fname.data()));
+#else
   int fd = mkstemp(fname.data());
+#endif
   assert(fd != -1);
   close(fd);
   try {
@@ -363,15 +371,15 @@ table_tests(
   std::vector<std::pair<std::string, TableField>> xy_fields{
     {"X",
      TableField(HYPERION_TYPE_UINT, COL_X, Keywords(),
-                columnX_direction, std::nullopt)},
+                columnX_direction, CXX_OPTIONAL_NAMESPACE::nullopt)},
     {"Y",
      TableField(HYPERION_TYPE_UINT, COL_Y, Keywords(),
-                MeasRef(), std::nullopt)}
+                MeasRef(), CXX_OPTIONAL_NAMESPACE::nullopt)}
   };
   std::vector<std::pair<std::string, TableField>> z_fields{
     {"Z",
      TableField(HYPERION_TYPE_UINT, COL_Z, Keywords(),
-                columnZ_epoch, std::nullopt)}
+                columnZ_epoch, CXX_OPTIONAL_NAMESPACE::nullopt)}
   };
 #else
   std::vector<std::pair<std::string, TableField>> xy_fields{
@@ -391,7 +399,11 @@ table_tests(
       {{xy_space, xy_fields}, {z_space, z_fields}});
   auto cols0 = tb0.columns();
 
+#if __cplusplus < 201703L
+  int fd = mkstemp(const_cast<char*>(fname.data()));
+#else
   int fd = mkstemp(fname.data());
+#endif
   assert(fd != -1);
   if (save_output_file)
     std::cout << "test file name: " << fname << std::endl;
@@ -399,7 +411,7 @@ table_tests(
   hid_t fid, root_loc;
   recorder.assert_no_throw(
     "Write to HDF5 file",
-    testing::TestEval(
+    testing::TestEval<std::function<bool()>>(
       [&]() {
         fid = H5DatatypeManager::create(fname, H5F_ACC_TRUNC);
         assert(fid >= 0);
@@ -426,7 +438,13 @@ table_tests(
         attach_table0_col(ctx, rt, cols0.at(cstr), col0_arrays.at(cstr));
     }
 
-    auto [tb1, tb1_paths] = init_table(ctx, rt, root_loc, "table1");
+    auto itb1 = init_table(ctx, rt, root_loc, "table1");
+#if __cplusplus >= 201703L
+    auto& [tb1, tb1_paths] = itb1;
+#else
+    auto& tb1 = std::get<0>(itb1);
+    auto& tb1_paths = std::get<1>(itb1);
+#endif
 
     // read back metadata
 
@@ -444,15 +462,15 @@ table_tests(
         TE(cx.fid == COL_X));
       recorder.expect_true(
         "Column X has no measure reference column",
-        TE(!cx.rc.has_value()));
+        TE(!(bool)cx.rc));
       recorder.expect_true(
         "Column X has expected axes",
-        TE(cx.cs.axes(ctx, rt)) ==
-        map_to_int(std::vector<Table0Axes>{Table0Axes::ROW}));
+        TE(cx.cs.axes(ctx, rt)
+           == map_to_int(std::vector<Table0Axes>{Table0Axes::ROW})));
       recorder.expect_true(
         "Column X has expected indexes",
-        TE(index_space_as_tree(rt, cx.cs.column_is))
-        == IndexTreeL(TABLE0_NUM_ROWS));
+        TE(index_space_as_tree(rt, cx.cs.column_is)
+           == IndexTreeL(TABLE0_NUM_ROWS)));
 #ifdef HYPERION_USE_CASACORE
       recorder.expect_true(
         "Column X has expected measure",
@@ -472,15 +490,15 @@ table_tests(
         TE(cy.fid == COL_Y));
       recorder.expect_true(
         "Column Y has no measure reference column",
-        TE(!cy.rc.has_value()));
+        TE(!(bool)cy.rc));
       recorder.expect_true(
         "Column Y has expected axes",
-        TE(cy.cs.axes(ctx, rt)) ==
-        map_to_int(std::vector<Table0Axes>{Table0Axes::ROW}));
+        TE(cy.cs.axes(ctx, rt)
+           == map_to_int(std::vector<Table0Axes>{Table0Axes::ROW})));
       recorder.expect_true(
         "Column Y has expected indexes",
-        TE(index_space_as_tree(rt, cy.cs.column_is))
-        == IndexTreeL(TABLE0_NUM_ROWS));
+        TE(index_space_as_tree(rt, cy.cs.column_is)
+           == IndexTreeL(TABLE0_NUM_ROWS)));
 #ifdef HYPERION_USE_CASACORE
       recorder.expect_true(
         "Column Y has expected measure (none)",
@@ -500,15 +518,16 @@ table_tests(
         TE(cz.fid == COL_Z));
       recorder.expect_true(
         "Column Z has no measure reference column",
-        TE(!cz.rc.has_value()));
+        TE(!(bool)cz.rc));
       recorder.expect_true(
         "Column Z has expected axes",
-        TE(cz.cs.axes(ctx, rt)) ==
-        map_to_int(std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP}));
+        TE(cz.cs.axes(ctx, rt)
+           == map_to_int(
+             std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::ZP})));
       recorder.expect_true(
         "Column Z has expected indexes",
-        TE(index_space_as_tree(rt, cz.cs.column_is))
-        == IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}}));
+        TE(index_space_as_tree(rt, cz.cs.column_is)
+           == IndexTreeL({{TABLE0_NUM_ROWS, IndexTreeL(2)}})));
 #ifdef HYPERION_USE_CASACORE
       recorder.expect_true(
         "Column Z has expected measure",
@@ -529,7 +548,7 @@ table_tests(
           true);
       recorder.expect_false(
         "Cannot attach columns with different ColumnSpaces at once",
-        TE(pr.has_value()));
+        TE((bool)pr));
     }
     {
       std::unordered_map<std::string, std::string> some_paths(
@@ -548,7 +567,7 @@ table_tests(
           true);
       recorder.expect_false(
         "Cannot attach columns without associated paths",
-        TE(pr.has_value()));
+        TE((bool)pr));
     }
     auto tb1_xy_pr =
       attach_table_columns(
@@ -563,7 +582,7 @@ table_tests(
         true);
     recorder.expect_true(
       "Attach X and Y columns in HDF5 file",
-      TE(tb1_xy_pr.has_value()));
+      TE((bool)tb1_xy_pr));
     auto tb1_z_pr =
       attach_table_columns(
         ctx,
@@ -577,7 +596,7 @@ table_tests(
         true);
     recorder.expect_true(
       "Attach Z column in HDF5 file",
-      TE(tb1_z_pr.has_value()));
+      TE((bool)tb1_z_pr));
 
     // copy values from tb0 to tb1
     {
@@ -620,7 +639,13 @@ table_tests(
     fid = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
     assert(fid >= 0);
     root_loc = H5Gopen(fid, "/", H5P_DEFAULT);
-    auto [tb1, tb1_paths] = init_table(ctx, rt, root_loc, "table1");
+    auto itb1 = init_table(ctx, rt, root_loc, "table1");
+#if __cplusplus >= 201703L
+    auto& [tb1, tb1_paths] = itb1;
+#else
+    auto& tb1 = std::get<0>(itb1);
+    auto& tb1_paths = std::get<1>(itb1);
+#endif
     auto cols1 = tb1.columns();
     auto tb1_xy_pr =
       attach_table_columns(
@@ -635,7 +660,7 @@ table_tests(
         true);
     recorder.expect_true(
       "Re-attached X and Y columns in HDF5 file",
-      TE(tb1_xy_pr.has_value()));
+      TE((bool)tb1_xy_pr));
     auto tb1_z_pr =
       attach_table_columns(
         ctx,
@@ -649,7 +674,7 @@ table_tests(
         true);
     recorder.expect_true(
       "Re-attached Z column in HDF5 file",
-      TE(tb1_z_pr.has_value()));
+      TE((bool)tb1_z_pr));
     recorder.expect_true(
       "Column X values read from HDF5 as expected",
       TE(verify_col<1>(

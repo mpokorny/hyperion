@@ -122,7 +122,7 @@ hyperion::partition_over_default_tunable(
   return rt->create_equal_partition(ctx, is, color_is);
 }
 
-std::optional<int>
+CXX_OPTIONAL_NAMESPACE::optional<int>
 hyperion::column_is_axis(
   const std::vector<std::string>& axis_names,
   const std::string& colname,
@@ -135,7 +135,10 @@ hyperion::column_is_axis(
       [&axis_names, &colname](auto& ax) {
         return colname == axis_names[ax];
       });
-  return (colax != axes.end()) ? *colax : std::optional<int>();
+  return
+    (colax != axes.end())
+    ? *colax
+    : CXX_OPTIONAL_NAMESPACE::optional<int>();
 }
 
 #ifdef HYPERION_USE_CASACORE
@@ -203,6 +206,14 @@ void
 hyperion::coordinate_system_serdez::destroy(cc::CoordinateSystem& val) {
 }
 
+#endif
+
+#if __cplusplus < 201703L
+#define VT(dt)                                            \
+  constexpr const hyperion::TypeTag                       \
+  hyperion::ValueType<DataType<dt>::ValueType>::DataType;
+HYPERION_FOREACH_DATATYPE(VT)
+#undef VT
 #endif
 
 std::ostream&
@@ -621,13 +632,16 @@ hyperion::AxesRegistrar::register_axes(
 }
 #endif
 
-std::optional<hyperion::AxesRegistrar::A>
+CXX_OPTIONAL_NAMESPACE::optional<hyperion::AxesRegistrar::A>
 hyperion::AxesRegistrar::axes(const std::string& uid) {
-  return (axes_.count(uid) > 0) ? axes_[uid] : std::optional<A>();
+  return
+    (axes_.count(uid) > 0)
+    ? axes_[uid]
+    : CXX_OPTIONAL_NAMESPACE::optional<A>();
 }
 
 #ifdef HYPERION_USE_HDF5
-std::optional<std::string>
+CXX_OPTIONAL_NAMESPACE::optional<std::string>
 hyperion::AxesRegistrar::match_axes_datatype(hid_t hid) {
   auto ad =
     std::find_if(
@@ -637,7 +651,9 @@ hyperion::AxesRegistrar::match_axes_datatype(hid_t hid) {
         return std::get<1>(ua).h5_datatype == hid;
       });
   return
-    (ad != axes_.end()) ? std::get<0>(*ad) : std::optional<std::string>();
+    (ad != axes_.end())
+    ? std::get<0>(*ad)
+    : CXX_OPTIONAL_NAMESPACE::optional<std::string>();
 }
 #endif // HYPERION_USE_HDF5
 

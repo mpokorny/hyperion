@@ -56,11 +56,11 @@ Keywords::keys(Runtime* rt) const {
   return result;
 }
 
-std::optional<FieldID>
+CXX_OPTIONAL_NAMESPACE::optional<FieldID>
 Keywords::find_keyword(Runtime* rt, const std::string& name) const {
 
   if (is_empty())
-    return std::nullopt;
+    return CXX_OPTIONAL_NAMESPACE::nullopt;
   std::vector<FieldID> fids;
   auto fs = type_tags_lr.get_field_space();
   rt->get_field_space_fields(fs, fids);
@@ -73,16 +73,20 @@ Keywords::find_keyword(Runtime* rt, const std::string& name) const {
         rt->retrieve_name(fs, fid, fname);
         return name == fname;
       });
-  return ((f != fids.end()) ? std::make_optional(*f) : std::nullopt);
+  return
+    (f != fids.end())
+    ? CXX_OPTIONAL_NAMESPACE::optional<FieldID>(*f)
+    : CXX_OPTIONAL_NAMESPACE::nullopt;
 }
 
-std::vector<std::optional<hyperion::TypeTag>>
+std::vector<CXX_OPTIONAL_NAMESPACE::optional<hyperion::TypeTag>>
 Keywords::value_types(
   Context ctx,
   Runtime* rt,
   const std::vector<FieldID>& fids) const {
 
-  std::vector<std::optional<hyperion::TypeTag>> result(fids.size());
+  std::vector<CXX_OPTIONAL_NAMESPACE::optional<hyperion::TypeTag>>
+    result(fids.size());
   if (!is_empty()) {
     auto n = size(rt);
     RegionRequirement req(type_tags_lr, READ_ONLY, EXCLUSIVE, type_tags_lr);
@@ -183,7 +187,12 @@ Keywords::create(
     auto val_fs = rt->create_field_space(ctx);
     auto val_fa = rt->create_field_allocator(ctx, val_fs);
     for (size_t i = 0; i < kws.size(); ++i) {
+#if __cplusplus >= 201703L
       auto& [nm, dt] = kws[i];
+#else // !c++17
+      auto& nm = std::get<0>(kws[i]);
+      auto& dt = std::get<1>(kws[i]);
+#endif // c++17
       tt_fa.allocate_field(sizeof(hyperion::TypeTag), i);
       rt->attach_name(tt_fs, i, nm.c_str());
       add_field(dt, val_fa, i);
@@ -256,10 +265,13 @@ Keywords::value_type(const PhysicalRegion& tt, FieldID fid) {
   return dt[0];
 }
 
-std::unordered_map<std::string, std::tuple<hyperion::TypeTag, std::any>>
+std::unordered_map<
+  std::string, std::
+  tuple<hyperion::TypeTag, CXX_ANY_NAMESPACE::any>>
 Keywords::to_map(Legion::Context ctx, Legion::Runtime *rt) const {
-  std::unordered_map<std::string, std::tuple<hyperion::TypeTag, std::any>>
-    result;
+  std::unordered_map<
+    std::string,
+    std::tuple<hyperion::TypeTag, CXX_ANY_NAMESPACE::any>> result;
   if (!is_empty()) {
     std::vector<FieldID> fids;
     auto fs = type_tags_lr.get_field_space();
@@ -280,11 +292,14 @@ Keywords::to_map(Legion::Context ctx, Legion::Runtime *rt) const {
   return result;
 }
 
-std::unordered_map<std::string, std::tuple<hyperion::TypeTag, std::any>>
+std::unordered_map<
+  std::string,
+  std::tuple<hyperion::TypeTag, CXX_ANY_NAMESPACE::any>>
 Keywords::to_map(Legion::Runtime *rt, const pair<Legion::PhysicalRegion>& prs) {
 
-  std::unordered_map<std::string, std::tuple<hyperion::TypeTag, std::any>>
-    result;
+  std::unordered_map<
+    std::string,
+    std::tuple<hyperion::TypeTag, CXX_ANY_NAMESPACE::any>> result;
   std::vector<FieldID> fids;
   auto fs = prs.type_tags.get_logical_region().get_field_space();
   rt->get_field_space_fields(fs, fids);

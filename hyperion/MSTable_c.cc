@@ -43,7 +43,9 @@ using namespace hyperion;
           MSTable<MS_##T>::element_axes.end(),                          \
           std::back_inserter(result),                                   \
           [](auto& nm_axs) {                                            \
-            auto& [nm, axs] = nm_axs;                                   \
+            std::string nm;                                             \
+            std::vector<MSTable<MS_##T>::Axes> axs;                     \
+            std::tie(nm, axs) = nm_axs;                                 \
             return                                                      \
               ms_##t##_column_axes_t {                                  \
               nm.c_str(),                                               \

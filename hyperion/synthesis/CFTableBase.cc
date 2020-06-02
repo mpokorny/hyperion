@@ -21,6 +21,30 @@
 using namespace hyperion::synthesis;
 using namespace Legion;
 
+#if __cplusplus < 201703L
+constexpr const char*
+hyperion::Axes<hyperion::synthesis::cf_table_axes_t>::uid;
+constexpr const unsigned
+hyperion::Axes<hyperion::synthesis::cf_table_axes_t>::num_axes;
+
+constexpr const char*
+hyperion::synthesis::cf_table_axis<CF_PB_SCALE>::name;
+constexpr const char*
+hyperion::synthesis::cf_table_axis<CF_BASELINE_CLASS>::name;
+constexpr const char*
+hyperion::synthesis::cf_table_axis<CF_FREQUENCY>::name;
+constexpr const char*
+hyperion::synthesis::cf_table_axis<CF_W>::name;
+constexpr const char*
+hyperion::synthesis::cf_table_axis<CF_PARALLACTIC_ANGLE>::name;
+constexpr const char*
+hyperion::synthesis::cf_table_axis<CF_MUELLER_ELEMENT>::name;
+constexpr const char*
+hyperion::synthesis::cf_table_axis<CF_X>::name;
+constexpr const char*
+hyperion::synthesis::cf_table_axis<CF_Y>::name;
+#endif
+
 template <typename T>
 size_t
 vector_serialized_size(const std::vector<T>& v) {
@@ -154,7 +178,7 @@ hyperion::synthesis::CFTableBase::init_index_column_task(
   const InitIndexColumnTaskArgs& args =
     *reinterpret_cast<const InitIndexColumnTaskArgs*>(task->args);
 
-  auto [pt, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       args.desc,
@@ -162,6 +186,13 @@ hyperion::synthesis::CFTableBase::init_index_column_task(
       task->regions.end(),
       regions.begin(),
       regions.end()).value();
+#if __cplusplus >= 201703L
+  auto& [pt, rit, pit] = ptcr;
+#else // !c++17
+  auto& pt = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 

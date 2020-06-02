@@ -45,6 +45,10 @@ using WOAccessor =
     AffineAccessor<T, DIM, coord_t>,
     CHECK_BOUNDS>;
 
+#if __cplusplus < 201703L
+constexpr const Column::Requirements Column::default_requirements;
+#endif
+
 template <hyperion::TypeTag DT>
 static LogicalRegion
 index_column(

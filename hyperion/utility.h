@@ -17,6 +17,84 @@
 #define HYPERION_UTILITY_H_
 
 #include <hyperion/hyperion.h>
+
+#if __cplusplus < 201703L
+namespace std {
+
+// Conforming C++14 implementation (is also a valid C++11 implementation):
+namespace detail {
+
+template<class T>
+struct invoke_impl {
+  template<class F, class... Args>
+  static auto call(F&& f, Args&&... args)
+    -> decltype(std::forward<F>(f)(std::forward<Args>(args)...));
+};
+
+template<class B, class MT>
+struct invoke_impl<MT B::*> {
+
+  template<class T, class Td = typename std::decay<T>::type,
+           class = typename std::enable_if<std::is_base_of<B, Td>::value>::type
+           >
+  static auto get(T&& t) -> T&&;
+
+  template<class T, class Td = typename std::decay<T>::type,
+           class = typename std::enable_if<is_reference<Td>::value>::type
+           >
+  static auto get(T&& t) -> decltype(t.get());
+
+  template<class T, class Td = typename std::decay<T>::type,
+           class = typename std::enable_if<!std::is_base_of<B, Td>::value>::type,
+           class = typename std::enable_if<!is_reference<Td>::value>::type
+           >
+  static auto get(T&& t) -> decltype(*std::forward<T>(t));
+
+  template<class T, class... Args, class MT1,
+           class = typename std::enable_if<std::is_function<MT1>::value>::type
+           >
+  static auto call(MT1 B::*pmf, T&& t, Args&&... args)
+    -> decltype((invoke_impl::get(std::forward<T>(t)).*pmf)(std::forward<Args>(args)...));
+
+  template<class T>
+  static auto call(MT B::*pmd, T&& t)
+    -> decltype(invoke_impl::get(std::forward<T>(t)).*pmd);
+};
+
+template<class F, class... Args, class Fd = typename std::decay<F>::type>
+auto INVOKE(F&& f, Args&&... args)
+  -> decltype(invoke_impl<Fd>::call(std::forward<F>(f), std::forward<Args>(args)...));
+
+template <typename AlwaysVoid, typename, typename...>
+struct invoke_result { };
+
+template <typename F, typename...Args>
+struct invoke_result<decltype(void(detail::INVOKE(std::declval<F>(), std::declval<Args>()...))),
+                     F, Args...> {
+  using type = decltype(detail::INVOKE(std::declval<F>(), std::declval<Args>()...));
+};
+
+} // namespace detail
+
+// template <class> struct result_of;
+// template <class F, class... ArgTypes>
+// struct result_of<F(ArgTypes...)> : detail::invoke_result<void, F, ArgTypes...> {};
+
+template <class F, class... ArgTypes>
+struct invoke_result : detail::invoke_result<void, F, ArgTypes...> {};
+
+template< class F, class... ArgTypes>
+using invoke_result_t = typename invoke_result<F, ArgTypes...>::type;
+
+template< class T, class U >
+constexpr bool is_same_v = is_same<T, U>::value;
+
+template< bool B, class T = void >
+using enable_if_t = typename enable_if<B,T>::type;
+
+} // end namespace std
+#endif // !c++17
+
 #include <hyperion/IndexTree.h>
 #include <hyperion/utility_c.h>
 
@@ -31,7 +109,7 @@
 #include <limits>
 #include <memory>
 #include <numeric>
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <set>
 #include <type_traits>
 #include <unordered_map>
@@ -66,28 +144,30 @@ class TableField;
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;
 
+#if __cplusplus >= 201703L
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+#endif //c++17
 
 template <typename T, typename F>
-std::optional<std::invoke_result_t<F, T>>
-map(const std::optional<T>& ot, F f) {
+CXX_OPTIONAL_NAMESPACE::optional<std::invoke_result_t<F, T>>
+map(const CXX_OPTIONAL_NAMESPACE::optional<T>& ot, F f) {
   return
     ot
-    ? std::make_optional(f(ot.value()))
-    : std::optional<std::invoke_result_t<F, T>>();
+    ? CXX_OPTIONAL_NAMESPACE::optional<std::invoke_result_t<F, T>>(f(ot.value()))
+    : CXX_OPTIONAL_NAMESPACE::optional<std::invoke_result_t<F, T>>();
 }
 
 template <typename T, typename F>
 std::invoke_result_t<F, T>
-flatMap(const std::optional<T>& ot, F f) {
+flatMap(const CXX_OPTIONAL_NAMESPACE::optional<T>& ot, F f) {
   return ot ? f(ot.value()) : std::invoke_result_t<F, T>();
 }
 
-template <template <typename> typename C, typename T, typename F>
-C<std::invoke_result_t<F, T>>
-map(const C<T>& ts, F f) {
-  C<std::invoke_result_t<F, T>> result;
+template <typename T, typename F>
+std::vector<std::invoke_result_t<F, T>>
+map(const std::vector<T>& ts, F f) {
+  std::vector<std::invoke_result_t<F, T>> result;
   std::transform(
     ts.begin(),
     ts.end(),
@@ -96,9 +176,9 @@ map(const C<T>& ts, F f) {
   return result;
 }
 
-template <template <typename> typename C, typename T>
-C<int>
-map_to_int(const C<T>& ts) {
+template <typename T>
+std::vector<int>
+map_to_int(const std::vector<T>& ts) {
   return map(ts, [](const auto& t) { return static_cast<int>(t); });
 }
 
@@ -124,7 +204,7 @@ struct Axes {
 #endif
 };
 
-HYPERION_LOCAL std::optional<int>
+HYPERION_LOCAL CXX_OPTIONAL_NAMESPACE::optional<int>
 column_is_axis(
   const std::vector<std::string>& axis_names,
   const std::string& colname,
@@ -185,8 +265,8 @@ template <
   typename F,
   typename CLOSE,
   std::enable_if_t<
-    !std::is_void_v<
-      std::invoke_result_t<F, std::invoke_result_t<OPEN>&>>,
+    !std::is_void<
+      std::invoke_result_t<F, std::invoke_result_t<OPEN>&>>::value,
     int> = 0>
 std::invoke_result_t<F, std::invoke_result_t<OPEN>&>
 using_resource(OPEN open, F f, CLOSE close) {
@@ -207,8 +287,8 @@ template <
   typename F,
   typename CLOSE,
   std::enable_if_t<
-    std::is_void_v<
-      std::invoke_result_t<F, std::invoke_result_t<OPEN>&>>,
+    std::is_void<
+      std::invoke_result_t<F, std::invoke_result_t<OPEN>&>>::value,
     int> = 0>
 void
 using_resource(OPEN open, F f, CLOSE close) {
@@ -424,7 +504,12 @@ public:
     std::memcpy(static_cast<size_t *>(buffer), &n, sizeof(n));
     buffer = static_cast<void *>(static_cast<size_t*>(buffer) + 1);
     for (size_t i = 0; i < n; ++i) {
+#if __cplusplus >= 201703L
       auto& [t, rns] = val[i];
+#else
+      auto& t = std::get<0>(val[i]);
+      auto& rns = std::get<1>(val[i]);
+#endif
       T* tbuf = reinterpret_cast<T *>(buffer);
       std::memcpy(tbuf, &t, sizeof(T));
       buffer = static_cast<void *>(tbuf + 1);
@@ -539,7 +624,12 @@ public:
     buffer = static_cast<void *>(static_cast<size_t*>(buffer) + 1);
     char* buff = static_cast<char*>(buffer);
     for (size_t i = 0; i < n; ++i) {
+#if __cplusplus >= 201703L
       auto& [t, rns] = val[i];
+#else
+      auto& t = std::get<0>(val[i]);
+      auto& rns = std::get<1>(val[i]);
+#endif
       std::memcpy(buff, t.val, sizeof(hyperion::string));
       buff += sizeof(hyperion::string);
       buff += vector_serdez<Legion::DomainPoint>::serialize(rns, buff);
@@ -704,7 +794,12 @@ public:
         rhs.v.begin(),
         rhs.v.end(),
         [&lhs](auto& t_rns) {
+#if __cplusplus >= 201703L
           auto& [t, rns] = t_rns;
+#else
+          auto& t = std::get<0>(t_rns);
+          auto& rns = std::get<1>(t_rns);
+#endif
           if (rns.size() > 0) {
             auto lb =
               std::lower_bound(
@@ -1025,11 +1120,11 @@ public:
   }
 #endif
 
-  static std::optional<A>
+  static CXX_OPTIONAL_NAMESPACE::optional<A>
   axes(const std::string& uid);
 
 #ifdef HYPERION_USE_HDF5
-  static std::optional<std::string>
+  static CXX_OPTIONAL_NAMESPACE::optional<std::string>
   match_axes_datatype(hid_t hid);
 #endif // HYPERION_USE_HDF5
 
@@ -1454,15 +1549,10 @@ struct ValueType {
 #define VT(dt)                                  \
   template <>                                   \
   struct ValueType<DataType<dt>::ValueType> {   \
-    constexpr static TypeTag DataType = dt;   \
+    constexpr static const TypeTag DataType = dt; \
   };
 
 HYPERION_FOREACH_DATATYPE(VT)
-
-template <>
-struct ValueType<std::string> {
-  constexpr static TypeTag DataType = HYPERION_TYPE_STRING;
-};
 #undef VT
 
 struct HYPERION_API AxisPartition {
@@ -2708,7 +2798,7 @@ operator<(const Legion::Rect<N, C>& a, const Legion::Rect<N, C>& b) {
     return false;
   return a.hi < b.hi;
 }
-} // end namespace std
+} // end namespace hyperion
 
 #endif // HYPERION_UTILITY_H_
 

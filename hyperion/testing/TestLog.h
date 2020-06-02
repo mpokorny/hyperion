@@ -21,7 +21,7 @@
 
 #include <array>
 #include <memory>
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <tuple>
 
 namespace hyperion {
@@ -223,17 +223,17 @@ private:
 };
 
 template <>
-struct TestLogReference::abort_state_accessor<READ_ONLY> {
+struct HYPERION_API TestLogReference::abort_state_accessor<READ_ONLY> {
   typedef TestLogReference::abort_state_read_accessor t;
 };
 
 template <>
-struct TestLogReference::abort_state_accessor<READ_WRITE> {
+struct HYPERION_API TestLogReference::abort_state_accessor<READ_WRITE> {
   typedef TestLogReference::abort_state_reduce_accessor t;
 };
 
 template <>
-struct TestLogReference::abort_state_accessor<WRITE_DISCARD> {
+struct HYPERION_API TestLogReference::abort_state_accessor<WRITE_DISCARD> {
   typedef TestLogReference::abort_state_reduce_accessor t;
 };
 
@@ -373,7 +373,7 @@ template <legion_privilege_mode_t MODE>
 struct TestResult;
 
 template <>
-struct TestResult<READ_ONLY> {
+struct HYPERION_API TestResult<READ_ONLY> {
   const coord_t& state;
   const bool& abort;
   const std::string& name;
@@ -381,7 +381,7 @@ struct TestResult<READ_ONLY> {
 };
 
 template <>
-struct TestResult<READ_WRITE> {
+struct HYPERION_API TestResult<READ_WRITE> {
   coord_t state;
   bool abort;
   std::string name;
@@ -389,7 +389,7 @@ struct TestResult<READ_WRITE> {
 };
 
 template <>
-struct TestResult<WRITE_DISCARD> {
+struct HYPERION_API TestResult<WRITE_DISCARD> {
   coord_t state;
   bool abort;
   std::string name;
@@ -413,7 +413,7 @@ public:
 };
 
 template <>
-class TestLogIterator<READ_ONLY> {
+class HYPERION_API TestLogIterator<READ_ONLY> {
 public:
 
   virtual
@@ -562,7 +562,7 @@ private:
 };
 
 template <>
-class TestLogIterator<READ_WRITE> {
+class HYPERION_API TestLogIterator<READ_WRITE> {
 public:
 
   virtual
@@ -722,7 +722,7 @@ private:
 };
 
 template <>
-class TestLogIterator<WRITE_DISCARD> {
+class HYPERION_API TestLogIterator<WRITE_DISCARD> {
 public:
 
   virtual
@@ -883,7 +883,7 @@ private:
 };
 
 template <>
-class TestLog<READ_ONLY> {
+class HYPERION_API TestLog<READ_ONLY> {
 
 public:
 
@@ -1071,13 +1071,13 @@ private:
 
   TestLogReference::abort_state_accessor<READ_ONLY>::t m_abort_state;
 
-  std::optional<Legion::PhysicalRegion> m_own_log_pr;
+  CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion> m_own_log_pr;
 
-  std::optional<Legion::PhysicalRegion> m_own_abort_state_pr;
+  CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion> m_own_abort_state_pr;
 };
 
 template <>
-class TestLog<READ_WRITE> {
+class HYPERION_API TestLog<READ_WRITE> {
 
 public:
 
@@ -1268,13 +1268,13 @@ private:
 
   TestLogReference::abort_state_accessor<READ_WRITE>::t m_abort_state;
 
-  std::optional<Legion::PhysicalRegion> m_own_log_pr;
+  CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion> m_own_log_pr;
 
-  std::optional<Legion::PhysicalRegion> m_own_abort_state_pr;
+  CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion> m_own_abort_state_pr;
 };
 
 template <>
-class TestLog<WRITE_DISCARD> {
+class HYPERION_API TestLog<WRITE_DISCARD> {
 
 public:
 
@@ -1465,9 +1465,9 @@ private:
 
   TestLogReference::abort_state_accessor<WRITE_DISCARD>::t m_abort_state;
 
-  std::optional<Legion::PhysicalRegion> m_own_log_pr;
+  CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion> m_own_log_pr;
 
-  std::optional<Legion::PhysicalRegion> m_own_abort_state_pr;
+  CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion> m_own_abort_state_pr;
 };
 
 } // end namespace testing

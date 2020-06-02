@@ -20,7 +20,9 @@
 
 #include <cassert>
 #include <stack>
+#if __cplusplus >= 201703L
 #include <variant>
+#endif
 
 using namespace hyperion;
 using namespace Legion;
@@ -28,7 +30,7 @@ using namespace Legion;
 static IndexTreeL
 extend_index_ranks(const IndexTreeL& tree, unsigned rank) {
   IndexTreeL result;
-  auto it = IndexTreeIterator(tree);
+  IndexTreeIterator<coord_t> it(tree);
   while (it) {
     std::vector<coord_t> coords = *it;
     IndexTreeL ch;
@@ -50,18 +52,31 @@ extend_index_ranks(const IndexTreeL& tree, unsigned rank) {
 }
 
 struct MeasureIndexTrees {
-  std::optional<IndexTreeL> metadata_tree;
-  std::optional<IndexTreeL> value_tree;
+  CXX_OPTIONAL_NAMESPACE::optional<IndexTreeL> metadata_tree;
+  CXX_OPTIONAL_NAMESPACE::optional<IndexTreeL> value_tree;
 };
 
+#if __cplusplus >= 201703L
+typedef std::variant<const casacore::Measure*, casacore::MRBase*>
+measure_index_trees_arg_t;
+#else
+typedef struct {
+  bool is_measure;
+  union {
+    const casacore::Measure* measure;
+    casacore::MRBase* mrbase;
+  };
+} measure_index_trees_arg_t;
+#endif
+
 static MeasureIndexTrees
-measure_index_trees(
-  const std::variant<const casacore::Measure*, casacore::MRBase*>& vm) {
+measure_index_trees(const measure_index_trees_arg_t& vm) {
 
   std::unordered_map<MeasRef::ArrayComponent, const casacore::Measure*>
     components;
 
   casacore::MRBase* ref_base;
+#if __cplusplus >= 201703L
   std::visit(
     overloaded {
       [&components, &ref_base](const casacore::Measure* ms) {
@@ -75,6 +90,16 @@ measure_index_trees(
       }
     },
     vm);
+#else
+  if (vm.is_measure) {
+    assert(vm.measure != nullptr);
+    components[MeasRef::ArrayComponent::VALUE] = vm.measure;
+    ref_base = vm.measure->getRefPtr();
+  } else {
+    components[MeasRef::ArrayComponent::VALUE] = nullptr;
+    ref_base = vm.mrbase;
+  }
+#endif
 
   assert(ref_base != nullptr);
   auto offset = ref_base->offset();
@@ -98,7 +123,12 @@ measure_index_trees(
 
   MeasureIndexTrees result;
   for (auto& c_m : components) {
+#if __cplusplus >= 201703L
     auto& [c, m] = c_m;
+#else // !c++17
+    auto& c = std::get<0>(c_m);
+    auto& m = std::get<1>(c_m);
+#endif // c++17
     MeasureIndexTrees ctrees;
     switch (c) {
     case MeasRef::ArrayComponent::VALUE:
@@ -107,7 +137,16 @@ measure_index_trees(
         ctrees.value_tree = IndexTreeL(m->getData()->getVector().size());
       break;
     default:
+#if __cplusplus >= 201703L
       ctrees = measure_index_trees(m);
+#else
+      {
+        measure_index_trees_arg_t arg;
+        arg.is_measure = true;
+        arg.measure = m;
+        ctrees = measure_index_trees(arg);
+      }
+#endif
       break;
     }
     if (ctrees.metadata_tree) {
@@ -136,6 +175,20 @@ measure_index_trees(
   return result;
 }
 
+#if __cplusplus >= 201703L
+typedef std::variant<
+  const casacore::Measure*,
+  std::tuple<MClass, casacore::MRBase*>> msr_t;
+#else
+typedef struct {
+  bool is_measure;
+  union {
+    const casacore::Measure* measure;
+    std::tuple<MClass, casacore::MRBase*> mc_mrbase;
+  };
+} msr_t;
+#endif
+
 template <int D>
 static void
 initialize(
@@ -158,15 +211,24 @@ initialize(
     Point<D> p;
     p[0] = p1[0] = i;
 
-    std::stack<
-      std::tuple<
-        std::variant<
-          const casacore::Measure*,
-          std::tuple<MClass, casacore::MRBase*>>,
-        MeasRef::ArrayComponent>> ms;
-    ms.emplace(std::make_tuple(klass, mrbs[i]), MeasRef::ArrayComponent::VALUE);
+    std::stack<std::tuple<msr_t, MeasRef::ArrayComponent>> ms;
+    {
+#if __cplusplus >= 201703L
+      msr_t msr;
+      msr = std::tuple<MClass, casacore::MRBase*>(klass, mrbs[i]);
+#else
+      msr_t msr{false};
+      msr.mc_mrbase = {klass, mrbs[i]};
+#endif
+      ms.emplace(msr, MeasRef::ArrayComponent::VALUE);
+    }
     while (!ms.empty()) {
+#if __cplusplus >= 201703L
       auto& [m, c] = ms.top();
+#else // !c++17
+      auto& m = std::get<0>(ms.top());
+      auto& c = std::get<1>(ms.top());
+#endif // c++17
 
       const auto level = ms.size();
       for (unsigned j = level + 1; j < D; ++j)
@@ -177,6 +239,7 @@ initialize(
       if (c == MeasRef::ArrayComponent::VALUE) {
         // the measure value itself
         p[level] = p1[level] = MeasRef::ArrayComponent::VALUE;
+#if __cplusplus >= 201703L
         std::visit(
           overloaded {
             [level, &p, &p1, &vals, &numvals, &mclasses, &ref_base, &m]
@@ -209,12 +272,46 @@ initialize(
             }
           },
           m);
+#else
+        if (m.is_measure) {
+          auto mvals = m.measure->getData()->getVector();
+          for (unsigned j = 0; j < mvals.size(); ++j) {
+            p1[level + 1] = j;
+            vals.write(p1, mvals[j]);
+          }
+          numvals.write(p, mvals.size());
+          std::string name = m.measure->tellMe();
+          MeasRef::MEASURE_CLASS_TYPE mtype;
+          if (name == "") assert(false);
+#define SET_MCLASS(M)                           \
+          else if (name == MClassT<M>::name)    \
+            mtype = M;
+          HYPERION_FOREACH_MCLASS(SET_MCLASS)
+#undef SET_MCLASS
+          else assert(false);
+          ref_base = m.measure->getRefPtr();
+          mclasses.write(p, mtype);
+          m.is_measure = false;
+          m.mc_mrbase = {static_cast<MClass>(mtype), ref_base};
+        } else {
+          auto& k = std::get<0>(m.mc_mrbase);
+          auto& r = std::get<1>(m.mc_mrbase);
+          mclasses.write(p, k);
+          numvals.write(p, 0);
+          ref_base = r;
+        }
+#endif
         assert(ref_base != nullptr);
         rtypes.write(p, ref_base->getType());
         c = MeasRef::ArrayComponent::OFFSET;
       } else {
+#if __cplusplus >= 201703L
         ref_base =
           std::get<1>(std::get<std::tuple<MClass, casacore::MRBase*>>(m));
+#else
+        assert(!m.is_measure);
+        ref_base = std::get<1>(m.mc_mrbase);
+#endif
       }
       assert(ref_base != nullptr);
 
@@ -249,8 +346,16 @@ initialize(
           }
           p[level] = p1[level] = c;
           c = (MeasRef::ArrayComponent)((unsigned)c + 1);
-          if (cm != nullptr)
-            ms.push(std::make_tuple(cm, MeasRef::ArrayComponent::VALUE));
+          if (cm != nullptr) {
+#if __cplusplus >= 201703L
+            msr_t msr;
+            msr = cm;
+#else
+            msr_t msr{true};
+            msr.measure = cm;
+#endif
+            ms.push(std::make_tuple(msr, MeasRef::ArrayComponent::VALUE));
+          }
         }
       }
       if (ms.size() == level)
@@ -270,6 +375,18 @@ initialize<1>(
   // the call to initialize<D>()
   assert(false);
 }
+
+#if __cplusplus >= 201703L
+typedef std::variant<
+  std::unique_ptr<casacore::Measure>,
+  std::unique_ptr<casacore::MRBase>> msrp_t;
+#else
+typedef struct {
+  bool is_measure;
+  std::unique_ptr<casacore::Measure> measure;
+  std::unique_ptr<casacore::MRBase> mrbase;
+} msrp_t;
+#endif
 
 template <int D>
 static std::vector<std::unique_ptr<casacore::MRBase>>
@@ -293,10 +410,11 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
     Point<D> p;
     p[0] = p1[0] = i;
 
-    std::variant<
-      std::unique_ptr<casacore::Measure>,
-      std::unique_ptr<casacore::MRBase>> vmrb
-      = std::unique_ptr<casacore::Measure>();
+#if __cplusplus >= 201703L
+    msrp_t vmrb = std::unique_ptr<casacore::Measure>();
+#else
+    msrp_t vmrb{true};
+#endif
     std::stack<
       std::tuple<
         std::unique_ptr<casacore::MeasValue>,
@@ -312,7 +430,14 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
 
     PUSH_NEW(ms);
     while (!ms.empty()) {
+#if __cplusplus >= 201703L
       auto& [v, r, k, c] = ms.top();
+#else // !c++17
+      auto& v = std::get<0>(ms.top());
+      auto& r = std::get<1>(ms.top());
+      auto& k = std::get<2>(ms.top());
+      auto& c = std::get<3>(ms.top());
+#endif // c++17
 
       const auto level = ms.size();
       for (unsigned j = level + 1; j < D; ++j)
@@ -349,10 +474,15 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
 
       while (ms.size() == level
              && c < MeasRef::ArrayComponent::NUM_COMPONENTS) {
+#if __cplusplus >= 201703L
         assert(
           std::holds_alternative<std::unique_ptr<casacore::Measure>>(vmrb));
         std::unique_ptr<casacore::Measure> cm =
           std::move(std::get<std::unique_ptr<casacore::Measure>>(vmrb));
+#else
+        assert(vmrb.is_measure);
+        std::unique_ptr<casacore::Measure> cm = std::move(vmrb.measure);
+#endif
         switch (c) {
         case MeasRef::ArrayComponent::VALUE:
           assert(false);
@@ -401,6 +531,7 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
 
       if (ms.size() == level) {
         switch (k) {
+#if __cplusplus >= 201703L
 #define SET_VMRB(M)                                                   \
           case M:                                                     \
             if (v)                                                    \
@@ -411,6 +542,26 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
             else                                                      \
               vmrb = std::move(r);                                    \
             break;
+#else
+#define SET_VMRB(M)                                                   \
+          case M: {                                                   \
+            msrp_t msrp;                                              \
+            if (v) {                                                  \
+              msrp.is_measure = true;                                 \
+              msrp.measure =                                          \
+                std::make_unique<MClassT<M>::type>(                   \
+                  *dynamic_cast<MClassT<M>::type::MVType*>(v.get()),  \
+                  *dynamic_cast<MClassT<M>::type::Ref*>(r.get()));    \
+              msrp.mrbase.reset();                                    \
+            } else {                                                  \
+              msrp.is_measure = false;                                \
+              msrp.mrbase = std::move(r);                             \
+              msrp.measure.reset();                                   \
+            }                                                         \
+            vmrb = std::move(msrp);                                   \
+            break;                                                    \
+        }
+#endif
           HYPERION_FOREACH_MCLASS(SET_VMRB)
 #undef SET_VMRB
         default:
@@ -420,8 +571,14 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
         ms.pop();
       }
     }
+#if __cplusplus >= 201703L
     assert(std::holds_alternative<std::unique_ptr<casacore::MRBase>>(vmrb));
     result[i] = std::move(std::get<std::unique_ptr<casacore::MRBase>>(vmrb));
+#else
+    assert(!vmrb.is_measure);
+    result[i] = std::move(vmrb.mrbase);
+#endif
+
 #undef PUSH_NEW
   }
   return result;
@@ -452,7 +609,7 @@ show_index_space(Runtime* rt, IndexSpaceT<DIM> is) {
 std::tuple<
   RegionRequirement,
   RegionRequirement,
-  std::optional<RegionRequirement>>
+  CXX_OPTIONAL_NAMESPACE::optional<RegionRequirement>>
 MeasRef::requirements(
   Legion::PrivilegeMode mode,
   bool mapped) const {
@@ -463,7 +620,7 @@ MeasRef::requirements(
   mreq.add_field(NUM_VALUES_FID, mapped);
   RegionRequirement vreq(values_lr, mode, EXCLUSIVE, values_lr);
   vreq.add_field(0, mapped);
-  std::optional<RegionRequirement> ireq;
+  CXX_OPTIONAL_NAMESPACE::optional<RegionRequirement> ireq;
   if (index_lr != LogicalRegion::NO_REGION) {
     RegionRequirement req(index_lr, mode, EXCLUSIVE, index_lr);
     req.add_field(M_CODE_FID, mapped);
@@ -476,13 +633,15 @@ MeasRef::requirements(
 std::tuple<
   RegionRequirement,
   RegionRequirement,
-  std::optional<RegionRequirement>>
+  CXX_OPTIONAL_NAMESPACE::optional<RegionRequirement>>
 MeasRef::requirements(
   const MeasRef::DataRegions& drs,
   PrivilegeMode mode,
   bool mapped) {
 
-  auto& [md, vl, oidx] = drs;
+  auto& md = drs.metadata;
+  auto& vl = drs.values;
+  auto& oidx = drs.index;
   auto metadata_lr = md.get_logical_region();
   RegionRequirement mreq(metadata_lr, mode, EXCLUSIVE, metadata_lr);
   mreq.add_field(MEASURE_CLASS_FID, mapped);
@@ -491,7 +650,7 @@ MeasRef::requirements(
   auto values_lr = vl.get_logical_region();
   RegionRequirement vreq(values_lr, mode, EXCLUSIVE, values_lr);
   vreq.add_field(0, mapped);
-  std::optional<RegionRequirement> ireq;
+  CXX_OPTIONAL_NAMESPACE::optional<RegionRequirement> ireq;
   if (oidx) {
     auto index_lr = oidx.value().get_logical_region();
     RegionRequirement req(index_lr, mode, EXCLUSIVE, index_lr);
@@ -733,8 +892,17 @@ MeasRef::create(
   MeasureIndexTrees index_trees;
   {
     std::vector<MeasureIndexTrees> itrees;
+#if __cplusplus >= 201703L
     for (auto& mrb : mrbs)
       itrees.push_back(measure_index_trees(std::get<0>(mrb)));
+#else
+    for (auto& mrb : mrbs) {
+      measure_index_trees_arg_t arg;
+      arg.is_measure = false;
+      arg.mrbase = std::get<0>(mrb);
+      itrees.push_back(measure_index_trees(arg));
+    }
+#endif
     std::vector<std::tuple<coord_t, IndexTreeL>> md_v;
     std::vector<std::tuple<coord_t, IndexTreeL>> val_v;
     for (auto& it : itrees) {
@@ -777,11 +945,8 @@ MeasRef::create(
 
     std::vector<casacore::MRBase*> mrs;
     mrs.reserve(mrbs.size());
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-    for (auto& [mrb, tp] : mrbs)
-#pragma GCC diagnostic pop
-      mrs.push_back(mrb);
+    for (auto& mrb_tp : mrbs)
+      mrs.push_back(std::get<0>(mrb_tp));
     switch (metadata_lr.get_dim()) {
 #define INIT(D)                                                         \
       case D: {                                                         \
@@ -829,7 +994,7 @@ MeasRef::make(Context ctx, Runtime* rt) const {
   metadata_req.add_field(NUM_VALUES_FID);
   auto metadata_pr = rt->map_region(ctx, metadata_req);
 
-  std::optional<PhysicalRegion> index_pr;
+  CXX_OPTIONAL_NAMESPACE::optional<PhysicalRegion> index_pr;
   if (index_lr != LogicalRegion::NO_REGION) {
     RegionRequirement req(index_lr, READ_ONLY, EXCLUSIVE, index_lr);
     req.add_field(M_CODE_FID);
@@ -848,7 +1013,7 @@ MeasRef::make(Context ctx, Runtime* rt) const {
 std::tuple<
   std::vector<std::unique_ptr<casacore::MRBase>>,
   std::unordered_map<unsigned, unsigned>>
-MeasRef::make(Legion::Runtime* rt, DataRegions prs) {
+MeasRef::make(Legion::Runtime* rt, const DataRegions& prs) {
 
   std::vector<std::unique_ptr<casacore::MRBase>> mrbs;
   switch (prs.metadata.get_logical_region().get_dim()) {

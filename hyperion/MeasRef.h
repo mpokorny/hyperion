@@ -22,7 +22,7 @@
 
 #include <array>
 #include <memory>
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <unordered_map>
 #include <vector>
 
@@ -65,7 +65,7 @@ public:
   struct DataRegions {
     Legion::PhysicalRegion metadata;
     Legion::PhysicalRegion values;
-    std::optional<Legion::PhysicalRegion> index;
+    CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion> index;
   };
 
   template <legion_privilege_mode_t MODE, int N, bool CHECK_BOUNDS=false>
@@ -132,7 +132,7 @@ public:
 
   // MeasRef(
   //   Legion::LogicalRegion metadata_lr_,
-  //   std::optional<Legion::LogicalRegion> values_lr_)
+  //   CXX_OPTIONAL_NAMESPACE::optional<Legion::LogicalRegion> values_lr_)
   //   : MeasRef(
   //       metadata_lr_,
   //       values_lr_.value_or(Legion::LogicalRegion::NO_REGION)) {
@@ -151,13 +151,13 @@ public:
   std::tuple<
     Legion::RegionRequirement,
     Legion::RegionRequirement,
-    std::optional<Legion::RegionRequirement>>
+    CXX_OPTIONAL_NAMESPACE::optional<Legion::RegionRequirement>>
     requirements(Legion::PrivilegeMode mode, bool mapped = true) const;
 
   static std::tuple<
     Legion::RegionRequirement,
     Legion::RegionRequirement,
-    std::optional<Legion::RegionRequirement>>
+    CXX_OPTIONAL_NAMESPACE::optional<Legion::RegionRequirement>>
   requirements(
     const DataRegions& drs,
     Legion::PrivilegeMode mode,
@@ -204,6 +204,7 @@ public:
     bool no_index=false) {
 
     if (false) assert(false);
+#if __cplusplus >= 201703L
 #define CREATE(MC)                                                      \
     else if (typeid(MClassT<MC>::type).hash_code() == typeid(Ms).hash_code()) { \
       std::vector<std::tuple<casacore::MRBase*, unsigned>> mrbs;        \
@@ -215,6 +216,22 @@ public:
           c);                                                           \
       return create(ctx, rt, mrbs, MC, no_index);                       \
     }
+#else
+#define CREATE(MC)                                                      \
+    else if (typeid(MClassT<MC>::type).hash_code() == typeid(Ms).hash_code()) { \
+      std::vector<std::tuple<casacore::MRBase*, unsigned>> mrbs;        \
+      mrbs.reserve(meas_refs.size());                                   \
+      for (auto& mr_c : meas_refs) {                                    \
+        auto& mr = std::get<0>(mr_c);                                   \
+        auto& c = std::get<1>(mr_c);                                    \
+        mrbs.emplace_back(                                              \
+          const_cast<casacore::MRBase*>(                                \
+            static_cast<const casacore::MRBase*>(&mr)),                 \
+          c);                                                           \
+      }                                                                 \
+      return create(ctx, rt, mrbs, MC, no_index);                       \
+    }
+#endif
     HYPERION_FOREACH_MCLASS(CREATE)
 #undef CREATE
     else {
@@ -281,18 +298,18 @@ public:
   static std::tuple<
     std::vector<std::unique_ptr<casacore::MRBase>>,
     std::unordered_map<unsigned, unsigned>>
-  make(Legion::Runtime* rt, DataRegions prs);
+  make(Legion::Runtime* rt, const DataRegions& prs);
 
   template <typename Ms>
   static std::tuple<
     std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>>,
     std::unordered_map<unsigned, unsigned>>
-  make(Legion::Runtime* rt, DataRegions prs) {
+  make(Legion::Runtime* rt, const DataRegions& prs) {
 
     auto mrbs = make(rt, prs);
     std::vector<std::shared_ptr<typename casacore::MeasRef<Ms>>> tmrs;
     tmrs.reserve(std::get<0>(mrbs).size());
-    for (auto&& mrb : std::get<0>(mrbs)) {
+    for (auto& mrb : std::get<0>(mrbs)) {
       auto mr =
         std::dynamic_pointer_cast<typename casacore::MeasRef<Ms>>(
           std::shared_ptr<casacore::MRBase>(std::move(mrb)));

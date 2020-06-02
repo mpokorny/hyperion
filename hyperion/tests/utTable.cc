@@ -181,7 +181,11 @@ attach_table0_col(
   return result;
 }
 
+#if __cplusplus >= 201703L
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
+#else
+#define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
+#endif
 
 bool
 verify_xyz(
@@ -225,7 +229,7 @@ verify_table_columns_task(
 
   const Table::Desc* desc = static_cast<const Table::Desc*>(task->args);
 
-  auto [pt, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       *desc,
@@ -233,6 +237,13 @@ verify_table_columns_task(
       task->regions.end(),
       regions.begin() + 2,
       regions.end()).value();
+#if __cplusplus >= 201703L
+  auto& [pt, rit, pit] = ptcr;
+#else // !c++17
+  auto& pt = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -240,7 +251,7 @@ verify_table_columns_task(
     auto opc = pt.column(cn);
     recorder.assert_true(
       "Column '" + cn + "' exists in mapped Table",
-      TE(opc.has_value()));
+      TE((bool)opc));
     recorder.expect_true(
       "Column '" + cn + "' has expected values",
       TE(verify_xyz(*opc.value(), col_arrays.at(cn))));
@@ -249,7 +260,7 @@ verify_table_columns_task(
     auto opc = pt.column("W");
     recorder.assert_true(
       "Column 'W' exists in mapped Table",
-      TE(opc.has_value()));
+      TE((bool)opc));
     recorder.expect_true(
       "Column 'W' has expected values",
       TE(verify_w(*opc.value(), col_arrays.at("W"))));
@@ -395,7 +406,7 @@ verify_column_groups_task(
 
   const Table::Desc* desc = static_cast<const Table::Desc*>(task->args);
 
-  auto [pt, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       *desc,
@@ -403,6 +414,13 @@ verify_column_groups_task(
       task->regions.end(),
       regions.begin() + 2,
       regions.end()).value();
+#if __cplusplus >= 201703L
+  auto& [pt, rit, pit] = ptcr;
+#else // !c++17
+  auto& pt = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -440,78 +458,78 @@ table_test_suite(
     &table0_w[sizeof(table0_w) / sizeof(table0_w[0])],
     0.0);
 
-  auto xyz_is = rt->create_index_space(ctx, Rect<1>(0, TABLE0_NUM_ROWS - 1));
-  auto xyz_space =
-    ColumnSpace::create(
-      ctx,
-      rt,
-      std::vector<Table0Axes>{Table0Axes::ROW},
-      xyz_is,
-      false);
+  IndexTreeL wr2(
+    {{1, IndexTreeL(TABLE0_ROWS0_NUM_W)},
+     {1, IndexTreeL(TABLE0_ROWS1_NUM_W)}});
+  IndexTreeL wtree(
+    wr2,
+    (TABLE0_NUM_ROWS / 2) * (TABLE0_ROWS0_NUM_W + TABLE0_ROWS1_NUM_W));
 
-  IndexSpace w_is;
+  Table table0;
   {
-    IndexTreeL wr2(
-      {{1, IndexTreeL(TABLE0_ROWS0_NUM_W)},
-       {1, IndexTreeL(TABLE0_ROWS1_NUM_W)}});
-    IndexTreeL wtree(
-      wr2,
-      (TABLE0_NUM_ROWS / 2) * (TABLE0_ROWS0_NUM_W + TABLE0_ROWS1_NUM_W));
-    w_is = tree_index_space(wtree, ctx, rt);
-  }
-  auto w_space =
-    ColumnSpace::create(
-      ctx,
-      rt,
-      std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::W},
-      w_is,
-      false);
+    auto xyz_is = rt->create_index_space(ctx, Rect<1>(0, TABLE0_NUM_ROWS - 1));
+    auto xyz_space =
+      ColumnSpace::create(
+        ctx,
+        rt,
+        std::vector<Table0Axes>{Table0Axes::ROW},
+        xyz_is,
+        false);
+
+    auto w_is = tree_index_space(wtree, ctx, rt);
+    auto w_space =
+      ColumnSpace::create(
+        ctx,
+        rt,
+        std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::W},
+        w_is,
+        false);
 
 #ifdef HYPERION_USE_CASACORE
-  casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
-  casacore::MeasRef<casacore::MDirection>
-    direction(casacore::MDirection::J2000);
-  std::vector<std::pair<std::string, TableField>> xyz_fields{
-    {"X",
-     TableField(
-       HYPERION_TYPE_UINT,
-       COL_X,
-       Keywords(),
-       MeasRef::create(ctx, rt, direction),
-       std::nullopt)},
-    {"Y",
-     TableField(
-       HYPERION_TYPE_UINT,
-       COL_Y,
-       Keywords(),
-       MeasRef(),
-       std::nullopt)},
-    {"Z",
-     TableField(
-       HYPERION_TYPE_UINT,
-       COL_Z,
-       Keywords(),
-       MeasRef::create(ctx, rt, utc),
-       std::nullopt)}
-  };
+    casacore::MeasRef<casacore::MEpoch> utc(casacore::MEpoch::UTC);
+    casacore::MeasRef<casacore::MDirection>
+      direction(casacore::MDirection::J2000);
+    std::vector<std::pair<std::string, TableField>> xyz_fields{
+      {"X",
+       TableField(
+         HYPERION_TYPE_UINT,
+         COL_X,
+         Keywords(),
+         MeasRef::create(ctx, rt, direction),
+         CXX_OPTIONAL_NAMESPACE::nullopt)},
+      {"Y",
+       TableField(
+         HYPERION_TYPE_UINT,
+         COL_Y,
+         Keywords(),
+         MeasRef(),
+         CXX_OPTIONAL_NAMESPACE::nullopt)},
+      {"Z",
+       TableField(
+         HYPERION_TYPE_UINT,
+         COL_Z,
+         Keywords(),
+         MeasRef::create(ctx, rt, utc),
+         CXX_OPTIONAL_NAMESPACE::nullopt)}
+    };
 #else
-  std::vector<std::pair<std::string, TableField>> xyz_fields{
-    {"X", TableField(HYPERION_TYPE_UINT, COL_X)},
-    {"Y", TableField(HYPERION_TYPE_UINT, COL_Y)},
-    {"Z", TableField(HYPERION_TYPE_UINT, COL_Z)}
-  };
+    std::vector<std::pair<std::string, TableField>> xyz_fields{
+      {"X", TableField(HYPERION_TYPE_UINT, COL_X)},
+      {"Y", TableField(HYPERION_TYPE_UINT, COL_Y)},
+      {"Z", TableField(HYPERION_TYPE_UINT, COL_Z)}
+    };
 #endif
-  std::vector<std::pair<std::string, TableField>> w_fields{
-    {"W", TableField(HYPERION_TYPE_UINT, COL_W)}
-  };
+    std::vector<std::pair<std::string, TableField>> w_fields{
+      {"W", TableField(HYPERION_TYPE_UINT, COL_W)}
+    };
 
-  auto table0 =
-    Table::create(
-      ctx,
-      rt,
-      xyz_space,
-      {{xyz_space, xyz_fields}, {w_space, w_fields}});
-
+    table0 =
+      Table::create(
+        ctx,
+        rt,
+        xyz_space,
+        {{xyz_space, xyz_fields}, {w_space, w_fields}});
+  }
 // #ifdef HYPERION_USE_CASACORE
 //   recorder.expect_true(
 //     "Create expected table measures using table name prefix",
@@ -538,15 +556,21 @@ table_test_suite(
     for (auto& c : {"W"s, "X"s, "Y"s, "Z"s})
       col_prs[c] = attach_table0_col(ctx, rt, cols.at(c), col_arrays.at(c));
     {
-      auto [reqs, parts, desc] = table0.requirements(ctx, rt);
+      auto reqs = table0.requirements(ctx, rt);
+#if __cplusplus >= 201703L
+      auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+      auto& treqs = std::get<0>(reqs);
+      auto& tdesc = std::get<2>(reqs);
+#endif // c++17
       TaskLauncher pttask(
         VERIFY_TABLE_COLUMNS_TASK,
-        TaskArgument(&desc, sizeof(desc)),
+        TaskArgument(&tdesc, sizeof(tdesc)),
         Predicate::TRUE_PRED,
         table_mapper);
       pttask.add_region_requirement(task->regions[0]);
       pttask.add_region_requirement(task->regions[1]);
-      for (auto& r : reqs)
+      for (auto& r : treqs)
         pttask.add_region_requirement(r);
       rt->unmap_all_regions(ctx);
       rt->execute_task(ctx, pttask);
@@ -566,20 +590,29 @@ table_test_suite(
     Column::Requirements reqB = Column::default_requirements;
     reqB.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
     reqB.tag = TableMapper::to_mapping_tag(group2);
-    auto [reqs, parts, desc] =
+    auto reqs =
       table0.requirements(
         ctx,
         rt,
         ColumnSpacePartition(),
-        {{"X", reqA}, {"Y", reqA}, {"Z", reqB}, {"W", std::nullopt}});
+        {{"X", reqA},
+         {"Y", reqA},
+         {"Z", reqB},
+         {"W", CXX_OPTIONAL_NAMESPACE::nullopt}});
+#if __cplusplus >= 201703L
+    auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+    auto& treqs = std::get<0>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif // c++17
     TaskLauncher vcgtask(
       VERIFY_COLUMN_GROUPS_TASK,
-      TaskArgument(&desc, sizeof(desc)),
+      TaskArgument(&tdesc, sizeof(tdesc)),
       Predicate::TRUE_PRED,
       table_mapper);
     vcgtask.add_region_requirement(task->regions[0]);
     vcgtask.add_region_requirement(task->regions[1]);
-    for (auto& r : reqs)
+    for (auto& r : treqs)
       vcgtask.add_region_requirement(r);
     rt->unmap_all_regions(ctx);
     rt->execute_task(ctx, vcgtask);
@@ -602,6 +635,9 @@ table_test_suite(
       "Column 'W' successfully removed from table",
       TE(cols.find("W") == cols.end()));
     recorder.expect_true(
+      "Table has three columns after removal of 'W'",
+      TE(cols.size() == 3));
+    recorder.expect_true(
       "Columns 'X', 'Y', and 'Z' present in table after removal of 'W'",
       TE(cols.find("X") != cols.end()
          && cols.find("Y") != cols.end()
@@ -620,12 +656,16 @@ table_test_suite(
       TE(cols.find("X") == cols.end()
          && cols.find("Z") == cols.end()));
     recorder.expect_true(
+      "Table has one column after removal of 'X' and 'Z",
+      TE(cols.size() == 1));
+    recorder.expect_true(
       "Column 'Y' present in table after removal of 'X' and 'Z'",
       TE(cols.find("Y") != cols.end()));
   }
   {
     // need a new instance of w_space, as the previous was owned and deleted by
     // the table0
+    auto w_is = tree_index_space(wtree, ctx, rt);
     auto w_space =
       ColumnSpace::create(
         ctx,
@@ -633,6 +673,9 @@ table_test_suite(
         std::vector<Table0Axes>{Table0Axes::ROW, Table0Axes::W},
         w_is,
         false);
+    std::vector<std::pair<std::string, TableField>> w_fields{
+      {"W", TableField(HYPERION_TYPE_UINT, COL_W)}
+    };
     auto add = table0.add_columns(ctx, rt, {{w_space, w_fields}});
     recorder.expect_true(
       "Call to add 'W' returned TRUE",

@@ -66,7 +66,7 @@ hyperion::synthesis::WTermTable::compute_cfs_task(
   const ComputeCFSTaskArgs& args =
     *static_cast<const ComputeCFSTaskArgs*>(task->args);
 
-  auto [pt, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       args.desc,
@@ -75,6 +75,13 @@ hyperion::synthesis::WTermTable::compute_cfs_task(
       regions.begin(),
       regions.end())
     .value();
+#if __cplusplus >= 201703L
+  auto& [pt, rit, pit] = ptcr;
+#else // !c++17
+  auto& pt = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -126,19 +133,25 @@ hyperion::synthesis::WTermTable::compute_cfs(
     auto default_colreqs = Column::default_requirements;
     default_colreqs.values.mapped = true;
 
-    auto [reqs, parts, desc] =
+    auto reqs =
       requirements(
         ctx,
         rt,
         partition,
         {{CF_VALUE_COLUMN_NAME, cf_colreqs},
-         {CF_WEIGHT_COLUMN_NAME, std::nullopt}},
+         {CF_WEIGHT_COLUMN_NAME, CXX_OPTIONAL_NAMESPACE::nullopt}},
         default_colreqs);
+#if __cplusplus >= 201703L
+    auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+    auto& treqs = std::get<0>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif // c++17
     ComputeCFSTaskArgs args;
-    args.desc = desc;
+    args.desc = tdesc;
     args.cell_size = m_cell_size;
     TaskLauncher task(compute_cfs_task_id, TaskArgument(&args, sizeof(args)));
-    for (auto& r : reqs)
+    for (auto& r : treqs)
       task.add_region_requirement(r);
     rt->execute_task(ctx, task);
 }

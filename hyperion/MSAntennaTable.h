@@ -38,8 +38,10 @@ public:
 
   MSAntennaTable(const PhysicalTable& pt)
     : PhysicalTable(pt) {
-    assert(pt.axes_uid() == Axes<typename MSTable<MS_ANTENNA>::Axes>::uid);
-    assert(pt.index_axes() == std::vector{static_cast<int>(ANTENNA_ROW)});
+    assert(pt.axes_uid()
+           && (pt.axes_uid().value()
+               == Axes<typename MSTable<MS_ANTENNA>::Axes>::uid));
+    assert(pt.index_axes() == std::vector<int>{static_cast<int>(ANTENNA_ROW)});
   }
 
   static const constexpr unsigned row_rank = 1;

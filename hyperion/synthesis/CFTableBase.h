@@ -38,6 +38,8 @@ typedef enum cf_table_axes_t {
 } cf_table_axes_t;
 }
 
+typedef hyperion::table_indexing<hyperion::synthesis::cf_table_axes_t> cf_indexing;
+
 template <>
 struct Axes<synthesis::cf_table_axes_t> {
   static const constexpr char* uid = "hyperion:cf";
@@ -100,6 +102,20 @@ class HYPERION_API CFTableBase
   : public hyperion::Table {
 public:
 
+  template <cf_table_axes_t T>
+    struct Axis {
+    Axis(const std::vector<typename cf_table_axis<T>::type>& v)
+      : values(v) {}
+    Axis(std::vector<typename cf_table_axis<T>::type>&& v)
+      : values(v) {}
+
+    std::vector<typename cf_table_axis<T>::type> values;
+
+    Legion::Rect<1> bounds() const {
+      return Legion::Rect<1>(0, values.size() -1);
+    }
+  };
+
   static const constexpr Legion::FieldID INDEX_VALUE_FID = 14;
 
   static const constexpr Legion::FieldID CF_VALUE_FID = 24;
@@ -130,6 +146,11 @@ public:
 
     template <cf_table_axes_t T>
     constexpr std::vector<typename cf_table_axis<T>::type>& values();
+
+    template <cf_table_axes_t...Axes>
+    struct initializer {
+      static void init(InitIndexColumnTaskArgs& args, const Axis<Axes>&...);
+    };
   };
 
   static void
@@ -138,20 +159,6 @@ public:
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime* rt);
-
-  template <cf_table_axes_t T>
-  struct Axis {
-    Axis(const std::vector<typename cf_table_axis<T>::type>& v)
-      : values(v) {}
-    Axis(std::vector<typename cf_table_axis<T>::type>&& v)
-      : values(v) {}
-
-    std::vector<typename cf_table_axis<T>::type> values;
-
-    Legion::Rect<1> bounds() const {
-      return Legion::Rect<1>(0, values.size() -1);
-    }
-  };
 
   CFTableBase(Table&& t)
     : Table(std::move(t)) {}
@@ -199,6 +206,30 @@ constexpr std::vector<typename cf_table_axis<CF_MUELLER_ELEMENT>::type>&
 CFTableBase::InitIndexColumnTaskArgs::values<CF_MUELLER_ELEMENT>() {
   return mueller_elements;
 }
+template <cf_table_axes_t T>
+struct CFTableBase::InitIndexColumnTaskArgs::initializer<T> {
+
+  static void
+  init(
+    InitIndexColumnTaskArgs& args,
+    const CFTableBase::Axis<T>& ax) {
+
+    args.values<T>() = ax.values;
+  }
+};
+template <cf_table_axes_t T0, cf_table_axes_t T1, cf_table_axes_t...Axes>
+struct CFTableBase::InitIndexColumnTaskArgs::initializer<T0, T1, Axes...> {
+  static void
+  init(
+    InitIndexColumnTaskArgs& args,
+    const CFTableBase::Axis<T0>& ax0,
+    const CFTableBase::Axis<T1>& ax1,
+    const CFTableBase::Axis<Axes>&...axs) {
+
+    args.values<T0>() = ax0.values;
+    initializer<T1, Axes...>::init(args, ax1, axs...);
+  }
+};
 
 } // end namespace synthesis
 } // end namespace hyperion

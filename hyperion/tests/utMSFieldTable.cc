@@ -42,7 +42,11 @@ enum {
   VERIFY_FIELD_TABLE_TASK
 };
 
+#if __cplusplus >= 201703L
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
+#else
+#define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
+#endif
 
 struct VerifyTableArgs {
   char table_path[1024];
@@ -67,7 +71,7 @@ verify_field_table(
 
   const VerifyTableArgs *args = static_cast<const VerifyTableArgs*>(task->args);
 
-  auto [pt, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       args->desc,
@@ -76,6 +80,13 @@ verify_field_table(
       regions.begin() + 2,
       regions.end())
     .value();
+#if __cplusplus >= 201703L
+  auto& [pt, rit, pit] = ptcr;
+#else // !c++17
+  auto& pt = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -105,7 +116,7 @@ verify_field_table(
     TE(table.has_time_meas()));
   recorder.expect_true(
     "Table TIME measures are correct",
-    testing::TestEval(
+    testing::TestEval<std::function<bool()>>(
       [&]() {
         auto col = ms_field.timeMeas();
         auto tm_col = table.time_meas<AffineAccessor>();
@@ -136,7 +147,7 @@ verify_field_table(
     TE(table.has_delay_dir_meas()));
   recorder.expect_true(
     "Table DELAY_DIR measures are correct",
-    testing::TestEval(
+    testing::TestEval<std::function<bool()>>(
       [&]() {
         auto col = ms_field.delayDirMeasCol();
         auto dd_col = table.delay_dir_meas();
@@ -146,8 +157,8 @@ verify_field_table(
             MSFieldTable::C::units.at(
               MSFieldTable::C::col_t::MS_FIELD_COL_DELAY_DIR));
         bool result = true;
-        std::optional<coord_t> prev_row;
-        std::optional<Point<2>> prev_midx;
+        CXX_OPTIONAL_NAMESPACE::optional<coord_t> prev_row;
+        CXX_OPTIONAL_NAMESPACE::optional<Point<2>> prev_midx;
         cc::Vector<cc::MDirection> ccdds;
         for (PointInDomainIterator<3> pid(dd_col.domain(), false);
              result && pid();
@@ -173,7 +184,7 @@ verify_field_table(
     TE(table.has_phase_dir_meas()));
   recorder.expect_true(
     "Table PHASE_DIR measures are correct",
-    testing::TestEval(
+    testing::TestEval<std::function<bool()>>(
       [&]() {
         auto col = ms_field.phaseDirMeasCol();
         auto pd_col = table.phase_dir_meas();
@@ -183,8 +194,8 @@ verify_field_table(
             MSFieldTable::C::units.at(
               MSFieldTable::C::col_t::MS_FIELD_COL_PHASE_DIR));
         bool result = true;
-        std::optional<coord_t> prev_row;
-        std::optional<Point<2>> prev_midx;
+        CXX_OPTIONAL_NAMESPACE::optional<coord_t> prev_row;
+        CXX_OPTIONAL_NAMESPACE::optional<Point<2>> prev_midx;
         cc::Vector<cc::MDirection> ccpds;
         for (PointInDomainIterator<3> pid(pd_col.domain(), false);
              result && pid();
@@ -210,7 +221,7 @@ verify_field_table(
     TE(table.has_reference_dir_meas()));
   recorder.expect_true(
     "Table REFERENCE_DIR measures are correct",
-    testing::TestEval(
+    testing::TestEval<std::function<bool()>>(
       [&]() {
         auto col = ms_field.referenceDirMeasCol();
         auto rd_col = table.reference_dir_meas();
@@ -220,8 +231,8 @@ verify_field_table(
             MSFieldTable::C::units.at(
               MSFieldTable::C::col_t::MS_FIELD_COL_REFERENCE_DIR));
         bool result = true;
-        std::optional<coord_t> prev_row;
-        std::optional<Point<2>> prev_midx;
+        CXX_OPTIONAL_NAMESPACE::optional<coord_t> prev_row;
+        CXX_OPTIONAL_NAMESPACE::optional<Point<2>> prev_midx;
         cc::Vector<cc::MDirection> ccrds;
         for (PointInDomainIterator<3> pid(rd_col.domain(), false);
              result && pid();
@@ -262,27 +273,38 @@ ms_test(
   const CXX_FILESYSTEM_NAMESPACE::path tpath = "data/t0.ms/FIELD";
 
   // create the table
-  auto [nm, index_cs, fields] = from_ms(ctx, rt, tpath, {"*"});
-  auto table = Table::create(ctx, rt, index_cs, std::move(fields));
+  auto nm_ics_fields = from_ms(ctx, rt, tpath, {"*"});
+  auto table =
+    Table::create(
+      ctx,
+      rt,
+      std::get<1>(nm_ics_fields),
+      std::move(std::get<2>(nm_ics_fields)));
 
   // read values from MS
   {
-    auto [reqs, parts, desc] =
+    auto reqs =
       TableReadTask::requirements(
         ctx,
         rt,
         table,
         ColumnSpacePartition(),
         WRITE_ONLY);
+#if __cplusplus >= 201703L
+    auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+    auto& treqs = std::get<0>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif // c++17
     TableReadTask::Args args;
     fstrcpy(args.table_path, tpath);
-    args.table_desc = desc;
+    args.table_desc = tdesc;
     TaskLauncher read(
       TableReadTask::TASK_ID,
       TaskArgument(&args, sizeof(args)),
       Predicate::TRUE_PRED,
       table_mapper);
-    for (auto& rq : reqs)
+    for (auto& rq : treqs)
       read.add_region_requirement(rq);
     rt->execute_task(ctx, read);
   }
@@ -291,8 +313,14 @@ ms_test(
   {
     VerifyTableArgs args;
     fstrcpy(args.table_path, tpath);
-    auto [reqs, parts, desc] = table.requirements(ctx, rt);
-    args.desc = desc;
+    auto reqs = table.requirements(ctx, rt);
+#if __cplusplus >= 201703L
+    auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+    auto& treqs = std::get<0>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif // c++17
+    args.desc = tdesc;
     TaskLauncher verify(
       VERIFY_FIELD_TABLE_TASK,
       TaskArgument(&args, sizeof(args)),
@@ -300,7 +328,7 @@ ms_test(
       table_mapper);
     verify.add_region_requirement(task->regions[0]);
     verify.add_region_requirement(task->regions[1]);
-    for (auto& rq : reqs)
+    for (auto& rq : treqs)
       verify.add_region_requirement(rq);
     rt->execute_task(ctx, verify);
   }

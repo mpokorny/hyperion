@@ -34,10 +34,12 @@ public:
 
   MSDataDescriptionTable(const PhysicalTable& pt)
     : PhysicalTable(pt) {
+    assert(pt.axes_uid()
+      && (pt.axes_uid().value()
+          == Axes<typename MSTable<MS_DATA_DESCRIPTION>::Axes>::uid));
     assert(
-      pt.axes_uid() == Axes<typename MSTable<MS_DATA_DESCRIPTION>::Axes>::uid);
-    assert(
-      pt.index_axes() == std::vector{static_cast<int>(DATA_DESCRIPTION_ROW)});
+      pt.index_axes()
+      == std::vector<int>{static_cast<int>(DATA_DESCRIPTION_ROW)});
   }
 
   static const constexpr unsigned row_rank = 1;

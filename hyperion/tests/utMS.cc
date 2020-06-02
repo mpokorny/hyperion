@@ -44,14 +44,18 @@ enum {
 template <typename T, int DIM>
 using RO = FieldAccessor<READ_ONLY, T, DIM, coord_t, AffineAccessor<T, DIM, coord_t>>;
 
+#if __cplusplus >= 201703L
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
+#else
+#define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
+#endif
 
 struct VerifyColumnTaskArgs {
   hyperion::TypeTag dt;
   FieldID fid;
   char table[160];
   char column[32];
-  std::optional<hyperion::string> rc;
+  CXX_OPTIONAL_NAMESPACE::optional<hyperion::string> rc;
   bool has_values;
   bool has_keywords;
   bool has_measure;
@@ -87,7 +91,7 @@ verify_scalar_column(
             casacore::String(targs->column));                           \
         recorder.assert_true(                                           \
           std::string("verify bounds, column ") + targs->column,        \
-          TE(Domain(col_dom)) == Domain(Rect<1>(0, scol.nrow() - 1)));  \
+          TE(Domain(col_dom) == Domain(Rect<1>(0, scol.nrow() - 1))));  \
         casacore::Vector<DataType<DT>::CasacoreType> ary =              \
           scol.getColumn();                                             \
         const RO<DataType<DT>::ValueType, 1>                            \
@@ -95,7 +99,7 @@ verify_scalar_column(
         PointInDomainIterator<1> pid(col_dom);                          \
         recorder.expect_true(                                           \
           std::string("verify values, column ") + targs->column,        \
-          testing::TestEval(                                            \
+          testing::TestEval<std::function<bool()>>(                     \
             [&pid, &col, &ary, targs]() {                               \
               bool result = true;                                       \
               for (; result && pid(); pid++) {                          \
@@ -158,7 +162,7 @@ verify_array_column(
           PointInDomainIterator<DIM> pid(col_dom, false);             \
           recorder.assert_true(                                       \
             std::string("verify bounds, column ") + targs->column,    \
-            testing::TestEval(                                        \
+            testing::TestEval<std::function<bool()>>(                 \
               [&pid, &acol]() {                                       \
                 bool result = true;                                   \
                 while (result && pid()) {                             \
@@ -186,7 +190,7 @@ verify_array_column(
           PointInDomainIterator<DIM> pid(col_dom, false);             \
           recorder.assert_true(                                       \
             std::string("verify values, column ") + targs->column,    \
-            testing::TestEval(                                        \
+            testing::TestEval<std::function<bool()>>(                 \
               [&pid, &acol, &col]() {                                 \
                 bool result = true;                                   \
                 casacore::Array<DataType<DT>::CasacoreType> ary;      \
@@ -223,7 +227,7 @@ verify_array_column(
       casacore::TableColumn(tb, casacore::String(targs->column));
     recorder.expect_true(
       std::string("verify empty, column ") + targs->column,
-      testing::TestEval(
+      testing::TestEval<std::function<bool()>>(
         [&tcol]() {
           bool result = true;
           for (unsigned i = 0; result && i < tcol.nrow(); ++i)
@@ -297,7 +301,7 @@ verify_column_task(
             DataType<DT>::ValueType v;                                  \
             DataType<DT>::from_casacore(v, cv);                         \
             auto ofid = keywords.find_keyword(rt, nm);                  \
-            all_ok = ofid.has_value();                                  \
+            all_ok = (bool)ofid;                                        \
             if (all_ok) {                                               \
               all_ok =                                                  \
                 (DT == Keywords::value_type(prs.type_tags, ofid.value())); \
@@ -323,7 +327,7 @@ verify_column_task(
   } else {
     recorder.expect_true(
       std::string("verify no keywords, column ") + args->column,
-      testing::TestEval(
+      testing::TestEval<std::function<bool()>>(
         [&kws]() {
           unsigned num_expected = 0;
           unsigned nf = kws.nfields();
@@ -346,7 +350,7 @@ verify_column_task(
         }));
   }
   {
-    std::optional<unsigned> fmeas;
+    CXX_OPTIONAL_NAMESPACE::optional<unsigned> fmeas;
     unsigned nf = kws.nfields();
     for (unsigned f = 0; !fmeas && f < nf; ++f) {
       std::string nm = kws.name(f);
@@ -356,7 +360,7 @@ verify_column_task(
     recorder.expect_true(
       std::string("column ") + args->column
       + " has measure only if MS column has a measure",
-      TE(args->has_measure == fmeas.has_value()));
+      TE(args->has_measure == (bool)fmeas));
     if (args->has_measure) {
       MeasRef::DataRegions prs;
       prs.metadata = regions[region_idx++];
@@ -364,7 +368,13 @@ verify_column_task(
       if (region_idx < regions.size())
         prs.index = regions[region_idx];
       {
-        auto [mrbs, rmap] = MeasRef::make(rt, prs);
+        auto mr = MeasRef::make(rt, prs);
+#if __cplusplus >= 201703L
+        auto& [mrbs, rmap] = mr;
+#else
+        auto& mrbs = std::get<0>(mr);
+        auto& rmap = std::get<1>(mr);
+#endif
         recorder.assert_true(
           std::string("column ") + args->column + " has a measure",
           TE(mrbs.size() == 1));
@@ -375,7 +385,7 @@ verify_column_task(
       recorder.expect_true(
         std::string("column ") + args->column
         + " has expected measure",
-        testing::TestEval(
+        testing::TestEval<std::function<bool()>>(
           [&kws, &fmeas, &prs, rt, args]() {
             bool result = false;
             casacore::MeasureHolder mh;
@@ -410,10 +420,17 @@ read_full_ms(
   testing::TestRecorder<READ_WRITE> recorder(log);
 
   static const std::string t0_path("data/t0.ms");
-  auto [table_name, table_ics, table_fields] = from_ms(ctx, rt, t0_path, {"*"});
+  auto nm_ics_flds = from_ms(ctx, rt, t0_path, {"*"});
+#if __cplusplus >= 201703L
+  auto& [table_name, table_ics, table_fields] = nm_ics_flds;
+#else
+  auto& table_name = std::get<0>(nm_ics_flds);
+  auto& table_ics = std::get<1>(nm_ics_flds);
+  auto& table_fields = std::get<2>(nm_ics_flds);
+#endif
   recorder.expect_true(
     "main table name is 'MAIN'",
-    TE(table_name) == "MAIN");
+    TE(table_name == "MAIN"));
   {
     auto ixax = table_ics.axes(ctx, rt);
     recorder.assert_true(
@@ -456,14 +473,11 @@ read_full_ms(
 
   recorder.assert_true(
     "table has expected columns",
-    testing::TestEval(
+    testing::TestEval<std::function<bool()>>(
       [&expected_columns, &cols]() {
         std::set<std::string> colnames;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-        for (auto& [nm, col] : cols)
-#pragma GCC diagnostic pop
-          colnames.insert(nm);
+        for (auto& nm_col : cols)
+          colnames.insert(std::get<0>(nm_col));
         return
           std::all_of(
             expected_columns.begin(),
@@ -477,7 +491,7 @@ read_full_ms(
   //   testing::TestEval(
   //     [&table, &ctx, rt]() {
   //       auto fid = table.keywords.find_keyword(rt, "MS_VERSION");
-  //       std::optional<float> msv;
+  //       CXX_OPTIONAL_NAMESPACE::optional<float> msv;
   //       if (fid)
   //         msv = table.keywords.read<float>(ctx, rt, fid.value());
   //       return fid && msv && msv.value() == 2.0;
@@ -498,14 +512,20 @@ read_full_ms(
   {
     auto row_part =
       table
-      .partition_rows(ctx, rt, {std::make_optional<size_t>(2000)})
+      .partition_rows(ctx, rt, {CXX_OPTIONAL_NAMESPACE::optional<size_t>(2000)})
       .get_result<ColumnSpacePartition>();
-    auto [reqs, parts, desc] =
+    auto reqs =
       TableReadTask::requirements(ctx, rt, table, row_part);
-
+#if __cplusplus >= 201703L
+    auto& [treqs, tparts, tdesc] = reqs;
+#else
+    auto& treqs = std::get<0>(reqs);
+    auto& tparts = std::get<1>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif
     TableReadTask::Args args;
     std::strncpy(args.table_path, t0_path.c_str(), sizeof(args.table_path) - 1);
-    args.table_desc = desc;
+    args.table_desc = tdesc;
     IndexTaskLauncher read(
       TableReadTask::TASK_ID,
       rt->get_index_partition_color_space(row_part.column_ip),
@@ -514,9 +534,11 @@ read_full_ms(
       Predicate::TRUE_PRED,
       false,
       table_mapper);
-    for (auto& rq : reqs)
+    for (auto& rq : treqs)
       read.add_region_requirement(rq);
     rt->execute_index_space(ctx, read);
+    for (auto& p : tparts)
+      rt->destroy_logical_partition(ctx, p);
   }
 
   // compare column LogicalRegions to values read using casacore functions
@@ -578,7 +600,14 @@ read_full_ms(
       args.has_keywords = false;
     }
     if (!col.mr.is_empty()) {
-      auto [mr, vr, oir] = col.mr.requirements(READ_ONLY);
+      auto reqs = col.mr.requirements(READ_ONLY);
+#if __cplusplus >= 201703L
+      auto& [mr, vr, oir] = reqs;
+#else
+      auto& mr = std::get<0>(reqs);
+      auto& vr = std::get<1>(reqs);
+      auto& oir = std::get<2>(reqs);
+#endif
       verify_task.add_region_requirement(mr);
       verify_task.add_region_requirement(vr);
       if (oir)

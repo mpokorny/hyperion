@@ -20,8 +20,8 @@
 #include <hyperion/utility.h>
 
 #include <algorithm>
-#include <any>
-#include <optional>
+#include CXX_ANY_HEADER
+#include CXX_OPTIONAL_HEADER
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -88,10 +88,10 @@ public:
   std::vector<std::string>
   keys(Legion::Runtime* rt) const;
 
-  std::optional<Legion::FieldID>
+  CXX_OPTIONAL_NAMESPACE::optional<Legion::FieldID>
   find_keyword(Legion::Runtime* rt, const std::string& name) const;
 
-  std::vector<std::optional<hyperion::TypeTag>>
+  std::vector<CXX_OPTIONAL_NAMESPACE::optional<hyperion::TypeTag>>
   value_types(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -106,15 +106,14 @@ public:
     Legion::Runtime* rt,
     const pair<Legion::PhysicalRegion>& prs);
 
-  template <template <typename> typename C>
-  std::optional<pair<Legion::RegionRequirement>>
+  CXX_OPTIONAL_NAMESPACE::optional<pair<Legion::RegionRequirement>>
   requirements(
     Legion::Runtime* rt,
-    const C<Legion::FieldID>& fids,
+    std::vector<Legion::FieldID>& fids,
     Legion::PrivilegeMode mode,
     bool mapped = true) const {
 
-    std::optional<pair<Legion::RegionRequirement>> result;
+    CXX_OPTIONAL_NAMESPACE::optional<pair<Legion::RegionRequirement>> result;
     auto n = size(rt);
     if (
       std::all_of(
@@ -124,13 +123,10 @@ public:
       Legion::RegionRequirement
         tt(type_tags_lr, READ_ONLY, EXCLUSIVE, type_tags_lr);
       Legion::RegionRequirement v(values_lr, mode, EXCLUSIVE, values_lr);
-      std::for_each(
-        std::begin(fids),
-        std::end(fids),
-        [&mapped, &tt, &v](auto fid) {
-          tt.add_field(fid, mapped);
-          v.add_field(fid, mapped);
-        });
+      for (auto& fid : fids) {
+        tt.add_field(fid, mapped);
+        v.add_field(fid, mapped);
+      }
       result = pair<Legion::RegionRequirement>{tt, v};
     }
     return result;
@@ -152,8 +148,8 @@ public:
     const T& t) const {
 
     bool result = false;
-    auto reqs =
-      requirements(rt, std::vector<Legion::FieldID>{fid}, WRITE_ONLY);
+    std::vector<Legion::FieldID> fids{fid};
+    auto reqs = requirements(rt, fids, WRITE_ONLY);
     if (reqs) {
       auto prs =
         reqs.value().map(
@@ -171,15 +167,12 @@ public:
   }
 
   template <typename T>
-  std::optional<T>
+  CXX_OPTIONAL_NAMESPACE::optional<T>
   read(Legion::Context ctx, Legion::Runtime* rt, Legion::FieldID fid) const {
 
-    std::optional<T> result;
-    auto reqs =
-      requirements<std::vector>(
-        rt,
-        std::vector<Legion::FieldID>{fid},
-        READ_ONLY);
+    CXX_OPTIONAL_NAMESPACE::optional<T> result;
+    std::vector<Legion::FieldID> fids{fid};
+    auto reqs = requirements(rt, fids, READ_ONLY);
     if (reqs) {
       auto prs =
         reqs.value().map(
@@ -226,18 +219,24 @@ public:
   }
 
   template <typename T>
-  static std::optional<T>
+  static CXX_OPTIONAL_NAMESPACE::optional<T>
   read(const pair<Legion::PhysicalRegion>& prs, Legion::FieldID fid) {
 
     const TypeTagAccessor<READ_ONLY> dt(prs.type_tags, fid);
     const ValueAccessor<READ_ONLY, T> val(prs.values, fid);
-    return ((dt[0] == ValueType<T>::DataType) ? val[0] : std::optional<T>());
+    return ((dt[0] == ValueType<T>::DataType)
+            ? val[0]
+            : CXX_OPTIONAL_NAMESPACE::optional<T>());
   }
 
-  std::unordered_map<std::string, std::tuple<hyperion::TypeTag, std::any>>
+  std::unordered_map<
+    std::string,
+    std::tuple<hyperion::TypeTag, CXX_ANY_NAMESPACE::any>>
   to_map(Legion::Context ctx, Legion::Runtime *rt) const;
 
-  static std::unordered_map<std::string, std::tuple<hyperion::TypeTag, std::any>>
+  static std::unordered_map<
+    std::string,
+    std::tuple<hyperion::TypeTag, CXX_ANY_NAMESPACE::any>>
   to_map(Legion::Runtime *rt, const pair<Legion::PhysicalRegion>& prs);
 };
 

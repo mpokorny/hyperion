@@ -31,9 +31,8 @@
 #include <array>
 #include <cstring>
 #include <iterator>
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <unordered_map>
-#include <variant>
 #include <vector>
 
 namespace hyperion {
@@ -92,7 +91,7 @@ struct MSTableColumns {
 
   static const std::map<col_t, const char*> measure_names;
 
-  static std::optional<col_t>
+  static CXX_OPTIONAL_NAMESPACE::optional<col_t>
   lookup_col(const std::string& nm) {
     auto col =
       std::find_if(
@@ -103,7 +102,7 @@ struct MSTableColumns {
         });
     if (col != column_names.end())
       return static_cast<col_t>(std::distance(column_names.begin(), col));
-    return std::nullopt;
+    return CXX_OPTIONAL_NAMESPACE::nullopt;
   }
 };
 
@@ -116,6 +115,48 @@ template <MSTables T>
 const std::map<typename MSTableColumns<T>::col_t, const char*>
 MSTableColumns<T>::measure_names =
   MSTableDefs<T>::measure_names;
+
+#if __cplusplus < 201703L
+#define MS_TABLE_COLUMNS(T)                                             \
+  template <>                                                           \
+  struct MSTableColumns<MS_##T> {                                       \
+    typedef typename MSTableDefs<MS_##T>::col_t col_t;                  \
+                                                                        \
+    static const constexpr std::array<const char*, MSTableDefs<MS_##T>::num_cols> \
+    column_names =                                                      \
+      MSTableDefs<MS_##T>::column_names;                                \
+                                                                        \
+    static const constexpr std::array<unsigned, MSTableDefs<MS_##T>::num_cols> \
+    element_ranks =                                                     \
+      MSTableDefs<MS_##T>::element_ranks;                               \
+                                                                        \
+    static constexpr Legion::FieldID fid(col_t c) {                     \
+      return c + MSTableDefs<MS_##T>::fid_base;                         \
+    }                                                                   \
+                                                                        \
+    static const constexpr Legion::FieldID user_fid_base =              \
+      MSTableDefs<MS_##T>::user_fid_base;                               \
+                                                                        \
+    static const std::unordered_map<col_t, const char*> units;          \
+                                                                        \
+    static const std::map<col_t, const char*> measure_names;            \
+                                                                        \
+    static CXX_OPTIONAL_NAMESPACE::optional<col_t>                      \
+    lookup_col(const std::string& nm) {                                 \
+      auto col =                                                        \
+        std::find_if(                                                   \
+          column_names.begin(),                                         \
+          column_names.end(),                                           \
+          [&nm](std::string cn) {                                       \
+            return cn == nm;                                            \
+          });                                                           \
+      if (col != column_names.end())                                    \
+        return static_cast<col_t>(std::distance(column_names.begin(), col)); \
+      return CXX_OPTIONAL_NAMESPACE::nullopt;                           \
+    }                                                                   \
+  };
+HYPERION_FOREACH_MS_TABLE(MS_TABLE_COLUMNS)
+#endif // !c++17
 
 #define HYPERION_COLUMN_NAME(T, C)                    \
   MSTableColumns<MS_##T>::column_names[               \

@@ -18,7 +18,7 @@
 #include <hyperion/gridder/gridder.h>
 
 #include CXX_FILESYSTEM_HEADER
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <string>
 #include <vector>
 
@@ -54,24 +54,23 @@ struct ArgsCompletion<OPT_STRING_ARGS> {
   static const constexpr args_t val = STRING_ARGS;
 };
 
-template <
-  typename T,
-  bool OPT,
-  const char* const* TAG,
-  const char* const* DESC,
-  args_t G>
+template <typename T, bool OPT, args_t G>
 struct ArgType {
-  static const constexpr char* tag = *TAG;
+  //static const char* tag;
 };
-template <typename T, const char* const* TAG, const char* const* DESC>
-struct ArgType<T, false, TAG, DESC, VALUE_ARGS> {
+template <typename T>
+struct ArgType<T, false, VALUE_ARGS> {
+  ArgType(const char* _tag, const char* _desc)
+    : tag(_tag)
+    , desc(_desc) {}
+
   typedef T type;
 
   T val;
 
-  static const constexpr char* tag = *TAG;
+  const char* tag;
 
-  static const constexpr char* desc = *DESC;
+  const char* desc;
 
   T
   value() const {
@@ -87,15 +86,19 @@ struct ArgType<T, false, TAG, DESC, VALUE_ARGS> {
     return true;
   }
 };
-template <typename T, const char* const* TAG, const char* const* DESC>
-struct ArgType<T, true, TAG, DESC, VALUE_ARGS> {
-  typedef std::optional<T> type;
+template <typename T>
+struct ArgType<T, true, VALUE_ARGS> {
+  ArgType(const char* _tag, const char* _desc)
+    : tag(_tag)
+    , desc(_desc) {}
 
-  std::optional<T> val;
+  typedef CXX_OPTIONAL_NAMESPACE::optional<T> type;
 
-  static const constexpr char* tag = *TAG;
+  CXX_OPTIONAL_NAMESPACE::optional<T> val;
 
-  static const constexpr char* desc = *DESC;
+  const char* tag;
+
+  const char* desc;
 
   T
   value() const {
@@ -108,23 +111,27 @@ struct ArgType<T, true, TAG, DESC, VALUE_ARGS> {
   }
 
   void
-  operator=(const std::optional<T>& ot) {
+  operator=(const CXX_OPTIONAL_NAMESPACE::optional<T>& ot) {
     val = ot;
   }
 
   operator bool() const {
-    return val.has_value();
+    return (bool)val;
   }
 };
-template <typename T, const char* const* TAG, const char* const* DESC>
-struct ArgType<T, false, TAG, DESC, STRING_ARGS> {
+template <typename T>
+struct ArgType<T, false, STRING_ARGS> {
+  ArgType(const char* _tag, const char* _desc)
+    : tag(_tag)
+    , desc(_desc) {}
+
   typedef std::string type;
 
   std::string val;
 
-  static const constexpr char* tag = *TAG;
+  const char* tag;
 
-  static const constexpr char* desc = *DESC;
+  const char* desc;
 
   std::string
   value() const {
@@ -140,15 +147,19 @@ struct ArgType<T, false, TAG, DESC, STRING_ARGS> {
     return true;
   }
 };
-template <typename T, const char* const* TAG, const char* const* DESC>
-struct ArgType<T, true, TAG, DESC, STRING_ARGS> {
-  typedef std::optional<std::string> type;
+template <typename T>
+struct ArgType<T, true, STRING_ARGS> {
+  ArgType(const char* _tag, const char* _desc)
+    : tag(_tag)
+    , desc(_desc) {}
 
-  std::optional<std::string> val;
+  typedef CXX_OPTIONAL_NAMESPACE::optional<std::string> type;
 
-  static const constexpr char* tag = *TAG;
+  CXX_OPTIONAL_NAMESPACE::optional<std::string> val;
 
-  static const constexpr char* desc = *DESC;
+  const char* tag;
+
+  const char* desc;
 
   std::string
   value() const {
@@ -161,23 +172,27 @@ struct ArgType<T, true, TAG, DESC, STRING_ARGS> {
   }
 
   void
-  operator=(const std::optional<std::string>& ostr) {
+  operator=(const CXX_OPTIONAL_NAMESPACE::optional<std::string>& ostr) {
     val = ostr;
   }
 
   operator bool() const {
-    return val.has_value();
+    return (bool)val;
   }
 };
-template <typename T, const char* const* TAG, const char* const* DESC>
-struct ArgType<T, false, TAG, DESC, OPT_VALUE_ARGS> {
-  typedef std::optional<T> type;
+template <typename T>
+struct ArgType<T, false, OPT_VALUE_ARGS> {
+  ArgType(const char* _tag, const char* _desc)
+    : tag(_tag)
+    , desc(_desc) {}
 
-  std::optional<T> val;
+  typedef CXX_OPTIONAL_NAMESPACE::optional<T> type;
 
-  static const constexpr char* tag = *TAG;
+  CXX_OPTIONAL_NAMESPACE::optional<T> val;
 
-  static const constexpr char* desc = *DESC;
+  const char* tag;
+
+  const char* desc;
 
   T
   value() const {
@@ -190,23 +205,27 @@ struct ArgType<T, false, TAG, DESC, OPT_VALUE_ARGS> {
   }
 
   void
-  operator=(const std::optional<T>& ot) {
+  operator=(const CXX_OPTIONAL_NAMESPACE::optional<T>& ot) {
     val = ot;
   }
 
   operator bool() const {
-    return val.has_value();
+    return (bool)val;
   }
 };
-template <typename T, const char* const* TAG, const char* const* DESC>
-struct ArgType<T, true, TAG, DESC, OPT_VALUE_ARGS> {
-  typedef std::optional<T> type;
+template <typename T>
+struct ArgType<T, true, OPT_VALUE_ARGS> {
+  ArgType(const char* _tag, const char* _desc)
+    : tag(_tag)
+    , desc(_desc) {}
 
-  std::optional<T> val;
+  typedef CXX_OPTIONAL_NAMESPACE::optional<T> type;
 
-  static const constexpr char* tag = *TAG;
+  CXX_OPTIONAL_NAMESPACE::optional<T> val;
 
-  static const constexpr char* desc = *DESC;
+  const char* tag;
+
+  const char* desc;
 
   T
   value() const {
@@ -219,23 +238,27 @@ struct ArgType<T, true, TAG, DESC, OPT_VALUE_ARGS> {
   }
 
   void
-  operator=(const std::optional<T>& ot) {
+  operator=(const CXX_OPTIONAL_NAMESPACE::optional<T>& ot) {
     val = ot;
   }
 
   operator bool() const {
-    return val.has_value();
+    return (bool)val;
   }
 };
-template <typename T, const char* const* TAG, const char* const* DESC>
-struct ArgType<T, false, TAG, DESC, OPT_STRING_ARGS> {
-  typedef std::optional<std::string> type;
+template <typename T>
+struct ArgType<T, false, OPT_STRING_ARGS> {
+  ArgType(const char* _tag, const char* _desc)
+    : tag(_tag)
+    , desc(_desc) {}
 
-  std::optional<std::string> val;
+  typedef CXX_OPTIONAL_NAMESPACE::optional<std::string> type;
 
-  static const constexpr char* tag = *TAG;
+  CXX_OPTIONAL_NAMESPACE::optional<std::string> val;
 
-  static const constexpr char* desc = *DESC;
+  const char* tag;
+
+  const char* desc;
 
   std::string
   value() const {
@@ -248,23 +271,27 @@ struct ArgType<T, false, TAG, DESC, OPT_STRING_ARGS> {
   }
 
   void
-  operator=(const std::optional<std::string>& ostr) {
+  operator=(const CXX_OPTIONAL_NAMESPACE::optional<std::string>& ostr) {
     val = ostr;
   }
 
   operator bool() const {
-    return val.has_value();
+    return (bool)val;
   }
 };
-template <typename T, const char* const* TAG, const char* const* DESC>
-struct ArgType<T, true, TAG, DESC, OPT_STRING_ARGS> {
-  typedef std::optional<std::string> type;
+template <typename T>
+struct ArgType<T, true, OPT_STRING_ARGS> {
+  ArgType(const char* _tag, const char* _desc)
+    : tag(_tag)
+    , desc(_desc) {}
 
-  std::optional<std::string> val;
+  typedef CXX_OPTIONAL_NAMESPACE::optional<std::string> type;
 
-  static const constexpr char* tag = *TAG;
+  CXX_OPTIONAL_NAMESPACE::optional<std::string> val;
 
-  static const constexpr char* desc = *DESC;
+  const char* tag;
+
+  const char* desc;
 
   std::string
   value() const {
@@ -277,12 +304,12 @@ struct ArgType<T, true, TAG, DESC, OPT_STRING_ARGS> {
   }
 
   void
-  operator=(const std::optional<std::string>& ostr) {
+  operator=(const CXX_OPTIONAL_NAMESPACE::optional<std::string>& ostr) {
     val = ostr;
   }
 
   operator bool() const {
-    return val.has_value();
+    return (bool)val;
   }
 };
 
@@ -333,30 +360,22 @@ struct ArgsBase {
 template <args_t G>
 struct Args
   : public ArgsBase {
-  ArgType<
-    CXX_FILESYSTEM_NAMESPACE::path,
-    false,
-    &h5_path_tag,
-    &h5_path_desc,
-    G> h5_path;
-  ArgType<
-    CXX_FILESYSTEM_NAMESPACE::path,
-    true,
-    &config_path_tag,
-    &config_path_desc,
-    G> config_path;
-  ArgType<bool, false, &echo_tag, &echo_desc, G> echo;
-  ArgType<size_t, false, &min_block_tag, &min_block_desc, G> min_block;
-  ArgType<
-    PARALLACTIC_ANGLE_TYPE,
-    false,
-    &pa_step_tag,
-    &pa_step_desc,
-    G> pa_step;
-  ArgType<size_t, false, &pa_block_tag, &pa_block_desc, G> pa_block;
-  ArgType<int, false, &w_planes_tag, &w_planes_desc, G> w_planes;
+  ArgType<CXX_FILESYSTEM_NAMESPACE::path, false, G> h5_path;
+  ArgType<CXX_FILESYSTEM_NAMESPACE::path, true, G> config_path;
+  ArgType<bool, false, G> echo;
+  ArgType<size_t, false, G> min_block;
+  ArgType<PARALLACTIC_ANGLE_TYPE, false, G> pa_step;
+  ArgType<size_t, false, G> pa_block;
+  ArgType<int, false, G> w_planes;
 
-  Args() {}
+  Args()
+    : h5_path(h5_path_tag, h5_path_desc)
+    , config_path(config_path_tag, config_path_desc)
+    , echo(echo_tag, echo_desc)
+    , min_block(min_block_tag, min_block_desc)
+    , pa_step(pa_step_tag, pa_step_desc)
+    , pa_block(pa_block_tag, pa_block_desc)
+    , w_planes(w_planes_tag, w_planes_desc) {}
 
   Args(
     const typename decltype(h5_path)::type& h5_path_,
@@ -365,7 +384,14 @@ struct Args
     const typename decltype(min_block)::type& min_block_,
     const typename decltype(pa_step)::type& pa_step_,
     const typename decltype(pa_block)::type& pa_block_,
-    const typename decltype(w_planes)::type& w_planes_) {
+    const typename decltype(w_planes)::type& w_planes_)
+    : h5_path(h5_path_tag, h5_path_desc)
+    , config_path(config_path_tag, config_path_desc)
+    , echo(echo_tag, echo_desc)
+    , min_block(min_block_tag, min_block_desc)
+    , pa_step(pa_step_tag, pa_step_desc)
+    , pa_block(pa_block_tag, pa_block_desc)
+    , w_planes(w_planes_tag, w_planes_desc) {
 
     h5_path = h5_path_;
     config_path = config_path_;
@@ -387,21 +413,22 @@ struct Args
       && w_planes;
   }
 
-  std::optional<Args<ArgsCompletion<G>::val>>
+  CXX_OPTIONAL_NAMESPACE::optional<Args<ArgsCompletion<G>::val>>
   as_complete() const {
-    std::optional<Args<ArgsCompletion<G>::val>> result;
+    CXX_OPTIONAL_NAMESPACE::optional<Args<ArgsCompletion<G>::val>> result;
     if (is_complete())
       result =
-        std::make_optional<Args<ArgsCompletion<G>::val>>(
-          h5_path.value(),
-          (config_path
-           ? config_path.value()
-           : std::optional<std::string>()),
-          echo.value(),
-          min_block.value(),
-          pa_step.value(),
-          pa_block.value(),
-          w_planes.value());
+        CXX_OPTIONAL_NAMESPACE::optional<Args<ArgsCompletion<G>::val>>(
+          Args<ArgsCompletion<G>::val>(
+            h5_path.value(),
+            (config_path
+             ? config_path.value()
+             : CXX_OPTIONAL_NAMESPACE::optional<std::string>()),
+            echo.value(),
+            min_block.value(),
+            pa_step.value(),
+            pa_block.value(),
+            w_planes.value()));
     return result;
   }
 
@@ -448,7 +475,7 @@ has_help_flag(const Legion::InputArgs& args);
 bool
 get_args(const Legion::InputArgs& args, Args<OPT_STRING_ARGS>& gridder_args);
 
-std::optional<std::string>
+CXX_OPTIONAL_NAMESPACE::optional<std::string>
 validate_args(const Args<VALUE_ARGS>& args);
 
 } // end namespace gridder

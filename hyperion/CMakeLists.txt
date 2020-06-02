@@ -102,6 +102,19 @@ set(MAX_NUM_TABLE_COLUMNS ${hyperion_MAX_NUM_TABLE_COLUMNS})
 # wrapper can be "tricked" by also setting CXX_EXTENSIONS (provides gnu++17,
 # which nvcc_wrapper allows). This arrangement is fragile.
 set(CXX_STANDARD 17)
+if(CXX_STANDARD STREQUAL 17)
+  set(CXX_ANY_HEADER any)
+  set(CXX_ANY_NAMESPACE std)
+
+  set(CXX_OPTIONAL_HEADER optional)
+  set(CXX_OPTIONAL_NAMESPACE std)
+else()
+  set(CXX_ANY_HEADER experimental/any)
+  set(CXX_ANY_NAMESPACE std::experimental)
+
+  set(CXX_OPTIONAL_HEADER experimental/optional)
+  set(CXX_OPTIONAL_NAMESPACE std::experimental)
+endif()
 
 set(HYPERION_USE_CASACORE ${hyperion_USE_CASACORE})
 set(HYPERION_USE_HDF5 ${hyperion_USE_HDF5})
@@ -131,7 +144,7 @@ target_sources(hyperion PRIVATE
   tree_index_space.cc
   tree_index_space.h
   utility.cc
-  #utility.h
+  utility.h
   utility_c.cc
   utility_c.h
   Column.h

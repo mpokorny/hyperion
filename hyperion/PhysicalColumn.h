@@ -25,9 +25,11 @@
 
 #include <any>
 #include <memory>
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <unordered_map>
+#if __cplusplus >= 201703L
 #include <variant>
+#endif // c++17
 #include <vector>
 
 namespace hyperion {
@@ -195,11 +197,12 @@ public:
     const Legion::PhysicalRegion& metadata,
     const Legion::LogicalRegion& region,
     const Legion::LogicalRegion& parent,
-    const std::optional<Legion::PhysicalRegion>& values,
-    const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
+    const CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion>& values,
+    const CXX_OPTIONAL_NAMESPACE::optional<
+      Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
-    , const std::optional<MeasRef::DataRegions>& mr_drs
-    , const std::optional<
+    , const CXX_OPTIONAL_NAMESPACE::optional<MeasRef::DataRegions>& mr_drs
+    , const CXX_OPTIONAL_NAMESPACE::optional<
         std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol
 #endif // HYPERION_USE_CASACORE
     )
@@ -287,7 +290,7 @@ public:
     return m_parent;
   };
 
-  const std::optional<Legion::PhysicalRegion>&
+  const CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion>&
   values() const {
     return m_values;
   };
@@ -301,19 +304,21 @@ public:
       .value_or(m_region);
   }
 
-  const std::optional<Keywords::pair<Legion::PhysicalRegion>>&
+  const CXX_OPTIONAL_NAMESPACE::optional<
+    Keywords::pair<Legion::PhysicalRegion>>&
   kws() const {
     return m_kws;
   };
 
 #ifdef HYPERION_USE_CASACORE
 
-  const std::optional<MeasRef::DataRegions>&
+  const CXX_OPTIONAL_NAMESPACE::optional<MeasRef::DataRegions>&
   mr_drs() const {
     return m_mr_drs;
   };
 
-  const std::optional<std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>&
+  const CXX_OPTIONAL_NAMESPACE::optional<
+    std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>&
   refcol() const {
     return m_refcol;
   }
@@ -329,9 +334,16 @@ public:
     Legion::PhysicalRegion,
     Legion::FieldID> ref_mrb_t;
 
+#if __cplusplus >= 201703L
   typedef std::variant<simple_mrb_t, ref_mrb_t> mrb_t;
+#else
+  typedef struct {
+    bool is_simple;
+    ref_mrb_t ref;
+  } mrb_t;
+#endif // c++17
 
-  std::optional<mrb_t>
+  CXX_OPTIONAL_NAMESPACE::optional<mrb_t>
   mrb(Legion::Runtime* rt) const;
 #endif // HYPERION_USE_CASACORE
 
@@ -386,15 +398,15 @@ protected:
 
   // allow an optional values region, to support a PhysicalColumn without values
   // (e.g, some Table index column spaces)
-  std::optional<Legion::PhysicalRegion> m_values;
+  CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion> m_values;
 
-  std::optional<Keywords::pair<Legion::PhysicalRegion>> m_kws;
+  CXX_OPTIONAL_NAMESPACE::optional<Keywords::pair<Legion::PhysicalRegion>> m_kws;
 
 #ifdef HYPERION_USE_CASACORE
-  std::optional<MeasRef::DataRegions> m_mr_drs;
+  CXX_OPTIONAL_NAMESPACE::optional<MeasRef::DataRegions> m_mr_drs;
 
-  std::optional<std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>
-  m_refcol;
+  CXX_OPTIONAL_NAMESPACE::optional<
+    std::tuple<std::string, std::shared_ptr<PhysicalColumn>>> m_refcol;
 #endif // HYPERION_USE_CASACORE
 };
 
@@ -413,11 +425,12 @@ public:
     const Legion::PhysicalRegion& metadata,
     const Legion::LogicalRegion& region,
     const Legion::LogicalRegion& parent,
-    const std::optional<Legion::PhysicalRegion>& values,
-    const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
+    const CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion>& values,
+    const CXX_OPTIONAL_NAMESPACE::optional<
+      Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
-    , const std::optional<MeasRef::DataRegions>& mr_drs
-    , const std::optional<
+    , const CXX_OPTIONAL_NAMESPACE::optional<MeasRef::DataRegions>& mr_drs
+    , const CXX_OPTIONAL_NAMESPACE::optional<
         std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol
 #endif // HYPERION_USE_CASACORE
     )
@@ -481,11 +494,12 @@ public:
     const Legion::PhysicalRegion& metadata,
     const Legion::LogicalRegion& region,
     const Legion::LogicalRegion& parent,
-    const std::optional<Legion::PhysicalRegion>& values,
-    const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws
+    const CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion>& values,
+    const CXX_OPTIONAL_NAMESPACE::optional<
+      Keywords::pair<Legion::PhysicalRegion>>& kws
 #ifdef HYPERION_USE_CASACORE
-    , const std::optional<MeasRef::DataRegions>& mr_drs
-    , const std::optional<
+    , const CXX_OPTIONAL_NAMESPACE::optional<MeasRef::DataRegions>& mr_drs
+    , const CXX_OPTIONAL_NAMESPACE::optional<
         std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol
 #endif // HYPERION_USE_CASACORE
     )
@@ -560,10 +574,11 @@ public:
     const Legion::PhysicalRegion& metadata,
     const Legion::LogicalRegion& region,
     const Legion::LogicalRegion& parent,
-    const std::optional<Legion::PhysicalRegion>& values,
-    const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws,
-    const std::optional<MeasRef::DataRegions>& mr_drs,
-    const std::optional<
+    const CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion>& values,
+    const CXX_OPTIONAL_NAMESPACE::optional<
+      Keywords::pair<Legion::PhysicalRegion>>& kws,
+    const CXX_OPTIONAL_NAMESPACE::optional<MeasRef::DataRegions>& mr_drs,
+    const CXX_OPTIONAL_NAMESPACE::optional<
       std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol)
     : PhysicalColumn(
       rt,
@@ -641,10 +656,11 @@ public:
     const Legion::PhysicalRegion& metadata,
     const Legion::LogicalRegion& region,
     const Legion::LogicalRegion& parent,
-    const std::optional<Legion::PhysicalRegion>& values,
-    const std::optional<Keywords::pair<Legion::PhysicalRegion>>& kws,
-    const std::optional<MeasRef::DataRegions>& mr_drs,
-    const std::optional<
+    const CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion>& values,
+    const CXX_OPTIONAL_NAMESPACE::optional<
+      Keywords::pair<Legion::PhysicalRegion>>& kws,
+    const CXX_OPTIONAL_NAMESPACE::optional<MeasRef::DataRegions>& mr_drs,
+    const CXX_OPTIONAL_NAMESPACE::optional<
       std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol)
     : PhysicalColumn(
       rt,
@@ -700,6 +716,7 @@ public:
     PhysicalColumnTMD<DT, MC, INDEX_RANK, COLUMN_RANK, MV_SIZE, A, COORD_T>;
 
     MeasRefAccessor(const mrb_t* mr) {
+#if __cplusplus >= 201703L
       std::visit(overloaded {
           [this](const simple_mrb_t& mr) {
             m_mr = std::dynamic_pointer_cast<MR_t>(mr);
@@ -718,6 +735,25 @@ public:
           }
         },
         *mr);
+#else
+      auto& mrs = std::get<0>(mr->ref);
+      auto& rmap = std::get<1>(mr->ref);
+      auto& rcodes_pr = std::get<2>(mr->ref);
+      auto& fid = std::get<3>(mr->ref);
+      if (mr->is_simple) {
+        m_mr = std::dynamic_pointer_cast<MR_t>(mrs[0]);
+        m_convert.setOut(*m_mr);
+      } else {
+        std::vector<std::shared_ptr<MR_t>> tmrs;
+        for (auto& m : mrs)
+          tmrs.push_back(std::dynamic_pointer_cast<MR_t>(m));
+        m_mrv =
+          std::make_tuple(
+            tmrs,
+            rmap,
+            RefcodeAccessor(rcodes_pr, fid));
+      }
+#endif
     }
 
   public:
@@ -725,7 +761,13 @@ public:
     MC_t&
     convert_at(const Legion::Point<COLUMN_RANK - M_RANK, Legion::coord_t>& pt) {
       if (m_mrv) {
+#if __cplusplus >= 201703L
         auto& [mrs, rmap, rcodes] = m_mrv.value();
+#else // !c++17
+        auto& mrs = std::get<0>(m_mrv.value());
+        auto& rmap = std::get<1>(m_mrv.value());
+        auto& rcodes = std::get<2>(m_mrv.value());
+#endif // c++17
         m_convert.setOut(
           *mrs[
             rmap.at(
@@ -739,7 +781,13 @@ public:
     MR_t&
     meas_ref_at(const Legion::Point<COLUMN_RANK - M_RANK, Legion::coord_t>& pt) {
       if (m_mrv) {
+#if __cplusplus >= 201703L
         auto& [mrs, rmap, rcodes] = m_mrv.value();
+#else // !c++17
+        auto& mrs = std::get<0>(m_mrv.value());
+        auto& rmap = std::get<1>(m_mrv.value());
+        auto& rcodes = std::get<2>(m_mrv.value());
+#endif // c++17
         m_mr =
           mrs[
             rmap.at(
@@ -753,7 +801,7 @@ public:
   private:
     std::shared_ptr<MR_t> m_mr;
 
-    std::optional<
+    CXX_OPTIONAL_NAMESPACE::optional<
       std::tuple<
         std::vector<std::shared_ptr<MR_t>>,
         std::unordered_map<unsigned, unsigned>,

@@ -175,7 +175,8 @@ test_recorder_test_suite(
     Future fval = Future::from_value(runtime, val);
     recorder.expect_true(
       "Evaluate Future in TestExpression",
-      testing::TestFuture<decltype(val)>(fval) == testing::TestVal(val));
+      testing::TestFuture<decltype(val)>(fval)
+      == testing::TestVal<unsigned>(val));
   }
   ++log_readback;
 

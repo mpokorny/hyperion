@@ -203,7 +203,7 @@ TableReadTask::impl(
 
   const Args* args = static_cast<const Args*>(task->args);
 
-  auto [table, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       args->table_desc,
@@ -211,6 +211,13 @@ TableReadTask::impl(
       task->regions.end(),
       regions.begin() ,
       regions.end()).value();
+#if __cplusplus >= 201703L
+  auto& [table, rit, pit] = ptcr;
+#else // !c++17
+  auto& table = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -219,7 +226,13 @@ TableReadTask::impl(
     casacore::TableLock::PermanentLockingWait);
   auto tdesc = cctable.tableDesc();
 
-  for (auto& [nm, column] : table.columns()) {
+  for (auto& nm_column : table.columns()) {
+#if __cplusplus >= 201703L
+    auto& [nm, column] = nm_column;
+#else // !c++17
+    auto& nm = std::get<0>(nm_column);
+    auto& column = std::get<1>(nm_column);
+#endif // c++17
     if (nm != "") {
       switch (column->domain().get_dim()) {
       case 0: // for index column space

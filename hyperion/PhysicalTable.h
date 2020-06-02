@@ -21,7 +21,7 @@
 #include <hyperion/Table.h>
 
 #include <memory>
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -43,7 +43,7 @@ public:
 
   PhysicalTable(PhysicalTable&& other);
 
-  static std::optional<
+  static CXX_OPTIONAL_NAMESPACE::optional<
     std::tuple<
       PhysicalTable,
       std::vector<Legion::RegionRequirement>::const_iterator,
@@ -57,7 +57,7 @@ public:
     const std::vector<Legion::PhysicalRegion>::const_iterator& prs_end);
 
   template <size_t N>
-  static std::optional<
+  static CXX_OPTIONAL_NAMESPACE::optional<
     std::tuple<
       std::vector<PhysicalTable>,
       std::vector<Legion::RegionRequirement>::const_iterator,
@@ -78,7 +78,7 @@ public:
     for (size_t i = 0; i < N && rit != reqs_end && pit != prs_end; ++i) {
       auto opt = create(rt, desc[i], rit, reqs_end, pit, prs_end);
       if (!opt)
-        return std::nullopt;
+        return CXX_OPTIONAL_NAMESPACE::nullopt;
       tables.push_back(std::move(std::get<0>(opt.value())));
       rit = std::get<1>(opt.value());
       pit = std::get<2>(opt.value());
@@ -86,7 +86,7 @@ public:
     return std::make_tuple(tables, rit, pit);
   }
 
-  static std::optional<
+  static CXX_OPTIONAL_NAMESPACE::optional<
     std::tuple<
       std::vector<PhysicalTable>,
       std::vector<Legion::RegionRequirement>::const_iterator,
@@ -102,7 +102,7 @@ public:
   Table
   table(Legion::Context ctx, Legion::Runtime* rt) const;
 
-  std::optional<std::string>
+  CXX_OPTIONAL_NAMESPACE::optional<std::string>
   axes_uid() const;
 
   std::vector<int>
@@ -120,7 +120,7 @@ public:
   const Legion::PhysicalRegion&
   index_column_space_metadata() const;
 
-  std::optional<std::shared_ptr<PhysicalColumn>>
+  CXX_OPTIONAL_NAMESPACE::optional<std::shared_ptr<PhysicalColumn>>
   column(const std::string& name) const;
 
   const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
@@ -140,10 +140,12 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ColumnSpacePartition& table_partition = ColumnSpacePartition(),
-    const std::map<std::string, std::optional<Column::Requirements>>&
+    const std::map<
+      std::string,
+      CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>>&
       column_requirements = {},
-    const std::optional<Column::Requirements>& default_column_requirements =
-      Column::default_requirements) const;
+    const CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>&
+      default_column_requirements = Column::default_requirements) const;
 
   bool
   add_columns(
@@ -170,7 +172,8 @@ public:
   partition_rows(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::vector<std::optional<size_t>>& block_sizes) const;
+    const std::vector<CXX_OPTIONAL_NAMESPACE::optional<size_t>>& block_sizes)
+    const;
 
   Table
   reindexed(
@@ -247,6 +250,9 @@ protected:
   std::string m_axes_uid;
 
   std::vector<int> m_index_axes;
+
+  std::unordered_map<std::string, Column>
+  get_columns() const;
 };
 
 } // end namespace hyperion

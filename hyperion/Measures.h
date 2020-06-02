@@ -92,7 +92,11 @@ struct MClassTBase {
     const char* units,
     const casacore::MeasRef<M>& mr) {
 
-    return M(typename M::MVType(casacore::Quantum(v, units)), mr);
+    M result(
+      typename M::MVType(
+        casacore::Quantum<typename QType<DT, MRANK>::type>(v, units)),
+      mr);
+    return result;
   }
 
   template <hyperion::TypeTag DT>
@@ -270,11 +274,11 @@ struct HYPERION_API MClassT<MClass::M_UVW>
   __func__(::hyperion::MClass::M_RADIAL_VELOCITY)  \
   __func__(::hyperion::MClass::M_UVW)
 
-std::optional<
+CXX_OPTIONAL_NAMESPACE::optional<
   std::tuple<
     hyperion::MClass,
     std::vector<std::tuple<std::unique_ptr<casacore::MRBase>, unsigned>>,
-    std::optional<std::string>>>
+    CXX_OPTIONAL_NAMESPACE::optional<std::string>>>
 get_meas_refs(const casacore::Table& table, const std::string& colname);
 
 class MeasRef;

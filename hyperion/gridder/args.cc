@@ -17,11 +17,53 @@
 
 #include <forward_list>
 #include <sstream>
+#if __cplusplus >= 201703L
 #include <variant>
+#endif
 
 using namespace hyperion::gridder;
 
-std::variant<std::forward_list<std::string>, Args<OPT_STRING_ARGS>>
+#if __cplusplus < 201703L
+const constexpr char* ArgsBase::h5_path_tag;
+const constexpr char* ArgsBase::h5_path_desc;
+
+const constexpr char* ArgsBase::config_path_tag;
+const constexpr char* ArgsBase::config_path_desc;
+
+const constexpr char* ArgsBase::echo_tag;
+const constexpr char* ArgsBase::echo_desc;
+
+const constexpr char* ArgsBase::min_block_tag;
+const constexpr char* ArgsBase::min_block_desc;
+
+const constexpr char* ArgsBase::pa_step_tag;
+const constexpr char* ArgsBase::pa_step_desc;
+
+const constexpr char* ArgsBase::pa_block_tag;
+const constexpr char* ArgsBase::pa_block_desc;
+
+const constexpr char* ArgsBase::w_planes_tag;
+const constexpr char* ArgsBase::w_planes_desc;
+
+const constexpr args_t ArgsCompletion<VALUE_ARGS>::val;
+const constexpr args_t ArgsCompletion<STRING_ARGS>::val;
+const constexpr args_t ArgsCompletion<OPT_VALUE_ARGS>::val;
+const constexpr args_t ArgsCompletion<OPT_STRING_ARGS>::val;
+
+#endif
+
+#if __cplusplus >= 201703L
+typedef std::variant<std::forward_list<std::string>, Args<OPT_STRING_ARGS>>
+read_config_result_t;
+#else
+typedef struct {
+  bool is_list;
+  std::forward_list<std::string> strings;
+  Args<OPT_STRING_ARGS> args;
+} read_config_result_t;
+#endif
+
+read_config_result_t
 read_config(const YAML::Node& config) {
 
   std::forward_list<std::string> invalid_tags;
@@ -44,10 +86,23 @@ read_config(const YAML::Node& config) {
     else
       invalid_tags.push_front(key);  
   }
-  if (invalid_tags.empty())
-    return args;
-  else
-    return invalid_tags;
+  read_config_result_t result;
+  if (invalid_tags.empty()) {
+#if __cplusplus >= 201703L
+    result = args;
+#else
+    result.is_list = false;
+    result.args = args;
+#endif
+  } else {
+#if __cplusplus >= 201703L
+    result = invalid_tags;
+#else
+    result.is_list = true;
+    result.strings = invalid_tags;
+#endif
+  }
+  return result;
 }
 
 template <typename T>
@@ -58,16 +113,17 @@ arg_error(std::ostringstream& oss, const T& arg, const std::string& reason) {
   return oss;
 }
 
-std::optional<std::string>
+CXX_OPTIONAL_NAMESPACE::optional<std::string>
 load_config(
   const CXX_FILESYSTEM_NAMESPACE::path& path,
   const std::string& config_provenance,
   Args<OPT_STRING_ARGS>& gridder_args) {
 
-  std::optional<std::string> result;
+  CXX_OPTIONAL_NAMESPACE::optional<std::string> result;
   try {
     auto node = YAML::LoadFile(path);
     auto read_result = read_config(node);
+#if __cplusplus >= 201703L
     std::visit(
       hyperion::overloaded {
         [&path, &config_provenance, &result]
@@ -101,6 +157,35 @@ load_config(
         }
       },
       read_result);
+#else
+    if (read_result.is_list) {
+      std::ostringstream oss;
+      oss << "Invalid configuration variable tags in file named by "
+          << config_provenance << std::endl
+          << " at '" << path << "': " << std::endl
+          << read_result.strings.front();
+      read_result.strings.pop_front();
+      std::for_each(
+        read_result.strings.begin(),
+        read_result.strings.end(),
+        [&oss](auto tg) { oss << ", " << tg; });
+      oss << std::endl;
+      result = oss.str();
+    } else {
+      if (read_result.args.h5_path)
+        gridder_args.h5_path = read_result.args.h5_path.value();
+      if (read_result.args.echo)
+        gridder_args.echo = read_result.args.echo.value();
+      if (read_result.args.min_block)
+        gridder_args.min_block = read_result.args.min_block.value();
+      if (read_result.args.pa_step)
+        gridder_args.pa_step = read_result.args.pa_step.value();
+      if (read_result.args.pa_block)
+        gridder_args.pa_block = read_result.args.pa_block.value();
+      if (read_result.args.w_planes)
+        gridder_args.w_planes = read_result.args.w_planes.value();
+    }
+#endif
   } catch (const YAML::Exception& e) {
     std::ostringstream oss;
     oss << "Failed to parse configuration file named by "
@@ -118,7 +203,7 @@ hyperion::gridder::as_args(YAML::Node&& node) {
 
   CXX_FILESYSTEM_NAMESPACE::path h5_path =
     node[ArgsBase::h5_path_tag].as<std::string>();
-  std::optional<CXX_FILESYSTEM_NAMESPACE::path> config_path;
+  CXX_OPTIONAL_NAMESPACE::optional<CXX_FILESYSTEM_NAMESPACE::path> config_path;
   if (node[ArgsBase::config_path_tag])
     config_path = node[ArgsBase::config_path_tag].as<std::string>();
   bool echo = node[ArgsBase::echo_tag].as<bool>();
@@ -172,7 +257,7 @@ hyperion::gridder::get_args(
   for (int i = 1; i < args.argc;) {
     std::string tag = args.argv[i++];
     if (tag.substr(0, 2) == "--") {
-      std::optional<std::string> val;
+      CXX_OPTIONAL_NAMESPACE::optional<std::string> val;
       tag = tag.substr(2);
       auto eq = tag.find('=');
       if (eq == std::string::npos) {
@@ -182,7 +267,7 @@ hyperion::gridder::get_args(
             if (i < args.argc)
               val = args.argv[i++];
             else
-              val.reset();
+              val = CXX_OPTIONAL_NAMESPACE::nullopt;
           }
         }
       } else {
@@ -192,7 +277,7 @@ hyperion::gridder::get_args(
           if (i < args.argc)
             val = args.argv[i++];
           else
-            val.reset();
+            val = CXX_OPTIONAL_NAMESPACE::nullopt;
         }
       }
       if (val) {
@@ -276,7 +361,7 @@ hyperion::gridder::get_args(
   return true;
 }
 
-std::optional<std::string>
+CXX_OPTIONAL_NAMESPACE::optional<std::string>
 hyperion::gridder::validate_args(const Args<VALUE_ARGS>& args) {
 
   std::ostringstream errs;
@@ -324,7 +409,7 @@ hyperion::gridder::validate_args(const Args<VALUE_ARGS>& args) {
 
   if (errs.str().size() > 0)
     return errs.str();
-  return std::nullopt;
+  return CXX_OPTIONAL_NAMESPACE::nullopt;
 }
 
 // Local Variables:

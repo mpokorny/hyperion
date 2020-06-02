@@ -19,7 +19,7 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/testing/TestRecorder.h>
 
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <ostream>
 #include <sstream>
 #include <typeinfo>
@@ -55,24 +55,24 @@ struct TestExpression {
   template <template <typename> typename F>
   BoolOr<E, F>
   operator||(const TestExpression<bool, F>& right) const {
-    return BoolOr(*this, right);
+    return BoolOr<E, F>(*this, right);
   }
 
   template <template <typename> typename F>
   BoolAnd<E, F>
   operator&&(const TestExpression<bool, F>& right) const {
-    return BoolAnd(*this, right);
+    return BoolAnd<E, F>(*this, right);
   }
 
   template <template <typename> typename F>
   BoolEq<T, E, F>
   operator==(const TestExpression<T, F>& right) const {
-    return BoolEq(*this, right);
+    return BoolEq<T, E, F>(*this, right);
   }
 
   BoolEq<T, E, TestVal>
   operator==(const T& right) const {
-    return BoolEq(*this, TestVal(right));
+    return BoolEq<T, E, TestVal>(*this, TestVal<T>(right));
   }
 
   std::string
@@ -108,7 +108,10 @@ template <typename T>
 struct TestVal
   : public TestExpression<T, TestVal> {
 
-  TestVal(const T& val, const std::optional<std::string>& repr=std::nullopt)
+  TestVal(
+    const T& val,
+    const CXX_OPTIONAL_NAMESPACE::optional<std::string>& repr =
+    CXX_OPTIONAL_NAMESPACE::nullopt)
     : m_val(val)
     , m_repr(repr.value_or(to_string(val))) {}
 
@@ -207,7 +210,8 @@ public:
   BoolOr(
     const TestExpression<bool, E>& left,
     const TestExpression<bool, F>& right,
-    const std::optional<std::string>& repr=std::nullopt)
+    const CXX_OPTIONAL_NAMESPACE::optional<std::string>& repr =
+    CXX_OPTIONAL_NAMESPACE::nullopt)
     : m_left(static_cast<const E<bool>&>(left))
     , m_right(static_cast<const F<bool>&>(right)) {
 
@@ -261,7 +265,8 @@ public:
   BoolAnd(
     const TestExpression<bool, E>& left,
     const TestExpression<bool, F>& right,
-    const std::optional<std::string>& repr=std::nullopt)
+    const CXX_OPTIONAL_NAMESPACE::optional<std::string>& repr =
+    CXX_OPTIONAL_NAMESPACE::nullopt)
     : m_left(static_cast<const E<bool>&>(left))
     , m_right(static_cast<const F<bool>&>(right)) {
 
@@ -316,7 +321,8 @@ public:
   BoolEq(
     const TestExpression<T, E>& left,
     const TestExpression<T, F>& right,
-    const std::optional<std::string>& repr=std::nullopt)
+    const CXX_OPTIONAL_NAMESPACE::optional<std::string>& repr =
+    CXX_OPTIONAL_NAMESPACE::nullopt)
     : m_left(static_cast<const E<T>&>(left))
     , m_right(static_cast<const F<T>&>(right)) {
 

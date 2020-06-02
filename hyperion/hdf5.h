@@ -31,7 +31,7 @@
 #include <cstring>
 #include <exception>
 #include CXX_FILESYSTEM_HEADER
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -190,16 +190,16 @@ write_index_tree_to_attr(
   }
 }
 
-HYPERION_API std::optional<std::string>
+HYPERION_API CXX_OPTIONAL_NAMESPACE::optional<std::string>
 read_index_tree_attr_metadata(hid_t grp_id, const std::string& attr_name);
 
 template <typename SERDEZ>
-std::optional<IndexTreeL>
+CXX_OPTIONAL_NAMESPACE::optional<IndexTreeL>
 read_index_tree_from_attr(
   hid_t grp_id,
   const std::string& attr_name) {
 
-  std::optional<IndexTreeL> result;
+  CXX_OPTIONAL_NAMESPACE::optional<IndexTreeL> result;
 
   auto metadata = read_index_tree_attr_metadata(grp_id, attr_name);
   if (!metadata || metadata.value() != SERDEZ::id)
@@ -341,7 +341,7 @@ init_columnspace(
   const std::string& cs_name);
 
 HYPERION_API
-  std::optional<
+  CXX_OPTIONAL_NAMESPACE::optional<
     std::tuple<
       Table::fields_t,
       std::unordered_map<std::string, std::string>>>
@@ -388,7 +388,7 @@ attach_keywords(
   const Keywords& keywords,
   bool read_only = true);
 
-HYPERION_API std::optional<Legion::PhysicalRegion>
+HYPERION_API CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion>
 attach_table_columns(
   Legion::Context ctx,
   Legion::Runtime* rt,

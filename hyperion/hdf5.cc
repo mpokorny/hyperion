@@ -23,9 +23,10 @@
 #include <hyperion/PhysicalTable.h>
 
 #include <algorithm>
+#include CXX_ANY_HEADER
 #include <cstring>
 #include <numeric>
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <sstream>
 
 using namespace hyperion::hdf5;
@@ -67,12 +68,12 @@ starts_with(const char* str, const char* pref) {
 //   return result && esuff == suff;
 // }
 
-std::optional<std::string>
+CXX_OPTIONAL_NAMESPACE::optional<std::string>
 hyperion::hdf5::read_index_tree_attr_metadata(
   hid_t grp_id,
   const std::string& attr_name) {
 
-  std::optional<std::string> result;
+  CXX_OPTIONAL_NAMESPACE::optional<std::string> result;
 
   std::string md_id_name =
     std::string(HYPERION_ATTRIBUTE_SID_PREFIX) + attr_name;
@@ -95,10 +96,10 @@ hyperion::hdf5::read_index_tree_attr_metadata(
   return result;
 }
 
-static std::optional<IndexTreeL>
+static CXX_OPTIONAL_NAMESPACE::optional<IndexTreeL>
 read_index_tree_binary(hid_t grp_id, const char* attr_nm) {
-  std::optional<IndexTreeL> result;
-  std::optional<std::string> sid =
+  CXX_OPTIONAL_NAMESPACE::optional<IndexTreeL> result;
+  CXX_OPTIONAL_NAMESPACE::optional<std::string> sid =
     read_index_tree_attr_metadata(grp_id, attr_nm);
   if (sid && (sid.value() == "hyperion::hdf5::binary_index_tree_serdez"))
     result =
@@ -229,8 +230,11 @@ hyperion::hdf5::write_keywords(
   hid_t loc_id,
   const Keywords::pair<PhysicalRegion>& kw_prs) {
 
-  for (auto& [nm, dt_val] : Keywords::to_map(rt, kw_prs)) {
-    auto& [dt, val] = dt_val;
+  for (auto& nm_dt_val : Keywords::to_map(rt, kw_prs)) {
+    auto& nm = std::get<0>(nm_dt_val);
+    auto& dt_val = std::get<1>(nm_dt_val);
+    auto& dt = std::get<0>(dt_val);
+    auto& val = std::get<1>(dt_val);
     switch (dt) {
 #define WRITE_KW(DT)                                              \
       case DT: {                                                  \
@@ -243,7 +247,7 @@ hyperion::hdf5::write_keywords(
             H5S_ALL,                                              \
             H5S_ALL,                                              \
             H5P_DEFAULT,                                          \
-            std::any_cast<DataType<DT>::ValueType>(&val)));       \
+            CXX_ANY_NAMESPACE::any_cast<DataType<DT>::ValueType>(&val))); \
         CHECK_H5(H5Dclose(attr_id));                              \
         break;                                                    \
       }
@@ -577,7 +581,14 @@ hyperion::hdf5::write_measure(
   const MeasRef& mr) {
 
   if (!mr.is_empty()) {
+#if __cplusplus >= 201703L
     auto [mreq, vreq, oireq] = mr.requirements(READ_ONLY);
+#else // !c++17
+    auto rqs = mr.requirements(READ_ONLY);
+    auto& mreq = std::get<0>(rqs);
+    auto& vreq = std::get<1>(rqs);
+    auto& oireq = std::get<2>(rqs);
+#endif // c++17
     auto mpr = rt->map_region(ctx, mreq);
     auto vpr = rt->map_region(ctx, vreq);
     auto oipr =
@@ -997,13 +1008,21 @@ write_table_columns(
     return;
 
   std::map<ColumnSpace, std::set<std::string>> column_groups;
-  for (auto& [nm, col] : columns) {
+  for (auto& nm_col : columns) {
+#if __cplusplus >= 201703L
+    auto& [nm, col] = nm_col;
+#else // !c++17
+    auto& nm = std::get<0>(nm_col);
+    auto& col = std::get<1>(nm_col);
+#endif // c++17
     if (column_groups.count(col.cs) == 0)
       column_groups[col.cs] = {};
     column_groups[col.cs].insert(nm);
   }
   size_t i = 0;
-  for (auto& [cs, colnames] : column_groups) {
+  for (auto& cs_colnames : column_groups) {
+    auto& cs = std::get<0>(cs_colnames);
+    auto& colnames = std::get<1>(cs_colnames);
     auto cs_nm =
       std::string(HYPERION_COLUMN_SPACE_GROUP_PREFIX) + std::to_string(i++);
     // write the ColumnSpace group, and add its attributes to the group
@@ -1045,14 +1064,22 @@ write_table_columns(
 
   auto columns = table.columns();
   std::map<ColumnSpace, std::set<std::string>> column_groups;
-  for (auto& [nm, col] : columns) {
+  for (auto& nm_col : columns) {
+#if __cplusplus >= 201703L
+    auto& [nm, col] = nm_col;
+#else // !c++17
+    auto& nm = std::get<0>(nm_col);
+    auto& col = std::get<1>(nm_col);
+#endif // c++17
     auto cs = col->column_space();
     if (column_groups.count(cs) == 0)
       column_groups[cs] = {};
     column_groups[cs].insert(nm);
   }
   size_t i = 0;
-  for (auto& [cs, colnames] : column_groups) {
+  for (auto& cs_colnames : column_groups) {
+    auto& cs = std::get<0>(cs_colnames);
+    auto& colnames = std::get<1>(cs_colnames);
     auto cs_nm =
       std::string(HYPERION_COLUMN_SPACE_GROUP_PREFIX) + std::to_string(i++);
     // write the ColumnSpace group, and add its attributes to the group
@@ -1277,11 +1304,8 @@ hyperion::hdf5::write_table(
   auto tbl_columns = table.columns();
 
   std::unordered_set<std::string> columns;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-  for (auto& [nm, col] : tbl_columns)
-#pragma GCC diagnostic pop
-    columns.insert(nm);
+  for (auto& nm_col : tbl_columns)
+    columns.insert(std::get<0>(nm_col));
 
   write_table(ctx, rt, table_grp_id, table, columns);
 }
@@ -1399,8 +1423,8 @@ init_meas_ref(
   Context ctx,
   Runtime* rt,
   hid_t loc_id,
-  const std::optional<IndexTreeL>& metadata_tree,
-  const std::optional<IndexTreeL>& value_tree,
+  const CXX_OPTIONAL_NAMESPACE::optional<IndexTreeL>& metadata_tree,
+  const CXX_OPTIONAL_NAMESPACE::optional<IndexTreeL>& value_tree,
   bool no_index) {
 
   if (!metadata_tree)
@@ -1607,9 +1631,9 @@ acc_tflds_fn(
             hid_t measure_id =
               CHECK_H5(
                 H5Gopen(col_grp_id, HYPERION_MEASURE_GROUP, H5P_DEFAULT));
-            std::optional<IndexTreeL> metadata_tree =
+            CXX_OPTIONAL_NAMESPACE::optional<IndexTreeL> metadata_tree =
               read_index_tree_binary(measure_id, "metadata_index_tree");
-            std::optional<IndexTreeL> value_tree =
+            CXX_OPTIONAL_NAMESPACE::optional<IndexTreeL> value_tree =
               read_index_tree_binary(measure_id, "value_index_tree");
             tfld.mr =
               init_meas_ref(
@@ -1618,7 +1642,7 @@ acc_tflds_fn(
                 measure_id,
                 metadata_tree,
                 value_tree,
-                !tfld.rc.has_value());
+                !tfld.rc);
             CHECK_H5(H5Gclose(measure_id));
           }
 #endif
@@ -1698,7 +1722,7 @@ hyperion::hdf5::init_columnspace(
     CHECK_H5(H5Aclose(au_id));
     axes_uid = au;
   }
-  std::optional<IndexTreeL> ixtree =
+  CXX_OPTIONAL_NAMESPACE::optional<IndexTreeL> ixtree =
     read_index_tree_binary(cs_grp_id, HYPERION_COLUMN_SPACE_INDEX_TREE);
   assert(ixtree);
   auto itrank = ixtree.value().rank();
@@ -1740,7 +1764,7 @@ acc_cs_fn(
   return 0;
 }
 
-std::optional<
+CXX_OPTIONAL_NAMESPACE::optional<
   std::tuple<
     Table::fields_t,
     std::unordered_map<std::string, std::string>>>
@@ -1750,7 +1774,7 @@ hyperion::hdf5::table_fields(
   hid_t loc_id,
   const std::string& table_name) {
 
-  std::optional<
+  CXX_OPTIONAL_NAMESPACE::optional<
     std::tuple<Table::fields_t, std::unordered_map<std::string, std::string>>>
     result;
 
@@ -1788,19 +1812,25 @@ hyperion::hdf5::table_fields(
             acc_tflds_fn,
             &acc_tflds));
         decltype(result)::value_type fields_paths;
+#if __cplusplus >= 201703L
         auto& [fields, paths] = fields_paths;
-        for (auto& [nm, tflds] : acc_tflds.cs_fields) {
+#else // !c++17
+        auto& fields = std::get<0>(fields_paths);
+        auto& paths = std::get<1>(fields_paths);
+#endif // c++17
+        for (auto& nm_tflds : acc_tflds.cs_fields) {
+          auto& nm = std::get<0>(nm_tflds);
+          auto& tflds = std::get<1>(nm_tflds);
           assert(acc_cs.css.count(nm) > 0);
           fields.emplace_back(acc_cs.css[nm], tflds);
         }
         // FIXME: awaiting keywords support in Table: auto kws =
         // init_keywords(table_grp_id);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-        for (auto& [cs, nm_tflds] : fields)
-          for (auto& [nm, tfld] : nm_tflds)
-#pragma GCC diagnostic pop
+        for (auto& cs_nm_tflds : fields)
+          for (auto& nm_tfld : std::get<1>(cs_nm_tflds)) {
+            auto& nm = std::get<0>(nm_tfld);
             paths[nm] = table_name + "/" + nm + "/" + HYPERION_COLUMN_DS;
+          }
         result = fields_paths;
       },
       [](hid_t table_grp_id) {
@@ -1865,19 +1895,25 @@ hyperion::hdf5::init_table(
           std::tuple<
             ColumnSpace,
             std::vector<std::pair<std::string, TableField>>>> cflds;
-        for (auto& [nm, tflds] : acc_tflds.cs_fields) {
+        for (auto& nm_tflds : acc_tflds.cs_fields) {
+          auto& nm = std::get<0>(nm_tflds);
+          auto& tflds = std::get<1>(nm_tflds);
           assert(acc_cs.css.count(nm) > 0);
           cflds.emplace_back(acc_cs.css[nm], tflds);
         }
         // FIXME: awaiting keywords support in Table: auto kws =
         // init_keywords(table_grp_id);
+#if __cplusplus >= 201703L
         auto& [tb, paths] = result;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-        for (auto& [cs, nm_tflds] : cflds)
-          for (auto& [nm, tfld] : nm_tflds)
-#pragma GCC diagnostic pop
+#else // !c++17
+        auto& tb = std::get<0>(result);
+        auto& paths = std::get<1>(result);
+#endif // c++17
+        for (auto& cs_nm_tflds : cflds)
+          for (auto& nm_tfld : std::get<1>(cs_nm_tflds)) {
+            auto& nm = std::get<0>(nm_tfld);
             paths[nm] = table_name + "/" + nm + "/" + HYPERION_COLUMN_DS;
+          }
         tb = Table::create(ctx, rt, std::move(index_col_cs), std::move(cflds));
       },
       [](hid_t table_grp_id) {
@@ -2006,7 +2042,7 @@ hyperion::hdf5::attach_keywords(
   return rt->attach_external_resource(ctx, kws_attach);
 }
 
-std::optional<PhysicalRegion>
+CXX_OPTIONAL_NAMESPACE::optional<PhysicalRegion>
 hyperion::hdf5::attach_table_columns(
   Context ctx,
   Runtime* rt,
@@ -2019,7 +2055,7 @@ hyperion::hdf5::attach_table_columns(
   bool mapped) {
 
   auto table_columns = table.columns();
-  std::optional<ColumnSpace> cs;
+  CXX_OPTIONAL_NAMESPACE::optional<ColumnSpace> cs;
   LogicalRegion lr;
   std::map<FieldID, std::string> paths;
   for (auto& nm : columns) {
@@ -2032,21 +2068,21 @@ hyperion::hdf5::attach_table_columns(
         } else if (cs.value() != c.cs) {
           // FIXME: warning message: multiple ColumnSpaces in column selection
           // of call to attach_table_columns()
-          return std::nullopt;
+          return CXX_OPTIONAL_NAMESPACE::nullopt;
         }
         paths[c.fid] = root_path + column_paths.at(nm);
       } else {
         // FIXME: warning: selected column without a provided path
-        return std::nullopt;
+        return CXX_OPTIONAL_NAMESPACE::nullopt;
       }
     }
   }
   if (paths.size() == 0)
-    return std::nullopt;
+    return CXX_OPTIONAL_NAMESPACE::nullopt;
   AttachLauncher attach(EXTERNAL_HDF5_FILE, lr, lr, true, mapped);
   std::map<FieldID, const char*> field_map;
-  for (auto& [fid, p] : paths)
-    field_map[fid] = p.c_str();
+  for (auto& fid_p : paths)
+    field_map[std::get<0>(fid_p)] = std::get<1>(fid_p).c_str();
   attach.attach_hdf5(
     file_path.c_str(),
     field_map,
@@ -2069,7 +2105,13 @@ attach_selected_table_columns(
 
   std::map<PhysicalRegion, std::unordered_map<std::string, Column>> result;
   auto tbl_columns = table.columns();
-  for (auto& [nm, c] : tbl_columns) {
+  for (auto& nm_c : tbl_columns) {
+#if __cplusplus >= 201703L
+    auto& [nm, c] = nm_c;
+#else // !c++17
+    auto& nm = std::get<0>(nm_c);
+    auto& c = std::get<1>(nm_c);
+#endif // c++17
     std::unordered_set<std::string> colnames;
     std::unordered_map<std::string, Column> cols;
     if (select(nm)) {

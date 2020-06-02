@@ -42,8 +42,10 @@ public:
 
   MSFieldTable(const PhysicalTable& pt)
     : PhysicalTable(pt) {
-    assert(pt.axes_uid() == Axes<typename MSTable<MS_FIELD>::Axes>::uid);
-    assert(pt.index_axes() == std::vector{static_cast<int>(FIELD_ROW)});
+    assert(pt.axes_uid()
+           && (pt.axes_uid().value()
+               == Axes<typename MSTable<MS_FIELD>::Axes>::uid));
+    assert(pt.index_axes() == std::vector<int>{static_cast<int>(FIELD_ROW)});
   }
 
   static const constexpr unsigned row_rank = 1;

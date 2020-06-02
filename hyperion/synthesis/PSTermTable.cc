@@ -82,6 +82,53 @@ hyperion::synthesis::PSTermTable::PSTermTable(
     Legion::Rect<2>({-cf_x_radius, -cf_y_radius}, {cf_x_radius, cf_y_radius}),
     Axis<CF_PB_SCALE>(pb_scales)) {}
 
+#ifdef FOO
+template <typename execution_space>
+class ComputeCFsTask {
+public:
+  static void
+  task_body(
+    const Task *task,
+    const std::vector<PhysicalRegion> &regions,
+    Context ctx,
+    Runtime *rt) {
+
+    Rect<1> subspace = runtime->get_index_space_domain(ctx,
+						       task->regions[0].region.get_index_space());
+
+    AccessorRO acc_x(regions[0], task->regions[0].instance_fields[0]);
+    AccessorRO acc_y(regions[1], task->regions[1].instance_fields[0]);
+
+    Kokkos::View<const float *,
+		 typename execution_space::memory_space> x = acc_x.accessor;
+    Kokkos::View<const float *,
+		 typename execution_space::memory_space> y = acc_y.accessor;
+#ifdef USE_KOKKOS_KERNELS
+    return KokkosBlas::dot(Kokkos::subview(x, std::make_pair(subspace.lo.x,
+							     subspace.hi.x + 1)),
+			   Kokkos::subview(y, std::make_pair(subspace.lo.x,
+							     subspace.hi.x + 1))
+			   );
+#else
+    Kokkos::RangePolicy<execution_space> range(runtime->get_executing_processor(ctx).kokkos_work_space(),
+					       subspace.lo.x,
+					       subspace.hi.x + 1);
+    float sum = 0.0f;
+    // Kokkos does not support CUDA lambdas by default - check that they
+    //  are present
+#if defined(KOKKOS_ENABLE_CUDA) && !defined(KOKKOS_ENABLE_CUDA_LAMBDA)
+    #error Kokkos built without --with-cuda_options=enable_lambda !
+#endif
+    Kokkos::parallel_reduce(range,
+			    KOKKOS_LAMBDA ( int j, float &update ) {
+			      update += x(j) * y(j);
+			    }, sum);
+    return sum;
+#endif
+  }
+};
+#endif // FOO
+
 void
 hyperion::synthesis::PSTermTable::compute_cfs_task(
   const Task* task,
@@ -91,7 +138,7 @@ hyperion::synthesis::PSTermTable::compute_cfs_task(
 
   const Table::Desc& desc = *static_cast<Table::Desc*>(task->args);
 
-  auto [pt, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       desc,
@@ -100,6 +147,13 @@ hyperion::synthesis::PSTermTable::compute_cfs_task(
       regions.begin(),
       regions.end())
     .value();
+#if __cplusplus >= 201703L
+  auto& [pt, rit, pit] = ptcr;
+#else // !c++17
+  auto& pt = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -149,16 +203,22 @@ hyperion::synthesis::PSTermTable::compute_cfs(
     auto default_colreqs = Column::default_requirements;
     default_colreqs.values.mapped = true;
 
-    auto [reqs, parts, desc] =
+    auto reqs =
       requirements(
         ctx,
         rt,
         partition,
         {{CF_VALUE_COLUMN_NAME, cf_colreqs},
-         {CF_WEIGHT_COLUMN_NAME, std::nullopt}},
+         {CF_WEIGHT_COLUMN_NAME, CXX_OPTIONAL_NAMESPACE::nullopt}},
         default_colreqs);
-    TaskLauncher task(compute_cfs_task_id, TaskArgument(&desc, sizeof(desc)));
-    for (auto& r : reqs)
+#if __cplusplus >= 201703L
+    auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+    auto& treqs = std::get<0>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif // c++17
+    TaskLauncher task(compute_cfs_task_id, TaskArgument(&tdesc, sizeof(tdesc)));
+    for (auto& r : treqs)
       task.add_region_requirement(r);
     rt->execute_task(ctx, task);
 }

@@ -43,7 +43,7 @@
 #include <cmath>
 #include CXX_FILESYSTEM_HEADER
 #include <iomanip>
-#include <optional>
+#include CXX_OPTIONAL_HEADER
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -183,7 +183,7 @@ classify_antennas_task(
 
   const Table::Desc* desc = static_cast<const Table::Desc*>(task->args);
 
-  auto [pt, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       *desc,
@@ -192,6 +192,13 @@ classify_antennas_task(
       regions.begin(),
       regions.end())
     .value();
+#if __cplusplus >= 201703L
+  auto& [pt, rit, pit] = ptcr;
+#else // !c++17
+  auto& pt = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
   MSAntennaTable antenna_table(pt);
@@ -243,10 +250,11 @@ struct PAIntervals {
     , num_steps(std::lrint(std::ceil(PARALLACTIC_360 / step))) {
   }
 
-  std::optional<std::tuple<PARALLACTIC_ANGLE_TYPE, PARALLACTIC_ANGLE_TYPE>>
+  CXX_OPTIONAL_NAMESPACE::optional<
+    std::tuple<PARALLACTIC_ANGLE_TYPE, PARALLACTIC_ANGLE_TYPE>>
   pa(unsigned long i) const {
-    std::optional<std::tuple<PARALLACTIC_ANGLE_TYPE, PARALLACTIC_ANGLE_TYPE>>
-      result;
+    CXX_OPTIONAL_NAMESPACE::optional<
+      std::tuple<PARALLACTIC_ANGLE_TYPE, PARALLACTIC_ANGLE_TYPE>> result;
     if (i < num_steps) {
       auto lo = i * step;
       auto width = ((i == num_steps - 1) ? (PARALLACTIC_360 - lo) : step);
@@ -314,7 +322,7 @@ compute_parallactic_angles_task(
     static_cast<const Table::DescM<4>*>(task->args);
 
   // main table columns
-  auto [pts, reqs0, prs0] =
+  auto ptcr =
     PhysicalTable::create_many(
       rt,
       *tdescs,
@@ -323,6 +331,11 @@ compute_parallactic_angles_task(
       regions.begin(),
       regions.end())
     .value();
+#if __cplusplus >= 201703L
+  auto& [pts, rit, pit] = ptcr;
+#else // !c++17
+  auto& pts = std::get<0>(ptcr);
+#endif // c++17
   MSMainTable<MAIN_ROW> main(pts[0]);
   typedef decltype(main)::C MainCols;
   auto main_antenna1_col = main.antenna1<AffineAccessor>();
@@ -394,9 +407,9 @@ compute_parallactic_angles_task(
   cc::MEpoch::Convert cvt_utc_to_last;
   cvt_utc_to_last.set(cc::MEpoch(), cc::MEpoch::Ref(cc::MEpoch::LAST, ant_frame));
 
-  std::optional<double> last_time;
-  std::optional<int> last_antenna;
-  std::optional<AntennaHelper::MountCode> last_mount;
+  CXX_OPTIONAL_NAMESPACE::optional<double> last_time;
+  CXX_OPTIONAL_NAMESPACE::optional<int> last_antenna;
+  CXX_OPTIONAL_NAMESPACE::optional<AntennaHelper::MountCode> last_mount;
   double par_angle = 0.0;
   for (PointInRectIterator<main.row_rank> row(main_antenna1_col.rect());
        row();
@@ -468,7 +481,7 @@ init_antenna_classes(
   default_colreqs.values.mapped = true;
   Column::Requirements class_colreq = Column::default_requirements;
   class_colreq.values = Column::Req{WRITE_ONLY, EXCLUSIVE, true};
-  auto [reqs, parts, desc] =
+  auto reqs =
     antenna_table
     .requirements(
       ctx,
@@ -476,13 +489,19 @@ init_antenna_classes(
       ColumnSpacePartition(),
       {{antenna_class_column_name, class_colreq}},
       default_colreqs);
+#if __cplusplus >= 201703L
+  auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+  auto& treqs = std::get<0>(reqs);
+  auto& tdesc = std::get<2>(reqs);
+#endif // c++17
   TaskLauncher task(
     CLASSIFY_ANTENNAS_TASK_ID,
-    TaskArgument(&desc, sizeof(desc)),
+    TaskArgument(&tdesc, sizeof(tdesc)),
     Predicate::TRUE_PRED,
     table_mapper);
   task.enable_inlining = true;
-  for (auto& rq : reqs)
+  for (auto& rq : treqs)
     task.add_region_requirement(rq);
   antenna_table.unmap_regions(ctx, rt);
   rt->execute_task(ctx, task);
@@ -515,7 +534,7 @@ init_parallactic_angles(
 
   Column::Requirements pareqs = Column::default_requirements;
   pareqs.values.privilege = WRITE_ONLY;
-  auto [main_reqs, main_parts, main_desc] =
+  auto main_rq =
     main_table
     .requirements(
       ctx,
@@ -532,13 +551,20 @@ init_parallactic_angles(
         Column::default_requirements},
        {HYPERION_COLUMN_NAME(MAIN, UVW),
         Column::default_requirements}},
-      std::nullopt);
+      CXX_OPTIONAL_NAMESPACE::nullopt);
+#if __cplusplus >= 201703L
+  auto& [main_reqs, main_parts, main_desc] = main_rq;
+#else // !c++17
+  auto& main_reqs = std::get<0>(main_rq);
+  auto& main_parts = std::get<1>(main_rq);
+  auto& main_desc = std::get<2>(main_rq);
+#endif // c++17
   for (auto& rq : main_reqs)
     task.add_region_requirement(rq);
   tdescs[0] = main_desc;
   main_table.unmap_regions(ctx, rt);
 
-  auto [dd_reqs, dd_parts, dd_desc] =
+  auto dd_rq =
     data_description_table
     .requirements(
       ctx,
@@ -546,13 +572,20 @@ init_parallactic_angles(
       ColumnSpacePartition(),
       {{HYPERION_COLUMN_NAME(DATA_DESCRIPTION, SPECTRAL_WINDOW_ID),
         Column::default_requirements}},
-      std::nullopt);
+      CXX_OPTIONAL_NAMESPACE::nullopt);
+#if __cplusplus >= 201703L
+  auto& [dd_reqs, dd_parts, dd_desc] = dd_rq;
+#else // !c++17
+  auto& dd_reqs = std::get<0>(dd_rq);
+  auto& dd_parts = std::get<1>(dd_rq);
+  auto& dd_desc = std::get<2>(dd_rq);
+#endif // c++17
   for (auto& rq : dd_reqs)
     task.add_region_requirement(rq);
   tdescs[1] = dd_desc;
   data_description_table.unmap_regions(ctx, rt);
 
-  auto [ant_reqs, ant_parts, ant_desc] =
+  auto ant_rq =
     antenna_table
     .requirements(
       ctx,
@@ -562,13 +595,27 @@ init_parallactic_angles(
         Column::default_requirements},
        {HYPERION_COLUMN_NAME(ANTENNA, POSITION),
         Column::default_requirements}},
-      std::nullopt);
+      CXX_OPTIONAL_NAMESPACE::nullopt);
+#if __cplusplus >= 201703L
+  auto& [ant_reqs, ant_parts, ant_desc] = ant_rq;
+#else // !c++17
+  auto& ant_reqs = std::get<0>(ant_rq);
+  auto& ant_parts = std::get<1>(ant_rq);
+  auto& ant_desc = std::get<2>(ant_rq);
+#endif // c++17
   for (auto& rq : ant_reqs)
     task.add_region_requirement(rq);
   tdescs[2] = ant_desc;
   antenna_table.unmap_regions(ctx, rt);
 
-  auto [feed_reqs, feed_parts, feed_desc] = feed_table.requirements(ctx, rt);
+  auto feed_rq = feed_table.requirements(ctx, rt);
+#if __cplusplus >= 201703L
+  auto& [feed_reqs, feed_parts, feed_desc] = feed_rq;
+#else // !c++17
+  auto& feed_reqs = std::get<0>(feed_rq);
+  auto& feed_parts = std::get<1>(feed_rq);
+  auto& feed_desc = std::get<2>(feed_rq);
+#endif // c++17
   for (auto& rq : feed_reqs)
     task.add_region_requirement(rq);
   tdescs[3] = feed_desc;
@@ -594,9 +641,11 @@ show_help(const gridder::Args<G>& args) {
       << std::endl;
   size_t max_tag_len = 0;
   std::map<std::string, std::string> h = args.help();
-  for (auto& [tag, desc] : h)
-    max_tag_len = std::max(tag.size(), max_tag_len);
-  for (auto& [tag, desc] : h) {
+  for (auto& t_d : h)
+    max_tag_len = std::max(std::get<0>(t_d).size(), max_tag_len);
+  for (auto& t_d : h) {
+    auto& tag = std::get<0>(t_d);
+    auto& desc = std::get<1>(t_d);
     oss << std::setw(max_tag_len + 4) << std::right << tag
         << std::string(": ") << desc
         << std::endl;
@@ -615,7 +664,8 @@ gridder_task(
 
   // process command line arguments
   //
-  std::optional<gridder::Args<gridder::VALUE_ARGS>> gridder_args;
+  CXX_OPTIONAL_NAMESPACE::optional<gridder::Args<gridder::VALUE_ARGS>>
+    gridder_args;
   {
     const InputArgs& input_args = Runtime::get_input_args();
     gridder::Args<gridder::OPT_STRING_ARGS> some_str_args = default_config();
@@ -631,8 +681,8 @@ gridder_task(
                   << std::endl;
         return;
       }
-      std::optional<gridder::Args<gridder::STRING_ARGS>> str_args =
-        some_str_args.as_complete();
+      CXX_OPTIONAL_NAMESPACE::optional<gridder::Args<gridder::STRING_ARGS>>
+        str_args = some_str_args.as_complete();
       assert(str_args);
       try {
         // parse argument values as YAML values, so convert
@@ -706,8 +756,11 @@ gridder_task(
   // attach table columns to HDF5
   //
   std::unordered_map<MSTables, PhysicalTable> ptables;
-  for (auto& [mst, tb_pths] : tables) {
-    auto& [tb, pths] = tb_pths;
+  for (auto& mst_tbpths : tables) {
+    auto& mst = std::get<0>(mst_tbpths);
+    auto& tb_pths = std::get<1>(mst_tbpths);
+    auto& tb = std::get<0>(tb_pths);
+    auto& pths = std::get<1>(tb_pths);
     std::unordered_map<std::string, std::tuple<bool, bool, bool>> modes;
     for (auto& pth : pths) {
       auto& nm = std::get<0>(pth);
@@ -776,8 +829,11 @@ gridder_task(
   ptables.at(MS_MAIN).remove_columns(ctx, rt, {parallactic_angle_column_name});
   ptables.at(MS_ANTENNA).remove_columns(ctx, rt, {antenna_class_column_name});
 
-  for (auto& [mst, tb_pths] : tables) {
-    auto& [tb, pths] = tb_pths;
+  for (auto& mst_tbpths : tables) {
+    auto& mst = std::get<0>(mst_tbpths);
+    auto& tb_pths = std::get<1>(mst_tbpths);
+    auto& tb = std::get<0>(tb_pths);
+    auto& pths = std::get<1>(tb_pths);
     std::unordered_set<std::string> cols;
     for (auto& pth : pths)
       cols.insert(std::get<0>(pth));
@@ -787,8 +843,8 @@ gridder_task(
     tb.destroy(ctx, rt);
   }
 
-  for (auto& [mst, tb] : itables)
-    tb.destroy(ctx, rt);
+  for (auto& mst_tb : itables)
+    std::get<1>(mst_tb).destroy(ctx, rt);
 }
 
 int

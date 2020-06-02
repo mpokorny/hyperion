@@ -25,7 +25,14 @@ PhysicalColumn::column() const {
 #ifdef HYPERION_USE_CASACORE
   MeasRef mr;
   if (m_mr_drs) {
+#if __cplusplus >= 201703L
     auto& [mrg, vrg, oirg] = m_mr_drs.value();
+#else // !c++17
+    MeasRef::DataRegions drs = m_mr_drs.value();
+    PhysicalRegion mrg = drs.metadata;
+    PhysicalRegion vrg = drs.values;
+    CXX_OPTIONAL_NAMESPACE::optional<PhysicalRegion> oirg = drs.index;
+#endif // c++17
     mr =
       MeasRef(
         mrg.get_logical_region(),
@@ -76,6 +83,7 @@ PhysicalColumn::mrbases(Runtime* rt) const {
   std::vector<std::shared_ptr<casacore::MRBase>> result;
   auto omrb = mrb(rt);
   if (omrb) {
+#if __cplusplus >= 201703L
     std::visit(overloaded {
         [&result](simple_mrb_t& smrb) {
           result.push_back(smrb);
@@ -85,31 +93,56 @@ PhysicalColumn::mrbases(Runtime* rt) const {
         }
       },
       omrb.value());
+#else
+    result = std::get<0>(omrb.value().ref);
+#endif // c++17
   }
   return result;
 }
 
-std::optional<PhysicalColumn::mrb_t>
+CXX_OPTIONAL_NAMESPACE::optional<PhysicalColumn::mrb_t>
 PhysicalColumn::mrb(Runtime* rt) const {
 
-  std::optional<mrb_t> result;
+  CXX_OPTIONAL_NAMESPACE::optional<mrb_t> result;
   if (m_mr_drs) {
+#if __cplusplus >= 201703L
     auto [mrb, rmap] = MeasRef::make(rt, m_mr_drs.value());
+#else // !c++17
+    std::vector<std::unique_ptr<casacore::MRBase>> mrb;
+    std::unordered_map<unsigned, unsigned> rmap;
+    std::tie(mrb, rmap) = MeasRef::make(rt, m_mr_drs.value());
+#endif // c++17
     std::vector<std::shared_ptr<casacore::MRBase>> smrb;
     std::move(mrb.begin(), mrb.end(), std::back_inserter(smrb));
+#if __cplusplus < 201703L
+    result = mrb_t();
+#endif
     if (m_refcol) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-      auto& [nm, ppc] = m_refcol.value();
-#pragma GCC diagnostic pop
+      const std::shared_ptr<PhysicalColumn>& ppc =
+        std::get<1>(m_refcol.value());
+#if __cplusplus >= 201703L
       result =
         std::make_tuple(
           std::move(smrb),
           rmap,
           ppc->m_values.value(),
           ppc->m_fid);
+#else
+      result.value().is_simple = false;
+      result.value().ref =
+        std::make_tuple(
+          std::move(smrb),
+          rmap,
+          ppc->m_values.value(),
+          ppc->m_fid);
+#endif
     } else {
+#if __cplusplus >= 201703L
       result = smrb[0];
+#else
+      result.value().is_simple = true;
+      std::get<0>(result.value().ref) = std::move(smrb);
+#endif
     }
   }
   return result;

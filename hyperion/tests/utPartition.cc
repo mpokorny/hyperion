@@ -177,7 +177,11 @@ attach_table0_col(
   return result;
 }
 
+#if __cplusplus >= 201703L
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
+#else
+#define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
+#endif
 
 bool
 verify_xyz(
@@ -229,7 +233,7 @@ verify_partitions_task(
   const VerifyPartitionsArgs* args =
     static_cast<const VerifyPartitionsArgs*>(task->args);
 
-  auto [pt, rit, pit] =
+  auto ptcr =
     PhysicalTable::create(
       rt,
       args->desc,
@@ -237,6 +241,13 @@ verify_partitions_task(
       task->regions.end(),
       regions.begin() + 2,
       regions.end()).value();
+#if __cplusplus >= 201703L
+  auto& [pt, rit, pit] = ptcr;
+#else // !c++17
+  auto& pt = std::get<0>(ptcr);
+  auto& rit = std::get<1>(ptcr);
+  auto& pit = std::get<2>(ptcr);
+#endif // c++17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -259,7 +270,7 @@ verify_partitions_task(
         rt->get_index_subspace(xyz_part.column_ip, DomainPoint(*p));
       recorder.expect_true(
         "Row partition " + std::to_string(p[0]) + " has expected row numbers",
-        testing::TestEval(
+        testing::TestEval<std::function<bool()>>(
           [&xyz_p_is, p, BLOCK_SZ, rt]() {
             bool result = true;
             for (PointInDomainIterator<1> pid(
@@ -286,7 +297,7 @@ verify_partitions_task(
       recorder.expect_true(
         "Projected row partition " + std::to_string(p[0])
         + " has expected row numbers",
-        testing::TestEval(
+        testing::TestEval<std::function<bool()>>(
           [&w_p_is, p, BLOCK_SZ, rt]() {
             bool result = true;
             for (PointInDomainIterator<2> pid(
@@ -380,7 +391,13 @@ table_test_suite(
     std::unordered_map<std::string, PhysicalRegion> col_prs;
     for (auto& c : {"W"s, "X"s, "Y"s, "Z"s})
       col_prs[c] = attach_table0_col(ctx, rt, cols.at(c), col_arrays.at(c));
-    auto [treqs, parts, tdesc] = table0.requirements(ctx, rt);
+    auto reqs = table0.requirements(ctx, rt);
+#if __cplusplus >= 201703L
+    auto& [treqs, tparts, tdesc] = reqs;
+#else // !c++17
+    auto& treqs = std::get<0>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif // c++17
     VerifyPartitionsArgs args;
     args.desc = tdesc;
     rt->unmap_all_regions(ctx);
