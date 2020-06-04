@@ -96,12 +96,16 @@ endif()
 set(MAX_STRING_SIZE ${hyperion_MAX_STRING_SIZE})
 set(MAX_NUM_TABLE_COLUMNS ${hyperion_MAX_NUM_TABLE_COLUMNS})
 
-# TODO: clean up the interaction between C++ standard and compiler. When using
-# Kokkos' "nvcc_wrapper" compiler, we can't normally use c++17 (since nvcc from
-# CUDA 10.2.89 doesn't know c++14, which is enforced by nvicc_wrapper), but the
-# wrapper can be "tricked" by also setting CXX_EXTENSIONS (provides gnu++17,
-# which nvcc_wrapper allows). This arrangement is fragile.
-set(CXX_STANDARD 17)
+set(HAVE_CXX17 $<COMPILE_FEATURES:cxx_std_17>)
+if(HAVE_CXX17)
+  set(CXX_STANDARD 17)
+else()
+  set(HAVE_CXX14 $<COMPILE_FEATURES:cxx_std_14>)
+  if(NOT HAVE_CXX14)
+    message(FATAL_ERROR "Compiler must support c++14 at a minimum")
+  endif()
+  set(CXX_STANDARD 14)
+endif()
 if(CXX_STANDARD STREQUAL 17)
   set(CXX_ANY_HEADER any)
   set(CXX_ANY_NAMESPACE std)
@@ -127,7 +131,8 @@ endif()
 function(set_host_target_properties target)
   set_target_properties(${target} PROPERTIES
     CXX_STANDARD ${CXX_STANDARD}
-    CXX_EXTENSIONS ON)
+    CXX_EXTENSIONS ON
+    CXX_STANDARD_REQUIRED ON)
   if(hyperion_USE_CUDA AND HOST_ONLY)
     target_compile_options(${target} PRIVATE ${HOST_ONLY})
     #target_link_options(${target} PRIVATE "-cudart" "none")
