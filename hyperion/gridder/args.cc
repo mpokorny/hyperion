@@ -294,7 +294,7 @@ hyperion::gridder::get_args(
   {
     for (auto& tag_val : arg_pairs) {
 #if HAVE_CXX17
-      auto& [tag_val] = tag_val;
+      auto& [tag, val] = tag_val;
 #else // !HAVE_CXX17
       auto& tag = std::get<0>(tag_val);
       auto& val = std::get<1>(tag_val);
@@ -331,7 +331,7 @@ hyperion::gridder::get_args(
   // apply other variables from the command line
   for (auto& tag_val : arg_pairs) {
 #if HAVE_CXX17
-    auto& [tag_val] = tag_val;
+    auto& [tag, val] = tag_val;
 #else // !HAVE_CXX17
     auto& tag = std::get<0>(tag_val);
     auto& val = std::get<1>(tag_val);
