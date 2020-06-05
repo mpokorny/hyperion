@@ -119,7 +119,7 @@ MSTableColumns<T>::measure_names =
 #if __cplusplus < 201703L
 #define MS_TABLE_COLUMNS(T)                                             \
   template <>                                                           \
-  struct MSTableColumns<MS_##T> {                                       \
+  struct HYPERION_API MSTableColumns<MS_##T> {                          \
     typedef typename MSTableDefs<MS_##T>::col_t col_t;                  \
                                                                         \
     static const constexpr std::array<const char*, MSTableDefs<MS_##T>::num_cols> \
