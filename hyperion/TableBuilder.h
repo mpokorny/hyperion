@@ -337,28 +337,31 @@ public:
       });
 
     // FIXME: awaiting Table keyword support
+#if NEVER_DEFINED_HAVE_TABLE_KEYWORD_SUPPORT
     // get table keyword names and types
-//     {
-//       auto kws = table.keywordSet();
-//       auto nf = kws.nfields();
-//       for (unsigned f = 0; f < nf; ++f) {
-//         std::string name = kws.name(f);
-//         auto dt = kws.dataType(f);
-//         if (name != "MEASINFO" && name != "QuantumUnits") {
-//           switch (dt) {
-// #define ADD_KW(DT)                              \
-//             case DataType<DT>::CasacoreTypeTag: \
-//               result.add_keyword(name, DT);     \
-//               break;
-//             HYPERION_FOREACH_DATATYPE(ADD_KW);
-// #undef ADD_KW
-//           default:
-//             // ignore other kw types, like Table
-//             break;
-//           }
-//         }
-//       }
-//     }
+    {
+      auto kws = table.keywordSet();
+      auto nf = kws.nfields();
+      for (unsigned f = 0; f < nf; ++f) {
+        std::string name = kws.name(f);
+        auto dt = kws.dataType(f);
+        if (name != "MEASINFO" && name != "QuantumUnits") {
+          switch (dt) {
+#define ADD_KW(DT)                                  \
+            case DataType<DT>::CasacoreTypeTag:     \
+              result.add_keyword(name, DT);         \
+              break;
+            HYPERION_FOREACH_DATATYPE(ADD_KW);
+#undef ADD_KW
+          default:
+            // ignore other kw types, like Table
+            break;
+          }
+        }
+      }
+    }
+#endif // NEVER_DEFINED_HAVE_TABLE_KEYWORD_SUPPORT
+
     // add a column to TableBuilderT for each of the selected columns
     //
     unsigned unreserved_fid = MSTableColumns<D>::column_names.size();
@@ -450,12 +453,14 @@ struct HYPERION_EXPORT TableBuilder {
   }
 };
 
-// void
-// initialize_keywords_from_ms(
-//   Legion::Context ctx,
-//   Legion::Runtime* rt,
-//   const CXX_FILESYSTEM_NAMESPACE::path& path,
-//   Table& table);
+#if NEVER_DEFINED_HAVE_TABLE_KEYWORD_SUPPORT
+void
+initialize_keywords_from_ms(
+  Legion::Context ctx,
+  Legion::Runtime* rt,
+  const CXX_FILESYSTEM_NAMESPACE::path& path,
+  Table& table);
+#endif // NEVER_DEFINED_HAVE_TABLE_KEYWORD_SUPPORT
 
 template <MSTables T>
 std::tuple<std::string, ColumnSpace, Table::fields_t>
