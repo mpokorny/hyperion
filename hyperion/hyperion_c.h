@@ -16,7 +16,10 @@
 #ifndef HYPERION_HYPERION_C_H_
 #define HYPERION_HYPERION_C_H_
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #include <legion/legion_c.h>
+#pragma GCC diagnostic pop
 #include "hyperion_export.h"
 #include <hyperion/hyperion_config.h>
 
