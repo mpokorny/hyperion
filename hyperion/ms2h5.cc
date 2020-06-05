@@ -165,26 +165,26 @@ read_ms_table_columns_task(
       regions.begin(),
       regions.end())
     .value();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [table, rit, pit] = ptcr;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& table = std::get<0>(ptcr);
   auto& rit = std::get<1>(ptcr);
   auto& pit = std::get<2>(ptcr);
-#endif // c++17
+#endif // HAVE_CXX17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
   auto row_part = table.partition_rows(ctx, rt, {ROW_BLOCK_SZ});
   auto reqs =
     TableReadTask::requirements(ctx, rt, table, row_part, READ_WRITE);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [treqs, tparts, tdesc] = reqs;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& treqs = std::get<0>(reqs);
   auto& tparts = std::get<1>(reqs);
   auto& tdesc = std::get<2>(reqs);
-#endif // c++17
+#endif // HAVE_CXX17
 
   TableReadTask::Args tr_args;
   fstrcpy(tr_args.table_path, args->table_path);
@@ -235,12 +235,12 @@ struct create_h5_result_t {
     char *buff = static_cast<char*>(buffer);
     for (auto& map : maps) {
       for (auto& k_v : map) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [k, v] = k_v;
-#else // !c++17
+#else // !HAVE_CXX17
         auto& k = std::get<0>(k_v);
         auto& v = std::get<0>(k_v);
-#endif // c++17
+#endif // HAVE_CXX17
         assert(k.size() > 0 && v.size() > 0);
         std::strcpy(buff, k.c_str());
         buff += k.size() + 1;
@@ -298,13 +298,13 @@ create_h5_task(
       regions.begin() + 1,
       regions.end())
     .value();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [tables, rit, pit] = ptcr;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& tables = std::get<0>(ptcr);
   auto& rit = std::get<1>(ptcr);
   auto& pit = std::get<2>(ptcr);
-#endif // c++17
+#endif // HAVE_CXX17
   assert(rit == task->regions.end() && pit == regions.end());
 
   // initialize HDF5 file with all tables
@@ -590,12 +590,12 @@ public:
       size_t i = 0;
       for (auto& t : tables) {
         auto reqs = t.requirements(ctx, rt, ColumnSpacePartition(), {}, colreq);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [treqs, tparts, tdesc] = reqs;
-#else // !c++17
+#else // !HAVE_CXX17
         auto& treqs = std::get<0>(reqs);
         auto& tdesc = std::get<2>(reqs);
-#endif // c++17
+#endif // HAVE_CXX17
         create_args.desc[i++] = tdesc;
         for (auto& rq : treqs)
           write.add_region_requirement(rq);
@@ -632,12 +632,12 @@ public:
         TaskArgument(&rd_args, sizeof(rd_args)));
       auto reqs =
         ptables[i].requirements(ctx, rt, ColumnSpacePartition(), {}, colreq);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [treqs, tparts, tdesc] = reqs;
-#else // !c++17
+#else // !HAVE_CXX17
       auto& treqs = std::get<0>(reqs);
       auto& tdesc = std::get<2>(reqs);
-#endif // c++17
+#endif // HAVE_CXX17
       ptables[i].unmap_regions(ctx, rt);
       for (auto& rq : treqs)
         task.add_region_requirement(rq);

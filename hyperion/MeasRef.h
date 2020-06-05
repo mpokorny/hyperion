@@ -204,7 +204,7 @@ public:
     bool no_index=false) {
 
     if (false) assert(false);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 #define CREATE(MC)                                                      \
     else if (typeid(MClassT<MC>::type).hash_code() == typeid(Ms).hash_code()) { \
       std::vector<std::tuple<casacore::MRBase*, unsigned>> mrbs;        \
@@ -216,7 +216,7 @@ public:
           c);                                                           \
       return create(ctx, rt, mrbs, MC, no_index);                       \
     }
-#else
+#else // !HAVE_CXX17
 #define CREATE(MC)                                                      \
     else if (typeid(MClassT<MC>::type).hash_code() == typeid(Ms).hash_code()) { \
       std::vector<std::tuple<casacore::MRBase*, unsigned>> mrbs;        \
@@ -231,7 +231,7 @@ public:
       }                                                                 \
       return create(ctx, rt, mrbs, MC, no_index);                       \
     }
-#endif
+#endif // HAVE_CXX17
     HYPERION_FOREACH_MCLASS(CREATE)
 #undef CREATE
     else {

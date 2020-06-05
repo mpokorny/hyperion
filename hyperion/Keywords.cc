@@ -187,12 +187,12 @@ Keywords::create(
     auto val_fs = rt->create_field_space(ctx);
     auto val_fa = rt->create_field_allocator(ctx, val_fs);
     for (size_t i = 0; i < kws.size(); ++i) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [nm, dt] = kws[i];
-#else // !c++17
+#else // !HAVE_CXX17
       auto& nm = std::get<0>(kws[i]);
       auto& dt = std::get<1>(kws[i]);
-#endif // c++17
+#endif // HAVE_CXX17
       tt_fa.allocate_field(sizeof(hyperion::TypeTag), i);
       rt->attach_name(tt_fs, i, nm.c_str());
       add_field(dt, val_fa, i);

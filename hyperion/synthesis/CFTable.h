@@ -118,12 +118,12 @@ public:
           {{CF_VALUE_COLUMN_NAME, CXX_OPTIONAL_NAMESPACE::nullopt},
            {CF_WEIGHT_COLUMN_NAME, CXX_OPTIONAL_NAMESPACE::nullopt}},
           colreqs);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [treqs, tparts, tdesc] = reqs;
-#else // !c++17
+#else // !HAVE_CXX17
       auto& treqs = std::get<0>(reqs);
       auto& tdesc = std::get<2>(reqs);
-#endif // c++17
+#endif // HAVE_CXX17
       InitIndexColumnTaskArgs args;
       args.desc = tdesc;
       InitIndexColumnTaskArgs::initializer<AXES...>::init(args, axes...);

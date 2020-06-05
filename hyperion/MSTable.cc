@@ -21,11 +21,11 @@
 
 using namespace hyperion;
 
-#if __cplusplus < 201703L
+#if !HAVE_CXX17
 #define MST_NAME(T) const constexpr char* MSTable<MS_##T>::name;
 HYPERION_FOREACH_MS_TABLE(MST_NAME);
 #undef MSTNAME
-#endif
+#endif // !HAVE_CXX17
 
 template <MSTables T, int N>
 inline static std::enable_if_t<(N == 0)>

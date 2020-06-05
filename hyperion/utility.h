@@ -18,7 +18,7 @@
 
 #include <hyperion/hyperion.h>
 
-#if __cplusplus < 201703L
+#if !HAVE_CXX17
 namespace std {
 
 // Conforming C++14 implementation (is also a valid C++11 implementation):
@@ -93,7 +93,7 @@ template< bool B, class T = void >
 using enable_if_t = typename enable_if<B,T>::type;
 
 } // end namespace std
-#endif // !c++17
+#endif // !HAVE_CXX17
 
 #include <hyperion/IndexTree.h>
 #include <hyperion/utility_c.h>
@@ -144,10 +144,10 @@ class TableField;
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-#endif //c++17
+#endif // HAVE_CXX17
 
 template <typename T, typename F>
 CXX_OPTIONAL_NAMESPACE::optional<std::invoke_result_t<F, T>>
@@ -504,12 +504,12 @@ public:
     std::memcpy(static_cast<size_t *>(buffer), &n, sizeof(n));
     buffer = static_cast<void *>(static_cast<size_t*>(buffer) + 1);
     for (size_t i = 0; i < n; ++i) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [t, rns] = val[i];
-#else
+#else // !HAVE_CXX17
       auto& t = std::get<0>(val[i]);
       auto& rns = std::get<1>(val[i]);
-#endif
+#endif // HAVE_CXX17
       T* tbuf = reinterpret_cast<T *>(buffer);
       std::memcpy(tbuf, &t, sizeof(T));
       buffer = static_cast<void *>(tbuf + 1);
@@ -624,12 +624,12 @@ public:
     buffer = static_cast<void *>(static_cast<size_t*>(buffer) + 1);
     char* buff = static_cast<char*>(buffer);
     for (size_t i = 0; i < n; ++i) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [t, rns] = val[i];
-#else
+#else // !HAVE_CXX17
       auto& t = std::get<0>(val[i]);
       auto& rns = std::get<1>(val[i]);
-#endif
+#endif // HAVE_CXX17
       std::memcpy(buff, t.val, sizeof(hyperion::string));
       buff += sizeof(hyperion::string);
       buff += vector_serdez<Legion::DomainPoint>::serialize(rns, buff);
@@ -794,12 +794,12 @@ public:
         rhs.v.begin(),
         rhs.v.end(),
         [&lhs](auto& t_rns) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
           auto& [t, rns] = t_rns;
-#else
+#else // !HAVE_CXX17
           auto& t = std::get<0>(t_rns);
           auto& rns = std::get<1>(t_rns);
-#endif
+#endif // HAVE_CXX17
           if (rns.size() > 0) {
             auto lb =
               std::lower_bound(

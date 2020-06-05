@@ -116,7 +116,7 @@ const std::map<typename MSTableColumns<T>::col_t, const char*>
 MSTableColumns<T>::measure_names =
   MSTableDefs<T>::measure_names;
 
-#if __cplusplus < 201703L
+#if !HAVE_CXX17
 #define MS_TABLE_COLUMNS(T)                                             \
   template <>                                                           \
   struct HYPERION_API MSTableColumns<MS_##T> {                          \
@@ -156,7 +156,7 @@ MSTableColumns<T>::measure_names =
     }                                                                   \
   };
 HYPERION_FOREACH_MS_TABLE(MS_TABLE_COLUMNS)
-#endif // !c++17
+#endif // !HAVE_CXX17
 
 #define HYPERION_COLUMN_NAME(T, C)                    \
   MSTableColumns<MS_##T>::column_names[               \

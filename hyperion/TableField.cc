@@ -34,14 +34,14 @@ TableField::requirements(
   }
 #ifdef HYPERION_USE_CASACORE
   if (!mr.is_empty()) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto [mreq, vreq, oireq] = mr.requirements(privilege, mapped);
-#else // !c++17
+#else // !HAVE_CXX17
     auto rqs = mr.requirements(privilege, mapped);
     auto& mreq = std::get<0>(rqs);
     auto& vreq = std::get<1>(rqs);
     auto& oireq = std::get<2>(rqs);
-#endif // c++17
+#endif // HAVE_CXX17
     result.push_back(mreq);
     result.push_back(vreq);
     if (oireq)

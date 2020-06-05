@@ -581,14 +581,14 @@ hyperion::hdf5::write_measure(
   const MeasRef& mr) {
 
   if (!mr.is_empty()) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto [mreq, vreq, oireq] = mr.requirements(READ_ONLY);
-#else // !c++17
+#else // !HAVE_CXX17
     auto rqs = mr.requirements(READ_ONLY);
     auto& mreq = std::get<0>(rqs);
     auto& vreq = std::get<1>(rqs);
     auto& oireq = std::get<2>(rqs);
-#endif // c++17
+#endif // HAVE_CXX17
     auto mpr = rt->map_region(ctx, mreq);
     auto vpr = rt->map_region(ctx, vreq);
     auto oipr =
@@ -1009,12 +1009,12 @@ write_table_columns(
 
   std::map<ColumnSpace, std::set<std::string>> column_groups;
   for (auto& nm_col : columns) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [nm, col] = nm_col;
-#else // !c++17
+#else // !HAVE_CXX17
     auto& nm = std::get<0>(nm_col);
     auto& col = std::get<1>(nm_col);
-#endif // c++17
+#endif // HAVE_CXX17
     if (column_groups.count(col.cs) == 0)
       column_groups[col.cs] = {};
     column_groups[col.cs].insert(nm);
@@ -1065,12 +1065,12 @@ write_table_columns(
   auto columns = table.columns();
   std::map<ColumnSpace, std::set<std::string>> column_groups;
   for (auto& nm_col : columns) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [nm, col] = nm_col;
-#else // !c++17
+#else // !HAVE_CXX17
     auto& nm = std::get<0>(nm_col);
     auto& col = std::get<1>(nm_col);
-#endif // c++17
+#endif // HAVE_CXX17
     auto cs = col->column_space();
     if (column_groups.count(cs) == 0)
       column_groups[cs] = {};
@@ -1812,12 +1812,12 @@ hyperion::hdf5::table_fields(
             acc_tflds_fn,
             &acc_tflds));
         decltype(result)::value_type fields_paths;
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [fields, paths] = fields_paths;
-#else // !c++17
+#else // !HAVE_CXX17
         auto& fields = std::get<0>(fields_paths);
         auto& paths = std::get<1>(fields_paths);
-#endif // c++17
+#endif // HAVE_CXX17
         for (auto& nm_tflds : acc_tflds.cs_fields) {
           auto& nm = std::get<0>(nm_tflds);
           auto& tflds = std::get<1>(nm_tflds);
@@ -1903,12 +1903,12 @@ hyperion::hdf5::init_table(
         }
         // FIXME: awaiting keywords support in Table: auto kws =
         // init_keywords(table_grp_id);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [tb, paths] = result;
-#else // !c++17
+#else // !HAVE_CXX17
         auto& tb = std::get<0>(result);
         auto& paths = std::get<1>(result);
-#endif // c++17
+#endif // HAVE_CXX17
         for (auto& cs_nm_tflds : cflds)
           for (auto& nm_tfld : std::get<1>(cs_nm_tflds)) {
             auto& nm = std::get<0>(nm_tfld);
@@ -2106,12 +2106,12 @@ attach_selected_table_columns(
   std::map<PhysicalRegion, std::unordered_map<std::string, Column>> result;
   auto tbl_columns = table.columns();
   for (auto& nm_c : tbl_columns) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [nm, c] = nm_c;
-#else // !c++17
+#else // !HAVE_CXX17
     auto& nm = std::get<0>(nm_c);
     auto& c = std::get<1>(nm_c);
-#endif // c++17
+#endif // HAVE_CXX17
     std::unordered_set<std::string> colnames;
     std::unordered_map<std::string, Column> cols;
     if (select(nm)) {

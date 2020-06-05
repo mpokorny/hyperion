@@ -192,13 +192,13 @@ classify_antennas_task(
       regions.begin(),
       regions.end())
     .value();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [pt, rit, pit] = ptcr;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& pt = std::get<0>(ptcr);
   auto& rit = std::get<1>(ptcr);
   auto& pit = std::get<2>(ptcr);
-#endif // c++17
+#endif // HAVE_CXX17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
   MSAntennaTable antenna_table(pt);
@@ -331,11 +331,11 @@ compute_parallactic_angles_task(
       regions.begin(),
       regions.end())
     .value();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [pts, rit, pit] = ptcr;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& pts = std::get<0>(ptcr);
-#endif // c++17
+#endif // HAVE_CXX17
   MSMainTable<MAIN_ROW> main(pts[0]);
   typedef decltype(main)::C MainCols;
   auto main_antenna1_col = main.antenna1<AffineAccessor>();
@@ -489,12 +489,12 @@ init_antenna_classes(
       ColumnSpacePartition(),
       {{antenna_class_column_name, class_colreq}},
       default_colreqs);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [treqs, tparts, tdesc] = reqs;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& treqs = std::get<0>(reqs);
   auto& tdesc = std::get<2>(reqs);
-#endif // c++17
+#endif // HAVE_CXX17
   TaskLauncher task(
     CLASSIFY_ANTENNAS_TASK_ID,
     TaskArgument(&tdesc, sizeof(tdesc)),
@@ -552,13 +552,13 @@ init_parallactic_angles(
        {HYPERION_COLUMN_NAME(MAIN, UVW),
         Column::default_requirements}},
       CXX_OPTIONAL_NAMESPACE::nullopt);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [main_reqs, main_parts, main_desc] = main_rq;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& main_reqs = std::get<0>(main_rq);
   auto& main_parts = std::get<1>(main_rq);
   auto& main_desc = std::get<2>(main_rq);
-#endif // c++17
+#endif // HAVE_CXX17
   for (auto& rq : main_reqs)
     task.add_region_requirement(rq);
   tdescs[0] = main_desc;
@@ -573,13 +573,13 @@ init_parallactic_angles(
       {{HYPERION_COLUMN_NAME(DATA_DESCRIPTION, SPECTRAL_WINDOW_ID),
         Column::default_requirements}},
       CXX_OPTIONAL_NAMESPACE::nullopt);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [dd_reqs, dd_parts, dd_desc] = dd_rq;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& dd_reqs = std::get<0>(dd_rq);
   auto& dd_parts = std::get<1>(dd_rq);
   auto& dd_desc = std::get<2>(dd_rq);
-#endif // c++17
+#endif // HAVE_CXX17
   for (auto& rq : dd_reqs)
     task.add_region_requirement(rq);
   tdescs[1] = dd_desc;
@@ -596,26 +596,26 @@ init_parallactic_angles(
        {HYPERION_COLUMN_NAME(ANTENNA, POSITION),
         Column::default_requirements}},
       CXX_OPTIONAL_NAMESPACE::nullopt);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [ant_reqs, ant_parts, ant_desc] = ant_rq;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& ant_reqs = std::get<0>(ant_rq);
   auto& ant_parts = std::get<1>(ant_rq);
   auto& ant_desc = std::get<2>(ant_rq);
-#endif // c++17
+#endif // HAVE_CXX17
   for (auto& rq : ant_reqs)
     task.add_region_requirement(rq);
   tdescs[2] = ant_desc;
   antenna_table.unmap_regions(ctx, rt);
 
   auto feed_rq = feed_table.requirements(ctx, rt);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [feed_reqs, feed_parts, feed_desc] = feed_rq;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& feed_reqs = std::get<0>(feed_rq);
   auto& feed_parts = std::get<1>(feed_rq);
   auto& feed_desc = std::get<2>(feed_rq);
-#endif // c++17
+#endif // HAVE_CXX17
   for (auto& rq : feed_reqs)
     task.add_region_requirement(rq);
   tdescs[3] = feed_desc;

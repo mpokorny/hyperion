@@ -208,13 +208,13 @@ hyperion::coordinate_system_serdez::destroy(cc::CoordinateSystem& val) {
 
 #endif
 
-#if __cplusplus < 201703L
+#if !HAVE_CXX17
 #define VT(dt)                                            \
   constexpr const hyperion::TypeTag                       \
   hyperion::ValueType<DataType<dt>::ValueType>::DataType;
 HYPERION_FOREACH_DATATYPE(VT)
 #undef VT
-#endif
+#endif // !HAVE_CXX17
 
 std::ostream&
 operator<<(std::ostream& stream, const hyperion::string& str) {

@@ -23,7 +23,7 @@
 
 using namespace hyperion::gridder;
 
-#if __cplusplus < 201703L
+#if !HAVE_CXX17
 const constexpr char* ArgsBase::h5_path_tag;
 const constexpr char* ArgsBase::h5_path_desc;
 
@@ -50,18 +50,18 @@ const constexpr args_t ArgsCompletion<STRING_ARGS>::val;
 const constexpr args_t ArgsCompletion<OPT_VALUE_ARGS>::val;
 const constexpr args_t ArgsCompletion<OPT_STRING_ARGS>::val;
 
-#endif
+#endif // !HAVE_CXX17
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 typedef std::variant<std::forward_list<std::string>, Args<OPT_STRING_ARGS>>
 read_config_result_t;
-#else
+#else // !HAVE_CXX17
 typedef struct {
   bool is_list;
   std::forward_list<std::string> strings;
   Args<OPT_STRING_ARGS> args;
 } read_config_result_t;
-#endif
+#endif // HAVE_CXX17
 
 read_config_result_t
 read_config(const YAML::Node& config) {
@@ -88,19 +88,19 @@ read_config(const YAML::Node& config) {
   }
   read_config_result_t result;
   if (invalid_tags.empty()) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     result = args;
-#else
+#else // !HAVE_CXX17
     result.is_list = false;
     result.args = args;
-#endif
+#endif // HAVE_CXX17
   } else {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     result = invalid_tags;
-#else
+#else // !HAVE_CXX17
     result.is_list = true;
     result.strings = invalid_tags;
-#endif
+#endif // HAVE_CXX17
   }
   return result;
 }
@@ -123,7 +123,7 @@ load_config(
   try {
     auto node = YAML::LoadFile(path);
     auto read_result = read_config(node);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     std::visit(
       hyperion::overloaded {
         [&path, &config_provenance, &result]
@@ -157,7 +157,7 @@ load_config(
         }
       },
       read_result);
-#else
+#else // !HAVE_CXX17
     if (read_result.is_list) {
       std::ostringstream oss;
       oss << "Invalid configuration variable tags in file named by "
@@ -185,7 +185,7 @@ load_config(
       if (read_result.args.w_planes)
         gridder_args.w_planes = read_result.args.w_planes.value();
     }
-#endif
+#endif // HAVE_CXX17
   } catch (const YAML::Exception& e) {
     std::ostringstream oss;
     oss << "Failed to parse configuration file named by "

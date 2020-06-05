@@ -310,7 +310,7 @@ ColumnSpace::reindexed(
     req.add_field(INDEX_FLAG_FID);
     task.add_region_requirement(req);
   }
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
   for (auto& [d, lr] : index_columns) {
@@ -319,14 +319,14 @@ ColumnSpace::reindexed(
     req.add_field(Column::COLUMN_INDEX_ROWS_FID, false);
     task.add_region_requirement(req);
   }
-#else // !c++17
+#else // !HAVE_CXX17
   for (auto& d_lr : index_columns) {
     LogicalRegion lr = std::get<1>(d_lr);
     RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
     req.add_field(Column::COLUMN_INDEX_ROWS_FID, false);
     task.add_region_requirement(req);
   }
-#endif // c++17
+#endif // HAVE_CXX17
   return rt->execute_task(ctx, task);
 }
 
@@ -411,7 +411,7 @@ compute_reindexed(
       ++i; ++j;
     }
     // append new index axes
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     for (auto& [d, lr] : index_column_lrs) {
       Rect<1> ix_domain = rt->get_index_space_domain(lr.get_index_space());
       new_bounds.lo[i] = ix_domain.lo[0];
@@ -419,7 +419,7 @@ compute_reindexed(
       new_axes[i] = d;
       ++i;
     }
-#else // !c++17
+#else // !HAVE_CXX17
     for (auto& d_lr : index_column_lrs) {
       auto& d = std::get<0>(d_lr);
       auto& lr = std::get<1>(d_lr);
@@ -429,7 +429,7 @@ compute_reindexed(
       new_axes[i] = d;
       ++i;
     }
-#endif // c++17
+#endif // HAVE_CXX17
     // append row axis, if allowed
     if (allow_rows) {
       new_bounds.lo[i] = col_rect.lo[j];

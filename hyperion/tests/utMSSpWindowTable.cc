@@ -42,7 +42,7 @@ enum {
   VERIFY_SPW_TABLE_TASK
 };
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 #else
 #define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
@@ -80,13 +80,13 @@ verify_spw_table(
       regions.begin() + 2,
       regions.end())
     .value();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [pt, rit, pit] = ptcr;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& pt = std::get<0>(ptcr);
   auto& rit = std::get<1>(ptcr);
   auto& pit = std::get<2>(ptcr);
-#endif // c++17
+#endif // HAVE_CXX17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -247,12 +247,12 @@ ms_test(
         table,
         ColumnSpacePartition(),
         WRITE_ONLY);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
-#else // !c++17
+#else // !HAVE_CXX17
     auto& treqs = std::get<0>(reqs);
     auto& tdesc = std::get<2>(reqs);
-#endif // c++17
+#endif // HAVE_CXX17
     TableReadTask::Args args;
     fstrcpy(args.table_path, tpath);
     args.table_desc = tdesc;
@@ -271,12 +271,12 @@ ms_test(
     VerifyTableArgs args;
     fstrcpy(args.table_path, tpath);
     auto reqs = table.requirements(ctx, rt);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
-#else // !c++17
+#else // !HAVE_CXX17
     auto& treqs = std::get<0>(reqs);
     auto& tdesc = std::get<2>(reqs);
-#endif // c++17
+#endif // HAVE_CXX17
     args.desc = tdesc;
     TaskLauncher verify(
       VERIFY_SPW_TABLE_TASK,

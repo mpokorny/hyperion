@@ -75,13 +75,13 @@ hyperion::synthesis::WTermTable::compute_cfs_task(
       regions.begin(),
       regions.end())
     .value();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [pt, rit, pit] = ptcr;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& pt = std::get<0>(ptcr);
   auto& rit = std::get<1>(ptcr);
   auto& pit = std::get<2>(ptcr);
-#endif // c++17
+#endif // HAVE_CXX17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -141,12 +141,12 @@ hyperion::synthesis::WTermTable::compute_cfs(
         {{CF_VALUE_COLUMN_NAME, cf_colreqs},
          {CF_WEIGHT_COLUMN_NAME, CXX_OPTIONAL_NAMESPACE::nullopt}},
         default_colreqs);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
-#else // !c++17
+#else // !HAVE_CXX17
     auto& treqs = std::get<0>(reqs);
     auto& tdesc = std::get<2>(reqs);
-#endif // c++17
+#endif // HAVE_CXX17
     ComputeCFSTaskArgs args;
     args.desc = tdesc;
     args.cell_size = m_cell_size;

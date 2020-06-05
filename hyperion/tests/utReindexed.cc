@@ -145,7 +145,7 @@ attach_table0_col(Context ctx, Runtime* rt, const Column& col, unsigned *base) {
   return result;
 }
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 #else
 #define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)

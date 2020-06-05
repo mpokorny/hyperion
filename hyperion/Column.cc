@@ -45,7 +45,7 @@ using WOAccessor =
     AffineAccessor<T, DIM, coord_t>,
     CHECK_BOUNDS>;
 
-#if __cplusplus < 201703L
+#if !HAVE_CXX17
 constexpr const Column::Requirements Column::default_requirements;
 #endif
 

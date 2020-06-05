@@ -40,7 +40,7 @@ enum {
   VERIFY_ANTENNA_TABLE_TASK
 };
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 #else
 #define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
@@ -78,7 +78,7 @@ verify_antenna_table(
       regions.begin() + 2,
       regions.end())
     .value();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [pt, rit, pit] = ptcr;
 #else // !c++17
   auto& pt = std::get<0>(ptcr);
@@ -222,7 +222,7 @@ ms_test(
         table,
         ColumnSpacePartition(),
         WRITE_ONLY);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
 #else // !c++17
     auto& treqs = std::get<0>(reqs);
@@ -246,7 +246,7 @@ ms_test(
     VerifyTableArgs args;
     fstrcpy(args.table_path, tpath);
     auto reqs = table.requirements(ctx, rt);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
 #else // !c++17
     auto& treqs = std::get<0>(reqs);

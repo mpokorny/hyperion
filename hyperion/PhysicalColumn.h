@@ -27,9 +27,9 @@
 #include <memory>
 #include CXX_OPTIONAL_HEADER
 #include <unordered_map>
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 #include <variant>
-#endif // c++17
+#endif // HAVE_CXX17
 #include <vector>
 
 namespace hyperion {
@@ -334,14 +334,14 @@ public:
     Legion::PhysicalRegion,
     Legion::FieldID> ref_mrb_t;
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   typedef std::variant<simple_mrb_t, ref_mrb_t> mrb_t;
-#else
+#else // !HAVE_CXX17
   typedef struct {
     bool is_simple;
     ref_mrb_t ref;
   } mrb_t;
-#endif // c++17
+#endif // HAVE_CXX17
 
   CXX_OPTIONAL_NAMESPACE::optional<mrb_t>
   mrb(Legion::Runtime* rt) const;
@@ -716,7 +716,7 @@ public:
     PhysicalColumnTMD<DT, MC, INDEX_RANK, COLUMN_RANK, MV_SIZE, A, COORD_T>;
 
     MeasRefAccessor(const mrb_t* mr) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       std::visit(overloaded {
           [this](const simple_mrb_t& mr) {
             m_mr = std::dynamic_pointer_cast<MR_t>(mr);
@@ -735,7 +735,7 @@ public:
           }
         },
         *mr);
-#else
+#else // !HAVE_CXX17
       auto& mrs = std::get<0>(mr->ref);
       auto& rmap = std::get<1>(mr->ref);
       auto& rcodes_pr = std::get<2>(mr->ref);
@@ -761,13 +761,13 @@ public:
     MC_t&
     convert_at(const Legion::Point<COLUMN_RANK - M_RANK, Legion::coord_t>& pt) {
       if (m_mrv) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [mrs, rmap, rcodes] = m_mrv.value();
-#else // !c++17
+#else // !HAVE_CXX17
         auto& mrs = std::get<0>(m_mrv.value());
         auto& rmap = std::get<1>(m_mrv.value());
         auto& rcodes = std::get<2>(m_mrv.value());
-#endif // c++17
+#endif // HAVE_CXX17
         m_convert.setOut(
           *mrs[
             rmap.at(
@@ -781,13 +781,13 @@ public:
     MR_t&
     meas_ref_at(const Legion::Point<COLUMN_RANK - M_RANK, Legion::coord_t>& pt) {
       if (m_mrv) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [mrs, rmap, rcodes] = m_mrv.value();
-#else // !c++17
+#else // !HAVE_CXX17
         auto& mrs = std::get<0>(m_mrv.value());
         auto& rmap = std::get<1>(m_mrv.value());
         auto& rcodes = std::get<2>(m_mrv.value());
-#endif // c++17
+#endif // HAVE_CXX17
         m_mr =
           mrs[
             rmap.at(

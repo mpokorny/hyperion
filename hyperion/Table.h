@@ -149,12 +149,12 @@ public:
       m_columns.end(),
       &result.columns[0],
       [](const auto& nm_col) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [nm, col] = nm_col;
-#else // !c++17
+#else // !HAVE_CXX17
         auto& nm = std::get<0>(nm_col);
         auto& col = std::get<1>(nm_col);
-#endif // c++17
+#endif // HAVE_CXX17
         return col.desc(nm);
       });
     return result;

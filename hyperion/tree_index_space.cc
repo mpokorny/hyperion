@@ -25,13 +25,13 @@ TreeIndexSpaceTask::TreeIndexSpaceTask(const IndexTreeL& it) {
     it.children().begin(),
     it.children().end(),
     [this](auto& ch) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [o, n, t] = ch;
-#else
+#else // !HAVE_CXX17
       auto& o = std::get<0>(ch);
       auto& n = std::get<1>(ch);
       auto& t = std::get<2>(ch);
-#endif
+#endif // HAVE_CXX17
       m_blocks.push_back(o);
       m_blocks.push_back(n);
       m_trees.push_back(t);

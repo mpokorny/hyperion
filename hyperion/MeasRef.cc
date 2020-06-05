@@ -20,7 +20,7 @@
 
 #include <cassert>
 #include <stack>
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 #include <variant>
 #endif
 
@@ -56,10 +56,10 @@ struct MeasureIndexTrees {
   CXX_OPTIONAL_NAMESPACE::optional<IndexTreeL> value_tree;
 };
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 typedef std::variant<const casacore::Measure*, casacore::MRBase*>
 measure_index_trees_arg_t;
-#else
+#else // !HAVE_CXX17
 typedef struct {
   bool is_measure;
   union {
@@ -67,7 +67,7 @@ typedef struct {
     casacore::MRBase* mrbase;
   };
 } measure_index_trees_arg_t;
-#endif
+#endif // HAVE_CXX17
 
 static MeasureIndexTrees
 measure_index_trees(const measure_index_trees_arg_t& vm) {
@@ -76,7 +76,7 @@ measure_index_trees(const measure_index_trees_arg_t& vm) {
     components;
 
   casacore::MRBase* ref_base;
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   std::visit(
     overloaded {
       [&components, &ref_base](const casacore::Measure* ms) {
@@ -90,7 +90,7 @@ measure_index_trees(const measure_index_trees_arg_t& vm) {
       }
     },
     vm);
-#else
+#else // !HAVE_CXX17
   if (vm.is_measure) {
     assert(vm.measure != nullptr);
     components[MeasRef::ArrayComponent::VALUE] = vm.measure;
@@ -99,7 +99,7 @@ measure_index_trees(const measure_index_trees_arg_t& vm) {
     components[MeasRef::ArrayComponent::VALUE] = nullptr;
     ref_base = vm.mrbase;
   }
-#endif
+#endif // HAVE_CXX17
 
   assert(ref_base != nullptr);
   auto offset = ref_base->offset();
@@ -123,12 +123,12 @@ measure_index_trees(const measure_index_trees_arg_t& vm) {
 
   MeasureIndexTrees result;
   for (auto& c_m : components) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [c, m] = c_m;
-#else // !c++17
+#else // !HAVE_CXX17
     auto& c = std::get<0>(c_m);
     auto& m = std::get<1>(c_m);
-#endif // c++17
+#endif // HAVE_CXX17
     MeasureIndexTrees ctrees;
     switch (c) {
     case MeasRef::ArrayComponent::VALUE:
@@ -137,16 +137,16 @@ measure_index_trees(const measure_index_trees_arg_t& vm) {
         ctrees.value_tree = IndexTreeL(m->getData()->getVector().size());
       break;
     default:
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       ctrees = measure_index_trees(m);
-#else
+#else // !HAVE_CXX17
       {
         measure_index_trees_arg_t arg;
         arg.is_measure = true;
         arg.measure = m;
         ctrees = measure_index_trees(arg);
       }
-#endif
+#endif // HAVE_CXX17
       break;
     }
     if (ctrees.metadata_tree) {
@@ -175,11 +175,11 @@ measure_index_trees(const measure_index_trees_arg_t& vm) {
   return result;
 }
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 typedef std::variant<
   const casacore::Measure*,
   std::tuple<MClass, casacore::MRBase*>> msr_t;
-#else
+#else // !HAVE_CXX17
 typedef struct {
   bool is_measure;
   union {
@@ -187,7 +187,7 @@ typedef struct {
     std::tuple<MClass, casacore::MRBase*> mc_mrbase;
   };
 } msr_t;
-#endif
+#endif // HAVE_CXX17
 
 template <int D>
 static void
@@ -213,22 +213,22 @@ initialize(
 
     std::stack<std::tuple<msr_t, MeasRef::ArrayComponent>> ms;
     {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       msr_t msr;
       msr = std::tuple<MClass, casacore::MRBase*>(klass, mrbs[i]);
-#else
+#else // !HAVE_CXX17
       msr_t msr{false};
       msr.mc_mrbase = {klass, mrbs[i]};
-#endif
+#endif // HAVE_CXX17
       ms.emplace(msr, MeasRef::ArrayComponent::VALUE);
     }
     while (!ms.empty()) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [m, c] = ms.top();
-#else // !c++17
+#else // !HAVE_CXX17
       auto& m = std::get<0>(ms.top());
       auto& c = std::get<1>(ms.top());
-#endif // c++17
+#endif // HAVE_CXX17
 
       const auto level = ms.size();
       for (unsigned j = level + 1; j < D; ++j)
@@ -239,7 +239,7 @@ initialize(
       if (c == MeasRef::ArrayComponent::VALUE) {
         // the measure value itself
         p[level] = p1[level] = MeasRef::ArrayComponent::VALUE;
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         std::visit(
           overloaded {
             [level, &p, &p1, &vals, &numvals, &mclasses, &ref_base, &m]
@@ -272,7 +272,7 @@ initialize(
             }
           },
           m);
-#else
+#else // !HAVE_CXX17
         if (m.is_measure) {
           auto mvals = m.measure->getData()->getVector();
           for (unsigned j = 0; j < mvals.size(); ++j) {
@@ -300,18 +300,18 @@ initialize(
           numvals.write(p, 0);
           ref_base = r;
         }
-#endif
+#endif // HAVE_CXX17
         assert(ref_base != nullptr);
         rtypes.write(p, ref_base->getType());
         c = MeasRef::ArrayComponent::OFFSET;
       } else {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         ref_base =
           std::get<1>(std::get<std::tuple<MClass, casacore::MRBase*>>(m));
-#else
+#else // !HAVE_CXX17
         assert(!m.is_measure);
         ref_base = std::get<1>(m.mc_mrbase);
-#endif
+#endif // HAVE_CXX17
       }
       assert(ref_base != nullptr);
 
@@ -347,13 +347,13 @@ initialize(
           p[level] = p1[level] = c;
           c = (MeasRef::ArrayComponent)((unsigned)c + 1);
           if (cm != nullptr) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
             msr_t msr;
             msr = cm;
-#else
+#else // !HAVE_CXX17
             msr_t msr{true};
             msr.measure = cm;
-#endif
+#endif //  HAVE_CXX17
             ms.push(std::make_tuple(msr, MeasRef::ArrayComponent::VALUE));
           }
         }
@@ -376,17 +376,17 @@ initialize<1>(
   assert(false);
 }
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 typedef std::variant<
   std::unique_ptr<casacore::Measure>,
   std::unique_ptr<casacore::MRBase>> msrp_t;
-#else
+#else // !HAVE_CXX17
 typedef struct {
   bool is_measure;
   std::unique_ptr<casacore::Measure> measure;
   std::unique_ptr<casacore::MRBase> mrbase;
 } msrp_t;
-#endif
+#endif // HAVE_CXX17
 
 template <int D>
 static std::vector<std::unique_ptr<casacore::MRBase>>
@@ -410,11 +410,11 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
     Point<D> p;
     p[0] = p1[0] = i;
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     msrp_t vmrb = std::unique_ptr<casacore::Measure>();
-#else
+#else // !HAVE_CXX17
     msrp_t vmrb{true};
-#endif
+#endif // HAVE_CXX17
     std::stack<
       std::tuple<
         std::unique_ptr<casacore::MeasValue>,
@@ -430,14 +430,14 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
 
     PUSH_NEW(ms);
     while (!ms.empty()) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [v, r, k, c] = ms.top();
-#else // !c++17
+#else // !HAVE_CXX17
       auto& v = std::get<0>(ms.top());
       auto& r = std::get<1>(ms.top());
       auto& k = std::get<2>(ms.top());
       auto& c = std::get<3>(ms.top());
-#endif // c++17
+#endif // HAVE_CXX17
 
       const auto level = ms.size();
       for (unsigned j = level + 1; j < D; ++j)
@@ -474,15 +474,15 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
 
       while (ms.size() == level
              && c < MeasRef::ArrayComponent::NUM_COMPONENTS) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         assert(
           std::holds_alternative<std::unique_ptr<casacore::Measure>>(vmrb));
         std::unique_ptr<casacore::Measure> cm =
           std::move(std::get<std::unique_ptr<casacore::Measure>>(vmrb));
-#else
+#else // !HAVE_CXX17
         assert(vmrb.is_measure);
         std::unique_ptr<casacore::Measure> cm = std::move(vmrb.measure);
-#endif
+#endif // HAVE_CXX17
         switch (c) {
         case MeasRef::ArrayComponent::VALUE:
           assert(false);
@@ -531,7 +531,7 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
 
       if (ms.size() == level) {
         switch (k) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 #define SET_VMRB(M)                                                   \
           case M:                                                     \
             if (v)                                                    \
@@ -542,7 +542,7 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
             else                                                      \
               vmrb = std::move(r);                                    \
             break;
-#else
+#else // !HAVE_CXX17
 #define SET_VMRB(M)                                                   \
           case M: {                                                   \
             msrp_t msrp;                                              \
@@ -561,7 +561,7 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
             vmrb = std::move(msrp);                                   \
             break;                                                    \
         }
-#endif
+#endif // HAVE_CXX17
           HYPERION_FOREACH_MCLASS(SET_VMRB)
 #undef SET_VMRB
         default:
@@ -571,13 +571,13 @@ instantiate(MeasRef::DataRegions prs, Domain metadata_domain) {
         ms.pop();
       }
     }
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     assert(std::holds_alternative<std::unique_ptr<casacore::MRBase>>(vmrb));
     result[i] = std::move(std::get<std::unique_ptr<casacore::MRBase>>(vmrb));
-#else
+#else // !HAVE_CXX17
     assert(!vmrb.is_measure);
     result[i] = std::move(vmrb.mrbase);
-#endif
+#endif // HAVE_CXX17
 
 #undef PUSH_NEW
   }
@@ -892,17 +892,17 @@ MeasRef::create(
   MeasureIndexTrees index_trees;
   {
     std::vector<MeasureIndexTrees> itrees;
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     for (auto& mrb : mrbs)
       itrees.push_back(measure_index_trees(std::get<0>(mrb)));
-#else
+#else // !HAVE_CXX17
     for (auto& mrb : mrbs) {
       measure_index_trees_arg_t arg;
       arg.is_measure = false;
       arg.mrbase = std::get<0>(mrb);
       itrees.push_back(measure_index_trees(arg));
     }
-#endif
+#endif // HAVE_CXX17
     std::vector<std::tuple<coord_t, IndexTreeL>> md_v;
     std::vector<std::tuple<coord_t, IndexTreeL>> val_v;
     for (auto& it : itrees) {

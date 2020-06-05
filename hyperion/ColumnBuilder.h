@@ -204,15 +204,15 @@ public:
       std::tuple<MClass, std::vector<std::tuple<casacore::MRBase*, unsigned>>>
         mrec;
       std::get<0>(mrec) = std::get<0>(m_meas_record.value());
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       for (auto& [mrb, c] : std::get<1>(m_meas_record.value()))
         std::get<1>(mrec).emplace_back(mrb.get(), c);
-#else // !c++17
+#else // !HAVE_CXX17
       for (auto& mrb_c : std::get<1>(m_meas_record.value())) {
         const std::unique_ptr<casacore::MRBase>& mrb = std::get<0>(mrb_c);
         unsigned c = std::get<1>(mrb_c);
         std::get<1>(mrec).emplace_back(mrb.get(), c);}
-#endif // c++17
+#endif // HAVE_CXX17
 
       mr = std::get<1>(create_named_meas_refs(ctx, rt, {mrec}));
     }

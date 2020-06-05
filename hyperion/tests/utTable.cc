@@ -181,7 +181,7 @@ attach_table0_col(
   return result;
 }
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 #else
 #define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
@@ -237,13 +237,13 @@ verify_table_columns_task(
       task->regions.end(),
       regions.begin() + 2,
       regions.end()).value();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [pt, rit, pit] = ptcr;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& pt = std::get<0>(ptcr);
   auto& rit = std::get<1>(ptcr);
   auto& pit = std::get<2>(ptcr);
-#endif // c++17
+#endif // HAVE_CXX17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -414,13 +414,13 @@ verify_column_groups_task(
       task->regions.end(),
       regions.begin() + 2,
       regions.end()).value();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [pt, rit, pit] = ptcr;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& pt = std::get<0>(ptcr);
   auto& rit = std::get<1>(ptcr);
   auto& pit = std::get<2>(ptcr);
-#endif // c++17
+#endif // HAVE_CXX17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -557,12 +557,12 @@ table_test_suite(
       col_prs[c] = attach_table0_col(ctx, rt, cols.at(c), col_arrays.at(c));
     {
       auto reqs = table0.requirements(ctx, rt);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [treqs, tparts, tdesc] = reqs;
-#else // !c++17
+#else // !HAVE_CXX17
       auto& treqs = std::get<0>(reqs);
       auto& tdesc = std::get<2>(reqs);
-#endif // c++17
+#endif // HAVE_CXX17
       TaskLauncher pttask(
         VERIFY_TABLE_COLUMNS_TASK,
         TaskArgument(&tdesc, sizeof(tdesc)),
@@ -599,12 +599,12 @@ table_test_suite(
          {"Y", reqA},
          {"Z", reqB},
          {"W", CXX_OPTIONAL_NAMESPACE::nullopt}});
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
-#else // !c++17
+#else // !HAVE_CXX17
     auto& treqs = std::get<0>(reqs);
     auto& tdesc = std::get<2>(reqs);
-#endif // c++17
+#endif // HAVE_CXX17
     TaskLauncher vcgtask(
       VERIFY_COLUMN_GROUPS_TASK,
       TaskArgument(&tdesc, sizeof(tdesc)),

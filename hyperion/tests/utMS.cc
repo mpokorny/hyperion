@@ -44,7 +44,7 @@ enum {
 template <typename T, int DIM>
 using RO = FieldAccessor<READ_ONLY, T, DIM, coord_t, AffineAccessor<T, DIM, coord_t>>;
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 #else
 #define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
@@ -369,7 +369,7 @@ verify_column_task(
         prs.index = regions[region_idx];
       {
         auto mr = MeasRef::make(rt, prs);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [mrbs, rmap] = mr;
 #else
         auto& mrbs = std::get<0>(mr);
@@ -421,7 +421,7 @@ read_full_ms(
 
   static const std::string t0_path("data/t0.ms");
   auto nm_ics_flds = from_ms(ctx, rt, t0_path, {"*"});
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [table_name, table_ics, table_fields] = nm_ics_flds;
 #else
   auto& table_name = std::get<0>(nm_ics_flds);
@@ -516,7 +516,7 @@ read_full_ms(
       .get_result<ColumnSpacePartition>();
     auto reqs =
       TableReadTask::requirements(ctx, rt, table, row_part);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
 #else
     auto& treqs = std::get<0>(reqs);
@@ -601,7 +601,7 @@ read_full_ms(
     }
     if (!col.mr.is_empty()) {
       auto reqs = col.mr.requirements(READ_ONLY);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [mr, vr, oir] = reqs;
 #else
       auto& mr = std::get<0>(reqs);

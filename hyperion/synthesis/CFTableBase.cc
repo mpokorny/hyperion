@@ -21,7 +21,7 @@
 using namespace hyperion::synthesis;
 using namespace Legion;
 
-#if __cplusplus < 201703L
+#if !HAVE_CXX17
 constexpr const char*
 hyperion::Axes<hyperion::synthesis::cf_table_axes_t>::uid;
 constexpr const unsigned
@@ -43,7 +43,7 @@ constexpr const char*
 hyperion::synthesis::cf_table_axis<CF_X>::name;
 constexpr const char*
 hyperion::synthesis::cf_table_axis<CF_Y>::name;
-#endif
+#endif // !HAVE_CXX17
 
 template <typename T>
 size_t
@@ -186,13 +186,13 @@ hyperion::synthesis::CFTableBase::init_index_column_task(
       task->regions.end(),
       regions.begin(),
       regions.end()).value();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [pt, rit, pit] = ptcr;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& pt = std::get<0>(ptcr);
   auto& rit = std::get<1>(ptcr);
   auto& pit = std::get<2>(ptcr);
-#endif // c++17
+#endif // HAVE_CXX17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 

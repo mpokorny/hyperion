@@ -57,13 +57,13 @@ hyperion::get_meas_refs(
         M_NONE,
         std::vector<std::tuple<std::unique_ptr<casacore::MRBase>, unsigned>>(),
         CXX_OPTIONAL_NAMESPACE::optional<std::string>());
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [mc, mrbs, refcol] = result.value();
-#else // !c++17
+#else // !HAVE_CXX17
     auto& mc = std::get<0>(result.value());
     auto& mrbs = std::get<1>(result.value());
     auto& refcol = std::get<2>(result.value());
-#endif // c++17
+#endif // HAVE_CXX17
     casacore::TableMeasColumn tmc(table, colname);
     const casacore::TableMeasDescBase& tmd = tmc.measDesc();
     if (!tmd.isRefCodeVariable() && !tmd.isOffsetVariable()) {
@@ -186,12 +186,12 @@ hyperion::create_named_meas_refs(
     std::vector<std::tuple<casacore::MRBase*, unsigned>>>& mrs) {
 
   std::tuple<std::string, MeasRef> result;
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [mc, mrbs] = mrs;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& mc = std::get<0>(mrs);
   auto& mrbs = std::get<1>(mrs);
-#endif // c++17
+#endif // HAVE_CXX17
   switch (mc) {
 #define NM(MC)                                          \
     case MC:                                            \
@@ -206,12 +206,12 @@ hyperion::create_named_meas_refs(
   std::vector<std::tuple<casacore::MRBase*, unsigned>> pmrbs;
   pmrbs.reserve(mrbs.size());
   for (auto& mct : mrbs) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [mrb, code] = mct;
-#else // !c++17
+#else // !HAVE_CXX17
     auto& mrb = std::get<0>(mct);
     auto& code = std::get<1>(mct);
-#endif // c++17
+#endif // HAVE_CXX17
     pmrbs.emplace_back(mrb, code);
   }
   std::get<1>(result) = MeasRef::create(ctx, rt, pmrbs, mc);

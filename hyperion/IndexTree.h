@@ -50,12 +50,12 @@ public:
       ch.end(),
       std::back_inserter(ch1),
       [&end](auto& c) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [n, t] = c;
-#else
+#else // !HAVE_CXX17
         auto& n = std::get<0>(c);
         auto& t = std::get<1>(c);
-#endif
+#endif // HAVE_CXX17
         COORD_T last_end = end;
         end += n;
         return std::make_tuple(last_end, n, t);

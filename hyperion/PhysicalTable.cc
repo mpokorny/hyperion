@@ -19,12 +19,6 @@
 using namespace hyperion;
 using namespace Legion;
 
-// TODO: there's a bunch of straight c++14-isms in this module, without c++17
-// alternatives, because of the complexity the provision of alternatives would
-// have created; when the conversion to c++17 occurs, the c++14 constructions
-// should be replaced with syntactically cleaner c++17 alternatives (but it will
-// take some searching to find them; hint: look for std::get)
-
 PhysicalTable::PhysicalTable(
   const PhysicalRegion& index_col_md,
   const std::tuple<LogicalRegion, PhysicalRegion>& index_col,
@@ -157,13 +151,13 @@ PhysicalTable::create(
     }
 #endif
     auto& region_parent_values = value_regions.at(vkey);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [region, parent, values] = region_parent_values;
-#else // !c++17
+#else // !HAVE_CXX17
     auto& region = std::get<0>(region_parent_values);
     auto& parent = std::get<1>(region_parent_values);
     auto& values = std::get<2>(region_parent_values);
-#endif // c++17
+#endif // HAVE_CXX17
     columns.emplace(
       cdesc.name,
       std::make_shared<PhysicalColumn>(
@@ -184,14 +178,14 @@ PhysicalTable::create(
   }
 #ifdef HYPERION_USE_CASACORE
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   for (auto& [nm, ppc] : columns) {
     if (refcols.count(nm) > 0) {
       auto& rc = refcols[nm];
       ppc->set_refcol(rc, columns.at(rc));
     }
   }
-#else // !c++17
+#else // !HAVE_CXX17
   for (auto& nm_ppc : columns) {
     auto& nm = std::get<0>(nm_ppc);
     auto& ppc = std::get<1>(nm_ppc);
@@ -200,7 +194,7 @@ PhysicalTable::create(
       ppc->set_refcol(rc, columns.at(rc));
     }
   }
-#endif // c++17
+#endif // HAVE_CXX17
 
 #endif
   return
@@ -380,16 +374,16 @@ PhysicalTable::requirements(
 
 #ifdef HYPERION_USE_CASACORE
     // apply mode of value column to its measure reference column
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     for (auto& [nm, rq] : mrc_reqs)
       column_reqs.at(nm) = rq;
-#else // !c++17
+#else // !HAVE_CXX17
     for (auto& nm_rq : mrc_reqs) {
       auto& nm = std::get<0>(nm_rq);
       auto& rq = std::get<1>(nm_rq);
       column_reqs.at(nm) = rq;
     }
-#endif // c++17
+#endif // HAVE_CXX17
 #endif
   }
   // create requirements, applying table_partition as needed
@@ -521,12 +515,12 @@ PhysicalTable::requirements(
       auto& reqs = column_reqs.at(nm);
       {
         auto& added_rq = md_reqs.at(ppc->region());
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [added, rq] = added_rq;
-#else // !c++17
+#else // !HAVE_CXX17
         auto& added = std::get<0>(added_rq);
         auto& rq = std::get<1>(added_rq);
-#endif // c++17
+#endif // HAVE_CXX17
         if (!added) {
           reqs_result.push_back(rq);
           added = true;
@@ -535,12 +529,12 @@ PhysicalTable::requirements(
       decltype(val_reqs)::key_type rg_rq =
         {ppc->region(), reqs.values.privilege, reqs.values.coherence, reqs.tag};
       auto& added_rq = val_reqs.at(rg_rq);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [added, rq] = added_rq;
-#else // !c++17
+#else // !HAVE_CXX17
       auto& added = std::get<0>(added_rq);
       auto& rq = std::get<1>(added_rq);
-#endif // c++17
+#endif // HAVE_CXX17
       cdesc.region = rq.parent;
       if (!added) {
         reqs_result.push_back(rq);
@@ -621,16 +615,16 @@ PhysicalTable::add_columns(
           cs.requirements(READ_ONLY, EXCLUSIVE)));
     }
     std::vector<std::pair<hyperion::string, TableField>> hnm_tfs;
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     for (auto& [nm, tf] : nm_tfs)
       hnm_tfs.emplace_back(nm, tf);
-#else // !c++17
+#else // !HAVE_CXX17
     for (auto& nm_tf : nm_tfs) {
       auto& nm = std::get<0>(nm_tf);
       auto& tf = std::get<1>(nm_tf);
       hnm_tfs.emplace_back(nm, tf);
     }
-#endif // c++17
+#endif // HAVE_CXX17
     new_columns.emplace_back(cs, cs_idxs[cs.metadata_lr], hnm_tfs);
   }
   std::tuple<IndexSpace, PhysicalRegion> index_cs =
@@ -1114,12 +1108,12 @@ PhysicalTable::reindexed(
   // names is useful
   std::map<ColumnSpace, std::vector<std::string>> cs_cols;
   for (auto& nm_pcol : m_columns) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [nm, pcol] = nm_pcol;
-#else // !c++17
+#else // !HAVE_CXX17
     auto& nm = std::get<0>(nm_pcol);
     auto& pcol = std::get<1>(nm_pcol);
-#endif // c++17
+#endif // HAVE_CXX17
     auto cs = pcol->column_space();
     if (cs_cols.count(cs) == 0)
       cs_cols[cs] = {nm};
@@ -1134,12 +1128,12 @@ PhysicalTable::reindexed(
     index_axes_extension,
     index_axes.end(),
     [this, &column_index, &index_cols, &ctx, rt](auto& d_nm) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [d, nm] = d_nm;
-#else // !c++17
+#else // !HAVE_CXX17
       auto& d = std::get<0>(d_nm);
       auto& nm = std::get<1>(d_nm);
-#endif // c++17
+#endif // HAVE_CXX17
       auto lr = m_columns.at(nm)->create_index(ctx, rt);
       RegionRequirement req(lr, READ_ONLY, EXCLUSIVE, lr);
       req.add_field(Column::COLUMN_INDEX_ROWS_FID);
@@ -1542,16 +1536,16 @@ PhysicalTable::release_columns(Context ctx, Runtime* rt) {
 std::unordered_map<std::string, Column>
 PhysicalTable::get_columns() const {
   std::unordered_map<std::string, Column> result;
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   for (auto& [nm, ppc] : m_columns)
     result[nm] = ppc->column();
-#else // !c++17
+#else // !HAVE_CXX17
   for (auto& nm_ppc : m_columns) {
     auto& nm = std::get<0>(nm_ppc);
     auto& ppc = std::get<1>(nm_ppc);
     result[nm] = ppc->column();
   }
-#endif // c++17
+#endif // HAVE_CXX17
   return result;
 }
 

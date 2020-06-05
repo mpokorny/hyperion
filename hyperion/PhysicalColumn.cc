@@ -25,14 +25,14 @@ PhysicalColumn::column() const {
 #ifdef HYPERION_USE_CASACORE
   MeasRef mr;
   if (m_mr_drs) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [mrg, vrg, oirg] = m_mr_drs.value();
-#else // !c++17
+#else // !HAVE_CXX17
     MeasRef::DataRegions drs = m_mr_drs.value();
     PhysicalRegion mrg = drs.metadata;
     PhysicalRegion vrg = drs.values;
     CXX_OPTIONAL_NAMESPACE::optional<PhysicalRegion> oirg = drs.index;
-#endif // c++17
+#endif // HAVE_CXX17
     mr =
       MeasRef(
         mrg.get_logical_region(),
@@ -83,7 +83,7 @@ PhysicalColumn::mrbases(Runtime* rt) const {
   std::vector<std::shared_ptr<casacore::MRBase>> result;
   auto omrb = mrb(rt);
   if (omrb) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     std::visit(overloaded {
         [&result](simple_mrb_t& smrb) {
           result.push_back(smrb);
@@ -93,9 +93,9 @@ PhysicalColumn::mrbases(Runtime* rt) const {
         }
       },
       omrb.value());
-#else
+#else // !HAVE_CXX17
     result = std::get<0>(omrb.value().ref);
-#endif // c++17
+#endif // HAVE_CXX17
   }
   return result;
 }
@@ -105,22 +105,20 @@ PhysicalColumn::mrb(Runtime* rt) const {
 
   CXX_OPTIONAL_NAMESPACE::optional<mrb_t> result;
   if (m_mr_drs) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto [mrb, rmap] = MeasRef::make(rt, m_mr_drs.value());
-#else // !c++17
+#else // !HAVE_CXX17
     std::vector<std::unique_ptr<casacore::MRBase>> mrb;
     std::unordered_map<unsigned, unsigned> rmap;
     std::tie(mrb, rmap) = MeasRef::make(rt, m_mr_drs.value());
-#endif // c++17
+#endif // HAVE_CXX17
     std::vector<std::shared_ptr<casacore::MRBase>> smrb;
     std::move(mrb.begin(), mrb.end(), std::back_inserter(smrb));
-#if __cplusplus < 201703L
     result = mrb_t();
-#endif
     if (m_refcol) {
       const std::shared_ptr<PhysicalColumn>& ppc =
         std::get<1>(m_refcol.value());
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       result =
         std::make_tuple(
           std::move(smrb),
@@ -137,12 +135,12 @@ PhysicalColumn::mrb(Runtime* rt) const {
           ppc->m_fid);
 #endif
     } else {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       result = smrb[0];
-#else
+#else // !HAVE_CXX17
       result.value().is_simple = true;
       std::get<0>(result.value().ref) = std::move(smrb);
-#endif
+#endif // HAVE_CXX17
     }
   }
   return result;

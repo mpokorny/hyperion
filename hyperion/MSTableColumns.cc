@@ -25,7 +25,7 @@ using namespace hyperion;
 
 HYPERION_FOREACH_MS_TABLE(DEFS);
 
-#if __cplusplus < 201703L
+#if !HAVE_CXX17
 
 #define COLCONST(T)                                                     \
   const constexpr std::array<const char*, MSTableDefs<MS_##T>::num_cols> \
@@ -38,7 +38,7 @@ HYPERION_FOREACH_MS_TABLE(DEFS);
                   MSTableDefs<MS_##T>::measure_names;
 
 HYPERION_FOREACH_MS_TABLE(COLCONST);
-#endif
+#endif // !HAVE_CXX17
 
 // Local Variables:
 // mode: c++

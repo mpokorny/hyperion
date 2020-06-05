@@ -172,7 +172,7 @@ attach_table0_col(
   return result;
 }
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 #else
 #define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
@@ -240,10 +240,10 @@ test_index_tree_attribute(
 void
 tree_tests(testing::TestRecorder<READ_WRITE>& recorder) {
   std::string fname = "h5.XXXXXX";
-#if __cplusplus < 201703L
-  int fd = mkstemp(const_cast<char*>(fname.data()));
-#else
+#if HAVE_CXX17
   int fd = mkstemp(fname.data());
+#else
+  int fd = mkstemp(const_cast<char*>(fname.data()));
 #endif
   assert(fd != -1);
   close(fd);
@@ -399,10 +399,10 @@ table_tests(
       {{xy_space, xy_fields}, {z_space, z_fields}});
   auto cols0 = tb0.columns();
 
-#if __cplusplus < 201703L
-  int fd = mkstemp(const_cast<char*>(fname.data()));
-#else
+#if HAVE_CXX17
   int fd = mkstemp(fname.data());
+#else
+  int fd = mkstemp(const_cast<char*>(fname.data()));
 #endif
   assert(fd != -1);
   if (save_output_file)
@@ -439,7 +439,7 @@ table_tests(
     }
 
     auto itb1 = init_table(ctx, rt, root_loc, "table1");
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [tb1, tb1_paths] = itb1;
 #else
     auto& tb1 = std::get<0>(itb1);
@@ -640,7 +640,7 @@ table_tests(
     assert(fid >= 0);
     root_loc = H5Gopen(fid, "/", H5P_DEFAULT);
     auto itb1 = init_table(ctx, rt, root_loc, "table1");
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [tb1, tb1_paths] = itb1;
 #else
     auto& tb1 = std::get<0>(itb1);

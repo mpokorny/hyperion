@@ -211,13 +211,13 @@ TableReadTask::impl(
       task->regions.end(),
       regions.begin() ,
       regions.end()).value();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [table, rit, pit] = ptcr;
-#else // !c++17
+#else // !HAVE_CXX17
   auto& table = std::get<0>(ptcr);
   auto& rit = std::get<1>(ptcr);
   auto& pit = std::get<2>(ptcr);
-#endif // c++17
+#endif // HAVE_CXX17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
@@ -227,12 +227,12 @@ TableReadTask::impl(
   auto tdesc = cctable.tableDesc();
 
   for (auto& nm_column : table.columns()) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
     auto& [nm, column] = nm_column;
-#else // !c++17
+#else // !HAVE_CXX17
     auto& nm = std::get<0>(nm_column);
     auto& column = std::get<1>(nm_column);
-#endif // c++17
+#endif // HAVE_CXX17
     if (nm != "") {
       switch (column->domain().get_dim()) {
       case 0: // for index column space

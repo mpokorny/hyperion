@@ -83,7 +83,7 @@ const hid_t
 hyperion::Axes<Table0Axes>::h5_datatype = h5_dt();
 #endif
 
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
 #define TE(f) testing::TestEval([&](){ return f; }, #f)
 #else
 #define TE(f) testing::TestEval<std::function<bool()>>([&](){ return f; }, #f)
@@ -207,7 +207,7 @@ verify_layouts_task(
       task->regions.end(),
       regions.begin() + 2,
       regions.end()).value();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [pt, rit, pit] = ptcr;
 #else
   auto& pt = std::get<0>(ptcr);
@@ -381,7 +381,7 @@ mapper_test_suite(
        {"c7", aos_rm_creqs},
        {"foo", CXX_OPTIONAL_NAMESPACE::nullopt}},
       CXX_OPTIONAL_NAMESPACE::nullopt);
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
   auto& [treqs, tparts, tdesc] = reqs;
 #else
   auto& treqs = std::get<0>(reqs);
