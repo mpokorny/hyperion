@@ -186,7 +186,7 @@ public:
 };
 #endif //HYPERION_USE_CASACORE
 
-class HYPERION_API PhysicalColumn {
+class HYPERION_EXPORT PhysicalColumn {
 public:
 
   PhysicalColumn(

@@ -29,7 +29,7 @@
 
 namespace hyperion {
 
-class  HYPERION_API Keywords {
+class  HYPERION_EXPORT Keywords {
 public:
 
   Legion::LogicalRegion type_tags_lr;

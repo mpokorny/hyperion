@@ -37,7 +37,7 @@ enum TestState {
 template <legion_privilege_mode_t MODE>
 class TestLog;
 
-struct HYPERION_API TestLogReference {
+struct HYPERION_EXPORT TestLogReference {
 public:
 
   TestLogReference(
@@ -223,17 +223,17 @@ private:
 };
 
 template <>
-struct HYPERION_API TestLogReference::abort_state_accessor<READ_ONLY> {
+struct HYPERION_EXPORT TestLogReference::abort_state_accessor<READ_ONLY> {
   typedef TestLogReference::abort_state_read_accessor t;
 };
 
 template <>
-struct HYPERION_API TestLogReference::abort_state_accessor<READ_WRITE> {
+struct HYPERION_EXPORT TestLogReference::abort_state_accessor<READ_WRITE> {
   typedef TestLogReference::abort_state_reduce_accessor t;
 };
 
 template <>
-struct HYPERION_API TestLogReference::abort_state_accessor<WRITE_DISCARD> {
+struct HYPERION_EXPORT TestLogReference::abort_state_accessor<WRITE_DISCARD> {
   typedef TestLogReference::abort_state_reduce_accessor t;
 };
 
@@ -373,7 +373,7 @@ template <legion_privilege_mode_t MODE>
 struct TestResult;
 
 template <>
-struct HYPERION_API TestResult<READ_ONLY> {
+struct HYPERION_EXPORT TestResult<READ_ONLY> {
   const coord_t& state;
   const bool& abort;
   const std::string& name;
@@ -381,7 +381,7 @@ struct HYPERION_API TestResult<READ_ONLY> {
 };
 
 template <>
-struct HYPERION_API TestResult<READ_WRITE> {
+struct HYPERION_EXPORT TestResult<READ_WRITE> {
   coord_t state;
   bool abort;
   std::string name;
@@ -389,7 +389,7 @@ struct HYPERION_API TestResult<READ_WRITE> {
 };
 
 template <>
-struct HYPERION_API TestResult<WRITE_DISCARD> {
+struct HYPERION_EXPORT TestResult<WRITE_DISCARD> {
   coord_t state;
   bool abort;
   std::string name;
@@ -413,7 +413,7 @@ public:
 };
 
 template <>
-class HYPERION_API TestLogIterator<READ_ONLY> {
+class HYPERION_EXPORT TestLogIterator<READ_ONLY> {
 public:
 
   virtual
@@ -562,7 +562,7 @@ private:
 };
 
 template <>
-class HYPERION_API TestLogIterator<READ_WRITE> {
+class HYPERION_EXPORT TestLogIterator<READ_WRITE> {
 public:
 
   virtual
@@ -722,7 +722,7 @@ private:
 };
 
 template <>
-class HYPERION_API TestLogIterator<WRITE_DISCARD> {
+class HYPERION_EXPORT TestLogIterator<WRITE_DISCARD> {
 public:
 
   virtual
@@ -883,7 +883,7 @@ private:
 };
 
 template <>
-class HYPERION_API TestLog<READ_ONLY> {
+class HYPERION_EXPORT TestLog<READ_ONLY> {
 
 public:
 
@@ -1077,7 +1077,7 @@ private:
 };
 
 template <>
-class HYPERION_API TestLog<READ_WRITE> {
+class HYPERION_EXPORT TestLog<READ_WRITE> {
 
 public:
 
@@ -1274,7 +1274,7 @@ private:
 };
 
 template <>
-class HYPERION_API TestLog<WRITE_DISCARD> {
+class HYPERION_EXPORT TestLog<WRITE_DISCARD> {
 
 public:
 

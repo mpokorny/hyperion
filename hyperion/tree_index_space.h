@@ -29,7 +29,7 @@ namespace hyperion {
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;
 
-class HYPERION_API TreeIndexSpaceTask {
+class HYPERION_EXPORT TreeIndexSpaceTask {
 public:
 
   static Legion::TaskID TASK_ID;
@@ -57,7 +57,7 @@ private:
   std::vector<IndexTreeL> m_trees;
 };
 
-HYPERION_API Legion::IndexSpace
+HYPERION_EXPORT Legion::IndexSpace
 tree_index_space(
   const IndexTreeL& tree,
   Legion::Context ctx,

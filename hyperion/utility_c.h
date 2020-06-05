@@ -40,10 +40,10 @@ typedef enum type_tag_t {
   HYPERION_NUM_TYPE_TAGS
 } type_tag_t;
 
-HYPERION_API void
+HYPERION_EXPORT void
 preregister_all();
 
-HYPERION_API void
+HYPERION_EXPORT void
 register_tasks(legion_context_t context, legion_runtime_t runtime);
 
 #ifdef __cplusplus

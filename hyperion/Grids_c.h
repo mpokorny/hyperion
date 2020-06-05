@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-HYPERION_API void
+HYPERION_EXPORT void
 block_and_halo_partitions_1d(
   legion_context_t ctx,
   legion_runtime_t runtime,
@@ -32,7 +32,7 @@ block_and_halo_partitions_1d(
   legion_index_partition_t* block_ip,
   legion_index_partition_t* halo_ip);
 
-HYPERION_API void
+HYPERION_EXPORT void
 block_and_halo_partitions_2d(
   legion_context_t ctx,
   legion_runtime_t runtime,
@@ -42,7 +42,7 @@ block_and_halo_partitions_2d(
   legion_index_partition_t* block_ip,
   legion_index_partition_t* halo_ip);
 
-HYPERION_API void
+HYPERION_EXPORT void
 block_and_halo_partitions_3d(
   legion_context_t ctx,
   legion_runtime_t runtime,

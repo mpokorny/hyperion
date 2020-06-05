@@ -204,7 +204,7 @@ struct Axes {
 #endif
 };
 
-HYPERION_LOCAL CXX_OPTIONAL_NAMESPACE::optional<int>
+CXX_OPTIONAL_NAMESPACE::optional<int>
 column_is_axis(
   const std::vector<std::string>& axis_names,
   const std::string& colname,
@@ -228,7 +228,7 @@ fstrcpy(char(& dest)[N], const char* src) {
   return &dest[0];
 }
 
-HYPERION_API unsigned
+HYPERION_EXPORT unsigned
 min_divisor(
   size_t numerator,
   size_t min_quotient,
@@ -236,7 +236,7 @@ min_divisor(
 
 // this returns an IndexPartition with a new IndexSpace as a color space, which
 // the caller must eventually destroy
-HYPERION_API Legion::IndexPartition
+HYPERION_EXPORT Legion::IndexPartition
 partition_over_default_tunable(
   Legion::Context ctx,
   Legion::Runtime* rt,
@@ -244,11 +244,11 @@ partition_over_default_tunable(
   size_t min_block_size,
   Legion::Mapping::DefaultMapper::DefaultTunables tunable);
 
-HYPERION_API IndexTreeL
+HYPERION_EXPORT IndexTreeL
 index_space_as_tree(Legion::Runtime* rt, Legion::IndexSpace is);
 
 #ifdef HYPERION_USE_CASACORE
-HYPERION_API std::tuple<
+HYPERION_EXPORT std::tuple<
   std::string,
   ColumnSpace,
   std::vector<
@@ -302,7 +302,7 @@ using_resource(OPEN open, F f, CLOSE close) {
   close(r);
 }
 
-struct HYPERION_API string {
+struct HYPERION_EXPORT string {
 
   string() {
     val[0] = '\0';
@@ -660,7 +660,7 @@ public:
   }
 };
 
-class HYPERION_API index_tree_serdez {
+class HYPERION_EXPORT index_tree_serdez {
 public:
   typedef IndexTreeL FIELD_TYPE;
 
@@ -713,7 +713,7 @@ public:
   destroy(FIELD_TYPE& val);
 };
 
-class HYPERION_API coordinate_system_serdez {
+class HYPERION_EXPORT coordinate_system_serdez {
 public:
   typedef casacore::CoordinateSystem FIELD_TYPE;
 
@@ -734,7 +734,7 @@ public:
 
 #endif
 
-class HYPERION_LOCAL bool_or_redop {
+class bool_or_redop {
 public:
   typedef bool LHS;
   typedef bool RHS;
@@ -878,7 +878,7 @@ template <typename T>
 typename acc_field_redop<T>::RHS const acc_field_redop<T>::identity =
   acc_field_redop_rhs<T>{{}};
 
-struct HYPERION_API coord_bor_redop {
+struct HYPERION_EXPORT coord_bor_redop {
 
   typedef coord_t LHS;
   typedef coord_t RHS;
@@ -922,7 +922,7 @@ struct DataType {
   //typedef X ValueType;
 };
 
-class HYPERION_API OpsManager {
+class HYPERION_EXPORT OpsManager {
 public:
 
   enum {
@@ -1024,7 +1024,7 @@ public:
 };
 
 #ifdef HYPERION_USE_HDF5
-class HYPERION_API H5DatatypeManager {
+class HYPERION_EXPORT H5DatatypeManager {
 public:
 
   // TODO: add support for non-native types in HDF5 files
@@ -1084,7 +1084,7 @@ private:
 };
 #endif
 
-class HYPERION_API AxesRegistrar {
+class HYPERION_EXPORT AxesRegistrar {
 public:
 
   struct A {
@@ -1136,7 +1136,7 @@ private:
   static std::unordered_map<std::string, A> axes_;
 };
 
-HYPERION_API Legion::FieldID
+HYPERION_EXPORT Legion::FieldID
 add_field(
   TypeTag datatype,
   Legion::FieldAllocator fa,
@@ -1555,7 +1555,7 @@ struct ValueType {
 HYPERION_FOREACH_DATATYPE(VT)
 #undef VT
 
-struct HYPERION_API AxisPartition {
+struct HYPERION_EXPORT AxisPartition {
   string axes_uid;
   int dim;
   // stride between start of partition sub-spaces
@@ -1599,29 +1599,29 @@ struct HYPERION_API AxisPartition {
   }
 };
 
-HYPERION_API Legion::LayoutConstraintRegistrar&
+HYPERION_EXPORT Legion::LayoutConstraintRegistrar&
 add_row_major_order_constraint(
   Legion::LayoutConstraintRegistrar& lc,
   unsigned rank);
 
-HYPERION_API void
+HYPERION_EXPORT void
 register_mapper(
   Legion::Machine machine,
   Legion::Runtime* rt,
   const std::set<Legion::Processor>& local_procs);
 
-HYPERION_API void
+HYPERION_EXPORT void
 preregister_all();
 
 // FIXME: rename this function
-HYPERION_API void
+HYPERION_EXPORT void
 register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
-HYPERION_API extern Legion::MapperID table_mapper;
-HYPERION_API extern Legion::LayoutConstraintID soa_row_major_layout;
-HYPERION_API extern Legion::LayoutConstraintID soa_column_major_layout;
-HYPERION_API extern Legion::LayoutConstraintID aos_row_major_layout;
-HYPERION_API extern Legion::LayoutConstraintID aos_column_major_layout;
+HYPERION_EXPORT extern Legion::MapperID table_mapper;
+HYPERION_EXPORT extern Legion::LayoutConstraintID soa_row_major_layout;
+HYPERION_EXPORT extern Legion::LayoutConstraintID soa_column_major_layout;
+HYPERION_EXPORT extern Legion::LayoutConstraintID aos_row_major_layout;
+HYPERION_EXPORT extern Legion::LayoutConstraintID aos_column_major_layout;
 
 #if LEGION_MAX_DIM == 1
 
@@ -2762,7 +2762,7 @@ HYPERION_FOREACH_N(DEFINE_POINT_ADD_REDOP);
 
 } // end namespace hyperion
 
-HYPERION_API std::ostream&
+HYPERION_EXPORT std::ostream&
 operator<<(std::ostream& stream, const hyperion::string& str);
 
 #ifndef HYPERION_USE_CASACORE

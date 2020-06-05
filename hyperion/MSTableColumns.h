@@ -50,7 +50,7 @@ struct MSTableDefs {
 
 #define MSTDEF(T, t)                                                    \
   template <>                                                           \
-  struct HYPERION_API MSTableDefs<MS_##T> {                             \
+  struct HYPERION_EXPORT MSTableDefs<MS_##T> {                             \
     typedef ms_##t##_col_t col_t;                                       \
     static const constexpr unsigned num_cols =                          \
       MS_##T##_NUM_COLS;                                                \
@@ -119,7 +119,7 @@ MSTableColumns<T>::measure_names =
 #if !HAVE_CXX17
 #define MS_TABLE_COLUMNS(T)                                             \
   template <>                                                           \
-  struct HYPERION_API MSTableColumns<MS_##T> {                          \
+  struct HYPERION_EXPORT MSTableColumns<MS_##T> {                          \
     typedef typename MSTableDefs<MS_##T>::col_t col_t;                  \
                                                                         \
     static const constexpr std::array<const char*, MSTableDefs<MS_##T>::num_cols> \

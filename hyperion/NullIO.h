@@ -21,7 +21,7 @@
 
 namespace hyperion {
 
-class HYPERION_API NullIO
+class HYPERION_EXPORT NullIO
   : public casacore::ByteIO {
 
 public:

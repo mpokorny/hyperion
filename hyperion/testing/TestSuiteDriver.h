@@ -28,7 +28,7 @@
 namespace hyperion {
 namespace testing {
 
-class HYPERION_API TestSuiteDriver {
+class HYPERION_EXPORT TestSuiteDriver {
 public:
 
   static Legion::TaskID DRIVER_TASK_ID;

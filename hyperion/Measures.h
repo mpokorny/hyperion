@@ -111,7 +111,7 @@ struct MClassTBase {
 };
 
 template <>
-struct HYPERION_API MClassT<MClass::M_BASELINE>
+struct HYPERION_EXPORT MClassT<MClass::M_BASELINE>
   : public MClassTBase<casacore::MBaseline, 1> {
 
   static const std::string name;
@@ -128,7 +128,7 @@ struct HYPERION_API MClassT<MClass::M_BASELINE>
 };
 
 template <>
-struct HYPERION_API MClassT<MClass::M_DIRECTION>
+struct HYPERION_EXPORT MClassT<MClass::M_DIRECTION>
   : public MClassTBase<casacore::MDirection, 1> {
 
   static const std::string name;
@@ -145,7 +145,7 @@ struct HYPERION_API MClassT<MClass::M_DIRECTION>
 };
 
 template <>
-struct HYPERION_API MClassT<MClass::M_DOPPLER>
+struct HYPERION_EXPORT MClassT<MClass::M_DOPPLER>
   : public MClassTBase<casacore::MDoppler, 0> {
 
   static const std::string name;
@@ -162,7 +162,7 @@ struct HYPERION_API MClassT<MClass::M_DOPPLER>
 };
 
 template <>
-struct HYPERION_API MClassT<MClass::M_EARTH_MAGNETIC>
+struct HYPERION_EXPORT MClassT<MClass::M_EARTH_MAGNETIC>
   : public MClassTBase<casacore::MEarthMagnetic, 1> {
 
   static const std::string name;
@@ -179,7 +179,7 @@ struct HYPERION_API MClassT<MClass::M_EARTH_MAGNETIC>
 };
 
 template <>
-struct HYPERION_API MClassT<MClass::M_EPOCH>
+struct HYPERION_EXPORT MClassT<MClass::M_EPOCH>
   : public MClassTBase<casacore::MEpoch, 0> {
 
   static const std::string name;
@@ -196,7 +196,7 @@ struct HYPERION_API MClassT<MClass::M_EPOCH>
 };
 
 template <>
-struct HYPERION_API MClassT<MClass::M_FREQUENCY>
+struct HYPERION_EXPORT MClassT<MClass::M_FREQUENCY>
   : public MClassTBase<casacore::MFrequency, 0> {
 
   static const std::string name;
@@ -213,7 +213,7 @@ struct HYPERION_API MClassT<MClass::M_FREQUENCY>
 };
 
 template <>
-struct HYPERION_API MClassT<MClass::M_POSITION>
+struct HYPERION_EXPORT MClassT<MClass::M_POSITION>
   : public MClassTBase<casacore::MPosition, 1> {
 
   static const std::string name;
@@ -230,7 +230,7 @@ struct HYPERION_API MClassT<MClass::M_POSITION>
 };
 
 template <>
-struct HYPERION_API MClassT<MClass::M_RADIAL_VELOCITY>
+struct HYPERION_EXPORT MClassT<MClass::M_RADIAL_VELOCITY>
   : public MClassTBase<casacore::MRadialVelocity, 0> {
 
   static const std::string name;
@@ -247,7 +247,7 @@ struct HYPERION_API MClassT<MClass::M_RADIAL_VELOCITY>
 };
 
 template <>
-struct HYPERION_API MClassT<MClass::M_UVW>
+struct HYPERION_EXPORT MClassT<MClass::M_UVW>
   : public MClassTBase<casacore::Muvw, 1> {
 
   static const std::string name;

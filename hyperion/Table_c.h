@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-typedef struct HYPERION_API table_t {
+typedef struct HYPERION_EXPORT table_t {
   legion_logical_region_t metadata;
   legion_logical_region_t axes;
   legion_logical_region_t columns;
@@ -32,34 +32,34 @@ typedef struct HYPERION_API table_t {
 } table_t;
 
 /* metadata field types: [char*, char*] */
-HYPERION_API const legion_field_id_t*
+HYPERION_EXPORT const legion_field_id_t*
 table_metadata_fs();
 
 /* axes field types: [int] */
-HYPERION_API const legion_field_id_t*
+HYPERION_EXPORT const legion_field_id_t*
 table_axes_fs();
 
-HYPERION_API int
+HYPERION_EXPORT int
 table_is_empty(legion_context_t ctx, legion_runtime_t rt, table_t t);
 
-HYPERION_API char**
+HYPERION_EXPORT char**
 table_column_names(legion_context_t ctx, legion_runtime_t rt, table_t tab);
 
-HYPERION_API column_t
+HYPERION_EXPORT column_t
 table_column(
   legion_context_t ctx,
   legion_runtime_t rt,
   table_t tab,
   const char* name);
 
-HYPERION_API void
+HYPERION_EXPORT void
 table_destroy(
   legion_context_t ctx,
   legion_runtime_t rt,
   table_t tab,
   int destroy_columns);
 
-/* HYPERION_API table_t */
+/* HYPERION_EXPORT table_t */
 /* table_reindexed( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -68,7 +68,7 @@ table_destroy(
 /*   const int* axes, */
 /*   int allow_rows); */
 
-/* HYPERION_API void */
+/* HYPERION_EXPORT void */
 /* table_partition_by_value( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -81,7 +81,7 @@ table_destroy(
 /*   legion_logical_partition_t* col_partitions); */
 
 /* #ifdef HYPERION_USE_CASACORE */
-/* HYPERION_API table_t */
+/* HYPERION_EXPORT table_t */
 /* table_from_ms( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -92,14 +92,14 @@ table_destroy(
 
 /* #ifdef HYPERION_USE_HDF5 */
 /* // returns NULL-terminated array of strings -- caller must free everything */
-/* HYPERION_API char ** */
+/* HYPERION_EXPORT char ** */
 /* tables_in_h5(const char* path); */
 
 /* // returns NULL-terminated array of strings -- caller must free everything */
-/* HYPERION_API char ** */
+/* HYPERION_EXPORT char ** */
 /* columns_in_h5(const char* path, const char* table_path); */
 
-/* HYPERION_API table_t */
+/* HYPERION_EXPORT table_t */
 /* table_from_h5( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -110,7 +110,7 @@ table_destroy(
 
 /* // use table_num_keywords() to find required minimum length of vectors */
 /* // "keywords" and "paths"; returned strings must be freed by caller */
-/* HYPERION_API void */
+/* HYPERION_EXPORT void */
 /* table_keyword_paths( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -119,7 +119,7 @@ table_destroy(
 /*   char** paths); */
 
 /* // returned string "*path" must be freed by caller */
-/* HYPERION_API void */
+/* HYPERION_EXPORT void */
 /* table_column_value_path( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */
@@ -129,7 +129,7 @@ table_destroy(
 
 /* // use column_num_keywords() to find required minimum length of vector */
 /* // "keywords" and "paths"; returned strings must be freed by caller */
-/* HYPERION_API void */
+/* HYPERION_EXPORT void */
 /* table_column_keyword_paths( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */

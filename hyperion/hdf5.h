@@ -190,7 +190,7 @@ write_index_tree_to_attr(
   }
 }
 
-HYPERION_API CXX_OPTIONAL_NAMESPACE::optional<std::string>
+HYPERION_EXPORT CXX_OPTIONAL_NAMESPACE::optional<std::string>
 read_index_tree_attr_metadata(hid_t grp_id, const std::string& attr_name);
 
 template <typename SERDEZ>
@@ -249,13 +249,13 @@ read_index_tree_from_attr(
   return result;
 }
 
-HYPERION_API void
+HYPERION_EXPORT void
 write_keywords(
   Legion::Runtime *rt,
   hid_t loc_id,
   const Keywords::pair<Legion::PhysicalRegion>& kw_prs);
 
-HYPERION_API void
+HYPERION_EXPORT void
 write_keywords(
   Legion::Context ctx,
   Legion::Runtime *rt,
@@ -263,13 +263,13 @@ write_keywords(
   const Keywords& keywords);
 
 #ifdef HYPERION_USE_CASACORE
-HYPERION_API void
+HYPERION_EXPORT void
 write_measure(
   Legion::Runtime* rt,
   hid_t mr_id,
   const MeasRef::DataRegions& mr_drs);
 
-HYPERION_API void
+HYPERION_EXPORT void
 write_measure(
   Legion::Context ctx,
   Legion::Runtime* rt,
@@ -277,14 +277,14 @@ write_measure(
   const MeasRef& mr);
 #endif
 
-HYPERION_API void
+HYPERION_EXPORT void
 write_column(
   Legion::Runtime* rt,
   hid_t col_grp_id,
   const std::string& cs_name,
   const PhysicalColumn& column);
 
-HYPERION_API void
+HYPERION_EXPORT void
 write_column(
   Legion::Context ctx,
   Legion::Runtime* rt,
@@ -292,7 +292,7 @@ write_column(
   const std::string& cs_name,
   const Column& column);
 
-HYPERION_API void
+HYPERION_EXPORT void
 write_columnspace(
   Legion::Runtime* rt,
   hid_t cs_grp_id,
@@ -300,7 +300,7 @@ write_columnspace(
   const Legion::IndexSpace& cs_is,
   hid_t table_axes_dt);
 
-HYPERION_API void
+HYPERION_EXPORT void
 write_columnspace(
   Legion::Context ctx,
   Legion::Runtime* rt,
@@ -308,13 +308,13 @@ write_columnspace(
   const ColumnSpace& cs,
   hid_t table_axes_dt);
 
-HYPERION_API void
+HYPERION_EXPORT void
 write_table(
   Legion::Runtime* rt,
   hid_t table_grp_id,
   const PhysicalTable& table);
 
-HYPERION_API void
+HYPERION_EXPORT void
 write_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
@@ -322,17 +322,17 @@ write_table(
   const Table& table,
   const std::unordered_set<std::string>& columns);
 
-HYPERION_API void
+HYPERION_EXPORT void
 write_table(
   Legion::Context ctx,
   Legion::Runtime* rt,
   hid_t table_grp_id,
   const Table& table);
 
-HYPERION_API hyperion::Keywords::kw_desc_t
+HYPERION_EXPORT hyperion::Keywords::kw_desc_t
 init_keywords(hid_t loc_id);
 
-HYPERION_API hyperion::ColumnSpace
+HYPERION_EXPORT hyperion::ColumnSpace
 init_columnspace(
   Legion::Context ctx,
   Legion::Runtime* rt,
@@ -340,7 +340,7 @@ init_columnspace(
   hid_t table_axes_dt,
   const std::string& cs_name);
 
-HYPERION_API
+HYPERION_EXPORT
   CXX_OPTIONAL_NAMESPACE::optional<
     std::tuple<
       Table::fields_t,
@@ -351,7 +351,7 @@ table_fields(
   hid_t loc_id,
   const std::string& table_name);
 
-HYPERION_API std::tuple<
+HYPERION_EXPORT std::tuple<
   hyperion::Table,
   std::unordered_map<std::string, std::string>>
 init_table(
@@ -360,26 +360,26 @@ init_table(
   hid_t loc_id,
   const std::string& table_name);
 
-HYPERION_API std::unordered_map<
+HYPERION_EXPORT std::unordered_map<
   std::string,
     std::tuple<
       Table::fields_t,
       std::unordered_map<std::string, std::string>>>
 all_table_fields(Legion::Context ctx, Legion::Runtime* rt, hid_t loc_id);
 
-HYPERION_API std::unordered_map<std::string, std::string>
+HYPERION_EXPORT std::unordered_map<std::string, std::string>
 get_table_column_paths(
   hid_t file_id,
   const std::string& table_path,
   const std::unordered_set<std::string>& columns);
 
-HYPERION_API std::unordered_map<std::string, std::string>
+HYPERION_EXPORT std::unordered_map<std::string, std::string>
 get_table_column_paths(
   const CXX_FILESYSTEM_NAMESPACE::path& file_path,
   const std::string& table_path,
   const std::unordered_set<std::string>& columns);
 
-HYPERION_API Legion::PhysicalRegion
+HYPERION_EXPORT Legion::PhysicalRegion
 attach_keywords(
   Legion::Context context,
   Legion::Runtime* runtime,
@@ -388,7 +388,7 @@ attach_keywords(
   const Keywords& keywords,
   bool read_only = true);
 
-HYPERION_API CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion>
+HYPERION_EXPORT CXX_OPTIONAL_NAMESPACE::optional<Legion::PhysicalRegion>
 attach_table_columns(
   Legion::Context ctx,
   Legion::Runtime* rt,
@@ -400,7 +400,7 @@ attach_table_columns(
   bool read_only,
   bool mapped);
 
-HYPERION_API std::map<
+HYPERION_EXPORT std::map<
   Legion::PhysicalRegion,
   std::unordered_map<std::string, Column>>
 attach_all_table_columns(
@@ -414,7 +414,7 @@ attach_all_table_columns(
   bool read_only,
   bool mapped);
 
-HYPERION_API std::map<
+HYPERION_EXPORT std::map<
   Legion::PhysicalRegion,
   std::unordered_map<std::string, Column>>
 attach_some_table_columns(
@@ -428,7 +428,7 @@ attach_some_table_columns(
   bool read_only,
   bool mapped);
 
-struct HYPERION_API binary_index_tree_serdez {
+struct HYPERION_EXPORT binary_index_tree_serdez {
 
   static const constexpr char* id = "hyperion::hdf5::binary_index_tree_serdez";
 
@@ -449,7 +449,7 @@ struct HYPERION_API binary_index_tree_serdez {
   }
 };
 
-struct HYPERION_API string_index_tree_serdez {
+struct HYPERION_EXPORT string_index_tree_serdez {
 
   static const constexpr char* id = "hyperion::hdf5::string_index_tree_serdez";
 

@@ -17,11 +17,8 @@
 #define HYPERION_HYPERION_H_
 
 #include <legion.h>
-
+#include "hyperion_export.h"
 #include <hyperion/hyperion_config.h>
-
-#define HYPERION_API __attribute__((visibility("default")))
-#define HYPERION_LOCAL __attribute__((visibility("hidden")))
 
 /**
  * \namespace hyperion

@@ -24,7 +24,7 @@
 
 namespace hyperion {
 
-class HYPERION_API TableMapper
+class HYPERION_EXPORT TableMapper
   : public Legion::Mapping::DefaultMapper {
 public:
 

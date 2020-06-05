@@ -28,7 +28,7 @@
 
 namespace hyperion {
 
-class HYPERION_API PhysicalTable {
+class HYPERION_EXPORT PhysicalTable {
 public:
 
   PhysicalTable(

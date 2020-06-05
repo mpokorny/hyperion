@@ -30,7 +30,7 @@
 
 namespace hyperion {
 
-class HYPERION_API MeasRef {
+class HYPERION_EXPORT MeasRef {
 public:
 
   enum ArrayComponent {

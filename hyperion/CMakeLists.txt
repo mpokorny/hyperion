@@ -85,8 +85,9 @@ endif()
 # hyperion library
 #------------------------------------------------------------------------------#
 
-add_compile_options(-Wall -fvisibility=hidden $<$<CONFIG:Debug>:-g>)
-#add_compile_options(-Wall $<$<CONFIG:Debug>:-g>)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN TRUE)
+add_compile_options(-Wall $<$<CONFIG:Debug>:-g>)
 add_compile_definitions($<$<CONFIG:Debug>:HYPERION_DEBUG>)
 
 check_cxx_compiler_flag("-Og" COMPILER_SUPORTS_DEBUG_OPTIMIZE)
@@ -227,6 +228,7 @@ set_host_target_properties(hyperion)
 target_include_directories(hyperion PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/..>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
   $<INSTALL_INTERFACE:include>)
 if (hyperion_USE_CASACORE)
   if (BUILD_CASACORE)
@@ -248,6 +250,8 @@ target_link_libraries(hyperion PUBLIC LegionRuntime)
 target_link_libraries(hyperion PUBLIC RealmRuntime)
 target_compile_definitions(hyperion PUBLIC
   $<$<COMPILE_FEATURES:cxx_std_17>:HAVE_CXX17>)
+include(GenerateExportHeader)
+generate_export_header(hyperion)
 
 install(TARGETS hyperion EXPORT HyperionConfig
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

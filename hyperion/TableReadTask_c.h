@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-/* HYPERION_API void */
+/* HYPERION_EXPORT void */
 /* table_block_read_task( */
 /*   legion_context_t context, */
 /*   legion_runtime_t runtime, */

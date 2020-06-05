@@ -23,7 +23,7 @@
 namespace hyperion {
 namespace synthesis {
 
-class HYPERION_API PSTermTable
+class HYPERION_EXPORT PSTermTable
   : public CFTable<CF_PB_SCALE> {
 public:
 

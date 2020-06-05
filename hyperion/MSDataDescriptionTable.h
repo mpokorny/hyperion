@@ -26,7 +26,7 @@
 
 namespace hyperion {
 
-class HYPERION_API MSDataDescriptionTable
+class HYPERION_EXPORT MSDataDescriptionTable
   : public PhysicalTable {
 public:
 

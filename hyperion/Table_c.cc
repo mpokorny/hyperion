@@ -54,7 +54,7 @@ table_is_empty(legion_context_t ctx, legion_runtime_t rt, table_t tab) {
       Legion::CObjectWrapper::unwrap(rt));
 }
 
-HYPERION_API char**
+HYPERION_EXPORT char**
 table_column_names(
   legion_context_t ctx,
   legion_runtime_t rt,
@@ -76,7 +76,7 @@ table_column_names(
   return result;
 }
 
-HYPERION_API column_t
+HYPERION_EXPORT column_t
 table_column(
   legion_context_t ctx,
   legion_runtime_t rt,
@@ -91,7 +91,7 @@ table_column(
         name));
 }
 
-HYPERION_API void
+HYPERION_EXPORT void
 table_destroy(
   legion_context_t ctx,
   legion_runtime_t rt,

@@ -32,7 +32,7 @@
 
 namespace hyperion {
 
-class HYPERION_API TableReadTask {
+class HYPERION_EXPORT TableReadTask {
 public:
 
   static std::tuple<

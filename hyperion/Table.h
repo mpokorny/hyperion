@@ -96,7 +96,7 @@ struct table_indexing {
   using Pt = Pt_<M, N, A0, axes<AXES...>>;
 };
 
-class HYPERION_API Table {
+class HYPERION_EXPORT Table {
 
   // FIXME: add support for table keywords
 

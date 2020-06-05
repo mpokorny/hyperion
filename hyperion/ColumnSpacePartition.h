@@ -33,7 +33,7 @@ namespace hyperion {
  * the addition of some fields that describe the partitioning (through an array
  * of AxisPartition values).
  */
-struct HYPERION_API ColumnSpacePartition {
+struct HYPERION_EXPORT ColumnSpacePartition {
 
   /**
    * Construct an empty ColumnSpacePartition

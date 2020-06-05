@@ -30,7 +30,7 @@
 
 namespace hyperion {
 
-class HYPERION_API MSAntennaTable
+class HYPERION_EXPORT MSAntennaTable
   : public PhysicalTable {
 public:
 

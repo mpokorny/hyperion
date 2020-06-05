@@ -34,7 +34,7 @@
 
 namespace hyperion {
 
-class HYPERION_API MSFieldTable
+class HYPERION_EXPORT MSFieldTable
   : public PhysicalTable {
 public:
 

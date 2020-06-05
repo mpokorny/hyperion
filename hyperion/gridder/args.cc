@@ -292,7 +292,13 @@ hyperion::gridder::get_args(
 
   // apply variables from config file(s) before the rest of the command line
   {
-    for (auto& [tag, val] : arg_pairs) {
+    for (auto& tag_val : arg_pairs) {
+#if HAVE_CXX17
+      auto& [tag_val] = tag_val;
+#else // !HAVE_CXX17
+      auto& tag = std::get<0>(tag_val);
+      auto& val = std::get<1>(tag_val);
+#endif // HAVE_CXX17
       std::vector<std::string> matches;
       for (auto& tg : gridder_args.tags())
         if (tg.substr(0, tag.size()) == tag)
@@ -323,7 +329,13 @@ hyperion::gridder::get_args(
     }
   }
   // apply other variables from the command line
-  for (auto& [tag, val] : arg_pairs) {
+  for (auto& tag_val : arg_pairs) {
+#if HAVE_CXX17
+    auto& [tag_val] = tag_val;
+#else // !HAVE_CXX17
+    auto& tag = std::get<0>(tag_val);
+    auto& val = std::get<1>(tag_val);
+#endif // HAVE_CXX17
     std::vector<std::string> matches;
     for (auto& tg : gridder_args.tags())
       if (tg.substr(0, tag.size()) == tag)

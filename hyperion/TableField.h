@@ -27,7 +27,7 @@
 
 namespace hyperion {
 
-struct HYPERION_API TableField {
+struct HYPERION_EXPORT TableField {
 
   TableField() {}
 

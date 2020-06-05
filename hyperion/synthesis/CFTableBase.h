@@ -98,7 +98,7 @@ struct cf_table_axis<CF_Y> {
   static const constexpr char* name = "Y";
 };
 
-class HYPERION_API CFTableBase
+class HYPERION_EXPORT CFTableBase
   : public hyperion::Table {
 public:
 
@@ -130,7 +130,7 @@ public:
   static const constexpr char* init_index_column_task_name =
     "CFTable::init_index_column_task";
 
-  struct HYPERION_API InitIndexColumnTaskArgs {
+  struct HYPERION_EXPORT InitIndexColumnTaskArgs {
     hyperion::Table::Desc desc;
 
     std::vector<cf_table_axis<CF_PB_SCALE>::type> pb_scales;

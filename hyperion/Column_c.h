@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-typedef struct HYPERION_API column_t {
+typedef struct HYPERION_EXPORT column_t {
   legion_logical_region_t metadata;
   legion_logical_region_t axes;
   legion_logical_region_t values;
@@ -32,24 +32,24 @@ typedef struct HYPERION_API column_t {
 } column_t;
 
 /* metadata field types: [char*, char*, type_tag_t] */
-HYPERION_API const legion_field_id_t*
+HYPERION_EXPORT const legion_field_id_t*
 column_metadata_fs();
 
 /* axes field types: [int] */
-HYPERION_API const legion_field_id_t*
+HYPERION_EXPORT const legion_field_id_t*
 column_axes_fs();
 
 /* values field types: [metadata[0][2]] */
-HYPERION_API const legion_field_id_t*
+HYPERION_EXPORT const legion_field_id_t*
 column_values_fs();
 
-HYPERION_API unsigned
+HYPERION_EXPORT unsigned
 column_rank(legion_runtime_t rt, column_t col);
 
-HYPERION_API int
+HYPERION_EXPORT int
 column_is_empty(column_t col);
 
-/* HYPERION_API column_partition_t */
+/* HYPERION_EXPORT column_partition_t */
 /* column_partition_on_axes( */
 /*   legion_context_t ctx, */
 /*   legion_runtime_t rt, */
@@ -57,14 +57,14 @@ column_is_empty(column_t col);
 /*   unsigned num_axes, */
 /*   const int* axes); */
 
-/* HYPERION_API column_partition_t */
+/* HYPERION_EXPORT column_partition_t */
 /* column_projected_column_partition( */
 /*   legion_context_t ctx, */
 /*   legion_runtime_t rt, */
 /*   column_t col, */
 /*   column_partition_t cp); */
 
-HYPERION_API void
+HYPERION_EXPORT void
 column_destroy(legion_context_t ctx, legion_runtime_t rt, column_t col);
 
 #ifdef __cplusplus

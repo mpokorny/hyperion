@@ -374,19 +374,19 @@ typedef enum ms_weather_axes_t {
     unsigned num_axes;                          \
   } ms_##t##_column_axes_t;                     \
                                                 \
-  HYPERION_API const char*                         \
+  HYPERION_EXPORT const char*                         \
   t##_table_name();                             \
                                                 \
-  HYPERION_API const ms_##t##_column_axes_t*       \
+  HYPERION_EXPORT const ms_##t##_column_axes_t*       \
   t##_table_element_axes();                     \
                                                 \
-  HYPERION_API unsigned                            \
+  HYPERION_EXPORT unsigned                            \
   t##_table_num_columns();                      \
                                                 \
-  HYPERION_API const char* const*                  \
+  HYPERION_EXPORT const char* const*                  \
   t##_table_axis_names();                       \
                                                 \
-  HYPERION_API unsigned                            \
+  HYPERION_EXPORT unsigned                            \
   t##_table_num_axes();
 
 HYPERION_FOREACH_MS_TABLE_t(TABLE_FUNCTION_DECLS);

@@ -21,7 +21,7 @@
 namespace hyperion {
 namespace synthesis {
 
-class HYPERION_API WTermTable
+class HYPERION_EXPORT WTermTable
   : public CFTable<CF_W> {
 public:
 

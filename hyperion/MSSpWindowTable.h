@@ -32,7 +32,7 @@
 
 namespace hyperion {
 
-class HYPERION_API MSSpWindowTable
+class HYPERION_EXPORT MSSpWindowTable
   : public PhysicalTable {
 public:
 

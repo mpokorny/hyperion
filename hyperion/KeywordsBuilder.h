@@ -26,7 +26,7 @@
 
 namespace hyperion {
 
-class HYPERION_API KeywordsBuilder {
+class HYPERION_EXPORT KeywordsBuilder {
 public:
 
   KeywordsBuilder() {}

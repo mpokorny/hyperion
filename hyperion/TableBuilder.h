@@ -432,7 +432,7 @@ public:
   }
 };
 
-struct HYPERION_API TableBuilder {
+struct HYPERION_EXPORT TableBuilder {
 
   template <MSTables T>
   static TableBuilderT<T>
