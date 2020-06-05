@@ -232,7 +232,7 @@ target_include_directories(hyperion PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/..>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
-  $<INSTALL_INTERFACE:include>)
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 if (hyperion_USE_CASACORE)
   if (BUILD_CASACORE)
     add_dependencies(hyperion casacore_build)
@@ -256,9 +256,7 @@ target_compile_definitions(hyperion PUBLIC
 include(GenerateExportHeader)
 generate_export_header(hyperion)
 
-install(TARGETS hyperion EXPORT HyperionConfig
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS hyperion EXPORT HyperionConfig)
 install(FILES ${HYPERION_INCLUDE}
   DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}/hyperion)
 install(EXPORT HyperionConfig DESTINATION share/hyperion/cmake)
@@ -268,8 +266,7 @@ if (hyperion_USE_HDF5 AND hyperion_USE_CASACORE)
   add_executable(ms2h5 ms2h5.cc)
   set_host_target_properties(ms2h5)
   target_link_libraries(ms2h5 hyperion)
-  install(TARGETS ms2h5
-    RUNTIME DESTINATION bin)
+  install(TARGETS ms2h5)
 endif()
 
 if (hyperion_USE_CASACORE)

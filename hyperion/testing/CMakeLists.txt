@@ -12,23 +12,20 @@ add_custom_target(
   TestRunner ALL
   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/TestRunner.py)
 
-list(APPEND TESTING_SRC
+add_library(hyperion_testing SHARED)
+target_sources(hyperion_testing PRIVATE
   TestLog.h
   TestLog.cc
   TestRecorder.h
   TestExpression.h
   TestSuiteDriver.h
-  TestSuiteDriver.cc
-)
+  TestSuiteDriver.cc)
 
-set(TESTING_INCLUDE TESTING_SRC)
-list(FILTER TESTING_INCLUDE INCLUDE REGEX ".*\.h")
-
-add_library(hyperion_testing SHARED ${TESTING_SRC})
 set_host_target_properties(hyperion_testing)
-add_dependencies(hyperion_testing hyperion TestRunner)
+add_dependencies(hyperion_testing TestRunner)
 target_link_libraries(hyperion_testing PUBLIC hyperion)
-set_target_properties(hyperion_testing PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_target_properties(hyperion_testing PROPERTIES SOVERSION ${SOVERSION})
+set_target_properties(hyperion_testing PROPERTIES
+  VERSION 0
+  SOVERSION 0.1.0)
 
 add_subdirectory(tests)

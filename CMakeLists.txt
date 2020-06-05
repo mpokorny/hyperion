@@ -21,6 +21,13 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
+# Set a default install prefix
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT
+    AND NOT WIN32
+    AND CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  set(CMAKE_INSTALL_PREFIX "/opt/nrao.edu/${PROJECT_NAME}" CACHE PATH "..." FORCE)
+endif()
+
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 option(USE_HDF5 "Use HDF5" ON)
@@ -139,15 +146,21 @@ set(CMAKE_SKIP_BUILD_RPATH FALSE)
 # (but later on when installing)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
-# add the automatically determined parts of the RPATH
-# which point to directories outside the build tree to the install RPATH
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 
+# do not add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+
+file(RELATIVE_PATH relDir
+  ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}
+  ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
+set(CMAKE_INSTALL_RPATH $ORIGIN $ORIGIN/${relDir})
 # the RPATH to be used when installing, but only if it's not a system directory
-list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_FULL_LIBDIR}/hyperion" isSystemDir)
-if("${isSystemDir}" STREQUAL "-1")
-  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}/hyperion")
-endif("${isSystemDir}" STREQUAL "-1")
+# list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_FULL_LIBDIR}/hyperion" isSystemDir)
+# if("${isSystemDir}" STREQUAL "-1")
+#   set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}/hyperion")
+# endif("${isSystemDir}" STREQUAL "-1")
 
 include(CheckCXXCompilerFlag)
 
