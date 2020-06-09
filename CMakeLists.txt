@@ -148,9 +148,9 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
 set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
 
-# do not add the automatically determined parts of the RPATH
+# add the automatically determined parts of the RPATH
 # which point to directories outside the build tree to the install RPATH
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 file(RELATIVE_PATH relDir
   ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}
