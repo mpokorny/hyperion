@@ -415,7 +415,6 @@ main(int argc, char** argv) {
   {
     TaskVariantRegistrar registrar(VERIFY_LAYOUTS_TASK, "verify_layouts_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    TableMapper::add_table_layout_constraint(registrar);
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(SOA_ROW_MAJOR),
       soa_row_major_layout);

@@ -307,7 +307,6 @@ main(int argc, char** argv) {
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
       soa_row_major_layout);
-    TableMapper::add_table_layout_constraint(registrar);
     Runtime::preregister_task_variant<verify_spw_table>(
       registrar,
       "verify_spw_table");

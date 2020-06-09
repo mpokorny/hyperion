@@ -100,21 +100,6 @@ class HYPERION_EXPORT Table {
 
   // FIXME: add support for table keywords
 
-private:
-
-  template <
-    Legion::PrivilegeMode MODE,
-    typename F,
-    bool CHECK_BOUNDS=false>
-    using Accessor =
-    Legion::FieldAccessor<
-      MODE,
-      F,
-      1,
-      Legion::coord_t,
-      Legion::GenericAccessor<F, 1, Legion::coord_t>,
-      CHECK_BOUNDS>;
-
 public:
 
   static const constexpr size_t MAX_COLUMNS = HYPERION_MAX_NUM_TABLE_COLUMNS;

@@ -35,15 +35,6 @@ TableMapper::TableMapper(
   : Mapping::DefaultMapper(rt->get_mapper_runtime(), machine, local, name, true) {
 }
 
-Legion::TaskVariantRegistrar
-TableMapper::add_table_layout_constraint(Legion::TaskVariantRegistrar& registrar) {
-  return
-    registrar
-    .add_layout_constraint_set(
-      to_mapping_tag(table_layout_tag),
-      aos_row_major_layout);
-}
-
 void
 TableMapper::premap_task(
   const Mapping::MapperContext ctx,

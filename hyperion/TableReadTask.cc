@@ -185,7 +185,6 @@ TableReadTask::preregister_tasks() {
     TaskVariantRegistrar registrar(TASK_ID, TASK_NAME);
     registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
     registrar.set_leaf();
-    TableMapper::add_table_layout_constraint(registrar);
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(
         TableMapper::default_column_layout_tag),

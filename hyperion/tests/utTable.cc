@@ -732,7 +732,6 @@ main(int argc, char* argv[]) {
       soa_row_major_layout);
     registrar.set_idempotent();
     registrar.set_leaf();
-    TableMapper::add_table_layout_constraint(registrar);
     Runtime::preregister_task_variant<verify_table_columns_task>(
       registrar,
       "verify_table_columns_task");
@@ -752,7 +751,6 @@ main(int argc, char* argv[]) {
       soa_row_major_layout);
     registrar.set_idempotent();
     registrar.set_leaf();
-    TableMapper::add_table_layout_constraint(registrar);
     Runtime::preregister_task_variant<verify_column_groups_task>(
       registrar,
       "verify_column_groups_task");

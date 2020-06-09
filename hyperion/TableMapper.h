@@ -45,8 +45,6 @@ public:
 
   typedef unsigned LayoutTag;
 
-  static const constexpr LayoutTag table_layout_tag = 0;
-
   static const constexpr LayoutTag default_column_layout_tag = 1;
 
   static constexpr Legion::MappingTagID
@@ -54,9 +52,6 @@ public:
     return
       (static_cast<Legion::MappingTagID>(ltag + 1) << layout_tag_shift) | flags;
   }
-
-  static Legion::TaskVariantRegistrar
-  add_table_layout_constraint(Legion::TaskVariantRegistrar& registrar);
 
   virtual void
   premap_task(

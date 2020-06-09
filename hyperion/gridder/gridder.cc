@@ -863,7 +863,6 @@ main(int argc, char* argv[]) {
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_leaf();
     registrar.set_idempotent();
-    TableMapper::add_table_layout_constraint(registrar);
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
       aos_row_major_layout);
@@ -878,7 +877,6 @@ main(int argc, char* argv[]) {
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_leaf();
     registrar.set_idempotent();
-    TableMapper::add_table_layout_constraint(registrar);
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
       aos_row_major_layout);
