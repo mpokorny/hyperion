@@ -47,10 +47,10 @@ enum {
 };
 
 enum {
-  SOA_ROW_MAJOR = 100,
-  SOA_COLUMN_MAJOR,
-  AOS_ROW_MAJOR,
-  AOS_COLUMN_MAJOR
+  SOA_RIGHT = 100,
+  SOA_LEFT,
+  AOS_RIGHT,
+  AOS_LEFT
 };
 
 template <>
@@ -138,7 +138,7 @@ constexpr unsigned ny = 2;
 // }
 
 bool
-verify_soa_row_major_layout(
+verify_soa_right_layout(
   const PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>& pc) {
 
   auto a = pc.accessor<WRITE_ONLY>();
@@ -149,7 +149,7 @@ verify_soa_row_major_layout(
 }
 
 bool
-verify_soa_column_major_layout(
+verify_soa_left_layout(
   const PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>& pc) {
 
   auto a = pc.accessor<WRITE_ONLY>();
@@ -160,7 +160,7 @@ verify_soa_column_major_layout(
 }
 
 bool
-verify_aos_column_major_layout(
+verify_aos_left_layout(
   const PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>& pc) {
 
   auto a = pc.accessor<WRITE_ONLY>();
@@ -171,7 +171,7 @@ verify_aos_column_major_layout(
 }
 
 bool
-verify_aos_row_major_layout(
+verify_aos_right_layout(
   const PhysicalColumnTD<HYPERION_TYPE_UINT, 1, 2, AffineAccessor>& pc) {
 
   auto a = pc.accessor<WRITE_ONLY>();
@@ -245,11 +245,11 @@ verify_layouts_task(
       "In SOA, c0 array begins at c1 array end",
       TE(a0 == a1 + nx * ny));
   recorder.expect_true(
-    "c0 array has SOA row-major layout",
-    TE(verify_soa_row_major_layout(pc0)));
+    "c0 array has SOA right layout",
+    TE(verify_soa_right_layout(pc0)));
   recorder.expect_true(
-    "c1 array has SOA row-major layout",
-    TE(verify_soa_row_major_layout(pc1)));
+    "c1 array has SOA right layout",
+    TE(verify_soa_right_layout(pc1)));
 
   auto a2 = pc2.accessor<WRITE_ONLY>().ptr({0, 0});
   auto a3 = pc3.accessor<WRITE_ONLY>().ptr({0, 0});
@@ -262,11 +262,11 @@ verify_layouts_task(
       "In SOA, c2 array begins at c3 array end",
       TE(a2 == a3 + nx * ny));
   recorder.expect_true(
-    "c2 array has SOA column-major layout",
-    TE(verify_soa_column_major_layout(pc2)));
+    "c2 array has SOA left layout",
+    TE(verify_soa_left_layout(pc2)));
   recorder.expect_true(
-    "c3 array has SOA column-major layout",
-    TE(verify_soa_column_major_layout(pc3)));
+    "c3 array has SOA left layout",
+    TE(verify_soa_left_layout(pc3)));
 
   auto a4 = pc4.accessor<WRITE_ONLY>().ptr({0, 0});
   auto a5 = pc5.accessor<WRITE_ONLY>().ptr({0, 0});
@@ -279,11 +279,11 @@ verify_layouts_task(
       "In AOS, c4 array is interleaved with c5 array",
       TE(a4 == a5 + 1));
   recorder.expect_true(
-    "c4 array has AOS column-major layout",
-    TE(verify_aos_column_major_layout(pc4)));
+    "c4 array has AOS left layout",
+    TE(verify_aos_left_layout(pc4)));
   recorder.expect_true(
-    "c5 array has AOS column-major layout",
-    TE(verify_aos_column_major_layout(pc5)));
+    "c5 array has AOS left layout",
+    TE(verify_aos_left_layout(pc5)));
 
   auto a6 = pc6.accessor<WRITE_ONLY>().ptr({0, 0});
   auto a7 = pc7.accessor<WRITE_ONLY>().ptr({0, 0});
@@ -296,11 +296,11 @@ verify_layouts_task(
       "In AOS, c6 array is interleaved with c7 array",
       TE(a6 == a7 + 1));
   recorder.expect_true(
-    "c6 array has AOS row-major layout",
-    TE(verify_aos_row_major_layout(pc6)));
+    "c6 array has AOS right layout",
+    TE(verify_aos_right_layout(pc6)));
   recorder.expect_true(
-    "c7 array has AOS row-major layout",
-    TE(verify_aos_row_major_layout(pc7)));
+    "c7 array has AOS right layout",
+    TE(verify_aos_right_layout(pc7)));
 }
 
 void
@@ -353,16 +353,16 @@ mapper_test_suite(
   Table tb = Table::create(ctx, rt, cs1, {{cs1, tfs1}, {cs2, tfs2}});
   Column::Requirements soa_rm_creqs = Column::default_requirements;
   soa_rm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  soa_rm_creqs.tag = TableMapper::to_mapping_tag(SOA_ROW_MAJOR);
+  soa_rm_creqs.tag = TableMapper::to_mapping_tag(SOA_RIGHT);
   Column::Requirements soa_cm_creqs = Column::default_requirements;
   soa_cm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  soa_cm_creqs.tag = TableMapper::to_mapping_tag(SOA_COLUMN_MAJOR);
+  soa_cm_creqs.tag = TableMapper::to_mapping_tag(SOA_LEFT);
   Column::Requirements aos_cm_creqs = Column::default_requirements;
   aos_cm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  aos_cm_creqs.tag = TableMapper::to_mapping_tag(AOS_COLUMN_MAJOR);
+  aos_cm_creqs.tag = TableMapper::to_mapping_tag(AOS_LEFT);
   Column::Requirements aos_rm_creqs = Column::default_requirements;
   aos_rm_creqs.values = Column::Req{WRITE_ONLY, EXCLUSIVE, false};
-  aos_rm_creqs.tag = TableMapper::to_mapping_tag(AOS_ROW_MAJOR);
+  aos_rm_creqs.tag = TableMapper::to_mapping_tag(AOS_RIGHT);
   auto reqs =
     tb.requirements(
       ctx,
@@ -416,17 +416,17 @@ main(int argc, char** argv) {
     TaskVariantRegistrar registrar(VERIFY_LAYOUTS_TASK, "verify_layouts_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.add_layout_constraint_set(
-      TableMapper::to_mapping_tag(SOA_ROW_MAJOR),
-      soa_row_major_layout);
+      TableMapper::to_mapping_tag(SOA_RIGHT),
+      soa_right_layout);
     registrar.add_layout_constraint_set(
-      TableMapper::to_mapping_tag(SOA_COLUMN_MAJOR),
-      soa_column_major_layout);
+      TableMapper::to_mapping_tag(SOA_LEFT),
+      soa_left_layout);
     registrar.add_layout_constraint_set(
-      TableMapper::to_mapping_tag(AOS_ROW_MAJOR),
-      aos_row_major_layout);
+      TableMapper::to_mapping_tag(AOS_RIGHT),
+      aos_right_layout);
     registrar.add_layout_constraint_set(
-      TableMapper::to_mapping_tag(AOS_COLUMN_MAJOR),
-      aos_column_major_layout);
+      TableMapper::to_mapping_tag(AOS_LEFT),
+      aos_left_layout);
     Runtime::preregister_task_variant<verify_layouts_task>(
       registrar,
       "verify_layouts_task");

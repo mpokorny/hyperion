@@ -478,7 +478,7 @@ main(int argc, char* argv[]) {
     registrar.set_idempotent();
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-      soa_row_major_layout);
+      soa_right_layout);
     Runtime::preregister_task_variant<verify_partitions_task>(
       registrar,
       "verify_partitions_task");

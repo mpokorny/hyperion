@@ -318,7 +318,7 @@ main(int argc, char** argv) {
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-      soa_row_major_layout);
+      soa_right_layout);
     Runtime::preregister_task_variant<verify_feed_table>(
       registrar,
       "verify_feed_table");

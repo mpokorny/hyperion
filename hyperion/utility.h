@@ -1600,7 +1600,7 @@ struct HYPERION_EXPORT AxisPartition {
 };
 
 HYPERION_EXPORT Legion::LayoutConstraintRegistrar&
-add_row_major_order_constraint(
+add_right_layout_constraint(
   Legion::LayoutConstraintRegistrar& lc,
   unsigned rank);
 
@@ -1618,10 +1618,10 @@ HYPERION_EXPORT void
 register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 HYPERION_EXPORT extern Legion::MapperID table_mapper;
-HYPERION_EXPORT extern Legion::LayoutConstraintID soa_row_major_layout;
-HYPERION_EXPORT extern Legion::LayoutConstraintID soa_column_major_layout;
-HYPERION_EXPORT extern Legion::LayoutConstraintID aos_row_major_layout;
-HYPERION_EXPORT extern Legion::LayoutConstraintID aos_column_major_layout;
+HYPERION_EXPORT extern Legion::LayoutConstraintID soa_right_layout;
+HYPERION_EXPORT extern Legion::LayoutConstraintID soa_left_layout;
+HYPERION_EXPORT extern Legion::LayoutConstraintID aos_right_layout;
+HYPERION_EXPORT extern Legion::LayoutConstraintID aos_left_layout;
 
 #if LEGION_MAX_DIM == 1
 

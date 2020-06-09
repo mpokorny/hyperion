@@ -357,7 +357,7 @@ compute_reindexed(
       ColumnSpace::REINDEXED_ROW_RECTS_FID);
 
     LayoutConstraintRegistrar lc(row_map_fs);
-    add_row_major_order_constraint(lc, rows_is.get_dim())
+    add_right_layout_constraint(lc, rows_is.get_dim())
       .add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));
     row_map_lc_id = rt->register_layout(lc);
   }

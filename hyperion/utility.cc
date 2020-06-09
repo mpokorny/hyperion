@@ -471,7 +471,7 @@ hyperion::add_field(
 }
 
 LayoutConstraintRegistrar&
-hyperion::add_row_major_order_constraint(
+hyperion::add_right_layout_constraint(
   LayoutConstraintRegistrar& lc,
   unsigned rank) {
 
@@ -486,10 +486,10 @@ hyperion::add_row_major_order_constraint(
 }
 
 Legion::MapperID hyperion::table_mapper;
-Legion::LayoutConstraintID hyperion::soa_row_major_layout;
-Legion::LayoutConstraintID hyperion::soa_column_major_layout;
-Legion::LayoutConstraintID hyperion::aos_row_major_layout;
-Legion::LayoutConstraintID hyperion::aos_column_major_layout;
+Legion::LayoutConstraintID hyperion::soa_right_layout;
+Legion::LayoutConstraintID hyperion::soa_left_layout;
+Legion::LayoutConstraintID hyperion::aos_right_layout;
+Legion::LayoutConstraintID hyperion::aos_left_layout;
 
 void
 hyperion::register_mapper(
@@ -514,7 +514,7 @@ hyperion::preregister_all() {
 
   {
     LayoutConstraintRegistrar
-      registrar(FieldSpace::NO_SPACE, "soa_row_major");
+      registrar(FieldSpace::NO_SPACE, "soa_right");
     for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
       std::vector<DimensionKind> dims(rank + 1);
       auto d = dims.rbegin();
@@ -527,11 +527,11 @@ hyperion::preregister_all() {
         });
       registrar.add_constraint(OrderingConstraint(dims, false));
     }
-    soa_row_major_layout = Runtime::preregister_layout(registrar);
+    soa_right_layout = Runtime::preregister_layout(registrar);
   }
   {
     LayoutConstraintRegistrar
-      registrar(FieldSpace::NO_SPACE, "soa_column_major");
+      registrar(FieldSpace::NO_SPACE, "soa_left");
     for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
       std::vector<DimensionKind> dims(rank + 1);
       auto d = dims.rbegin();
@@ -544,11 +544,11 @@ hyperion::preregister_all() {
         });
       registrar.add_constraint(OrderingConstraint(dims, false));
     }
-    soa_column_major_layout = Runtime::preregister_layout(registrar);
+    soa_left_layout = Runtime::preregister_layout(registrar);
   }
   {
     LayoutConstraintRegistrar
-      registrar(FieldSpace::NO_SPACE, "aos_row_major");
+      registrar(FieldSpace::NO_SPACE, "aos_right");
     for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
       std::vector<DimensionKind> dims(rank + 1);
       auto d = dims.begin();
@@ -561,11 +561,11 @@ hyperion::preregister_all() {
         });
       registrar.add_constraint(OrderingConstraint(dims, false));
     }
-    aos_row_major_layout = Runtime::preregister_layout(registrar);
+    aos_right_layout = Runtime::preregister_layout(registrar);
   }
   {
     LayoutConstraintRegistrar
-      registrar(FieldSpace::NO_SPACE, "aos_column_major");
+      registrar(FieldSpace::NO_SPACE, "aos_left");
     for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
       std::vector<DimensionKind> dims(rank + 1);
       auto d = dims.begin();
@@ -578,7 +578,7 @@ hyperion::preregister_all() {
         });
       registrar.add_constraint(OrderingConstraint(dims, false));
     }
-    aos_column_major_layout = Runtime::preregister_layout(registrar);
+    aos_left_layout = Runtime::preregister_layout(registrar);
   }
 
   table_mapper = Runtime::generate_static_mapper_id();

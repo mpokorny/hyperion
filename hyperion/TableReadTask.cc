@@ -186,9 +186,8 @@ TableReadTask::preregister_tasks() {
     registrar.add_constraint(ProcessorConstraint(Processor::IO_PROC));
     registrar.set_leaf();
     registrar.add_layout_constraint_set(
-      TableMapper::to_mapping_tag(
-        TableMapper::default_column_layout_tag),
-      soa_row_major_layout);
+      TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
+      soa_right_layout);
     Runtime::preregister_task_variant<impl>(registrar, TASK_NAME);
   }
 }

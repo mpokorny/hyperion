@@ -729,7 +729,7 @@ main(int argc, char* argv[]) {
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-      soa_row_major_layout);
+      soa_right_layout);
     registrar.set_idempotent();
     registrar.set_leaf();
     Runtime::preregister_task_variant<verify_table_columns_task>(
@@ -742,13 +742,13 @@ main(int argc, char* argv[]) {
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-      soa_row_major_layout);
+      soa_right_layout);
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(group1),
-      soa_row_major_layout);
+      soa_right_layout);
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(group2),
-      soa_row_major_layout);
+      soa_right_layout);
     registrar.set_idempotent();
     registrar.set_leaf();
     Runtime::preregister_task_variant<verify_column_groups_task>(

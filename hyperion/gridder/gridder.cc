@@ -865,7 +865,7 @@ main(int argc, char* argv[]) {
     registrar.set_idempotent();
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-      aos_row_major_layout);
+      aos_right_layout);
     Runtime::preregister_task_variant<classify_antennas_task>(
       registrar,
       "classify_antennas_task");
@@ -879,7 +879,7 @@ main(int argc, char* argv[]) {
     registrar.set_idempotent();
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-      aos_row_major_layout);
+      aos_right_layout);
     Runtime::preregister_task_variant<compute_parallactic_angles_task>(
       registrar,
       "compute_parallactic_angles_task");
