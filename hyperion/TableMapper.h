@@ -45,7 +45,7 @@ public:
 
   typedef unsigned LayoutTag;
 
-  static const constexpr LayoutTag default_column_layout_tag = 1;
+  static const constexpr LayoutTag default_column_layout_tag = 0;
 
   static constexpr Legion::MappingTagID
   to_mapping_tag(LayoutTag ltag, unsigned flags = 0) {
