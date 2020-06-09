@@ -134,6 +134,7 @@ endif()
 
 set(HYPERION_USE_CASACORE ${hyperion_USE_CASACORE})
 set(HYPERION_USE_HDF5 ${hyperion_USE_HDF5})
+set(HYPERION_USE_KOKKOS ${hyperion_USE_KOKKOS})
 configure_file(hyperion_config.h.in hyperion_config.h)
 
 if(hyperion_USE_HDF5)
