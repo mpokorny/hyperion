@@ -20,6 +20,8 @@
 #include <casacore/measures/Measures/MeasData.h>
 #include <casacore/measures/Measures/MCEpoch.h>
 
+#include <functional>
+
 using namespace hyperion;
 using namespace Legion;
 

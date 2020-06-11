@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
 #include <memory>
 #include <ostream>
 #include <vector>

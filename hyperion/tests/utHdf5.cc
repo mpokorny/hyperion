@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <functional>
 #include <hdf5.h>
 #include <numeric>
 #include <set>

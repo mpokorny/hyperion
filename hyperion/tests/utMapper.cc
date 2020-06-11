@@ -21,6 +21,8 @@
 #include <hyperion/PhysicalTable.h>
 #include <hyperion/TableMapper.h>
 
+#include <functional>
+
 using namespace hyperion;
 using namespace Legion;
 

@@ -22,6 +22,7 @@
 #include <hyperion/ColumnSpace.h>
 
 #include <algorithm>
+#include <functional>
 #include <memory>
 #include <ostream>
 #include <vector>

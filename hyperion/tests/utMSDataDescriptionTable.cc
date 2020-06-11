@@ -26,6 +26,8 @@
 
 #include <casacore/ms/MeasurementSets.h>
 
+#include <functional>
+
 using namespace hyperion;
 using namespace Legion;
 
