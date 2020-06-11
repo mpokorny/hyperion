@@ -272,7 +272,7 @@ Table::attach_columns(
   PhysicalTable result(index_col_md, index_col, table_reqs[1].parent, pcols);
   result.attach_columns(ctx, rt, file_path, column_paths, column_modes);
   for (auto& p : table_parts)
-    rt->destroy_logical_partition(ctx, p);
+    p.destroy(ctx, rt);
   return result;
 }
 
@@ -407,7 +407,7 @@ Table::is_empty() const {
 
 std::tuple<
   std::vector<RegionRequirement>,
-  std::vector<LogicalPartition>,
+  std::vector<ColumnSpacePartition>,
   Table::Desc>
 Table::requirements(
   Context ctx,
@@ -458,7 +458,7 @@ Table::requirements() const {
 
 std::tuple<
   std::vector<RegionRequirement>,
-  std::vector<LogicalPartition>,
+  std::vector<ColumnSpacePartition>,
   Table::Desc>
 Table::requirements(
   CXX_OPTIONAL_NAMESPACE::optional<Context> ctx,
@@ -529,7 +529,8 @@ Table::requirements(
 #endif
   }
   // create requirements, applying table_partition as needed
-  std::map<ColumnSpace, LogicalPartition> partitions;
+  std::map<ColumnSpace, std::tuple<ColumnSpacePartition, LogicalPartition>>
+    partitions;
   if (table_partition.is_valid()) {
     if (table_partition.column_space.column_is
         != index_col_region.get_index_space()) {
@@ -540,7 +541,7 @@ Table::requirements(
         rt.value()
         ->get_logical_partition(ctx.value(), index_col_region, csp.column_ip);
       csp.destroy(ctx.value(), rt.value());
-      partitions[index_col_cs] = lp;
+      partitions[index_col_cs] = {csp, lp};
     } else {
       auto lp =
         rt.value()
@@ -548,7 +549,9 @@ Table::requirements(
           ctx.value(),
           index_col_region,
           table_partition.column_ip);
-      partitions[index_col_cs] = lp;
+      // create empty ColumnSpacePartition in partitions to indicate that this
+      // partition should not be returned in list of ColumnSpacePartitions
+      partitions[index_col_cs] = {ColumnSpacePartition(), lp};
     }
   }
 
@@ -596,9 +599,9 @@ Table::requirements(
               rt.value()
               ->get_logical_partition(ctx.value(), col.region, csp.column_ip);
             csp.destroy(ctx.value(), rt.value());
-            partitions[col.cs] = lp;
+            partitions[col.cs] = {csp, lp};
           } else {
-            lp = partitions[col.cs];
+            lp = std::get<1>(partitions[col.cs]);
           }
           val_reqs[rg_rq] =
             {false,
@@ -614,9 +617,18 @@ Table::requirements(
       std::get<1>(val_reqs[rg_rq]).add_field(col.fid, reqs.values.mapped);
     }
   }
-  std::vector<LogicalPartition> lps_result;
-  for (auto& csp_lp : partitions)
-    lps_result.push_back(std::get<1>(csp_lp));
+  std::vector<ColumnSpacePartition> csps_result;
+  for (auto& cs_csplp : partitions) {
+#if HAVE_CXX17
+    auto& [csp, lp] = std::get<1>(cs_csplp);
+#else // !HAVE_CXX17
+    auto& csplp = std::get<1>(cs_csplp);
+    auto& csp = std::get<0>(csplp);
+    auto& lp = std::get<1>(csplp);
+#endif
+    if (csp.is_valid()) // avoid returning table_partition
+      csps_result.push_back(csp);
+  }
 
   // gather all requirements, in order set by this traversal of fields
   std::vector<RegionRequirement> reqs_result;
@@ -740,7 +752,7 @@ Table::requirements(
       desc_result.columns[desc_idx++] = cdesc;
     }
   }
-  return {reqs_result, lps_result, desc_result};
+  return {reqs_result, csps_result, desc_result};
 }
 
 TaskID Table::is_conformant_task_id;

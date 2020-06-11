@@ -205,12 +205,12 @@ public:
   bool
   is_empty() const;
 
-  // Any LogicalPartitions returned from requirements() should eventually be
-  // destroyed by the caller. Such LogicalPartitions should only appear when
+  // Any ColumnSpacePartitions returned from requirements() should eventually be
+  // destroyed by the caller. Such ColumnSpacePartitions should only appear when
   // "table_partition" is not empty or column_modes deselects some columns.
   std::tuple<
     std::vector<Legion::RegionRequirement>,
-    std::vector<Legion::LogicalPartition>,
+    std::vector<ColumnSpacePartition>,
     Desc>
   requirements(
     Legion::Context ctx,
@@ -232,7 +232,7 @@ public:
 
   static std::tuple<
     std::vector<Legion::RegionRequirement>,
-    std::vector<Legion::LogicalPartition>,
+    std::vector<ColumnSpacePartition>,
     Desc>
   requirements(
     CXX_OPTIONAL_NAMESPACE::optional<Legion::Context> ctx,

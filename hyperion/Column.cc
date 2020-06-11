@@ -83,7 +83,6 @@ index_column(
         ctx,
         task,
         OpsManager::reduction_id(DataType<DT>::af_redop_id));
-    rt->destroy_logical_partition(ctx, col_lp);
     rt->destroy_index_space(ctx, cs);
     rt->destroy_index_partition(ctx, ip);
     acc = f.get_result<acc_field_redop_rhs<T>>().v;

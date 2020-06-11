@@ -204,7 +204,7 @@ read_ms_table_columns_task(
 
   row_part.destroy(ctx, rt);
   for (auto& p : tparts)
-    rt->destroy_logical_partition(ctx, p);
+    p.destroy(ctx, rt);
 }
 
 struct CreateH5Args {
@@ -556,7 +556,6 @@ public:
       }
       auto tables_map = rt->execute_index_space(ctx, task);
 
-      rt->destroy_logical_partition(ctx, lp);
       rt->destroy_index_partition(ctx, ipart);
 
       // We're going to need privileges on the Tables in create_h5_task, so wait

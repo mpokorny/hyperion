@@ -480,7 +480,6 @@ compute_reindexed(
         rt->get_index_subspace(new_bounds_ip, 0)));
 
   rt->destroy_index_partition(ctx, new_bounds_ip);
-  rt->destroy_logical_partition(ctx, all_rows_row_map_lp);
   rt->destroy_index_partition(ctx, all_rows_ip);
   rt->destroy_index_space(ctx, all_rows_cs);
   rt->destroy_index_space(ctx, new_bounds_is);

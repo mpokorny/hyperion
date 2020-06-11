@@ -1401,9 +1401,7 @@ PhysicalTable::reindexed(
           rt->execute_index_space(ctx, task);
         }
         rt->destroy_index_partition(ctx, dlp.get_index_partition());
-        rt->destroy_logical_partition(ctx, dlp);
         rt->destroy_index_partition(ctx, rctlp.get_index_partition());
-        rt->destroy_logical_partition(ctx, rctlp);
       }
       rt->unmap_region(ctx, dcs_md_pr);
     }
