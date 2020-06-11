@@ -22,8 +22,10 @@ using namespace hyperion::synthesis;
 using namespace hyperion;
 using namespace Legion;
 
-static const constexpr double pi = 3.141592653589793;
-
+#if !HAVE_CXX17
+constexpr const double PSTermTable::pi;
+constexpr const char* PSTermTable::compute_cfs_task_name;
+#endif
 Legion::TaskID WTermTable::compute_cfs_task_id;
 
 hyperion::synthesis::WTermTable::WTermTable(
@@ -56,6 +58,7 @@ hyperion::synthesis::WTermTable::WTermTable(
     Axis<CF_W>(w_values))
   , m_cell_size(cell_size) {}
 
+#ifndef HYPERION_USE_KOKKOS
 void
 hyperion::synthesis::WTermTable::compute_cfs_task(
   const Task* task,
@@ -100,7 +103,7 @@ hyperion::synthesis::WTermTable::compute_cfs_task(
   const coord_t& y_hi = rect.hi[2];
   typedef typename cf_table_axis<CF_W>::type fp_t;
   for (coord_t w_idx = w_lo; w_idx <= w_hi; ++w_idx) {
-    const fp_t twoPiW = (fp_t)2.0 * (fp_t)pi * ws[w_idx];
+    const fp_t twoPiW = (fp_t)twopi * ws[w_idx];
     for (coord_t x_idx = x_lo; x_idx <= x_hi; ++x_idx) {
       const fp_t l = args.cell_size[0] * x_idx;
       const fp_t l2 = l * l;
@@ -116,6 +119,7 @@ hyperion::synthesis::WTermTable::compute_cfs_task(
     }
   }
 }
+#endif
 
 void
 hyperion::synthesis::WTermTable::compute_cfs(
@@ -145,15 +149,22 @@ hyperion::synthesis::WTermTable::compute_cfs(
     auto& [treqs, tparts, tdesc] = reqs;
 #else // !HAVE_CXX17
     auto& treqs = std::get<0>(reqs);
+    auto& tparts = std::get<1>(reqs);
     auto& tdesc = std::get<2>(reqs);
 #endif // HAVE_CXX17
     ComputeCFSTaskArgs args;
     args.desc = tdesc;
     args.cell_size = m_cell_size;
-    TaskLauncher task(compute_cfs_task_id, TaskArgument(&args, sizeof(args)));
+    TaskLauncher task(
+      compute_cfs_task_id,
+      TaskArgument(&args, sizeof(args)),
+      Predicate::TRUE_PRED,
+      table_mapper);
     for (auto& r : treqs)
       task.add_region_requirement(r);
     rt->execute_task(ctx, task);
+    for (auto& p : tparts)
+      rt->destroy_logical_partition(ctx, p);
 }
 
 void
@@ -161,13 +172,73 @@ hyperion::synthesis::WTermTable::preregister_tasks() {
   {
     // compute_cfs_task
     compute_cfs_task_id = Runtime::generate_static_task_id();
-    TaskVariantRegistrar registrar(compute_cfs_task_id, compute_cfs_task_name);
+#ifdef HYPERION_USE_KOKKOS
+# ifdef KOKKOS_ENABLE_SERIAL
+    // register a serial version on the CPU
+    {
+      TaskVariantRegistrar
+        registrar(compute_cfs_task_id, compute_cfs_task_name);
+      registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+      registrar.set_leaf();
+      registrar.set_idempotent();
+      registrar.add_layout_constraint_set(
+        TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
+        soa_right_layout);
+      Runtime::preregister_task_variant<compute_cfs_task<Kokkos::Serial>>(
+        registrar,
+        compute_cfs_task_name);
+    }
+# endif
+
+# ifdef KOKKOS_ENABLE_OPENMP
+    // register an openmp version
+    {
+      TaskVariantRegistrar
+        registrar(compute_cfs_task_id, compute_cfs_task_name);
+      registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
+      registrar.set_leaf();
+      registrar.set_idempotent();
+      registrar.add_layout_constraint_set(
+        TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
+        soa_right_layout);
+      Runtime::preregister_task_variant<compute_cfs_task<Kokkos::OpenMP>>(
+        registrar,
+        compute_cfs_task_name);
+    }
+# endif
+
+# ifdef KOKKOS_ENABLE_CUDA
+    // register a cuda version
+    {
+      TaskVariantRegistrar
+        registrar(compute_cfs_task_id, compute_cfs_task_name);
+      registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
+      registrar.set_leaf();
+      registrar.set_idempotent();
+      registrar.add_layout_constraint_set(
+        TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
+        soa_left_layout);
+      Runtime::preregister_task_variant<compute_cfs_task<OpenMP::Cuda>>(
+        registrar,
+        compute_cfs_task_name);
+    }
+# endif
+  }
+#else // !HYPERION_USE_KOKKOS
+  {
+    TaskVariantRegistrar
+      registrar(compute_cfs_task_id, compute_cfs_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_leaf();
     registrar.set_idempotent();
+    registrar.add_layout_constraint_set(
+      TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
+      soa_right_layout);
     Runtime::preregister_task_variant<compute_cfs_task>(
       registrar,
       compute_cfs_task_name);
   }
+#endif // HYPERION_USE_KOKKOS
 }
 
 // Local Variables:

@@ -25,7 +25,7 @@ using namespace hyperion;
 using namespace Legion;
 
 #if !HAVE_CXX17
-constexpr const char* compute_cfs_task_name;
+constexpr const char* PSTermTable::compute_cfs_task_name;
 #endif
 TaskID PSTermTable::compute_cfs_task_id;
 
@@ -106,9 +106,7 @@ hyperion::synthesis::PSTermTable::compute_cfs_task(
         const fp_t yp = std::sqrt(xp + y_idx * y_idx) * pb_scale;
         const fp_t v =
           static_cast<fp_t>(spheroidal(yp)) * ((fp_t)1.0 - yp * yp);
-        // we're creating PS terms that are intended to be multiplied in some
-        // domain, thus, if v == 0.0, we'll just multiply by 1.0
-        values[{pb_idx, x_idx, y_idx}] = ((v > (fp_t)0.0) ? v : (fp_t)1.0);
+        values[{pb_idx, x_idx, y_idx}] = std::max(v, (fp_t)0.0);
       }
     }
   }

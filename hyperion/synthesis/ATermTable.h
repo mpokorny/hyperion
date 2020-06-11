@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_SYNTHESIS_W_TERM_TABLE_H_
-#define HYPERION_SYNTHESIS_W_TERM_TABLE_H_
+#ifndef HYPERION_SYNTHESIS_A_TERM_TABLE_H_
+#define HYPERION_SYNTHESIS_N_TERM_TABLE_H_
 
 #include <hyperion/synthesis/CFTable.h>
-#include <hyperion/synthesis/Zernike.h> // FIXME: remove
+#include <hyperion/synthesis/Zernike.h>
 
 #include <array>
 #include <cmath>
@@ -25,11 +25,15 @@
 namespace hyperion {
 namespace synthesis {
 
-class HYPERION_EXPORT WTermTable
-  : public CFTable<CF_W> {
+class HYPERION_EXPORT ATermTable
+  : public CFTable<
+      CF_BASELINE_CLASS,
+      CF_FREQUENCY,
+      CF_PARALLACTIC_ANGLE,
+      CF_MUELLER_ELEMENT> {
 public:
 
-  WTermTable(
+  ATermTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::array<Legion::coord_t, 2>& cf_bounds_lo,
@@ -37,7 +41,7 @@ public:
     const std::array<double, 2>& cell_size,
     const std::vector<typename cf_table_axis<CF_W>::type>& w_values);
 
-  WTermTable(
+  ATermTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const Legion::coord_t& cf_x_radius,
@@ -54,7 +58,7 @@ public:
   std::array<double, 2> m_cell_size;
 
   static const constexpr char* compute_cfs_task_name =
-    "WTermTable::compute_cfs_task";
+    "ATermTable::compute_cfs_task";
 
   static Legion::TaskID compute_cfs_task_id;
 
@@ -77,17 +81,6 @@ public:
   const ComputeCFSTaskArgs& args =
     *static_cast<const ComputeCFSTaskArgs*>(task->args);
   const decltype(m_cell_size)& cell_size = args.cell_size;
-
-  // FIXME: remove
-  typedef zernike_basis<double, 2> zbasis;
-  zbasis::var_t buffer[(zbasis::degree + 1) * (zbasis::degree + 1)];
-  zbasis::var_t coeffs[zbasis::num_terms]{1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
-  zbasis::expand(
-    std::experimental::mdspan<
-      zbasis::var_t,
-      zbasis::degree + 1,
-      zbasis::degree + 1>(buffer),
-    std::experimental::mdspan<zbasis::var_t, zbasis::num_terms>(coeffs));
 
   auto ptcr =
     PhysicalTable::create(
@@ -127,7 +120,7 @@ public:
     rect_lo(rect),
     rect_hi(rect));
   Kokkos::parallel_for(
-    "ComputeWTerm",
+    "ComputeATerm",
     range,
     KOKKOS_LAMBDA (Legion::coord_t w, Legion::coord_t x, Legion::coord_t y) {
       const fp_t l = cell_size[0] * x;

@@ -20,11 +20,6 @@
 
 #include <array>
 #include <cmath>
-#ifdef HYPERION_USE_KOKKOS
-# include <Kokkos_Core.hpp>
-#else // !HYPERION_USE_KOKKOS
-# define KOKKOS_INLINE_FUNCTION inline
-#endif // HYPERION_USE_KOKKOS
 
 namespace hyperion {
 namespace synthesis {
@@ -32,8 +27,6 @@ namespace synthesis {
 class HYPERION_EXPORT PSTermTable
   : public CFTable<CF_PB_SCALE> {
 public:
-
-  using CFTable<CF_PB_SCALE>::CFTable;
 
   PSTermTable(
     Legion::Context ctx,
@@ -66,8 +59,13 @@ public:
     static_assert(N > 0);
     const double dn2 = nu_lo * nu_lo - nu_hi * nu_hi;
     double result = ary[N - 1];
-    for (unsigned k = N - 1; k > 0; --k) 
-      result = ary[k - 1] + dn2 * result;
+#if FP_FAST_FMA
+    for (unsigned k = N - 1; k > 0; --k)
+      result = std::fma(dn2, result, ary[k - 1]);
+#else
+    for (unsigned k = N - 1; k > 0; --k)
+      result = dn2 * result + ary[k - 1];
+#endif
     return result;
   }
 
@@ -95,31 +93,13 @@ public:
   }
 
 #ifdef HYPERION_USE_KOKKOS
-  template <int N>
-  static inline Kokkos::Array<long, N>
-  rect_lo(const Legion::Rect<N, Legion::coord_t>& r) {
-    Kokkos::Array<long, N> result;
-    for (size_t i = 0; i < N; ++i)
-      result[i] = r.lo[i];
-    return result;
-  }
-
-  template <int N>
-  static inline Kokkos::Array<long, N>
-  rect_hi(const Legion::Rect<N, Legion::coord_t>& r) {
-    Kokkos::Array<long, N> result;
-    for (size_t i = 0; i < N; ++i)
-      result[i] = r.hi[i];
-    return result;
-  }
-
   template <typename execution_space>
-    static void
-    compute_cfs_task(
-      const Legion::Task *task,
-      const std::vector<Legion::PhysicalRegion> &regions,
-      Legion::Context ctx,
-      Legion::Runtime *rt) {
+  static void
+  compute_cfs_task(
+    const Legion::Task *task,
+    const std::vector<Legion::PhysicalRegion> &regions,
+    Legion::Context ctx,
+    Legion::Runtime *rt) {
 
     const Table::Desc& desc = *static_cast<Table::Desc*>(task->args);
 
@@ -168,7 +148,7 @@ public:
       range,
       KOKKOS_LAMBDA (Legion::coord_t pb, Legion::coord_t x, Legion::coord_t y) {
         const fp_t yp =
-          std::sqrt(static_cast<fp_t>(x) * x + static_cast<fp_t>(y) * y)
+          std::sqrt((static_cast<fp_t>(x) * x) + (static_cast<fp_t>(y) * y))
           * pb_scales(pb);
         const fp_t v =
           static_cast<fp_t>(spheroidal(yp)) * ((fp_t)1.0 - yp * yp);

@@ -20,7 +20,14 @@
 #include <hyperion/utility.h>
 #include <hyperion/Table.h>
 
+#include <array>
 #include <vector>
+
+#ifdef HYPERION_USE_KOKKOS
+# include <Kokkos_Core.hpp>
+#else // !HYPERION_USE_KOKKOS
+# define KOKKOS_INLINE_FUNCTION inline
+#endif // HYPERION_USE_KOKKOS
 
 namespace hyperion {
 
@@ -174,6 +181,26 @@ public:
   };
 
   static void preregister_all();
+
+#ifdef HYPERION_USE_KOKKOS
+  template <int N>
+  static inline Kokkos::Array<long, N>
+  rect_lo(const Legion::Rect<N, Legion::coord_t>& r) {
+    Kokkos::Array<long, N> result;
+    for (size_t i = 0; i < N; ++i)
+      result[i] = r.lo[i];
+    return result;
+  }
+
+  template <int N>
+  static inline Kokkos::Array<long, N>
+  rect_hi(const Legion::Rect<N, Legion::coord_t>& r) {
+    Kokkos::Array<long, N> result;
+    for (size_t i = 0; i < N; ++i)
+      result[i] = r.hi[i];
+    return result;
+  }
+#endif // !HYPERION_USE_KOKKOS
 };
 
 template <>
