@@ -21,24 +21,13 @@ using namespace hyperion;
   const std::unordered_map<MSTableDefs<MS_##T>::col_t, const char*>     \
   MSTableDefs<MS_##T>::units = MS_##T##_COLUMN_UNITS;                   \
   const std::map<MSTableDefs<MS_##T>::col_t, const char*>               \
-  MSTableDefs<MS_##T>::measure_names = MS_##T##_COLUMN_MEASURE_NAMES;
+  MSTableDefs<MS_##T>::measure_names = MS_##T##_COLUMN_MEASURE_NAMES;   \
+  const std::unordered_map<typename MSTableColumns<MS_##T>::col_t, const char*> \
+  MSTableColumns<MS_##T>::units = MSTableDefs<MS_##T>::units;           \
+  const std::map<typename MSTableColumns<MS_##T>::col_t, const char*>   \
+  MSTableColumns<MS_##T>::measure_names = MSTableDefs<MS_##T>::measure_names;
 
 HYPERION_FOREACH_MS_TABLE(DEFS);
-
-#if !HAVE_CXX17
-
-#define COLCONST(T)                                                     \
-  const constexpr std::array<const char*, MSTableDefs<MS_##T>::num_cols> \
-  MSTableColumns<MS_##T>::column_names;                                 \
-  const std::unordered_map<typename MSTableColumns<MS_##T>::col_t, const char*> \
-  MSTableColumns<MS_##T>::units =                                       \
-                  MSTableDefs<MS_##T>::units;                           \
-  const std::map<typename MSTableColumns<MS_##T>::col_t, const char*>   \
-  MSTableColumns<MS_##T>::measure_names =                               \
-                  MSTableDefs<MS_##T>::measure_names;
-
-HYPERION_FOREACH_MS_TABLE(COLCONST);
-#endif // !HAVE_CXX17
 
 // Local Variables:
 // mode: c++

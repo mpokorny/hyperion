@@ -65,8 +65,8 @@ struct MSTableDefs {
     static const std::unordered_map<col_t, const char*> units;          \
     static const std::map<col_t, const char*> measure_names;            \
   };
-
 HYPERION_FOREACH_MS_TABLE_Tt(MSTDEF);
+#undef MSTDEF
 
 template <MSTables T>
 struct MSTableColumns {
@@ -106,17 +106,6 @@ struct MSTableColumns {
   }
 };
 
-template <MSTables T>
-const std::unordered_map<typename MSTableColumns<T>::col_t, const char*>
-MSTableColumns<T>::units =
-  MSTableDefs<T>::units;
-
-template <MSTables T>
-const std::map<typename MSTableColumns<T>::col_t, const char*>
-MSTableColumns<T>::measure_names =
-  MSTableDefs<T>::measure_names;
-
-#if !HAVE_CXX17
 #define MS_TABLE_COLUMNS(T)                                             \
   template <>                                                           \
   struct HYPERION_EXPORT MSTableColumns<MS_##T> {                          \
@@ -156,9 +145,9 @@ MSTableColumns<T>::measure_names =
     }                                                                   \
   };
 HYPERION_FOREACH_MS_TABLE(MS_TABLE_COLUMNS)
-#endif // !HAVE_CXX17
+#undef MS_TABLE_COLUMNS
 
-#define HYPERION_COLUMN_NAME(T, C)                    \
+#define HYPERION_COLUMN_NAME(T, C)              \
   MSTableColumns<MS_##T>::column_names[               \
     MSTableColumns<MS_##T>::col_t::MS_##T##_COL_##C]
 
