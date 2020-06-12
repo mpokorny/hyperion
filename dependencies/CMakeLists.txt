@@ -2,14 +2,14 @@ include(FetchContent)
 
 FetchContent_Declare(
   legion
-  GIT_REPOSITORY https://github.com/mpokorny/legion.git
-  GIT_TAG 864548544deec74f382abe0291955096868d0380) # ~legion-20.03.0
+  GIT_REPOSITORY https://github.com/StanfordLegion/legion.git
+  GIT_TAG 42095dd56f9411e95cd9236a7f61556851906042) # master 2020.06.11
 add_subdirectory(legion)
 
 FetchContent_Declare(
   mdspan
   GIT_REPOSITORY https://github.com/kokkos/mdspan.git
-  GIT_TAG 59312838eaf9bc54ae446ef1f422621051b5c311) # mdspan master 2020.06.11
+  GIT_TAG 59312838eaf9bc54ae446ef1f422621051b5c311) # master 2020.06.11
 add_subdirectory(mdspan)
 
 if(USE_CASACORE AND BUILD_CASACORE)
