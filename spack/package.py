@@ -128,6 +128,7 @@ class Hyperion(CMakePackage):
         if '+lg_debug' in spec:
             args.append('-DLegion_CMAKE_BUILD_TYPE=Debug')
 
-        args.append('-DBUILD_ARCH:STRING=none')
-        args.append("-DCMAKE_CXX_COMPILER=%s" % self.spec["kokkos"].kokkos_cxx)
+        #args.append('-DBUILD_ARCH:STRING=none')
+        args.append("-DCMAKE_CXX_COMPILER=%s" % spec["kokkos"].kokkos_cxx)
+        args.append("-DKOKKOS_CXX_COMPILER=%s" % spack_cxx)
         return args
