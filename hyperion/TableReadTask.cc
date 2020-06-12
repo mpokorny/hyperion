@@ -271,7 +271,7 @@ column_reqs(PrivilegeMode privilege) {
 
 std::tuple<
   std::vector<RegionRequirement>,
-  std::vector<LogicalPartition>,
+  std::vector<ColumnSpacePartition>,
   Table::Desc>
 TableReadTask::requirements(
   Context ctx,
@@ -296,7 +296,7 @@ TableReadTask::requirements(
 
 std::tuple<
   std::vector<RegionRequirement>,
-  std::vector<LogicalPartition>,
+  std::vector<ColumnSpacePartition>,
   Table::Desc>
 TableReadTask::requirements(
   Context ctx,

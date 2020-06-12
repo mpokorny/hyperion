@@ -315,7 +315,7 @@ PhysicalTable::is_conformant(
 
 std::tuple<
   std::vector<RegionRequirement>,
-  std::vector<LogicalPartition>,
+  std::vector<ColumnSpacePartition>,
   Table::Desc>
 PhysicalTable::requirements(
   Context ctx,
@@ -387,7 +387,8 @@ PhysicalTable::requirements(
 #endif
   }
   // create requirements, applying table_partition as needed
-  std::map<LogicalRegion, LogicalPartition> partitions;
+  std::map<LogicalRegion, std::tuple<ColumnSpacePartition, LogicalPartition>>
+    partitions;
   if (table_partition.is_valid()) {
     auto& lr = std::get<0>(m_index_col);
     if (table_partition.column_space.column_is != lr.get_index_space()) {
@@ -399,10 +400,10 @@ PhysicalTable::requirements(
           m_index_col_md);
       auto lp = rt->get_logical_partition(ctx, lr, csp.column_ip);
       csp.destroy(ctx, rt);
-      partitions[lr] = lp;
+      partitions[lr] = {csp, lp};
     } else {
       auto lp = rt->get_logical_partition(ctx, lr, table_partition.column_ip);
-      partitions[lr] = lp;
+      partitions[lr] = {ColumnSpacePartition(), lp};
     }
   }
 
@@ -449,9 +450,9 @@ PhysicalTable::requirements(
             assert(csp.column_space == cs);
             lp = rt->get_logical_partition(ctx, ppc->region(), csp.column_ip);
             csp.destroy(ctx, rt);
-            partitions[ppc->region()] = lp;
+            partitions[ppc->region()] = {csp, lp};
           } else {
-            lp = partitions[ppc->region()];
+            lp = std::get<1>(partitions[ppc->region()]);
           }
           val_reqs[rg_rq] =
             {false,
@@ -467,9 +468,17 @@ PhysicalTable::requirements(
       std::get<1>(val_reqs[rg_rq]).add_field(ppc->fid(), reqs.values.mapped);
     }
   }
-  std::vector<LogicalPartition> lps_result;
-  for (auto& csp_lp : partitions)
-    lps_result.push_back(std::get<1>(csp_lp));
+  std::vector<ColumnSpacePartition> csps_result;
+  for (auto& lr_csplp : partitions) {
+#if HAVE_CXX17
+    auto& [csp, lp] = std::get<1>(lr_csplp);
+#else // !HAVE_CXX17
+    auto& csplp = std::get<1>(lr_csplp);
+    auto& csp = std::get<0>(csplp);
+#endif
+    if (csp.is_valid()) // avoid returning table_partition
+      csps_result.push_back(csp);
+  }
 
   // gather all requirements, in order set by this traversal of fields
   std::vector<RegionRequirement> reqs_result;
@@ -481,7 +490,7 @@ PhysicalTable::requirements(
     auto& lr = std::get<0>(m_index_col);
     if (table_partition.is_valid()) {
       RegionRequirement req(
-        partitions[lr],
+        std::get<1>(partitions[lr]),
         0,
         {Table::m_index_col_fid},
         {}, // always remains unmapped!
@@ -573,7 +582,7 @@ PhysicalTable::requirements(
       desc_result.columns[desc_idx++] = cdesc;
     }
   }
-  return {reqs_result, lps_result, desc_result};
+  return {reqs_result, csps_result, desc_result};
 }
 
 bool

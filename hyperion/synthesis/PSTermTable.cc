@@ -153,7 +153,7 @@ hyperion::synthesis::PSTermTable::compute_cfs(
     task.add_region_requirement(r);
   rt->execute_task(ctx, task);
   for (auto& p : tparts)
-    rt->destroy_logical_partition(ctx, p);
+    p.destroy(ctx, rt);
 }
 
 void

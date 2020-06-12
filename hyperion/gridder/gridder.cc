@@ -625,10 +625,10 @@ init_parallactic_angles(
   for (const PhysicalTable* tbp :
          {&main_table, &data_description_table, &antenna_table})
     tbp->remap_regions(ctx, rt);
-  for (std::vector<LogicalPartition>* lps :
+  for (std::vector<ColumnSpacePartition>* csps :
          {&main_parts, &dd_parts, &ant_parts, &feed_parts})
-    for (auto& lp : *lps)
-      rt->destroy_logical_partition(ctx, lp);
+    for (auto& csp : *csps)
+      csp.destroy(ctx, rt);
 }
 
 template <typename gridder::args_t G>

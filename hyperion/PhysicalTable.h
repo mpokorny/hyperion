@@ -134,7 +134,7 @@ public:
 
   std::tuple<
     std::vector<Legion::RegionRequirement>,
-    std::vector<Legion::LogicalPartition>,
+    std::vector<ColumnSpacePartition>,
     Table::Desc>
   requirements(
     Legion::Context ctx,

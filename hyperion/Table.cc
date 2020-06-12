@@ -540,7 +540,6 @@ Table::requirements(
       auto lp =
         rt.value()
         ->get_logical_partition(ctx.value(), index_col_region, csp.column_ip);
-      csp.destroy(ctx.value(), rt.value());
       partitions[index_col_cs] = {csp, lp};
     } else {
       auto lp =
@@ -598,7 +597,6 @@ Table::requirements(
             lp =
               rt.value()
               ->get_logical_partition(ctx.value(), col.region, csp.column_ip);
-            csp.destroy(ctx.value(), rt.value());
             partitions[col.cs] = {csp, lp};
           } else {
             lp = std::get<1>(partitions[col.cs]);
@@ -624,7 +622,6 @@ Table::requirements(
 #else // !HAVE_CXX17
     auto& csplp = std::get<1>(cs_csplp);
     auto& csp = std::get<0>(csplp);
-    auto& lp = std::get<1>(csplp);
 #endif
     if (csp.is_valid()) // avoid returning table_partition
       csps_result.push_back(csp);
@@ -638,7 +635,7 @@ Table::requirements(
   // next, index_col index space partition
   if (table_partition.is_valid()) {
     RegionRequirement req(
-      partitions[index_col_cs],
+      std::get<1>(partitions[index_col_cs]),
       0,
       {Table::m_index_col_fid},
       {}, // always remains unmapped!
@@ -1292,7 +1289,7 @@ Table::remove_columns(
       all_columns.erase(c);
     remove_all = all_columns.size() == 0;
   }
-  std::map<ColumnSpace, std::tuple<LogicalRegion, FieldAllocator>> vlr_fa;
+  std::map<ColumnSpace, FieldAllocator> fas;
   for (auto& nm : rm_columns) {
     auto& col = columns.at(nm);
     if (!remove_all) {
@@ -1308,11 +1305,10 @@ Table::remove_columns(
         return false;
       }
     }
-    if (vlr_fa.count(col.cs) == 0)
-      vlr_fa[col.cs] =
-        {col.region,
-         rt->create_field_allocator(ctx, col.region.get_field_space())};
-    std::get<1>(vlr_fa[col.cs]).free_field(col.fid);
+    if (fas.count(col.cs) == 0)
+      fas[col.cs] =
+        rt->create_field_allocator(ctx, col.region.get_field_space());
+    fas[col.cs].free_field(col.fid);
   }
   return true;
 }
