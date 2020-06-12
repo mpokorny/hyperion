@@ -23,13 +23,6 @@ preregister_all() {
   hyperion::preregister_all();
 }
 
-void
-register_tasks(legion_context_t context, legion_runtime_t runtime) {
-  hyperion::register_tasks(
-    Legion::CObjectWrapper::unwrap(context)->context(),
-    Legion::CObjectWrapper::unwrap(runtime));
-}
-
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2

@@ -631,8 +631,6 @@ ms_test_suite(
   Context ctx,
   Runtime* rt) {
 
-  register_tasks(ctx, rt);
-
   testing::TestLog<READ_WRITE> log(
     task->regions[0].region,
     regions[0],

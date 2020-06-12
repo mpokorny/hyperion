@@ -660,8 +660,6 @@ gridder_task(
   Context ctx,
   Runtime* rt) {
 
-  hyperion::register_tasks(ctx, rt);
-
   // process command line arguments
   //
   CXX_OPTIONAL_NAMESPACE::optional<gridder::Args<gridder::VALUE_ARGS>>

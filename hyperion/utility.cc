@@ -232,11 +232,10 @@ CustomSerdezID hyperion::OpsManager::serdez_id_base;
 ReductionOpID hyperion::OpsManager::reduction_id_base;
 
 void
-hyperion::OpsManager::register_ops(Runtime* rt) {
-  static bool registered = false;
-  if (registered)
-    return;
-  registered = true;
+hyperion::OpsManager::register_ops(
+  Machine,
+  Runtime* rt,
+  const std::set<Processor>&) {
 
   serdez_id_base = rt->generate_library_serdez_ids("hyperion", NUM_SIDS);
 
@@ -583,6 +582,7 @@ hyperion::preregister_all() {
 
   table_mapper = Runtime::generate_static_mapper_id();
   Runtime::add_registration_callback(register_mapper);
+  Runtime::add_registration_callback(OpsManager::register_ops);
 
 #ifdef HYPERION_USE_HDF5
   H5DatatypeManager::preregister_datatypes();
@@ -603,11 +603,6 @@ hyperion::preregister_all() {
 #ifdef HYPERION_USE_CASACORE
   TableReadTask::preregister_tasks();
 #endif
-}
-
-void
-hyperion::register_tasks(Context context, Runtime* runtime) {
-  OpsManager::register_ops(runtime);
 }
 
 std::unordered_map<std::string, hyperion::AxesRegistrar::A>

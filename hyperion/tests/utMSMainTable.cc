@@ -294,8 +294,6 @@ ms_test(
   Context ctx,
   Runtime* rt) {
 
-  register_tasks(ctx, rt);
-
   const CXX_FILESYSTEM_NAMESPACE::path tpath = "data/t0.ms";
 
   // create the table

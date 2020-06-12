@@ -727,8 +727,6 @@ hdf5_test_suite(
   for (int i = 1; i < args.argc; ++i)
     save_output_file = std::string(args.argv[i]) == "--save-output";
 
-  register_tasks(ctx, runtime);
-
   testing::TestLog<READ_WRITE> log(
     task->regions[0].region,
     regions[0],

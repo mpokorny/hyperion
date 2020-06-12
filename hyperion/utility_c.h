@@ -43,9 +43,6 @@ typedef enum type_tag_t {
 HYPERION_EXPORT void
 preregister_all();
 
-HYPERION_EXPORT void
-register_tasks(legion_context_t context, legion_runtime_t runtime);
-
 #ifdef __cplusplus
 }
 #endif

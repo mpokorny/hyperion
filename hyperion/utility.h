@@ -978,7 +978,10 @@ public:
   };
 
   static void
-  register_ops(Legion::Runtime* rt);
+  register_ops(
+    Legion::Machine machine,
+    Legion::Runtime* rt,
+    const std::set<Legion::Processor>& local_procs);
 
   static Legion::CustomSerdezID
   serdez_id_base;
@@ -1612,10 +1615,6 @@ register_mapper(
 
 HYPERION_EXPORT void
 preregister_all();
-
-// FIXME: rename this function
-HYPERION_EXPORT void
-register_tasks(Legion::Context context, Legion::Runtime* runtime);
 
 HYPERION_EXPORT extern Legion::MapperID table_mapper;
 HYPERION_EXPORT extern Legion::LayoutConstraintID soa_right_layout;

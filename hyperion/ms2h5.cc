@@ -499,8 +499,6 @@ public:
     Context ctx,
     Runtime* rt) {
 
-    hyperion::register_tasks(ctx, rt);
-
     const InputArgs& args = Runtime::get_input_args();
     CXX_FILESYSTEM_NAMESPACE::path ms;
     std::vector<std::string> table_args;

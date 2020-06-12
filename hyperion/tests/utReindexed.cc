@@ -378,8 +378,6 @@ reindexed_test_suite(
   Context ctx,
   Runtime* rt) {
 
-  register_tasks(ctx, rt);
-
   testing::TestRecorder<READ_WRITE> recorder(
     testing::TestLog<READ_WRITE>(
       task->regions[0].region,

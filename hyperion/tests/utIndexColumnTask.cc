@@ -156,8 +156,6 @@ index_column_task_test_suite(
   Context ctx,
   Runtime* rt) {
 
-  register_tasks(ctx, rt);
-
   testing::TestRecorder<WRITE_DISCARD> recorder(
     testing::TestLog<WRITE_DISCARD>(
       task->regions[0].region,
