@@ -22,10 +22,6 @@ using namespace hyperion::synthesis;
 using namespace hyperion;
 using namespace Legion;
 
-#if !HAVE_CXX17
-constexpr const double PSTermTable::pi;
-constexpr const char* PSTermTable::compute_cfs_task_name;
-#endif
 Legion::TaskID WTermTable::compute_cfs_task_id;
 
 hyperion::synthesis::WTermTable::WTermTable(
@@ -218,7 +214,7 @@ hyperion::synthesis::WTermTable::preregister_tasks() {
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
         soa_left_layout);
-      Runtime::preregister_task_variant<compute_cfs_task<OpenMP::Cuda>>(
+      Runtime::preregister_task_variant<compute_cfs_task<Kokkos::Cuda>>(
         registrar,
         compute_cfs_task_name);
     }
