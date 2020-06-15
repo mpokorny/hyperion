@@ -27,7 +27,7 @@ using namespace hyperion;
 
 using namespace Legion;
 
-template <hyperion::TypeTag DT, int DIM>
+template <hyperion::TypeTag DT, unsigned DIM>
 static void
 read_scalar_column(
   const casacore::Table& table,
@@ -56,7 +56,7 @@ read_scalar_column(
   }
 }
 
-template <hyperion::TypeTag DT, int DIM>
+template <hyperion::TypeTag DT, unsigned DIM>
 static void
 read_array_column(
   const casacore::Table& table,

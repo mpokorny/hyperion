@@ -119,7 +119,7 @@ public:
       std::all_of(
         fids.begin(),
         fids.end(),
-        [&n](auto& fid) { return 0 <= fid && fid < n;} )) {
+        [&n](auto& fid) { return /*0 <= fid && */fid < n;} )) {
       Legion::RegionRequirement
         tt(type_tags_lr, READ_ONLY, EXCLUSIVE, type_tags_lr);
       Legion::RegionRequirement v(values_lr, mode, EXCLUSIVE, values_lr);

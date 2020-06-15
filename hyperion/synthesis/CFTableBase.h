@@ -140,12 +140,12 @@ public:
   struct HYPERION_EXPORT InitIndexColumnTaskArgs {
     hyperion::Table::Desc desc;
 
-    std::vector<cf_table_axis<CF_PB_SCALE>::type> pb_scales;
-    std::vector<cf_table_axis<CF_BASELINE_CLASS>::type> baseline_classes;
-    std::vector<cf_table_axis<CF_FREQUENCY>::type> frequencies;
-    std::vector<cf_table_axis<CF_W>::type> ws;
-    std::vector<cf_table_axis<CF_PARALLACTIC_ANGLE>::type> parallactic_angles;
-    std::vector<cf_table_axis<CF_MUELLER_ELEMENT>::type> mueller_elements;
+    std::vector<typename cf_table_axis<CF_PB_SCALE>::type> pb_scales;
+    std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type> baseline_classes;
+    std::vector<typename cf_table_axis<CF_FREQUENCY>::type> frequencies;
+    std::vector<typename cf_table_axis<CF_W>::type> ws;
+    std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type> parallactic_angles;
+    std::vector<typename cf_table_axis<CF_MUELLER_ELEMENT>::type> mueller_elements;
 
     size_t serialized_size() const;
     size_t serialize(void*) const;

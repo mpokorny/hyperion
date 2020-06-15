@@ -17,6 +17,21 @@
 
 using namespace hyperion;
 
+#if !HAVE_CXX17
+#define DEFS(T)                                                         \
+  const std::unordered_map<MSTableDefs<MS_##T>::col_t, const char*>     \
+  MSTableDefs<MS_##T>::units = MS_##T##_COLUMN_UNITS;                   \
+  const std::map<MSTableDefs<MS_##T>::col_t, const char*>               \
+  MSTableDefs<MS_##T>::measure_names = MS_##T##_COLUMN_MEASURE_NAMES;   \
+  const std::unordered_map<typename MSTableColumns<MS_##T>::col_t, const char*> \
+  MSTableColumns<MS_##T>::units = MSTableDefs<MS_##T>::units;           \
+  const std::map<typename MSTableColumns<MS_##T>::col_t, const char*>   \
+  MSTableColumns<MS_##T>::measure_names = MSTableDefs<MS_##T>::measure_names; \
+  const std::array<const char*, MSTableDefs<MS_##T>::num_cols>          \
+  MSTableColumns<MS_##T>::column_names;                                 \
+  const std::array<unsigned, MSTableDefs<MS_##T>::num_cols>             \
+  MSTableColumns<MS_##T>::element_ranks;
+#else
 #define DEFS(T)                                                         \
   const std::unordered_map<MSTableDefs<MS_##T>::col_t, const char*>     \
   MSTableDefs<MS_##T>::units = MS_##T##_COLUMN_UNITS;                   \
@@ -26,6 +41,7 @@ using namespace hyperion;
   MSTableColumns<MS_##T>::units = MSTableDefs<MS_##T>::units;           \
   const std::map<typename MSTableColumns<MS_##T>::col_t, const char*>   \
   MSTableColumns<MS_##T>::measure_names = MSTableDefs<MS_##T>::measure_names;
+#endif
 
 HYPERION_FOREACH_MS_TABLE(DEFS);
 

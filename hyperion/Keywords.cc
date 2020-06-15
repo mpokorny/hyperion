@@ -91,11 +91,11 @@ Keywords::value_types(
     auto n = size(rt);
     RegionRequirement req(type_tags_lr, READ_ONLY, EXCLUSIVE, type_tags_lr);
     for (auto& fid : fids)
-      if (0 <= fid && fid < n)
+      if (/*0 <= fid && */fid < n)
         req.add_field(fid);
     auto pr = rt->map_region(ctx, req);
     for (size_t i = 0; i < fids.size(); ++i)
-      if (0 <= fids[i] && fids[i] < n)
+      if (/*0 <= fids[i] && */fids[i] < n)
         result[i] = value_type(pr, fids[i]);
     rt->unmap_region(ctx, pr);
   }

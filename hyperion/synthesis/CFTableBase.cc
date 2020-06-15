@@ -43,6 +43,13 @@ constexpr const char*
 hyperion::synthesis::cf_table_axis<CF_X>::name;
 constexpr const char*
 hyperion::synthesis::cf_table_axis<CF_Y>::name;
+
+constexpr const Legion::FieldID CFTableBase::INDEX_VALUE_FID;
+constexpr const Legion::FieldID CFTableBase::CF_VALUE_FID;
+constexpr const char* CFTableBase::CF_VALUE_COLUMN_NAME;
+constexpr const Legion::FieldID CFTableBase::CF_WEIGHT_FID;
+constexpr const char* CFTableBase::CF_WEIGHT_COLUMN_NAME;
+
 #endif // !HAVE_CXX17
 
 template <typename T>
@@ -198,23 +205,23 @@ hyperion::synthesis::CFTableBase::init_index_column_task(
 
   auto cols = pt.columns();
   if (args.baseline_classes.size() > 0)
-    init_column(
+    init_column<typename cf_table_axis<CF_BASELINE_CLASS>::type>(
       args.baseline_classes,
       *cols.at(cf_table_axis<CF_BASELINE_CLASS>::name));
   if (args.frequencies.size() > 0)
-    init_column(
+    init_column<typename cf_table_axis<CF_FREQUENCY>::type>(
       args.frequencies,
       *cols.at(cf_table_axis<CF_FREQUENCY>::name));
   if (args.ws.size() > 0)
-    init_column(
+    init_column<typename cf_table_axis<CF_W>::type>(
       args.ws,
       *cols.at(cf_table_axis<CF_W>::name));
   if (args.parallactic_angles.size() > 0)
-    init_column(
+    init_column<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>(
       args.parallactic_angles,
       *cols.at(cf_table_axis<CF_PARALLACTIC_ANGLE>::name));
   if (args.mueller_elements.size() > 0)
-    init_column(
+    init_column<typename cf_table_axis<CF_MUELLER_ELEMENT>::type>(
       args.mueller_elements,
       *cols.at(cf_table_axis<CF_MUELLER_ELEMENT>::name));
 }
