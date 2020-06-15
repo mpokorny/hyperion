@@ -125,7 +125,7 @@ verify_scalar_column(
   }
 }
 
-template <int DIM>
+template <unsigned DIM>
 void
 verify_array_column(
   const casacore::Table& tb,
