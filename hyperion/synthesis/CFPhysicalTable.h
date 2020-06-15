@@ -291,7 +291,7 @@ public:
     A,
     COORD_T>
   weight() const {
-    return decltype(weight)(*m_columns.at(CFTableBase::CF_WEIGHT_COLUMN_NAME));
+    return decltype(weight())(*m_columns.at(CFTableBase::CF_WEIGHT_COLUMN_NAME));
   }
 
   const Legion::Point<row_rank>&
