@@ -76,7 +76,7 @@ struct table_indexing {
     T A0,
     typename AXES,
     typename V = typename index_of_<0, A0, AXES>::type,
-    std::enable_if_t<(M <= N), int> = 0>
+    typename E = typename std::enable_if<(M <= N), int>::type>
   struct Pt_ {
     Pt_(const Legion::Point<N>& _pt)
       : pt(_pt[V::value]) {};

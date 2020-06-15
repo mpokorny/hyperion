@@ -45,7 +45,8 @@ typedef enum cf_table_axes_t {
 } cf_table_axes_t;
 }
 
-typedef hyperion::table_indexing<hyperion::synthesis::cf_table_axes_t> cf_indexing;
+typedef hyperion::table_indexing<hyperion::synthesis::cf_table_axes_t>
+  cf_indexing;
 
 template <>
 struct Axes<synthesis::cf_table_axes_t> {
