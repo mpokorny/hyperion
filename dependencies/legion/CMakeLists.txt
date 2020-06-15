@@ -24,7 +24,7 @@ if(Legion_PRIVILEGE_CHECKS)
   add_compile_options( "PRIVILEGE_CHECKS")
 endif()
 
-set(BUILD_MARCH "")
+set(BUILD_MARCH ${BUILD_ARCH})
 set(SYSCONFDIR ${SYSCONFDIR}/hyperion)
 
 # save some build parameters that will be changed for Legion build

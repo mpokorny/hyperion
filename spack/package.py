@@ -122,13 +122,16 @@ class Hyperion(CMakePackage):
             if len(archs) > 0:
                 args.append('-DCUDA_ARCH=' + archs[1:])
             args.append(self.define_from_variant('Legion_HIJACK_CUDART', 'lg_hijack_cudart'))
+            cxx_std = "14"
+        else:
+            cxx_std = "17"
 
         if '+debug' in spec:
             args.append('-DCMAKE_BUILD_TYPE=Debug')
         if '+lg_debug' in spec:
             args.append('-DLegion_CMAKE_BUILD_TYPE=Debug')
 
-        #args.append('-DBUILD_ARCH:STRING=none')
-        args.append("-DCMAKE_CXX_COMPILER=%s" % spec["kokkos"].kokkos_cxx)
-        args.append("-DKOKKOS_CXX_COMPILER=%s" % spack_cxx)
+        args.append(f'-DBUILD_ARCH:STRING={spec.architecture.target}')
+        args.append(f'-Dhyperion_CXX_STANDARD={cxx_std}')
+        args.append(f'-DKOKKOS_CXX_COMPILER={spec["kokkos"].kokkos_cxx}')
         return args

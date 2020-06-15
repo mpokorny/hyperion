@@ -1,37 +1,9 @@
 find_package(Filesystem COMPONENTS Experimental)
 
-if(USE_KOKKOS)
-  kokkos_check(DEVICES ${KOKKOS_DEVICES})
-  # if(USE_CUDA)
-  #   target_link_options(Kokkos::kokkoscore INTERFACE "SHELL: --cudart none")
-  #   target_link_options(Kokkos::kokkoscontainers INTERFACE "SHELL: --cudart none")
-  # endif()
-  # if(USE_OPENMP)
-  #   get_property(
-  #     linkopts
-  #     TARGET Kokkos::kokkoscore
-  #     PROPERTY
-  #     INTERFACE_LINK_OPTIONS)
-  #   list(REMOVE_ITEM linkopts "-fopenmp")
-  #   set_property(
-  #     TARGET Kokkos::kokkoscore
-  #     PROPERTY INTERFACE_LINK_OPTIONS
-  #     ${linkopts})
-
-  #   get_property(
-  #     linkopts TARGET Kokkos::kokkoscontainers
-  #     PROPERTY INTERFACE_LINK_OPTIONS)
-  #   list(REMOVE_ITEM linkopts "-fopenmp")
-  #   set_property(
-  #     TARGET Kokkos::kokkoscontainers
-  #     PROPERTY INTERFACE_LINK_OPTIONS
-  #     ${linkopts})
-  # endif()
-endif()
-
 enable_language(CXX)
 
 set(hyperion_CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "hyperion build type")
+set(KOKKOS_CXX_COMPILER "" CACHE STRING "")
 option(hyperion_USE_CASACORE "Use casacore in hyperion" ${USE_CASACORE})
 option(hyperion_USE_HDF5 "Use HDF5 in hyperion" ${USE_HDF5})
 option(hyperion_USE_CUDA "Use CUDA in hyperion" ${USE_CUDA})
@@ -41,36 +13,39 @@ option(hyperion_USE_YAML "Use YAML in hyperion" ON)
 
 set(hyperion_MAX_STRING_SIZE 64 CACHE STRING "Maximum string size")
 set(hyperion_MAX_NUM_TABLE_COLUMNS 100 CACHE STRING "Maximum number of table columns (> 50)")
-set(hyperion_CXX_STANDARD "" CACHE STRING "Compile with required C++ standard")
+set(hyperion_CXX_STANDARD 14 CACHE STRING "Compile with required C++ standard")
 set_property(CACHE hyperion_CXX_STANDARD PROPERTY STRINGS 14 17)
-mark_as_advanced(hyperion_CXX_STANDARD)
+
+if(USE_KOKKOS)
+  kokkos_check(DEVICES ${KOKKOS_DEVICES})
+  set(CMAKE_CXX_COMPILER ${KOKKOS_CXX_COMPILER})
+endif()
 
 if(hyperion_USE_YAML)
   find_package(yaml-cpp REQUIRED)
 endif()
 
-# if(hyperion_USE_CUDA)
-#   enable_language(CUDA)
-# endif()
+if(NOT USE_KOKKOS AND hyperion_USE_CUDA)
+  enable_language(CUDA)
+endif()
+
+include(CheckCXXCompilerFlag)
 
 set(CMAKE_BUILD_TYPE ${hyperion_CMAKE_BUILD_TYPE})
 
-include(CheckCXXCompilerFlag)
 if(NOT USE_KOKKOS)
-  if(NOT BUILD_ARCH STREQUAL "none")
-    check_cxx_compiler_flag("-march=${BUILD_ARCH}" COMPILER_SUPPORTS_MARCH)
-    if(COMPILER_SUPPORTS_MARCH)
-      add_compile_options("-march=${BUILD_ARCH}")
-    else()
-      message(STATUS "The flag -march=${BUILD_ARCH} is not supported by the compiler")
-    endif()
+  check_cxx_compiler_flag("-march=${BUILD_ARCH}" COMPILER_SUPPORTS_MARCH)
+  if(COMPILER_SUPPORTS_MARCH)
+    add_compile_options("-march=${BUILD_ARCH}")
+  else()
+    message(STATUS "The flag -march=${BUILD_ARCH} is not supported by the compiler")
+  endif()
 
-    check_cxx_compiler_flag("-mtune=${BUILD_ARCH}" COMPILER_SUPPORTS_MTUNE)
-    if(COMPILER_SUPPORTS_MTUNE)
-      add_compile_options("-mtune=${BUILD_ARCH}")
-    else()
-      message(STATUS "The flag -mtune=${BUILD_ARCH} is not supported by the compiler")
-    endif()
+  check_cxx_compiler_flag("-mtune=${BUILD_ARCH}" COMPILER_SUPPORTS_MTUNE)
+  if(COMPILER_SUPPORTS_MTUNE)
+    add_compile_options("-mtune=${BUILD_ARCH}")
+  else()
+    message(STATUS "The flag -mtune=${BUILD_ARCH} is not supported by the compiler")
   endif()
 endif()
 
@@ -90,32 +65,45 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN TRUE)
 add_compile_options(-Wall)
 add_compile_definitions($<$<CONFIG:Debug>:HYPERION_DEBUG>)
 
-check_cxx_compiler_flag("-Og" COMPILER_SUPPORTS_OPTIMIZE_DEBUG)
-if(COMPILER_SUPPORTS_OPTIMIZE_DEBUG)
-  add_compile_options($<$<CONFIG:Debug>:-Og>)
-else()
-  check_cxx_compiler_flag("-O0" COMPILER_SUPPORTS_OPTIMIZE_ZERO)
-  if(COMPILER_SUPPORTS_OPTIMIZE_ZERO)
-    add_compile_options($<$<CONFIG:Debug>:-O0>)
-  endif()
-endif()
+add_compile_options($<$<CONFIG:Debug>:-O0>)
+# check_cxx_compiler_flag("-Og" COMPILER_SUPPORTS_OPTIMIZE_DEBUG)
+# if(COMPILER_SUPPORTS_OPTIMIZE_DEBUG)
+#   add_compile_options($<$<CONFIG:Debug>:-Og>)
+# else()
+#   check_cxx_compiler_flag("-O0" COMPILER_SUPPORTS_OPTIMIZE_ZERO)
+#   if(COMPILER_SUPPORTS_OPTIMIZE_ZERO)
+#     add_compile_options($<$<CONFIG:Debug>:-O0>)
+#   endif()
+# endif()
 
 set(MAX_STRING_SIZE ${hyperion_MAX_STRING_SIZE})
 set(MAX_NUM_TABLE_COLUMNS ${hyperion_MAX_NUM_TABLE_COLUMNS})
 
-if(NOT hyperion_CXX_STANDARD)
-  set(HAVE_CXX17 $<COMPILE_FEATURES:cxx_std_17>)
-  if(HAVE_CXX17)
-    set(CXX_STANDARD 17)
-  else()
-    set(HAVE_CXX14 $<COMPILE_FEATURES:cxx_std_14>)
-    if(NOT HAVE_CXX14)
-      message(FATAL_ERROR "Compiler must support c++14 at a minimum")
-    endif()
-    set(CXX_STANDARD 14)
-  endif()
+# FIXME: this doesn't work after setting CMAKE_CXX_COMPILER to
+# KOKKOS_CXX_COMPILER (gets a false positive on the c++17 test when
+# CMAKE_CXX_COMPILER supports it, but KOKKOS_CXX_COMPILER does not)
+#
+# if(hyperion_CXX_STANDARD STREQUAL 17)
+#   set(HAVE_CXX17 $<COMPILE_FEATURES:cxx_std_17>)
+#   if(NOT HAVE_CXX17)
+#     message(FATAL_ERROR "Compiler does not support c++17")
+#   endif()
+#   set(CXX_STANDARD 17)
+# else()
+#   set(HAVE_CXX14 $<COMPILE_FEATURES:cxx_std_14>)
+#   if(NOT HAVE_CXX14)
+#     message(FATAL_ERROR "Compiler does not support c++14")
+#   endif()
+#   set(CXX_STANDARD 14)
+# endif()
+#
+# FIXME: after fixing the above, remove the following
+set(CXX_STANDARD ${hyperion_CXX_STANDARD})
+
+if (CXX_STANDARD STREQUAL 17)
+  set(HAVE_CXX17 True)
 else()
-  set(CXX_STANDARD ${hyperion_CXX_STANDARD})
+  set(HAVE_CXX14 True)
 endif()
 
 if(CXX_STANDARD STREQUAL 17)
@@ -146,10 +134,6 @@ function(set_host_target_properties target)
     CXX_STANDARD ${CXX_STANDARD}
     CXX_EXTENSIONS ON
     CXX_STANDARD_REQUIRED ON)
-  if(hyperion_USE_CUDA AND HOST_ONLY)
-    target_compile_options(${target} PRIVATE ${HOST_ONLY})
-    #target_link_options(${target} PRIVATE "-cudart" "none")
-  endif()
 endfunction()
 
 add_library(hyperion STATIC)
@@ -254,10 +238,13 @@ target_link_libraries(hyperion PUBLIC std::mdspan)
 target_link_libraries(hyperion PUBLIC LegionRuntime)
 target_link_libraries(hyperion PUBLIC RealmRuntime)
 if(hyperion_USE_KOKKOS)
+  target_compile_options(hyperion PUBLIC
+    --expt-relaxed-constexpr)
   target_link_libraries(hyperion PUBLIC Kokkos::kokkoscore)
 endif()
-target_compile_definitions(hyperion PUBLIC
-  $<$<COMPILE_FEATURES:cxx_std_17>:HAVE_CXX17>)
+if(HAVE_CXX17)
+  target_compile_definitions(hyperion PUBLIC HAVE_CXX17)
+endif()
 include(GenerateExportHeader)
 generate_export_header(hyperion)
 
