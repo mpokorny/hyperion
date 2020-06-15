@@ -30,8 +30,8 @@ endif()
 
 #option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
-option(USE_HDF5 "Use HDF5" ON)
-option(USE_CASACORE "Use casacore" ON)
+option(USE_HDF5 "Use HDF5" OFF)
+option(USE_CASACORE "Use casacore" OFF)
 option(USE_OPENMP "Use OpenMP" OFF)
 option(USE_CUDA "Use CUDA" OFF)
 option(USE_KOKKOS "Use Kokkos" OFF)
