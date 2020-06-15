@@ -544,7 +544,7 @@ struct Zernike<6, 8> {
     XYPolyTerm{0, 8, 8}};
 };
 template <>
-struct Zernike<8, 9> {
+struct Zernike<8, 8> {
   typedef std::integral_constant<int, 8> M;
   typedef std::integral_constant<unsigned, 9> N;
   constexpr static const std::array<XYPolyTerm, 5> terms{
