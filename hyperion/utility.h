@@ -18,6 +18,8 @@
 
 #include <hyperion/hyperion.h>
 
+#include <experimental/mdspan>
+
 #if !HAVE_CXX17
 namespace std {
 
@@ -85,12 +87,6 @@ struct invoke_result : detail::invoke_result<void, F, ArgTypes...> {};
 
 template< class F, class... ArgTypes>
 using invoke_result_t = typename invoke_result<F, ArgTypes...>::type;
-
-template< class T, class U >
-constexpr bool is_same_v = is_same<T, U>::value;
-
-template< bool B, class T = void >
-using enable_if_t = typename enable_if<B,T>::type;
 
 } // end namespace std
 #endif // !HAVE_CXX17
