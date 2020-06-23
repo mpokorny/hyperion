@@ -17,7 +17,6 @@
 #define HYPERION_SYNTHESIS_W_TERM_TABLE_H_
 
 #include <hyperion/synthesis/CFTable.h>
-#include <hyperion/synthesis/Zernike.h> // FIXME: remove
 
 #include <array>
 #include <cmath>
@@ -77,17 +76,6 @@ public:
   const ComputeCFSTaskArgs& args =
     *static_cast<const ComputeCFSTaskArgs*>(task->args);
   const decltype(m_cell_size)& cell_size = args.cell_size;
-
-  // FIXME: remove
-  typedef zernike_basis<double, 2> zbasis;
-  zbasis::var_t buffer[(zbasis::degree + 1) * (zbasis::degree + 1)];
-  zbasis::var_t coeffs[zbasis::num_terms]{1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
-  zbasis::expand(
-    std::experimental::mdspan<
-      zbasis::var_t,
-      zbasis::degree + 1,
-      zbasis::degree + 1>(buffer),
-    std::experimental::mdspan<zbasis::var_t, zbasis::num_terms>(coeffs));
 
   auto ptcr =
     PhysicalTable::create(
