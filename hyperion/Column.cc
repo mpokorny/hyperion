@@ -113,7 +113,7 @@ index_column(
       rns(result_pr, Column::COLUMN_INDEX_ROWS_FID);
     for (size_t i = 0; i < acc.size(); ++i) {
       ::new (rns.ptr(i)) Column::COLUMN_INDEX_ROWS_TYPE;
-      tie(values[i], rns[i]) = acc[i];
+      std::tie(values[i], rns[i]) = acc[i];
     }
     rt->unmap_region(ctx, result_pr);
   }
