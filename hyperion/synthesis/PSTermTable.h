@@ -59,13 +59,8 @@ public:
     static_assert(N > 0);
     const double dn2 = nu_lo * nu_lo - nu_hi * nu_hi;
     double result = ary[N - 1];
-#if FP_FAST_FMA
-    for (unsigned k = N - 1; k > 0; --k)
-      result = std::fma(dn2, result, ary[k - 1]);
-#else
     for (unsigned k = N - 1; k > 0; --k)
       result = dn2 * result + ary[k - 1];
-#endif
     return result;
   }
 
