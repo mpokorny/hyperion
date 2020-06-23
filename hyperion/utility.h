@@ -20,6 +20,17 @@
 
 #include <experimental/mdspan>
 
+#ifdef HYPERION_USE_KOKKOS
+# include <Kokkos_Core.hpp>
+# define HYPERION_INLINE_FUNCTION KOKKOS_INLINE_FUNCTION
+#else
+# ifdef HYPERION_USE_CUDA
+#  define HYPERION_INLINE_FUNCTION __device__ __host__ inline
+# else
+#  define HYPERION_INLINE_FUNCTION inline
+#endif
+#endif // HYPERION_USE_KOKKOS
+
 #if !HAVE_CXX17
 namespace std {
 
@@ -139,6 +150,24 @@ class ColumnSpace;
 class TableField;
 
 typedef IndexTree<Legion::coord_t> IndexTreeL;
+
+#ifndef HYPERION_USE_KOKKOS
+template <typename T>
+using complex = std::complex<T>;
+#else
+template <typename T>
+using complex = Kokkos::complex<T>;
+#endif
+
+template <typename F>
+HYPERION_INLINE_FUNCTION bool
+operator<(const complex<F>& a, const complex<F>& b) {
+  if (a.real() < b.real())
+    return true;
+  if (a.real() > b.real())
+    return false;
+  return a.imag() < b.imag();
+}
 
 #if HAVE_CXX17
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
@@ -1386,7 +1415,7 @@ struct DataType<HYPERION_TYPE_DOUBLE> {
 
 template <>
 struct DataType<HYPERION_TYPE_COMPLEX> {
-  typedef std::complex<float> ValueType;
+  typedef complex<float> ValueType;
   constexpr static const char* s = "complex";
   constexpr static int id = static_cast<int>(HYPERION_TYPE_COMPLEX);
   constexpr static size_t serdez_size = sizeof(ValueType);
@@ -1413,7 +1442,7 @@ struct DataType<HYPERION_TYPE_COMPLEX> {
 
 template <>
 struct DataType<HYPERION_TYPE_DCOMPLEX> {
-  typedef std::complex<double> ValueType;
+  typedef complex<double> ValueType;
   constexpr static const char* s = "dComplex";
   constexpr static int id = static_cast<int>(HYPERION_TYPE_DCOMPLEX);
   constexpr static size_t serdez_size = sizeof(ValueType);
@@ -2759,21 +2788,6 @@ HYPERION_FOREACH_N(DEFINE_POINT_ADD_REDOP);
 
 HYPERION_EXPORT std::ostream&
 operator<<(std::ostream& stream, const hyperion::string& str);
-
-#ifndef HYPERION_USE_CASACORE
-// casacore has an equivalent, no need to define another
-namespace std {
-template <typename F>
-bool
-operator<(const std::complex<F>& a, const std::complex<F>& b) {
-  if (a.real() < b.real())
-    return true;
-  if (a.real() > b.real())
-    return false;
-  return a.imag() < b.imag();
-}
-} // end namespace std
-#endif
 
 namespace hyperion {
 template <int N, typename C>

@@ -23,12 +23,6 @@
 #include <array>
 #include <vector>
 
-#ifdef HYPERION_USE_KOKKOS
-# include <Kokkos_Core.hpp>
-#else // !HYPERION_USE_KOKKOS
-# define KOKKOS_INLINE_FUNCTION inline
-#endif // HYPERION_USE_KOKKOS
-
 namespace hyperion {
 
 namespace synthesis {
@@ -77,17 +71,17 @@ struct cf_table_axis<CF_BASELINE_CLASS> {
 };
 template <>
 struct cf_table_axis<CF_FREQUENCY> {
-  typedef double type;
+  typedef float type;
   static const constexpr char* name = "FREQUENCY";
 };
 template <>
 struct cf_table_axis<CF_W> {
-  typedef double type;
+  typedef float type;
   static const constexpr char* name = "W";
 };
 template <>
 struct cf_table_axis<CF_PARALLACTIC_ANGLE> {
-  typedef double type;
+  typedef float type;
   static const constexpr char* name = "PARALLACTIC_ANGLE";
 };
 template <>
@@ -128,11 +122,11 @@ public:
 
   static const constexpr Legion::FieldID CF_VALUE_FID = 24;
   static const constexpr char* CF_VALUE_COLUMN_NAME = "VALUE";
-  typedef std::complex<float> cf_value_t;
+  typedef hyperion::complex<double> cf_value_t;
 
   static const constexpr Legion::FieldID CF_WEIGHT_FID = 34;
   static const constexpr char* CF_WEIGHT_COLUMN_NAME = "WEIGHT";
-  typedef std::complex<float> cf_weight_t;
+  typedef hyperion::complex<double> cf_weight_t;
 
   static Legion::TaskID init_index_column_task_id;
   static const constexpr char* init_index_column_task_name =
