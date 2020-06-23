@@ -198,7 +198,7 @@ public:
   rect_hi(const Legion::Rect<N, Legion::coord_t>& r) {
     Kokkos::Array<long, N> result;
     for (size_t i = 0; i < N; ++i)
-      result[i] = r.hi[i];
+      result[i] = r.hi[i] + 1;
     return result;
   }
 #endif // !HYPERION_USE_KOKKOS
