@@ -124,25 +124,22 @@ public:
 
     auto tbl = CFPhysicalTable<CF_PB_SCALE>(pt);
 
-    auto pb_scales_acc =
+    auto pb_scale_acc =
       tbl.pb_scale<Legion::AffineAccessor>().accessor<READ_ONLY>();
-    auto values_col = tbl.value<Legion::AffineAccessor>();
-    auto values_acc = values_col.accessor<WRITE_ONLY>();
-
-    auto rect = values_col.rect();
     typedef typename cf_table_axis<CF_PB_SCALE>::type fp_t;
-    Kokkos::View<
-      const fp_t *,
-      typename execution_space::memory_space> pb_scales =
-      pb_scales_acc.accessor;
-    Kokkos::View<
-      typename CFTableBase::cf_value_t ***,
-      typename execution_space::memory_space> values =
-      values_acc.accessor;
+    Kokkos::View<const fp_t *, execution_space> pb_scales =
+      pb_scale_acc.accessor;
+
+    auto value_col = tbl.value<Legion::AffineAccessor>();
+    auto value_rect = value_col.rect();
+    auto value_acc = value_col.accessor<WRITE_ONLY>();
+    Kokkos::View<typename CFTableBase::cf_value_t ***, execution_space> values =
+      value_acc.accessor;
+
     Kokkos::MDRangePolicy<Kokkos::Rank<3>, execution_space> range(
       rt->get_executing_processor(ctx).kokkos_work_space(),
-      rect_lo(rect),
-      rect_hi(rect));
+      rect_lo(value_rect),
+      rect_hi(value_rect));
     Kokkos::parallel_for(
       "ComputePSTerm",
       range,

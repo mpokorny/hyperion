@@ -110,22 +110,21 @@ public:
 
   auto tbl = CFPhysicalTable<CF_W>(pt);
 
-  auto ws_acc = tbl.w<Legion::AffineAccessor>().accessor<READ_ONLY>();
-  auto values_col = tbl.value<Legion::AffineAccessor>();
-  auto values_acc = values_col.accessor<WRITE_ONLY>();
-
-  auto rect = values_col.rect();
+  auto w_value_acc = tbl.w<Legion::AffineAccessor>().accessor<READ_ONLY>();
   typedef typename cf_table_axis<CF_W>::type fp_t;
-  Kokkos::View<const fp_t *, typename execution_space::memory_space> ws =
-    ws_acc.accessor;
-  Kokkos::View<
-    typename CFTableBase::cf_value_t ***,
-    typename execution_space::memory_space> values =
-    values_acc.accessor;
+  Kokkos::View<const fp_t *, execution_space> w_values =
+    w_value_acc.accessor;
+
+  auto value_col = tbl.value<Legion::AffineAccessor>();
+  auto value_rect = value_col.rect();
+  auto value_acc = value_col.accessor<WRITE_ONLY>();
+  Kokkos::View<typename CFTableBase::cf_value_t ***, execution_space> values =
+    value_acc.accessor;
+
   Kokkos::MDRangePolicy<Kokkos::Rank<3>, execution_space> range(
     rt->get_executing_processor(ctx).kokkos_work_space(),
-    rect_lo(rect),
-    rect_hi(rect));
+    rect_lo(value_rect),
+    rect_hi(value_rect));
   Kokkos::parallel_for(
     "ComputeWTerm",
     range,
@@ -135,7 +134,8 @@ public:
       const fp_t r2 = l * l + m * m;
       const fp_t phase =
         ((r2 <= (fp_t)1.0)
-         ? (((fp_t)twopi * ws(w)) * (std::sqrt((fp_t)1.0 - r2) - (fp_t)1.0))
+         ? (((fp_t)twopi * w_values(w))
+            * (std::sqrt((fp_t)1.0 - r2) - (fp_t)1.0))
          : (fp_t)0.0);
       values(w, x, y) = std::polar((fp_t)1.0, phase);
     });

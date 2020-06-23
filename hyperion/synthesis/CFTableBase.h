@@ -38,7 +38,7 @@ typedef enum cf_table_axes_t {
   CF_FREQUENCY,
   CF_W,
   CF_PARALLACTIC_ANGLE,
-  CF_MUELLER_ELEMENT,
+  CF_STOKES,
   CF_X,
   CF_Y,
   CF_LAST_AXIS = CF_Y
@@ -91,9 +91,9 @@ struct cf_table_axis<CF_PARALLACTIC_ANGLE> {
   static const constexpr char* name = "PARALLACTIC_ANGLE";
 };
 template <>
-struct cf_table_axis<CF_MUELLER_ELEMENT> {
+struct cf_table_axis<CF_STOKES> {
   typedef int type;
-  static const constexpr char* name = "MUELLER_ELEMENT";
+  static const constexpr char* name = "STOKES";
 };
 template <>
 struct cf_table_axis<CF_X> {
@@ -141,12 +141,18 @@ public:
   struct HYPERION_EXPORT InitIndexColumnTaskArgs {
     hyperion::Table::Desc desc;
 
-    std::vector<typename cf_table_axis<CF_PB_SCALE>::type> pb_scales;
-    std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type> baseline_classes;
-    std::vector<typename cf_table_axis<CF_FREQUENCY>::type> frequencies;
-    std::vector<typename cf_table_axis<CF_W>::type> ws;
-    std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type> parallactic_angles;
-    std::vector<typename cf_table_axis<CF_MUELLER_ELEMENT>::type> mueller_elements;
+    std::vector<typename cf_table_axis<CF_PB_SCALE>::type>
+      pb_scales;
+    std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>
+      baseline_classes;
+    std::vector<typename cf_table_axis<CF_FREQUENCY>::type>
+      frequencies;
+    std::vector<typename cf_table_axis<CF_W>::type>
+      w_values;
+    std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>
+      parallactic_angles;
+    std::vector<typename cf_table_axis<CF_STOKES>::type>
+      stokes_values;
 
     size_t serialized_size() const;
     size_t serialize(void*) const;
@@ -222,7 +228,7 @@ CFTableBase::InitIndexColumnTaskArgs::values<CF_FREQUENCY>() {
 template <>
 constexpr std::vector<typename cf_table_axis<CF_W>::type>&
 CFTableBase::InitIndexColumnTaskArgs::values<CF_W>() {
-  return ws;
+  return w_values;
 }
 template <>
 constexpr std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
@@ -230,9 +236,9 @@ CFTableBase::InitIndexColumnTaskArgs::values<CF_PARALLACTIC_ANGLE>() {
   return parallactic_angles;
 }
 template <>
-constexpr std::vector<typename cf_table_axis<CF_MUELLER_ELEMENT>::type>&
-CFTableBase::InitIndexColumnTaskArgs::values<CF_MUELLER_ELEMENT>() {
-  return mueller_elements;
+constexpr std::vector<typename cf_table_axis<CF_STOKES>::type>&
+CFTableBase::InitIndexColumnTaskArgs::values<CF_STOKES>() {
+  return stokes_values;
 }
 template <cf_table_axes_t T>
 struct CFTableBase::InitIndexColumnTaskArgs::initializer<T> {

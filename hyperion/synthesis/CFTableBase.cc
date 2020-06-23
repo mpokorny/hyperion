@@ -38,7 +38,7 @@ hyperion::synthesis::cf_table_axis<CF_W>::name;
 constexpr const char*
 hyperion::synthesis::cf_table_axis<CF_PARALLACTIC_ANGLE>::name;
 constexpr const char*
-hyperion::synthesis::cf_table_axis<CF_MUELLER_ELEMENT>::name;
+hyperion::synthesis::cf_table_axis<CF_STOKES>::name;
 constexpr const char*
 hyperion::synthesis::cf_table_axis<CF_X>::name;
 constexpr const char*
@@ -91,9 +91,9 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::serialized_size()
     + vector_serialized_size(pb_scales)
     + vector_serialized_size(baseline_classes)
     + vector_serialized_size(frequencies)
-    + vector_serialized_size(ws)
+    + vector_serialized_size(w_values)
     + vector_serialized_size(parallactic_angles)
-    + vector_serialized_size(mueller_elements);
+    + vector_serialized_size(stokes_values);
 }
 
 size_t
@@ -106,9 +106,9 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::serialize(
   b += vector_serialize(pb_scales, b);
   b += vector_serialize(baseline_classes, b);
   b += vector_serialize(frequencies, b);
-  b += vector_serialize(ws, b);
+  b += vector_serialize(w_values, b);
   b += vector_serialize(parallactic_angles, b);
-  b += vector_serialize(mueller_elements, b);
+  b += vector_serialize(stokes_values, b);
   return b - reinterpret_cast<char*>(buff);
 }
 
@@ -122,9 +122,9 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::deserialize(
   b += vector_deserialize(b, pb_scales);
   b += vector_deserialize(b, baseline_classes);
   b += vector_deserialize(b, frequencies);
-  b += vector_deserialize(b, ws);
+  b += vector_deserialize(b, w_values);
   b += vector_deserialize(b, parallactic_angles);
-  b += vector_deserialize(b, mueller_elements);
+  b += vector_deserialize(b, stokes_values);
   return b - reinterpret_cast<const char*>(buff);
 }
 
@@ -135,7 +135,7 @@ hyperion::Axes<hyperion::synthesis::cf_table_axes_t>::names{
     cf_table_axis<CF_FREQUENCY>::name,
     cf_table_axis<CF_W>::name,
     cf_table_axis<CF_PARALLACTIC_ANGLE>::name,
-    cf_table_axis<CF_MUELLER_ELEMENT>::name
+    cf_table_axis<CF_STOKES>::name
     };
 
 #ifdef HYPERION_USE_HDF5
@@ -212,18 +212,18 @@ hyperion::synthesis::CFTableBase::init_index_column_task(
     init_column<typename cf_table_axis<CF_FREQUENCY>::type>(
       args.frequencies,
       *cols.at(cf_table_axis<CF_FREQUENCY>::name));
-  if (args.ws.size() > 0)
+  if (args.w_values.size() > 0)
     init_column<typename cf_table_axis<CF_W>::type>(
-      args.ws,
+      args.w_values,
       *cols.at(cf_table_axis<CF_W>::name));
   if (args.parallactic_angles.size() > 0)
     init_column<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>(
       args.parallactic_angles,
       *cols.at(cf_table_axis<CF_PARALLACTIC_ANGLE>::name));
-  if (args.mueller_elements.size() > 0)
-    init_column<typename cf_table_axis<CF_MUELLER_ELEMENT>::type>(
-      args.mueller_elements,
-      *cols.at(cf_table_axis<CF_MUELLER_ELEMENT>::name));
+  if (args.stokes_values.size() > 0)
+    init_column<typename cf_table_axis<CF_STOKES>::type>(
+      args.stokes_values,
+      *cols.at(cf_table_axis<CF_STOKES>::name));
 }
 
 size_t

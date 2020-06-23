@@ -86,7 +86,7 @@ hyperion::synthesis::WTermTable::compute_cfs_task(
 
   auto tbl = CFPhysicalTable<CF_W>(pt);
 
-  auto ws = tbl.w<Legion::AffineAccessor>().accessor<READ_ONLY>();
+  auto w_values = tbl.w<Legion::AffineAccessor>().accessor<READ_ONLY>();
   auto values_col = tbl.value<Legion::AffineAccessor>();
   auto values = values_col.accessor<WRITE_ONLY>();
 
@@ -99,7 +99,7 @@ hyperion::synthesis::WTermTable::compute_cfs_task(
   const coord_t& y_hi = rect.hi[2];
   typedef typename cf_table_axis<CF_W>::type fp_t;
   for (coord_t w_idx = w_lo; w_idx <= w_hi; ++w_idx) {
-    const fp_t twoPiW = (fp_t)twopi * ws[w_idx];
+    const fp_t twoPiW = (fp_t)twopi * w_values[w_idx];
     for (coord_t x_idx = x_lo; x_idx <= x_hi; ++x_idx) {
       const fp_t l = args.cell_size[0] * x_idx;
       const fp_t l2 = l * l;
