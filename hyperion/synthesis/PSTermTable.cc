@@ -29,13 +29,13 @@ constexpr const char* PSTermTable::compute_cfs_task_name;
 #endif
 TaskID PSTermTable::compute_cfs_task_id;
 
-hyperion::synthesis::PSTermTable::PSTermTable(
+PSTermTable::PSTermTable(
   Context ctx,
   Runtime* rt,
   const std::array<coord_t, 2>& cf_bounds_lo,
   const std::array<coord_t, 2>& cf_bounds_hi,
   const std::vector<typename cf_table_axis<CF_PB_SCALE>::type>& pb_scales)
-  : CFTable<CF_PB_SCALE>(
+  : CFTable(
     ctx,
     rt,
     Rect<2>(
@@ -43,13 +43,13 @@ hyperion::synthesis::PSTermTable::PSTermTable(
       {cf_bounds_hi[0], cf_bounds_hi[1]}),
     Axis<CF_PB_SCALE>(pb_scales)) {}
 
-hyperion::synthesis::PSTermTable::PSTermTable(
+PSTermTable::PSTermTable(
   Context ctx,
   Runtime* rt,
   const coord_t& cf_x_radius,
   const coord_t& cf_y_radius,
   const std::vector<typename cf_table_axis<CF_PB_SCALE>::type>& pb_scales)
-  : CFTable<CF_PB_SCALE>(
+  : CFTable(
     ctx,
     rt,
     Rect<2>({-cf_x_radius, -cf_y_radius}, {cf_x_radius, cf_y_radius}),
@@ -57,7 +57,7 @@ hyperion::synthesis::PSTermTable::PSTermTable(
 
 #ifndef HYPERION_USE_KOKKOS
 void
-hyperion::synthesis::PSTermTable::compute_cfs_task(
+PSTermTable::compute_cfs_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
@@ -114,7 +114,7 @@ hyperion::synthesis::PSTermTable::compute_cfs_task(
 #endif
 
 void
-hyperion::synthesis::PSTermTable::compute_cfs(
+PSTermTable::compute_cfs(
   Context ctx,
   Runtime* rt,
   const ColumnSpacePartition& partition) const {
@@ -157,7 +157,7 @@ hyperion::synthesis::PSTermTable::compute_cfs(
 }
 
 void
-hyperion::synthesis::PSTermTable::preregister_tasks() {
+PSTermTable::preregister_tasks() {
   {
     // compute_cfs_task
     compute_cfs_task_id = Runtime::generate_static_task_id();

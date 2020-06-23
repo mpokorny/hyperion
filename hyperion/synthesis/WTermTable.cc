@@ -24,14 +24,14 @@ using namespace Legion;
 
 Legion::TaskID WTermTable::compute_cfs_task_id;
 
-hyperion::synthesis::WTermTable::WTermTable(
+WTermTable::WTermTable(
   Context ctx,
   Runtime* rt,
   const std::array<Legion::coord_t, 2>& cf_bounds_lo,
   const std::array<Legion::coord_t, 2>& cf_bounds_hi,
   const std::array<double, 2>& cell_size,
   const std::vector<typename cf_table_axis<CF_W>::type>& w_values)
-  : CFTable<CF_W>(
+  : CFTable(
     ctx,
     rt,
     Legion::Rect<2>(
@@ -40,14 +40,14 @@ hyperion::synthesis::WTermTable::WTermTable(
     Axis<CF_W>(w_values))
   , m_cell_size(cell_size) {}
 
-hyperion::synthesis::WTermTable::WTermTable(
+WTermTable::WTermTable(
   Context ctx,
   Runtime* rt,
   const coord_t& cf_x_radius,
   const coord_t& cf_y_radius,
   const std::array<double, 2>& cell_size,
   const std::vector<typename cf_table_axis<CF_W>::type>& w_values)
-  : CFTable<CF_W>(
+  : CFTable(
     ctx,
     rt,
     Legion::Rect<2>({-cf_x_radius, -cf_y_radius}, {cf_x_radius, cf_y_radius}),
@@ -56,7 +56,7 @@ hyperion::synthesis::WTermTable::WTermTable(
 
 #ifndef HYPERION_USE_KOKKOS
 void
-hyperion::synthesis::WTermTable::compute_cfs_task(
+WTermTable::compute_cfs_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
@@ -118,7 +118,7 @@ hyperion::synthesis::WTermTable::compute_cfs_task(
 #endif
 
 void
-hyperion::synthesis::WTermTable::compute_cfs(
+WTermTable::compute_cfs(
   Context ctx,
   Runtime* rt,
   const ColumnSpacePartition& partition) const {
@@ -164,7 +164,7 @@ hyperion::synthesis::WTermTable::compute_cfs(
 }
 
 void
-hyperion::synthesis::WTermTable::preregister_tasks() {
+WTermTable::preregister_tasks() {
   {
     // compute_cfs_task
     compute_cfs_task_id = Runtime::generate_static_task_id();
