@@ -15,12 +15,16 @@
  */
 #ifndef HYPERION_SYNTHESIS_ZERNIKE_H_
 #define HYPERION_SYNTHESIS_ZERNIKE_H_
+#include <hyperion/hyperion.h>
 
 #include <algorithm>
 #include <array>
 #include <vector>
 
 #include <experimental/mdspan>
+#ifdef HYPERION_USE_KOKKOS
+# include <Kokkos_Core.hpp>
+#endif
 
 namespace hyperion {
 namespace synthesis {
@@ -947,6 +951,15 @@ struct zernike_series {
     zernike_series_<T, max_n::value, zernike_series<T, Zs...>>::
       expand(array, coefficients);
   }
+#ifdef HYPERION_USE_KOKKOS
+  KOKKOS_INLINE_FUNCTION static void
+  expand(
+    Kokkos::View<T[max_n::value + 1][max_n::value + 1]>& array,
+    Kokkos::View<const T[D]>& coefficients) {
+    zernike_series_<T, max_n::value, zernike_series<T, Zs...>>::
+      expand(array, coefficients);
+  }
+#endif // HYPERION_USE_KOKKOS
 };
 
 template <typename T, unsigned N>
@@ -957,6 +970,10 @@ struct zernike_series_<T, N, zernike_series<T>> {
   expand(
     std::experimental::mdspan<T, N+1, N+1>&,
     const std::experimental::mdspan<T, D>&) {}
+#ifdef HYPERION_USE_KOKKOS
+  KOKKOS_INLINE_FUNCTION static void
+  expand(Kokkos::View<T[N+1][N+1]>&, Kokkos::View<const T[D]>&) {}
+#endif // HYPERION_USE_KOKKOS
 };
 
 template <typename T, unsigned N0, typename Z, typename...Zs>
@@ -972,14 +989,20 @@ struct zernike_series_<T, N0, zernike_series<T, Z, Zs...>> {
   expand(
     std::experimental::mdspan<T, N0+1, N0+1>& array,
     const std::experimental::mdspan<T, D>& coeffs) {
-    std::for_each(
-      Z::terms.begin(),
-      Z::terms.end(),
-      [array, c=coeffs(D - (sizeof...(Zs) + 1))](const XYPolyTerm& term) {
-        array(term.px, term.py) += c * term.c;
-      });
+    const auto& c = coeffs(D - (sizeof...(Zs) + 1));
+    for (auto& t : Z::terms)
+      array(t.px, t.py) += c * t.c;
     zernike_series_<T, N0, zernike_series<T, Zs...>>::expand(array, coeffs);
   }
+#ifdef HYPERION_USE_KOKKOS
+  KOKKOS_INLINE_FUNCTION static void
+  expand(Kokkos::View<T[N0+1][N0+1]>& array, Kokkos::View<const T[D]>& coeffs) {
+    const auto& c = coeffs(D - (sizeof...(Zs) + 1));
+    for (auto& t : Z::terms)
+      array(t.px, t.py) += c * t.c;
+    zernike_series_<T, N0, zernike_series<T, Zs...>>::expand(array, coeffs);
+  }
+#endif // HYPERION_USE_KOKKOS
 };
 
 template <typename T, typename ZP, typename...Zs>
@@ -1004,9 +1027,17 @@ struct zernike_basis_base {
   static void
   expand(
     std::experimental::mdspan<T, N+1, N+1>&& array,
-    std::experimental::mdspan<T, ((N+1)*(N+2)/2)>&& coefficients) {
+    std::experimental::mdspan<T, num_terms>&& coefficients) {
     Z::series::expand(array, coefficients);
   }
+#ifdef HYPERION_USE_KOKKOS
+  static void
+  expand(
+    Kokkos::View<T[N+1][N+1]>& array,
+    Kokkos::View<const T[num_terms]>& coefficients) {
+    Z::series::expand(array, coefficients);
+  }
+#endif // HYPERION_USE_KOKKOS
   constexpr static unsigned
   index(int m, unsigned n) {
     return (n * (n + 2) + m) / 2;
@@ -1111,6 +1142,37 @@ struct zernike_basis<T, 10>
     Zernike<0,10>,Zernike<2,10>,Zernike<4,10>,Zernike<6,10>,Zernike<8,10>,
     Zernike<10,10>>::series series;
 };
+
+constexpr inline unsigned
+zernike_num_terms(unsigned order) {
+  switch (order) {
+#define NT(N) \
+  case N: \
+    return zernike_basis<float, N>::num_terms;   \
+    break
+  NT(0);
+  NT(1);
+  NT(2);
+  NT(3);
+  NT(4);
+  NT(5);
+  NT(6);
+  NT(7);
+  NT(8);
+  NT(9);
+  NT(10);
+  default:
+    assert(false);
+    return 0;
+    break;
+#undef NT
+  }
+}
+
+constexpr inline unsigned
+zernike_index(int m, unsigned n) {
+  return (n * (n + 2) + m) / 2;
+}
 
 } // end namespace synthesis
 } // end namespace hyperion
