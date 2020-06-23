@@ -27,7 +27,7 @@ namespace hyperion {
 
 namespace synthesis {
 typedef enum cf_table_axes_t {
-  CF_PB_SCALE,
+  CF_PS_SCALE,
   CF_BASELINE_CLASS,
   CF_FREQUENCY,
   CF_W,
@@ -60,9 +60,9 @@ struct cf_table_axis {
   //typedef ... type;
 };
 template <>
-struct cf_table_axis<CF_PB_SCALE> {
+struct cf_table_axis<CF_PS_SCALE> {
   typedef float type;
-  static const constexpr char* name = "PB_SCALE";
+  static const constexpr char* name = "PS_SCALE";
 };
 template <>
 struct cf_table_axis<CF_BASELINE_CLASS> {
@@ -135,8 +135,8 @@ public:
   struct HYPERION_EXPORT InitIndexColumnTaskArgs {
     hyperion::Table::Desc desc;
 
-    std::vector<typename cf_table_axis<CF_PB_SCALE>::type>
-      pb_scales;
+    std::vector<typename cf_table_axis<CF_PS_SCALE>::type>
+      ps_scales;
     std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>
       baseline_classes;
     std::vector<typename cf_table_axis<CF_FREQUENCY>::type>
@@ -205,9 +205,9 @@ public:
 };
 
 template <>
-constexpr std::vector<typename cf_table_axis<CF_PB_SCALE>::type>&
-CFTableBase::InitIndexColumnTaskArgs::values<CF_PB_SCALE>() {
-  return pb_scales;
+constexpr std::vector<typename cf_table_axis<CF_PS_SCALE>::type>&
+CFTableBase::InitIndexColumnTaskArgs::values<CF_PS_SCALE>() {
+  return ps_scales;
 }
 template <>
 constexpr std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&

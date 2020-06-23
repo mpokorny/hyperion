@@ -28,7 +28,7 @@ constexpr const unsigned
 hyperion::Axes<hyperion::synthesis::cf_table_axes_t>::num_axes;
 
 constexpr const char*
-hyperion::synthesis::cf_table_axis<CF_PB_SCALE>::name;
+hyperion::synthesis::cf_table_axis<CF_PS_SCALE>::name;
 constexpr const char*
 hyperion::synthesis::cf_table_axis<CF_BASELINE_CLASS>::name;
 constexpr const char*
@@ -88,7 +88,7 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::serialized_size()
   const {
 
   return sizeof(hyperion::Table::Desc)
-    + vector_serialized_size(pb_scales)
+    + vector_serialized_size(ps_scales)
     + vector_serialized_size(baseline_classes)
     + vector_serialized_size(frequencies)
     + vector_serialized_size(w_values)
@@ -103,7 +103,7 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::serialize(
   char* b = reinterpret_cast<char*>(buff);
   *reinterpret_cast<hyperion::Table::Desc*>(b) = desc;
   b += sizeof(hyperion::Table::Desc);
-  b += vector_serialize(pb_scales, b);
+  b += vector_serialize(ps_scales, b);
   b += vector_serialize(baseline_classes, b);
   b += vector_serialize(frequencies, b);
   b += vector_serialize(w_values, b);
@@ -119,7 +119,7 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::deserialize(
   const char* b = reinterpret_cast<const char*>(buff);
   desc = *reinterpret_cast<const hyperion::Table::Desc*>(b);
   b += sizeof(hyperion::Table::Desc);
-  b += vector_deserialize(b, pb_scales);
+  b += vector_deserialize(b, ps_scales);
   b += vector_deserialize(b, baseline_classes);
   b += vector_deserialize(b, frequencies);
   b += vector_deserialize(b, w_values);
@@ -130,7 +130,7 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::deserialize(
 
 const std::vector<std::string>
 hyperion::Axes<hyperion::synthesis::cf_table_axes_t>::names{
-  cf_table_axis<CF_PB_SCALE>::name,
+  cf_table_axis<CF_PS_SCALE>::name,
     cf_table_axis<CF_BASELINE_CLASS>::name,
     cf_table_axis<CF_FREQUENCY>::name,
     cf_table_axis<CF_W>::name,

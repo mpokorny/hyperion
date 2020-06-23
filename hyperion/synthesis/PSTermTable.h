@@ -25,7 +25,7 @@ namespace hyperion {
 namespace synthesis {
 
 class HYPERION_EXPORT PSTermTable
-  : public CFTable<CF_PB_SCALE> {
+  : public CFTable<CF_PS_SCALE> {
 public:
 
   PSTermTable(
@@ -33,14 +33,14 @@ public:
     Legion::Runtime* rt,
     const std::array<Legion::coord_t, 2>& cf_bounds_lo,
     const std::array<Legion::coord_t, 2>& cf_bounds_hi,
-    const std::vector<typename cf_table_axis<CF_PB_SCALE>::type>& pb_scales);
+    const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales);
 
   PSTermTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const Legion::coord_t& cf_x_radius,
     const Legion::coord_t& cf_y_radius,
-    const std::vector<typename cf_table_axis<CF_PB_SCALE>::type>& pb_scales);
+    const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales);
 
   void
   compute_cfs(
@@ -117,7 +117,7 @@ public:
     assert(rit == task->regions.end());
     assert(pit == regions.end());
 
-    auto tbl = CFPhysicalTable<CF_PB_SCALE>(pt);
+    auto tbl = CFPhysicalTable<CF_PS_SCALE>(pt);
 
     auto ps_scales =
       tbl.ps_scale<Legion::AffineAccessor>().view<execution_space, READ_ONLY>();
@@ -134,13 +134,13 @@ public:
     Kokkos::parallel_for(
       "ComputePSTerm",
       range,
-      KOKKOS_LAMBDA (Legion::coord_t pb, Legion::coord_t x, Legion::coord_t y) {
+      KOKKOS_LAMBDA (Legion::coord_t ps, Legion::coord_t x, Legion::coord_t y) {
         const fp_t yp =
           std::sqrt((static_cast<fp_t>(x) * x) + (static_cast<fp_t>(y) * y))
-          * pb_scales(pb);
+          * ps_scales(ps);
         const fp_t v =
           static_cast<fp_t>(spheroidal(yp)) * ((fp_t)1.0 - yp * yp);
-        values(pb, x, y) = std::max(v, (fp_t)0.0);
+        values(ps, x, y) = std::max(v, (fp_t)0.0);
       });
   }
 #else // !HYPERION_USE_KOKKOS

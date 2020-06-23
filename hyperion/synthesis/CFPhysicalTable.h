@@ -37,38 +37,38 @@ public:
   static const constexpr unsigned row_rank = sizeof...(AXES);
 
   //
-  // PB_SCALE
+  // PS_SCALE
   //
-  static const constexpr unsigned pb_scale_rank =
+  static const constexpr unsigned ps_scale_rank =
     std::conditional<
-      cf_indexing::includes<CF_PB_SCALE, AXES...>,
+      cf_indexing::includes<CF_PS_SCALE, AXES...>,
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value;
 
   bool
-  has_pb_scale() const {
-    return m_columns.count(cf_table_axis<CF_PB_SCALE>::name) > 0;
+  has_ps_scale() const {
+    return m_columns.count(cf_table_axis<CF_PS_SCALE>::name) > 0;
   }
 
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<
-    ValueType<typename cf_table_axis<CF_PB_SCALE>::type>::DataType,
-    pb_scale_rank,
-    pb_scale_rank,
+    ValueType<typename cf_table_axis<CF_PS_SCALE>::type>::DataType,
+    ps_scale_rank,
+    ps_scale_rank,
     A,
     COORD_T>
-  pb_scale() const {
+  ps_scale() const {
     return
-      decltype(pb_scale())(
-        *m_columns.at(cf_table_axis<CF_PB_SCALE>::name));
+      decltype(ps_scale())(
+        *m_columns.at(cf_table_axis<CF_PS_SCALE>::name));
   }
 
   template <int N>
-  Legion::Point<pb_scale_rank>
-  pb_scale_index(const Legion::Point<N>& pt) const {
-    return cf_indexing::Pt<row_rank, N, CF_PB_SCALE, AXES...>(pt).pt;
+  Legion::Point<ps_scale_rank>
+  ps_scale_index(const Legion::Point<N>& pt) const {
+    return cf_indexing::Pt<row_rank, N, CF_PS_SCALE, AXES...>(pt).pt;
   }
 
   //
