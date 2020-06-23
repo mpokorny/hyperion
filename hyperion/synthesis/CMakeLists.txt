@@ -11,4 +11,6 @@ target_sources(hyperion PRIVATE
   PSTermTable.cc
   WTermTable.h
   WTermTable.cc
-  Zernike.cc)
+  Zernike.cc
+  ATermTable.h
+  ATermTable.cc)
