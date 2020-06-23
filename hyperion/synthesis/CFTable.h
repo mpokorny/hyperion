@@ -78,16 +78,19 @@ public:
 
     // CF columns
     {
-      Legion::Point<N + 2>
-        lo{axes.bounds().lo[0]..., cf_bounds.lo[0], cf_bounds.lo[1]};
-      Legion::Point<N + 2>
-        hi{axes.bounds().hi[0]..., cf_bounds.hi[0], cf_bounds.hi[1]};
+      Legion::coord_t
+        c_lo[]{axes.bounds().lo[0]..., cf_bounds.lo[0], cf_bounds.lo[1]};
+      Legion::Point<N + 2> lo(c_lo);
+      Legion::coord_t
+        c_hi[]{axes.bounds().hi[0]..., cf_bounds.hi[0], cf_bounds.hi[1]};
+      Legion::Point<N + 2> hi(c_hi);
       Legion::Rect<N + 2> bounds(lo, hi);
       Legion::IndexSpace is = rt->create_index_space(ctx, bounds);
       ColumnSpace cs =
         ColumnSpace::create<cf_table_axes_t>(
           ctx,
-          rt, {AXES..., CF_X, CF_Y},
+          rt,
+          {AXES..., CF_X, CF_Y},
           is,
           false);
       fields.emplace_back(
