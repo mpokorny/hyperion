@@ -48,6 +48,7 @@ class Hyperion(CMakePackage):
     variant('cuda_arch', default=(), description='Target CUDA compute capabilities',
             values=('30','32','35','50','52','53','60','61','62','70','72','75'), multi=True)
     variant('kokkos', default=False, description='Enable Kokkos support')
+    variant('kokkos-kernels', default=False, description='Use Kokkos kernels (requires Kokkos)')
     variant('openmp', default=False, description='Enable OpenMP support (via Kokkos only)')
     variant('debug', default=False, description='Enable debug flags')
 
@@ -66,20 +67,30 @@ class Hyperion(CMakePackage):
     # Remaining dependencies
     depends_on('zlib')
     depends_on('casacore', when='+casacore')
+    depends_on('pkgconf', when='+casacore', type=('build')) # FindCasacore requires it
     depends_on('hdf5+threadsafe+szip~mpi', when='+hdf5')
     depends_on('yaml-cpp', when='+yaml')
     depends_on('llvm@6.0.1', when='+llvm')
     depends_on('cuda', when='+cuda', type=('build', 'link', 'run'))
     depends_on('mpi', when='+lg_mpi')
     depends_on('gasnet+par~aligned-segments segment=fast', when='+lg_gasnet')
-    depends_on('kokkos+openmp std=17', when='+kokkos+openmp~cuda')
-    depends_on('kokkos std=17', when='+kokkos~cuda~openmp')
+
+    depends_on('kokkos+serial', when='+kokkos')
+    depends_on('kokkos+openmp', when='+kokkos+openmp')
     # FIXME: don't require nvcc_wrapper when compiling with Clang
+    depends_on('kokkos+cuda+cuda_lambda+cuda_relocatable_device_code~cuda_host_init_check std=14 +wrapper',
+               when='+kokkos+cuda')
+    depends_on('kokkos std=17', when='+kokkos~cuda')
     for arch in ('30','32','35','50','52','53','60','61','62','70','72','75'):
-        depends_on(f'kokkos+openmp+cuda+cuda_lambda+cuda_relocatable_device_code cuda_arch={arch} +wrapper std=14 ~cuda_host_init_check',
-                   when=f'+kokkos+openmp+cuda cuda_arch={arch}')
-        depends_on(f'kokkos+cuda+cuda_lambda+cuda_relocatable_device_code cuda_arch={arch} +wrapper std=14 ~cuda_host_init_check',
-                   when=f'+kokkos+cuda~openmp cuda_arch={arch}')
+        depends_on(f'kokkos+cuda cuda_arch={arch}', when=f'+kokkos+cuda cuda_arch={arch}')
+
+    depends_on('kokkos', when='+kokkos-kernels')
+    depends_on('kokkos-kernels+serial scalars=complex_double', when='+kokkos-kernels')
+    depends_on('kokkos-kernels+openmp', when='+kokkos-kernels+openmp')
+    depends_on('kokkos-kernels+cuda', when='+kokkos-kernels+cuda')
+    for arch in ('30','32','35','50','52','53','60','61','62','70','72','75'):
+        depends_on(f'kokkos-kernels+cuda cuda_arch={arch}',
+                   when=f'+kokkos-kernels+cuda cuda_arch={arch}')
 
     # not sure how to make this a dependency only for running tests
     depends_on('python@3:', type='run')
@@ -94,7 +105,8 @@ class Hyperion(CMakePackage):
         args.append(self.define_from_variant('USE_OPENMP', 'openmp'))
         args.append(self.define_from_variant('USE_CUDA', 'cuda'))
         args.append(self.define_from_variant('USE_KOKKOS', 'kokkos'))
-        args.append(self.define_from_variant('gridder_USE_YAML', 'yaml'))
+        args.append(self.define_from_variant('hyperion_USE_KOKKOS_KERNELS', 'kokkos-kernels'))
+        args.append(self.define_from_variant('hyperion_USE_YAML', 'yaml'))
         args.append(self.define_from_variant('Legion_BOUNDS_CHECKS', 'lg_bounds_checks'))
         args.append(self.define_from_variant('Legion_PRIVILEGE_CHECKS', 'lg_privilege_checks'))
 
