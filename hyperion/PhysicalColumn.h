@@ -32,9 +32,26 @@
 #endif // HAVE_CXX17
 #include <vector>
 
+#ifdef HYPERION_USE_KOKKOS
+# include <Kokkos_Core.hpp>
+#endif
+
 namespace hyperion {
 
 class Column;
+
+#ifdef HYPERION_USE_KOKKOS
+
+template <typename T, unsigned N>
+struct view_element {
+  typedef typename view_element<T*, N - 1>::type type;
+};
+
+template <typename T>
+struct view_element<T, 1> {
+  typedef T* type;
+};
+#endif // HYPERION_USE_KOKKOS
 
 #ifdef HYPERION_USE_CASACORE
 // the following mixin classes assume that the column layout has the measure
@@ -254,6 +271,26 @@ public:
         m_fid);
   }
 
+#ifdef HYPERION_USE_KOKKOS
+  template <
+    typename execution_space,
+    Legion::PrivilegeMode MODE,
+    typename FT,
+    int N,
+    typename COORD_T = Legion::coord_t,
+    template<typename, int, typename> typename A = Legion::AffineAccessor,
+    bool CHECK_BOUNDS = false>
+  Kokkos::View<
+    typename std::conditional<
+      MODE == READ_ONLY,
+      typename view_element<const FT, N>::type,
+      typename view_element<FT, N>::type>::type,
+    execution_space>
+  view() const {
+    return accessor<MODE, FT, N, COORD_T, A, CHECK_BOUNDS>().accessor;
+  }
+#endif // HYPERION_USE_KOKKOS
+
   hyperion::TypeTag
   dt() const {
     return m_dt;
@@ -418,6 +455,8 @@ class PhysicalColumnT
   : public PhysicalColumn {
 public:
 
+  typedef typename DataType<DT>::ValueType value_t;
+
   PhysicalColumnT(
     Legion::Runtime* rt,
     Legion::FieldID fid,
@@ -459,21 +498,32 @@ public:
   template <Legion::PrivilegeMode MODE, int N, bool CHECK_BOUNDS = false>
   Legion::FieldAccessor<
     MODE,
-    typename DataType<DT>::ValueType,
+    value_t,
     N,
     COORD_T,
     A<typename DataType<DT>::ValueType, N, COORD_T>,
     CHECK_BOUNDS>
   accessor() const {
     return
-      PhysicalColumn::accessor<
-        MODE,
-        typename DataType<DT>::ValueType,
-        N,
-        COORD_T,
-        A,
-        CHECK_BOUNDS>();
+      PhysicalColumn::accessor<MODE, value_t, N, COORD_T, A, CHECK_BOUNDS>();
   }
+
+#ifdef HYPERION_USE_KOKKOS
+  template <
+    typename execution_space,
+    Legion::PrivilegeMode MODE,
+    int N,
+    bool CHECK_BOUNDS = false>
+  Kokkos::View<
+    typename std::conditional<
+      MODE == READ_ONLY,
+      typename view_element<const value_t, N>::type,
+      typename view_element<value_t, N>::type>::type,
+    execution_space>
+  view() const {
+    return accessor<MODE, N, CHECK_BOUNDS>().accessor;
+  }
+#endif // HYPERION_USE_KOKKOS
 };
 
 template <
@@ -485,6 +535,8 @@ template <
 class PhysicalColumnTD
   : public PhysicalColumn {
 public:
+
+  typedef typename DataType<DT>::ValueType value_t;
 
   static_assert(INDEX_RANK <= COLUMN_RANK);
 
@@ -530,7 +582,7 @@ public:
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
   Legion::FieldAccessor<
     MODE,
-    typename DataType<DT>::ValueType,
+    value_t,
     COLUMN_RANK,
     COORD_T,
     A<typename DataType<DT>::ValueType, COLUMN_RANK, COORD_T>,
@@ -539,12 +591,28 @@ public:
     return
       PhysicalColumn::accessor<
         MODE,
-        typename DataType<DT>::ValueType,
+        value_t,
         COLUMN_RANK,
         COORD_T,
         A,
         CHECK_BOUNDS>();
   }
+
+#ifdef HYPERION_USE_KOKKOS
+  template <
+    typename execution_space,
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = false>
+  Kokkos::View<
+    typename std::conditional<
+      MODE == READ_ONLY,
+      typename view_element<const value_t, COLUMN_RANK>::type,
+      typename view_element<value_t, COLUMN_RANK>::type>::type,
+    execution_space>
+  view() const {
+    return accessor<MODE, CHECK_BOUNDS>().accessor;
+  }
+#endif // HYPERION_USE_KOKKOS
 
   Legion::DomainT<COLUMN_RANK>
   domain() const {
@@ -566,6 +634,8 @@ template <
 class PhysicalColumnTM
   : public PhysicalColumn {
 public:
+
+  typedef typename DataType<DT>::ValueType value_t;
 
   PhysicalColumnTM(
     Legion::Runtime* rt,
@@ -604,21 +674,32 @@ public:
   template <Legion::PrivilegeMode MODE, int N, bool CHECK_BOUNDS = false>
   Legion::FieldAccessor<
     MODE,
-    typename DataType<DT>::ValueType,
+    value_t,
     N,
     COORD_T,
     A<typename DataType<DT>::ValueType, N, COORD_T>,
     CHECK_BOUNDS>
   accessor() const {
     return
-      PhysicalColumn::accessor<
-        MODE,
-        typename DataType<DT>::ValueType,
-        N,
-        COORD_T,
-        A,
-        CHECK_BOUNDS>();
+      PhysicalColumn::accessor<MODE, value_t, N, COORD_T, A, CHECK_BOUNDS>();
   }
+
+#ifdef HYPERION_USE_KOKKOS
+  template <
+    typename execution_space,
+    Legion::PrivilegeMode MODE,
+    int N,
+    bool CHECK_BOUNDS = false>
+  Kokkos::View<
+    typename std::conditional<
+      MODE == READ_ONLY,
+      typename view_element<const value_t, N>::type,
+      typename view_element<value_t, N>::type>::type,
+    execution_space>
+  view() const {
+    return accessor<MODE, N, CHECK_BOUNDS>().accessor;
+  }
+#endif // HYPERION_USE_KOKKOS
 
   typedef casacore::MeasRef<typename MClassT<MC>::type> MR_t;
 
@@ -644,6 +725,8 @@ template <
 class PhysicalColumnTMD
   : public PhysicalColumn {
 public:
+
+  typedef typename DataType<DT>::ValueType value_t;
 
   static const constexpr unsigned M_RANK = MClassT<MC>::mrank;
 
@@ -814,7 +897,7 @@ public:
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
   Legion::FieldAccessor<
     MODE,
-    typename DataType<DT>::ValueType,
+    value_t,
     COLUMN_RANK,
     COORD_T,
     A<typename DataType<DT>::ValueType, COLUMN_RANK, COORD_T>,
@@ -823,12 +906,28 @@ public:
     return
       PhysicalColumn::accessor<
         MODE,
-        typename DataType<DT>::ValueType,
+        value_t,
         COLUMN_RANK,
         COORD_T,
         A,
         CHECK_BOUNDS>();
   }
+
+#ifdef HYPERION_USE_KOKKOS
+  template <
+    typename execution_space,
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = false>
+  Kokkos::View<
+    typename std::conditional<
+      MODE == READ_ONLY,
+      typename view_element<const value_t, COLUMN_RANK>::type,
+      typename view_element<value_t, COLUMN_RANK>::type>::type,
+    execution_space>
+  view() const {
+    return accessor<MODE, CHECK_BOUNDS>().accessor;
+  }
+#endif // HYPERION_USE_KOKKOS
 
   Legion::DomainT<COLUMN_RANK>
   domain() const {

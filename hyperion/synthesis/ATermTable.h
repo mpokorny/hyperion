@@ -188,47 +188,40 @@ public:
     auto baseline_class_rect = baseline_class_col.rect();
     auto baseline_class_extent =
       baseline_class_rect.hi[0] - baseline_class_rect.lo[0] + 1;
-    auto baseline_class_acc = baseline_class_col.accessor<READ_ONLY>();
-    typedef typename cf_table_axis<CF_BASELINE_CLASS>::type bl_t;
-    Kokkos::View<const bl_t *, execution_space>
-      baseline_classes = baseline_class_acc.accessor;
+    auto baseline_classes =
+      baseline_class_col.view<execution_space, READ_ONLY>();
+    typedef decltype(baseline_class_col)::value_t bl_t;
 
     // frequency column
     auto frequency_col = tbl.frequency<Legion::AffineAccessor>();
     auto frequency_rect = frequency_col.rect();
     auto frequency_extent =
       frequency_rect.hi[0] - frequency_rect.lo[0] + 1;
-    auto frequency_acc = frequency_col.accessor<READ_ONLY>();
-    typedef typename cf_table_axis<CF_FREQUENCY>::type frq_t;
-    Kokkos::View<const frq_t *, execution_space>
-      frequencies = frequency_acc.accessor;
+    auto frequencies = frequency_col.view<execution_space, READ_ONLY>();
+    typedef decltype(frequency_col)::value_t frq_t;
 
     // parallactic angle column
     auto parallactic_angle_col = tbl.parallactic_angle<Legion::AffineAccessor>();
     auto parallactic_angle_rect = parallactic_angle_col.rect();
     auto parallactic_angle_extent =
       parallactic_angle_rect.hi[0] - parallactic_angle_rect.lo[0] + 1;
-    auto parallactic_angle_acc = parallactic_angle_col.accessor<READ_ONLY>();
-    typedef typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type pa_t;
-    Kokkos::View<const pa_t *, execution_space>
-      parallactic_angles = parallactic_angle_acc.accessor;
+    auto parallactic_angles =
+      parallactic_angle_col.view<execution_space, READ_ONLY>();
+    typedef decltype(parallactic_angle_col)::value_t pa_t;
 
     // stokes column
     auto stokes_value_col = tbl.stokes<Legion::AffineAccessor>();
     auto stokes_value_rect = stokes_value_col.rect();
     auto stokes_value_extent =
       stokes_value_rect.hi[0] - stokes_value_rect.lo[0] + 1;
-    auto stokes_value_acc = stokes_value_col.accessor<READ_ONLY>();
-    typedef typename cf_table_axis<CF_STOKES>::type me_t;
-    Kokkos::View<const me_t *, execution_space>
-      stokes_values = stokes_value_acc.accessor;
+    auto stokes_values = stokes_value_col.view<execution_space, READ_ONLY>();
+    typedef decltype(stokes_value_col)::value_t sto_t;
 
     // A-term cf values column
     auto cf_value_col = tbl.value<Legion::AffineAccessor>();
     auto cf_value_rect = cf_value_col.rect();
-    auto cf_value_acc = cf_value_col.accessor<WRITE_DISCARD>();
-    Kokkos::View<typename CFTableBase::cf_value_t ******, execution_space>
-      cf_values = cf_value_acc.accessor;
+    auto cf_values = cf_value_col.view<execution_space, WRITE_DISCARD>();
+
     // initialize cf_values values to 0; not sure that it's necessary, it depends
     // on whether GEMM accesses the array even when beta is 0
     {
@@ -358,6 +351,7 @@ public:
 #else // !HYPERION_USE_KOKKOS_KERNELS
               typedef typename Kokkos::TeamPolicy<execution_space>::member_type
                 member_type;
+              // Q = Z Y
               Kokkos::parallel_for(
                 Kokkos::TeamPolicy<execution_space>(Z.extent(0), Kokkos::AUTO()),
                 KOKKOS_LAMBDA(const member_type& team_member) {
@@ -374,6 +368,7 @@ public:
                         Q(i, j));
                     });
                 });
+              // CF = X^T Q
               Kokkos::parallel_for(
                 Kokkos::TeamPolicy<execution_space>(X.extent(1), Kokkos::AUTO()),
                 KOKKOS_LAMBDA(const member_type& team_member) {

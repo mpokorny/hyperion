@@ -86,7 +86,7 @@ PSTermTable::compute_cfs_task(
 
   auto tbl = CFPhysicalTable<CF_PB_SCALE>(pt);
 
-  auto pb_scales = tbl.pb_scale<AffineAccessor>().accessor<READ_ONLY>();
+  auto ps_scales = tbl.ps_scale<AffineAccessor>().accessor<READ_ONLY>();
   auto values_col = tbl.value<AffineAccessor>();
   auto values = values_col.accessor<WRITE_ONLY>();
 

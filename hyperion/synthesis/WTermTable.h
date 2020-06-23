@@ -98,16 +98,13 @@ public:
 
   auto tbl = CFPhysicalTable<CF_W>(pt);
 
-  auto w_value_acc = tbl.w<Legion::AffineAccessor>().accessor<READ_ONLY>();
-  typedef typename cf_table_axis<CF_W>::type fp_t;
-  Kokkos::View<const fp_t *, execution_space> w_values =
-    w_value_acc.accessor;
+  auto w_values =
+    tbl.w<Legion::AffineAccessor>().view<execution_space, READ_ONLY>();
 
   auto value_col = tbl.value<Legion::AffineAccessor>();
   auto value_rect = value_col.rect();
-  auto value_acc = value_col.accessor<WRITE_ONLY>();
-  Kokkos::View<typename CFTableBase::cf_value_t ***, execution_space> values =
-    value_acc.accessor;
+  auto values = value_col.view<execution_space, WRITE_ONLY>();
+  typedef decltype(value_col)::value_t::value_type fp_t;
 
   Kokkos::MDRangePolicy<Kokkos::Rank<3>, execution_space> range(
     rt->get_executing_processor(ctx).kokkos_work_space(),
