@@ -23,9 +23,20 @@
 #include <array>
 #include <vector>
 
+#ifdef HYPERION_USE_CASACORE
+# include <casacore/measures/Measures/Stokes.h>
+#endif
+
 namespace hyperion {
 
 namespace synthesis {
+
+#ifdef HYPERION_USE_CASACORE
+typedef casacore::Stokes::StokesTypes stokes_t;
+#else
+typedef int stokes_t;
+#endif
+
 typedef enum cf_table_axes_t {
   CF_PS_SCALE,
   CF_BASELINE_CLASS,
@@ -33,6 +44,7 @@ typedef enum cf_table_axes_t {
   CF_W,
   CF_PARALLACTIC_ANGLE,
   CF_STOKES,
+  CF_MUELLER_ELEMENT,
   CF_X,
   CF_Y,
   CF_LAST_AXIS = CF_Y
@@ -86,18 +98,33 @@ struct cf_table_axis<CF_PARALLACTIC_ANGLE> {
 };
 template <>
 struct cf_table_axis<CF_STOKES> {
-  typedef int type;
+  typedef stokes_t type;
   static const constexpr char* name = "STOKES";
 };
 template <>
+struct cf_table_axis<CF_MUELLER_ELEMENT> {
+  typedef std::pair<stokes_t, stokes_t> type; // row, col of mueller matrix
+  static const constexpr char* name = "MUELLER_ELEMENT";
+};
+template <>
 struct cf_table_axis<CF_X> {
-  typedef int type;
+  typedef void type; // not a value index axis
   static const constexpr char* name = "X";
 };
 template <>
 struct cf_table_axis<CF_Y> {
-  typedef int type;
+  typedef void type; // not a value index axis
   static const constexpr char* name = "Y";
+};
+template <>
+struct cf_table_axis<CF_ORDER0> {
+  typedef void type; // not a value index axis
+  static const constexpr char* name = "ORDER0";
+};
+template <>
+struct cf_table_axis<CF_ORDER1> {
+  typedef void type; // not a value index axis
+  static const constexpr char* name = "ORDER1";
 };
 
 class HYPERION_EXPORT CFTableBase
@@ -105,7 +132,7 @@ class HYPERION_EXPORT CFTableBase
 public:
 
   template <cf_table_axes_t T>
-    struct Axis {
+  struct Axis {
     Axis(const std::vector<typename cf_table_axis<T>::type>& v)
       : values(v) {}
     Axis(std::vector<typename cf_table_axis<T>::type>&& v)
@@ -146,7 +173,9 @@ public:
     std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>
       parallactic_angles;
     std::vector<typename cf_table_axis<CF_STOKES>::type>
-      stokes_values;
+       stokes_values;
+    std::vector<typename cf_table_axis<CF_MUELLER_ELEMENT>::type>
+      mueller_elements;
 
     size_t serialized_size() const;
     size_t serialize(void*) const;
@@ -173,13 +202,6 @@ public:
 
   CFTableBase()
     : Table() {}
-
-  struct ComputeCFSTaskArgs {
-    hyperion::Table::Desc desc;
-    size_t serialized_size() const;
-    void serialize(void* buffer) const;
-    void deserialize(const void* buffer);
-  };
 
   static void preregister_all();
 
@@ -233,6 +255,11 @@ template <>
 constexpr std::vector<typename cf_table_axis<CF_STOKES>::type>&
 CFTableBase::InitIndexColumnTaskArgs::values<CF_STOKES>() {
   return stokes_values;
+}
+template <>
+constexpr std::vector<typename cf_table_axis<CF_MUELLER_ELEMENT>::type>&
+CFTableBase::InitIndexColumnTaskArgs::values<CF_MUELLER_ELEMENT>() {
+  return mueller_elements;
 }
 template <cf_table_axes_t T>
 struct CFTableBase::InitIndexColumnTaskArgs::initializer<T> {

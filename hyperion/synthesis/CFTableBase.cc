@@ -40,6 +40,8 @@ hyperion::synthesis::cf_table_axis<CF_PARALLACTIC_ANGLE>::name;
 constexpr const char*
 hyperion::synthesis::cf_table_axis<CF_STOKES>::name;
 constexpr const char*
+hyperion::synthesis::cf_table_axis<CF_MUELLER_ELEMENT>::name;
+constexpr const char*
 hyperion::synthesis::cf_table_axis<CF_X>::name;
 constexpr const char*
 hyperion::synthesis::cf_table_axis<CF_Y>::name;
@@ -93,7 +95,8 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::serialized_size()
     + vector_serialized_size(frequencies)
     + vector_serialized_size(w_values)
     + vector_serialized_size(parallactic_angles)
-    + vector_serialized_size(stokes_values);
+    + vector_serialized_size(stokes_values)
+    + vector_serialized_size(mueller_elements);
 }
 
 size_t
@@ -109,6 +112,7 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::serialize(
   b += vector_serialize(w_values, b);
   b += vector_serialize(parallactic_angles, b);
   b += vector_serialize(stokes_values, b);
+  b += vector_serialize(mueller_elements, b);
   return b - reinterpret_cast<char*>(buff);
 }
 
@@ -125,6 +129,7 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::deserialize(
   b += vector_deserialize(b, w_values);
   b += vector_deserialize(b, parallactic_angles);
   b += vector_deserialize(b, stokes_values);
+  b += vector_deserialize(b, mueller_elements);
   return b - reinterpret_cast<const char*>(buff);
 }
 
@@ -135,7 +140,10 @@ hyperion::Axes<hyperion::synthesis::cf_table_axes_t>::names{
     cf_table_axis<CF_FREQUENCY>::name,
     cf_table_axis<CF_W>::name,
     cf_table_axis<CF_PARALLACTIC_ANGLE>::name,
-    cf_table_axis<CF_STOKES>::name
+    cf_table_axis<CF_STOKES>::name,
+    cf_table_axis<CF_MUELLER_ELEMENT>::name,
+    cf_table_axis<CF_X>::name,
+    cf_table_axis<CF_Y>::name
     };
 
 #ifdef HYPERION_USE_HDF5
@@ -224,25 +232,10 @@ hyperion::synthesis::CFTableBase::init_index_column_task(
     init_column<typename cf_table_axis<CF_STOKES>::type>(
       args.stokes_values,
       *cols.at(cf_table_axis<CF_STOKES>::name));
-}
-
-size_t
-CFTableBase::ComputeCFSTaskArgs::serialized_size() const {
-  return sizeof(desc);
-}
-
-void
-CFTableBase::ComputeCFSTaskArgs::serialize(void* buffer) const {
-  char* b = reinterpret_cast<char*>(buffer);
-  *reinterpret_cast<decltype(desc)*>(b) = desc;
-  b += sizeof(desc);
-}
-
-void
-CFTableBase::ComputeCFSTaskArgs::deserialize(const void* buffer) {
-  const char* b = reinterpret_cast<const char*>(buffer);
-  desc = *reinterpret_cast<const decltype(desc)*>(b);
-  b += sizeof(desc);
+  if (args.mueller_elements.size() > 0)
+    init_column<typename cf_table_axis<CF_MUELLER_ELEMENT>::type>(
+      args.mueller_elements,
+      *cols.at(cf_table_axis<CF_MUELLER_ELEMENT>::name));
 }
 
 void

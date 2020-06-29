@@ -209,36 +209,38 @@ public:
   }
 
   //
-  // STOKES
+  // MUELLER_ELEMENT
   //
-  static const constexpr unsigned stokes_rank =
+  static const constexpr unsigned mueller_element_rank =
     std::conditional<
-      cf_indexing::includes<CF_STOKES, AXES...>,
+      cf_indexing::includes<CF_MUELLER_ELEMENT, AXES...>,
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value;
 
   bool
-  has_stokes() const {
-    return m_columns.count(cf_table_axis<CF_STOKES>::name) > 0;
+  has_mueller_elments() const {
+    return m_columns.count(cf_table_axis<CF_MUELLER_ELEMENT>::name) > 0;
   }
 
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<
-    ValueType<typename cf_table_axis<CF_STOKES>::type>::DataType,
-    stokes_rank,
-    stokes_rank,
+    ValueType<typename cf_table_axis<CF_MUELLER_ELEMENT>::type>::DataType,
+    mueller_element_rank,
+    mueller_element_rank,
     A,
     COORD_T>
-  stokes() const {
-    return decltype(stokes())(*m_columns.at(cf_table_axis<CF_STOKES>::name));
+  mueller_element() const {
+    return
+      decltype(mueller_element())(
+        *m_columns.at(cf_table_axis<CF_MUELLER_ELEMENT>::name));
   }
 
   template <int N>
-  Legion::Point<stokes_rank>
-  stokes_index(const Legion::Point<N>& pt) const {
-    return cf_indexing::Pt<row_rank, N, CF_STOKES, AXES...>(pt).pt;
+  Legion::Point<mueller_element_rank>
+  mueller_element_index(const Legion::Point<N>& pt) const {
+    return cf_indexing::Pt<row_rank, N, CF_MUELLER_ELEMENT, AXES...>(pt).pt;
   }
 
   //
