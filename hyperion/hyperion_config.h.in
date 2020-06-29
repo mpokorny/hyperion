@@ -46,6 +46,12 @@
 
 #define CXX_OPTIONAL_NAMESPACE @CXX_OPTIONAL_NAMESPACE@
 
+#ifdef HYPERION_DEBUG
+# define HYPERION_CHECK_BOUNDS true
+#else
+# define HYPERION_CHECK_BOUNDS false
+#endif
+
 #endif // HYPERION_HYPERION_CONFIG_H_
 
 // Local Variables:

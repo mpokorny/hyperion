@@ -1535,8 +1535,6 @@ H5DatatypeManager::datatype() {
 }
 #endif
 
-// TODO: rename some of the following macros to indicate their limitation to
-// casacore equivalent datatypes
 
 #define HYPERION_FOREACH_CC_DATATYPE(__func__)              \
   __func__(HYPERION_TYPE_BOOL)              \

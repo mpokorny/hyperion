@@ -256,7 +256,7 @@ public:
     int N,
     typename COORD_T = Legion::coord_t,
     template<typename, int, typename> typename A = Legion::GenericAccessor,
-    bool CHECK_BOUNDS = false>
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   Legion::FieldAccessor<MODE, FT, N, COORD_T, A<FT, N, COORD_T>, CHECK_BOUNDS>
   accessor() const {
     return
@@ -279,7 +279,7 @@ public:
     int N,
     typename COORD_T = Legion::coord_t,
     template<typename, int, typename> typename A = Legion::AffineAccessor,
-    bool CHECK_BOUNDS = false>
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   Kokkos::View<
     typename std::conditional<
       MODE == READ_ONLY,
@@ -495,7 +495,10 @@ public:
     assert(DT == m_dt);
   }
 
-  template <Legion::PrivilegeMode MODE, int N, bool CHECK_BOUNDS = false>
+  template <
+    Legion::PrivilegeMode MODE,
+    int N,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   Legion::FieldAccessor<
     MODE,
     value_t,
@@ -513,7 +516,7 @@ public:
     typename execution_space,
     Legion::PrivilegeMode MODE,
     int N,
-    bool CHECK_BOUNDS = false>
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   Kokkos::View<
     typename std::conditional<
       MODE == READ_ONLY,
@@ -579,7 +582,9 @@ public:
     assert(COLUMN_RANK == m_region.get_index_space().get_dim());
   }
 
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
+  template <
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   Legion::FieldAccessor<
     MODE,
     value_t,
@@ -602,7 +607,7 @@ public:
   template <
     typename execution_space,
     Legion::PrivilegeMode MODE,
-    bool CHECK_BOUNDS = false>
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   Kokkos::View<
     typename std::conditional<
       MODE == READ_ONLY,
@@ -671,7 +676,10 @@ public:
     assert(MeasRef::mclass(m_mr_drs.value().metadata) == MC);
   }
 
-  template <Legion::PrivilegeMode MODE, int N, bool CHECK_BOUNDS = false>
+  template <
+    Legion::PrivilegeMode MODE,
+    int N,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   Legion::FieldAccessor<
     MODE,
     value_t,
@@ -689,7 +697,7 @@ public:
     typename execution_space,
     Legion::PrivilegeMode MODE,
     int N,
-    bool CHECK_BOUNDS = false>
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   Kokkos::View<
     typename std::conditional<
       MODE == READ_ONLY,
@@ -782,7 +790,9 @@ public:
 
   typedef typename MClassT<MC>::type::Convert MC_t;
 
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
+  template <
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   class MeasRefAccessor {
   private:
 
@@ -894,7 +904,9 @@ public:
     MC_t m_convert;
   };
 
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
+  template <
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   Legion::FieldAccessor<
     MODE,
     value_t,
@@ -917,7 +929,7 @@ public:
   template <
     typename execution_space,
     Legion::PrivilegeMode MODE,
-    bool CHECK_BOUNDS = false>
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   Kokkos::View<
     typename std::conditional<
       MODE == READ_ONLY,
@@ -939,14 +951,18 @@ public:
     return PhysicalColumn::domain();
   }
 
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
+  template <
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   MeasRefAccessor<MODE, CHECK_BOUNDS>
   meas_ref_accessor(Legion::Runtime* rt) const {
     auto omrb = mrb(rt);
     return MeasRefAccessor<MODE, CHECK_BOUNDS>(&omrb.value());
   }
 
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
+  template <
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   class MeasAccessorBase {
   public:
     MeasAccessorBase(
@@ -979,7 +995,9 @@ public:
     MeasRefAccessor<MODE, CHECK_BOUNDS> m_meas_ref;
   };
 
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS>
+  template <
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   class MeasAccessor
     : public MeasWriterMixin<
         MeasAccessorBase<MODE, CHECK_BOUNDS>,
@@ -1067,7 +1085,9 @@ public:
     using T::T;
   };
 
-  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS = false>
+  template <
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
   MeasAccessor<MODE, CHECK_BOUNDS>
   meas_accessor(Legion::Runtime* rt, const char* units) const {
     return MeasAccessor<MODE, CHECK_BOUNDS>(rt, this, units);

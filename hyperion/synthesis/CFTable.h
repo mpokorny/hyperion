@@ -29,7 +29,6 @@ class CFTable
   : public CFTableBase {
 public:
 
-
   CFTable(hyperion::Table&& t)
     : CFTableBase(std::move(t)) {}
 
