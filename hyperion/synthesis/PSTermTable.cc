@@ -52,7 +52,7 @@ PSTermTable::PSTermTable(
   : CFTable(
     ctx,
     rt,
-    Rect<2>({-cf_x_radius, -cf_y_radius}, {cf_x_radius, cf_y_radius}),
+    Rect<2>({-cf_x_radius, -cf_y_radius}, {cf_x_radius - 1, cf_y_radius - 1}),
     Axis<CF_PS_SCALE>(ps_scales)) {}
 
 #ifndef HYPERION_USE_KOKKOS

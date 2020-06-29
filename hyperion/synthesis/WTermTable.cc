@@ -50,7 +50,7 @@ WTermTable::WTermTable(
   : CFTable(
     ctx,
     rt,
-    Legion::Rect<2>({-cf_x_radius, -cf_y_radius}, {cf_x_radius, cf_y_radius}),
+    Rect<2>({-cf_x_radius, -cf_y_radius}, {cf_x_radius - 1, cf_y_radius - 1}),
     Axis<CF_W>(w_values))
   , m_cell_size(cell_size) {}
 
