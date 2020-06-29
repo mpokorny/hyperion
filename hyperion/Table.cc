@@ -1316,36 +1316,18 @@ Table::remove_columns(
 void
 Table::destroy(Context ctx, Runtime* rt) {
 
-  std::unordered_set<std::string> free_columns;
-  std::vector<ColumnSpace> css;
-  std::vector<PhysicalRegion> cs_md_prs;
-  for (auto& nm_col : m_columns) {
-#if HAVE_CXX17
-    auto& [nm, col] = nm_col;
-#else // !HAVE_CXX17
-    auto& nm = std::get<0>(nm_col);
-    auto& col = std::get<1>(nm_col);
-#endif // HAVE_CXX17
-    free_columns.insert(nm);
-    if (std::find(css.begin(), css.end(), col.cs) == css.end()) {
-      css.push_back(col.cs);
-      cs_md_prs.push_back(
-        rt->map_region(ctx, col.cs.requirements(READ_ONLY, EXCLUSIVE)));
-    }
-  }
-  remove_columns(ctx, rt, free_columns, m_columns, css, cs_md_prs);
+  std::unordered_set<std::string> colnames;
+  for (auto& nm_col : m_columns)
+    colnames.insert(std::get<0>(nm_col));
+  remove_columns(ctx, rt, colnames);
 
-  for (auto& pr : cs_md_prs)
-    rt->unmap_region(ctx, pr);
-  {
-    m_index_col_cs.destroy(ctx, rt, false);
-    auto is = m_index_col_region.get_index_space();
-    auto fs = m_index_col_region.get_field_space();
-    rt->destroy_logical_region(ctx, m_index_col_region);
-    rt->destroy_field_space(ctx, fs);
-    rt->destroy_index_space(ctx, is);
-    m_index_col_region = LogicalRegion::NO_REGION;
-  }
+  m_index_col_cs.destroy(ctx, rt, false);
+  auto is = m_index_col_region.get_index_space();
+  auto fs = m_index_col_region.get_field_space();
+  rt->destroy_logical_region(ctx, m_index_col_region);
+  rt->destroy_field_space(ctx, fs);
+  rt->destroy_index_space(ctx, is);
+  m_index_col_region = LogicalRegion::NO_REGION;
 }
 
 struct PartitionRowsTaskArgs {
