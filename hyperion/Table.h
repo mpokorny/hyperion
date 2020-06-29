@@ -40,7 +40,9 @@ class PhysicalTable;
 template <typename T>
 struct table_indexing {
   template <T...AXES>
-  struct axes {};
+  struct axes {
+    typedef std::integral_constant<unsigned, sizeof...(AXES)> size;
+  };
 
   template <size_t N, T A0, typename...AXES>
   struct index_of_ {
