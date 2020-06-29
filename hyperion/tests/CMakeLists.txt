@@ -1,5 +1,4 @@
-message(WARNING "Tests will be run with '-lg:inorder' flag")
-set(LEGION_ARGS -lg:inorder)
+set(LEGION_ARGS "")
 if(hyperion_USE_KOKKOS)
   if(hyperion_USE_OPENMP)
     list(APPEND LEGION_ARGS -ll:ocpu 1 -ll:onuma 0)
