@@ -123,6 +123,7 @@ public:
             * (std::sqrt((fp_t)1.0 - r2) - (fp_t)1.0))
          : (fp_t)0.0);
       values(w, x, y) = std::polar((fp_t)1.0, phase);
+      weights(w, x, y) = (fp_t)1.0;
     });
   }
 #else // !HYPERION_USE_KOKKOS

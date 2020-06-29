@@ -25,7 +25,7 @@ namespace hyperion {
 namespace synthesis {
 
 class HYPERION_EXPORT PSTermTable
-  : public CFTable<CF_PS_SCALE> {
+  : public CFTable<double, CF_PS_SCALE> {
 public:
 
   PSTermTable(
@@ -139,8 +139,11 @@ public:
           std::sqrt((static_cast<fp_t>(x) * x) + (static_cast<fp_t>(y) * y))
           * ps_scales(ps);
         const fp_t v =
-          static_cast<fp_t>(spheroidal(yp)) * ((fp_t)1.0 - yp * yp);
-        values(ps, x, y) = std::max(v, (fp_t)0.0);
+          std::max(
+            static_cast<fp_t>(spheroidal(yp)) * ((fp_t)1.0 - yp * yp),
+            (fp_t)0.0);
+        values(ps, x, y) = v;
+        weights(ps, x, y) = v * v;
       });
   }
 #else // !HYPERION_USE_KOKKOS

@@ -87,28 +87,24 @@ PSTermTable::compute_cfs_task(
   auto tbl = CFPhysicalTable<CF_PS_SCALE>(pt);
 
   auto ps_scales = tbl.ps_scale<AffineAccessor>().accessor<READ_ONLY>();
-  auto values_col = tbl.value<AffineAccessor>();
-  auto values = values_col.accessor<WRITE_ONLY>();
+  auto value_col = tbl.value<AffineAccessor>();
+  auto values = value_col.accessor<WRITE_ONLY>();
+  auto weight_col = tbl.value<AffineAccessor>();
+  auto weights = weight_col.accessor<WRITE_ONLY>();
+  typedef decltype(value_col)::value_t::value_type fp_t;
 
-  auto rect = values_col.rect();
-  const coord_t& ps_lo = rect.lo[0];
-  const coord_t& ps_hi = rect.hi[0];
-  const coord_t& x_lo = rect.lo[1];
-  const coord_t& x_hi = rect.hi[1];
-  const coord_t& y_lo = rect.lo[2];
-  const coord_t& y_hi = rect.hi[2];
-  typedef typename cf_table_axis<CF_PS_SCALE>::type fp_t;
-  for (coord_t ps_idx = ps_lo; ps_idx <= ps_hi; ++ps_idx) {
-    const fp_t ps_scale = ps_scales[ps_idx];
-    for (coord_t x_idx = x_lo; x_idx <= x_hi; ++x_idx) {
-      const fp_t xp = x_idx * x_idx;
-      for (coord_t y_idx = y_lo; y_idx <= y_hi; ++y_idx) {
-        const fp_t yp = std::sqrt(xp + y_idx * y_idx) * ps_scale;
-        const fp_t v =
-          static_cast<fp_t>(spheroidal(yp)) * ((fp_t)1.0 - yp * yp);
-        values[{ps_idx, x_idx, y_idx}] = std::max(v, (fp_t)0.0);
-      }
-    }
+  for (PointInRectIterator<3> pir(value_col.rect()); pir(); pir++) {
+    const fp_t x = pir[1];
+    const fp_t y = pir[2];
+    const fp_t yp =
+      std::sqrt((static_cast<fp_t>(x) * x) + (static_cast<fp_t>(y) * y))
+      * ps_scales[pir[0]];
+    const fp_t v =
+      std::max(
+        static_cast<fp_t>(spheroidal(yp)) * ((fp_t)1.0 - yp * yp),
+        (fp_t)0.0);
+    values[*pir] = v;
+    weights[*pir] = v * v;
   }
 }
 #endif
@@ -135,7 +131,7 @@ PSTermTable::compute_cfs(
       rt,
       partition,
       {{CF_VALUE_COLUMN_NAME, cf_colreqs},
-       {CF_WEIGHT_COLUMN_NAME, CXX_OPTIONAL_NAMESPACE::nullopt}},
+       {CF_WEIGHT_COLUMN_NAME, cf_colreqs}},
       default_colreqs);
 #if HAVE_CXX17
   auto& [treqs, tparts, tdesc] = reqs;
