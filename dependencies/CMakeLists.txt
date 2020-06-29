@@ -15,7 +15,7 @@ add_subdirectory(mdspan)
 FetchContent_Declare(
   legion
   GIT_REPOSITORY https://github.com/StanfordLegion/legion.git
-  GIT_TAG 42095dd56f9411e95cd9236a7f61556851906042) # master 2020.06.11
+  GIT_TAG bb26869cc5bc51d137fefceeb40fd451cd71c899) # master 2020.06.29
 add_subdirectory(legion)
 
 if(USE_CASACORE AND BUILD_CASACORE)
