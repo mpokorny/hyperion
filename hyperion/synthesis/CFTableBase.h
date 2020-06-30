@@ -37,6 +37,10 @@ typedef enum cf_table_axes_t {
   CF_MUELLER_ELEMENT,
   CF_X,
   CF_Y,
+  // the semantics of the ORDER axes are intentionally ambiguous; if no
+  // partitions use these values, everything should be OK
+  CF_ORDER0,
+  CF_ORDER1,
   CF_LAST_AXIS = CF_Y
 } cf_table_axes_t;
 }
