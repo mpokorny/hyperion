@@ -294,6 +294,9 @@ hyperion::OpsManager::register_ops(
   Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_RECT3>::ValueType>>(
       serdez_id(ACC_FIELD_RECT3_SID));
+  Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<HYPERION_TYPE_STOKES_PAIR>::ValueType>>(
+      serdez_id(ACC_FIELD_STOKES_PAIR_SID));
 
 #ifdef HYPERION_USE_CASACORE
   Runtime::register_custom_serdez_op<coordinate_system_serdez>(
@@ -390,6 +393,12 @@ hyperion::OpsManager::register_ops(
     acc_field_redop<DataType<HYPERION_TYPE_RECT3>::ValueType>>(),
     acc_field_redop<DataType<HYPERION_TYPE_RECT3>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_RECT3>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
+    reduction_id(ACC_FIELD_STOKES_PAIR_REDOP),
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<HYPERION_TYPE_STOKES_PAIR>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_STOKES_PAIR>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_STOKES_PAIR>::ValueType>::fold_fn);
 #else
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_STRING>::ValueType>>(
@@ -433,6 +442,9 @@ hyperion::OpsManager::register_ops(
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_RECT3>::ValueType>>(
       reduction_id(ACC_FIELD_RECT3_REDOP));
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<HYPERION_TYPE_STOKES_PAIR>::ValueType>>(
+      reduction_id(ACC_FIELD_STOKES_PAIR_REDOP));
 #endif // WITH_ACC_FIELD_REDOP_SERDEZ
 
 #define REGISTER_POINT_ADD_REDOP(DIM)                   \
@@ -734,6 +746,13 @@ hyperion::H5DatatypeManager::preregister_datatypes() {
     H5Tinsert(dt, "hi1", 4 * sizeof(Legion::coord_t), H5T_NATIVE_INT64);
     H5Tinsert(dt, "hi2", 5 * sizeof(Legion::coord_t), H5T_NATIVE_INT64);
     datatypes_[RECT3_H5T] = dt;
+  }
+  {
+    hid_t dt = H5Tcreate(H5T_COMPOUND, 2 * sizeof(stokes_t));
+    static_assert(sizeof(stokes_t) == 4);
+    H5Tinsert(dt, "left", 0, H5T_NATIVE_INT32);
+    H5Tinsert(dt, "right", sizeof(stokes_t), H5T_NATIVE_INT32);
+    datatypes_[STOKES_PAIR_H5T] = dt;
   }
 
 #ifdef HYPERION_USE_CASACORE

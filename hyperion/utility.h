@@ -981,6 +981,7 @@ public:
     ACC_FIELD_DCOMPLEX_SID,
     ACC_FIELD_RECT2_SID,
     ACC_FIELD_RECT3_SID,
+    ACC_FIELD_STOKES_PAIR_SID,
 
 #ifdef HYPERION_USE_CASACORE
     CC_COORDINATE_SYSTEM_SID,
@@ -1007,6 +1008,7 @@ public:
     ACC_FIELD_DCOMPLEX_REDOP,
     ACC_FIELD_RECT2_REDOP,
     ACC_FIELD_RECT3_REDOP,
+    ACC_FIELD_STOKES_PAIR_REDOP,
 
     // this must be at the end
     POINT_ADD_REDOP_BASE
@@ -1084,6 +1086,7 @@ public:
     FIELD_ID_H5T,
     RECT2_H5T,
     RECT3_H5T,
+    STOKES_PAIR_H5T,
 #ifdef HYPERION_USE_CASACORE
     MEASURE_CLASS_H5T,
 #endif
@@ -1536,6 +1539,23 @@ struct DataType<HYPERION_TYPE_RECT3> {
   }
 };
 
+template <>
+struct DataType<HYPERION_TYPE_STOKES_PAIR> {
+  // I'd prefer to use std::pair or std::tuple but they are not copy assignable,
+  // which is an issue in the acc_field_redop implementation above
+  typedef std::array<stokes_t, 2> ValueType;
+  constexpr static const char* s = "stokes_pair";
+  constexpr static int id = static_cast<int>(HYPERION_TYPE_STOKES_PAIR);
+  constexpr static size_t serdez_size = sizeof(ValueType);
+  constexpr static int af_serdez_id = OpsManager::ACC_FIELD_STOKES_PAIR_SID;
+  constexpr static int af_redop_id = OpsManager::ACC_FIELD_STOKES_PAIR_REDOP;
+#ifdef HYPERION_USE_HDF5
+  constexpr static hid_t h5t_id = H5DatatypeManager::STOKES_PAIR_H5T;
+#endif
+  static bool equiv(const ValueType& a, const ValueType& b) {
+    return a == b;
+  }
+};
 
 #ifdef HYPERION_USE_HDF5
 template <TypeTag DT>
@@ -1563,7 +1583,8 @@ H5DatatypeManager::datatype() {
 #define HYPERION_FOREACH_DATATYPE(__func__)\
   HYPERION_FOREACH_CC_DATATYPE(__func__) \
   __func__(HYPERION_TYPE_RECT2) \
-  __func__(HYPERION_TYPE_RECT3)
+  __func__(HYPERION_TYPE_RECT3) \
+  __func__(HYPERION_TYPE_STOKES_PAIR)
 
 #define HYPERION_FOREACH_CC_RECORD_DATATYPE(__func__)  \
   __func__(HYPERION_TYPE_BOOL)                     \

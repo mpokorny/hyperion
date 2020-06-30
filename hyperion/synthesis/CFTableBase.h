@@ -93,7 +93,7 @@ struct cf_table_axis<CF_STOKES> {
 };
 template <>
 struct cf_table_axis<CF_MUELLER_ELEMENT> {
-  typedef std::pair<stokes_t, stokes_t> type; // row, col of mueller matrix
+  typedef std::array<stokes_t, 2> type; // row, col of mueller matrix
   static const constexpr char* name = "MUELLER_ELEMENT";
 };
 template <>
