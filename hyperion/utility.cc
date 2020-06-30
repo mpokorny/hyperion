@@ -295,6 +295,9 @@ hyperion::OpsManager::register_ops(
     acc_field_serdez<DataType<HYPERION_TYPE_RECT3>::ValueType>>(
       serdez_id(ACC_FIELD_RECT3_SID));
   Runtime::register_custom_serdez_op<
+    acc_field_serdez<DataType<HYPERION_TYPE_STOKES>::ValueType>>(
+      serdez_id(ACC_FIELD_STOKES_SID));
+  Runtime::register_custom_serdez_op<
     acc_field_serdez<DataType<HYPERION_TYPE_STOKES_PAIR>::ValueType>>(
       serdez_id(ACC_FIELD_STOKES_PAIR_SID));
 
@@ -394,6 +397,12 @@ hyperion::OpsManager::register_ops(
     acc_field_redop<DataType<HYPERION_TYPE_RECT3>::ValueType>::init_fn,
     acc_field_redop<DataType<HYPERION_TYPE_RECT3>::ValueType>::fold_fn);
   Runtime::register_reduction_op(
+    reduction_id(ACC_FIELD_STOKES_REDOP),
+    Realm::ReductionOpUntyped::create_reduction_op<
+    acc_field_redop<DataType<HYPERION_TYPE_STOKES>::ValueType>>(),
+    acc_field_redop<DataType<HYPERION_TYPE_STOKES>::ValueType>::init_fn,
+    acc_field_redop<DataType<HYPERION_TYPE_STOKES>::ValueType>::fold_fn);
+  Runtime::register_reduction_op(
     reduction_id(ACC_FIELD_STOKES_PAIR_REDOP),
     Realm::ReductionOpUntyped::create_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_STOKES_PAIR>::ValueType>>(),
@@ -442,6 +451,9 @@ hyperion::OpsManager::register_ops(
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_RECT3>::ValueType>>(
       reduction_id(ACC_FIELD_RECT3_REDOP));
+  Runtime::register_reduction_op<
+    acc_field_redop<DataType<HYPERION_TYPE_STOKES>::ValueType>>(
+      reduction_id(ACC_FIELD_STOKES_REDOP));
   Runtime::register_reduction_op<
     acc_field_redop<DataType<HYPERION_TYPE_STOKES_PAIR>::ValueType>>(
       reduction_id(ACC_FIELD_STOKES_PAIR_REDOP));
@@ -747,11 +759,28 @@ hyperion::H5DatatypeManager::preregister_datatypes() {
     H5Tinsert(dt, "hi2", 5 * sizeof(Legion::coord_t), H5T_NATIVE_INT64);
     datatypes_[RECT3_H5T] = dt;
   }
+#ifdef HYPERION_USE_CASACORE
   {
-    hid_t dt = H5Tcreate(H5T_COMPOUND, 2 * sizeof(stokes_t));
-    static_assert(sizeof(stokes_t) == 4);
-    H5Tinsert(dt, "left", 0, H5T_NATIVE_INT32);
-    H5Tinsert(dt, "right", sizeof(stokes_t), H5T_NATIVE_INT32);
+    hid_t dt = H5Tenum_create(H5T_NATIVE_UINT);
+    for (unsigned i = 1; i < casacore::Stokes::NumberOfTypes; ++i) {
+      [[maybe_unused]] herr_t err =
+        H5Tenum_insert(
+          dt,
+          casacore::Stokes::name(static_cast<casacore::Stokes::StokesTypes>(i))
+          .c_str(),
+          &i);
+      assert(err >= 0);
+    }
+    datatypes_[STOKES_H5T] = dt;
+  }
+#else // !HYPERION_USE_CASACORE
+  datatypes_[STOKES__H5T] = H5T_NATIVE_UINT;
+#endif // HYPERION_USE_CASACORE
+  {
+    hid_t sto = datatypes_[STOKES_H5T];
+    hid_t dt = H5Tcreate(H5T_COMPOUND, 2 * H5Tget_size(sto));
+    H5Tinsert(dt, "first", 0, sto);
+    H5Tinsert(dt, "second", H5Tget_size(sto), sto);
     datatypes_[STOKES_PAIR_H5T] = dt;
   }
 
