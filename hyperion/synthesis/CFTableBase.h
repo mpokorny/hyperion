@@ -23,19 +23,9 @@
 #include <array>
 #include <vector>
 
-#ifdef HYPERION_USE_CASACORE
-# include <casacore/measures/Measures/Stokes.h>
-#endif
-
 namespace hyperion {
 
 namespace synthesis {
-
-#ifdef HYPERION_USE_CASACORE
-typedef casacore::Stokes::StokesTypes stokes_t;
-#else
-typedef int stokes_t;
-#endif
 
 typedef enum cf_table_axes_t {
   CF_PS_SCALE,

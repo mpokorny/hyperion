@@ -31,6 +31,10 @@
 #endif
 #endif // HYPERION_USE_KOKKOS
 
+#ifdef HYPERION_USE_CASACORE
+# include <casacore/measures/Measures/Stokes.h>
+#endif
+
 #if !HAVE_CXX17
 namespace std {
 
@@ -157,6 +161,12 @@ using complex = std::complex<T>;
 #else
 template <typename T>
 using complex = Kokkos::complex<T>;
+#endif
+
+#ifdef HYPERION_USE_CASACORE
+typedef casacore::Stokes::StokesTypes stokes_t;
+#else
+typedef int stokes_t;
 #endif
 
 template <typename F>
