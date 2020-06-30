@@ -529,7 +529,9 @@ Table::requirements(
 #endif
   }
   // create requirements, applying table_partition as needed
-  std::map<ColumnSpace, std::tuple<ColumnSpacePartition, LogicalPartition>>
+  std::map<
+    std::tuple<ColumnSpace, ProjectionID>,
+    std::tuple<ColumnSpacePartition, LogicalPartition, bool>>
     partitions;
   if (table_partition.is_valid()) {
     if (table_partition.column_space.column_is
@@ -540,7 +542,7 @@ Table::requirements(
       auto lp =
         rt.value()
         ->get_logical_partition(ctx.value(), index_col_region, csp.column_ip);
-      partitions[index_col_cs] = {csp, lp};
+      partitions[{index_col_cs, 0}] = {csp, lp, true};
     } else {
       auto lp =
         rt.value()
@@ -548,9 +550,9 @@ Table::requirements(
           ctx.value(),
           index_col_region,
           table_partition.column_ip);
-      // create empty ColumnSpacePartition in partitions to indicate that this
-      // partition should not be returned in list of ColumnSpacePartitions
-      partitions[index_col_cs] = {ColumnSpacePartition(), lp};
+      // set boolean flag to false to indicate that this partition should not be
+      // returned in list of ColumnSpacePartitions
+      partitions[{index_col_cs, 0}] = {ColumnSpacePartition(), lp, false};
     }
   }
 
@@ -558,7 +560,12 @@ Table::requirements(
   // requirement has already been added when iterating through columns
   std::map<LogicalRegion, std::tuple<bool, RegionRequirement>> md_reqs;
   std::map<
-    std::tuple<LogicalRegion, PrivilegeMode, CoherenceProperty, MappingTagID>,
+    std::tuple<
+      LogicalRegion,
+      PrivilegeMode,
+      CoherenceProperty,
+      MappingTagID,
+      ProjectionID>,
     std::tuple<bool, RegionRequirement>> val_reqs;
   for (auto& nm_col : columns) {
 #if HAVE_CXX17
@@ -576,54 +583,84 @@ Table::requirements(
              reqs.column_space.privilege,
              reqs.column_space.coherence)};
       decltype(val_reqs)::key_type rg_rq =
-        {col.region, reqs.values.privilege, reqs.values.coherence, reqs.tag};
+        {col.region,
+         reqs.values.privilege,
+         reqs.values.coherence,
+         reqs.tag,
+         reqs.projection};
       if (val_reqs.count(rg_rq) == 0) {
-        if (!table_partition.is_valid()) {
-          val_reqs[rg_rq] =
-            {false,
-             RegionRequirement(
-               col.region,
-               reqs.values.privilege,
-               reqs.values.coherence,
-               col.region,
-               reqs.tag)};
+        std::tuple<ColumnSpace, ProjectionID> pkey = {col.cs, reqs.projection};
+        if (std::get<1>(pkey) == 0) {
+          if (!table_partition.is_valid()) {
+            val_reqs[rg_rq] =
+              {false,
+               RegionRequirement(
+                 col.region,
+                 reqs.values.privilege,
+                 reqs.values.coherence,
+                 col.region,
+                 reqs.tag)};
+          } else {
+            LogicalPartition lp;
+            if (partitions.count(pkey) == 0) {
+              auto csp =
+                table_partition.project_onto(ctx.value(), rt.value(), col.cs)
+                .get_result<ColumnSpacePartition>();
+              assert(csp.column_space == col.cs);
+              lp =
+                rt.value()
+                ->get_logical_partition(ctx.value(), col.region, csp.column_ip);
+              partitions[pkey] = {csp, lp, true};
+            } else {
+              lp = std::get<1>(partitions[pkey]);
+            }
+            val_reqs[rg_rq] =
+              {false,
+               RegionRequirement(
+                 lp,
+                 0,
+                 reqs.values.privilege,
+                 reqs.values.coherence,
+                 col.region,
+                 reqs.tag)};
+          }
         } else {
           LogicalPartition lp;
-          if (partitions.count(col.cs) == 0) {
-            auto csp =
-              table_partition.project_onto(ctx.value(), rt.value(), col.cs)
-              .get_result<ColumnSpacePartition>();
-            assert(csp.column_space == col.cs);
+          if (partitions.count(pkey) == 0) {
             lp =
               rt.value()
-              ->get_logical_partition(ctx.value(), col.region, csp.column_ip);
-            partitions[col.cs] = {csp, lp};
+              ->get_logical_partition(
+                ctx.value(),
+                col.region,
+                reqs.partition.column_ip);
+            partitions[pkey] = {reqs.partition, lp, false};
           } else {
-            lp = std::get<1>(partitions[col.cs]);
+            lp = std::get<1>(partitions[pkey]);
           }
           val_reqs[rg_rq] =
             {false,
              RegionRequirement(
                lp,
-               0,
+               reqs.projection,
                reqs.values.privilege,
                reqs.values.coherence,
                col.region,
-               reqs.tag)};
+               reqs.tag)};          
         }
       }
       std::get<1>(val_reqs[rg_rq]).add_field(col.fid, reqs.values.mapped);
     }
   }
   std::vector<ColumnSpacePartition> csps_result;
-  for (auto& cs_csplp : partitions) {
+  for (auto& cspj_csplpnw : partitions) {
 #if HAVE_CXX17
-    auto& [csp, lp] = std::get<1>(cs_csplp);
+    auto& [csp, lp, isnew] = std::get<1>(cspj_csplpnw);
 #else // !HAVE_CXX17
-    auto& csplp = std::get<1>(cs_csplp);
-    auto& csp = std::get<0>(csplp);
+    auto& csplpnw = std::get<1>(cspj_csplpnw);
+    auto& csp = std::get<0>(csplpnw);
+    auto& isnew = std::get<2>(csplpnw);
 #endif
-    if (csp.is_valid()) // avoid returning table_partition
+    if (isnew)
       csps_result.push_back(csp);
   }
 
@@ -635,7 +672,7 @@ Table::requirements(
   // next, index_col index space partition
   if (table_partition.is_valid()) {
     RegionRequirement req(
-      std::get<1>(partitions[index_col_cs]),
+      std::get<1>(partitions[{index_col_cs, 0}]),
       0,
       {Table::m_index_col_fid},
       {}, // always remains unmapped!
@@ -684,7 +721,11 @@ Table::requirements(
         }
       }
       decltype(val_reqs)::key_type rg_rq =
-        {col.region, reqs.values.privilege, reqs.values.coherence, reqs.tag};
+        {col.region,
+         reqs.values.privilege,
+         reqs.values.coherence,
+         reqs.tag,
+         reqs.projection};
       auto& added_rq = val_reqs.at(rg_rq);
 #if HAVE_CXX17
       auto& [added, rq] = added_rq;

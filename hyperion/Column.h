@@ -28,6 +28,7 @@
 #include <string>
 
 #include <hyperion/ColumnSpace.h>
+#include <hyperion/ColumnSpacePartition.h>
 
 namespace hyperion {
 
@@ -111,18 +112,22 @@ struct HYPERION_EXPORT Column {
     Req measref; /**< measref regions */
     Req column_space; /**< column space region */
     Legion::MappingTagID tag; /**< values region mapping tag */
+    Legion::ProjectionID projection; /**< values region projection ID */
+    ColumnSpacePartition partition; /**< values region and partition */
   };
 
   /**
    * Default Requirements
+   *
+   * values = Req{READ_ONLY, EXCLUSIVE, false},
+   * keywords = Req{READ_ONLY, EXCLUSIVE, true},
+   * measref = Req{READ_ONLY, EXCLUSIVE, true},
+   * column_space = Req{READ_ONLY, EXCLUSIVE, true},
+   * tag = TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
+   * projection = 0,
+   * partition = ColumnSpacePartition()
    */
-  static constexpr const Requirements default_requirements{
-    Req{READ_ONLY, EXCLUSIVE, false},
-    Req{READ_ONLY, EXCLUSIVE, true},
-    Req{READ_ONLY, EXCLUSIVE, true},
-    Req{READ_ONLY, EXCLUSIVE, true},
-    TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag)
-  };
+  static const Requirements default_requirements;
 
   /**
    * Column descriptor

@@ -45,9 +45,15 @@ using WOAccessor =
     AffineAccessor<T, DIM, coord_t>,
     CHECK_BOUNDS>;
 
-#if !HAVE_CXX17
-constexpr const Column::Requirements Column::default_requirements;
-#endif
+const Column::Requirements Column::default_requirements{
+  Column::Req{READ_ONLY, EXCLUSIVE, false},
+  Column::Req{READ_ONLY, EXCLUSIVE, true},
+  Column::Req{READ_ONLY, EXCLUSIVE, true},
+  Column::Req{READ_ONLY, EXCLUSIVE, true},
+  TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
+  0,
+  ColumnSpacePartition()
+};
 
 template <hyperion::TypeTag DT>
 static LogicalRegion
