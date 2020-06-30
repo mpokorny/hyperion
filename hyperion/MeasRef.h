@@ -236,8 +236,8 @@ public:
 #undef CREATE
     else {
       assert(false);
-      return MeasRef();
     }
+    return MeasRef();
   }
 
   template <typename Ms>
