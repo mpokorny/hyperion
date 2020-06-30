@@ -105,6 +105,8 @@ public:
   auto value_rect = value_col.rect();
   auto values = value_col.view<execution_space, WRITE_ONLY>();
   typedef decltype(value_col)::value_t::value_type fp_t;
+  auto weights =
+    tbl.weight<Legion::AffineAccessor>().view<execution_space, WRITE_ONLY>();
 
   Kokkos::MDRangePolicy<Kokkos::Rank<3>, execution_space> range(
     rt->get_executing_processor(ctx).kokkos_work_space(),

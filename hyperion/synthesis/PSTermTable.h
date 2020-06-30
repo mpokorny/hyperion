@@ -25,7 +25,7 @@ namespace hyperion {
 namespace synthesis {
 
 class HYPERION_EXPORT PSTermTable
-  : public CFTable<double, CF_PS_SCALE> {
+  : public CFTable<CF_PS_SCALE> {
 public:
 
   PSTermTable(
@@ -125,6 +125,8 @@ public:
     auto value_col = tbl.value<Legion::AffineAccessor>();
     auto value_rect = value_col.rect();
     auto values = value_col.view<execution_space, WRITE_ONLY>();
+    auto weights =
+      tbl.weight<Legion::AffineAccessor>().view<execution_space, WRITE_ONLY>();
     typedef decltype(value_col)::value_t::value_type fp_t;
 
     Kokkos::MDRangePolicy<Kokkos::Rank<3>, execution_space> range(
