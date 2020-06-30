@@ -228,10 +228,6 @@ hyperion::synthesis::CFTableBase::init_index_column_task(
     init_column<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>(
       args.parallactic_angles,
       *cols.at(cf_table_axis<CF_PARALLACTIC_ANGLE>::name));
-  if (args.stokes_values.size() > 0)
-    init_column<typename cf_table_axis<CF_STOKES>::type>(
-      args.stokes_values,
-      *cols.at(cf_table_axis<CF_STOKES>::name));
   if (args.mueller_elements.size() > 0)
     init_column<typename cf_table_axis<CF_MUELLER_ELEMENT>::type>(
       args.mueller_elements,
