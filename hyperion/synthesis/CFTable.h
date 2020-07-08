@@ -45,8 +45,10 @@ public:
     ColumnSpace index_cs;
     constexpr size_t N = sizeof...(AXES);
     {
-      Legion::Point<N> lo{axes.bounds().lo[0]...};
-      Legion::Point<N> hi{axes.bounds().hi[0]...};
+      Legion::coord_t c_lo[]{axes.bounds().lo[0]...};
+      Legion::Point<N> lo(c_lo);
+      Legion::coord_t c_hi[]{axes.bounds().hi[0]...};
+      Legion::Point<N> hi(c_hi);
       Legion::Rect<N> bounds(lo, hi);
       Legion::IndexSpace is = rt->create_index_space(ctx, bounds);
       index_cs =
