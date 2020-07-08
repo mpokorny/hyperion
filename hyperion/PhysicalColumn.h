@@ -35,6 +35,7 @@
 #ifdef HYPERION_USE_KOKKOS
 # include <Kokkos_Core.hpp>
 #endif
+#include <experimental/mdspan>
 
 namespace hyperion {
 
@@ -203,6 +204,147 @@ public:
 };
 #endif //HYPERION_USE_CASACORE
 
+template <typename T, int N, ptrdiff_t...Args>
+struct dynamic_mdspan_ {
+  typedef typename
+  dynamic_mdspan_<T, N - 1, std::experimental::dynamic_extent, Args...>::type
+  type;
+};
+
+template <typename T, ptrdiff_t...Args>
+struct dynamic_mdspan_<T, 1, Args...> {
+  typedef std::experimental::mdspan<T, std::experimental::dynamic_extent, Args...> type;
+};
+
+template <typename T, int N>
+struct dynamic_mdspan_t {
+  typedef void type;
+};
+
+template <typename T>
+struct dynamic_mdspan_t<T, 1> {
+  typedef typename dynamic_mdspan_<T, 1>::type type;
+  static type create(T* ptr, const Legion::Rect<1>& r) {
+    return type(ptr, r.hi[0] - r.lo[0] + 1);
+  }
+};
+
+template <typename T>
+struct dynamic_mdspan_t<T, 2> {
+  typedef typename dynamic_mdspan_<T, 2>::type type;
+  static type create(T* ptr, const Legion::Rect<2>& r) {
+    return type(
+      ptr,
+      r.hi[0] - r.lo[0] + 1,
+      r.hi[1] - r.lo[1] + 1);
+  }
+};
+
+template <typename T>
+struct dynamic_mdspan_t<T, 3> {
+  typedef typename dynamic_mdspan_<T, 3>::type type;
+  static type create(T* ptr, const Legion::Rect<3>& r) {
+    return type(
+      ptr,
+      r.hi[0] - r.lo[0] + 1,
+      r.hi[1] - r.lo[1] + 1,
+      r.hi[2] - r.lo[2] + 1);
+  }
+};
+
+template <typename T>
+struct dynamic_mdspan_t<T, 4> {
+  typedef typename dynamic_mdspan_<T, 4>::type type;
+  static type create(T* ptr, const Legion::Rect<4>& r) {
+    return type(
+      ptr,
+      r.hi[0] - r.lo[0] + 1,
+      r.hi[1] - r.lo[1] + 1,
+      r.hi[2] - r.lo[2] + 1,
+      r.hi[3] - r.lo[3] + 1);
+  }
+};
+
+template <typename T>
+struct dynamic_mdspan_t<T, 5> {
+  typedef typename dynamic_mdspan_<T, 5>::type type;
+  static type create(T* ptr, const Legion::Rect<5>& r) {
+    return type(
+      ptr,
+      r.hi[0] - r.lo[0] + 1,
+      r.hi[1] - r.lo[1] + 1,
+      r.hi[2] - r.lo[2] + 1,
+      r.hi[3] - r.lo[3] + 1,
+      r.hi[4] - r.lo[4] + 1);
+  }
+};
+
+template <typename T>
+struct dynamic_mdspan_t<T, 6> {
+  typedef typename dynamic_mdspan_<T, 6>::type type;
+  static type create(T* ptr, const Legion::Rect<6>& r) {
+    return type(
+      ptr,
+      r.hi[0] - r.lo[0] + 1,
+      r.hi[1] - r.lo[1] + 1,
+      r.hi[2] - r.lo[2] + 1,
+      r.hi[3] - r.lo[3] + 1,
+      r.hi[4] - r.lo[4] + 1,
+      r.hi[5] - r.lo[5] + 1);
+  }
+};
+
+template <typename T>
+struct dynamic_mdspan_t<T, 7> {
+  typedef typename dynamic_mdspan_<T, 7>::type type;
+  static type create(T* ptr, const Legion::Rect<7>& r) {
+    return type(
+      ptr,
+      r.hi[0] - r.lo[0] + 1,
+      r.hi[1] - r.lo[1] + 1,
+      r.hi[2] - r.lo[2] + 1,
+      r.hi[3] - r.lo[3] + 1,
+      r.hi[4] - r.lo[4] + 1,
+      r.hi[5] - r.lo[5] + 1,
+      r.hi[6] - r.lo[6] + 1);
+  }
+};
+
+template <typename T>
+struct dynamic_mdspan_t<T, 8> {
+  typedef typename dynamic_mdspan_<T, 8>::type type;
+  static type create(T* ptr, const Legion::Rect<8>& r) {
+    return type(
+      ptr,
+      r.hi[0] - r.lo[0] + 1,
+      r.hi[1] - r.lo[1] + 1,
+      r.hi[2] - r.lo[2] + 1,
+      r.hi[3] - r.lo[3] + 1,
+      r.hi[4] - r.lo[4] + 1,
+      r.hi[5] - r.lo[5] + 1,
+      r.hi[6] - r.lo[6] + 1,
+      r.hi[7] - r.lo[7] + 1);
+  }
+};
+
+template <typename T>
+struct dynamic_mdspan_t<T, 9> {
+  typedef typename dynamic_mdspan_<T, 9>::type type;
+  static type create(T* ptr, const Legion::Rect<9>& r) {
+    return type(
+      ptr,
+      r.hi[0] - r.lo[0] + 1,
+      r.hi[1] - r.lo[1] + 1,
+      r.hi[2] - r.lo[2] + 1,
+      r.hi[3] - r.lo[3] + 1,
+      r.hi[4] - r.lo[4] + 1,
+      r.hi[5] - r.lo[5] + 1,
+      r.hi[6] - r.lo[6] + 1,
+      r.hi[7] - r.lo[7] + 1,
+      r.hi[8] - r.lo[8] + 1);
+  }
+};
+
 class HYPERION_EXPORT PhysicalColumn {
 public:
 
@@ -290,6 +432,27 @@ public:
     return accessor<MODE, FT, N, COORD_T, A, CHECK_BOUNDS>().accessor;
   }
 #endif // HYPERION_USE_KOKKOS
+
+  template <
+    Legion::PrivilegeMode MODE,
+    typename FT,
+    int N,
+    typename COORD_T = Legion::coord_t,
+    template<typename, int, typename> typename A = Legion::AffineAccessor,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
+  typename dynamic_mdspan_t<
+    typename std::conditional<MODE == READ_ONLY, const FT, FT>::type,
+    N>::type
+  span() const {
+    // FIXME: this does not account for layout!
+    typedef dynamic_mdspan_t<
+      typename std::conditional<MODE == READ_ONLY, const FT, FT>::type,
+      N> mds;
+    Legion::Rect<N> bounds(domain());
+    return mds::create(
+      accessor<MODE, FT, N, COORD_T, A, CHECK_BOUNDS>().ptr(bounds),
+      bounds);
+  }
 
   hyperion::TypeTag
   dt() const {
@@ -527,6 +690,22 @@ public:
     return accessor<MODE, N, CHECK_BOUNDS>().accessor;
   }
 #endif // HYPERION_USE_KOKKOS
+
+  template <
+    Legion::PrivilegeMode MODE,
+    int N,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
+  typename dynamic_mdspan_t<
+    typename std::conditional<MODE == READ_ONLY, const value_t, value_t>::type,
+    N>::type
+  span() const {
+    // FIXME: this does not account for layout!
+    typedef dynamic_mdspan_t<
+      typename std::conditional<MODE == READ_ONLY, const value_t, value_t>::type,
+      N> mds;
+    Legion::Rect<N> bounds(domain());
+    return mds::create(accessor<MODE, N, CHECK_BOUNDS>().ptr(bounds), bounds);
+  }
 };
 
 template <
@@ -619,6 +798,20 @@ public:
   }
 #endif // HYPERION_USE_KOKKOS
 
+  template <
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
+  typename dynamic_mdspan_t<
+    typename std::conditional<MODE == READ_ONLY, const value_t, value_t>::type,
+    COLUMN_RANK>::type
+  span() const {
+    // FIXME: this does not account for layout!
+    typedef dynamic_mdspan_t<
+      typename std::conditional<MODE == READ_ONLY, const value_t, value_t>::type,
+      COLUMN_RANK> mds;
+    return mds::create(accessor<MODE, CHECK_BOUNDS>().ptr(rect()), rect());
+  }
+
   Legion::DomainT<COLUMN_RANK>
   domain() const {
     return PhysicalColumn::domain();
@@ -708,6 +901,22 @@ public:
     return accessor<MODE, N, CHECK_BOUNDS>().accessor;
   }
 #endif // HYPERION_USE_KOKKOS
+
+  template <
+    Legion::PrivilegeMode MODE,
+    int N,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
+  typename dynamic_mdspan_t<
+    typename std::conditional<MODE == READ_ONLY, const value_t, value_t>::type,
+    N>::type
+  span() const {
+    // FIXME: this does not account for layout!
+    typedef dynamic_mdspan_t<
+      typename std::conditional<MODE == READ_ONLY, const value_t, value_t>::type,
+      N> mds;
+    Legion::Rect<N> bounds(domain());
+    return mds::create(accessor<MODE, N, CHECK_BOUNDS>().ptr(bounds), bounds);
+  }
 
   typedef casacore::MeasRef<typename MClassT<MC>::type> MR_t;
 
@@ -940,6 +1149,20 @@ public:
     return accessor<MODE, CHECK_BOUNDS>().accessor;
   }
 #endif // HYPERION_USE_KOKKOS
+
+  template <
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
+  typename dynamic_mdspan_t<
+    typename std::conditional<MODE == READ_ONLY, const value_t, value_t>::type,
+    COLUMN_RANK>::type
+  span() const {
+    // FIXME: this does not account for layout!
+    typedef dynamic_mdspan_t<
+      typename std::conditional<MODE == READ_ONLY, const value_t, value_t>::type,
+      COLUMN_RANK> mds;
+    return mds::create(accessor<MODE, CHECK_BOUNDS>().ptr(rect()), rect());
+  }
 
   Legion::DomainT<COLUMN_RANK>
   domain() const {
