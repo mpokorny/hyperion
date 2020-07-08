@@ -18,32 +18,29 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <set>
 
 using namespace hyperion;
 using namespace hyperion::synthesis;
 using namespace Legion;
 
 TaskID ATermTable::compute_cfs_task_id;
-TaskID ATermTable::compute_pcs_task_id;
-#if !HAVE_CXX17
-constexpr const float ATermTable::zc_exact_frequency_tolerance;
-#endif
 
 ATermTable::ATermTable(
   Context ctx,
   Runtime* rt,
   const std::array<coord_t, 2>& cf_bounds_lo,
   const std::array<coord_t, 2>& cf_bounds_hi,
-  unsigned zernike_order,
-  const std::vector<ZCoeff>& zernike_coefficients,
   const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
     baseline_classes,
   const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
     parallactic_angles,
-  const std::vector<typename cf_table_axis<CF_STOKES>::type>&
-    stokes_values,
   const std::vector<typename cf_table_axis<CF_FREQUENCY>::type>&
-    frequencies)
+    frequencies,
+  const std::vector<typename cf_table_axis<CF_STOKES_OUT>::type>&
+    stokes_out_values,
+  const std::vector<typename cf_table_axis<CF_STOKES_IN>::type>&
+    stokes_in_values)
   : CFTable(
     ctx,
     rt,
@@ -52,25 +49,9 @@ ATermTable::ATermTable(
       {cf_bounds_hi[0], cf_bounds_hi[1]}),
     Axis<CF_BASELINE_CLASS>(baseline_classes),
     Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles),
-    Axis<CF_STOKES>(stokes_values),
-    Axis<CF_FREQUENCY>(frequencies))
-  , m_zernike_order(zernike_order) {
-
-  create_zc_region(
-    ctx,
-    rt,
-    zernike_order,
-    zernike_coefficients,
-    baseline_classes,
-    stokes_values,
-    frequencies);
-  create_pc_region(
-    ctx,
-    rt,
-    zernike_order,
-    baseline_classes.size(),
-    stokes_values.size(),
-    frequencies.size());
+    Axis<CF_FREQUENCY>(frequencies),
+    Axis<CF_STOKES_OUT>(stokes_out_values),
+    Axis<CF_STOKES_IN>(stokes_in_values)) {
 }
 
 ATermTable::ATermTable(
@@ -78,195 +59,360 @@ ATermTable::ATermTable(
   Runtime* rt,
   const coord_t& cf_x_radius,
   const coord_t& cf_y_radius,
-  unsigned zernike_order,
-  const std::vector<ZCoeff>& zernike_coefficients,
   const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
     baseline_classes,
   const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
     parallactic_angles,
-  const std::vector<typename cf_table_axis<CF_STOKES>::type>&
-    stokes_values,
   const std::vector<typename cf_table_axis<CF_FREQUENCY>::type>&
-    frequencies)
+    frequencies,
+  const std::vector<typename cf_table_axis<CF_STOKES_OUT>::type>&
+    stokes_out_values,
+  const std::vector<typename cf_table_axis<CF_STOKES_IN>::type>&
+    stokes_in_values)
   : CFTable(
     ctx,
     rt,
-    Rect<2>({-cf_x_radius, -cf_y_radius}, {cf_x_radius, cf_y_radius}),
+    Rect<2>({-cf_x_radius, -cf_y_radius}, {cf_x_radius - 1, cf_y_radius - 1}),
     Axis<CF_BASELINE_CLASS>(baseline_classes),
     Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles),
-    Axis<CF_STOKES>(stokes_values),
-    Axis<CF_FREQUENCY>(frequencies))
-  , m_zernike_order(zernike_order) {
-
-  create_zc_region(
-    ctx,
-    rt,
-    zernike_order,
-    zernike_coefficients,
-    baseline_classes,
-    stokes_values,
-    frequencies);
-  create_pc_region(
-    ctx,
-    rt,
-    zernike_order,
-    baseline_classes.size(),
-    stokes_values.size(),
-    frequencies.size());
+    Axis<CF_FREQUENCY>(frequencies),
+    Axis<CF_STOKES_OUT>(stokes_out_values),
+    Axis<CF_STOKES_IN>(stokes_in_values)) {
 }
 
-void
-ATermTable::create_zc_region(
+template <unsigned D>
+static IndexPartition
+map_mueller_to_stokes(
   Context ctx,
   Runtime* rt,
-  unsigned zernike_order,
-  const std::vector<ZCoeff>& zernike_coefficients,
-  const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
-    baseline_classes,
-  const std::vector<typename cf_table_axis<CF_STOKES>::type>&
-    stokes_values,
-  const std::vector<typename cf_table_axis<CF_FREQUENCY>::type>&
-    frequencies) {
+  const ColumnSpacePartition& aterm_part,
+  const std::vector<stokes_t>& stokes_out_values,
+  const std::vector<stokes_t>& stokes_in_values,
+  const IndexSpace& aux1_cf_is,
+  const std::vector<stokes_t>& stokes_values) {
 
-  // create region for Zernike coefficients
-  Rect<4> zc_rect(
-    {0, 0, 0, 0},
-    {static_cast<coord_t>(baseline_classes.size()) - 1,
-     static_cast<coord_t>(stokes_values.size()) - 1,
-     static_cast<coord_t>(frequencies.size()) - 1,
-     static_cast<coord_t>(zernike_num_terms(zernike_order)) - 1});
-  {
-    auto is = rt->create_index_space(ctx, zc_rect);
-    auto fs = rt->create_field_space(ctx);
-    auto fa = rt->create_field_allocator(ctx, fs);
-    fa.allocate_field(sizeof(zc_t), ZC_FID);
-    fa.allocate_field(sizeof(pc_t), PC_FID);
-    m_zc_region = rt->create_logical_region(ctx, is, fs);
+  auto aterm_part_color_space =
+    rt->get_index_partition_color_space_name(ctx, aterm_part.column_ip);
+
+  auto result =
+    rt->create_pending_partition(ctx, aux1_cf_is, aterm_part_color_space);
+
+  std::map<stokes_t, unsigned> stokes_value_indexes;
+  for (size_t i = 0; i < stokes_values.size(); ++i)
+    stokes_value_indexes[stokes_values[i]] = i;
+
+  // find location (dimension index) of CF_STOKES_OUT and CF_STOKES_IN in
+  // partition index
+  unsigned stokes_out_dim = std::numeric_limits<unsigned>::max();
+  unsigned stokes_in_dim = std::numeric_limits<unsigned>::max();
+  static_assert(ColumnSpace::MAX_DIM <= std::numeric_limits<unsigned>::max());
+  for (unsigned i = 0;
+       aterm_part.partition[i].dim >= 0 && i < ColumnSpace::MAX_DIM;
+       ++i) {
+    if (aterm_part.partition[i].dim == CF_STOKES_OUT)
+      stokes_out_dim = i;
+    else if (aterm_part.partition[i].dim == CF_STOKES_IN)
+      stokes_in_dim = i;
   }
-  // copy (needed) coefficients from zernike_coefficients to m_zc_region ZC_FID
-  // field
-  {
-    RegionRequirement req(m_zc_region, WRITE_ONLY, EXCLUSIVE, m_zc_region);
-    req.add_field(ZC_FID);
-    auto pr = rt->map_region(ctx, req);
-    const FieldAccessor<
-      WRITE_ONLY,
-      zc_t,
-      4,
-      coord_t,
-      AffineAccessor<zc_t, 4, coord_t>> acc(pr, ZC_FID);
-    for (coord_t blc = 0; blc <= zc_rect.hi[0]; ++blc) {
-      auto baseline_class = baseline_classes[blc];
-      for (coord_t frq = 0; frq <= zc_rect.hi[2]; ++frq) {
-        auto frequency = frequencies[frq];
-        // first, we determine the nearest frequency in zernike_coefficients
-        // (the following assumes bit-wise identical frequency values across all
-        // stokes values associated with a nominal frequency (and
-        // baseline_class) in zernike_coefficients)
-        auto nearest_frequency =
-          std::numeric_limits<typename cf_table_axis<CF_FREQUENCY>::type>
-          ::quiet_NaN();
-        {
-          auto frequency_diff = std::abs(frequency - nearest_frequency);
-          for (auto& zcoeff : zernike_coefficients) {
-            auto d = std::abs(frequency - zcoeff.frequency);
-            if (baseline_class == zcoeff.baseline_class
-                && (std::isnan(frequency_diff) || d < frequency_diff)) {
-              frequency_diff = d;
-              nearest_frequency = zcoeff.frequency;
-              if (d <= zc_exact_frequency_tolerance * frequency)
-                break;
-            }
-          }
-        }
-        for (coord_t sto = 0; sto <= zc_rect.hi[1]; ++sto) {
-          auto stokes = stokes_values[sto];
-          Point<4> p{blc, sto, frq, 0};
-          // set all coefficients for this stokes and frequency to zero
-          for (coord_t i = 0; i <= zc_rect.hi[3]; ++i) {
-            p[3] = i;
-            acc[p] = static_cast<zc_t>(0);
-          }
+  assert(stokes_out_dim < std::numeric_limits<unsigned>::max());
+  assert(stokes_in_dim < std::numeric_limits<unsigned>::max());
+  const unsigned stokes_dim = stokes_out_dim;
 
-          // copy all coefficients that match nearest_frequency, stokes and
-          // baseline_class values from zernike_coefficients
-          if (!std::isnan(nearest_frequency)) {
-            for (auto& zcoeff : zernike_coefficients) {
-              if (zcoeff.stokes == stokes
-                  && zcoeff.frequency == nearest_frequency) {
-                p[2] = zernike_index(zcoeff.m, zcoeff.n);
-                acc[p] = zcoeff.coefficient;
-              }
-            }
-          }
-        }
+  // create a partition subspace for every color in aterm_part_color_space
+  for (PointInDomainIterator<D> pid(
+         rt->get_index_space_domain(ctx, aterm_part_color_space));
+       pid();
+       pid++) {
+    // create rectangles in aux1_cf_is of Stokes indexes for this set of Mueller
+    // elements
+    Rect<ATermTable::index_rank + 2> aterm_bounds =
+      rt->get_index_space_domain(
+        ctx,
+        rt->get_index_subspace(ctx, aterm_part.column_ip, DomainPoint(*pid)));
+    // rectangles in aux1 are the same as aterm_bounds except that they have a
+    // single Stokes axis with a single index in the stokes_values domain (the
+    // dimension index of this single Stokes axis is assumed to be the same as
+    // stokes_out_dim)
+    Rect<ATermAux1::index_rank + 2> aux1_bounds;
+    for (size_t i = 0, j = 0; i < ATermTable::index_rank + 2; ++i) {
+      if (i != stokes_in_dim) {
+        aux1_bounds.lo[j] = aterm_bounds.lo[i];
+        aux1_bounds.hi[j] = aterm_bounds.hi[i];
+        ++j;
       }
     }
-    rt->unmap_region(ctx, pr);
+    // get the set of all indexes in stokes_values referenced by aterm_bounds
+    // (CF_STOKES_OUT and CF_STOKES_IN)
+    std::set<unsigned> sto_idxs;
+    for (Legion::coord_t s = aterm_bounds.lo[stokes_out_dim];
+         s <= aterm_bounds.hi[stokes_out_dim];
+         ++s)
+      sto_idxs.insert(stokes_value_indexes[stokes_out_values[s]]);
+    for (Legion::coord_t s = aterm_bounds.lo[stokes_in_dim];
+         s <= aterm_bounds.hi[stokes_in_dim];
+         ++s)
+      sto_idxs.insert(stokes_value_indexes[stokes_in_values[s]]);
+    // create the subspace using create_partition_by_domain()
+    //
+    // the size of the color space could be reduced by merging contiguous values
+    // in sto_idxs, but that seems a minor point since there are at most four
+    // values
+    auto cs = rt->create_index_space(ctx, Rect<1>(0, sto_idxs.size() - 1));
+    std::map<DomainPoint, Domain> domains;
+    unsigned i = 0;
+    for (auto& s : sto_idxs) {
+      Rect<ATermAux1::index_rank + 2> r = aux1_bounds;
+      r.lo[stokes_dim] = r.hi[stokes_dim] = s;
+      domains[i++] = r;
+    }
+    auto ip = rt->create_partition_by_domain(ctx, aux1_cf_is, domains, cs);
+    std::vector<IndexSpace> iss;
+    for (unsigned i = 0; i < sto_idxs.size(); ++i)
+      iss.push_back(rt->get_index_subspace(ctx, ip, i));
+    // create the partition subspace for the color *pid as the union of all
+    // subspaces in ip
+    rt->create_index_space_union(ctx, result, *pid, iss);
+    rt->destroy_index_partition(ctx, ip); // TODO: OK?
+    rt->destroy_index_space(ctx, cs);
   }
-}
-
-void
-ATermTable::create_pc_region(
-  Context ctx,
-  Runtime* rt,
-  unsigned zernike_order,
-  unsigned num_baseline_classes,
-  unsigned num_stokes_values,
-  unsigned num_frequencies) {
-
-  coord_t nzt = zernike_num_terms(zernike_order);
-  coord_t
-    hi[5]{num_baseline_classes - 1,
-      num_stokes_values - 1,
-      num_frequencies - 1,
-      nzt - 1,
-      nzt - 1};
-  Rect<5> pc_rect(Point<5>::ZEROES(), Point<5>(hi));
-  auto is = rt->create_index_space(ctx, pc_rect);
-  auto fs = rt->create_field_space(ctx);
-  auto fa = rt->create_field_allocator(ctx, fs);
-  fa.allocate_field(sizeof(pc_t), PC_FID);
-  m_pc_region = rt->create_logical_region(ctx, is, fs);
-
-  TaskLauncher task(compute_pcs_task_id, TaskArgument());
-  {
-    RegionRequirement req(m_zc_region, READ_ONLY, EXCLUSIVE, m_zc_region);
-    req.add_field(ZC_FID);
-    task.add_region_requirement(req);
-  }
-  {
-    RegionRequirement req(m_pc_region, WRITE_ONLY, EXCLUSIVE, m_pc_region);
-    req.add_field(PC_FID);
-    task.add_region_requirement(req);
-  }
-  rt->execute_task(ctx, task);
+  return result;
 }
 
 void
 ATermTable::compute_cfs(
   Context ctx,
   Runtime* rt,
+  const std::vector<ZCoeff>& zernike_coefficients,
   const ColumnSpacePartition& partition) const {
 
-    auto cf_colreqs = Column::default_requirements;
-    cf_colreqs.values = Column::Req{
-      WRITE_DISCARD /* privilege */,
-      EXCLUSIVE /* coherence */,
-      true /* mapped */
-    };
+  // Get vectors of values for all index columns, and bounding box of CFs
+  std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>
+    baseline_classes;
+  std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>
+    parallactic_angles;
+  std::vector<typename cf_table_axis<CF_FREQUENCY>::type>
+    frequencies;
+  std::vector<typename cf_table_axis<CF_STOKES_OUT>::type>
+    stokes_out_values;
+  std::vector<typename cf_table_axis<CF_STOKES_IN>::type>
+    stokes_in_values;
+  Rect<2> cf_bounds;
+  using_resource(
+    [&]() {
+      auto colreqs = Column::default_requirements;
+      colreqs.values.mapped = true;
+      return
+        CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>(
+          map_inline(
+            ctx,
+            rt,
+            {{cf_table_axis<CF_BASELINE_CLASS>::name, colreqs},
+             {cf_table_axis<CF_PARALLACTIC_ANGLE>::name, colreqs},
+             {cf_table_axis<CF_FREQUENCY>::name, colreqs},
+             {cf_table_axis<CF_STOKES_OUT>::name, colreqs},
+             {cf_table_axis<CF_STOKES_IN>::name, colreqs},
+             {CF_VALUE_COLUMN_NAME, Column::default_requirements}},
+            CXX_OPTIONAL_NAMESPACE::nullopt));
+    },
+    [&](CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>& tbl) {
+      {
+        auto blc_col = tbl.baseline_class<AffineAccessor>();
+        auto blcs = blc_col.accessor<READ_ONLY>();
+        for (PointInRectIterator<1> pir(blc_col.rect()); pir(); pir++)
+          baseline_classes.push_back(blcs[*pir]);
+      }
+      {
+        auto pa_col = tbl.parallactic_angle<AffineAccessor>();
+        auto pas = pa_col.accessor<READ_ONLY>();
+        for (PointInRectIterator<1> pir(pa_col.rect()); pir(); pir++)
+          parallactic_angles.push_back(pas[*pir]);
+      }
+      {
+        auto frq_col = tbl.frequency<AffineAccessor>();
+        auto frqs = frq_col.accessor<READ_ONLY>();
+        for (PointInRectIterator<1> pir(frq_col.rect()); pir(); pir++)
+          frequencies.push_back(frqs[*pir]);
+      }
+      {
+        auto sto_col = tbl.stokes_out<AffineAccessor>();
+        auto stos = sto_col.accessor<READ_ONLY>();
+        for (PointInRectIterator<1> pir(sto_col.rect()); pir(); pir++)
+          stokes_out_values.push_back(stos[*pir]);
+      }
+      {
+        auto sto_col = tbl.stokes_in<AffineAccessor>();
+        auto stos = sto_col.accessor<READ_ONLY>();
+        for (PointInRectIterator<1> pir(sto_col.rect()); pir(); pir++)
+          stokes_in_values.push_back(stos[*pir]);
+      }
+      {
+        auto value_col = tbl.value<AffineAccessor>();
+        auto rect = value_col.rect();
+        cf_bounds.lo[0] = rect.lo[index_rank];
+        cf_bounds.hi[0] = rect.hi[index_rank];
+        cf_bounds.lo[1] = rect.lo[index_rank + 1];
+        cf_bounds.hi[1] = rect.hi[index_rank + 1];
+      }
+    },
+    [&](CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>& tbl) {
+      tbl.unmap_regions(ctx, rt);
+    });
+  // created vector of all referenced Stokes values
+  std::vector<stokes_t> stokes_values;
+  {
+    std::set<stokes_t> sto;
+    std::copy(
+      stokes_out_values.begin(),
+      stokes_out_values.end(),
+      std::inserter(sto, sto.end()));
+    std::copy(
+      stokes_in_values.begin(),
+      stokes_in_values.end(),
+      std::inserter(sto, sto.end()));
+    stokes_values.reserve(sto.size());
+    std::copy(sto.begin(), sto.end(), std::back_inserter(stokes_values));
+  }
+  // create table for Zernike expansion and polynomial expansion coefficients
+  ATermAux0 aux0(
+    ctx,
+    rt,
+    zernike_coefficients,
+    baseline_classes,
+    frequencies,
+    stokes_values);
+  // compute the polynomial function coefficients column in aux0
+  {
+    auto p =
+      aux0.columns().at(CF_VALUE_COLUMN_NAME)
+      .narrow_partition(ctx, rt, partition)
+      .value_or(partition);
+    aux0.compute_pcs(ctx, rt, p);
+    if (p != partition)
+      p.destroy(ctx, rt);
+  }
+  // create table for polynomial function evaluation points, and CFs for each
+  // Stokes value
+  unsigned zernike_order = 0;
+  for (auto& zc : zernike_coefficients)
+    zernike_order = std::max(zernike_order, zc.n);
+  ATermAux1 aux1(
+    ctx,
+    rt,
+    cf_bounds,
+    zernike_order,
+    baseline_classes,
+    parallactic_angles,
+    frequencies,
+    stokes_values);
+  // compute polynomial function evaluation points
+  {
+    auto p =
+      aux1.columns().at(CF_VALUE_COLUMN_NAME)
+      .narrow_partition(ctx, rt, partition)
+      .value_or(partition);
+    aux1.compute_epts(ctx, rt, *this, aux0, p);
+    if (p != partition)
+      p.destroy(ctx, rt);
+  }
+  aux0.destroy(ctx, rt);
 
-    auto default_colreqs = Column::default_requirements;
-    default_colreqs.values.mapped = true;
+  // compute CF for each Stokes value
+  {
+    // no partition on X/Y, as ATermAux1::compute_cfs() doesn't know how to do a
+    // distributed FFT
+    auto p =
+      aux1.columns().at(CF_VALUE_COLUMN_NAME)
+      .narrow_partition(ctx, rt, partition, {CF_X, CF_Y})
+      .value_or(partition);
+    aux1.compute_cfs(ctx, rt, p);
+    if (p != partition)
+      p.destroy(ctx, rt);
+  }
+  auto aterm_part = // partition of CF value/weight columns
+    columns().at(CF_VALUE_COLUMN_NAME)
+    .narrow_partition(ctx, rt, partition)
+    .value_or(partition);
+  auto aterm_part_color_space =
+    rt->get_index_partition_color_space_name(ctx, aterm_part.column_ip);
 
+  // check for CF_STOKES_OUT or CF_STOKES_IN axis in partition (these are the
+  // Mueller matrix axes)
+  auto m_p =
+    columns().at(CF_VALUE_COLUMN_NAME)
+    .narrow_partition(
+      ctx,
+      rt,
+      partition,
+      {CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_STOKES});
+  IndexPartition aux1_read_ip;
+  LogicalPartition aux1_read_lp;
+
+  if (m_p) {
+    // Because every Mueller element depends on one or two Stokes components
+    // only, every subspace of a partition of the CF_STOKES_OUT and CF_STOKES_IN
+    // axes (the combination of which we refer to as the Mueller axes) may
+    // depend on a strict subset of the Stokes components. We therefore create a
+    // map from Mueller axes partition sub-space indexes to Stokes value subsets
+    // as a first step in creating the minimal dependency relations of Mueller
+    // CF regions on Stokes CF regions.
+
+    // create an aliased partition of aux1 based on the Stokes value subsets
+    // needed by the Mueller axis partition
+    {
+      auto aux1_cf_col = aux1.columns().at(CF_VALUE_COLUMN_NAME);
+      auto aux1_cf_is = aux1_cf_col.cs.column_is;
+      static_assert(index_rank == ATermAux1::index_rank + 1);
+
+      // To create the partition using Runtime::create_partition_by_domain(), we
+      // need the mapping from subspaces in aterm_part to Domains in
+      // aux1_cf_is
+      switch (aterm_part.color_dim(rt)) {
+#define MAP_MUELLER_TO_STOKES(N)                \
+        case N:                                 \
+          aux1_read_ip =                        \
+            map_mueller_to_stokes<N>(           \
+              ctx,                              \
+              rt,                               \
+              aterm_part,                       \
+              stokes_out_values,                \
+              stokes_in_values,                 \
+              aux1_cf_is,                       \
+              stokes_values);                   \
+          break;
+      HYPERION_FOREACH_N(MAP_MUELLER_TO_STOKES);
+#undef MAP_ME_TO_STO
+      default:
+        assert(false);
+        break;
+      }
+      aux1_read_lp =
+        rt->get_logical_partition(ctx, aux1_cf_col.region, aux1_read_ip);
+    }
+  }
+  // compute the elements of the Mueller matrix
+  std::vector<RegionRequirement> all_reqs;
+  std::vector<ColumnSpacePartition> all_parts;
+  ComputeCFsTaskArgs args;
+  {
+    // ATermAux1, Stokes-based CF value and weight columns
+    auto sto_part_colreqs = Column::default_requirements;
+    sto_part_colreqs.values.mapped = true;
+    sto_part_colreqs.partition = aux1_read_lp; // OK to be NO_PART
+    // we'll need to map Stokes values to region indexes in compute_cfs_task,
+    // which may be derived from the Stokes index column (we don't bother to
+    // make a special partition for this purpose -- aterm_part will leave the
+    // Stokes axis unpartitioned)
+    auto colreqs = Column::default_requirements;
+    colreqs.values.mapped = true;
     auto reqs =
-      requirements(
+      aux1.requirements(
         ctx,
         rt,
-        partition,
-        {{CF_VALUE_COLUMN_NAME, cf_colreqs},
-         {CF_WEIGHT_COLUMN_NAME, CXX_OPTIONAL_NAMESPACE::nullopt}},
-        default_colreqs);
+        aterm_part,
+        {{CF_VALUE_COLUMN_NAME, sto_part_colreqs},
+         {CF_WEIGHT_COLUMN_NAME, sto_part_colreqs},
+         {cf_table_axis<CF_STOKES>::name, colreqs}},
+        CXX_OPTIONAL_NAMESPACE::nullopt);
 #if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
 #else // !HAVE_CXX17
@@ -274,19 +420,66 @@ ATermTable::compute_cfs(
     auto& tparts = std::get<1>(reqs);
     auto& tdesc = std::get<2>(reqs);
 #endif // HAVE_CXX17
+    std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
+    std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
+    args.aux1 = tdesc;
+  }
+  {
+    // ATermTable, Mueller element CF value and weight columns
+    auto colreqs = Column::default_requirements;
+    colreqs.values.mapped = true;
+    colreqs.values.privilege = WRITE_DISCARD;
+    auto ro_colreqs = Column::default_requirements;
+    ro_colreqs.values.mapped = true;
+    auto reqs =
+      requirements(
+        ctx,
+        rt,
+        aterm_part,
+        {{CF_VALUE_COLUMN_NAME, colreqs},
+         {CF_WEIGHT_COLUMN_NAME, colreqs},
+         {cf_table_axis<CF_STOKES_OUT>::name, ro_colreqs},
+         {cf_table_axis<CF_STOKES_IN>::name, ro_colreqs}},
+        CXX_OPTIONAL_NAMESPACE::nullopt);
+#if HAVE_CXX17
+    auto& [treqs, tparts, tdesc] = reqs;
+#else // !HAVE_CXX17
+    auto& treqs = std::get<0>(reqs);
+    auto& tparts = std::get<1>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif // HAVE_CXX17
+    std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
+    std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
+    args.aterm = tdesc;
+  }
+  if (!aterm_part.is_valid()) {
     TaskLauncher task(
       compute_cfs_task_id,
-      TaskArgument(&tdesc, sizeof(tdesc)),
+      TaskArgument(&args, sizeof(args)),
       Predicate::TRUE_PRED,
       table_mapper);
-    RegionRequirement pc_req(m_pc_region, READ_ONLY, EXCLUSIVE, m_pc_region);
-    pc_req.add_field(PC_FID);
-    task.add_region_requirement(pc_req);
-    for (auto& r : treqs)
+    for (auto& r : all_reqs)
       task.add_region_requirement(r);
     rt->execute_task(ctx, task);
-    for (auto& p : tparts)
-      p.destroy(ctx, rt);
+  } else {
+    IndexTaskLauncher task(
+      compute_cfs_task_id,
+      aterm_part_color_space,
+      TaskArgument(&args, sizeof(args)),
+      ArgumentMap(),
+      Predicate::TRUE_PRED,
+      table_mapper);
+    for (auto& r : all_reqs)
+      task.add_region_requirement(r);
+    rt->execute_index_space(ctx, task);
+  }
+  for (auto& p : all_parts)
+    p.destroy(ctx, rt);
+  if (aux1_read_ip != IndexPartition::NO_PART)
+    rt->destroy_index_partition(ctx, aux1_read_ip);
+  if (aterm_part != partition)
+    aterm_part.destroy(ctx, rt);
+  aux1.destroy(ctx, rt);
 }
 
 #ifndef HYPERION_USE_KOKKOS
@@ -296,345 +489,19 @@ ATermTable::compute_cfs_task(
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime* rt) {
-
-  const Table::Desc& tdesc = *static_cast<const Table::Desc*>(task->args);
-
-  // polynomial coefficients region (the array Z, as described elsewhere),
-  // computed for each value of (baseline_class, stokes_value, frequency)
-  const FieldAccessor<
-    READ_ONLY,
-    pc_t,
-    5,
-    coord_t,
-    AffineAccessor<pc_t, 5, coord_t>> pcoeffs(regions[0], PC_FID);
-  Rect<5> pcoeffs_rect =
-    rt->get_index_space_domain(task->regions[0].region.get_index_space());
-  auto zernike_order = pcoeffs_rect.hi[4];
-
-  // ATermTable physical instance
-  auto ptcr =
-    PhysicalTable::create(
-      rt,
-      tdesc,
-      task->regions.begin() + 1,
-      task->regions.end(),
-      regions.begin() + 1,
-      regions.end())
-    .value();
-#if HAVE_CXX17
-  auto& [pt, rit, pit] = ptcr;
-#else // !HAVE_CXX17
-  auto& pt = std::get<0>(ptcr);
-  auto& rit = std::get<1>(ptcr);
-  auto& pit = std::get<2>(ptcr);
-#endif // HAVE_CXX17
-  assert(rit == task->regions.end());
-  assert(pit == regions.end());
-
-  auto tbl = CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>(pt);
-
-  // baseline class column
-  auto baseline_class_col = tbl.baseline_class<AffineAccessor>();
-  auto baseline_class_rect = baseline_class_col.rect();
-  auto baseline_class_extent =
-    baseline_class_rect.hi[0] - baseline_class_rect.lo[0] + 1;
-  auto baseline_classes = baseline_class_col.accessor<READ_ONLY>();
-  typedef typename cf_table_axis<CF_BASELINE_CLASS>::type bl_t;
-
-  // frequency column
-  auto frequency_col = tbl.frequency<AffineAccessor>();
-  auto frequency_rect = frequency_col.rect();
-  auto frequency_extent =
-    frequency_rect.hi[0] - frequency_rect.lo[0] + 1;
-  auto frequencies = frequency_col.accessor<READ_ONLY>();
-  typedef typename cf_table_axis<CF_FREQUENCY>::type frq_t;
-
-  // parallactic angle column
-  auto parallactic_angle_col = tbl.parallactic_angle<AffineAccessor>();
-  auto parallactic_angle_rect = parallactic_angle_col.rect();
-  auto parallactic_angle_extent =
-    parallactic_angle_rect.hi[0] - parallactic_angle_rect.lo[0] + 1;
-  auto parallactic_angles = parallactic_angle_col.accessor<READ_ONLY>();
-  typedef typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type pa_t;
-
-  // stokes column
-  auto stokes_value_col = tbl.stokes<AffineAccessor>();
-  auto stokes_value_rect = stokes_value_col.rect();
-  auto stokes_value_extent =
-    stokes_value_rect.hi[0] - stokes_value_rect.lo[0] + 1;
-  auto stokes_values = stokes_value_col.accessor<READ_ONLY>();
-  typedef typename cf_table_axis<CF_STOKES>::type me_t;
-
-  // A-term cf values column
-  auto cf_value_col = tbl.value<AffineAccessor>();
-  auto cf_value_rect = cf_value_col.rect();
-  auto cf_values = cf_value_col.accessor<WRITE_DISCARD>();
-#ifdef A_TERM_TABLE_USE_BLAS
-  // initialize cf_values values to 0; not sure that it's necessary, it depends
-  // on whether GEMM accesses the array even when beta is 0
-  for (PointInRectIterator pir(cf_value_rect); pir(); pir++)
-    cf_values[*pir] = 0;
-#endif
-
-  // the matrices X and Y (for each parallactic angle); these need to have
-  // complex values in order to use (optional) GEMM for the matrix
-  // multiplication implementation
-  std::vector<pc_t> xp_buff(
-    parallactic_angle_extent * (zernike_order + 1)
-    * (cf_value_rect.hi[4] - cf_value_rect.lo[4] + 1));
-  std::experimental::mdspan<
-    pc_t***,
-    std::experimental::dynamic_extent,
-    std::experimental::dynamic_extent,
-    std::experimental::dynamic_extent> xp(
-      xp_buff.data(),
-      parallactic_angle_extent,
-      zernike_order + 1,
-      cf_value_rect.hi[4] - cf_value_rect.lo[4] + 1);
-  std::vector<pc_t> yp_buff(
-    parallactic_angle_extent * (zernike_order + 1)
-    * (cf_value_rect.hi[5] - cf_value_rect.lo[5] + 1));
-  std::experimental::mdspan<
-    pc_t***,
-    std::experimental::dynamic_extent,
-    std::experimental::dynamic_extent,
-    std::experimental::dynamic_extent> yp(
-      yp_buff.data(),
-      parallactic_angle_extent,
-      zernike_order + 1,
-      cf_value_rect.hi[5] - cf_value_rect.lo[5] + 1);
-  {
-    assert(xp.extent(2) == yp.extent(2)); // squares only
-    std::vector<double> g(xp.extent(2));
-    const double step = 2.0 / xp.extent(2);
-    const double offset = -1.0 + step / 2.0;
-    for (int i = 0; i < g.size(); ++i)
-      g[i] = i * step + offset;
-
-    for (coord_t pa0 = 0; pa0 < parallactic_angle_extent; ++pa0)
-      for (coord_t x0 = 0; x < xp.extent(0); ++x)
-        for (coord_t y0 = 0; y < yp.extent(0); ++y) {
-          auto powx =
-            std::experimental::subspan(xp, pa0, std::experimental::all, x0);
-          auto powy =
-            std::experimental::subspan(yp, pa0, std::experimental::all, y0);
-
-          // apply parallactic angle rotation
-          auto neg_parallactic_angle =
-            -parallactic_angles(pa0 + parallactic_angle_rect.lo[0]);
-          double cs = std::cos(neg_parallactic_angle);
-          double sn = std::sin(neg_parallactic_angle);
-          double rx = cs * g(x0) - sn * g(y0);
-          double ry = sn * g(x0) + cs * g(y0);
-          // Outside of the unit disk, the function should evaluate to zero, which
-          // can be achieved by setting the X and Y vectors to zero. Recall that
-          // xp and yp were created without value initialization.
-          powx(0) = powy(0) = ((rx * rx + ry * ry <= 1.0) ? 1.0 : 0.0);
-          for (unsigned d = 1; d <= zernike_order; ++d) {
-            powx(d) = rx * powx(d - 1).real();
-            powy(d) = ry * powy(d - 1).real();
-          }
-        }
-  }
-
-  // do X^T Z Y products
-  {
-    // do multiplication as Q = Z Y, result = X^T Q; need a scratch array for
-    // Q
-    std::vector<pc_t> zy_buff(
-      baseline_class_extent * parallactic_angle_extent * stokes_value_extent
-      * frequency_extent * yp.extent(1) * yp.extent(2));
-    std::experimental::mdspan<
-      pc_t******,
-      std::experimental::dynamic_extent,
-      std::experimental::dynamic_extent,
-      std::experimental::dynamic_extent,
-      std::experimental::dynamic_extent,
-      std::experimental::dynamic_extent,
-      std::experimental::dynamic_extent> zy(
-        zy_buff,
-        baseline_class_extent,
-        parallactic_angle_extent,
-        stokes_value_extent,
-        frequency_extent,
-        yp.extent(1),
-        yp.extent(2));
-    for (coord_t blc0 = 0; blc0 < baseline_class_extent; ++blc0)
-      for (coord_t pa0 = 0; pa0 < parallactic_angle_extent; ++pa0)
-        for (coord_t sto0 = 0; sto0 < stokes_value_extent; ++sto0)
-          for (coord_t frq0 = 0; frq0 < frequency_extent; ++frq0) {
-#ifndef A_TERM_TABLE_USE_BLAS
-            coord_t p5[]{
-              blc0 + pcoeffs_rect.lo[0],
-              sto0 + pcoeffs_rect.lo[1],
-              frq0 + pcoeffs_rect.lo[2],
-              0,
-              0};
-            Point<5> pz(p5);
-            auto X =
-              std::experimental::subspan(
-                xp,
-                pa0,
-                std::experimental::all,
-                std::experimental::all);
-            auto Y =
-              std::experimental::subspan(
-                yp,
-                pa0,
-                std::experimental::all,
-                std::experimental::all);
-            auto Q =
-              std::experimental::subspan(
-                zy,
-                blc0,
-                pa0,
-                sto0,
-                frq0,
-                std::experimental::all,
-                std::experimental::all);
-            coord_t p6[]{
-              blc0 + cf_value_rect.lo[0],
-              pa0 + cf_value_rect.lo[1],
-              sto0 + cf_value_rect.lo[2],
-              frq0 + cf_value_rect.lo[3],
-              0,
-              0};
-            Point<5> pcf(p6);
-            for (coord_t i = 0; i < Z.extent(0); ++i) {
-              pz[3] = i;
-              for (coord_t j = 0; j < Y.extent(1); ++j) {
-                Q(i, j) = 0.0;
-                for (coord_t k = 0; k < Y.extent(0); ++k) {
-                  pz[4] = k;
-                  Q(i, j) += pcoeffs[pz] * Y(k, j);
-                }
-              }
-            }
-            for (coord_t i = 0; i < X.extent(1); ++i)
-              pcf[4] = i;
-              for (coord_t j = 0; j < Q.extent(1); ++j) {
-                pcf[5] = j;
-                cf_values[pcf] = 0.0;
-                for (coord_t k = 0; k < X.extent(0); ++k)
-                  cf_values[pcf] += X(k, i) * Q(k, j);
-              }
-          };
-#else
-# error "ATermTable::compute_cfs_task BLAS implementation is missing"
-#endif
-  }
-}
-
-void
-ATermTable::compute_pcs_task(
-  const Task* task,
-  const std::vector<PhysicalRegion>& regions,
-  Context ctx,
-  Runtime* rt) {
-
-  Rect<4> pr_rect = regions[0];
-
-  Rect<4> rect =
-    rt->get_index_space_domain(task->regions[0].region.get_index_space());
-  auto n_blc = rect.hi[0] - rect.lo[0] + 1;
-  auto n_pa = rect.hi[1] - rect.lo[1] + 1;
-  auto n_sto = rect.hi[2] - rect.lo[2] + 1;
-  auto n_z = rect.hi[3] - rect.lo[3] + 1;
-
-  typedef std::experimental::mdspan<
-    zc_t,
-    std::experimental::dynamic_extent,
-    std::experimental::dynamic_extent,
-    std::experimental::dynamic_extent,
-    std::experimental::dynamic_extent> z4d_t;
-  typedef std::experimental::mdspan<
-    pc_t,
-    std::experimental::dynamic_extent,
-    std::experimental::dynamic_extent,
-    std::experimental::dynamic_extent,
-    std::experimental::dynamic_extent,
-    std::experimental::dynamic_extent> p5d_t;
-
-  // Zernike coefficients
-  const FieldAccessor<
-    READ_ONLY,
-    zc_t,
-    4,
-    coord_t,
-    AffineAccessor<zc_t, 4, coord_t>> zc_acc(regions[0], ZC_FID);
-  z4d_t zcs_array(
-    zc_acc.ptr(Point<4>::ZEROES()),
-    pr_rect.hi[0] + 1,
-    pr_rect.hi[1] + 1,
-    pr_rect.hi[2] + 1,
-    pr_rect.hi[3] + 1);
-
-  // polynomial expansion coefficients
-  const FieldAccessor<
-    WRITE_ONLY,
-    pc_t,
-    5,
-    coord_t,
-    AffineAccessor<pc_t, 5, coord_t>> pc_acc(regions[1], PC_FID);
-  p5d_t pcs_array(
-    pc_acc.ptr(Point<5>::ZEROES()),
-    pr_rect.hi[0] + 1,
-    pr_rect.hi[1] + 1,
-    pr_rect.hi[2] + 1,
-    pr_rect.hi[3] + 1,
-    pr_rect.hi[3] + 1);
-
-  for (coord_t blc = rect.lo[0]; blc <= rect.hi[0]; ++blc)
-    for (coord_t pa = rect.lo[1]; pa <= rect.hi[1]; ++pa)
-      for (coord_t sto = rect.lo[2]; sto <= rect.hi[2]; ++sto) {
-        auto zcs =
-          std::experimental::subspan(
-            zcs_array,
-            blc,
-            pa,
-            sto,
-            std::experimental::all);
-        auto pcs =
-          std::experimental::subspan(
-            pcs_array,
-            blc,
-            pa,
-            sto,
-            std::experimental::all,
-            std::experimental::all);
-        switch (zcs.extent(3) - 1) {
-#define ZEXP(N)                                       \
-          case N:                                     \
-            zernike_basis<N, zc_t>::expand(zcs, pcs); \
-            break
-          ZEXP(0);
-          ZEXP(1);
-          ZEXP(2);
-          ZEXP(3);
-          ZEXP(4);
-          ZEXP(5);
-          ZEXP(6);
-          ZEXP(7);
-          ZEXP(8);
-          ZEXP(9);
-          ZEXP(10);
-#undef ZEXP
-        default:
-          assert(false);
-          break;
-        }
-      }
 }
 #endif
 
 void
 ATermTable::preregister_tasks() {
+  //
+  // compute_cfs_task
+  //
   {
-    // compute_cfs_task
     compute_cfs_task_id = Runtime::generate_static_task_id();
+
 #ifdef HYPERION_USE_KOKKOS
 # ifdef KOKKOS_ENABLE_SERIAL
-    // register a serial version on the CPU
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
@@ -643,15 +510,13 @@ ATermTable::preregister_tasks() {
       registrar.set_idempotent();
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        soa_right_layout);
+        aos_right_layout);
       Runtime::preregister_task_variant<compute_cfs_task<Kokkos::Serial>>(
         registrar,
         compute_cfs_task_name);
     }
 # endif
-
 # ifdef KOKKOS_ENABLE_OPENMP
-    // register an openmp version
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
@@ -660,19 +525,17 @@ ATermTable::preregister_tasks() {
       registrar.set_idempotent();
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        soa_right_layout);
+        aos_right_layout);
       Runtime::preregister_task_variant<compute_cfs_task<Kokkos::OpenMP>>(
         registrar,
         compute_cfs_task_name);
     }
 # endif
-
 # ifdef KOKKOS_ENABLE_CUDA
-    // register a cuda version
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
-      registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
+      registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
       registrar.add_layout_constraint_set(
@@ -692,57 +555,7 @@ ATermTable::preregister_tasks() {
       registrar.set_idempotent();
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        soa_right_layout);
-      Runtime::preregister_task_variant<compute_cfs_task>(
-        registrar,
-        compute_cfs_task_name);
-    }
-#endif // HYPERION_USE_KOKKOS
-  }
-  {
-    // compute_pcs_task
-    compute_pcs_task_id = Runtime::generate_static_task_id();
-#ifdef HYPERION_USE_KOKKOS
-# ifdef KOKKOS_ENABLE_SERIAL
-    // register a serial version on the CPU
-    {
-      TaskVariantRegistrar
-        registrar(compute_cfs_task_id, compute_cfs_task_name);
-      registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-      registrar.set_leaf();
-      registrar.set_idempotent();
-      registrar.add_layout_constraint_set(0, soa_right_layout);
-      registrar.add_layout_constraint_set(1, soa_right_layout);
-      Runtime::preregister_task_variant<compute_cfs_task<Kokkos::Serial>>(
-        registrar,
-        compute_cfs_task_name);
-    }
-# endif
-
-# ifdef KOKKOS_ENABLE_OPENMP
-    // register an openmp version
-    {
-      TaskVariantRegistrar
-        registrar(compute_cfs_task_id, compute_cfs_task_name);
-      registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
-      registrar.set_leaf();
-      registrar.set_idempotent();
-      registrar.add_layout_constraint_set(0, soa_right_layout);
-      registrar.add_layout_constraint_set(1, soa_right_layout);
-      Runtime::preregister_task_variant<compute_cfs_task<Kokkos::OpenMP>>(
-        registrar,
-        compute_cfs_task_name);
-    }
-# endif
-#else // !HYPERION_USE_KOKKOS
-    {
-      TaskVariantRegistrar
-        registrar(compute_cfs_task_id, compute_cfs_task_name);
-      registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-      registrar.set_leaf();
-      registrar.set_idempotent();
-      registrar.add_layout_constraint_set(0, soa_right_layout);
-      registrar.add_layout_constraint_set(1, soa_right_layout);
+        aos_right_layout);
       Runtime::preregister_task_variant<compute_cfs_task>(
         registrar,
         compute_cfs_task_name);
