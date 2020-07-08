@@ -214,6 +214,13 @@ ColumnSpacePartition::create(
         }))
     return ColumnSpacePartition();
 
+  // if iparts has no elements, make up a partition with a single element that
+  // spans the entire index space
+  if (iparts.size() == 0)
+    iparts.push_back(
+      AxisPartition{uid[0], 0, 0, 0,
+                    {0, std::numeric_limits<coord_t>::max()}, {0, 0}});
+
   IndexPartition column_ip;
   switch (iparts.size() * LEGION_MAX_DIM + column_space_is.get_dim()) {
 #define CP(PDIM, IDIM)                        \
