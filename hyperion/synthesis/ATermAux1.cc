@@ -223,9 +223,19 @@ ATermAux1::preregister_tasks() {
       registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
+
+      // standard column layout
+      LayoutConstraintRegistrar
+        constraints(
+          FieldSpace::NO_SPACE,
+          "ATermAux1::compute_cfs_constraints");
+      add_aos_right_ordering_constraint(constraints);
+      constraints.add_constraint(
+        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        aos_right_layout);
+        Runtime::preregister_layout(constraints));
+
       Runtime::preregister_task_variant<compute_epts_task<Kokkos::Serial>>(
         registrar,
         compute_epts_task_name);
@@ -238,9 +248,19 @@ ATermAux1::preregister_tasks() {
       registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
+
+      // standard column layout
+      LayoutConstraintRegistrar
+        constraints(
+          FieldSpace::NO_SPACE,
+          "ATermAux1::compute_cfs_constraints");
+      add_aos_right_ordering_constraint(constraints);
+      constraints.add_constraint(
+        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        aos_right_layout);
+        Runtime::preregister_layout(constraints));
+
       Runtime::preregister_task_variant<compute_epts_task<Kokkos::OpenMP>>(
         registrar,
         compute_epts_task_name);
@@ -253,9 +273,19 @@ ATermAux1::preregister_tasks() {
       registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
+
+      // standard column layout
+      LayoutConstraintRegistrar
+        constraints(
+          FieldSpace::NO_SPACE,
+          "ATermAux1::compute_cfs_constraints");
+      add_soa_left_ordering_constraint(constraints);
+      constraints.add_constraint(
+        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        soa_left_layout);
+        Runtime::preregister_layout(constraints));
+
       Runtime::preregister_task_variant<compute_epts_task<Kokkos::Cuda>>(
         registrar,
         compute_epts_task_name);
@@ -268,9 +298,19 @@ ATermAux1::preregister_tasks() {
       registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
+
+      // standard column layout
+      LayoutConstraintRegistrar
+        constraints(
+          FieldSpace::NO_SPACE,
+          "ATermAux1::compute_cfs_constraints");
+      add_aos_right_ordering_constraint(constraints);
+      constraints.add_constraint(
+        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        aos_right_layout);
+        Runtime::preregister_layout(constraints));
+
       Runtime::preregister_task_variant<compute_epts_task>(
         registrar,
         compute_epts_task_name);

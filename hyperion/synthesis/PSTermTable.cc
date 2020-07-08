@@ -166,9 +166,19 @@ PSTermTable::preregister_tasks() {
       registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
+
+      // standard column layout
+      LayoutConstraintRegistrar
+        constraints(
+          FieldSpace::NO_SPACE,
+          "PSTermTable::compute_cfs_constraints");
+      add_soa_right_ordering_constraint(constraints);
+      constraints.add_constraint(
+        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        soa_right_layout);
+        Runtime::preregister_layout(constraints));
+
       Runtime::preregister_task_variant<compute_cfs_task<Kokkos::Serial>>(
         registrar,
         compute_cfs_task_name);
@@ -183,9 +193,19 @@ PSTermTable::preregister_tasks() {
       registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
+
+      // standard column layout
+      LayoutConstraintRegistrar
+        constraints(
+          FieldSpace::NO_SPACE,
+          "PSTermTable::compute_cfs_constraints");
+      add_soa_right_ordering_constraint(constraints);
+      constraints.add_constraint(
+        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        soa_right_layout);
+        Runtime::preregister_layout(constraints));
+
       Runtime::preregister_task_variant<compute_cfs_task<Kokkos::OpenMP>>(
         registrar,
         compute_cfs_task_name);
@@ -200,9 +220,19 @@ PSTermTable::preregister_tasks() {
       registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
+
+      // standard column layout
+      LayoutConstraintRegistrar
+        constraints(
+          FieldSpace::NO_SPACE,
+          "PSTermTable::compute_cfs_constraints");
+      add_soa_left_ordering_constraint(constraints);
+      constraints.add_constraint(
+        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        soa_left_layout);
+        Runtime::preregister_layout(constraints));
+
       Runtime::preregister_task_variant<compute_cfs_task<Kokkos::Cuda>>(
         registrar,
         compute_cfs_task_name);
@@ -215,9 +245,19 @@ PSTermTable::preregister_tasks() {
       registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
+
+      // standard column layout
+      LayoutConstraintRegistrar
+        constraints(
+          FieldSpace::NO_SPACE,
+          "PSTermTable::compute_cfs_constraints");
+      add_soa_right_ordering_constraint(constraints);
+      constraints.add_constraint(
+        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        soa_right_layout);
+        Runtime::preregister_layout(constraints));
+
       Runtime::preregister_task_variant<compute_cfs_task>(
         registrar,
         compute_cfs_task_name);
