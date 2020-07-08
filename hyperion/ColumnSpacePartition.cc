@@ -110,9 +110,12 @@ create_partition_on_axes(
   Rect<PART_DIM> cs_rect;
   for (auto n = 0; n < PART_DIM; ++n) {
     const auto& part = parts[n];
-    coord_t m =
-      ((part.limits[1] - part.limits[0] /*+1*/) + part.stride /*-1*/)
-      / part.stride;
+    coord_t m;
+    if (part.stride > 0)
+      m = ((part.limits[1] - part.limits[0] /*+1*/) + part.stride /*-1*/)
+        / part.stride;
+    else
+      m = 1;
     cs_rect.lo[n] = 0;
     cs_rect.hi[n] = m - 1;
   }
