@@ -33,8 +33,9 @@ typedef enum cf_table_axes_t {
   CF_FREQUENCY,
   CF_W,
   CF_PARALLACTIC_ANGLE,
+  CF_STOKES_OUT,
+  CF_STOKES_IN,
   CF_STOKES,
-  CF_MUELLER_ELEMENT,
   CF_X,
   CF_Y,
   // the semantics of the ORDER axes are intentionally ambiguous; if no
@@ -91,14 +92,19 @@ struct cf_table_axis<CF_PARALLACTIC_ANGLE> {
   static const constexpr char* name = "PARALLACTIC_ANGLE";
 };
 template <>
+struct cf_table_axis<CF_STOKES_OUT> {
+  typedef stokes_t type;
+  static const constexpr char* name = "STOKES_OUT";
+};
+template <>
+struct cf_table_axis<CF_STOKES_IN> {
+  typedef stokes_t type;
+  static const constexpr char* name = "STOKES_IN";
+};
+template <>
 struct cf_table_axis<CF_STOKES> {
   typedef stokes_t type;
   static const constexpr char* name = "STOKES";
-};
-template <>
-struct cf_table_axis<CF_MUELLER_ELEMENT> {
-  typedef std::array<stokes_t, 2> type; // row, col of mueller matrix
-  static const constexpr char* name = "MUELLER_ELEMENT";
 };
 template <>
 struct cf_table_axis<CF_X> {
@@ -166,10 +172,12 @@ public:
       w_values;
     std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>
       parallactic_angles;
+    std::vector<typename cf_table_axis<CF_STOKES_OUT>::type>
+      stokes_out_values;
+    std::vector<typename cf_table_axis<CF_STOKES_IN>::type>
+      stokes_in_values;
     std::vector<typename cf_table_axis<CF_STOKES>::type>
-       stokes_values;
-    std::vector<typename cf_table_axis<CF_MUELLER_ELEMENT>::type>
-      mueller_elements;
+      stokes_values;
 
     size_t serialized_size() const;
     size_t serialize(void*) const;
@@ -217,6 +225,45 @@ public:
       result[i] = r.hi[i] + 1;
     return result;
   }
+
+  template <int N, typename T>
+  static T
+  linearized_in_range(
+    const array<T, N>& pt,
+    const Legion::Rect<N, T>& bounds) {
+    T result = 0;
+    T stride = 1;
+    for (size_t i = N - 1; i > 0; --i) {
+      result += stride * (pt[i] - bounds.lo[i]);
+      stride *= bounds.hi[i] - bounds.lo[i] + 1;
+    }
+    return result + stride * (pt[0] - bounds.lo[0]);
+  }
+
+  template <int N, typename T>
+  static T
+  linearized_range_size(const Legion::Rect<N, T>& bounds) {
+    T result = 1;
+    for (size_t i = 0; i < N; ++i)
+      result *= bounds.hi[i] - bounds.lo[i] + 1;
+    return result;
+  }
+
+  template <int N, typename T>
+  static KOKKOS_INLINE_FUNCTION array<T, N>
+  delinearized_in_range(T pt, const Legion::Rect<N, T>& bounds) {
+    array<T, N> result;
+    T stride = 1;
+    for (size_t i = 1; i < N; ++i)
+      stride *= bounds.hi[i] - bounds.lo[i] + 1;
+    result[0] = pt / stride + bounds.lo[0];
+    for (size_t i = 1; i < N; ++i) {
+      stride /= bounds.hi[i] - bounds.lo[i] + 1;
+      result[i] = pt / stride + bounds.lo[i];
+      pt = pt % stride;
+    }
+    return result;
+  }
 #endif // !HYPERION_USE_KOKKOS
 };
 
@@ -246,14 +293,19 @@ CFTableBase::InitIndexColumnTaskArgs::values<CF_PARALLACTIC_ANGLE>() {
   return parallactic_angles;
 }
 template <>
+constexpr std::vector<typename cf_table_axis<CF_STOKES_OUT>::type>&
+CFTableBase::InitIndexColumnTaskArgs::values<CF_STOKES_OUT>() {
+  return stokes_out_values;
+}
+template <>
+constexpr std::vector<typename cf_table_axis<CF_STOKES_IN>::type>&
+CFTableBase::InitIndexColumnTaskArgs::values<CF_STOKES_IN>() {
+  return stokes_in_values;
+}
+template <>
 constexpr std::vector<typename cf_table_axis<CF_STOKES>::type>&
 CFTableBase::InitIndexColumnTaskArgs::values<CF_STOKES>() {
   return stokes_values;
-}
-template <>
-constexpr std::vector<typename cf_table_axis<CF_MUELLER_ELEMENT>::type>&
-CFTableBase::InitIndexColumnTaskArgs::values<CF_MUELLER_ELEMENT>() {
-  return mueller_elements;
 }
 template <cf_table_axes_t T>
 struct CFTableBase::InitIndexColumnTaskArgs::initializer<T> {

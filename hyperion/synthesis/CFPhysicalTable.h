@@ -29,9 +29,16 @@ public:
 
   CFPhysicalTable(const hyperion::PhysicalTable& pt)
     : hyperion::PhysicalTable(pt) {
-    assert(pt.axes_uid()
-           && pt.axes_uid().value() == hyperion::Axes<cf_table_axes_t>::uid);
-    assert(pt.index_axes() == std::vector<int>{static_cast<int>(AXES)...});
+    assert(axes_uid()
+           && axes_uid().value() == hyperion::Axes<cf_table_axes_t>::uid);
+    assert(index_axes() == std::vector<int>{static_cast<int>(AXES)...});
+  }
+
+  CFPhysicalTable(hyperion::PhysicalTable&& pt)
+    : hyperion::PhysicalTable(std::move(pt)) {
+    assert(axes_uid()
+           && axes_uid().value() == hyperion::Axes<cf_table_axes_t>::uid);
+    assert(index_axes() == std::vector<int>{static_cast<int>(AXES)...});
   }
 
   static const constexpr unsigned row_rank = sizeof...(AXES);
@@ -209,38 +216,104 @@ public:
   }
 
   //
-  // MUELLER_ELEMENT
+  // STOKES_OUT
   //
-  static const constexpr unsigned mueller_element_rank =
+  static const constexpr unsigned stokes_out_rank =
     std::conditional<
-      cf_indexing::includes<CF_MUELLER_ELEMENT, AXES...>,
+      cf_indexing::includes<CF_STOKES_OUT, AXES...>,
       std::integral_constant<unsigned, 1>,
       std::integral_constant<unsigned, row_rank>>::type::value;
 
   bool
-  has_mueller_elments() const {
-    return m_columns.count(cf_table_axis<CF_MUELLER_ELEMENT>::name) > 0;
+  has_stokes_out() const {
+    return m_columns.count(cf_table_axis<CF_STOKES_OUT>::name) > 0;
   }
 
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<
-    ValueType<typename cf_table_axis<CF_MUELLER_ELEMENT>::type>::DataType,
-    mueller_element_rank,
-    mueller_element_rank,
+    ValueType<typename cf_table_axis<CF_STOKES_OUT>::type>::DataType,
+    stokes_out_rank,
+    stokes_out_rank,
     A,
     COORD_T>
-  mueller_element() const {
+  stokes_out() const {
     return
-      decltype(mueller_element())(
-        *m_columns.at(cf_table_axis<CF_MUELLER_ELEMENT>::name));
+      decltype(stokes_out())(*m_columns.at(cf_table_axis<CF_STOKES_OUT>::name));
   }
 
   template <int N>
-  Legion::Point<mueller_element_rank>
-  mueller_element_index(const Legion::Point<N>& pt) const {
-    return cf_indexing::Pt<row_rank, N, CF_MUELLER_ELEMENT, AXES...>(pt).pt;
+  Legion::Point<stokes_out_rank>
+  stokes_out_index(const Legion::Point<N>& pt) const {
+    return cf_indexing::Pt<row_rank, N, CF_STOKES_OUT, AXES...>(pt).pt;
+  }
+
+  //
+  // STOKES_IN
+  //
+  static const constexpr unsigned stokes_in_rank =
+    std::conditional<
+    cf_indexing::includes<CF_STOKES_IN, AXES...>,
+    std::integral_constant<unsigned, 1>,
+    std::integral_constant<unsigned, row_rank>>::type::value;
+
+  bool
+  has_stokes_in() const {
+    return m_columns.count(cf_table_axis<CF_STOKES_IN>::name) > 0;
+  }
+
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<
+    ValueType<typename cf_table_axis<CF_STOKES_IN>::type>::DataType,
+    stokes_in_rank,
+    stokes_in_rank,
+    A,
+    COORD_T>
+  stokes_in() const {
+    return
+      decltype(stokes_in())(*m_columns.at(cf_table_axis<CF_STOKES_IN>::name));
+  }
+
+  template <int N>
+  Legion::Point<stokes_in_rank>
+  stokes_in_index(const Legion::Point<N>& pt) const {
+    return cf_indexing::Pt<row_rank, N, CF_STOKES_IN, AXES...>(pt).pt;
+  }
+
+  //
+  // STOKES
+  //
+  static const constexpr unsigned stokes_rank =
+    std::conditional<
+    cf_indexing::includes<CF_STOKES, AXES...>,
+    std::integral_constant<unsigned, 1>,
+    std::integral_constant<unsigned, row_rank>>::type::value;
+
+  bool
+  has_stokes() const {
+    return m_columns.count(cf_table_axis<CF_STOKES>::name) > 0;
+  }
+
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  PhysicalColumnTD<
+    ValueType<typename cf_table_axis<CF_STOKES>::type>::DataType,
+    stokes_rank,
+    stokes_rank,
+    A,
+    COORD_T>
+  stokes() const {
+    return decltype(stokes())(*m_columns.at(cf_table_axis<CF_STOKES>::name));
+  }
+
+  template <int N>
+  Legion::Point<stokes_rank>
+  stokes_index(const Legion::Point<N>& pt) const {
+    return cf_indexing::Pt<row_rank, N, CF_STOKES, AXES...>(pt).pt;
   }
 
   //
