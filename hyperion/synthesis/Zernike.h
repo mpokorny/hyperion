@@ -16,6 +16,7 @@
 #ifndef HYPERION_SYNTHESIS_ZERNIKE_H_
 #define HYPERION_SYNTHESIS_ZERNIKE_H_
 #include <hyperion/hyperion.h>
+#include <hyperion/utility.h>
 
 #include <algorithm>
 #include <array>
@@ -38,34 +39,34 @@ struct XYPolyTerm {
 template <int M, unsigned N>
 struct Zernike {
   // template <size_t P>
-  // static const std::array<XYPolyTerm, P> terms;
+  // static const array<XYPolyTerm, P> terms;
 };
 template <>
 struct Zernike<0, 0> {
   typedef std::integral_constant<int, 0> M;
   typedef std::integral_constant<unsigned, 0> N;
-  constexpr static const std::array<XYPolyTerm, 1> terms{
+  static const constexpr std::array<XYPolyTerm, 1> terms{
     XYPolyTerm{0, 0, 1}};
 };
 template <>
 struct Zernike<-1, 1> {
   typedef std::integral_constant<int, -1> M;
   typedef std::integral_constant<unsigned, 1> N;
-  constexpr static const std::array<XYPolyTerm, 1> terms{
+  static const constexpr std::array<XYPolyTerm, 1> terms{
     XYPolyTerm{0, 1, 1}};
 };
 template <>
 struct Zernike<1, 1> {
   typedef std::integral_constant<int, 1> M;
   typedef std::integral_constant<unsigned, 1> N;
-  constexpr static const std::array<XYPolyTerm, 1> terms{
+  static const constexpr std::array<XYPolyTerm, 1> terms{
     XYPolyTerm{1, 0, 1}};
 };
 template <>
 struct Zernike<-2, 2> {
   typedef std::integral_constant<int, -2> M;
   typedef std::integral_constant<unsigned, 2> N;
-  constexpr static const std::array<XYPolyTerm, 3> terms{
+  static const constexpr std::array<XYPolyTerm, 3> terms{
     XYPolyTerm{2, 0, 2},
     XYPolyTerm{0, 0, -1},
     XYPolyTerm{0, 2, 2}};
@@ -74,14 +75,14 @@ template <>
 struct Zernike<0, 2> {
   typedef std::integral_constant<int, 0> M;
   typedef std::integral_constant<unsigned, 2> N;
-  constexpr static const std::array<XYPolyTerm, 1> terms{
+  static const constexpr std::array<XYPolyTerm, 1> terms{
     XYPolyTerm{1, 1, 2}};
 };
 template <>
 struct Zernike<2, 2> {
   typedef std::integral_constant<int, 2> M;
   typedef std::integral_constant<unsigned, 2> N;
-  constexpr static const std::array<XYPolyTerm, 2> terms{
+  static const constexpr std::array<XYPolyTerm, 2> terms{
     XYPolyTerm{2, 0, -1},
     XYPolyTerm{0, 2, 1}};
 };
@@ -89,7 +90,7 @@ template <>
 struct Zernike<-3, 3> {
   typedef std::integral_constant<int, -3> M;
   typedef std::integral_constant<unsigned, 3> N;
-  constexpr static const std::array<XYPolyTerm, 2> terms{
+  static const constexpr std::array<XYPolyTerm, 2> terms{
     XYPolyTerm{3, 0, -1},
     XYPolyTerm{1, 2, 3}};
 };
@@ -97,7 +98,7 @@ template <>
 struct Zernike<-1, 3> {
   typedef std::integral_constant<int, -1> M;
   typedef std::integral_constant<unsigned, 3> N;
-  constexpr static const std::array<XYPolyTerm, 3> terms{
+  static const constexpr std::array<XYPolyTerm, 3> terms{
     XYPolyTerm{3, 0, 3},
     XYPolyTerm{1, 0, -2},
     XYPolyTerm{1, 2, 3}};
@@ -106,7 +107,7 @@ template <>
 struct Zernike<1, 3> {
   typedef std::integral_constant<int, 1> M;
   typedef std::integral_constant<unsigned, 3> N;
-  constexpr static const std::array<XYPolyTerm, 3> terms{
+  static const constexpr std::array<XYPolyTerm, 3> terms{
     XYPolyTerm{2, 1, 3},
     XYPolyTerm{0, 1, -2},
     XYPolyTerm{0, 3, 3}};
@@ -115,7 +116,7 @@ template <>
 struct Zernike<3, 3> {
   typedef std::integral_constant<int, 3> M;
   typedef std::integral_constant<unsigned, 3> N;
-  constexpr static const std::array<XYPolyTerm, 2> terms{
+  static const constexpr std::array<XYPolyTerm, 2> terms{
     XYPolyTerm{2, 1, -3},
     XYPolyTerm{0, 3, 1}};
 };
@@ -123,7 +124,7 @@ template <>
 struct Zernike<-4, 4> {
   typedef std::integral_constant<int, -4> M;
   typedef std::integral_constant<unsigned, 4> N;
-  constexpr static const std::array<XYPolyTerm, 2> terms{
+  static const constexpr std::array<XYPolyTerm, 2> terms{
     XYPolyTerm{3, 1, -4},
     XYPolyTerm{1, 3, 4}};
 };
@@ -131,7 +132,7 @@ template <>
 struct Zernike<-2, 4> {
   typedef std::integral_constant<int, -2> M;
   typedef std::integral_constant<unsigned, 4> N;
-  constexpr static const std::array<XYPolyTerm, 3> terms{
+  static const constexpr std::array<XYPolyTerm, 3> terms{
     XYPolyTerm{3, 1, 8},
     XYPolyTerm{1, 1, -6},
     XYPolyTerm{1, 3, 8}};
@@ -140,7 +141,7 @@ template <>
 struct Zernike<0, 4> {
   typedef std::integral_constant<int, 0> M;
   typedef std::integral_constant<unsigned, 4> N;
-  constexpr static const std::array<XYPolyTerm, 6> terms{
+  static const constexpr std::array<XYPolyTerm, 6> terms{
     XYPolyTerm{4, 0, 6},
     XYPolyTerm{2, 0, -6},
     XYPolyTerm{2, 2, 12},
@@ -152,7 +153,7 @@ template <>
 struct Zernike<2, 4> {
   typedef std::integral_constant<int, 2> M;
   typedef std::integral_constant<unsigned, 4> N;
-  constexpr static const std::array<XYPolyTerm, 4> terms{
+  static const constexpr std::array<XYPolyTerm, 4> terms{
     XYPolyTerm{4, 0, -4},
     XYPolyTerm{2, 0, 3},
     XYPolyTerm{0, 2, -3},
@@ -162,7 +163,7 @@ template <>
 struct Zernike<4, 4> {
   typedef std::integral_constant<int, 4> M;
   typedef std::integral_constant<unsigned, 4> N;
-  constexpr static const std::array<XYPolyTerm, 3> terms{
+  static const constexpr std::array<XYPolyTerm, 3> terms{
     XYPolyTerm{4, 0, 1},
     XYPolyTerm{2, 2, -6},
     XYPolyTerm{0, 4, 1}};
@@ -171,7 +172,7 @@ template <>
 struct Zernike<-5, 5> {
   typedef std::integral_constant<int, -5> M;
   typedef std::integral_constant<unsigned, 5> N;
-  constexpr static const std::array<XYPolyTerm, 3> terms{
+  static const constexpr std::array<XYPolyTerm, 3> terms{
     XYPolyTerm{5, 0, 1},
     XYPolyTerm{3, 2, -10},
     XYPolyTerm{1, 4, 5}};
@@ -180,7 +181,7 @@ template <>
 struct Zernike<-3, 5> {
   typedef std::integral_constant<int, -3> M;
   typedef std::integral_constant<unsigned, 5> N;
-  constexpr static const std::array<XYPolyTerm, 5> terms{
+  static const constexpr std::array<XYPolyTerm, 5> terms{
     XYPolyTerm{5, 0, -5},
     XYPolyTerm{3, 0, 4},
     XYPolyTerm{3, 2, 10},
@@ -191,7 +192,7 @@ template <>
 struct Zernike<-1, 5> {
   typedef std::integral_constant<int, -1> M;
   typedef std::integral_constant<unsigned, 5> N;
-  constexpr static const std::array<XYPolyTerm, 6> terms{
+  static const constexpr std::array<XYPolyTerm, 6> terms{
     XYPolyTerm{5, 0, 10},
     XYPolyTerm{3, 0, -12},
     XYPolyTerm{3, 2, 20},
@@ -203,7 +204,7 @@ template <>
 struct Zernike<1, 5> {
   typedef std::integral_constant<int, 1> M;
   typedef std::integral_constant<unsigned, 5> N;
-  constexpr static const std::array<XYPolyTerm, 6> terms{
+  static const constexpr std::array<XYPolyTerm, 6> terms{
     XYPolyTerm{4, 1, 10},
     XYPolyTerm{2, 1, -12},
     XYPolyTerm{2, 3, 20},
@@ -215,7 +216,7 @@ template <>
 struct Zernike<3, 5> {
   typedef std::integral_constant<int, 3> M;
   typedef std::integral_constant<unsigned, 5> N;
-  constexpr static const std::array<XYPolyTerm, 5> terms{
+  static const constexpr std::array<XYPolyTerm, 5> terms{
     XYPolyTerm{4, 1, -15},
     XYPolyTerm{2, 1, 12},
     XYPolyTerm{2, 3, -10},
@@ -226,7 +227,7 @@ template <>
 struct Zernike<5, 5> {
   typedef std::integral_constant<int, 5> M;
   typedef std::integral_constant<unsigned, 5> N;
-  constexpr static const std::array<XYPolyTerm, 3> terms{
+  static const constexpr std::array<XYPolyTerm, 3> terms{
     XYPolyTerm{4, 1, 5},
     XYPolyTerm{2, 3, -10},
     XYPolyTerm{0, 5, 1}};
@@ -235,7 +236,7 @@ template <>
 struct Zernike<-6, 6> {
   typedef std::integral_constant<int, -6> M;
   typedef std::integral_constant<unsigned, 6> N;
-  constexpr static const std::array<XYPolyTerm, 3> terms{
+  static const constexpr std::array<XYPolyTerm, 3> terms{
     XYPolyTerm{5, 1, 6},
     XYPolyTerm{3, 3, -20},
     XYPolyTerm{1, 5, 6}};
@@ -244,7 +245,7 @@ template <>
 struct Zernike<-4, 6> {
   typedef std::integral_constant<int, -4> M;
   typedef std::integral_constant<unsigned, 6> N;
-  constexpr static const std::array<XYPolyTerm, 4> terms{
+  static const constexpr std::array<XYPolyTerm, 4> terms{
     XYPolyTerm{5, 1, -24},
     XYPolyTerm{3, 1, 20},
     XYPolyTerm{1, 3, -20},
@@ -254,7 +255,7 @@ template <>
 struct Zernike<-2, 6> {
   typedef std::integral_constant<int, -2> M;
   typedef std::integral_constant<unsigned, 6> N;
-  constexpr static const std::array<XYPolyTerm, 6> terms{
+  static const constexpr std::array<XYPolyTerm, 6> terms{
     XYPolyTerm{1, 1, 12},
     XYPolyTerm{3, 1, 40},
     XYPolyTerm{1, 3, -40},
@@ -266,7 +267,7 @@ template <>
 struct Zernike<0, 6> {
   typedef std::integral_constant<int, 0> M;
   typedef std::integral_constant<unsigned, 6> N;
-  constexpr static const std::array<XYPolyTerm, 10> terms{
+  static const constexpr std::array<XYPolyTerm, 10> terms{
     XYPolyTerm{6, 0, 20},
     XYPolyTerm{4, 0, -30},
     XYPolyTerm{4, 2, 60},
@@ -282,7 +283,7 @@ template <>
 struct Zernike<2, 6> {
   typedef std::integral_constant<int, 2> M;
   typedef std::integral_constant<unsigned, 6> N;
-  constexpr static const std::array<XYPolyTerm, 8> terms{
+  static const constexpr std::array<XYPolyTerm, 8> terms{
     XYPolyTerm{6, 0, -15},
     XYPolyTerm{4, 0, 20},
     XYPolyTerm{4, 2, -15},
@@ -296,7 +297,7 @@ template <>
 struct Zernike<4, 6> {
   typedef std::integral_constant<int, 4> M;
   typedef std::integral_constant<unsigned, 6> N;
-  constexpr static const std::array<XYPolyTerm, 7> terms{
+  static const constexpr std::array<XYPolyTerm, 7> terms{
     XYPolyTerm{6, 0, 6},
     XYPolyTerm{4, 0, -5},
     XYPolyTerm{4, 2, -30},
@@ -309,7 +310,7 @@ template <>
 struct Zernike<6, 6> {
   typedef std::integral_constant<int, 6> M;
   typedef std::integral_constant<unsigned, 6> N;
-  constexpr static const std::array<XYPolyTerm, 4> terms{
+  static const constexpr std::array<XYPolyTerm, 4> terms{
     XYPolyTerm{6, 0, -1},
     XYPolyTerm{4, 2, 15},
     XYPolyTerm{2, 4, -15},
@@ -319,7 +320,7 @@ template <>
 struct Zernike<-7, 7> {
   typedef std::integral_constant<int, -7> M;
   typedef std::integral_constant<unsigned, 7> N;
-  constexpr static const std::array<XYPolyTerm, 4> terms{
+  static const constexpr std::array<XYPolyTerm, 4> terms{
     XYPolyTerm{7, 0, -1},
     XYPolyTerm{5, 2, 21},
     XYPolyTerm{3, 4, -35},
@@ -329,7 +330,7 @@ template <>
 struct Zernike<-5, 7> {
   typedef std::integral_constant<int, -5> M;
   typedef std::integral_constant<unsigned, 7> N;
-  constexpr static const std::array<XYPolyTerm, 7> terms{
+  static const constexpr std::array<XYPolyTerm, 7> terms{
     XYPolyTerm{7, 0, 7},
     XYPolyTerm{5, 0, -6},
     XYPolyTerm{5, 2, -63},
@@ -342,7 +343,7 @@ template <>
 struct Zernike<-3, 7> {
   typedef std::integral_constant<int, -3> M;
   typedef std::integral_constant<unsigned, 7> N;
-  constexpr static const std::array<XYPolyTerm, 9> terms{
+  static const constexpr std::array<XYPolyTerm, 9> terms{
     XYPolyTerm{7, 0, -21},
     XYPolyTerm{5, 0, 30},
     XYPolyTerm{5, 2, 21},
@@ -357,7 +358,7 @@ template <>
 struct Zernike<-1, 7> {
   typedef std::integral_constant<int, -1> M;
   typedef std::integral_constant<unsigned, 7> N;
-  constexpr static const std::array<XYPolyTerm, 10> terms{
+  static const constexpr std::array<XYPolyTerm, 10> terms{
     XYPolyTerm{7, 0, 35},
     XYPolyTerm{5, 0, -60},
     XYPolyTerm{5, 2, 105},
@@ -373,7 +374,7 @@ template <>
 struct Zernike<1, 7> {
   typedef std::integral_constant<int, 1> M;
   typedef std::integral_constant<unsigned, 7> N;
-  constexpr static const std::array<XYPolyTerm, 10> terms{
+  static const constexpr std::array<XYPolyTerm, 10> terms{
     XYPolyTerm{6, 1, 35},
     XYPolyTerm{4, 1, -60},
     XYPolyTerm{4, 3, 105},
@@ -389,7 +390,7 @@ template <>
 struct Zernike<3, 7> {
   typedef std::integral_constant<int, 3> M;
   typedef std::integral_constant<unsigned, 7> N;
-  constexpr static const std::array<XYPolyTerm, 9> terms{
+  static const constexpr std::array<XYPolyTerm, 9> terms{
     XYPolyTerm{6, 1, -63},
     XYPolyTerm{4, 1, 90},
     XYPolyTerm{4, 3, -105},
@@ -404,7 +405,7 @@ template <>
 struct Zernike<5, 7> {
   typedef std::integral_constant<int, 5> M;
   typedef std::integral_constant<unsigned, 7> N;
-  constexpr static const std::array<XYPolyTerm, 7> terms{
+  static const constexpr std::array<XYPolyTerm, 7> terms{
     XYPolyTerm{6, 1, 35},
     XYPolyTerm{4, 1, -30},
     XYPolyTerm{4, 3, -35},
@@ -417,7 +418,7 @@ template <>
 struct Zernike<7, 7> {
   typedef std::integral_constant<int, 7> M;
   typedef std::integral_constant<unsigned, 7> N;
-  constexpr static const std::array<XYPolyTerm, 4> terms{
+  static const constexpr std::array<XYPolyTerm, 4> terms{
     XYPolyTerm{6, 1, -7},
     XYPolyTerm{4, 3, 35},
     XYPolyTerm{2, 5, -21},
@@ -427,7 +428,7 @@ template <>
 struct Zernike<-8, 8> {
   typedef std::integral_constant<int, -8> M;
   typedef std::integral_constant<unsigned, 8> N;
-  constexpr static const std::array<XYPolyTerm, 4> terms{
+  static const constexpr std::array<XYPolyTerm, 4> terms{
     XYPolyTerm{7, 1, -8},
     XYPolyTerm{5, 3, 56},
     XYPolyTerm{3, 5, -56},
@@ -437,7 +438,7 @@ template <>
 struct Zernike<-6, 8> {
   typedef std::integral_constant<int, -6> M;
   typedef std::integral_constant<unsigned, 8> N;
-  constexpr static const std::array<XYPolyTerm, 7> terms{
+  static const constexpr std::array<XYPolyTerm, 7> terms{
     XYPolyTerm{7, 1, 48},
     XYPolyTerm{5, 1, -42},
     XYPolyTerm{5, 3, -112},
@@ -450,7 +451,7 @@ template <>
 struct Zernike<-4, 8> {
   typedef std::integral_constant<int, -4> M;
   typedef std::integral_constant<unsigned, 8> N;
-  constexpr static const std::array<XYPolyTerm, 8> terms{
+  static const constexpr std::array<XYPolyTerm, 8> terms{
     XYPolyTerm{7, 1, -112},
     XYPolyTerm{5, 1, 168},
     XYPolyTerm{5, 3, -112},
@@ -464,7 +465,7 @@ template <>
 struct Zernike<-2, 8> {
   typedef std::integral_constant<int, -2> M;
   typedef std::integral_constant<unsigned, 8> N;
-  constexpr static const std::array<XYPolyTerm, 10> terms{
+  static const constexpr std::array<XYPolyTerm, 10> terms{
     XYPolyTerm{7, 1, -112},
     XYPolyTerm{5, 1, -210},
     XYPolyTerm{5, 3, 336},
@@ -480,7 +481,7 @@ template <>
 struct Zernike<0, 8> {
   typedef std::integral_constant<int, 0> M;
   typedef std::integral_constant<unsigned, 8> N;
-  constexpr static const std::array<XYPolyTerm, 15> terms{
+  static const constexpr std::array<XYPolyTerm, 15> terms{
     XYPolyTerm{8, 0, 70},
     XYPolyTerm{6, 0, -140},
     XYPolyTerm{6, 2, 280},
@@ -501,7 +502,7 @@ template <>
 struct Zernike<2, 8> {
   typedef std::integral_constant<int, 2> M;
   typedef std::integral_constant<unsigned, 8> N;
-  constexpr static const std::array<XYPolyTerm, 12> terms{
+  static const constexpr std::array<XYPolyTerm, 12> terms{
     XYPolyTerm{8, 0, -56},
     XYPolyTerm{6, 0, 105},
     XYPolyTerm{6, 2, -112},
@@ -519,7 +520,7 @@ template <>
 struct Zernike<4, 8> {
   typedef std::integral_constant<int, 4> M;
   typedef std::integral_constant<unsigned, 8> N;
-  constexpr static const std::array<XYPolyTerm, 12> terms{
+  static const constexpr std::array<XYPolyTerm, 12> terms{
     XYPolyTerm{8, 0, 28},
     XYPolyTerm{6, 0, -42},
     XYPolyTerm{6, 2, -112},
@@ -537,7 +538,7 @@ template <>
 struct Zernike<6, 8> {
   typedef std::integral_constant<int, 6> M;
   typedef std::integral_constant<unsigned, 8> N;
-  constexpr static const std::array<XYPolyTerm, 8> terms{
+  static const constexpr std::array<XYPolyTerm, 8> terms{
     XYPolyTerm{8, 0, -8},
     XYPolyTerm{6, 0, 7},
     XYPolyTerm{6, 2, 112},
@@ -551,7 +552,7 @@ template <>
 struct Zernike<8, 8> {
   typedef std::integral_constant<int, 8> M;
   typedef std::integral_constant<unsigned, 9> N;
-  constexpr static const std::array<XYPolyTerm, 5> terms{
+  static const constexpr std::array<XYPolyTerm, 5> terms{
     XYPolyTerm{8, 0, 1},
     XYPolyTerm{6, 2, -28},
     XYPolyTerm{4, 4, 70},
@@ -562,7 +563,7 @@ template <>
 struct Zernike<-9, 9> {
   typedef std::integral_constant<int, -9> M;
   typedef std::integral_constant<unsigned, 9> N;
-  constexpr static const std::array<XYPolyTerm, 5> terms{
+  static const constexpr std::array<XYPolyTerm, 5> terms{
     XYPolyTerm{9, 0, 1},
     XYPolyTerm{7, 2, -36},
     XYPolyTerm{5, 4, 126},
@@ -573,7 +574,7 @@ template <>
 struct Zernike<-7, 9> {
   typedef std::integral_constant<int, -7> M;
   typedef std::integral_constant<unsigned, 9> N;
-  constexpr static const std::array<XYPolyTerm, 9> terms{
+  static const constexpr std::array<XYPolyTerm, 9> terms{
     XYPolyTerm{9, 0, -9},
     XYPolyTerm{7, 0, 8},
     XYPolyTerm{7, 2, 180},
@@ -588,7 +589,7 @@ template <>
 struct Zernike<-5, 9> {
   typedef std::integral_constant<int, -5> M;
   typedef std::integral_constant<unsigned, 9> N;
-  constexpr static const std::array<XYPolyTerm, 11> terms{
+  static const constexpr std::array<XYPolyTerm, 11> terms{
     XYPolyTerm{9, 0, 36},
     XYPolyTerm{7, 0, -56},
     XYPolyTerm{7, 2, -288},
@@ -605,7 +606,7 @@ template <>
 struct Zernike<-3, 9> {
   typedef std::integral_constant<int, -3> M;
   typedef std::integral_constant<unsigned, 9> N;
-  constexpr static const std::array<XYPolyTerm, 13> terms{
+  static const constexpr std::array<XYPolyTerm, 13> terms{
     XYPolyTerm{9, 0, -84},
     XYPolyTerm{7, 0, 168},
     XYPolyTerm{5, 0, -105},
@@ -624,7 +625,7 @@ template <>
 struct Zernike<-1, 9> {
   typedef std::integral_constant<int, -1> M;
   typedef std::integral_constant<unsigned, 9> N;
-  constexpr static const std::array<XYPolyTerm, 15> terms{
+  static const constexpr std::array<XYPolyTerm, 15> terms{
     XYPolyTerm{9, 0, 126},
     XYPolyTerm{7, 0, -280},
     XYPolyTerm{7, 2, 504},
@@ -645,7 +646,7 @@ template <>
 struct Zernike<1,9> {
   typedef std::integral_constant<int, 1> M;
   typedef std::integral_constant<unsigned, 9> N;
-  constexpr static const std::array<XYPolyTerm, 15> terms{
+  static const constexpr std::array<XYPolyTerm, 15> terms{
     XYPolyTerm{8, 1, 126},
     XYPolyTerm{6, 1, -280},
     XYPolyTerm{6, 3, 504},
@@ -666,7 +667,7 @@ template <>
 struct Zernike<3, 9> {
   typedef std::integral_constant<int, 3> M;
   typedef std::integral_constant<unsigned, 9> N;
-  constexpr static const std::array<XYPolyTerm, 13> terms{
+  static const constexpr std::array<XYPolyTerm, 13> terms{
     XYPolyTerm{8, 1, -252},
     XYPolyTerm{6, 1, 504},
     XYPolyTerm{6, 3, -672},
@@ -685,7 +686,7 @@ template <>
 struct Zernike<5, 9> {
   typedef std::integral_constant<int, 5> M;
   typedef std::integral_constant<unsigned, 9> N;
-  constexpr static const std::array<XYPolyTerm, 11> terms{
+  static const constexpr std::array<XYPolyTerm, 11> terms{
     XYPolyTerm{8, 1, 180},
     XYPolyTerm{6, 1, -280},
     XYPolyTerm{4, 1, 105},
@@ -702,7 +703,7 @@ template <>
 struct Zernike<7, 9> {
   typedef std::integral_constant<int, 7> M;
   typedef std::integral_constant<unsigned, 9> N;
-  constexpr static const std::array<XYPolyTerm, 9> terms{
+  static const constexpr std::array<XYPolyTerm, 9> terms{
     XYPolyTerm{8, 1, -63},
     XYPolyTerm{6, 1, 56},
     XYPolyTerm{6, 3, -252},
@@ -717,7 +718,7 @@ template <>
 struct Zernike<9, 9> {
   typedef std::integral_constant<int, 9> M;
   typedef std::integral_constant<unsigned, 9> N;
-  constexpr static const std::array<XYPolyTerm, 5> terms{
+  static const constexpr std::array<XYPolyTerm, 5> terms{
     XYPolyTerm{8, 1, 9},
     XYPolyTerm{6, 3, -84},
     XYPolyTerm{4, 5, 126},
@@ -728,7 +729,7 @@ template <>
 struct Zernike<-10, 10> {
   typedef std::integral_constant<int, -10> M;
   typedef std::integral_constant<unsigned, 10> N;
-  constexpr static const std::array<XYPolyTerm, 5> terms{
+  static const constexpr std::array<XYPolyTerm, 5> terms{
     XYPolyTerm{9, 1, 10},
     XYPolyTerm{7, 3, -120},
     XYPolyTerm{5, 5, 252},
@@ -739,7 +740,7 @@ template <>
 struct Zernike<-8, 10> {
   typedef std::integral_constant<int, -8> M;
   typedef std::integral_constant<unsigned, 10> N;
-  constexpr static const std::array<XYPolyTerm, 8> terms{
+  static const constexpr std::array<XYPolyTerm, 8> terms{
     XYPolyTerm{9, 1, -80},
     XYPolyTerm{7, 1, 72},
     XYPolyTerm{7, 3, 480},
@@ -753,7 +754,7 @@ template <>
 struct Zernike<-6, 10> {
   typedef std::integral_constant<int, -6> M;
   typedef std::integral_constant<unsigned, 10> N;
-  constexpr static const std::array<XYPolyTerm, 12> terms{
+  static const constexpr std::array<XYPolyTerm, 12> terms{
     XYPolyTerm{9, 1, 270},
     XYPolyTerm{7, 1, -432},
     XYPolyTerm{7, 3, -360},
@@ -771,7 +772,7 @@ template <>
 struct Zernike<-4, 10> {
   typedef std::integral_constant<int, -4> M;
   typedef std::integral_constant<unsigned, 10> N;
-  constexpr static const std::array<XYPolyTerm, 12> terms{
+  static const constexpr std::array<XYPolyTerm, 12> terms{
     XYPolyTerm{9, 1, -480},
     XYPolyTerm{7, 1, 1008},
     XYPolyTerm{7, 3, -960},
@@ -789,7 +790,7 @@ template <>
 struct Zernike<-2, 10> {
   typedef std::integral_constant<int, -2> M;
   typedef std::integral_constant<unsigned, 10> N;
-  constexpr static const std::array<XYPolyTerm, 15> terms{
+  static const constexpr std::array<XYPolyTerm, 15> terms{
     XYPolyTerm{9, 1, 420},
     XYPolyTerm{7, 1, -1008},
     XYPolyTerm{7, 3, 1680},
@@ -810,7 +811,7 @@ template <>
 struct Zernike<0, 10> {
   typedef std::integral_constant<int, 0> M;
   typedef std::integral_constant<unsigned, 10> N;
-  constexpr static const std::array<XYPolyTerm, 21> terms{
+  static const constexpr std::array<XYPolyTerm, 21> terms{
     XYPolyTerm{10, 0, 252},
     XYPolyTerm{8, 0, -630},
     XYPolyTerm{8, 2, 1260},
@@ -837,7 +838,7 @@ template <>
 struct Zernike<2, 10> {
   typedef std::integral_constant<int, 2> M;
   typedef std::integral_constant<unsigned, 10> N;
-  constexpr static const std::array<XYPolyTerm, 18> terms{
+  static const constexpr std::array<XYPolyTerm, 18> terms{
     XYPolyTerm{10, 0, -210},
     XYPolyTerm{8, 0, 504},
     XYPolyTerm{8, 2, -630},
@@ -861,7 +862,7 @@ template <>
 struct Zernike<4, 10> {
   typedef std::integral_constant<int, 4> M;
   typedef std::integral_constant<unsigned, 10> N;
-  constexpr static const std::array<XYPolyTerm, 18> terms{
+  static const constexpr std::array<XYPolyTerm, 18> terms{
     XYPolyTerm{10, 0, 120},
     XYPolyTerm{8, 0, -252},
     XYPolyTerm{8, 2, -360},
@@ -885,7 +886,7 @@ template <>
 struct Zernike<6, 10> {
   typedef std::integral_constant<int, 6> M;
   typedef std::integral_constant<unsigned, 10> N;
-  constexpr static const std::array<XYPolyTerm, 14> terms{
+  static const constexpr std::array<XYPolyTerm, 14> terms{
     XYPolyTerm{10, 0, -45},
     XYPolyTerm{8, 0, 72},
     XYPolyTerm{8, 2, 585},
@@ -905,7 +906,7 @@ template <>
 struct Zernike<8, 10> {
   typedef std::integral_constant<int, 8> M;
   typedef std::integral_constant<unsigned, 10> N;
-  constexpr static const std::array<XYPolyTerm, 11> terms{
+  static const constexpr std::array<XYPolyTerm, 11> terms{
     XYPolyTerm{10, 0, 10},
     XYPolyTerm{8, 0, -9},
     XYPolyTerm{8, 2, -270},
@@ -922,7 +923,7 @@ template <>
 struct Zernike<10, 10> {
   typedef std::integral_constant<int, 10> M;
   typedef std::integral_constant<unsigned, 10> N;
-  constexpr static const std::array<XYPolyTerm, 6> terms{
+  static const constexpr std::array<XYPolyTerm, 6> terms{
     XYPolyTerm{10, 0, -1},
     XYPolyTerm{8, 2, 45},
     XYPolyTerm{6, 4, -210},
@@ -943,21 +944,25 @@ struct zernike_series {
   constexpr static unsigned D = ((max_n::value + 1) * (max_n::value + 2)) / 2;
   static void
   expand(
-    std::experimental::mdspan<T, max_n::value + 1, max_n::value + 1>& array,
+    std::experimental::mdspan<T, max_n::value + 1, max_n::value + 1>& ary,
     const std::experimental::mdspan<T, D>& coefficients) {
     for (size_t i = 0; i <= max_n::value; ++i)
       for (size_t j = 0; j <= max_n::value; ++j)
-        array(i, j) = (T)0;
+        ary(i, j) = (T)0;
     zernike_series_<T, max_n::value, zernike_series<T, Zs...>>::
-      expand(array, coefficients);
+      expand(ary, coefficients);
   }
 #ifdef HYPERION_USE_KOKKOS
-  KOKKOS_INLINE_FUNCTION static void
+  template <typename ...Args>
+  static void
   expand(
-    Kokkos::View<T[max_n::value + 1][max_n::value + 1]>& array,
-    Kokkos::View<const T[D]>& coefficients) {
+    const Kokkos::View<T**, Args...>& ary,
+    const Kokkos::View<const T*, Args...>& coefficients) {
+    assert(ary.extent(0) == max_n::value + 1);
+    assert(ary.extent(1) == max_n::value + 1);
+    assert(coefficients.extent(0) == D);
     zernike_series_<T, max_n::value, zernike_series<T, Zs...>>::
-      expand(array, coefficients);
+      expand(ary, coefficients);
   }
 #endif // HYPERION_USE_KOKKOS
 };
@@ -971,8 +976,11 @@ struct zernike_series_<T, N, zernike_series<T>> {
     std::experimental::mdspan<T, N+1, N+1>&,
     const std::experimental::mdspan<T, D>&) {}
 #ifdef HYPERION_USE_KOKKOS
-  KOKKOS_INLINE_FUNCTION static void
-  expand(Kokkos::View<T[N+1][N+1]>&, Kokkos::View<const T[D]>&) {}
+  template <typename ...Args>
+  static void
+  expand(
+    const Kokkos::View<T**, Args...>&,
+    const Kokkos::View<const T*, Args...>&) {}
 #endif // HYPERION_USE_KOKKOS
 };
 
@@ -987,20 +995,26 @@ struct zernike_series_<T, N0, zernike_series<T, Z, Zs...>> {
 
   static void
   expand(
-    std::experimental::mdspan<T, N0+1, N0+1>& array,
+    std::experimental::mdspan<T, N0+1, N0+1>& ary,
     const std::experimental::mdspan<T, D>& coeffs) {
     const auto& c = coeffs(D - (sizeof...(Zs) + 1));
     for (auto& t : Z::terms)
-      array(t.px, t.py) += c * t.c;
-    zernike_series_<T, N0, zernike_series<T, Zs...>>::expand(array, coeffs);
+      ary(t.px, t.py) += c * t.c;
+    zernike_series_<T, N0, zernike_series<T, Zs...>>::expand(ary, coeffs);
   }
 #ifdef HYPERION_USE_KOKKOS
-  KOKKOS_INLINE_FUNCTION static void
-  expand(Kokkos::View<T[N0+1][N0+1]>& array, Kokkos::View<const T[D]>& coeffs) {
+  template <typename ...Args>
+  static void
+  expand(
+    const Kokkos::View<T**, Args...>& ary,
+    const Kokkos::View<const T*, Args...>& coeffs) {
+    assert(ary.extent(0) == N0 + 1);
+    assert(ary.extent(1) == N0 + 1);
+    assert(coeffs.extent(0) == D);
     const auto& c = coeffs(D - (sizeof...(Zs) + 1));
     for (auto& t : Z::terms)
-      array(t.px, t.py) += c * t.c;
-    zernike_series_<T, N0, zernike_series<T, Zs...>>::expand(array, coeffs);
+      ary(t.px, t.py) += c * t.c;
+    zernike_series_<T, N0, zernike_series<T, Zs...>>::expand(ary, coeffs);
   }
 #endif // HYPERION_USE_KOKKOS
 };
@@ -1020,22 +1034,26 @@ struct zernike_basis_base {
   typedef T var_t;
   static void
   expand(
-    std::experimental::mdspan<T, N+1, N+1>& array,
+    std::experimental::mdspan<T, N+1, N+1>& ary,
     const std::experimental::mdspan<T, num_terms>& coefficients) {
-    Z::series::expand(array, coefficients);
+    Z::series::expand(ary, coefficients);
   }
   static void
   expand(
-    std::experimental::mdspan<T, N+1, N+1>&& array,
+    std::experimental::mdspan<T, N+1, N+1>&& ary,
     std::experimental::mdspan<T, num_terms>&& coefficients) {
-    Z::series::expand(array, coefficients);
+    Z::series::expand(ary, coefficients);
   }
 #ifdef HYPERION_USE_KOKKOS
+  template <typename ...Args>
   static void
   expand(
-    Kokkos::View<T[N+1][N+1]>& array,
-    Kokkos::View<const T[num_terms]>& coefficients) {
-    Z::series::expand(array, coefficients);
+    const Kokkos::View<T**, Args...>& ary,
+    const Kokkos::View<const T*, Args...>& coefficients) {
+    assert(ary.extent(0) == N + 1);
+    assert(ary.extent(1) == N + 1);
+    assert(coefficients.extent(0) == num_terms);
+    Z::series::expand(ary, coefficients);
   }
 #endif // HYPERION_USE_KOKKOS
   constexpr static unsigned
