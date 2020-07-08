@@ -169,8 +169,11 @@ using array = Kokkos::Array<T, N>;
 
 #ifdef HYPERION_USE_CASACORE
 typedef casacore::Stokes::StokesTypes stokes_t;
+typedef std::integral_constant<unsigned, casacore::Stokes::NumberOfTypes>
+  num_stokes_t;
 #else
 typedef int stokes_t;
+typedef std::integral_constant<unsigned, 32> num_stokes_t;
 #endif
 
 template <typename F>
