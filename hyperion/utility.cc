@@ -538,69 +538,25 @@ hyperion::preregister_all() {
   {
     LayoutConstraintRegistrar
       registrar(FieldSpace::NO_SPACE, "soa_right");
-    for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
-      std::vector<DimensionKind> dims(rank + 1);
-      auto d = dims.rbegin();
-      *d++ = DimensionKind::DIM_F;
-      std::generate(
-        d,
-        dims.rend(),
-        [n = static_cast<int>(DimensionKind::DIM_X)]() mutable {
-          return static_cast<DimensionKind>(n++);
-        });
-      registrar.add_constraint(OrderingConstraint(dims, false));
-    }
+    add_soa_right_ordering_constraint(registrar);
     soa_right_layout = Runtime::preregister_layout(registrar);
   }
   {
     LayoutConstraintRegistrar
       registrar(FieldSpace::NO_SPACE, "soa_left");
-    for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
-      std::vector<DimensionKind> dims(rank + 1);
-      auto d = dims.rbegin();
-      *d++ = DimensionKind::DIM_F;
-      std::generate(
-        d,
-        dims.rend(),
-        [n = static_cast<int>(DimensionKind::DIM_X + rank - 1)]() mutable {
-          return static_cast<DimensionKind>(n--);
-        });
-      registrar.add_constraint(OrderingConstraint(dims, false));
-    }
+    add_soa_left_ordering_constraint(registrar);
     soa_left_layout = Runtime::preregister_layout(registrar);
   }
   {
     LayoutConstraintRegistrar
       registrar(FieldSpace::NO_SPACE, "aos_right");
-    for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
-      std::vector<DimensionKind> dims(rank + 1);
-      auto d = dims.begin();
-      *d++ = DimensionKind::DIM_F;
-      std::generate(
-        d,
-        dims.end(),
-        [n = static_cast<int>(DimensionKind::DIM_X + rank - 1)]() mutable {
-          return static_cast<DimensionKind>(n--);
-        });
-      registrar.add_constraint(OrderingConstraint(dims, false));
-    }
+    add_aos_right_ordering_constraint(registrar);
     aos_right_layout = Runtime::preregister_layout(registrar);
   }
   {
     LayoutConstraintRegistrar
       registrar(FieldSpace::NO_SPACE, "aos_left");
-    for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
-      std::vector<DimensionKind> dims(rank + 1);
-      auto d = dims.begin();
-      *d++ = DimensionKind::DIM_F;
-      std::generate(
-        d,
-        dims.end(),
-        [n = static_cast<int>(DimensionKind::DIM_X)]() mutable {
-          return static_cast<DimensionKind>(n++);
-        });
-      registrar.add_constraint(OrderingConstraint(dims, false));
-    }
+    add_aos_left_ordering_constraint(registrar);
     aos_left_layout = Runtime::preregister_layout(registrar);
   }
 
