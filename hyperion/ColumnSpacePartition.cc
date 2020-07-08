@@ -138,11 +138,20 @@ create_partition_on_axes(
   for (auto n = 0; n < PART_DIM; ++n) {
     const auto& part = parts[n];
     if (part.dim >= 0) {
+      auto min = extent.lo[part.dim];
+      auto max = extent.hi[part.dim];
       extent.lo[part.dim] = part.offset + part.extent[0];
+      complete = complete && extent.lo[part.dim] <= min;
       extent.hi[part.dim] = part.offset + part.extent[1];
-      auto next_lo = extent.lo[part.dim] + part.stride;
-      aliased = aliased || next_lo <= extent.hi[part.dim];
-      complete = complete && next_lo == extent.hi[part.dim] + 1;
+      complete =
+        complete
+        && ((extent.hi[part.dim] + cs_rect.hi[part.dim] * part.stride)
+            >= max);
+      if (cs_rect.hi[part.dim] > 0) {
+        auto next_lo = extent.lo[part.dim] + part.stride;
+        aliased = aliased || next_lo <= extent.hi[part.dim];
+        complete = complete && next_lo == extent.hi[part.dim] + 1;
+      }
     } else {
       aliased = true;
     }
