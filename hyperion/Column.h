@@ -113,7 +113,7 @@ struct HYPERION_EXPORT Column {
     Req column_space; /**< column space region */
     Legion::MappingTagID tag; /**< values region mapping tag */
     Legion::ProjectionID projection; /**< values region projection ID */
-    ColumnSpacePartition partition; /**< values region and partition */
+    Legion::LogicalPartition partition; /**< values region and partition */
   };
 
   /**

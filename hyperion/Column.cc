@@ -52,7 +52,7 @@ const Column::Requirements Column::default_requirements{
   Column::Req{READ_ONLY, EXCLUSIVE, true},
   TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
   0,
-  ColumnSpacePartition()
+  LogicalPartition::NO_PART
 };
 
 template <hyperion::TypeTag DT>

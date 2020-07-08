@@ -569,9 +569,9 @@ Table::requirements(
 #endif
   }
   // create requirements, applying table_partition as needed
-  std::map<
-    std::tuple<ColumnSpace, ProjectionID>,
-    std::tuple<ColumnSpacePartition, LogicalPartition, bool>>
+  std::multimap<
+    ColumnSpace,
+    std::tuple<ColumnSpacePartition, ProjectionID, LogicalPartition, bool>>
     partitions;
   if (table_partition.is_valid()) {
     if (table_partition.column_space.column_is
@@ -582,7 +582,7 @@ Table::requirements(
       auto lp =
         rt.value()
         ->get_logical_partition(ctx.value(), index_col_region, csp.column_ip);
-      partitions[{index_col_cs, 0}] = {csp, lp, true};
+      partitions.insert({index_col_cs, {csp, 0, lp, true}});
     } else {
       auto lp =
         rt.value()
@@ -592,7 +592,7 @@ Table::requirements(
           table_partition.column_ip);
       // set boolean flag to false to indicate that this partition should not be
       // returned in list of ColumnSpacePartitions
-      partitions[{index_col_cs, 0}] = {ColumnSpacePartition(), lp, false};
+      partitions.insert({index_col_cs, {table_partition, 0, lp, false}});
     }
   }
 
@@ -605,7 +605,7 @@ Table::requirements(
       PrivilegeMode,
       CoherenceProperty,
       MappingTagID,
-      ProjectionID>,
+      LogicalPartition>,
     std::tuple<bool, RegionRequirement>> val_reqs;
   for (auto& nm_col : columns) {
 #if HAVE_CXX17
@@ -627,78 +627,97 @@ Table::requirements(
          reqs.values.privilege,
          reqs.values.coherence,
          reqs.tag,
-         reqs.projection};
+         reqs.partition};
       if (val_reqs.count(rg_rq) == 0) {
-        std::tuple<ColumnSpace, ProjectionID> pkey = {col.cs, reqs.projection};
-        if (std::get<1>(pkey) == 0) {
-          if (!table_partition.is_valid()) {
-            val_reqs[rg_rq] =
-              {false,
-               RegionRequirement(
-                 col.region,
-                 reqs.values.privilege,
-                 reqs.values.coherence,
-                 col.region,
-                 reqs.tag)};
-          } else {
-            LogicalPartition lp;
-            if (partitions.count(pkey) == 0) {
-              auto csp =
+        if (!table_partition.is_valid()
+            && reqs.partition == LogicalPartition::NO_PART) {
+          // no column partition case
+          val_reqs[rg_rq] =
+            {false,
+             RegionRequirement(
+               col.region,
+               reqs.values.privilege,
+               reqs.values.coherence,
+               col.region,
+               reqs.tag)};
+        } else {
+          // Need a column partition; either it's provided or it's derived from
+          // table_partition. First look for existing record of this partition
+          LogicalPartition lp = LogicalPartition::NO_PART;
+          ProjectionID pjid;
+          for (auto p = partitions.lower_bound(col.cs);
+               (lp == LogicalPartition::NO_PART
+                && p != partitions.upper_bound(col.cs));
+               ++p) {
+#if HAVE_CXX17
+            auto& [pcsp, pid, plp, pnew] = std::get<1>(*p);
+#else
+            auto& pcsp = std::get<0>(std::get<1>(*p));
+            auto& pid = std::get<1>(std::get<1>(*p));
+            auto& plp = std::get<2>(std::get<1>(*p));
+#endif
+            if (reqs.partition != LogicalPartition::NO_PART) {
+              // when a partition is provided, we use it
+              if (plp == reqs.partition && pid == reqs.projection) {
+                lp = plp;
+                pjid = pid;
+              }
+            } else if (pid == reqs.projection) {
+              // when a partition is not provided, use the induced table
+              // partition
+              assert(table_partition.is_valid());
+              lp = plp;
+              pjid = pid;
+            }
+          }
+          if (lp == LogicalPartition::NO_PART) {
+            // no record of this partition exists, create one (and if needed,
+            // create the partition as well)
+            ColumnSpacePartition csp;
+            bool new_csp;
+            if (reqs.partition != LogicalPartition::NO_PART) {
+              lp = reqs.partition;
+              csp = ColumnSpacePartition();
+              new_csp = false;
+              pjid = reqs.projection;
+            } else {
+              assert(table_partition.is_valid());
+              // use an induced (projected) table partition
+              csp =
                 table_partition.project_onto(ctx.value(), rt.value(), col.cs)
                 .get_result<ColumnSpacePartition>();
-              assert(csp.column_space == col.cs);
               lp =
                 rt.value()
                 ->get_logical_partition(ctx.value(), col.region, csp.column_ip);
-              partitions[pkey] = {csp, lp, true};
-            } else {
-              lp = std::get<1>(partitions[pkey]);
+              new_csp = true;
+              pjid = reqs.projection;
             }
-            val_reqs[rg_rq] =
-              {false,
-               RegionRequirement(
-                 lp,
-                 0,
-                 reqs.values.privilege,
-                 reqs.values.coherence,
-                 col.region,
-                 reqs.tag)};
+            // record this partition
+            partitions.insert({col.cs, {csp, pjid, lp, new_csp}});
           }
-        } else {
-          LogicalPartition lp;
-          if (partitions.count(pkey) == 0) {
-            lp =
-              rt.value()
-              ->get_logical_partition(
-                ctx.value(),
-                col.region,
-                reqs.partition.column_ip);
-            partitions[pkey] = {reqs.partition, lp, false};
-          } else {
-            lp = std::get<1>(partitions[pkey]);
-          }
+          // record the requirement for this column
           val_reqs[rg_rq] =
             {false,
              RegionRequirement(
                lp,
-               reqs.projection,
+               pjid,
                reqs.values.privilege,
                reqs.values.coherence,
                col.region,
-               reqs.tag)};          
+               reqs.tag)};
         }
       }
       std::get<1>(val_reqs[rg_rq]).add_field(col.fid, reqs.values.mapped);
     }
   }
   std::vector<ColumnSpacePartition> csps_result;
-  for (auto& cspj_csplpnw : partitions) {
+  for (auto& cs_part : partitions) {
 #if HAVE_CXX17
-    auto& [csp, lp, isnew] = std::get<1>(cspj_csplpnw);
+    auto& [csp, pjid, lp, isnew] = std::get<1>(cs_part);
 #else // !HAVE_CXX17
-    auto& csplpnw = std::get<1>(cspj_csplpnw);
-    auto& csp = std::get<0>(csplpnw);
-    auto& isnew = std::get<2>(csplpnw);
+    auto& part = std::get<1>(cs_part);
+    auto& csp = std::get<0>(part);
+    auto& isnew = std::get<3>(part);
 #endif
     if (isnew)
       csps_result.push_back(csp);
@@ -712,7 +731,7 @@ Table::requirements(
   // next, index_col index space partition
   if (table_partition.is_valid()) {
     RegionRequirement req(
-      std::get<1>(partitions[{index_col_cs, 0}]),
+      std::get<2>(partitions.find(index_col_cs)->second),
       0,
       {Table::m_index_col_fid},
       {}, // always remains unmapped!
@@ -765,7 +784,7 @@ Table::requirements(
          reqs.values.privilege,
          reqs.values.coherence,
          reqs.tag,
-         reqs.projection};
+         reqs.partition};
       auto& added_rq = val_reqs.at(rg_rq);
 #if HAVE_CXX17
       auto& [added, rq] = added_rq;
