@@ -203,6 +203,15 @@ struct HYPERION_EXPORT ColumnSpacePartition {
   static void
   preregister_tasks();
 
+  bool
+  operator<(const ColumnSpacePartition& rhs) const;
+
+  bool
+  operator==(const ColumnSpacePartition& rhs) const;
+
+  bool
+  operator!=(const ColumnSpacePartition& rhs) const;
+
   ColumnSpace column_space; /**< column space */
 
   Legion::IndexPartition column_ip; /**< partition of column_space column_is */

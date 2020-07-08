@@ -392,6 +392,35 @@ ColumnSpacePartition::preregister_tasks() {
   }
 }
 
+bool
+ColumnSpacePartition::operator<(const ColumnSpacePartition& rhs) const {
+  if (column_space < rhs.column_space)
+    return true;
+  if (column_space == rhs.column_space) {
+    if (column_ip < rhs.column_ip)
+      return true;
+    if (column_ip == rhs.column_ip) {
+      for (size_t i = 0; i < ColumnSpace::MAX_DIM; ++i)
+        if (partition[i] < rhs.partition[i])
+          return true;;
+    }
+  }
+  return false;
+}
+
+bool
+ColumnSpacePartition::operator==(const ColumnSpacePartition& rhs) const {
+  return
+    (column_space == rhs.column_space)
+    && (column_ip == rhs.column_ip)
+    && (partition == rhs.partition);
+}
+
+bool
+ColumnSpacePartition::operator!=(const ColumnSpacePartition& rhs) const {
+  return !operator==(rhs);
+}
+
 // Local Variables:
 // mode: c++
 // c-basic-offset: 2
