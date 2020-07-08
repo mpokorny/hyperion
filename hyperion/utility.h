@@ -1645,7 +1645,7 @@ struct HYPERION_EXPORT AxisPartition {
   std::array<Legion::coord_t, 2> limits;
 
   bool
-  operator==(const AxisPartition& other) {
+  operator==(const AxisPartition& other) const {
     // limits values is not compared, as it depends only on value of dim
     return
       axes_uid == other.axes_uid
@@ -1656,12 +1656,12 @@ struct HYPERION_EXPORT AxisPartition {
   }
 
   bool
-  operator!=(const AxisPartition& other) {
+  operator!=(const AxisPartition& other) const {
     return !operator==(other);
   }
 
   bool
-  operator<(const AxisPartition& other) {
+  operator<(const AxisPartition& other) const {
     if (axes_uid != other.axes_uid) return false;
     if (dim < other.dim) return true;
     if (dim == other.dim) {
