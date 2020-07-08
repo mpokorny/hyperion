@@ -12,17 +12,24 @@ An initial implementation of [MeasurementSet](https://casa.nrao.edu/Memos/229.ht
 Several dependencies are optional, and while the software will build without them, functionality may be somewhat limited as a result. Flags used when `cmake` is invoked will determine whether a dependency is required or not. In the list below, after every optional requirement, in brackets, the *CMake* conditions that determine how a dependency is used are shown.
 
 * Required
-  * [CMake](https://cmake.org/), version 3.13 or later
+  * [CMake](https://cmake.org/), version 3.14 or later
   * zlib
   * git
   * git-lfs [for test data, currently no way to avoid this]
+  * gcc compiler (Clang may work, but is untested)
 * Optional
-  * [Python3](https://www.python.org/) [`BUILD_REGENT=ON`]
-  * [HDF5®](https://www.hdfgroup.org/solutions/hdf5/), version 1.10.5 or later [auto-detected, or `USE_HDF5=ON`]
-  * [LLVM](https://llvm.org/), any version acceptable to *Legion* [`Legion_USE_LLVM=ON`]
-  * [GASNet](https://gasnet.lbl.gov/), any version acceptable to *Legion* [`Legion_USE_GASNET=ON`]
-  * [yaml-cpp](https://github.com/jbeder/yaml-cpp/), version 0.6.2 or later [auto-detected, or `USE_YAML=ON`]
-  * [casacore](https://github.com/casacore/casacore) [auto-detected and `USE_CASACORE=ON`]
+  * [HDF5®](https://www.hdfgroup.org/solutions/hdf5/), version 1.10.5 or later [with `USE_HDF5=ON`]
+  * [LLVM](https://llvm.org/), any version acceptable to *Legion* [with `Legion_USE_LLVM=ON`]
+  * [GASNet](https://gasnet.lbl.gov/), any version acceptable to *Legion* [with `Legion_USE_GASNET=ON`]
+  * [yaml-cpp](https://github.com/jbeder/yaml-cpp/), version 0.6.2 or later [with `USE_YAML=ON`]
+  * [casacore](https://github.com/casacore/casacore) [with `USE_CASACORE=ON`]
+  * [pkgconf](https:://pkgconf.org) or [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config) [with `USE_CASACORE=ON`]
+  * [CUDA](https://developer.nvidia.com/cuda-downloads), version 10.2.89 [with `USE_CUDA=ON`]
+  * [Kokkos](https://github.com/kokkos/kokkos), version 3.1.1 or later [with `USE_KOKKOS=ON`]
+  * [Kokkos Kernels](https://github.com/kokkos/kokkos-kernels) [with `hyperion_USE_KOKKOS_KERNELS=ON`, or `USE_KOKKOS=ON`]
+  * [nvcc_wrapper](https://github.com/kokkos/nvcc_wrapper) [with `USE_CUDA=ON`, `USE_KOKKOS=ON` and gcc compiler]
+  * OpenMP, provided by gcc [with `USE_OPENMP=ON`]
+* Currently unimplemented, but when internal *casacore* build is again available (planned)
   * Required for internal *casacore* build [`USE_CASACORE=ON` and *casacore* auto-detection fails]
     * [GFortran](https://gcc.gnu.org/wiki/GFortran)
     * [flex](https://github.com/westes/flex)
@@ -30,22 +37,28 @@ Several dependencies are optional, and while the software will build without the
     * [BLAS](http://www.netlib.org/blas/)
     * [LAPACK](http://www.netlib.org/lapack/)
 
+#### In-project casacore build
+**The following paragraph is not correct for the master branch of this project**. However, it describes the functionality available in a previous version, which may become available again in the near future.
+
 The dependence on *casacore* is optional, but *hyperion* can be built using *casacore* whether or not *casacore* is already installed on your system. To build *hyperion* without any dependency on *casacore*, simply use `-DUSE_CASACORE=OFF` in the arguments to `cmake`. When `cmake` arguments include `-DUSE_CASACORE=ON` and *casacore* is found by *CMake*, *hyperion* will be built against your *casacore* installation. To provide a hint to locating *casacore*, you may use the `CASACORE_ROOT_DIR` *CMake* variable. If `-DUSE_CASACORE=ON` and no *casacore* installation is found on your system (which can also be forced by setting `-DCASACORE_ROOT_DIR=""`), *casacore* will be downloaded and built as a *CMake* external project for *hyperion*. One variable to consider using when building *casacore* through *hyperion* is `casacore_DATA_DIR`, which provides the path to an instance of the *casacore* data directory. If, however, *casacore* will be built through *hyperion* and `casacore_DATA_DIR` is left undefined, the build script will download, and install within the build directory, a recent copy of the geodetic and ephemerides data automatically. For Ubuntu systems, the required *casacore* components and the *casacore* data are available in the `casacore-dev` and `casacore-data` packages, respectively.
 
-*Legion* itself is always built from a git submodule. A few of its configuration variables have been lifted to the top level `CMakeLists.txt` file, whereas others are set from the *hyperion* configuration to ensure consistency.
+#### In-project Legion
+*Legion* itself is always built in-project using CMake's `FetchContent` module. A few of its configuration variables have been lifted to the top level `CMakeLists.txt` file, whereas others are set from the *hyperion* configuration to ensure consistency. Other *Legion* configuration variables should be available directly when invoking `cmake`.
 
 ### Build instructions
 First, clone the repository.
 ``` shell
 $ cd /my/hyperion/source/directory
-$ git clone --recursive https://github.com/mpokorny/hyperion .
+$ git clone https://github.com/mpokorny/hyperion .
 ```
 
-Create a build directory, and invoke `cmake`. It is recommended to use `-DBUILD_REGENT=OFF` (the default) at this time, as the *hyperion* C API is not up to date.
+Create a build directory, and invoke `cmake`.
 ``` shell
 $ cd /my/hyperion/build/directory
 $ cmake [CMAKE OPTIONS] /my/hyperion/source/directory
 ```
+
+Note that when configured with `USE_KOKKOS=ON` and `USE_CUDA=ON`, shared library builds are not currently supported.
 
 Build the software
 ``` shell
@@ -83,6 +96,6 @@ Usage: `ms2h5 [OPTION...] MS [TABLE...] OUTPUT`, where `MS` is the path to the *
 
 ### gridder
 
-This application will implement a gridding code using A-projection and W-projection, with the possible extensions of FFT/IFFT and de-gridding. It is intended to measure the performance of algorithms implemented using *Legion* for the gridding of visibility data, as would be needed by currently planned radio telescope arrays. The algorithms should be very close to what would be expected to be required for a real instrument, and should not contain any computationally significant shortcuts or workarounds. Eventually, it is expected that alternative implementations for leaf tasks using *OpenMP*, *Kokkos* or the like will be implemented, for execution on both CPUs and GPUs (and possibly FPGAs, should *Legion* support it).
+This application will implement a gridding code using A-projection and W-projection, with the possible extensions of FFT/IFFT and de-gridding. It is intended to measure the performance of algorithms implemented using *Legion* for the gridding of visibility data, as would be needed by currently planned radio telescope arrays. The algorithms should be very close to what would be expected to be required for a real instrument, and should not contain any computationally significant shortcuts or workarounds.
 
 `gridder` is a work in progress, and is not yet functional.
