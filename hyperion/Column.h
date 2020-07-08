@@ -189,6 +189,21 @@ struct HYPERION_EXPORT Column {
   static void
   preregister_tasks();
 
+  /**
+   * Create partition from existing partition by removing axes not present in
+   * this Column.
+   *
+   * Note that the ColumnSpacePartition in a return value may be the same as
+   * that provided by the ColumnSpacePartition input argument.
+   */
+  CXX_OPTIONAL_NAMESPACE::optional<ColumnSpacePartition>
+  narrow_partition(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const ColumnSpacePartition& part,
+    const std::set<int>& block = {},
+    bool nondegenerate = true) const;
+
   hyperion::TypeTag dt; /**< value data type (as hyperion::TypeTag)*/
   Legion::FieldID fid; /**< value Legion::FieldID */
   ColumnSpace cs; /**< column ColumnSpace */

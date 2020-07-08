@@ -230,6 +230,41 @@ Column::preregister_index_accumulate_task() {
     index_accumulate_task_name[(unsigned)DT].c_str());
 }
 
+CXX_OPTIONAL_NAMESPACE::optional<ColumnSpacePartition>
+Column::narrow_partition(
+  Context ctx,
+  Runtime* rt,
+  const ColumnSpacePartition& part,
+  const std::set<int>& block,
+  bool nondegenerate) const {
+
+  CXX_OPTIONAL_NAMESPACE::optional<ColumnSpacePartition> result;
+  if (!nondegenerate || part.is_valid()) {
+    if (part.is_valid() && part.column_space == cs) {
+      result = part;
+    } else if (!nondegenerate
+               || part.column_space.axes_uid(ctx, rt) == cs.axes_uid(ctx, rt)) {
+      std::vector<AxisPartition> ap;
+      if (part.is_valid()) {
+        auto axes = cs.axes(ctx, rt);
+        std::set<int> permit(axes.begin(), axes.end());
+        for (auto& b : block)
+          permit.erase(b);
+        for (int i = 0; i < part.color_dim(rt); ++i) {
+          int d = part.partition[i].dim;
+          if (permit.count(d) > 0)
+            ap.push_back(part.partition[i]);
+        }
+      }
+      if (!nondegenerate || ap.size() > 0)
+        result =
+          ColumnSpacePartition::create(ctx, rt, cs, ap)
+          .get_result<ColumnSpacePartition>();
+    }
+  }
+  return result;
+}
+
 void
 Column::preregister_tasks() {
   {
