@@ -372,6 +372,17 @@ public:
     const std::unordered_map<std::string, std::tuple<bool, bool, bool>>&
       column_modes) const;
 
+  PhysicalTable
+  map_inline(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::map<
+      std::string,
+      CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>>&
+      column_requirements = {},
+    const CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>&
+      default_column_requirements = Column::default_requirements) const;
+
   static void
   preregister_tasks();
 

@@ -276,6 +276,46 @@ Table::attach_columns(
   return result;
 }
 
+PhysicalTable
+Table::map_inline(
+  Context ctx,
+  Runtime* rt,
+  const std::map<
+    std::string,
+    CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>>&
+    column_requirements,
+  const CXX_OPTIONAL_NAMESPACE::optional<Column::Requirements>&
+    default_column_requirements) const {
+
+  auto reqs =
+    requirements(
+      ctx,
+      rt,
+      ColumnSpacePartition(),
+      column_requirements,
+      default_column_requirements);
+#if HAVE_CXX17
+  auto& [treqs, tparts, tdesc] = reqs;
+#else
+  auto& treqs = std::get<0>(reqs);
+  auto& tdesc = std::get<2>(reqs);
+#endif
+  std::vector<PhysicalRegion> tprs;
+  for (auto& tr : treqs)
+    tprs.push_back(rt->map_region(ctx, tr));
+
+  return
+    std::get<0>(
+      PhysicalTable::create(
+        rt,
+        tdesc,
+        treqs.begin(),
+        treqs.end(),
+        tprs.begin(),
+        tprs.end())
+      .value());
+}
+
 Table
 Table::create(
   Context ctx,
