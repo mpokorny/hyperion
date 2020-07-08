@@ -1697,6 +1697,15 @@ register_mapper(
 HYPERION_EXPORT void
 preregister_all();
 
+HYPERION_EXPORT void
+add_soa_right_ordering_constraint(Legion::LayoutConstraintRegistrar& reg);
+HYPERION_EXPORT void
+add_soa_left_ordering_constraint(Legion::LayoutConstraintRegistrar& reg);
+HYPERION_EXPORT void
+add_aos_right_ordering_constraint(Legion::LayoutConstraintRegistrar& reg);
+HYPERION_EXPORT void
+add_aos_left_ordering_constraint(Legion::LayoutConstraintRegistrar& reg);
+
 HYPERION_EXPORT extern Legion::MapperID table_mapper;
 HYPERION_EXPORT extern Legion::LayoutConstraintID soa_right_layout;
 HYPERION_EXPORT extern Legion::LayoutConstraintID soa_left_layout;

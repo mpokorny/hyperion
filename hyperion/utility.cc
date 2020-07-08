@@ -629,6 +629,78 @@ hyperion::preregister_all() {
 #endif
 }
 
+void
+hyperion::add_soa_right_ordering_constraint(
+  Legion::LayoutConstraintRegistrar& reg) {
+
+  for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
+    std::vector<DimensionKind> dims(rank + 1);
+    auto d = dims.rbegin();
+    *d++ = DimensionKind::DIM_F;
+    std::generate(
+      d,
+      dims.rend(),
+      [n = static_cast<int>(DimensionKind::DIM_X)]() mutable {
+        return static_cast<DimensionKind>(n++);
+      });
+    reg.add_constraint(OrderingConstraint(dims, false));
+  }
+}
+
+void
+hyperion::add_soa_left_ordering_constraint(
+  Legion::LayoutConstraintRegistrar& reg) {
+
+  for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
+    std::vector<DimensionKind> dims(rank + 1);
+    auto d = dims.rbegin();
+    *d++ = DimensionKind::DIM_F;
+    std::generate(
+      d,
+      dims.rend(),
+      [n = static_cast<int>(DimensionKind::DIM_X + rank - 1)]() mutable {
+        return static_cast<DimensionKind>(n--);
+      });
+    reg.add_constraint(OrderingConstraint(dims, false));
+  }
+}
+
+void
+hyperion::add_aos_right_ordering_constraint(
+  Legion::LayoutConstraintRegistrar& reg) {
+
+  for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
+    std::vector<DimensionKind> dims(rank + 1);
+    auto d = dims.begin();
+    *d++ = DimensionKind::DIM_F;
+    std::generate(
+      d,
+      dims.end(),
+      [n = static_cast<int>(DimensionKind::DIM_X + rank - 1)]() mutable {
+        return static_cast<DimensionKind>(n--);
+      });
+    reg.add_constraint(OrderingConstraint(dims, false));
+  }
+}
+
+void
+hyperion::add_aos_left_ordering_constraint(
+  Legion::LayoutConstraintRegistrar& reg) {
+
+  for (unsigned rank = 1; rank <= LEGION_MAX_DIM; ++rank) {
+    std::vector<DimensionKind> dims(rank + 1);
+    auto d = dims.begin();
+    *d++ = DimensionKind::DIM_F;
+    std::generate(
+      d,
+      dims.end(),
+      [n = static_cast<int>(DimensionKind::DIM_X)]() mutable {
+        return static_cast<DimensionKind>(n++);
+      });
+    reg.add_constraint(OrderingConstraint(dims, false));
+  }
+}
+
 std::unordered_map<std::string, hyperion::AxesRegistrar::A>
 hyperion::AxesRegistrar::axes_;
 
