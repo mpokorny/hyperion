@@ -158,9 +158,13 @@ typedef IndexTree<Legion::coord_t> IndexTreeL;
 #ifndef HYPERION_USE_KOKKOS
 template <typename T>
 using complex = std::complex<T>;
+template <typename T, size_t N>
+using array = std::array<T, N>;
 #else
 template <typename T>
 using complex = Kokkos::complex<T>;
+template <typename T, size_t N>
+using array = Kokkos::Array<T, N>;
 #endif
 
 #ifdef HYPERION_USE_CASACORE
