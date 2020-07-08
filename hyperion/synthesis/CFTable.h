@@ -29,6 +29,8 @@ class CFTable
   : public CFTableBase {
 public:
 
+  static const constexpr unsigned index_rank = sizeof...(AXES);
+
   CFTable(hyperion::Table&& t)
     : CFTableBase(std::move(t)) {}
 
