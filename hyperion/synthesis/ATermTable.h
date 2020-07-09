@@ -65,6 +65,9 @@ public:
     const std::vector<typename cf_table_axis<CF_STOKES_IN>::type>&
       stokes_in_values);
 
+  /**
+   * compute the ATerm convolution functions
+   */
   void
   compute_cfs(
     Legion::Context ctx,

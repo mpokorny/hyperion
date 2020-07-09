@@ -23,15 +23,16 @@
 #define HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES                  \
   CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_STOKES
 
-#include <hyperion/synthesis/ATermTable.h>
 #include <hyperion/synthesis/ATermZernikeModel.h>
 
 namespace hyperion {
 namespace synthesis {
 
-class ATermTable;
-class ATermZernikeModel;
-
+/**
+ * Helper table for ATermTable. For aperture illumination function values on a
+ * grid, with dependence on baseline class, parallactic angle, frequency, and
+ * Stokes value.
+ */
 class HYPERION_EXPORT ATermIlluminationFunction
   : public CFTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES> {
 public:
@@ -76,6 +77,11 @@ public:
   static const constexpr unsigned d_power = d_y + 1;
   static const constexpr unsigned ept_rank = d_power + 1;
 
+  /**
+   * column of function evaluation point values on the grid
+   *
+   * This exists to provide for the evaluation of rotated functions
+   */
   static const constexpr Legion::FieldID EPT_X_FID = 88;
   static const constexpr Legion::FieldID EPT_Y_FID = 89;
   static const constexpr char* EPT_X_NAME = "EPT_X";
@@ -102,19 +108,23 @@ public:
     COORD_T>;
 
   struct ComputeEPtsTaskArgs {
-    Table::Desc aterm;
     Table::Desc zmodel;
     Table::Desc aif;
   };
 
+  /**
+   * compute the values of the function evaluation points column
+   */
   void
   compute_epts(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const ATermTable& aterm_table,
     const ATermZernikeModel& zmodel,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
+  /**
+   * compute the values of the aperture illumination function column
+   **/
   void
   compute_cfs(
     Legion::Context ctx,
@@ -140,7 +150,7 @@ public:
     const ComputeEPtsTaskArgs& args =
       *static_cast<const ComputeEPtsTaskArgs*>(task->args);
 
-    std::vector<Table::Desc> descs{args.aterm, args.zmodel, args.aif};
+    std::vector<Table::Desc> descs{args.zmodel, args.aif};
     auto ptcrs =
       PhysicalTable::create_many(
         rt,
@@ -160,14 +170,6 @@ public:
     assert(rit == task->regions.end());
     assert(pit == regions.end());
 
-    // parallactic angle column
-    auto aterm_tbl = CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>(pts[0]);
-    auto parallactic_angle_col =
-      aterm_tbl.parallactic_angle<Legion::AffineAccessor>();
-    auto parallactic_angles =
-      parallactic_angle_col.view<execution_space, READ_ONLY>();
-    typedef decltype(parallactic_angle_col)::value_t pa_t;
-
     // polynomial function coefficients column
     auto zmodel =
       CFPhysicalTable<HYPERION_A_TERM_ZERNIKE_MODEL_AXES>(pts[1]);
@@ -177,9 +179,16 @@ public:
     auto pcs = pc_col.view<execution_space, READ_ONLY>();
     typedef ATermZernikeModel::pc_t pc_t;
 
-    // polynomial function evaluation points columns
+    // parallactic angle column
     auto aif =
       CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pts[2]);
+    auto parallactic_angle_col =
+      aif.parallactic_angle<Legion::AffineAccessor>();
+    auto parallactic_angles =
+      parallactic_angle_col.view<execution_space, READ_ONLY>();
+    typedef decltype(parallactic_angle_col)::value_t pa_t;
+
+    // polynomial function evaluation points columns
     auto xpt_col =
       EPtColumn<Legion::AffineAccessor>(*aif.column(EPT_X_NAME).value());
     auto xpts = xpt_col.view<execution_space, WRITE_DISCARD>();

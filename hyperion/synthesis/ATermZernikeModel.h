@@ -29,18 +29,27 @@ namespace synthesis {
 
 typedef complex<double> zc_t;/**< Zernike coefficient type */
 
+/**
+ * self-described Zernike expansion coefficient value
+ */
 struct HYPERION_EXPORT ZCoeff {
+  /** baseline class identifier (label) */
   typename cf_table_axis<CF_BASELINE_CLASS>::type baseline_class;
+  /** frequency (label) */
   typename cf_table_axis<CF_FREQUENCY>::type frequency;
+  /** Stokes component (label) */
   stokes_t stokes;
+  /** Zernike coefficient M value (label) */
   int m;
+  /** Zernike coefficient N value (label) */
   unsigned n;
+  /** value of the Zernike expansion coefficient with the given labels */
   zc_t coefficient;
 };
 
 /**
- * Helper table for use by ATermTable. For columns without dependence on
- * parallactic angle.
+ * Helper table for use by ATermTable. For Zernike model parameters and
+ * model polynomial, without dependence on parallactic angle.
  **/
 class HYPERION_EXPORT ATermZernikeModel
   : public CFTable<HYPERION_A_TERM_ZERNIKE_MODEL_AXES> {
@@ -66,6 +75,8 @@ public:
   static const constexpr unsigned d_sto =
     cf_indexing::index_of<CF_STOKES, HYPERION_A_TERM_ZERNIKE_MODEL_AXES>
     ::type::value;
+
+  // column for Zernike expansion coeffiecients
 
   static const constexpr unsigned d_zc = index_rank;
   static const constexpr unsigned zc_rank = d_zc + 1;
@@ -97,6 +108,8 @@ public:
   static const constexpr typename cf_table_axis<CF_FREQUENCY>::type
     zc_exact_frequency_tolerance = 0.01;
 
+  // column for coefficients of polynomial function representation of Zernike
+  // expansion
   static const constexpr unsigned d_pc0 = index_rank;
   static const constexpr unsigned d_pc1 = d_pc0 + 1;
   static const constexpr unsigned pc_rank = d_pc1 + 1;
@@ -123,6 +136,10 @@ public:
       A,
       COORD_T>;
 
+  /**
+   * compute the coefficients of the polynomial function representation of the
+   * Zernike expansion
+   */
   void
   compute_pcs(
     Legion::Context ctx,
@@ -131,6 +148,10 @@ public:
 
 //protected:
 
+  /**
+   * initialize the Zernike coefficients column from unsorted vector of baseline
+   * class-, frequency- and Stokes-dependent coefficient values
+   */
   void
   init_zc_region(
     Legion::Context ctx,

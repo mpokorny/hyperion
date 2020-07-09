@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include <hyperion/synthesis/ATermIlluminationFunction.h>
-#include <hyperion/synthesis/ATermTable.h>
 
 using namespace hyperion;
 using namespace hyperion::synthesis;
@@ -36,6 +35,10 @@ const constexpr Legion::FieldID ATermIlluminationFunction::EPT_Y_FID;
 const constexpr char* ATermIlluminationFunction::EPT_X_NAME;
 const constexpr char* ATermIlluminationFunction::EPT_Y_NAME;
 #endif // !HAVE_CXX17
+
+#define ENABLE_KOKKOS_SERIAL_EPTS_TASK
+#define ENABLE_KOKKOS_OPENMP_EPTS_TASK
+#define ENABLE_KOKKOS_CUDA_EPTS_TASK
 
 ATermIlluminationFunction::ATermIlluminationFunction(
   Context ctx,
@@ -102,7 +105,6 @@ void
 ATermIlluminationFunction::compute_epts(
   Legion::Context ctx,
   Legion::Runtime* rt,
-  const ATermTable& aterm_table,
   const ATermZernikeModel& zmodel,
   const ColumnSpacePartition& partition) const {
 
@@ -110,37 +112,15 @@ ATermIlluminationFunction::compute_epts(
   std::vector<ColumnSpacePartition> all_parts;
   ComputeEPtsTaskArgs args;
   {
-    // ATermTable, parallactic angle column
-    auto default_colreqs = Column::default_requirements;
-    default_colreqs.values.mapped = true;
-    auto reqs =
-      aterm_table.requirements(
-        ctx,
-        rt,
-        partition,
-        {{cf_table_axis<CF_PARALLACTIC_ANGLE>::name, default_colreqs}},
-        CXX_OPTIONAL_NAMESPACE::nullopt);
-#if HAVE_CXX17
-    auto& [treqs, tparts, tdesc] = reqs;
-#else // !HAVE_CXX17
-    auto& treqs = std::get<0>(reqs);
-    auto& tparts = std::get<1>(reqs);
-    auto& tdesc = std::get<2>(reqs);
-#endif // HAVE_CXX17
-    std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
-    std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
-    args.aterm = tdesc;
-  }
-  {
     // ATermZernikeModel table, polynomial coefficients column
-    auto default_colreqs = Column::default_requirements;
-    default_colreqs.values.mapped = true;
+    auto ro_colreqs = Column::default_requirements;
+    ro_colreqs.values.mapped = true;
     auto reqs =
       zmodel.requirements(
         ctx,
         rt,
         partition,
-        {{ATermZernikeModel::PC_NAME, default_colreqs}},
+        {{ATermZernikeModel::PC_NAME, ro_colreqs}},
         CXX_OPTIONAL_NAMESPACE::nullopt);
 #if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
@@ -155,16 +135,19 @@ ATermIlluminationFunction::compute_epts(
   }
   {
     // ATermIlluminationFunction table, epts columns
-    auto default_colreqs = Column::default_requirements;
-    default_colreqs.values.privilege = WRITE_DISCARD;
-    default_colreqs.values.mapped = true;
+    auto wd_colreqs = Column::default_requirements;
+    wd_colreqs.values.privilege = WRITE_DISCARD;
+    wd_colreqs.values.mapped = true;
+    auto ro_colreqs = Column::default_requirements;
+    ro_colreqs.values.mapped = true;
     auto reqs =
       requirements(
         ctx,
         rt,
         partition,
-        {{ATermIlluminationFunction::EPT_X_NAME, default_colreqs},
-         {ATermIlluminationFunction::EPT_Y_NAME, default_colreqs}},
+        {{ATermIlluminationFunction::EPT_X_NAME, wd_colreqs},
+         {ATermIlluminationFunction::EPT_Y_NAME, wd_colreqs},
+         {cf_table_axis<CF_PARALLACTIC_ANGLE>::name, ro_colreqs}},
         CXX_OPTIONAL_NAMESPACE::nullopt);
 #if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
@@ -215,7 +198,7 @@ ATermIlluminationFunction::preregister_tasks() {
     // using EPT_X and EPT_Y; use an AOS layout for CPUs as default for that
     // reason
 #ifdef HYPERION_USE_KOKKOS
-# ifdef KOKKOS_ENABLE_SERIAL
+# if defined(KOKKOS_ENABLE_SERIAL) && defined(ENABLE_KOKKOS_SERIAL_EPTS_TASK)
     {
       TaskVariantRegistrar
         registrar(compute_epts_task_id, compute_epts_task_name);
@@ -240,7 +223,7 @@ ATermIlluminationFunction::preregister_tasks() {
         compute_epts_task_name);
     }
 # endif // KOKKOS_ENABLE_SERIAL
-# ifdef KOKKOS_ENABLE_OPENMP
+# if defined(KOKKOS_ENABLE_OPENMP) && defined(ENABLE_KOKKOS_OPENMP_EPTS_TASK)
     {
       TaskVariantRegistrar
         registrar(compute_epts_task_id, compute_epts_task_name);
@@ -265,7 +248,7 @@ ATermIlluminationFunction::preregister_tasks() {
         compute_epts_task_name);
     }
 # endif // KOKKOS_ENABLE_OPENMP
-# ifdef KOKKOS_ENABLE_CUDA
+# if defined(KOKKOS_ENABLE_CUDA) && defined(ENABLE_KOKKOS_CUDA_EPTS_TASK)
     {
       TaskVariantRegistrar
         registrar(compute_epts_task_id, compute_epts_task_name);

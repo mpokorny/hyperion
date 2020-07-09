@@ -26,6 +26,10 @@ using namespace Legion;
 
 TaskID ATermTable::compute_cfs_task_id;
 
+#define ENABLE_KOKKOS_SERIAL_CFS_TASK
+#define ENABLE_KOKKOS_OPENMP_CFS_TASK
+#define ENABLE_KOKKOS_CUDA_CFS_TASK
+
 ATermTable::ATermTable(
   Context ctx,
   Runtime* rt,
@@ -290,8 +294,7 @@ ATermTable::compute_cfs(
     if (p != partition)
       p.destroy(ctx, rt);
   }
-  // create table for polynomial function evaluation points, and CFs for each
-  // Stokes value
+  // create table for aperture illumination functions
   unsigned zernike_order = 0;
   for (auto& zc : zernike_coefficients)
     zernike_order = std::max(zernike_order, zc.n);
@@ -304,19 +307,21 @@ ATermTable::compute_cfs(
     parallactic_angles,
     frequencies,
     stokes_values);
-  // compute polynomial function evaluation points
+  // compute polynomial function evaluation points for aperture illumination
+  // functions
   {
     auto p =
       aif.columns().at(CF_VALUE_COLUMN_NAME)
       .narrow_partition(ctx, rt, partition)
       .value_or(partition);
-    aif.compute_epts(ctx, rt, *this, zmodel, p);
+    aif.compute_epts(ctx, rt, zmodel, p);
     if (p != partition)
       p.destroy(ctx, rt);
   }
   zmodel.destroy(ctx, rt);
 
-  // compute CF for each Stokes value
+  // evaluate aperture illumination polynomial function values for each
+  // Stokes value
   {
     // no partition on X/Y, as ATermIlluminationFunction::compute_cfs() doesn't
     // know how to do a distributed FFT
@@ -328,7 +333,7 @@ ATermTable::compute_cfs(
     if (p != partition)
       p.destroy(ctx, rt);
   }
-  auto aterm_part = // partition of CF value/weight columns
+  auto aterm_part = // partition of illumination function value/weight columns
     columns().at(CF_VALUE_COLUMN_NAME)
     .narrow_partition(ctx, rt, partition)
     .value_or(partition);
@@ -354,7 +359,7 @@ ATermTable::compute_cfs(
     // depend on a strict subset of the Stokes components. We therefore create a
     // map from Mueller axes partition sub-space indexes to Stokes value subsets
     // as a first step in creating the minimal dependency relations of Mueller
-    // CF regions on Stokes CF regions.
+    // CF regions on Stokes aperture illumination function regions.
 
     // create an aliased partition of aif based on the Stokes value subsets
     // needed by the Mueller axis partition
@@ -394,7 +399,7 @@ ATermTable::compute_cfs(
   std::vector<ColumnSpacePartition> all_parts;
   ComputeCFsTaskArgs args;
   {
-    // ATermIlluminationFunction, Stokes-based CF value and weight columns
+    // ATermIlluminationFunction value and weight columns
     auto sto_part_colreqs = Column::default_requirements;
     sto_part_colreqs.values.mapped = true;
     sto_part_colreqs.partition = aif_read_lp; // OK to be NO_PART
@@ -402,7 +407,7 @@ ATermTable::compute_cfs(
     // we'll need to map Stokes values to region indexes in compute_cfs_task,
     // which may be derived from the Stokes index column (we don't bother to
     // make a special partition for this purpose -- aterm_part will leave the
-    // Stokes axis unpartitioned)
+    // CF_STOKES axis unpartitioned)
     auto colreqs = Column::default_requirements;
     colreqs.values.mapped = true;
     auto reqs =
@@ -453,6 +458,7 @@ ATermTable::compute_cfs(
     std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
     args.aterm = tdesc;
   }
+  // launch the compute_cfs task
   if (!aterm_part.is_valid()) {
     TaskLauncher task(
       compute_cfs_task_id,
@@ -474,6 +480,7 @@ ATermTable::compute_cfs(
       task.add_region_requirement(r);
     rt->execute_index_space(ctx, task);
   }
+  // clean up
   for (auto& p : all_parts)
     p.destroy(ctx, rt);
   if (aif_read_ip != IndexPartition::NO_PART)
@@ -502,7 +509,7 @@ ATermTable::preregister_tasks() {
     compute_cfs_task_id = Runtime::generate_static_task_id();
 
 #ifdef HYPERION_USE_KOKKOS
-# ifdef KOKKOS_ENABLE_SERIAL
+# if defined(KOKKOS_ENABLE_SERIAL) && defined(ENABLE_KOKKOS_SERIAL_CFS_TASK)
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
@@ -527,7 +534,7 @@ ATermTable::preregister_tasks() {
         compute_cfs_task_name);
     }
 # endif
-# ifdef KOKKOS_ENABLE_OPENMP
+# if defined(KOKKOS_ENABLE_OPENMP) && defined(ENABLE_KOKKOS_OPENMP_CFS_TASK)
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
@@ -552,7 +559,7 @@ ATermTable::preregister_tasks() {
         compute_cfs_task_name);
     }
 # endif
-# ifdef KOKKOS_ENABLE_CUDA
+# if defined(KOKKOS_ENABLE_CUDA) && defined(ENABLE_KOKKOS_CUDA_CFS_TASK)
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
