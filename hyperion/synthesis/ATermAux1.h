@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2020 Associated Universities, Inc. Washington DC, USA.
  *
@@ -240,6 +241,7 @@ public:
         const Legion::coord_t& x,
         const Legion::coord_t& y) {
 
+        // TODO: measure performance impact of using subviews
         auto powx = Kokkos::subview(xpts, blc, pa, frq, sto, x, y, Kokkos::ALL);
         auto powy = Kokkos::subview(ypts, blc, pa, frq, sto, x, y, Kokkos::ALL);
 

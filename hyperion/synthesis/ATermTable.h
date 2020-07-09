@@ -181,12 +181,12 @@ public:
     Kokkos::parallel_for(
       Kokkos::TeamPolicy<execution_space>(
         kokkos_work_space,
-        linearized_range_size(truncated_aterm_rect),
+        linearized_index_range(truncated_aterm_rect),
         Kokkos::AUTO(),
         y_size),
       KOKKOS_LAMBDA(const member_type& team_member) {
         auto pt =
-          delinearized_in_range(
+          multidimensional_index(
             static_cast<Legion::coord_t>(team_member.league_rank()),
             truncated_aterm_rect);
         auto& blc = pt[0];
@@ -232,6 +232,7 @@ public:
           Kokkos::TeamThreadRange(team_member, x_size),
           [=](const auto x0) {
             const auto x = x0 + aterm_rect.lo[5];
+            // TODO: measure performance impact of using subviews
             auto ats_x = Kokkos::subview(ats, x, Kokkos::ALL);
             auto left_x = Kokkos::subview(left, x, Kokkos::ALL);
             auto right_x = Kokkos::subview(right, x, Kokkos::ALL);

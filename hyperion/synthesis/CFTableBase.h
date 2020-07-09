@@ -228,7 +228,7 @@ public:
 
   template <int N, typename T>
   static T
-  linearized_in_range(
+  linearized_index(
     const array<T, N>& pt,
     const Legion::Rect<N, T>& bounds) {
     T result = 0;
@@ -242,7 +242,7 @@ public:
 
   template <int N, typename T>
   static T
-  linearized_range_size(const Legion::Rect<N, T>& bounds) {
+  linearized_index_range(const Legion::Rect<N, T>& bounds) {
     T result = 1;
     for (size_t i = 0; i < N; ++i)
       result *= bounds.hi[i] - bounds.lo[i] + 1;
@@ -251,7 +251,7 @@ public:
 
   template <int N, typename T>
   static KOKKOS_INLINE_FUNCTION array<T, N>
-  delinearized_in_range(T pt, const Legion::Rect<N, T>& bounds) {
+  multidimensional_index(T pt, const Legion::Rect<N, T>& bounds) {
     array<T, N> result;
     T stride = 1;
     for (size_t i = 1; i < N; ++i)
