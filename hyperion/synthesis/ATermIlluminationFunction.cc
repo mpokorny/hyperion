@@ -13,31 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <hyperion/synthesis/ATermAux1.h>
+#include <hyperion/synthesis/ATermIlluminationFunction.h>
 #include <hyperion/synthesis/ATermTable.h>
 
 using namespace hyperion;
 using namespace hyperion::synthesis;
 using namespace Legion;
 
-TaskID ATermAux1::compute_epts_task_id;
+TaskID ATermIlluminationFunction::compute_epts_task_id;
 
 #if !HAVE_CXX17
-const constexpr unsigned ATermAux1::d_blc;
-const constexpr unsigned ATermAux1::d_pa;
-const constexpr unsigned ATermAux1::d_frq;
-const constexpr unsigned ATermAux1::d_sto;
-const constexpr unsigned ATermAux1::d_x;
-const constexpr unsigned ATermAux1::d_y;
-const constexpr unsigned ATermAux1::d_power;
-const constexpr unsigned ATermAux1::ept_rank;
-const constexpr Legion::FieldID ATermAux1::EPT_X_FID;
-const constexpr Legion::FieldID ATermAux1::EPT_Y_FID;
-const constexpr char* ATermAux1::EPT_X_NAME;
-const constexpr char* ATermAux1::EPT_Y_NAME;
+const constexpr unsigned ATermIlluminationFunction::d_blc;
+const constexpr unsigned ATermIlluminationFunction::d_pa;
+const constexpr unsigned ATermIlluminationFunction::d_frq;
+const constexpr unsigned ATermIlluminationFunction::d_sto;
+const constexpr unsigned ATermIlluminationFunction::d_x;
+const constexpr unsigned ATermIlluminationFunction::d_y;
+const constexpr unsigned ATermIlluminationFunction::d_power;
+const constexpr unsigned ATermIlluminationFunction::ept_rank;
+const constexpr Legion::FieldID ATermIlluminationFunction::EPT_X_FID;
+const constexpr Legion::FieldID ATermIlluminationFunction::EPT_Y_FID;
+const constexpr char* ATermIlluminationFunction::EPT_X_NAME;
+const constexpr char* ATermIlluminationFunction::EPT_Y_NAME;
 #endif // !HAVE_CXX17
 
-ATermAux1::ATermAux1(
+ATermIlluminationFunction::ATermIlluminationFunction(
   Context ctx,
   Runtime* rt,
   const Rect<2>& cf_bounds,
@@ -99,7 +99,7 @@ ATermAux1::ATermAux1(
 }
 
 void
-ATermAux1::compute_epts(
+ATermIlluminationFunction::compute_epts(
   Legion::Context ctx,
   Legion::Runtime* rt,
   const ATermTable& aterm_table,
@@ -154,7 +154,7 @@ ATermAux1::compute_epts(
     args.zmodel = tdesc;
   }
   {
-    // ATermAux1 table, epts columns
+    // ATermIlluminationFunction table, epts columns
     auto default_colreqs = Column::default_requirements;
     default_colreqs.values.privilege = WRITE_DISCARD;
     default_colreqs.values.mapped = true;
@@ -163,8 +163,8 @@ ATermAux1::compute_epts(
         ctx,
         rt,
         partition,
-        {{ATermAux1::EPT_X_NAME, default_colreqs},
-         {ATermAux1::EPT_Y_NAME, default_colreqs}},
+        {{ATermIlluminationFunction::EPT_X_NAME, default_colreqs},
+         {ATermIlluminationFunction::EPT_Y_NAME, default_colreqs}},
         CXX_OPTIONAL_NAMESPACE::nullopt);
 #if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
@@ -175,7 +175,7 @@ ATermAux1::compute_epts(
 #endif // HAVE_CXX17
     std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
     std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
-    args.aux1 = tdesc;
+    args.aif = tdesc;
   }
   TaskArgument ta(&args, sizeof(args));
   if (!partition.is_valid()) {
@@ -204,14 +204,14 @@ ATermAux1::compute_epts(
 }
 
 void
-ATermAux1::preregister_tasks() {
+ATermIlluminationFunction::preregister_tasks() {
   //
   // compute_epts_task
   //
   {
     compute_epts_task_id = Runtime::generate_static_task_id();
 
-    // the only table with two columns sharing an index space is ATermAux1,
+    // the only table with two columns sharing an index space is ATermIlluminationFunction,
     // using EPT_X and EPT_Y; use an AOS layout for CPUs as default for that
     // reason
 #ifdef HYPERION_USE_KOKKOS
@@ -227,7 +227,7 @@ ATermAux1::preregister_tasks() {
       LayoutConstraintRegistrar
         constraints(
           FieldSpace::NO_SPACE,
-          "ATermAux1::compute_cfs_constraints");
+          "ATermIlluminationFunction::compute_cfs_constraints");
       add_aos_right_ordering_constraint(constraints);
       constraints.add_constraint(
         SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
@@ -252,7 +252,7 @@ ATermAux1::preregister_tasks() {
       LayoutConstraintRegistrar
         constraints(
           FieldSpace::NO_SPACE,
-          "ATermAux1::compute_cfs_constraints");
+          "ATermIlluminationFunction::compute_cfs_constraints");
       add_aos_right_ordering_constraint(constraints);
       constraints.add_constraint(
         SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
@@ -277,7 +277,7 @@ ATermAux1::preregister_tasks() {
       LayoutConstraintRegistrar
         constraints(
           FieldSpace::NO_SPACE,
-          "ATermAux1::compute_cfs_constraints");
+          "ATermIlluminationFunction::compute_cfs_constraints");
       add_soa_left_ordering_constraint(constraints);
       constraints.add_constraint(
         SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
@@ -302,7 +302,7 @@ ATermAux1::preregister_tasks() {
       LayoutConstraintRegistrar
         constraints(
           FieldSpace::NO_SPACE,
-          "ATermAux1::compute_cfs_constraints");
+          "ATermIlluminationFunction::compute_cfs_constraints");
       add_aos_right_ordering_constraint(constraints);
       constraints.add_constraint(
         SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));

@@ -88,14 +88,14 @@ map_mueller_to_stokes(
   const ColumnSpacePartition& aterm_part,
   const std::vector<stokes_t>& stokes_out_values,
   const std::vector<stokes_t>& stokes_in_values,
-  const IndexSpace& aux1_cf_is,
+  const IndexSpace& aif_cf_is,
   const std::vector<stokes_t>& stokes_values) {
 
   auto aterm_part_color_space =
     rt->get_index_partition_color_space_name(ctx, aterm_part.column_ip);
 
   auto result =
-    rt->create_pending_partition(ctx, aux1_cf_is, aterm_part_color_space);
+    rt->create_pending_partition(ctx, aif_cf_is, aterm_part_color_space);
 
   std::map<stokes_t, unsigned> stokes_value_indexes;
   for (size_t i = 0; i < stokes_values.size(); ++i)
@@ -123,21 +123,21 @@ map_mueller_to_stokes(
          rt->get_index_space_domain(ctx, aterm_part_color_space));
        pid();
        pid++) {
-    // create rectangles in aux1_cf_is of Stokes indexes for this set of Mueller
+    // create rectangles in aif_cf_is of Stokes indexes for this set of Mueller
     // elements
     Rect<ATermTable::index_rank + 2> aterm_bounds =
       rt->get_index_space_domain(
         ctx,
         rt->get_index_subspace(ctx, aterm_part.column_ip, DomainPoint(*pid)));
-    // rectangles in aux1 are the same as aterm_bounds except that they have a
+    // rectangles in aif are the same as aterm_bounds except that they have a
     // single Stokes axis with a single index in the stokes_values domain (the
     // dimension index of this single Stokes axis is assumed to be the same as
     // stokes_out_dim)
-    Rect<ATermAux1::index_rank + 2> aux1_bounds;
+    Rect<ATermIlluminationFunction::index_rank + 2> aif_bounds;
     for (size_t i = 0, j = 0; i < ATermTable::index_rank + 2; ++i) {
       if (i != stokes_in_dim) {
-        aux1_bounds.lo[j] = aterm_bounds.lo[i];
-        aux1_bounds.hi[j] = aterm_bounds.hi[i];
+        aif_bounds.lo[j] = aterm_bounds.lo[i];
+        aif_bounds.hi[j] = aterm_bounds.hi[i];
         ++j;
       }
     }
@@ -161,11 +161,11 @@ map_mueller_to_stokes(
     std::map<DomainPoint, Domain> domains;
     unsigned i = 0;
     for (auto& s : sto_idxs) {
-      Rect<ATermAux1::index_rank + 2> r = aux1_bounds;
+      Rect<ATermIlluminationFunction::index_rank + 2> r = aif_bounds;
       r.lo[stokes_dim] = r.hi[stokes_dim] = s;
       domains[i++] = r;
     }
-    auto ip = rt->create_partition_by_domain(ctx, aux1_cf_is, domains, cs);
+    auto ip = rt->create_partition_by_domain(ctx, aif_cf_is, domains, cs);
     std::vector<IndexSpace> iss;
     for (unsigned i = 0; i < sto_idxs.size(); ++i)
       iss.push_back(rt->get_index_subspace(ctx, ip, i));
@@ -295,7 +295,7 @@ ATermTable::compute_cfs(
   unsigned zernike_order = 0;
   for (auto& zc : zernike_coefficients)
     zernike_order = std::max(zernike_order, zc.n);
-  ATermAux1 aux1(
+  ATermIlluminationFunction aif(
     ctx,
     rt,
     cf_bounds,
@@ -307,10 +307,10 @@ ATermTable::compute_cfs(
   // compute polynomial function evaluation points
   {
     auto p =
-      aux1.columns().at(CF_VALUE_COLUMN_NAME)
+      aif.columns().at(CF_VALUE_COLUMN_NAME)
       .narrow_partition(ctx, rt, partition)
       .value_or(partition);
-    aux1.compute_epts(ctx, rt, *this, zmodel, p);
+    aif.compute_epts(ctx, rt, *this, zmodel, p);
     if (p != partition)
       p.destroy(ctx, rt);
   }
@@ -318,13 +318,13 @@ ATermTable::compute_cfs(
 
   // compute CF for each Stokes value
   {
-    // no partition on X/Y, as ATermAux1::compute_cfs() doesn't know how to do a
-    // distributed FFT
+    // no partition on X/Y, as ATermIlluminationFunction::compute_cfs() doesn't
+    // know how to do a distributed FFT
     auto p =
-      aux1.columns().at(CF_VALUE_COLUMN_NAME)
+      aif.columns().at(CF_VALUE_COLUMN_NAME)
       .narrow_partition(ctx, rt, partition, {CF_X, CF_Y})
       .value_or(partition);
-    aux1.compute_cfs(ctx, rt, p);
+    aif.compute_cfs(ctx, rt, p);
     if (p != partition)
       p.destroy(ctx, rt);
   }
@@ -344,8 +344,8 @@ ATermTable::compute_cfs(
       rt,
       partition,
       {CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_STOKES});
-  IndexPartition aux1_read_ip;
-  LogicalPartition aux1_read_lp;
+  IndexPartition aif_read_ip;
+  LogicalPartition aif_read_lp;
 
   if (m_p) {
     // Because every Mueller element depends on one or two Stokes components
@@ -356,27 +356,27 @@ ATermTable::compute_cfs(
     // as a first step in creating the minimal dependency relations of Mueller
     // CF regions on Stokes CF regions.
 
-    // create an aliased partition of aux1 based on the Stokes value subsets
+    // create an aliased partition of aif based on the Stokes value subsets
     // needed by the Mueller axis partition
     {
-      auto aux1_cf_col = aux1.columns().at(CF_VALUE_COLUMN_NAME);
-      auto aux1_cf_is = aux1_cf_col.cs.column_is;
-      static_assert(index_rank == ATermAux1::index_rank + 1);
+      auto aif_cf_col = aif.columns().at(CF_VALUE_COLUMN_NAME);
+      auto aif_cf_is = aif_cf_col.cs.column_is;
+      static_assert(index_rank == ATermIlluminationFunction::index_rank + 1);
 
       // To create the partition using Runtime::create_partition_by_domain(), we
       // need the mapping from subspaces in aterm_part to Domains in
-      // aux1_cf_is
+      // aif_cf_is
       switch (aterm_part.color_dim(rt)) {
 #define MAP_MUELLER_TO_STOKES(N)                \
         case N:                                 \
-          aux1_read_ip =                        \
+          aif_read_ip =                        \
             map_mueller_to_stokes<N>(           \
               ctx,                              \
               rt,                               \
               aterm_part,                       \
               stokes_out_values,                \
               stokes_in_values,                 \
-              aux1_cf_is,                       \
+              aif_cf_is,                       \
               stokes_values);                   \
           break;
       HYPERION_FOREACH_N(MAP_MUELLER_TO_STOKES);
@@ -385,8 +385,8 @@ ATermTable::compute_cfs(
         assert(false);
         break;
       }
-      aux1_read_lp =
-        rt->get_logical_partition(ctx, aux1_cf_col.region, aux1_read_ip);
+      aif_read_lp =
+        rt->get_logical_partition(ctx, aif_cf_col.region, aif_read_ip);
     }
   }
   // compute the elements of the Mueller matrix
@@ -394,10 +394,10 @@ ATermTable::compute_cfs(
   std::vector<ColumnSpacePartition> all_parts;
   ComputeCFsTaskArgs args;
   {
-    // ATermAux1, Stokes-based CF value and weight columns
+    // ATermIlluminationFunction, Stokes-based CF value and weight columns
     auto sto_part_colreqs = Column::default_requirements;
     sto_part_colreqs.values.mapped = true;
-    sto_part_colreqs.partition = aux1_read_lp; // OK to be NO_PART
+    sto_part_colreqs.partition = aif_read_lp; // OK to be NO_PART
 
     // we'll need to map Stokes values to region indexes in compute_cfs_task,
     // which may be derived from the Stokes index column (we don't bother to
@@ -406,7 +406,7 @@ ATermTable::compute_cfs(
     auto colreqs = Column::default_requirements;
     colreqs.values.mapped = true;
     auto reqs =
-      aux1.requirements(
+      aif.requirements(
         ctx,
         rt,
         aterm_part,
@@ -423,7 +423,7 @@ ATermTable::compute_cfs(
 #endif // HAVE_CXX17
     std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
     std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
-    args.aux1 = tdesc;
+    args.aif = tdesc;
   }
   {
     // ATermTable, Mueller element CF value and weight columns
@@ -476,11 +476,11 @@ ATermTable::compute_cfs(
   }
   for (auto& p : all_parts)
     p.destroy(ctx, rt);
-  if (aux1_read_ip != IndexPartition::NO_PART)
-    rt->destroy_index_partition(ctx, aux1_read_ip);
+  if (aif_read_ip != IndexPartition::NO_PART)
+    rt->destroy_index_partition(ctx, aif_read_ip);
   if (aterm_part != partition)
     aterm_part.destroy(ctx, rt);
-  aux1.destroy(ctx, rt);
+  aif.destroy(ctx, rt);
 }
 
 #ifndef HYPERION_USE_KOKKOS

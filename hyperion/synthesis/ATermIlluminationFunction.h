@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_SYNTHESIS_A_TERM_AUX1_H_
-#define HYPERION_SYNTHESIS_A_TERM_AUX1_H_
+#ifndef HYPERION_SYNTHESIS_A_TERM_ILLUMINATION_FUNCTION_H_
+#define HYPERION_SYNTHESIS_A_TERM_ILLUMINATION_FUNCTION_H_
 
 #include <hyperion/synthesis/CFTable.h>
 #include <cmath>
 
-#define HYPERION_A_TERM_AUX1_AXES                                   \
+#define HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES                  \
   CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_STOKES
 
 #include <hyperion/synthesis/ATermTable.h>
@@ -32,11 +32,11 @@ namespace synthesis {
 class ATermTable;
 class ATermZernikeModel;
 
-class HYPERION_EXPORT ATermAux1
-  : public CFTable<HYPERION_A_TERM_AUX1_AXES> {
+class HYPERION_EXPORT ATermIlluminationFunction
+  : public CFTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES> {
 public:
 
-  ATermAux1(
+  ATermIlluminationFunction(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const Legion::Rect<2>& cf_bounds,
@@ -51,16 +51,24 @@ public:
       stokes_values);
 
   static const constexpr unsigned d_blc =
-    cf_indexing::index_of<CF_BASELINE_CLASS, HYPERION_A_TERM_AUX1_AXES>
+    cf_indexing::index_of<
+      CF_BASELINE_CLASS,
+      HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>
     ::type::value;
   static const constexpr unsigned d_pa =
-    cf_indexing::index_of<CF_PARALLACTIC_ANGLE, HYPERION_A_TERM_AUX1_AXES>
+    cf_indexing::index_of<
+      CF_PARALLACTIC_ANGLE,
+      HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>
     ::type::value;
   static const constexpr unsigned d_frq =
-    cf_indexing::index_of<CF_FREQUENCY, HYPERION_A_TERM_AUX1_AXES>
+    cf_indexing::index_of<
+      CF_FREQUENCY,
+      HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>
     ::type::value;
   static const constexpr unsigned d_sto =
-    cf_indexing::index_of<CF_STOKES, HYPERION_A_TERM_AUX1_AXES>
+    cf_indexing::index_of<
+      CF_STOKES,
+      HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>
     ::type::value;
 
   static const constexpr unsigned d_x = index_rank;
@@ -96,7 +104,7 @@ public:
   struct ComputeEPtsTaskArgs {
     Table::Desc aterm;
     Table::Desc zmodel;
-    Table::Desc aux1;
+    Table::Desc aif;
   };
 
   void
@@ -116,7 +124,7 @@ public:
 //protected:
 
   static const constexpr char* compute_epts_task_name =
-    "ATermAux1::compute_epts_task";
+    "ATermIlluminationFunction::compute_epts_task";
 
   static Legion::TaskID compute_epts_task_id;
 
@@ -132,7 +140,7 @@ public:
     const ComputeEPtsTaskArgs& args =
       *static_cast<const ComputeEPtsTaskArgs*>(task->args);
 
-    std::vector<Table::Desc> descs{args.aterm, args.zmodel, args.aux1};
+    std::vector<Table::Desc> descs{args.aterm, args.zmodel, args.aif};
     auto ptcrs =
       PhysicalTable::create_many(
         rt,
@@ -170,12 +178,13 @@ public:
     typedef ATermZernikeModel::pc_t pc_t;
 
     // polynomial function evaluation points columns
-    auto aux1_tbl = CFPhysicalTable<HYPERION_A_TERM_AUX1_AXES>(pts[2]);
+    auto aif =
+      CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pts[2]);
     auto xpt_col =
-      EPtColumn<Legion::AffineAccessor>(*aux1_tbl.column(EPT_X_NAME).value());
+      EPtColumn<Legion::AffineAccessor>(*aif.column(EPT_X_NAME).value());
     auto xpts = xpt_col.view<execution_space, WRITE_DISCARD>();
     auto ypt_col =
-      EPtColumn<Legion::AffineAccessor>(*aux1_tbl.column(EPT_Y_NAME).value());
+      EPtColumn<Legion::AffineAccessor>(*aif.column(EPT_Y_NAME).value());
     auto ypts = ypt_col.view<execution_space, WRITE_DISCARD>();
 
     Legion::Rect<ept_rank> ept_rect = xpt_col.rect();
@@ -285,7 +294,7 @@ public:
 } // end namespace synthesis
 } // end namespace hyperion
 
-#endif // HYPERION_SYNTHESIS_A_TERM_AUX1_H_
+#endif // HYPERION_SYNTHESIS_A_TERM_ILLUMINATION_FUNCTION_H_
 
 // Local Variables:
 // mode: c++

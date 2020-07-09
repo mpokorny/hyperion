@@ -24,7 +24,7 @@
   CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_STOKES_OUT, CF_STOKES_IN
 
 #include <hyperion/synthesis/ATermZernikeModel.h>
-#include <hyperion/synthesis/ATermAux1.h>
+#include <hyperion/synthesis/ATermIlluminationFunction.h>
 
 namespace hyperion {
 namespace synthesis {
@@ -78,7 +78,7 @@ public:
   static Legion::TaskID compute_cfs_task_id;
 
   struct ComputeCFsTaskArgs {
-    Table::Desc aux1;
+    Table::Desc aif;
     Table::Desc aterm;
   };
 
@@ -94,7 +94,7 @@ public:
     const ComputeCFsTaskArgs& args =
       *static_cast<const ComputeCFsTaskArgs*>(task->args);
 
-    std::vector<Table::Desc> descs{args.aux1, args.aterm};
+    std::vector<Table::Desc> descs{args.aif, args.aterm};
     auto ptcrs =
       PhysicalTable::create_many(
         rt,
@@ -118,12 +118,13 @@ public:
       rt->get_executing_processor(ctx).kokkos_work_space();
 
     // Stokes CF functions
-    auto aux1_tbl = CFPhysicalTable<HYPERION_A_TERM_AUX1_AXES>(pts[0]);
+    auto aif =
+      CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pts[0]);
     // we expect to have all of the Stokes index column accessible
-    auto aux1_stokes_col = aux1_tbl.stokes<Legion::AffineAccessor>();
-    auto aux1_stokes = aux1_stokes_col.view<execution_space, READ_ONLY>();
-    auto aux1_stokes_rect = aux1_stokes_col.rect();
-    // a map from stokes_t value to Stokes index in aux1
+    auto aif_stokes_col = aif.stokes<Legion::AffineAccessor>();
+    auto aif_stokes = aif_stokes_col.view<execution_space, READ_ONLY>();
+    auto aif_stokes_rect = aif_stokes_col.rect();
+    // a map from stokes_t value to Stokes index in aif
     Kokkos::View<
       Legion::coord_t[num_stokes_t::value],
       execution_space,
@@ -140,27 +141,27 @@ public:
     Kokkos::parallel_for(
       Kokkos::RangePolicy<execution_space>(
         kokkos_work_space,
-        aux1_stokes_rect.lo,
-        aux1_stokes_rect.hi + 1),
+        aif_stokes_rect.lo,
+        aif_stokes_rect.hi + 1),
       KOKKOS_LAMBDA(const int i) {
-        stokes_indexes(static_cast<int>(aux1_stokes(i)) - 1) = i;
+        stokes_indexes(static_cast<int>(aif_stokes(i)) - 1) = i;
       });
-    auto aux1_value_col = aux1_tbl.value<Legion::AffineAccessor>();
-    auto aux1_values = aux1_value_col.view<execution_space, READ_ONLY>();
-    auto aux1_weight_col = aux1_tbl.weight<Legion::AffineAccessor>();
-    auto aux1_weights = aux1_weight_col.view<execution_space, READ_ONLY>();
+    auto aif_value_col = aif.value<Legion::AffineAccessor>();
+    auto aif_values = aif_value_col.view<execution_space, READ_ONLY>();
+    auto aif_weight_col = aif.weight<Legion::AffineAccessor>();
+    auto aif_weights = aif_weight_col.view<execution_space, READ_ONLY>();
 
     // Final CF functions
-    auto aterm_tbl = CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>(pts[1]);
-    auto aterm_stokes_out_col = aterm_tbl.stokes_out<Legion::AffineAccessor>();
+    auto aterm = CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>(pts[1]);
+    auto aterm_stokes_out_col = aterm.stokes_out<Legion::AffineAccessor>();
     auto aterm_stokes_out_values =
       aterm_stokes_out_col.view<execution_space, READ_ONLY>();
-    auto aterm_stokes_in_col = aterm_tbl.stokes_in<Legion::AffineAccessor>();
+    auto aterm_stokes_in_col = aterm.stokes_in<Legion::AffineAccessor>();
     auto aterm_stokes_in_values =
       aterm_stokes_out_col.view<execution_space, READ_ONLY>();
-    auto aterm_value_col = aterm_tbl.value<Legion::AffineAccessor>();
+    auto aterm_value_col = aterm.value<Legion::AffineAccessor>();
     auto aterm_values = aterm_value_col.view<execution_space, WRITE_ONLY>();
-    auto aterm_weight_col = aterm_tbl.weight<Legion::AffineAccessor>();
+    auto aterm_weight_col = aterm.weight<Legion::AffineAccessor>();
     auto aterm_weights = aterm_weight_col.view<execution_space, WRITE_ONLY>();
     auto aterm_rect = aterm_value_col.rect();
 
@@ -209,7 +210,7 @@ public:
             static_cast<int>(aterm_stokes_out_values(sto_out)) - 1);
         auto left =
           Kokkos::subview(
-            aux1_values,
+            aif_values,
             blc,
             pa,
             frq,
@@ -221,7 +222,7 @@ public:
             static_cast<int>(aterm_stokes_in_values(sto_in)) - 1);
         auto right =
           Kokkos::subview(
-            aux1_values,
+            aif_values,
             blc,
             pa,
             frq,
@@ -267,8 +268,8 @@ public:
         for (Legion::coord_t x = aterm_rect.lo[5]; x <= aterm_rect.hi[5]; ++x)
           for (Legion::coord_t y = aterm_rect.lo[6]; x <= aterm_rect.lo[6]; ++y)
             aterm_values(blc, pa, frq, sto_out, sto_in, x, y) =
-              aux1_values(blc, pa, frq, sto_left, x, y) *
-              Kokkos::conj(aux1_values(blc, pa, frq, sto_right, x, y));
+              aif_values(blc, pa, frq, sto_left, x, y) *
+              Kokkos::conj(aif_values(blc, pa, frq, sto_right, x, y));
       });
 #endif
   }

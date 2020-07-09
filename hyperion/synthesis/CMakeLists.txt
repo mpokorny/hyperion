@@ -16,5 +16,5 @@ target_sources(hyperion PRIVATE
   ATermTable.cc
   ATermZernikeModel.h
   ATermZernikeModel.cc
-  ATermAux1.h
-  ATermAux1.cc)
+  ATermIlluminationFunction.h
+  ATermIlluminationFunction.cc)
