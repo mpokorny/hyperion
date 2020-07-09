@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include <hyperion/synthesis/ATermAux1.h>
-#include <hyperion/synthesis/ATermAux0.h>
 #include <hyperion/synthesis/ATermTable.h>
 
 using namespace hyperion;
@@ -104,7 +103,7 @@ ATermAux1::compute_epts(
   Legion::Context ctx,
   Legion::Runtime* rt,
   const ATermTable& aterm_table,
-  const ATermAux0& aux0_table,
+  const ATermZernikeModel& zmodel,
   const ColumnSpacePartition& partition) const {
 
   std::vector<RegionRequirement> all_reqs;
@@ -133,15 +132,15 @@ ATermAux1::compute_epts(
     args.aterm = tdesc;
   }
   {
-    // ATermAux0 table, polynomial coefficients column
+    // ATermZernikeModel table, polynomial coefficients column
     auto default_colreqs = Column::default_requirements;
     default_colreqs.values.mapped = true;
     auto reqs =
-      aux0_table.requirements(
+      zmodel.requirements(
         ctx,
         rt,
         partition,
-        {{ATermAux0::PC_NAME, default_colreqs}},
+        {{ATermZernikeModel::PC_NAME, default_colreqs}},
         CXX_OPTIONAL_NAMESPACE::nullopt);
 #if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
@@ -152,7 +151,7 @@ ATermAux1::compute_epts(
 #endif // HAVE_CXX17
     std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
     std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
-    args.aux0 = tdesc;
+    args.zmodel = tdesc;
   }
   {
     // ATermAux1 table, epts columns

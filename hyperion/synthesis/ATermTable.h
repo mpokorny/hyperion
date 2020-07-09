@@ -23,7 +23,7 @@
 #define HYPERION_A_TERM_TABLE_AXES                                      \
   CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_STOKES_OUT, CF_STOKES_IN
 
-#include <hyperion/synthesis/ATermAux0.h>
+#include <hyperion/synthesis/ATermZernikeModel.h>
 #include <hyperion/synthesis/ATermAux1.h>
 
 namespace hyperion {

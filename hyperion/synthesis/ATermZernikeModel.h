@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_SYNTHESIS_A_TERM_AUX0_H_
-#define HYPERION_SYNTHESIS_A_TERM_AUX0_H_
+#ifndef HYPERION_SYNTHESIS_A_TERM_ZERNIKE_MODEL_H_
+#define HYPERION_SYNTHESIS_A_TERM_ZERNIKE_MODEL_H_
 
 #include <hyperion/synthesis/CFTable.h>
 #include <hyperion/synthesis/Zernike.h>
 
 #include <cmath>
 
-#define HYPERION_A_TERM_AUX0_AXES               \
+#define HYPERION_A_TERM_ZERNIKE_MODEL_AXES      \
   CF_BASELINE_CLASS, CF_FREQUENCY, CF_STOKES
 
 namespace hyperion {
@@ -42,11 +42,11 @@ struct HYPERION_EXPORT ZCoeff {
  * Helper table for use by ATermTable. For columns without dependence on
  * parallactic angle.
  **/
-class HYPERION_EXPORT ATermAux0
-  : public CFTable<HYPERION_A_TERM_AUX0_AXES> {
+class HYPERION_EXPORT ATermZernikeModel
+  : public CFTable<HYPERION_A_TERM_ZERNIKE_MODEL_AXES> {
 public:
 
-  ATermAux0(
+  ATermZernikeModel(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::vector<ZCoeff>& zernike_coefficients,
@@ -58,13 +58,13 @@ public:
       stokes_values);
 
   static const constexpr unsigned d_blc =
-    cf_indexing::index_of<CF_BASELINE_CLASS, HYPERION_A_TERM_AUX0_AXES>
+    cf_indexing::index_of<CF_BASELINE_CLASS, HYPERION_A_TERM_ZERNIKE_MODEL_AXES>
     ::type::value;
   static const constexpr unsigned d_frq =
-    cf_indexing::index_of<CF_FREQUENCY, HYPERION_A_TERM_AUX0_AXES>
+    cf_indexing::index_of<CF_FREQUENCY, HYPERION_A_TERM_ZERNIKE_MODEL_AXES>
     ::type::value;
   static const constexpr unsigned d_sto =
-    cf_indexing::index_of<CF_STOKES, HYPERION_A_TERM_AUX0_AXES>
+    cf_indexing::index_of<CF_STOKES, HYPERION_A_TERM_ZERNIKE_MODEL_AXES>
     ::type::value;
 
   static const constexpr unsigned d_zc = index_rank;
@@ -153,7 +153,7 @@ public:
   // product X^T Z Y, where X is the vector for a given value x with the
   // elements x^0, x^1, x^2, ... x^N (similar definition for Y).
   static const constexpr char* compute_pcs_task_name =
-    "ATermAux0::compute_pcs_task";
+    "ATermZernikeModel::compute_pcs_task";
 
   static Legion::TaskID compute_pcs_task_id;
 
@@ -170,7 +170,7 @@ public:
 
     const Table::Desc& tdesc = *static_cast<Table::Desc*>(task->args);
 
-    // ATermAux0 physical instance
+    // ATermZernikeModel physical instance
     auto ptcr =
       PhysicalTable::create(
         rt,
@@ -255,7 +255,7 @@ public:
 } // end namespace synthesis
 } // end namespace hyperion
 
-#endif // HYPERION_SYNTHESIS_A_TERM_AUX0_H_
+#endif // HYPERION_SYNTHESIS_A_TERM_ZERNIKE_MODEL_H_
 
 // Local Variables:
 // mode: c++

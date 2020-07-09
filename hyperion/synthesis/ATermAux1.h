@@ -24,12 +24,13 @@
   CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_STOKES
 
 #include <hyperion/synthesis/ATermTable.h>
+#include <hyperion/synthesis/ATermZernikeModel.h>
 
 namespace hyperion {
 namespace synthesis {
 
 class ATermTable;
-class ATermAux0;
+class ATermZernikeModel;
 
 class HYPERION_EXPORT ATermAux1
   : public CFTable<HYPERION_A_TERM_AUX1_AXES> {
@@ -94,7 +95,7 @@ public:
 
   struct ComputeEPtsTaskArgs {
     Table::Desc aterm;
-    Table::Desc aux0;
+    Table::Desc zmodel;
     Table::Desc aux1;
   };
 
@@ -103,7 +104,7 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ATermTable& aterm_table,
-    const ATermAux0& aux0_table,
+    const ATermZernikeModel& zmodel,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
   void
@@ -131,7 +132,7 @@ public:
     const ComputeEPtsTaskArgs& args =
       *static_cast<const ComputeEPtsTaskArgs*>(task->args);
 
-    std::vector<Table::Desc> descs{args.aterm, args.aux0, args.aux1};
+    std::vector<Table::Desc> descs{args.aterm, args.zmodel, args.aux1};
     auto ptcrs =
       PhysicalTable::create_many(
         rt,
@@ -160,12 +161,13 @@ public:
     typedef decltype(parallactic_angle_col)::value_t pa_t;
 
     // polynomial function coefficients column
-    auto aux0_tbl = CFPhysicalTable<HYPERION_A_TERM_AUX0_AXES>(pts[1]);
+    auto zmodel =
+      CFPhysicalTable<HYPERION_A_TERM_ZERNIKE_MODEL_AXES>(pts[1]);
     auto pc_col =
-      ATermAux0::PCColumn<Legion::AffineAccessor>(
-        *aux0_tbl.column(ATermAux0::PC_NAME).value());
+      ATermZernikeModel::PCColumn<Legion::AffineAccessor>(
+        *zmodel.column(ATermZernikeModel::PC_NAME).value());
     auto pcs = pc_col.view<execution_space, READ_ONLY>();
-    typedef ATermAux0::pc_t pc_t;
+    typedef ATermZernikeModel::pc_t pc_t;
 
     // polynomial function evaluation points columns
     auto aux1_tbl = CFPhysicalTable<HYPERION_A_TERM_AUX1_AXES>(pts[2]);

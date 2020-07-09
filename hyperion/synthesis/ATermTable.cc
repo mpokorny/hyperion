@@ -273,20 +273,20 @@ ATermTable::compute_cfs(
     std::copy(sto.begin(), sto.end(), std::back_inserter(stokes_values));
   }
   // create table for Zernike expansion and polynomial expansion coefficients
-  ATermAux0 aux0(
+  ATermZernikeModel zmodel(
     ctx,
     rt,
     zernike_coefficients,
     baseline_classes,
     frequencies,
     stokes_values);
-  // compute the polynomial function coefficients column in aux0
+  // compute the polynomial function coefficients column in zmodel
   {
     auto p =
-      aux0.columns().at(CF_VALUE_COLUMN_NAME)
+      zmodel.columns().at(CF_VALUE_COLUMN_NAME)
       .narrow_partition(ctx, rt, partition)
       .value_or(partition);
-    aux0.compute_pcs(ctx, rt, p);
+    zmodel.compute_pcs(ctx, rt, p);
     if (p != partition)
       p.destroy(ctx, rt);
   }
@@ -310,11 +310,11 @@ ATermTable::compute_cfs(
       aux1.columns().at(CF_VALUE_COLUMN_NAME)
       .narrow_partition(ctx, rt, partition)
       .value_or(partition);
-    aux1.compute_epts(ctx, rt, *this, aux0, p);
+    aux1.compute_epts(ctx, rt, *this, zmodel, p);
     if (p != partition)
       p.destroy(ctx, rt);
   }
-  aux0.destroy(ctx, rt);
+  zmodel.destroy(ctx, rt);
 
   // compute CF for each Stokes value
   {

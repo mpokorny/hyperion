@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <hyperion/synthesis/ATermAux0.h>
+#include <hyperion/synthesis/ATermZernikeModel.h>
 
 #include <cmath>
 #include <cstring>
@@ -25,19 +25,23 @@ using namespace Legion;
 
 namespace stdex = std::experimental;
 
-TaskID ATermAux0::compute_pcs_task_id;
+TaskID ATermZernikeModel::compute_pcs_task_id;
 #if !HAVE_CXX17
-const constexpr float ATermAux0::zc_exact_frequency_tolerance;
-const constexpr unsigned ATermAux0::d_blc;
-const constexpr unsigned ATermAux0::d_frq;
-const constexpr unsigned ATermAux0::d_sto;
-const constexpr Legion::FieldID ATermAux0::ZC_FID;
-const constexpr char* ATermAux0::ZC_NAME;
-const constexpr Legion::FieldID ATermAux0::PC_FID;
-const constexpr char* ATermAux0::PC_NAME;
+const constexpr float ATermZernikeModel::zc_exact_frequency_tolerance;
+const constexpr unsigned ATermZernikeModel::d_blc;
+const constexpr unsigned ATermZernikeModel::d_frq;
+const constexpr unsigned ATermZernikeModel::d_sto;
+const constexpr Legion::FieldID ATermZernikeModel::ZC_FID;
+const constexpr char* ATermZernikeModel::ZC_NAME;
+const constexpr Legion::FieldID ATermZernikeModel::PC_FID;
+const constexpr char* ATermZernikeModel::PC_NAME;
 #endif
 
-ATermAux0::ATermAux0(
+#define ENABLE_KOKKOS_SERIAL_PCS_TASK
+#define ENABLE_KOKKOS_OPENMP_PCS_TASK
+#undef ENABLE_KOKKOS_CUDA_PCS_TASK
+
+ATermZernikeModel::ATermZernikeModel(
   Context ctx,
   Runtime* rt,
   const std::vector<ZCoeff>& zernike_coefficients,
@@ -118,7 +122,7 @@ ATermAux0::ATermAux0(
 }
 
 void
-ATermAux0::init_zc_region(
+ATermZernikeModel::init_zc_region(
   Context ctx,
   Runtime* rt,
   const std::vector<ZCoeff>& zernike_coefficients,
@@ -209,7 +213,7 @@ ATermAux0::init_zc_region(
 }
 
 void
-ATermAux0::compute_pcs(
+ATermZernikeModel::compute_pcs(
   Context ctx,
   Runtime* rt,
   const ColumnSpacePartition& partition) const {
@@ -261,7 +265,7 @@ ATermAux0::compute_pcs(
 
 #ifndef HYPERION_USE_KOKKOS
 void
-ATermAux0::compute_pcs_task(
+ATermZernikeModel::compute_pcs_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
@@ -269,7 +273,7 @@ ATermAux0::compute_pcs_task(
 
   const Table::Desc& tdesc = *static_cast<Table::Desc*>(task->args);
 
-  // ATermAux0 physical instance
+  // ATermZernikeModel physical instance
   auto ptcr =
     PhysicalTable::create(
       rt,
@@ -331,7 +335,7 @@ ATermAux0::compute_pcs_task(
 #endif // !HYPERION_USE_KOKKOS
 
 void
-ATermAux0::preregister_tasks() {
+ATermZernikeModel::preregister_tasks() {
   //
   // compute_pcs_task
   //
@@ -339,7 +343,7 @@ ATermAux0::preregister_tasks() {
     compute_pcs_task_id = Runtime::generate_static_task_id();
 
 #ifdef HYPERION_USE_KOKKOS
-# ifdef KOKKOS_ENABLE_SERIAL
+# if defined(KOKKOS_ENABLE_SERIAL) && defined(ENABLE_KOKKOS_SERIAL_PCS_TASK)
     {
       TaskVariantRegistrar
         registrar(compute_pcs_task_id, compute_pcs_task_name);
@@ -351,7 +355,7 @@ ATermAux0::preregister_tasks() {
       LayoutConstraintRegistrar
         constraints(
           FieldSpace::NO_SPACE,
-          "ATermAux0::compute_pcs_constraints");
+          "ATermZernikeModel::compute_pcs_constraints");
       add_soa_right_ordering_constraint(constraints);
       constraints.add_constraint(
         SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
@@ -364,7 +368,7 @@ ATermAux0::preregister_tasks() {
         compute_pcs_task_name);
     }
 # endif
-# ifdef KOKKOS_ENABLE_OPENMP
+# if defined(KOKKOS_ENABLE_OPENMP) && defined(ENABLE_KOKKOS_OPENMP_PCS_TASK)
     {
       TaskVariantRegistrar
         registrar(compute_pcs_task_id, compute_pcs_task_name);
@@ -376,7 +380,7 @@ ATermAux0::preregister_tasks() {
       LayoutConstraintRegistrar
         constraints(
           FieldSpace::NO_SPACE,
-          "ATermAux0::compute_pcs_constraints");
+          "ATermZernikeModel::compute_pcs_constraints");
       add_soa_right_ordering_constraint(constraints);
       constraints.add_constraint(
         SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
@@ -389,21 +393,21 @@ ATermAux0::preregister_tasks() {
         compute_pcs_task_name);
     }
 # endif
-// # ifdef KOKKOS_ENABLE_CUDA
-//     {
-//       TaskVariantRegistrar
-//         registrar(compute_pcs_task_id, compute_pcs_task_name);
-//       registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
-//       registrar.set_leaf();
-//       registrar.set_idempotent();
-//       registrar.add_layout_constraint_set(
-//         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-//         soa_left_layout);
-//       Runtime::preregister_task_variant<compute_pcs_task<Kokkos::Cuda>>(
-//         registrar,
-//         compute_pcs_task_name);
-//     }
-// # endif
+# if defined(KOKKOS_ENABLE_CUDA) && defined(ENABLE_KOKKOS_CUDA_PCS_TASK)
+    {
+      TaskVariantRegistrar
+        registrar(compute_pcs_task_id, compute_pcs_task_name);
+      registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
+      registrar.set_leaf();
+      registrar.set_idempotent();
+      registrar.add_layout_constraint_set(
+        TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
+        soa_left_layout);
+      Runtime::preregister_task_variant<compute_pcs_task<Kokkos::Cuda>>(
+        registrar,
+        compute_pcs_task_name);
+    }
+# endif
 #else // !HYPERION_USE_KOKKOS
     {
       TaskVariantRegistrar
@@ -416,7 +420,7 @@ ATermAux0::preregister_tasks() {
       LayoutConstraintRegistrar
         constraints(
           FieldSpace::NO_SPACE,
-          "ATermAux0::compute_cfs_constraints");
+          "ATermZernikeModel::compute_cfs_constraints");
       add_soa_right_ordering_constraint(constraints);
       constraints.add_constraint(
         SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
