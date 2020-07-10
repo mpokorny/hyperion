@@ -49,7 +49,7 @@ class Hyperion(CMakePackage):
             values=('30','32','35','50','52','53','60','61','62','70','72','75'), multi=True)
     variant('kokkos', default=False, description='Enable Kokkos support')
     variant('kokkos-kernels', default=False, description='Use Kokkos kernels (requires Kokkos)')
-    variant('openmp', default=False, description='Enable OpenMP support (via Kokkos only)')
+    variant('openmp', default=False, description='Enable OpenMP support')
     variant('debug', default=False, description='Enable debug flags')
 
     # Variants for Legion sub-project
@@ -66,6 +66,8 @@ class Hyperion(CMakePackage):
 
     # Remaining dependencies
     depends_on('zlib')
+    depends_on('fftw~mpi precision=float')
+    depends_on('fftw+openmp', when='+openmp')
     depends_on('casacore', when='+casacore')
     depends_on('pkgconf', when='+casacore', type=('build')) # FindCasacore requires it
     depends_on('hdf5+threadsafe+szip~mpi', when='+hdf5')
