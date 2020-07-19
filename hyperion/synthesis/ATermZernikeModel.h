@@ -27,7 +27,7 @@
 namespace hyperion {
 namespace synthesis {
 
-typedef complex<double> zc_t;/**< Zernike coefficient type */
+typedef complex<CFTableBase::cf_fp_t> zc_t;/**< Zernike coefficient type */
 
 /**
  * self-described Zernike expansion coefficient value

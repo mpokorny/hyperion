@@ -145,15 +145,17 @@ public:
     }
   };
 
+  typedef float cf_fp_t;
+
   static const constexpr Legion::FieldID INDEX_VALUE_FID = 14;
 
   static const constexpr Legion::FieldID CF_VALUE_FID = 24;
   static const constexpr char* CF_VALUE_COLUMN_NAME = "VALUE";
-  typedef hyperion::complex<double> cf_value_t;
+  typedef hyperion::complex<cf_fp_t> cf_value_t;
 
   static const constexpr Legion::FieldID CF_WEIGHT_FID = 34;
   static const constexpr char* CF_WEIGHT_COLUMN_NAME = "WEIGHT";
-  typedef hyperion::complex<double> cf_weight_t;
+  typedef hyperion::complex<cf_fp_t> cf_weight_t;
 
   static Legion::TaskID init_index_column_task_id;
   static const constexpr char* init_index_column_task_name =

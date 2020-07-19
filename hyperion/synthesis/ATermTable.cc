@@ -314,25 +314,26 @@ ATermTable::compute_cfs(
       aif.columns().at(CF_VALUE_COLUMN_NAME)
       .narrow_partition(ctx, rt, partition)
       .value_or(partition);
-    aif.compute_epts(ctx, rt, zmodel, p);
+    aif.compute_epts(ctx, rt, p);
     if (p != partition)
       p.destroy(ctx, rt);
   }
-  zmodel.destroy(ctx, rt);
 
   // evaluate aperture illumination polynomial function values for each
   // Stokes value
   {
-    // no partition on X/Y, as ATermIlluminationFunction::compute_cfs() doesn't
+    // no partition on X/Y, as ATermIlluminationFunction::compute_aifs() doesn't
     // know how to do a distributed FFT
     auto p =
       aif.columns().at(CF_VALUE_COLUMN_NAME)
       .narrow_partition(ctx, rt, partition, {CF_X, CF_Y})
       .value_or(partition);
-    aif.compute_cfs(ctx, rt, p);
+    aif.compute_aifs(ctx, rt, zmodel, p);
     if (p != partition)
       p.destroy(ctx, rt);
   }
+  zmodel.destroy(ctx, rt); // don't need zmodel again
+
   auto aterm_part = // partition of illumination function value/weight columns
     columns().at(CF_VALUE_COLUMN_NAME)
     .narrow_partition(ctx, rt, partition)

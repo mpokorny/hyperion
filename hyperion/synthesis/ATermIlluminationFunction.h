@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2020 Associated Universities, Inc. Washington DC, USA.
  *
@@ -86,7 +85,7 @@ public:
   static const constexpr Legion::FieldID EPT_Y_FID = 89;
   static const constexpr char* EPT_X_NAME = "EPT_X";
   static const constexpr char* EPT_Y_NAME = "EPT_Y";
-  typedef double ept_t;
+  typedef CFTableBase::cf_fp_t ept_t;
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=HYPERION_CHECK_BOUNDS>
   using ept_accessor_t =
     Legion::FieldAccessor<
@@ -107,11 +106,6 @@ public:
     A,
     COORD_T>;
 
-  struct ComputeEPtsTaskArgs {
-    Table::Desc zmodel;
-    Table::Desc aif;
-  };
-
   /**
    * compute the values of the function evaluation points column
    */
@@ -119,16 +113,16 @@ public:
   compute_epts(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const ATermZernikeModel& zmodel,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
   /**
    * compute the values of the aperture illumination function column
    **/
   void
-  compute_cfs(
+  compute_aifs(
     Legion::Context ctx,
     Legion::Runtime* rt,
+    const ATermZernikeModel& zmodel,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
 //protected:
@@ -147,41 +141,30 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt) {
 
-    const ComputeEPtsTaskArgs& args =
-      *static_cast<const ComputeEPtsTaskArgs*>(task->args);
+    const Table::Desc& tdesc = *static_cast<const Table::Desc*>(task->args);
 
-    std::vector<Table::Desc> descs{args.zmodel, args.aif};
-    auto ptcrs =
-      PhysicalTable::create_many(
+    auto ptcr =
+      PhysicalTable::create(
         rt,
-        descs,
+        tdesc,
         task->regions.begin(),
         task->regions.end(),
         regions.begin(),
         regions.end())
       .value();
 #if HAVE_CXX17
-    auto& [pts, rit, pit] = ptcrs;
+    auto& [pt, rit, pit] = ptcr;
 #else // !HAVE_CXX17
-    auto& pts = std::get<0>(ptcrs);
-    auto& rit = std::get<1>(ptcrs);
-    auto& pit = std::get<2>(ptcrs);
+    auto& pt = std::get<0>(ptcr);
+    auto& rit = std::get<1>(ptcr);
+    auto& pit = std::get<2>(ptcr);
 #endif // HAVE_CXX17
     assert(rit == task->regions.end());
     assert(pit == regions.end());
 
-    // polynomial function coefficients column
-    auto zmodel =
-      CFPhysicalTable<HYPERION_A_TERM_ZERNIKE_MODEL_AXES>(pts[1]);
-    auto pc_col =
-      ATermZernikeModel::PCColumn<Legion::AffineAccessor>(
-        *zmodel.column(ATermZernikeModel::PC_NAME).value());
-    auto pcs = pc_col.view<execution_space, READ_ONLY>();
-    typedef ATermZernikeModel::pc_t pc_t;
+    auto aif = CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pt);
 
     // parallactic angle column
-    auto aif =
-      CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pts[2]);
     auto parallactic_angle_col =
       aif.parallactic_angle<Legion::AffineAccessor>();
     auto parallactic_angles =
@@ -198,8 +181,7 @@ public:
 
     Legion::Rect<ept_rank> ept_rect = xpt_col.rect();
     Legion::Rect<ept_rank> full_ept_rect = xpt_col.values().value();
-    auto zernike_order = xpts.extent(d_power) - 1;
-    
+
     auto kokkos_work_space =
       rt->get_executing_processor(ctx).kokkos_work_space();
 
@@ -261,39 +243,161 @@ public:
         const Legion::coord_t& x,
         const Legion::coord_t& y) {
 
-        // TODO: measure performance impact of using subviews
-        auto powx = Kokkos::subview(xpts, blc, pa, frq, sto, x, y, Kokkos::ALL);
-        auto powy = Kokkos::subview(ypts, blc, pa, frq, sto, x, y, Kokkos::ALL);
-
         // apply parallactic angle rotation
-        auto neg_parallactic_angle = -parallactic_angles(pa);
-        double cs = std::cos(neg_parallactic_angle);
-        double sn = std::sin(neg_parallactic_angle);
+        const auto neg_parallactic_angle = -parallactic_angles(pa);
+        const auto cs = std::cos(neg_parallactic_angle);
+        const auto sn = std::sin(neg_parallactic_angle);
         const auto x0 = x - ept_rect.lo[d_x];
         const auto y0 = y - ept_rect.lo[d_y];
-        double rx = cs * g_x(x0) - sn * g_y(y0);
-        double ry = sn * g_x(x0) + cs * g_y(y0);
-        // Fill powx, powy with powers of rx, ry
-        //
+        const auto rx = cs * g_x(x0) - sn * g_y(y0);
+        const auto ry = sn * g_x(x0) + cs * g_y(y0);
         // Outside of the unit disk, the function should evaluate to zero,
         // which can be achieved by setting the X and Y vectors to zero.
         ept_t ept0 = ((rx * rx + ry * ry <= 1.0) ? 1.0 : 0.0);
-        powx(0) = ept0;
-        powy(0) = ept0;
-        for (unsigned d = 1; d <= zernike_order; ++d) {
-          powx(d) = rx * powx(d - 1);
-          powy(d) = ry * powy(d - 1);
-        }
-      }); 
+        xpts(blc, pa, frq, sto, x, y, 0) = ept0;
+        ypts(blc, pa, frq, sto, x, y, 0) = ept0;
+        xpts(blc, pa, frq, sto, x, y, 1) = rx * ept0;
+        ypts(blc, pa, frq, sto, x, y, 1) = ry * ept0;
+      });
   }
-#else
+#else // !HYPERION_USE_KOKKOS
   static void
   compute_epts_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
-    Legion::Runtime* rt)
-#endif
+    Legion::Runtime* rt);
+#endif // HYPERION_USE_KOKKOS
+
+  static const constexpr char* evaluate_polynomials_task_name =
+    "ATermIlluminationFunction::evaluate_polynomials_task";
+
+  static Legion::TaskID evaluate_polynomials_task_id;
+
+  struct EvaluatePolynomialsTaskArgs {
+    Table::Desc zmodel;
+    Table::Desc aif;
+  };
+
+#ifdef HYPERION_USE_KOKKOS
+  template <typename execution_space>
+  static void
+  evaluate_polynomials_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime* rt) {
+
+    const EvaluatePolynomialsTaskArgs& args =
+      *static_cast<EvaluatePolynomialsTaskArgs*>(task->args);
+    std::vector<Table::Desc> descs{args.zmodel, args.aif};
+
+    auto ptcrs =
+      PhysicalTable::create_many(
+        rt,
+        descs,
+        task->regions.begin(),
+        task->regions.end(),
+        regions.begin(),
+        regions.end())
+      .value();
+#if HAVE_CXX17
+    auto& [pts, rit, pit] = ptcrs;
+#else // !HAVE_CXX17
+    auto& pts = std::get<0>(ptcrs);
+    auto& rit = std::get<1>(ptcrs);
+    auto& pit = std::get<2>(ptcrs);
+#endif // HAVE_CXX17
+    assert(rit == task->regions.end());
+    assert(pit == regions.end());
+
+    auto zmodel = CFPhysicalTable<HYPERION_A_TERM_ZERNIKE_MODEL_AXES>(pts[0]);
+    auto aif =
+      CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pts[1]);
+
+    // polynomial function coefficients column
+    auto pc_col =
+      ATermZernikeModel::PCColumn<Legion::AffineAccessor>(
+        *zmodel.column(ATermZernikeModel::PC_NAME).value());
+    auto pcs = pc_col.view<execution_space, READ_ONLY>();
+
+    // polynomial function evaluation points columns
+    auto xpt_col =
+      EPtColumn<Legion::AffineAccessor>(*aif.column(EPT_X_NAME).value());
+    auto xpts = xpt_col.view<execution_space, READ_ONLY>();
+    auto ypt_col =
+      EPtColumn<Legion::AffineAccessor>(*aif.column(EPT_Y_NAME).value());
+    auto ypts = ypt_col.view<execution_space, READ_ONLY>();
+
+    // polynomial function values column
+    auto value_col = aif.value<Legion::AffineAccessor>();
+    auto value_rect = value_col.rect();
+    auto values = value_col.view<execution_space, WRITE_DISCARD>();
+
+    // CUDA compilation fails without the following redundant definitions. Note
+    // that similar usage in compute_epts_task works. TODO: remove these
+    unsigned dd_blc = d_blc;
+    unsigned dd_pa = d_pa;
+    unsigned dd_frq = d_frq;
+    unsigned dd_sto = d_sto;
+    unsigned dd_x = d_x;
+    unsigned dd_y = d_y;
+    auto kokkos_work_space =
+      rt->get_executing_processor(ctx).kokkos_work_space();
+    typedef typename Kokkos::TeamPolicy<execution_space>::member_type
+      member_type;
+    typedef Kokkos::View<
+      ATermZernikeModel::pc_t*,
+      typename execution_space::scratch_memory_space,
+      Kokkos::MemoryTraits<Kokkos::Unmanaged>> shared_pc_1d;
+    Kokkos::parallel_for(
+      Kokkos::TeamPolicy<execution_space>(
+        kokkos_work_space,
+        linearized_index_range(value_rect),
+        Kokkos::AUTO())
+      .set_scratch_size(
+        0,
+        Kokkos::PerTeam(
+          (zernike_max_order::value + 1) * sizeof(ATermZernikeModel::pc_t))),
+      KOKKOS_LAMBDA(const member_type& team_member) {
+        auto pt =
+          multidimensional_index(
+            static_cast<Legion::coord_t>(team_member.league_rank()),
+            value_rect);
+        auto& blc = pt[dd_blc];
+        auto& pa = pt[dd_pa];
+        auto& frq = pt[dd_frq];
+        auto& sto = pt[dd_sto];
+        auto& x = pt[dd_x];
+        auto& y = pt[dd_y];
+        auto xpt = Kokkos::subview(xpts, blc, pa, frq, sto, x, y, Kokkos::ALL);
+        auto ypt = Kokkos::subview(ypts, blc, pa, frq, sto, x, y, Kokkos::ALL);
+        auto pc = Kokkos::subview(pcs, blc, frq, sto, Kokkos::ALL, Kokkos::ALL);
+        auto tmp = shared_pc_1d(team_member.team_scratch(0), pc.extent(0));
+        Kokkos::parallel_for(
+          Kokkos::TeamThreadRange(team_member, pc.extent(0)),
+          [=](const int& i) {
+            tmp(i) = (ATermZernikeModel::pc_t)0.0;
+            for (int j = pc.extent(1) - 1; j > 0; --j)
+              tmp(i) = (tmp(i) + pc(i, j)) * ypt(1);
+            tmp(i) = (tmp(i) + pc(i, 0)) * ypt(0);
+          });
+        team_member.team_barrier();
+        auto& v = values(blc, pa, frq, sto, x, y);
+        v = (ATermZernikeModel::pc_t)0.0;
+        for (int i = pc.extent(0) - 1; i > 0; --i)
+          v = (v + tmp(i)) * xpt(1);
+        v = (v + tmp(0)) * xpt(0);
+      });
+  }
+#else // !HYPERION_USE_KOKKOS
+  static void
+  evaluate_polynomials_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime* rt);
+#endif // HYPERION_USE_KOKKOS
 
   static void
   preregister_tasks();

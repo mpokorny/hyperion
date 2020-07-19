@@ -18,6 +18,11 @@
 
 #include <cstring>
 
+#include <fftw3.h>
+#ifdef HYPERION_USE_OPENMP
+# include <omp.h>
+#endif
+
 using namespace hyperion::synthesis;
 using namespace Legion;
 
@@ -250,6 +255,16 @@ hyperion::synthesis::CFTableBase::init_index_column_task(
 
 void
 CFTableBase::preregister_all() {
+
+#ifdef HYPERION_USE_OPENMP
+  {
+    auto rc = fftwf_init_threads();
+    assert(rc != 0);
+    std::cout << "omp_get_max_threads() -> " << omp_get_max_threads()
+              << std::endl;
+    fftwf_plan_with_nthreads(omp_get_max_threads());
+  }
+#endif
 
   AxesRegistrar::register_axes<cf_table_axes_t>();
   {

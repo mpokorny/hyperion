@@ -19,12 +19,21 @@
 #include <hyperion/synthesis/CFTable.h>
 
 #include <array>
+#include <atomic>
+#include <map>
+#include <memory>
 
 #define HYPERION_A_TERM_TABLE_AXES                                      \
   CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_STOKES_OUT, CF_STOKES_IN
 
 #include <hyperion/synthesis/ATermZernikeModel.h>
 #include <hyperion/synthesis/ATermIlluminationFunction.h>
+#include <hyperion/synthesis/FFT.h>
+
+#include <fftw3.h>
+#ifdef HYPERION_USE_CUDA
+# include <cufft.h>
+#endif
 
 namespace hyperion {
 namespace synthesis {
