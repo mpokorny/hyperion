@@ -932,6 +932,8 @@ struct Zernike<10, 10> {
     XYPolyTerm{0, 10, 1}};
 };
 
+typedef std::integral_constant<unsigned, 10> zernike_max_order;
+
 template <typename T, unsigned N, typename ZS>
 struct zernike_series_ {
   //typedef ... value;
