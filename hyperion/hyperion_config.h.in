@@ -30,6 +30,8 @@
 
 #cmakedefine HYPERION_USE_CASACORE
 
+#cmakedefine HYPERION_USE_OPENMP
+
 #cmakedefine HYPERION_USE_KOKKOS
 
 #cmakedefine HYPERION_USE_KOKKOS_KERNELS
