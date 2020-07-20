@@ -88,23 +88,37 @@ extern Mutex fftwf_mutex;
 class HYPERION_EXPORT FFT {
 public:
 
+  /**
+   * FFT type
+   *
+   * Only complex-complex types are currently supported
+   */
   enum class Type {
-    C2C,
-    R2R
+    C2C
+    /*,R2R*/
   };
 
+  /**
+   * FFT array element precision
+   */
   enum class Precision {
     SINGLE,
     DOUBLE
   };
 
+  /**
+   * FFT logical descriptor
+   */
   struct Desc {
-    unsigned rank;
-    Type transform;
-    Precision precision;
-    int sign;
+    unsigned rank; /**< rank of array to transform */
+    Type transform; /**< FFT transform type */
+    Precision precision; /**< FFT array element precision */
+    int sign; /**< sign of exponent in transform */
   };
 
+  /**
+   * union of FFTW and cuFFT plan representations
+   */
   struct Plan {
     Desc desc;
     void* buffer;
@@ -117,22 +131,20 @@ public:
 
   /**
    * FFT planning and execution arguments for in_place_fft()
-   *
-   * flags and seconds fields are only used on CPUs
    */
   struct Args {
-    Desc desc;
-    unsigned flags;
-    double seconds;
+    Desc desc; /**< FFT descriptor */
+    Legion::FieldID fid; /**< field in region */
+    unsigned flags; /**< FFTW planner flags */
+    double seconds; /**< FFTW planner time limit */
   };
 
   /**
    * task for in-place FFT on field of region
    *
-   * Acts on a single field of a region; field should be only one in region
-   * requirement, and have READ_WRITE privileges . This task can be used to go
-   * through the entire process of creating an FFT plan, executing it, and then
-   * destroying it
+   * Acts on a single field of a region, which must have READ_WRITE
+   * privileges. This task can be used to go through the entire process of
+   * creating an FFT plan, executing it, and then destroying it
    */
   static const constexpr char* in_place_task_name = "FFT::in_place_task";
   static Legion::TaskID in_place_task_id;

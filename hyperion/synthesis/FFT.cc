@@ -38,6 +38,114 @@ TaskID FFT::create_plan_task_id;
 TaskID FFT::execute_fft_task_id;
 TaskID FFT::destroy_plan_task_id;
 
+struct Params {
+  std::vector<int> n;
+  std::vector<int> nembed;
+  int dist;
+  int stride;
+  int howmany;
+  void* buffer;
+};
+
+/**
+ * check for matching values in first n dimensions of to points
+ */
+template <unsigned N>
+static bool
+prefixes_match(const Point<N>& p0, const Point<N>& p1, unsigned n) {
+  for (size_t i = 0; i < std::min(n, N); ++i)
+    if (p0[i] != p1[i])
+      return false;
+  return true;
+}
+
+/**
+ * get parameters for FFTW or cuFFT for an array of type T, rank array_rank in
+ * a field fid of a region with rank N
+ */
+template <typename F, unsigned N>
+static Params
+get_paramsN(
+  Runtime* rt,
+  const RegionRequirement& req,
+  const PhysicalRegion& region,
+  const FieldID& fid,
+  unsigned array_rank) {
+
+  assert(array_rank > 0);
+
+  Params result;
+  Rect<N> rect(rt->get_index_space_domain(req.region.get_index_space()));
+  Rect<N> region_rect(region);
+  result.howmany = 1;
+  for (size_t i = 0; i < N; ++i) {
+    auto len = rect.hi[i] - rect.lo[i] + 1;
+    if (i < N - array_rank) {
+      result.howmany *= len;
+    } else {
+      result.n.push_back(len);
+      result.nembed.push_back(region_rect.hi[i] - region_rect.lo[i] + 1);
+    }
+  }
+  const FieldAccessor<
+    READ_ONLY,
+    F,
+    N,
+    coord_t,
+    AffineAccessor<F, N, coord_t>,
+    HYPERION_CHECK_BOUNDS> acc(region, fid);
+  PointInRectIterator<N> pir(rect, false);
+  Point<N> pt0 = *pir;
+  const F* f0 = acc.ptr(*pir);
+  result.buffer = const_cast<F*>(f0);
+  pir++;
+  if (pir() && prefixes_match<N>(pt0, *pir, N - array_rank)) {
+    result.stride = acc.ptr(*pir) - f0;
+    pir++;
+    while (pir() && prefixes_match<N>(pt0, *pir, N - array_rank))
+      pir++;
+    if (pir())
+      result.dist = acc.ptr(*pir) - f0;
+    else
+      result.dist = 0;
+  } else {
+    result.stride = 0;
+    result.dist = 0;
+  }
+  return result;
+}
+
+/**
+ * get parameters for FFTW or cuFFT for an array of type T, rank array_rank in
+ * a field fid of a region with variable rank
+ */
+template <typename F>
+static Params
+get_params(
+  Runtime* rt,
+  const RegionRequirement& req,
+  const PhysicalRegion& region,
+  const FieldID& fid,
+  unsigned array_rank) {
+
+  switch (req.region.get_index_space().get_dim()) {
+#define GET_PARAMSN(N)                                    \
+  case N: {                                                    \
+    return get_paramsN<F, N>(rt, req, region, fid, array_rank); \
+    break;                                                      \
+  }
+  HYPERION_FOREACH_N(GET_PARAMSN);
+  default:
+    assert(false);
+    return Params();
+    break;
+  }
+}
+
+/**
+ * coordinate the computation of an FFT through sub-tasks that create a plan,
+ * execute the plan, and finally destroy the plan
+ */
 static void
 in_place(
   const Task* task,
@@ -110,120 +218,85 @@ FFT::fftw_create_plan(
   assert(args.desc.transform == Type::C2C);
   Plan result;
   result.desc = args.desc;
-  std::vector<int> n;
-  int howmany;
-  int dist;
-  auto req = task->regions[0];
-#define DESC(FT, N) do {                                          \
-    const FieldAccessor<                                          \
-      READ_WRITE,                                                 \
-      FT,                                                         \
-      N,                                                          \
-      coord_t,                                                    \
-      AffineAccessor<FT, N, coord_t>,                             \
-      false> acc(regions[0], req.instance_fields[0]);             \
-    Rect<N> rect(                                                 \
-      rt->get_index_space_domain(req.region.get_index_space()));  \
-    PointInRectIterator<N> pir(rect, false);                      \
-    result.buffer = acc.ptr(*pir);                                \
-    coord_t tsize = 1;                                            \
-    coord_t rsize = 1;                                            \
-    for (size_t i = 0; i < N; ++i) {                              \
-      if (i < N - args.desc.rank) {                               \
-        rsize *= rect.hi[i] - rect.lo[i] + 1;                     \
-      } else {                                                    \
-        n.push_back(rect.hi[i]- rect.lo[i] + 1);                  \
-        tsize *= n.back();                                        \
-      }                                                           \
-    }                                                             \
-    dist = tsize;                                                 \
-    howmany = rsize;                                              \
-  } while (0)
-
-  auto region_rank = req.region.get_index_space().get_dim();
   if (args.desc.precision == Precision::SINGLE) {
-    switch (region_rank) {
-#define DESC_SINGLE(N)                          \
-      case N: DESC(complex<float>, N); break;
-      HYPERION_FOREACH_N(DESC_SINGLE);
-#undef DESC_SINGLE
-    default:
-      assert(false);
-      break;
-    }
+    auto params =
+      get_params<complex<float>>(
+        rt,
+        task->regions[0],
+        regions[0],
+        args.fid,
+        args.desc.rank);
     fftwf_mutex.lock(ctx, rt);
     if (args.seconds >= 0)
       fftwf_set_timelimit(args.seconds);
     // when creating a plan, if FFTW does not yet have wisdom for that plan, it
     // will overwrite the array; thus when necessary, create a similar plan
     // initially with a different buffer
+    auto make_plan =
+      [&params, &args](fftwf_complex* buffer, unsigned flags) {
+        return
+          fftwf_plan_many_dft(
+            params.n.size(), params.n.data(), params.howmany,
+            buffer, params.nembed.data(), params.stride, params.dist,
+            buffer, params.nembed.data(), params.stride, params.dist,
+            args.desc.sign,
+            flags);
+      };
     result.handle.fftwf =
-      fftwf_plan_many_dft(
-        n.size(), n.data(), howmany,
-        static_cast<fftwf_complex*>(result.buffer), NULL, 1, dist,
-        static_cast<fftwf_complex*>(result.buffer), NULL, 1, dist,
-        args.desc.sign,
+      make_plan(
+        static_cast<fftwf_complex*>(params.buffer),
         args.flags | FFTW_WISDOM_ONLY);
     if (result.handle.fftwf == NULL && (args.flags & FFTW_WISDOM_ONLY) == 0) {
+      // no existing wisdom for plan, and caller accepts generation of new plan
       std::cout << "new FFTWF plan" << std::endl;
-      auto buff = fftwf_alloc_complex(howmany * dist);
-      auto p =
-        fftwf_plan_many_dft(
-          n.size(), n.data(), howmany,
-          buff, NULL, 1, dist,
-          buff, NULL, 1, dist,
-          args.desc.sign,
-          args.flags);
+      auto buff = fftwf_alloc_complex(params.howmany * params.dist);
+      auto p = make_plan(buff, args.flags);
       ::fftwf_destroy_plan(p);
       fftwf_free(buff);
       result.handle.fftwf =
-        fftwf_plan_many_dft(
-          n.size(), n.data(), howmany,
-          static_cast<fftwf_complex*>(result.buffer), NULL, 1, dist,
-          static_cast<fftwf_complex*>(result.buffer), NULL, 1, dist,
-          args.desc.sign,
+        make_plan(
+          static_cast<fftwf_complex*>(params.buffer),
           args.flags | FFTW_WISDOM_ONLY);
       assert(result.handle.fftwf != NULL);
     }
     fftwf_mutex.unlock();
   } else {
-    switch (region_rank) {
-#define DESC_DOUBLE(N)                          \
-      case N: DESC(complex<double>, N); break;
-      HYPERION_FOREACH_N(DESC_DOUBLE);
-#undef DESC_DOUBLE
-    default:
-      assert(false);
-      break;
-    }
+    auto params =
+      get_params<complex<double>>(
+        rt,
+        task->regions[0],
+        regions[0],
+        args.fid,
+        args.desc.rank);
     fftw_mutex.lock(ctx, rt);
     if (args.seconds >= 0)
       fftw_set_timelimit(args.seconds);
+    // when creating a plan, if FFTW does not yet have wisdom for that plan, it
+    // will overwrite the array; thus when necessary, create a similar plan
+    // initially with a different buffer
+    auto make_plan =
+      [&params, &args](fftw_complex* buffer, unsigned flags) {
+        return
+          fftw_plan_many_dft(
+            params.n.size(), params.n.data(), params.howmany,
+            buffer, params.nembed.data(), params.stride, params.dist,
+            buffer, params.nembed.data(), params.stride, params.dist,
+            args.desc.sign,
+            flags);
+      };
     result.handle.fftw =
-      fftw_plan_many_dft(
-        n.size(), n.data(), howmany,
-        static_cast<fftw_complex*>(result.buffer), NULL, 1, dist,
-        static_cast<fftw_complex*>(result.buffer), NULL, 1, dist,
-        args.desc.sign,
+      make_plan(
+        static_cast<fftw_complex*>(result.buffer),
         args.flags | FFTW_WISDOM_ONLY);
     if (result.handle.fftw == NULL && (args.flags & FFTW_WISDOM_ONLY) == 0) {
       std::cout << "new FFTW plan" << std::endl;
-      auto buff = fftw_alloc_complex(howmany * dist);
-      auto p =
-        fftw_plan_many_dft(
-          n.size(), n.data(), howmany,
-          buff, NULL, 1, dist,
-          buff, NULL, 1, dist,
-          args.desc.sign,
-          args.flags);
+      auto buff = fftw_alloc_complex(params.howmany * params.dist);
+      auto p = make_plan(buff, args.flags);
       ::fftw_destroy_plan(p);
       fftw_free(buff);
       result.handle.fftw =
-        fftw_plan_many_dft(
-          n.size(), n.data(), howmany,
-          static_cast<fftw_complex*>(result.buffer), NULL, 1, dist,
-          static_cast<fftw_complex*>(result.buffer), NULL, 1, dist,
-          args.desc.sign,
+        make_plan(
+          static_cast<fftw_complex*>(result.buffer),
           args.flags | FFTW_WISDOM_ONLY);
       assert(result.handle.fftw != NULL);
     }
@@ -246,73 +319,38 @@ FFT::cufft_create_plan(
   assert(args.desc.transform == Type::C2C);
   Plan result;
   result.desc = args.desc;
-  std::vector<int> n;
-  int batch;
-  int dist;
-  auto req = task->regions[0];
-#define DESC(FT, N) do {                                          \
-    const FieldAccessor<                                          \
-      READ_WRITE,                                                 \
-      FT,                                                         \
-      N,                                                          \
-      coord_t,                                                    \
-      AffineAccessor<FT, N, coord_t>,                             \
-      false> acc(regions[0], req.instance_fields[0]);             \
-    Rect<N> rect(                                                 \
-      rt->get_index_space_domain(req.region.get_index_space()));  \
-    PointInRectIterator<N> pir(rect, false);                      \
-    result.buffer = acc.ptr(*pir);                                \
-    coord_t tsize = 1;                                            \
-    coord_t rsize = 1;                                            \
-    for (size_t i = 0; i < N; ++i) {                              \
-      if (i < N - args.desc.rank) {                               \
-        rsize *= rect.hi[i] - rect.lo[i] + 1;                     \
-      } else {                                                    \
-        n.push_back(rect.hi[i]- rect.lo[i] + 1);                  \
-        tsize *= n.back();                                        \
-      }                                                           \
-    }                                                             \
-    dist = tsize;                                                 \
-    batch = rsize;                                                \
-  } while (0)
-
-  auto region_rank = req.region.get_index_space().get_dim();
   if (args.desc.precision == Precision::SINGLE) {
-    switch (region_rank) {
-#define DESC_SINGLE(N)                          \
-      case N: DESC(complex<float>, N); break;
-      HYPERION_FOREACH_N(DESC_SINGLE);
-#undef DESC_SINGLE
-    default:
-      assert(false);
-      break;
-    }
+    auto params =
+      get_params<complex<float>>(
+        rt,
+        task->regions[0],
+        regions[0],
+        args.fid,
+        args.desc.rank);
     auto rc =
       cufftPlanMany(
-        &result.handle.cufft, n.size(), n.data(),
-        NULL, 1, dist,
-        NULL, 1, dist,
+        &result.handle.cufft, params.n.size(), params.n.data(),
+        params.nembed.data(), params.stride, params.dist,
+        params.nembed.data(), params.stride, params.dist,
         CUFFT_C2C,
-        batch);
+        params.howmany);
     if (rc != CUFFT_SUCCESS)
       result.handle.cufft = 0;
   } else {
-    switch (region_rank) {
-#define DESC_DOUBLE(N)                          \
-      case N: DESC(complex<double>, N); break;
-      HYPERION_FOREACH_N(DESC_DOUBLE);
-#undef DESC_DOUBLE
-    default:
-      assert(false);
-      break;
-    }
+    auto params =
+      get_params<complex<double>>(
+        rt,
+        task->regions[0],
+        regions[0],
+        args.fid,
+        args.desc.rank);
     auto rc =
       cufftPlanMany(
-        &result.handle.cufft, n.size(), n.data(),
-        NULL, 1, dist,
-        NULL, 1, dist,
+        &result.handle.cufft, params.n.size(), params.n.data(),
+        params.nembed.data(), params.stride, params.dist,
+        params.nembed.data(), params.stride, params.dist,
         CUFFT_Z2Z,
-        batch);
+        params.howmany);
     if (rc != CUFFT_SUCCESS)
       result.handle.cufft = 0;
   }

@@ -285,6 +285,7 @@ ATermIlluminationFunction::compute_aifs(
        : FFT::Precision::DOUBLE);
     args.desc.transform = FFT::Type::C2C;
     args.desc.sign = -1;
+    args.fid = CF_VALUE_FID;
     args.seconds = 5.0;
     args.flags = FFTW_MEASURE;
     if (!partition.is_valid()) {
