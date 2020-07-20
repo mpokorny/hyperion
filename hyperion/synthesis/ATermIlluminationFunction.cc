@@ -167,7 +167,9 @@ ATermIlluminationFunction::compute_aifs(
   Context ctx,
   Runtime* rt,
   const ATermZernikeModel& zmodel,
-  const ColumnSpacePartition& partition) const {
+  const ColumnSpacePartition& partition,
+  unsigned fftw_flags,
+  double fftw_timelimit) const {
 
   std::vector<RegionRequirement> all_reqs;
   std::vector<ColumnSpacePartition> all_parts;
@@ -286,8 +288,8 @@ ATermIlluminationFunction::compute_aifs(
     args.desc.transform = FFT::Type::C2C;
     args.desc.sign = -1;
     args.fid = CF_VALUE_FID;
-    args.seconds = 5.0;
-    args.flags = FFTW_MEASURE;
+    args.seconds = fftw_timelimit;
+    args.flags = fftw_flags;
     if (!partition.is_valid()) {
       TaskLauncher
         task(FFT::in_place_task_id, TaskArgument(&args, sizeof(args)));
@@ -299,8 +301,7 @@ ATermIlluminationFunction::compute_aifs(
         rt->get_index_partition_color_space(ctx, partition.column_ip),
         TaskArgument(&args, sizeof(args)),
         ArgumentMap());
-      for (auto& r : all_reqs)
-        task.add_region_requirement(r);
+      task.add_region_requirement(req);
       rt->execute_index_space(ctx, task);
     }
     for (auto& p : all_parts)

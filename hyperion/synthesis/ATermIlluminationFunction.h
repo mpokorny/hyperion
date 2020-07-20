@@ -23,6 +23,7 @@
   CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_STOKES
 
 #include <hyperion/synthesis/ATermZernikeModel.h>
+#include <fftw3.h>
 
 namespace hyperion {
 namespace synthesis {
@@ -123,7 +124,9 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ATermZernikeModel& zmodel,
-    const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
+    const ColumnSpacePartition& partition = ColumnSpacePartition(),
+    unsigned fftw_flags = FFTW_MEASURE,
+    double fftw_timelimit = 5.0) const;
 
 //protected:
 
