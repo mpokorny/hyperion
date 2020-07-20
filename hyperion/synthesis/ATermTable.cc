@@ -328,7 +328,7 @@ ATermTable::compute_cfs(
       aif.columns().at(CF_VALUE_COLUMN_NAME)
       .narrow_partition(ctx, rt, partition, {CF_X, CF_Y})
       .value_or(partition);
-    aif.compute_aifs(ctx, rt, zmodel, p);
+    aif.compute_jones(ctx, rt, zmodel, p);
     if (p != partition)
       p.destroy(ctx, rt);
   }
@@ -375,14 +375,14 @@ ATermTable::compute_cfs(
       switch (aterm_part.color_dim(rt)) {
 #define MAP_MUELLER_TO_STOKES(N)                \
         case N:                                 \
-          aif_read_ip =                        \
+          aif_read_ip =                         \
             map_mueller_to_stokes<N>(           \
               ctx,                              \
               rt,                               \
               aterm_part,                       \
               stokes_out_values,                \
               stokes_in_values,                 \
-              aif_cf_is,                       \
+              aif_cf_is,                        \
               stokes_values);                   \
           break;
       HYPERION_FOREACH_N(MAP_MUELLER_TO_STOKES);

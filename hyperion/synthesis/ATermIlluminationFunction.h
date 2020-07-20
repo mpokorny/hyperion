@@ -120,7 +120,7 @@ public:
    * compute the values of the aperture illumination function column
    **/
   void
-  compute_aifs(
+  compute_jones(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ATermZernikeModel& zmodel,
@@ -272,12 +272,12 @@ public:
     Legion::Runtime* rt);
 #endif // HYPERION_USE_KOKKOS
 
-  static const constexpr char* evaluate_polynomials_task_name =
-    "ATermIlluminationFunction::evaluate_polynomials_task";
+  static const constexpr char* compute_aifs_task_name =
+    "ATermIlluminationFunction::compute_aifs_task";
 
-  static Legion::TaskID evaluate_polynomials_task_id;
+  static Legion::TaskID compute_aifs_task_id;
 
-  struct EvaluatePolynomialsTaskArgs {
+  struct ComputeAIFsTaskArgs {
     Table::Desc zmodel;
     Table::Desc aif;
   };
@@ -285,14 +285,14 @@ public:
 #ifdef HYPERION_USE_KOKKOS
   template <typename execution_space>
   static void
-  evaluate_polynomials_task(
+  compute_aifs_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime* rt) {
 
-    const EvaluatePolynomialsTaskArgs& args =
-      *static_cast<EvaluatePolynomialsTaskArgs*>(task->args);
+    const ComputeAIFsTaskArgs& args =
+      *static_cast<ComputeAIFsTaskArgs*>(task->args);
     std::vector<Table::Desc> descs{args.zmodel, args.aif};
 
     auto ptcrs =
@@ -395,7 +395,7 @@ public:
   }
 #else // !HYPERION_USE_KOKKOS
   static void
-  evaluate_polynomials_task(
+  compute_aifs_task(
     const Legion::Task* task,
     const std::vector<Legion::PhysicalRegion>& regions,
     Legion::Context ctx,

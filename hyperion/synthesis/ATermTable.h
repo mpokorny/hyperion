@@ -130,13 +130,13 @@ public:
       rt->get_executing_processor(ctx).kokkos_work_space();
 
     // Stokes CF functions
-    auto aif =
+    auto jones =
       CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pts[0]);
     // we expect to have all of the Stokes index column accessible
-    auto aif_stokes_col = aif.stokes<Legion::AffineAccessor>();
-    auto aif_stokes = aif_stokes_col.view<execution_space, READ_ONLY>();
-    auto aif_stokes_rect = aif_stokes_col.rect();
-    // a map from stokes_t value to Stokes index in aif
+    auto jones_stokes_col = jones.stokes<Legion::AffineAccessor>();
+    auto jones_stokes = jones_stokes_col.view<execution_space, READ_ONLY>();
+    auto jones_stokes_rect = jones_stokes_col.rect();
+    // a map from stokes_t value to Stokes index in jones
     Kokkos::View<
       Legion::coord_t[num_stokes_t::value],
       execution_space,
@@ -153,15 +153,15 @@ public:
     Kokkos::parallel_for(
       Kokkos::RangePolicy<execution_space>(
         kokkos_work_space,
-        aif_stokes_rect.lo,
-        aif_stokes_rect.hi + 1),
+        jones_stokes_rect.lo,
+        jones_stokes_rect.hi + 1),
       KOKKOS_LAMBDA(const int i) {
-        stokes_indexes(static_cast<int>(aif_stokes(i)) - 1) = i;
+        stokes_indexes(static_cast<int>(jones_stokes(i)) - 1) = i;
       });
-    auto aif_value_col = aif.value<Legion::AffineAccessor>();
-    auto aif_values = aif_value_col.view<execution_space, READ_ONLY>();
-    auto aif_weight_col = aif.weight<Legion::AffineAccessor>();
-    auto aif_weights = aif_weight_col.view<execution_space, READ_ONLY>();
+    auto jones_value_col = jones.value<Legion::AffineAccessor>();
+    auto jones_values = jones_value_col.view<execution_space, READ_ONLY>();
+    auto jones_weight_col = jones.weight<Legion::AffineAccessor>();
+    auto jones_weights = jones_weight_col.view<execution_space, READ_ONLY>();
 
     // Final CF functions
     auto aterm = CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>(pts[1]);
@@ -222,7 +222,7 @@ public:
             static_cast<int>(aterm_stokes_out_values(sto_out)) - 1);
         auto left =
           Kokkos::subview(
-            aif_values,
+            jones_values,
             blc,
             pa,
             frq,
@@ -234,7 +234,7 @@ public:
             static_cast<int>(aterm_stokes_in_values(sto_in)) - 1);
         auto right =
           Kokkos::subview(
-            aif_values,
+            jones_values,
             blc,
             pa,
             frq,
@@ -257,33 +257,6 @@ public:
               });
           });
       });
-#if 0
-    // Kokkos MDRangePolicy has max rank of 6, so we put the inner loops into
-    // the kernel
-    Kokkos::parallel_for(
-      Kokkos::MDRangePolicy<Kokkos::Rank<5>, execution_space>(
-        rt->get_executing_processor(ctx).kokkos_work_space(),
-        rect_lo(truncated_aterm_rect),
-        rect_hi(truncated_aterm_rect)),
-      KOKKOS_LAMBDA(
-        const Legion::coord_t& blc,
-        const Legion::coord_t& pa,
-        const Legion::coord_t& frq,
-        const Legion::coord_t& sto_out,
-        const Legion::coord_t& sto_in) {
-        Legion::coord_t sto_left =
-          stokes_indexes(
-            static_cast<int>(aterm_stokes_out_values(sto_out)) - 1);
-        Legion::coord_t sto_right =
-          stokes_indexes(
-            static_cast<int>(aterm_stokes_in_values(sto_in)) - 1);
-        for (Legion::coord_t x = aterm_rect.lo[5]; x <= aterm_rect.hi[5]; ++x)
-          for (Legion::coord_t y = aterm_rect.lo[6]; x <= aterm_rect.lo[6]; ++y)
-            aterm_values(blc, pa, frq, sto_out, sto_in, x, y) =
-              aif_values(blc, pa, frq, sto_left, x, y) *
-              Kokkos::conj(aif_values(blc, pa, frq, sto_right, x, y));
-      });
-#endif
   }
 #endif // HYPERION_USE_KOKKOS
 

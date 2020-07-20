@@ -21,7 +21,7 @@ using namespace hyperion::synthesis;
 using namespace Legion;
 
 TaskID ATermIlluminationFunction::compute_epts_task_id;
-TaskID ATermIlluminationFunction::evaluate_polynomials_task_id;
+TaskID ATermIlluminationFunction::compute_aifs_task_id;
 
 #if !HAVE_CXX17
 const constexpr unsigned ATermIlluminationFunction::d_blc;
@@ -163,7 +163,7 @@ ATermIlluminationFunction::compute_epts(
 }
 
 void
-ATermIlluminationFunction::compute_aifs(
+ATermIlluminationFunction::compute_jones(
   Context ctx,
   Runtime* rt,
   const ATermZernikeModel& zmodel,
@@ -174,9 +174,9 @@ ATermIlluminationFunction::compute_aifs(
   std::vector<RegionRequirement> all_reqs;
   std::vector<ColumnSpacePartition> all_parts;
 
-  // execute evaluate_polynomials_task
+  // execute compute_aifs_task
   {
-    EvaluatePolynomialsTaskArgs args;
+    ComputeAIFsTaskArgs args;
 
     auto ro_colreqs = Column::default_requirements;
     ro_colreqs.values.privilege = READ_ONLY;
@@ -230,7 +230,7 @@ ATermIlluminationFunction::compute_aifs(
     TaskArgument ta(&args, sizeof(args));
     if (!partition.is_valid()) {
       TaskLauncher task(
-        evaluate_polynomials_task_id,
+        compute_aifs_task_id,
         ta,
         Predicate::TRUE_PRED,
         table_mapper);
@@ -239,7 +239,7 @@ ATermIlluminationFunction::compute_aifs(
       rt->execute_task(ctx, task);
     } else {
       IndexTaskLauncher task(
-        evaluate_polynomials_task_id,
+        compute_aifs_task_id,
         rt->get_index_partition_color_space(ctx, partition.column_ip),
         ta,
         ArgumentMap(),
@@ -424,10 +424,10 @@ ATermIlluminationFunction::preregister_tasks() {
   }
 
   //
-  // evaluate_polynomials_task
+  // compute_aifs_task
   //
   {
-    evaluate_polynomials_task_id = Runtime::generate_static_task_id();
+    compute_aifs_task_id = Runtime::generate_static_task_id();
 
     // the only table with two columns sharing an index space is
     // ATermIlluminationFunction, using EPT_X and EPT_Y; use an AOS layout for
@@ -436,7 +436,7 @@ ATermIlluminationFunction::preregister_tasks() {
 # if defined(KOKKOS_ENABLE_SERIAL) && defined(ENABLE_KOKKOS_SERIAL_EVAL_POLY_TASK)
     {
       TaskVariantRegistrar
-        registrar(evaluate_polynomials_task_id, evaluate_polynomials_task_name);
+        registrar(compute_aifs_task_id, compute_aifs_task_name);
       registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
@@ -445,7 +445,7 @@ ATermIlluminationFunction::preregister_tasks() {
       LayoutConstraintRegistrar
         constraints(
           FieldSpace::NO_SPACE,
-          "ATermIlluminationFunction::evaluate_polynomials_constraints");
+          "ATermIlluminationFunction::compute_aifs_constraints");
       add_aos_right_ordering_constraint(constraints);
       constraints.add_constraint(
         SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
@@ -453,15 +453,15 @@ ATermIlluminationFunction::preregister_tasks() {
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
         Runtime::preregister_layout(constraints));
 
-      Runtime::preregister_task_variant<evaluate_polynomials_task<Kokkos::Serial>>(
+      Runtime::preregister_task_variant<compute_aifs_task<Kokkos::Serial>>(
         registrar,
-        evaluate_polynomials_task_name);
+        compute_aifs_task_name);
     }
 # endif // KOKKOS_ENABLE_SERIAL
 # if defined(KOKKOS_ENABLE_OPENMP) && defined(ENABLE_KOKKOS_OPENMP_EVAL_POLY_TASK)
     {
       TaskVariantRegistrar
-        registrar(evaluate_polynomials_task_id, evaluate_polynomials_task_name);
+        registrar(compute_aifs_task_id, compute_aifs_task_name);
       registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
@@ -470,7 +470,7 @@ ATermIlluminationFunction::preregister_tasks() {
       LayoutConstraintRegistrar
         constraints(
           FieldSpace::NO_SPACE,
-          "ATermIlluminationFunction::evaluate_polynomials_constraints");
+          "ATermIlluminationFunction::compute_aifs_constraints");
       add_aos_right_ordering_constraint(constraints);
       constraints.add_constraint(
         SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
@@ -478,15 +478,15 @@ ATermIlluminationFunction::preregister_tasks() {
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
         Runtime::preregister_layout(constraints));
 
-      Runtime::preregister_task_variant<evaluate_polynomials_task<Kokkos::OpenMP>>(
+      Runtime::preregister_task_variant<compute_aifs_task<Kokkos::OpenMP>>(
         registrar,
-        evaluate_polynomials_task_name);
+        compute_aifs_task_name);
     }
 # endif // KOKKOS_ENABLE_OPENMP
 # if defined(KOKKOS_ENABLE_CUDA) && defined(ENABLE_KOKKOS_CUDA_EVAL_POLY_TASK)
     {
       TaskVariantRegistrar
-        registrar(evaluate_polynomials_task_id, evaluate_polynomials_task_name);
+        registrar(compute_aifs_task_id, compute_aifs_task_name);
       registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
@@ -495,7 +495,7 @@ ATermIlluminationFunction::preregister_tasks() {
       LayoutConstraintRegistrar
         constraints(
           FieldSpace::NO_SPACE,
-          "ATermIlluminationFunction::evaluate_polynomials_constraints");
+          "ATermIlluminationFunction::compute_aifs_constraints");
       add_soa_left_ordering_constraint(constraints);
       constraints.add_constraint(
         SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
@@ -503,15 +503,15 @@ ATermIlluminationFunction::preregister_tasks() {
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
         Runtime::preregister_layout(constraints));
 
-      Runtime::preregister_task_variant<evaluate_polynomials_task<Kokkos::Cuda>>(
+      Runtime::preregister_task_variant<compute_aifs_task<Kokkos::Cuda>>(
         registrar,
-        evaluate_polynomials_task_name);
+        compute_aifs_task_name);
     }
 # endif // KOKKOS_ENABLE_CUDA
 #else // !HYPERION_USE_KOKKOS
     {
       TaskVariantRegistrar
-        registrar(evaluate_polynomials_task_id, evaluate_polynomials_task_name);
+        registrar(compute_aifs_task_id, compute_aifs_task_name);
       registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
@@ -520,7 +520,7 @@ ATermIlluminationFunction::preregister_tasks() {
       LayoutConstraintRegistrar
         constraints(
           FieldSpace::NO_SPACE,
-          "ATermIlluminationFunction::evaluate_polynomials_constraints");
+          "ATermIlluminationFunction::compute_aifs_constraints");
       add_aos_right_ordering_constraint(constraints);
       constraints.add_constraint(
         SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
@@ -528,9 +528,9 @@ ATermIlluminationFunction::preregister_tasks() {
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
         Runtime::preregister_layout(constraints));
 
-      Runtime::preregister_task_variant<evaluate_polynomials_task>(
+      Runtime::preregister_task_variant<compute_aifs_task>(
         registrar,
-        evaluate_polynomials_task_name);
+        compute_aifs_task_name);
     }
 #endif // HYPERION_USE_KOKKOS
   }
