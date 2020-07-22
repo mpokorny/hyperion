@@ -31,6 +31,9 @@ public:
 
   static const constexpr unsigned index_rank = sizeof...(AXES);
 
+  static const constexpr unsigned d_x = index_rank;
+  static const constexpr unsigned d_y = d_x + 1;
+
   CFTable(hyperion::Table&& t)
     : CFTableBase(std::move(t)) {}
 
