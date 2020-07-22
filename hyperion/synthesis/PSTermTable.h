@@ -49,7 +49,7 @@ public:
 
   template <size_t N>
   static KOKKOS_INLINE_FUNCTION double
-  sph(const std::array<double, N>& ary, double nu_lo, double nu_hi) {
+  sph(const array<double, N>& ary, double nu_lo, double nu_hi) {
     static_assert(N > 0);
     const double dn2 = nu_lo * nu_lo - nu_hi * nu_hi;
     double result = ary[N - 1];
@@ -64,15 +64,15 @@ public:
     if (nu <= 0) {
       result = 1.0;
     } else if (nu < 0.75) {
-      const std::array<double, 5>
+      const array<double, 5>
         p{8.203343e-2, -3.644705e-1, 6.278660e-1, -5.335581e-1, 2.312756e-1};
-      const std::array<double, 3>
+      const array<double, 3>
         q{1.0000000e0, 8.212018e-1, 2.078043e-1};
       result = sph(p, nu, 0.75) / sph(q, nu, 0.75);
     } else if (nu < 1.0) {
-      const std::array<double, 5>
+      const array<double, 5>
         p{4.028559e-3, -3.697768e-2, 1.021332e-1, -1.201436e-1, 6.412774e-2};
-      const std::array<double, 3>
+      const array<double, 3>
         q{1.0000000e0, 9.599102e-1, 2.918724e-1};
       result = sph(p, nu, 1.0) / sph(q, nu, 1.0);
     } else {
