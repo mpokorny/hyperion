@@ -94,11 +94,11 @@ PSTermTable::compute_cfs_task(
   typedef decltype(value_col)::value_t::value_type fp_t;
 
   for (PointInRectIterator<3> pir(value_col.rect()); pir(); pir++) {
-    const fp_t x = pir[1];
-    const fp_t y = pir[2];
+    const fp_t x = pir[d_x];
+    const fp_t y = pir[d_y];
     const fp_t yp =
       std::sqrt((static_cast<fp_t>(x) * x) + (static_cast<fp_t>(y) * y))
-      * ps_scales[pir[0]];
+      * ps_scales[pir[d_ps]];
     const fp_t v =
       std::max(
         static_cast<fp_t>(spheroidal(yp)) * ((fp_t)1.0 - yp * yp),

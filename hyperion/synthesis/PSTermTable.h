@@ -34,6 +34,7 @@ public:
     const std::array<Legion::coord_t, 2>& cf_bounds_lo,
     const std::array<Legion::coord_t, 2>& cf_bounds_hi,
     const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales);
+  static const constexpr unsigned d_ps = 0;
 
   PSTermTable(
     Legion::Context ctx,
