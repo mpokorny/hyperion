@@ -139,6 +139,7 @@ using invoke_result_t = typename invoke_result<F, ArgTypes...>::type;
 # include <casacore/casa/Containers/Record.h>
 # include <casacore/casa/Utilities/DataType.h>
 # include <casacore/coordinates/Coordinates/CoordinateSystem.h>
+# include <casacore/coordinates/Coordinates/DirectionCoordinate.h>
 #endif
 
 // The following reiterates a constant in Realm -- unfortunately there is no way
@@ -774,6 +775,25 @@ public:
   destroy(FIELD_TYPE& val);
 };
 
+class HYPERION_EXPORT direction_coordinate_serdez {
+public:
+  typedef casacore::DirectionCoordinate FIELD_TYPE;
+
+  static const size_t MAX_SERIALIZED_SIZE = record_serdez::MAX_SERIALIZED_SIZE;
+
+  static size_t
+  serialized_size(const FIELD_TYPE& val);
+
+  static size_t
+  serialize(const FIELD_TYPE& val, void *buffer);
+
+  static size_t
+  deserialize(FIELD_TYPE& val, const void *buffer);
+
+  static void
+  destroy(FIELD_TYPE& val);
+};
+
 #endif
 
 class bool_or_redop {
@@ -993,6 +1013,7 @@ public:
 
 #ifdef HYPERION_USE_CASACORE
     CC_COORDINATE_SYSTEM_SID,
+    CC_DIRECTION_COORDINATE_SID,
 #endif
     NUM_SIDS
   };
