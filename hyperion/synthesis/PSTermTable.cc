@@ -24,6 +24,33 @@ using namespace hyperion::synthesis;
 using namespace hyperion;
 using namespace Legion;
 
+#define USE_K_SERIAL_COMPUTE_CFS_TASK // undef to disable
+#if defined(USE_K_SERIAL_COMPUTE_CFS_TASK) &&   \
+  defined(HYPERION_USE_KOKKOS) &&               \
+  defined(KOKKOS_ENABLE_SERIAL)
+# define ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK
+#else
+# undef ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK
+#endif
+
+#define USE_K_OPENMP_COMPUTE_CFS_TASK // undef to disable
+#if defined(USE_K_OPENMP_COMPUTE_CFS_TASK) &&   \
+  defined(HYPERION_USE_KOKKOS) &&               \
+  defined(KOKKOS_ENABLE_OPENMP)
+# define ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK
+#else
+# undef ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK
+#endif
+
+#define USE_K_CUDA_COMPUTE_CFS_TASK // undef to disable
+#if defined(USE_K_CUDA_COMPUTE_CFS_TASK) &&     \
+  defined(HYPERION_USE_KOKKOS) &&               \
+  defined(KOKKOS_ENABLE_CUDA)
+# define ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
+#else
+# undef ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
+#endif
+
 #if !HAVE_CXX17
 const constexpr unsigned PSTermTable::d_ps;
 const constexpr char* PSTermTable::compute_cfs_task_name;
@@ -142,11 +169,32 @@ PSTermTable::compute_cfs(
 
 void
 PSTermTable::preregister_tasks() {
+  //
+  // compute_cfs_task
+  //
   {
-    // compute_cfs_task
+#if defined(ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK) || \
+  defined(ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK)
+    LayoutConstraintRegistrar
+      cpu_constraints(FieldSpace::NO_SPACE, "PSTermTable::compute_cfs");
+    add_aos_right_ordering_constraint(cpu_constraints);
+    cpu_constraints.add_constraint(
+      SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
+    auto cpu_layout_id = Runtime::preregister_layout(cpu_constraints);
+#endif
+
+#if defined(ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK)
+    LayoutConstraintRegistrar
+      gpu_constraints(FieldSpace::NO_SPACE, "PSTermTable::compute_cfs");
+    add_soa_left_ordering_constraint(gpu_constraints);
+    gpu_constraints.add_constraint(
+      SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
+    auto gpu_layout_id = Runtime::preregister_layout(gpu_constraints);
+#endif
+
     compute_cfs_task_id = Runtime::generate_static_task_id();
-#ifdef HYPERION_USE_KOKKOS
-# ifdef KOKKOS_ENABLE_SERIAL
+
+#ifdef ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
     // register a serial version on the CPU
     {
       TaskVariantRegistrar
@@ -155,26 +203,18 @@ PSTermTable::preregister_tasks() {
       registrar.set_leaf();
       registrar.set_idempotent();
 
-      // standard column layout
-      LayoutConstraintRegistrar
-        constraints(
-          FieldSpace::NO_SPACE,
-          "PSTermTable::compute_cfs_constraints");
-      add_soa_right_ordering_constraint(constraints);
-      constraints.add_constraint(
-        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        Runtime::preregister_layout(constraints));
+        cpu_layout_id);
 
       Runtime::preregister_task_variant<compute_cfs_task<Kokkos::Serial>>(
         registrar,
         compute_cfs_task_name);
     }
-# endif
+#endif
 
-# ifdef KOKKOS_ENABLE_OPENMP
-    // register an openmp version, if available
+#ifdef ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK
+    // register an OpenMP version
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
@@ -182,26 +222,18 @@ PSTermTable::preregister_tasks() {
       registrar.set_leaf();
       registrar.set_idempotent();
 
-      // standard column layout
-      LayoutConstraintRegistrar
-        constraints(
-          FieldSpace::NO_SPACE,
-          "PSTermTable::compute_cfs_constraints");
-      add_soa_right_ordering_constraint(constraints);
-      constraints.add_constraint(
-        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        Runtime::preregister_layout(constraints));
+        cpu_layout_id);
 
       Runtime::preregister_task_variant<compute_cfs_task<Kokkos::OpenMP>>(
         registrar,
         compute_cfs_task_name);
     }
-# endif
+#endif
 
-# ifdef KOKKOS_ENABLE_CUDA
-    // register a serial version on the GPU
+#ifdef ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
+    // register a version on the GPU
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
@@ -209,47 +241,32 @@ PSTermTable::preregister_tasks() {
       registrar.set_leaf();
       registrar.set_idempotent();
 
-      // standard column layout
-      LayoutConstraintRegistrar
-        constraints(
-          FieldSpace::NO_SPACE,
-          "PSTermTable::compute_cfs_constraints");
-      add_soa_left_ordering_constraint(constraints);
-      constraints.add_constraint(
-        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        Runtime::preregister_layout(constraints));
+        gpu_layout_id);
 
       Runtime::preregister_task_variant<compute_cfs_task<Kokkos::Cuda>>(
         registrar,
         compute_cfs_task_name);
     }
-# endif
-#else // !HYPERION_USE_KOKKOS  
+#endif
+
+#ifndef HYPERION_USE_KOKKOS
+    // register a non-Kokkos, serial version
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
       registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
-
-      // standard column layout
-      LayoutConstraintRegistrar
-        constraints(
-          FieldSpace::NO_SPACE,
-          "PSTermTable::compute_cfs_constraints");
-      add_soa_right_ordering_constraint(constraints);
-      constraints.add_constraint(
-        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        Runtime::preregister_layout(constraints));
+        cpu_layout_id);
 
       Runtime::preregister_task_variant<compute_cfs_task>(
         registrar,
         compute_cfs_task_name);
-    }  
+    }
 #endif // HYPERION_USE_KOKKOS
   }
 }
