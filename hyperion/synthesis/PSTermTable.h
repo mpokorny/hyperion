@@ -28,19 +28,12 @@ class HYPERION_EXPORT PSTermTable
   : public CFTable<CF_PS_SCALE> {
 public:
 
-  PSTermTable(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const std::array<Legion::coord_t, 2>& cf_bounds_lo,
-    const std::array<Legion::coord_t, 2>& cf_bounds_hi,
-    const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales);
   static const constexpr unsigned d_ps = 0;
 
   PSTermTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const Legion::coord_t& cf_x_radius,
-    const Legion::coord_t& cf_y_radius,
+    const std::array<Legion::coord_t, 2>& cf_size,
     const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales);
 
   void
@@ -49,7 +42,7 @@ public:
     Legion::Runtime* rt,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
-  static constexpr const char* compute_cfs_task_name =
+  static const constexpr char* compute_cfs_task_name =
     "PSTermTable::compute_cfs_task";
 
   static Legion::TaskID compute_cfs_task_id;

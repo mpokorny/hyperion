@@ -25,34 +25,22 @@ using namespace hyperion;
 using namespace Legion;
 
 #if !HAVE_CXX17
-constexpr const char* PSTermTable::compute_cfs_task_name;
+const constexpr unsigned PSTermTable::d_ps;
+const constexpr char* PSTermTable::compute_cfs_task_name;
 #endif
 TaskID PSTermTable::compute_cfs_task_id;
 
 PSTermTable::PSTermTable(
   Context ctx,
   Runtime* rt,
-  const std::array<coord_t, 2>& cf_bounds_lo,
-  const std::array<coord_t, 2>& cf_bounds_hi,
+  const std::array<coord_t, 2>& cf_size,
   const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales)
   : CFTable(
     ctx,
     rt,
     Rect<2>(
-      {cf_bounds_lo[0], cf_bounds_lo[1]},
-      {cf_bounds_hi[0], cf_bounds_hi[1]}),
-    Axis<CF_PS_SCALE>(ps_scales)) {}
-
-PSTermTable::PSTermTable(
-  Context ctx,
-  Runtime* rt,
-  const coord_t& cf_x_radius,
-  const coord_t& cf_y_radius,
-  const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales)
-  : CFTable(
-    ctx,
-    rt,
-    Rect<2>({-cf_x_radius, -cf_y_radius}, {cf_x_radius - 1, cf_y_radius - 1}),
+      {-(std::abs(cf_size[0]) / 2), std::abs(cf_size[0]) / 2},
+      {-(std::abs(cf_size[1]) / 2), std::abs(cf_size[1]) / 2}),
     Axis<CF_PS_SCALE>(ps_scales)) {}
 
 #ifndef HYPERION_USE_KOKKOS
