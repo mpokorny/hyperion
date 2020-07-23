@@ -6,6 +6,7 @@ target_sources(hyperion PRIVATE
   CFTableBase.h
   CFTableBase.cc
   CFTable.h
+  CFTable.cc
   CFPhysicalTable.h
   PSTermTable.h
   PSTermTable.cc
