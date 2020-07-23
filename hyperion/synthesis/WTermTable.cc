@@ -184,7 +184,8 @@ WTermTable::preregister_tasks() {
   //
   {
 #if defined(ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK) || \
-  defined(ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK)
+  defined(ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK) || \
+  !defined(HYPERION_USE_KOKKOS)
     LayoutConstraintRegistrar
       cpu_constraints(FieldSpace::NO_SPACE, "WTermTable::compute_cfs");
     add_aos_right_ordering_constraint(cpu_constraints);
