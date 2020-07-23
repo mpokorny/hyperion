@@ -59,7 +59,7 @@ WTermTable::WTermTable(
   : CFTable(
     ctx,
     rt,
-    Legion::Rect<2>(
+    Rect<2>(
       {-(std::abs(cf_size[0]) / 2), std::abs(cf_size[0]) / 2},
       {-(std::abs(cf_size[1]) / 2), std::abs(cf_size[1]) / 2}),
     Axis<CF_W>(w_values)) {}
