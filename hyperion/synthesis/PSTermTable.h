@@ -36,7 +36,7 @@ public:
    * @param ctx Legion Context
    * @param rt Legion Runtime pointer
    * @param cf_size dimensions of CF in image domain (not extended)
-   * @param ps_scales vector of PS scale values
+   * @param ps_scales PS scale axis values
    *
    * Commonly, \a ps_scales will have only a single element.
    */

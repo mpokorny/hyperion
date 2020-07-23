@@ -34,7 +34,7 @@ public:
    * @param ctx Legion Context
    * @param rt Legion Runtime pointer
    * @param cf_size dimensions of CF in image domain (not extended)
-   * @param w_values vector of W values
+   * @param w_values W axis values
    */
   WTermTable(
     Legion::Context ctx,
