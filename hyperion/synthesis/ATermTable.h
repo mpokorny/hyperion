@@ -45,24 +45,7 @@ public:
   ATermTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::array<Legion::coord_t, 2>& cf_bounds_lo,
-    const std::array<Legion::coord_t, 2>& cf_bounds_hi,
-    const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
-      baseline_classes,
-    const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
-      parallactic_angles,
-    const std::vector<typename cf_table_axis<CF_FREQUENCY>::type>&
-      frequencies,
-    const std::vector<typename cf_table_axis<CF_STOKES_OUT>::type>&
-      stokes_out_values,
-    const std::vector<typename cf_table_axis<CF_STOKES_IN>::type>&
-      stokes_in_values);
-
-  ATermTable(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const Legion::coord_t& cf_x_radius,
-    const Legion::coord_t& cf_y_radius,
+    const std::array<Legion::coord_t, 2>& cf_size,
     const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
       baseline_classes,
     const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&

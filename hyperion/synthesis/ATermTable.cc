@@ -33,8 +33,7 @@ TaskID ATermTable::compute_cfs_task_id;
 ATermTable::ATermTable(
   Context ctx,
   Runtime* rt,
-  const std::array<coord_t, 2>& cf_bounds_lo,
-  const std::array<coord_t, 2>& cf_bounds_hi,
+  const std::array<Legion::coord_t, 2>& cf_size,
   const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
     baseline_classes,
   const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
@@ -49,34 +48,8 @@ ATermTable::ATermTable(
     ctx,
     rt,
     Rect<2>(
-      {cf_bounds_lo[0], cf_bounds_lo[1]},
-      {cf_bounds_hi[0], cf_bounds_hi[1]}),
-    Axis<CF_BASELINE_CLASS>(baseline_classes),
-    Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles),
-    Axis<CF_FREQUENCY>(frequencies),
-    Axis<CF_STOKES_OUT>(stokes_out_values),
-    Axis<CF_STOKES_IN>(stokes_in_values)) {
-}
-
-ATermTable::ATermTable(
-  Context ctx,
-  Runtime* rt,
-  const coord_t& cf_x_radius,
-  const coord_t& cf_y_radius,
-  const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
-    baseline_classes,
-  const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
-    parallactic_angles,
-  const std::vector<typename cf_table_axis<CF_FREQUENCY>::type>&
-    frequencies,
-  const std::vector<typename cf_table_axis<CF_STOKES_OUT>::type>&
-    stokes_out_values,
-  const std::vector<typename cf_table_axis<CF_STOKES_IN>::type>&
-    stokes_in_values)
-  : CFTable(
-    ctx,
-    rt,
-    Rect<2>({-cf_x_radius, -cf_y_radius}, {cf_x_radius - 1, cf_y_radius - 1}),
+      {-(std::abs(cf_size[0]) / 2), std::abs(cf_size[0]) / 2},
+      {-(std::abs(cf_size[1]) / 2), std::abs(cf_size[1]) / 2}),
     Axis<CF_BASELINE_CLASS>(baseline_classes),
     Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles),
     Axis<CF_FREQUENCY>(frequencies),
