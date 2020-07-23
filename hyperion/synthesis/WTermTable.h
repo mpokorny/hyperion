@@ -28,12 +28,29 @@ class HYPERION_EXPORT WTermTable
   : public CFTable<CF_W> {
 public:
 
+  /**
+   * WTermTable constructor
+   *
+   * @param ctx Legion Context
+   * @param rt Legion Runtime pointer
+   * @param cf_size dimensions of CF in image domain (not extended)
+   * @param w_values vector of W values
+   */
   WTermTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::array<Legion::coord_t, 2>& cf_size,
     const std::vector<typename cf_table_axis<CF_W>::type>& w_values);
 
+  /**
+   * compute the W term convolution function values, given a cell size for
+   * function evaluation (in image domain)
+   *
+   * @param ctx Legion Context
+   * @param rt Legion Runtime pointer
+   * @param cell_size sampled cell size in x/y
+   * @param partition table partition (optional)
+   */
   void
   compute_cfs(
     Legion::Context ctx,
@@ -41,9 +58,15 @@ public:
     const std::array<double, 2>& cell_size,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
+  /**
+   * task name for compute_cfs_task
+   */
   static const constexpr char* compute_cfs_task_name =
     "WTermTable::compute_cfs_task";
 
+  /**
+   * task id for compute_cfs_task
+   */
   static Legion::TaskID compute_cfs_task_id;
 
   static const constexpr double twopi = 2 * 3.141592653589793;
@@ -64,7 +87,7 @@ public:
 
   const ComputeCFSTaskArgs& args =
     *static_cast<const ComputeCFSTaskArgs*>(task->args);
-  const decltype(m_cell_size)& cell_size = args.cell_size;
+  const auto& cell_size = args.cell_size;
 
   auto ptcr =
     PhysicalTable::create(
