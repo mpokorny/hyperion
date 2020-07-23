@@ -31,26 +31,15 @@ public:
   WTermTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::array<Legion::coord_t, 2>& cf_bounds_lo,
-    const std::array<Legion::coord_t, 2>& cf_bounds_hi,
-    const std::array<double, 2>& cell_size,
-    const std::vector<typename cf_table_axis<CF_W>::type>& w_values);
-
-  WTermTable(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const Legion::coord_t& cf_x_radius,
-    const Legion::coord_t& cf_y_radius,
-    const std::array<double, 2>& cell_size,
+    const std::array<Legion::coord_t, 2>& cf_size,
     const std::vector<typename cf_table_axis<CF_W>::type>& w_values);
 
   void
   compute_cfs(
     Legion::Context ctx,
     Legion::Runtime* rt,
+    const std::array<double, 2>& cell_size,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
-
-  std::array<double, 2> m_cell_size;
 
   static const constexpr char* compute_cfs_task_name =
     "WTermTable::compute_cfs_task";
@@ -61,7 +50,7 @@ public:
 
   struct ComputeCFSTaskArgs {
     Table::Desc desc;
-    decltype(m_cell_size) cell_size; 
+    array<double, 2> cell_size;
   };
 
 #ifdef HYPERION_USE_KOKKOS

@@ -27,32 +27,15 @@ Legion::TaskID WTermTable::compute_cfs_task_id;
 WTermTable::WTermTable(
   Context ctx,
   Runtime* rt,
-  const std::array<Legion::coord_t, 2>& cf_bounds_lo,
-  const std::array<Legion::coord_t, 2>& cf_bounds_hi,
-  const std::array<double, 2>& cell_size,
+  const std::array<Legion::coord_t, 2>& cf_size,
   const std::vector<typename cf_table_axis<CF_W>::type>& w_values)
   : CFTable(
     ctx,
     rt,
     Legion::Rect<2>(
-      {cf_bounds_lo[0], cf_bounds_lo[1]},
-      {cf_bounds_hi[0], cf_bounds_hi[1]}),
-    Axis<CF_W>(w_values))
-  , m_cell_size(cell_size) {}
-
-WTermTable::WTermTable(
-  Context ctx,
-  Runtime* rt,
-  const coord_t& cf_x_radius,
-  const coord_t& cf_y_radius,
-  const std::array<double, 2>& cell_size,
-  const std::vector<typename cf_table_axis<CF_W>::type>& w_values)
-  : CFTable(
-    ctx,
-    rt,
-    Rect<2>({-cf_x_radius, -cf_y_radius}, {cf_x_radius - 1, cf_y_radius - 1}),
-    Axis<CF_W>(w_values))
-  , m_cell_size(cell_size) {}
+      {-(std::abs(cf_size[0]) / 2), std::abs(cf_size[0]) / 2},
+      {-(std::abs(cf_size[1]) / 2), std::abs(cf_size[1]) / 2}),
+    Axis<CF_W>(w_values)) {}
 
 #ifndef HYPERION_USE_KOKKOS
 void
@@ -121,6 +104,7 @@ void
 WTermTable::compute_cfs(
   Context ctx,
   Runtime* rt,
+  const std::array<double, 2>& cell_size,
   const ColumnSpacePartition& partition) const {
 
     auto cf_colreqs = Column::default_requirements;
@@ -150,7 +134,8 @@ WTermTable::compute_cfs(
 #endif // HAVE_CXX17
     ComputeCFSTaskArgs args;
     args.desc = tdesc;
-    args.cell_size = m_cell_size;
+    args.cell_size[0] = cell_size[0];
+    args.cell_size[1] = cell_size[1];
     TaskLauncher task(
       compute_cfs_task_id,
       TaskArgument(&args, sizeof(args)),
