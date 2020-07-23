@@ -50,11 +50,25 @@ struct HYPERION_EXPORT ZCoeff {
 /**
  * Helper table for use by ATermTable. For Zernike model parameters and
  * model polynomial, without dependence on parallactic angle.
- **/
+ *
+ * Although this class is a sub-class of CFTable, that has been done only for
+ * convenience: the value and weight columns are unused
+ */
 class HYPERION_EXPORT ATermZernikeModel
   : public CFTable<HYPERION_A_TERM_ZERNIKE_MODEL_AXES> {
 public:
 
+  /**
+   * ATermZernikeModel constructor
+   *
+   * @param ctx Legion Context
+   * @param rt Legion Runtime pointer
+   * @param zernike_coefficients vector of Zernike expansion coefficients
+   *                             (values may be in any order)
+   * @param baseline_classes baseline class axis values
+   * @param frequencies frequency axis values
+   * @param stokes_values Stokes axis values
+   */
   ATermZernikeModel(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -66,18 +80,24 @@ public:
     const std::vector<typename cf_table_axis<CF_STOKES>::type>&
       stokes_values);
 
+  /** baseline class axis dimension index */
   static const constexpr unsigned d_blc =
     cf_indexing::index_of<CF_BASELINE_CLASS, HYPERION_A_TERM_ZERNIKE_MODEL_AXES>
     ::type::value;
+  /** frequency axis dimension index */
   static const constexpr unsigned d_frq =
     cf_indexing::index_of<CF_FREQUENCY, HYPERION_A_TERM_ZERNIKE_MODEL_AXES>
     ::type::value;
+  /** Stokes axis dimension index */
   static const constexpr unsigned d_sto =
     cf_indexing::index_of<CF_STOKES, HYPERION_A_TERM_ZERNIKE_MODEL_AXES>
     ::type::value;
 
   // column for Zernike expansion coeffiecients
-
+  //
+  // The size of this axis is determined upon construction, given a vector of
+  // ZCoeff values. The ordering of values on this axis conforms to the OSA/ANSI
+  // standard order
   static const constexpr unsigned d_zc = index_rank;
   static const constexpr unsigned zc_rank = d_zc + 1;
   static const constexpr Legion::FieldID ZC_FID = 84;
@@ -110,6 +130,10 @@ public:
 
   // column for coefficients of polynomial function representation of Zernike
   // expansion
+  //
+  // Two dimensions, typically for powers of x and y. The polynomial function
+  // coefficient of the x^p y^q term is at index [p, q] (within the subspace for
+  // a given baseline class, frequency and Stokes parameter value).
   static const constexpr unsigned d_pc0 = index_rank;
   static const constexpr unsigned d_pc1 = d_pc0 + 1;
   static const constexpr unsigned pc_rank = d_pc1 + 1;
@@ -146,11 +170,12 @@ public:
     Legion::Runtime* rt,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
-//protected:
+protected:
 
   /**
-   * initialize the Zernike coefficients column from unsorted vector of baseline
-   * class-, frequency- and Stokes-dependent coefficient values
+   * Initialize the Zernike coefficients column from unsorted vector of baseline
+   * class-, frequency- and Stokes-dependent coefficient values. This is used by
+   * the class constructor, and should not be used otherwise.
    */
   void
   init_zc_region(
@@ -164,6 +189,7 @@ public:
     const std::vector<typename cf_table_axis<CF_STOKES>::type>&
       stokes_values) const;
 
+public:
   // Let the sequence {z(0,0), z(-1,1), z(1,1), ..., z(N,N-2), z(N,N)} represent
   // a linear combination of Zernike polynomials Z_(m, n) with coefficients z(m,
   // n), up to Zernike order N. This sequence represents the expansion of a

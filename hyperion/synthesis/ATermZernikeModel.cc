@@ -37,9 +37,33 @@ const constexpr Legion::FieldID ATermZernikeModel::PC_FID;
 const constexpr char* ATermZernikeModel::PC_NAME;
 #endif
 
-#define ENABLE_KOKKOS_SERIAL_PCS_TASK
-#define ENABLE_KOKKOS_OPENMP_PCS_TASK
-#undef ENABLE_KOKKOS_CUDA_PCS_TASK
+#define USE_KOKKOS_SERIAL_COMPUTE_PCS_TASK // undef to disable
+#if defined(USE_KOKKOS_SERIAL_COMPUTE_PCS_TASK) &&  \
+  defined(HYPERION_USE_KOKKOS) &&                   \
+  defined(KOKKOS_ENABLE_SERIAL)
+# define ENABLE_KOKKOS_SERIAL_COMPUTE_PCS_TASK
+#else
+# undef ENABLE_KOKKOS_SERIAL_COMPUTE_PCS_TASK
+#endif
+
+#define USE_KOKKOS_OPENMP_COMPUTE_PCS_TASK // undef to disable
+#if defined(USE_KOKKOS_OPENMP_COMPUTE_PCS_TASK) &&  \
+  defined(HYPERION_USE_KOKKOS) &&                   \
+  defined(KOKKOS_ENABLE_OPENMP)
+# define ENABLE_KOKKOS_OPENMP_COMPUTE_PCS_TASK
+#else
+# undef ENABLE_KOKKOS_OPENMP_COMPUTE_PCS_TASK
+#endif
+
+#undef USE_KOKKOS_CUDA_COMPUTE_PCS_TASK // define to enable
+#if defined(USE_KOKKOS_CUDA_COMPUTE_PCS_TASK) &&  \
+  defined(HYPERION_USE_KOKKOS) &&                 \
+  defined(KOKKOS_ENABLE_CUDA)
+# define ENABLE_KOKKOS_CUDA_COMPUTE_PCS_TASK
+#else
+# undef ENABLE_KOKKOS_CUDA_COMPUTE_PCS_TASK
+#endif
+
 
 ATermZernikeModel::ATermZernikeModel(
   Context ctx,
@@ -134,15 +158,14 @@ ATermZernikeModel::init_zc_region(
     stokes_values) const {
 
   std::vector<ZCoeff> zcs = zernike_coefficients;
-  // copy (needed) coefficients from zernike_coefficients to m_zc_region ZC_FID
-  // field
+  // copy (needed) coefficients from zernike_coefficients to ZC_FID field
   using_resource(
     [&]() {
       auto reqs = Column::default_requirements;
       reqs.values.mapped = true;
       reqs.values.privilege = WRITE_ONLY;
       return
-        map_inline(ctx, rt, {{ZC_NAME, reqs}}, CXX_OPTIONAL_NAMESPACE::nullopt);      
+        map_inline(ctx, rt, {{ZC_NAME, reqs}}, CXX_OPTIONAL_NAMESPACE::nullopt);
     },
     [&](PhysicalTable& tbl) {
       auto col = ZCColumn<AffineAccessor>(*tbl.column(ZC_NAME).value());
@@ -340,10 +363,31 @@ ATermZernikeModel::preregister_tasks() {
   // compute_pcs_task
   //
   {
+#if defined(ENABLE_KOKKOS_SERIAL_COMPUTE_PCS_TASK) || \
+  defined(ENABLE_KOKKOS_OPENMP_COMPUTE_PCS_TASK) ||   \
+  !defined(HYPERION_USE_KOKKOS)
+    LayoutConstraintRegistrar
+      cpu_constraints(
+        FieldSpace::NO_SPACE,
+        "ATermZernikeModel::compute_pcs");
+    add_soa_right_ordering_constraint(cpu_constraints);
+    cpu_constraints.add_constraint(
+      SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
+    auto cpu_layout_id = Runtime::preregister_layout(cpu_constraints);
+#endif
+
+#if defined(ENABLE_KOKKOS_CUDA_COMPUTE_PCS_TASK)
+    LayoutConstraintRegistrar
+      gpu_constraints(FieldSpace::NO_SPACE, "ATermZernikeModel::compute_cfs");
+    add_soa_left_ordering_constraint(gpu_constraints);
+    gpu_constraints.add_constraint(
+      SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
+    auto gpu_layout_id = Runtime::preregister_layout(gpu_constraints);
+#endif
+
     compute_pcs_task_id = Runtime::generate_static_task_id();
 
-#ifdef HYPERION_USE_KOKKOS
-# if defined(KOKKOS_ENABLE_SERIAL) && defined(ENABLE_KOKKOS_SERIAL_PCS_TASK)
+#ifdef ENABLE_KOKKOS_SERIAL_COMPUTE_PCS_TASK
     {
       TaskVariantRegistrar
         registrar(compute_pcs_task_id, compute_pcs_task_name);
@@ -351,24 +395,17 @@ ATermZernikeModel::preregister_tasks() {
       registrar.set_leaf();
       registrar.set_idempotent();
 
-      // standard column layout
-      LayoutConstraintRegistrar
-        constraints(
-          FieldSpace::NO_SPACE,
-          "ATermZernikeModel::compute_pcs_constraints");
-      add_soa_right_ordering_constraint(constraints);
-      constraints.add_constraint(
-        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        Runtime::preregister_layout(constraints));
+        cpu_layout_id);
 
       Runtime::preregister_task_variant<compute_pcs_task<Kokkos::Serial>>(
         registrar,
         compute_pcs_task_name);
     }
-# endif
-# if defined(KOKKOS_ENABLE_OPENMP) && defined(ENABLE_KOKKOS_OPENMP_PCS_TASK)
+#endif
+
+#ifdef ENABLE_KOKKOS_OPENMP_COMPUTE_PCS_TASK
     {
       TaskVariantRegistrar
         registrar(compute_pcs_task_id, compute_pcs_task_name);
@@ -376,24 +413,17 @@ ATermZernikeModel::preregister_tasks() {
       registrar.set_leaf();
       registrar.set_idempotent();
 
-      // standard column layout
-      LayoutConstraintRegistrar
-        constraints(
-          FieldSpace::NO_SPACE,
-          "ATermZernikeModel::compute_pcs_constraints");
-      add_soa_right_ordering_constraint(constraints);
-      constraints.add_constraint(
-        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        Runtime::preregister_layout(constraints));
+        cpu_layout_id);
 
       Runtime::preregister_task_variant<compute_pcs_task<Kokkos::OpenMP>>(
         registrar,
         compute_pcs_task_name);
     }
-# endif
-# if defined(KOKKOS_ENABLE_CUDA) && defined(ENABLE_KOKKOS_CUDA_PCS_TASK)
+#endif
+
+#ifdef ENABLE_KOKKOS_CUDA_COMPUTE_PCS_TASK
     {
       TaskVariantRegistrar
         registrar(compute_pcs_task_id, compute_pcs_task_name);
@@ -402,13 +432,14 @@ ATermZernikeModel::preregister_tasks() {
       registrar.set_idempotent();
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        soa_left_layout);
+        gpu_layout_id);
       Runtime::preregister_task_variant<compute_pcs_task<Kokkos::Cuda>>(
         registrar,
         compute_pcs_task_name);
     }
-# endif
-#else // !HYPERION_USE_KOKKOS
+#endif
+
+#ifndef HYPERION_USE_KOKKOS
     {
       TaskVariantRegistrar
         registrar(compute_pcs_task_id, compute_pcs_task_name);
@@ -416,17 +447,9 @@ ATermZernikeModel::preregister_tasks() {
       registrar.set_leaf();
       registrar.set_idempotent();
 
-      // standard column layout
-      LayoutConstraintRegistrar
-        constraints(
-          FieldSpace::NO_SPACE,
-          "ATermZernikeModel::compute_cfs_constraints");
-      add_soa_right_ordering_constraint(constraints);
-      constraints.add_constraint(
-        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
       registrar.add_layout_constraint_set(
         TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        Runtime::preregister_layout(constraints));
+        cpu_layout_id);
 
       Runtime::preregister_task_variant<compute_pcs_task>(
         registrar,
