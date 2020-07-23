@@ -30,21 +30,44 @@ public:
 
   static const constexpr unsigned d_ps = 0;
 
+  /**
+   * PSTermTable constructor.
+   *
+   * @param ctx Legion Context
+   * @param rt Legion Runtime pointer
+   * @param cf_size dimensions of CF in image domain (not extended)
+   * @param ps_scales vector of PS scale values
+   *
+   * Commonly, \a ps_scales will have only a single element.
+   */
   PSTermTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::array<Legion::coord_t, 2>& cf_size,
     const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales);
 
+  /**
+   * compute the PS term convolution function values (in the image domain)
+   *
+   * @param ctx Legion Context
+   * @param rt Legion Runtime pointer
+   * @param partition table partition (optional)
+   */
   void
   compute_cfs(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
+  /**
+   * task name for compute_cfs_task
+   */
   static const constexpr char* compute_cfs_task_name =
     "PSTermTable::compute_cfs_task";
 
+  /**
+   * taskID for compute_cfs_task
+   */
   static Legion::TaskID compute_cfs_task_id;
 
   template <size_t N>
@@ -131,12 +154,12 @@ public:
       "ComputePSTerm",
       range,
       KOKKOS_LAMBDA (Legion::coord_t ps, Legion::coord_t x, Legion::coord_t y) {
-        const fp_t yp =
+        const fp_t rs =
           std::sqrt((static_cast<fp_t>(x) * x) + (static_cast<fp_t>(y) * y))
           * ps_scales(ps);
         const fp_t v =
           std::max(
-            static_cast<fp_t>(spheroidal(yp)) * ((fp_t)1.0 - yp * yp),
+            static_cast<fp_t>(spheroidal(rs)) * ((fp_t)1.0 - rs * rs),
             (fp_t)0.0);
         values(ps, x, y) = v;
         weights(ps, x, y) = v * v;

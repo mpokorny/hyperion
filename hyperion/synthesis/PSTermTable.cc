@@ -24,8 +24,8 @@ using namespace hyperion::synthesis;
 using namespace hyperion;
 using namespace Legion;
 
-#define USE_K_SERIAL_COMPUTE_CFS_TASK // undef to disable
-#if defined(USE_K_SERIAL_COMPUTE_CFS_TASK) &&   \
+#define USE_KOKKOS_SERIAL_COMPUTE_CFS_TASK // undef to disable
+#if defined(USE_KOKKOS_SERIAL_COMPUTE_CFS_TASK) &&   \
   defined(HYPERION_USE_KOKKOS) &&               \
   defined(KOKKOS_ENABLE_SERIAL)
 # define ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK
@@ -33,8 +33,8 @@ using namespace Legion;
 # undef ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK
 #endif
 
-#define USE_K_OPENMP_COMPUTE_CFS_TASK // undef to disable
-#if defined(USE_K_OPENMP_COMPUTE_CFS_TASK) &&   \
+#define USE_KOKKOS_OPENMP_COMPUTE_CFS_TASK // undef to disable
+#if defined(USE_KOKKOS_OPENMP_COMPUTE_CFS_TASK) &&   \
   defined(HYPERION_USE_KOKKOS) &&               \
   defined(KOKKOS_ENABLE_OPENMP)
 # define ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK
@@ -42,8 +42,8 @@ using namespace Legion;
 # undef ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK
 #endif
 
-#define USE_K_CUDA_COMPUTE_CFS_TASK // undef to disable
-#if defined(USE_K_CUDA_COMPUTE_CFS_TASK) &&     \
+#define USE_KOKKOS_CUDA_COMPUTE_CFS_TASK // undef to disable
+#if defined(USE_KOKKOS_CUDA_COMPUTE_CFS_TASK) &&     \
   defined(HYPERION_USE_KOKKOS) &&               \
   defined(KOKKOS_ENABLE_CUDA)
 # define ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
@@ -194,7 +194,7 @@ PSTermTable::preregister_tasks() {
 
     compute_cfs_task_id = Runtime::generate_static_task_id();
 
-#ifdef ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
+#ifdef ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK
     // register a serial version on the CPU
     {
       TaskVariantRegistrar
