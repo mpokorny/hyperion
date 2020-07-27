@@ -42,7 +42,7 @@ typedef enum cf_table_axes_t {
   // partitions use these values, everything should be OK
   CF_ORDER0,
   CF_ORDER1,
-  CF_LAST_AXIS = CF_Y
+  CF_LAST_AXIS = CF_ORDER1
 } cf_table_axes_t;
 }
 
