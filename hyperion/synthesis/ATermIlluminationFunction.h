@@ -23,6 +23,8 @@
   CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_STOKES
 
 #include <hyperion/synthesis/ATermZernikeModel.h>
+#include <hyperion/synthesis/DirectionCoordinateTable.h>
+
 #include <fftw3.h>
 
 namespace hyperion {
@@ -30,60 +32,86 @@ namespace synthesis {
 
 /**
  * Helper table for ATermTable. For aperture illumination function values on a
- * grid, with dependence on baseline class, parallactic angle, frequency, and
- * Stokes value.
+ * grid derived from a polynomial function representation of a Zernike
+ * expansion, with dependence on baseline class, parallactic angle, frequency,
+ * and Stokes parameter value.
  */
 class HYPERION_EXPORT ATermIlluminationFunction
   : public CFTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES> {
 public:
 
+  /**
+   * ATermIlluminationFunction constructor
+   *
+   * @param ctx Legion Context
+   * @param rt Legion Runtime pointer
+   * @param cf_size dimensions of CF in image domain (not extended)
+   * @param zernike_order order of Zernike expansion
+   * @param baseline_classes baseline class axis values
+   * @param parallactic_angles parallactic angle axis values
+   * @param frequencies frequency axis values
+   * @param stokes_values Stokes axis values
+   */
   ATermIlluminationFunction(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const Legion::Rect<2>& cf_bounds,
+    const std::array<Legion::coord_t, 2>& cf_size,
     unsigned zernike_order,
     const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
       baseline_classes,
     const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
       parallactic_angles,
-     const std::vector<typename cf_table_axis<CF_FREQUENCY>::type>&
+    const std::vector<typename cf_table_axis<CF_FREQUENCY>::type>&
       frequencies,
     const std::vector<typename cf_table_axis<CF_STOKES>::type>&
       stokes_values);
 
+  /** baseline class axis dimension index */
   static const constexpr unsigned d_blc =
     cf_indexing::index_of<
       CF_BASELINE_CLASS,
       HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>
     ::type::value;
+  /** parallactic angle axis dimension index */
   static const constexpr unsigned d_pa =
     cf_indexing::index_of<
       CF_PARALLACTIC_ANGLE,
       HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>
     ::type::value;
+  /** frequency axis dimension index */
   static const constexpr unsigned d_frq =
     cf_indexing::index_of<
       CF_FREQUENCY,
       HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>
     ::type::value;
+  /** Stokes axis dimension index */
   static const constexpr unsigned d_sto =
     cf_indexing::index_of<
       CF_STOKES,
       HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>
     ::type::value;
 
+  /** grid X-axis dimension index */
   static const constexpr unsigned d_x = index_rank;
+  /** grid Y-axis dimension index */
   static const constexpr unsigned d_y = d_x + 1;
-  static const constexpr unsigned d_power = d_y + 1;
-  static const constexpr unsigned ept_rank = d_power + 1;
 
+  // We use a DirectionCoordinateTable that is augmented with a column designed
+  // for a branch-free evaluation of polynomial functions that are zero outside
+  // the unit disk
   /**
-   * column of function evaluation point values on the grid
+   * Value exponent dimension index
    *
-   * This exists to provide for the evaluation of rotated functions
+   * Domain points are stored as two values: if the point p is within the unit
+   * disk, the values are p_i^0, p_i^1; outside, the values are 0, 0.
    */
-  static const constexpr Legion::FieldID EPT_X_FID = 88;
-  static const constexpr Legion::FieldID EPT_Y_FID = 89;
+  static const constexpr unsigned d_power =
+    DirectionCoordinateTable::worldc_rank;
+  static const constexpr unsigned ept_rank = d_power + 1;
+  static const constexpr Legion::FieldID EPT_X_FID =
+    2 * DirectionCoordinateTable::WORLD_X_FID;
+  static const constexpr Legion::FieldID EPT_Y_FID =
+    2 * DirectionCoordinateTable::WORLD_Y_FID;
   static const constexpr char* EPT_X_NAME = "EPT_X";
   static const constexpr char* EPT_Y_NAME = "EPT_Y";
   typedef CFTableBase::cf_fp_t ept_t;
@@ -101,34 +129,30 @@ public:
     typename COORD_T = Legion::coord_t>
   using EPtColumn =
     PhysicalColumnTD<
-    ValueType<ept_t>::DataType,
-    index_rank,
-    ept_rank,
-    A,
-    COORD_T>;
+      ValueType<ept_t>::DataType,
+      index_rank,
+      ept_rank,
+      A,
+      COORD_T>;
 
-  /**
-   * compute the values of the function evaluation points column
-   */
-  void
+protected:
+
+  static DirectionCoordinateTable
+  create_epts_table(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::array<coord_t, 2>& cf_size,
+    const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
+      parallactic_angles);
+
+  DirectionCoordinateTable
   compute_epts(
     Legion::Context ctx,
     Legion::Runtime* rt,
+    const casacore::DirectionCoordinate& coords,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
-  /**
-   * compute the values of the aperture illumination function column
-   **/
-  void
-  compute_jones(
-    Legion::Context ctx,
-    Legion::Runtime* rt,
-    const ATermZernikeModel& zmodel,
-    const ColumnSpacePartition& partition = ColumnSpacePartition(),
-    unsigned fftw_flags = FFTW_MEASURE,
-    double fftw_timelimit = 5.0) const;
-
-//protected:
+public:
 
   static const constexpr char* compute_epts_task_name =
     "ATermIlluminationFunction::compute_epts_task";
@@ -165,112 +189,102 @@ public:
     assert(rit == task->regions.end());
     assert(pit == regions.end());
 
-    auto aif = CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pt);
+    auto dc = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt);
 
-    // parallactic angle column
-    auto parallactic_angle_col =
-      aif.parallactic_angle<Legion::AffineAccessor>();
-    auto parallactic_angles =
-      parallactic_angle_col.view<execution_space, READ_ONLY>();
-    typedef decltype(parallactic_angle_col)::value_t pa_t;
+    // world coordinates columns
+    auto wx_col =
+      DirectionCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+        *dc.column(DirectionCoordinateTable::WORLD_X_NAME).value());
+    auto wx_rect = wx_col.rect();
+    auto wxs = wx_col.view<execution_space, READ_ONLY>();
+    auto wys =
+      DirectionCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+        *dc.column(DirectionCoordinateTable::WORLD_Y_NAME).value())
+      .view<execution_space, READ_ONLY>();
 
     // polynomial function evaluation points columns
-    auto xpt_col =
-      EPtColumn<Legion::AffineAccessor>(*aif.column(EPT_X_NAME).value());
-    auto xpts = xpt_col.view<execution_space, WRITE_DISCARD>();
-    auto ypt_col =
-      EPtColumn<Legion::AffineAccessor>(*aif.column(EPT_Y_NAME).value());
-    auto ypts = ypt_col.view<execution_space, WRITE_DISCARD>();
-
-    Legion::Rect<ept_rank> ept_rect = xpt_col.rect();
-    Legion::Rect<ept_rank> full_ept_rect = xpt_col.values().value();
+    auto xpts =
+      EPtColumn<Legion::AffineAccessor>(*dc.column(EPT_X_NAME).value())
+      .view<execution_space, WRITE_DISCARD>();
+    auto ypts =
+      EPtColumn<Legion::AffineAccessor>(*dc.column(EPT_Y_NAME).value())
+      .view<execution_space, WRITE_DISCARD>();
 
     auto kokkos_work_space =
       rt->get_executing_processor(ctx).kokkos_work_space();
 
-    // compute grid values for zero parallactic angle
-    //
-    // we support (potentially different) block partitions of X and Y axes,
-    // but only allow squares for full XY plane
-    assert(full_ept_rect.hi[d_x] - full_ept_rect.lo[d_x]
-           == full_ept_rect.hi[d_y] - full_ept_rect.lo[d_y]);
-    // the XY origin must lie in the middle of full_ept_rect
-    assert((full_ept_rect.hi[d_x] - full_ept_rect.lo[d_x] + 1) / 2
-           + full_ept_rect.lo[d_x] == 0);
-    assert((full_ept_rect.hi[d_y] - full_ept_rect.lo[d_y] + 1) / 2
-           + full_ept_rect.lo[d_y] == 0);
-    Kokkos::View<ept_t*, execution_space>
-      g_x(
-        Kokkos::ViewAllocateWithoutInitializing("xvals"),
-        ept_rect.hi[d_x] - ept_rect.lo[d_x] + 1);
-    Kokkos::View<ept_t*, execution_space>
-      g_y(
-        Kokkos::ViewAllocateWithoutInitializing("yvals"),
-        ept_rect.hi[d_y] - ept_rect.lo[d_y] + 1);
-    const ept_t step =
-      (ept_t)2.0 / (full_ept_rect.hi[d_x] - full_ept_rect.lo[d_x] + 1);
-    const ept_t offset_x =
-      (ept_t)-1.0 + step / (ept_t)2.0
-      + (ept_rect.lo[d_x] - full_ept_rect.lo[d_x]) * step;
-    const ept_t offset_y =
-      (ept_t)-1.0 + step / (ept_t)2.0
-      + (ept_rect.lo[2] - full_ept_rect.lo[2]) * step;
     Kokkos::parallel_for(
-      "init_xvals",
-      Kokkos::RangePolicy<execution_space>(kokkos_work_space, 0, g_x.extent(0)),
-      KOKKOS_LAMBDA(const int i) {
-        g_x(i) = i * step + offset_x;
-      });
-    Kokkos::parallel_for(
-      "init_yvals",
-      Kokkos::RangePolicy<execution_space>(kokkos_work_space, 0, g_y.extent(0)),
-      KOKKOS_LAMBDA(const int i) {
-        g_y(i) = i * step + offset_y;
-      });
-
-    // compute polynomial evaluation points with function rotation
-    Kokkos::parallel_for(
-      "compute_polynomial_evaluation_points",
-      Kokkos::MDRangePolicy<Kokkos::Rank<ept_rank - 1>, execution_space>(
-        kokkos_work_space,
-        {ept_rect.lo[d_blc], ept_rect.lo[d_pa], ept_rect.lo[d_frq],
-         ept_rect.lo[d_sto], ept_rect.lo[d_x], ept_rect.lo[d_y]},
-        {ept_rect.hi[d_blc] + 1, ept_rect.hi[d_pa] + 1, ept_rect.hi[d_frq] + 1,
-         ept_rect.hi[d_sto] + 1, ept_rect.hi[d_x] + 1, ept_rect.hi[d_y] + 1}),
-
-      KOKKOS_LAMBDA(
-        const Legion::coord_t& blc,
-        const Legion::coord_t& pa,
-        const Legion::coord_t& frq,
-        const Legion::coord_t& sto,
-        const Legion::coord_t& x,
-        const Legion::coord_t& y) {
-
-        // apply parallactic angle rotation
-        const auto neg_parallactic_angle = -parallactic_angles(pa);
-        const auto cs = std::cos(neg_parallactic_angle);
-        const auto sn = std::sin(neg_parallactic_angle);
-        const auto x0 = x - ept_rect.lo[d_x];
-        const auto y0 = y - ept_rect.lo[d_y];
-        const auto rx = cs * g_x(x0) - sn * g_y(y0);
-        const auto ry = sn * g_x(x0) + cs * g_y(y0);
-        // Outside of the unit disk, the function should evaluate to zero,
-        // which can be achieved by setting the X and Y vectors to zero.
-        ept_t ept0 = ((rx * rx + ry * ry <= 1.0) ? 1.0 : 0.0);
-        xpts(blc, pa, frq, sto, x, y, 0) = ept0;
-        ypts(blc, pa, frq, sto, x, y, 0) = ept0;
-        xpts(blc, pa, frq, sto, x, y, 1) = rx * ept0;
-        ypts(blc, pa, frq, sto, x, y, 1) = ry * ept0;
+      Kokkos::MDRangePolicy<
+        Kokkos::Rank<DirectionCoordinateTable::worldc_rank>,
+        execution_space>(
+          kokkos_work_space,
+          rect_lo(wx_rect),
+          rect_hi(wx_rect)),
+      KOKKOS_LAMBDA(Legion::coord_t pa, Legion::coord_t x, Legion::coord_t y) {
+        // Outside of the unit disk, the function should evaluate to zero, which
+        // is achieved by setting the X and Y vectors to zero.
+        auto& wx = wxs(pa, x, y);
+        auto& wy = wys(pa, x, y);
+        ept_t ept0 = ((wx * wx + wy * wy <= 1.0) ? 1.0 : 0.0);
+        xpts(pa, x, y, 0) = ypts(pa, x, y, 0) = ept0;
+        xpts(pa, x, y, 1) = wx * ept0;
+        ypts(pa, x, y, 1) = wy * ept0;
       });
   }
-#else // !HYPERION_USE_KOKKOS
-  static void
+#else
+  void
   compute_epts_task(
     const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
+    const std::vector<PhysicalRegion>& regions,
     Legion::Context ctx,
     Legion::Runtime* rt);
-#endif // HYPERION_USE_KOKKOS
+#endif
+
+  /**
+   * Compute the values of the aperture illumination function column
+   *
+   * This is the main computational task for this table; it launches a sequence
+   * of sub-tasks to compute the values of the aperture illumination function.
+   *
+   * @param ctx Legion Context
+   * @param rt Legion Runtime
+   * @param zmodel Zernike expansion of aperture voltage pattern
+   * @param coords image coordinate system
+   * @param partition table partition
+   * @param fftw_flags FFTW planner flags, ignored by CUDA implementation
+   * @param fftw_timelimit FFTW planner time limit (seconds),
+   *                       ignored by CUDA implementation
+   */
+  void
+  compute_jones(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const ATermZernikeModel& zmodel,
+    const casacore::DirectionCoordinate& coords,
+    const ColumnSpacePartition& partition = ColumnSpacePartition(),
+    unsigned fftw_flags = FFTW_MEASURE,
+    double fftw_timelimit = 5.0) const;
+
+protected:
+
+  void
+  compute_aifs(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const ATermZernikeModel& zmodel,
+    const DirectionCoordinateTable& dc,
+    const ColumnSpacePartition& partition) const;
+
+
+  void
+  compute_fft(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const ColumnSpacePartition& partition,
+    unsigned fftw_flags,
+    double fftw_timelimit) const;
+
+public:
 
   static const constexpr char* compute_aifs_task_name =
     "ATermIlluminationFunction::compute_aifs_task";
@@ -279,6 +293,7 @@ public:
 
   struct ComputeAIFsTaskArgs {
     Table::Desc zmodel;
+    Table::Desc dc;
     Table::Desc aif;
   };
 
@@ -293,7 +308,7 @@ public:
 
     const ComputeAIFsTaskArgs& args =
       *static_cast<ComputeAIFsTaskArgs*>(task->args);
-    std::vector<Table::Desc> descs{args.zmodel, args.aif};
+    std::vector<Table::Desc> descs{args.zmodel, args.dc, args.aif};
 
     auto ptcrs =
       PhysicalTable::create_many(
@@ -315,8 +330,9 @@ public:
     assert(pit == regions.end());
 
     auto zmodel = CFPhysicalTable<HYPERION_A_TERM_ZERNIKE_MODEL_AXES>(pts[0]);
+    auto dc = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
     auto aif =
-      CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pts[1]);
+      CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pts[2]);
 
     // polynomial function coefficients column
     auto pc_col =
@@ -326,10 +342,10 @@ public:
 
     // polynomial function evaluation points columns
     auto xpt_col =
-      EPtColumn<Legion::AffineAccessor>(*aif.column(EPT_X_NAME).value());
+      EPtColumn<Legion::AffineAccessor>(*dc.column(EPT_X_NAME).value());
     auto xpts = xpt_col.view<execution_space, READ_ONLY>();
     auto ypt_col =
-      EPtColumn<Legion::AffineAccessor>(*aif.column(EPT_Y_NAME).value());
+      EPtColumn<Legion::AffineAccessor>(*dc.column(EPT_Y_NAME).value());
     auto ypts = ypt_col.view<execution_space, READ_ONLY>();
 
     // polynomial function values column
@@ -373,8 +389,8 @@ public:
         auto& sto = pt[dd_sto];
         auto& x = pt[dd_x];
         auto& y = pt[dd_y];
-        auto xpt = Kokkos::subview(xpts, blc, pa, frq, sto, x, y, Kokkos::ALL);
-        auto ypt = Kokkos::subview(ypts, blc, pa, frq, sto, x, y, Kokkos::ALL);
+        auto xpt = Kokkos::subview(xpts, pa, x, y, Kokkos::ALL);
+        auto ypt = Kokkos::subview(ypts, pa, x, y, Kokkos::ALL);
         auto pc = Kokkos::subview(pcs, blc, frq, sto, Kokkos::ALL, Kokkos::ALL);
         auto tmp = shared_pc_1d(team_member.team_scratch(0), pc.extent(0));
         Kokkos::parallel_for(

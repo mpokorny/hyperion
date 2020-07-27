@@ -24,6 +24,8 @@ using namespace hyperion;
 using namespace hyperion::synthesis;
 using namespace Legion;
 
+namespace cc = casacore;
+
 TaskID ATermTable::compute_cfs_task_id;
 
 #define ENABLE_KOKKOS_SERIAL_CFS_TASK
@@ -47,9 +49,7 @@ ATermTable::ATermTable(
   : CFTable(
     ctx,
     rt,
-    Rect<2>(
-      {-(std::abs(cf_size[0]) / 2), std::abs(cf_size[0]) / 2},
-      {-(std::abs(cf_size[1]) / 2), std::abs(cf_size[1]) / 2}),
+    centered_cf_rect(cf_size),
     Axis<CF_BASELINE_CLASS>(baseline_classes),
     Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles),
     Axis<CF_FREQUENCY>(frequencies),
@@ -160,6 +160,7 @@ ATermTable::compute_cfs(
   Context ctx,
   Runtime* rt,
   const std::vector<ZCoeff>& zernike_coefficients,
+  const cc::DirectionCoordinate& coords,
   const ColumnSpacePartition& partition) const {
 
   // Get vectors of values for all index columns, and bounding box of CFs
@@ -173,7 +174,7 @@ ATermTable::compute_cfs(
     stokes_out_values;
   std::vector<typename cf_table_axis<CF_STOKES_IN>::type>
     stokes_in_values;
-  Rect<2> cf_bounds;
+  std::array<Legion::coord_t, 2> cf_size;
   using_resource(
     [&]() {
       auto colreqs = Column::default_requirements;
@@ -225,10 +226,8 @@ ATermTable::compute_cfs(
       {
         auto value_col = tbl.value<AffineAccessor>();
         auto rect = value_col.rect();
-        cf_bounds.lo[0] = rect.lo[index_rank];
-        cf_bounds.hi[0] = rect.hi[index_rank];
-        cf_bounds.lo[1] = rect.lo[index_rank + 1];
-        cf_bounds.hi[1] = rect.hi[index_rank + 1];
+        cf_size[0] = rect.hi[index_rank] - rect.lo[index_rank] + 1;
+        cf_size[1] = rect.hi[index_rank + 1] - rect.lo[index_rank + 1] + 1;
       }
     },
     [&](CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>& tbl) {
@@ -274,23 +273,12 @@ ATermTable::compute_cfs(
   ATermIlluminationFunction aif(
     ctx,
     rt,
-    cf_bounds,
+    cf_size,
     zernike_order,
     baseline_classes,
     parallactic_angles,
     frequencies,
     stokes_values);
-  // compute polynomial function evaluation points for aperture illumination
-  // functions
-  {
-    auto p =
-      aif.columns().at(CF_VALUE_COLUMN_NAME)
-      .narrow_partition(ctx, rt, partition)
-      .value_or(partition);
-    aif.compute_epts(ctx, rt, p);
-    if (p != partition)
-      p.destroy(ctx, rt);
-  }
 
   // evaluate aperture illumination polynomial function values for each
   // Stokes value
@@ -301,7 +289,7 @@ ATermTable::compute_cfs(
       aif.columns().at(CF_VALUE_COLUMN_NAME)
       .narrow_partition(ctx, rt, partition, {CF_X, CF_Y})
       .value_or(partition);
-    aif.compute_jones(ctx, rt, zmodel, p);
+    aif.compute_jones(ctx, rt, zmodel, coords, p);
     if (p != partition)
       p.destroy(ctx, rt);
   }

@@ -30,6 +30,8 @@
 #include <hyperion/synthesis/ATermIlluminationFunction.h>
 #include <hyperion/synthesis/FFT.h>
 
+#include <casacore/coordinates/Coordinates/DirectionCoordinate.h>
+
 #include <fftw3.h>
 #ifdef HYPERION_USE_CUDA
 # include <cufft.h>
@@ -65,6 +67,7 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::vector<ZCoeff>& zernike_coefficients,
+    const casacore::DirectionCoordinate& coords,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
   static const constexpr char* compute_cfs_task_name =

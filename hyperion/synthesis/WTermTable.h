@@ -131,13 +131,15 @@ public:
       const fp_t l = cell_size[0] * x;
       const fp_t m = cell_size[1] * y;
       const fp_t r2 = l * l + m * m;
-      const fp_t phase =
-        ((r2 <= (fp_t)1.0)
-         ? (((fp_t)twopi * w_values(w))
-            * (std::sqrt((fp_t)1.0 - r2) - (fp_t)1.0))
-         : (fp_t)0.0);
-      values(w, x, y) = std::polar((fp_t)1.0, phase);
-      weights(w, x, y) = (fp_t)1.0;
+      if (r2 <= (fp_t)1.0) {
+        const fp_t phase =
+          (fp_t)twopi * w_values(w) * (std::sqrt((fp_t)1.0 - r2) - (fp_t)1.0);
+        values(w, x, y) = std::polar((fp_t)1.0, phase);
+        weights(w, x, y) = (fp_t)1.0;
+      } else {
+        values(w, x, y) = (fp_t)0.0;
+        weights(w, x, y) = std::numeric_limits<fp_t>::quiet_NaN();
+      }
     });
   }
 #else // !HYPERION_USE_KOKKOS

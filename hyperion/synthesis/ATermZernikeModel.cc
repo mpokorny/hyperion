@@ -64,6 +64,13 @@ const constexpr char* ATermZernikeModel::PC_NAME;
 # undef ENABLE_KOKKOS_CUDA_COMPUTE_PCS_TASK
 #endif
 
+#if !defined(ENABLE_KOKKOS_SERIAL_COMPUTE_PCS_TASK) &&  \
+  !defined(ENABLE_KOKKOS_OPENMP_COMPUTE_PCS_TASK) &&       \
+  !defined(ENABLE_KOKKOS_CUDA_COMPUTE_PCS_TASK)
+# define ENABLE_SERIAL_COMPUTE_PCS_TASK
+#else
+# undef ENABLE_SERIAL_COMPUTE_PCS_TASK
+#endif
 
 ATermZernikeModel::ATermZernikeModel(
   Context ctx,
@@ -439,7 +446,7 @@ ATermZernikeModel::preregister_tasks() {
     }
 #endif
 
-#ifndef HYPERION_USE_KOKKOS
+#ifdef ENABLE_SERIAL_COMPUTE_PCS_TASK
     {
       TaskVariantRegistrar
         registrar(compute_pcs_task_id, compute_pcs_task_name);
@@ -455,7 +462,7 @@ ATermZernikeModel::preregister_tasks() {
         registrar,
         compute_pcs_task_name);
     }
-#endif // HYPERION_USE_KOKKOS
+#endif // ENABLE_SERIAL_COMPUTE_PCS_TASK
   }
 }
 

@@ -157,12 +157,15 @@ public:
         const fp_t rs =
           std::sqrt((static_cast<fp_t>(x) * x) + (static_cast<fp_t>(y) * y))
           * ps_scales(ps);
-        const fp_t v =
-          std::max(
-            static_cast<fp_t>(spheroidal(rs)) * ((fp_t)1.0 - rs * rs),
-            (fp_t)0.0);
-        values(ps, x, y) = v;
-        weights(ps, x, y) = v * v;
+        if (rs <= (fp_t)1.0) {
+          const fp_t v =
+            static_cast<fp_t>(spheroidal(rs)) * ((fp_t)1.0 - rs * rs);
+          values(ps, x, y) = v;
+          weights(ps, x, y) = v * v;
+        } else {
+          values(ps, x, y) = (fp_t)0.0;
+          weights(ps, x, y) = std::numeric_limits<fp_t>::quiet_NaN();
+        }
       });
   }
 #else // !HYPERION_USE_KOKKOS

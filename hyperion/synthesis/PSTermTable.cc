@@ -16,15 +16,16 @@
 #include <hyperion/synthesis/PSTermTable.h>
 
 #include <cmath>
-#ifdef HYPERION_USE_KOKKOS
-# include <Kokkos_Core.hpp>
-#endif
 
 using namespace hyperion::synthesis;
 using namespace hyperion;
 using namespace Legion;
 
 #define USE_KOKKOS_SERIAL_COMPUTE_CFS_TASK // undef to disable
+#define USE_KOKKOS_OPENMP_COMPUTE_CFS_TASK //undef to disable
+#define USE_KOKKOS_CUDA_COMPUTE_CFS_TASK //undef to disable
+
+#if 0
 #if defined(USE_KOKKOS_SERIAL_COMPUTE_CFS_TASK) &&   \
   defined(HYPERION_USE_KOKKOS) &&               \
   defined(KOKKOS_ENABLE_SERIAL)
@@ -33,8 +34,7 @@ using namespace Legion;
 # undef ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK
 #endif
 
-#define USE_KOKKOS_OPENMP_COMPUTE_CFS_TASK // undef to disable
-#if defined(USE_KOKKOS_OPENMP_COMPUTE_CFS_TASK) &&   \
+#if defined(USE_KOKKOS_OPENMP_COMPUTE_CFS_TASK) &&  \
   defined(HYPERION_USE_KOKKOS) &&               \
   defined(KOKKOS_ENABLE_OPENMP)
 # define ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK
@@ -42,14 +42,22 @@ using namespace Legion;
 # undef ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK
 #endif
 
-#define USE_KOKKOS_CUDA_COMPUTE_CFS_TASK // undef to disable
-#if defined(USE_KOKKOS_CUDA_COMPUTE_CFS_TASK) &&     \
+#if defined(USE_KOKKOS_CUDA_COMPUTE_CFS_TASK) &&  \
   defined(HYPERION_USE_KOKKOS) &&               \
   defined(KOKKOS_ENABLE_CUDA)
 # define ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
 #else
 # undef ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
 #endif
+
+#if !defined(ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK) && \
+  !defined(ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK) && \
+  !defined(ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK)
+# define ENABLE_SERIAL_COMPUTE_CFS_TASK
+#else
+# undef ENABLE_SERIAL_COMPUTE_CFS_TASK
+#endif
+#endif // 0
 
 #if !HAVE_CXX17
 const constexpr unsigned PSTermTable::d_ps;
@@ -62,13 +70,7 @@ PSTermTable::PSTermTable(
   Runtime* rt,
   const std::array<coord_t, 2>& cf_size,
   const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales)
-  : CFTable(
-    ctx,
-    rt,
-    Rect<2>(
-      {-(std::abs(cf_size[0]) / 2), std::abs(cf_size[0]) / 2},
-      {-(std::abs(cf_size[1]) / 2), std::abs(cf_size[1]) / 2}),
-    Axis<CF_PS_SCALE>(ps_scales)) {}
+  : CFTable(ctx, rt, centered_cf_rect(cf_size), Axis<CF_PS_SCALE>(ps_scales)) {}
 
 #ifndef HYPERION_USE_KOKKOS
 void
@@ -111,15 +113,17 @@ PSTermTable::compute_cfs_task(
   for (PointInRectIterator<3> pir(value_col.rect()); pir(); pir++) {
     const fp_t x = pir[d_x];
     const fp_t y = pir[d_y];
-    const fp_t yp =
+    const fp_t rs =
       std::sqrt((static_cast<fp_t>(x) * x) + (static_cast<fp_t>(y) * y))
       * ps_scales[pir[d_ps]];
-    const fp_t v =
-      std::max(
-        static_cast<fp_t>(spheroidal(yp)) * ((fp_t)1.0 - yp * yp),
-        (fp_t)0.0);
-    values[*pir] = v;
-    weights[*pir] = v * v;
+    if (rs <= (fp_t)1.0) {
+      const fp_t v = static_cast<fp_t>(spheroidal(rs)) * ((fp_t)1.0 - rs * rs);
+      values[*pir] = v;
+      weights[*pir] = v * v;
+    } else {
+      values[*pir] = (fp_t)0.0;
+      weights[*pir] = std::numeric_limits<fp_t>::quiet_NaN();
+    }
   }
 }
 #endif
@@ -167,15 +171,25 @@ PSTermTable::compute_cfs(
     p.destroy(ctx, rt);
 }
 
+#define USE_KOKKOS_VARIANT(V, T)                \
+  (defined(USE_KOKKOS_##V##_COMPUTE_##T) &&     \
+   defined(HYPERION_USE_KOKKOS) &&              \
+   defined(KOKKOS_ENABLE_##V))
+
+#define USE_PLAIN_SERIAL_VARIANT(T)             \
+  (!USE_KOKKOS_VARIANT(SERIAL, T) &&            \
+   !USE_KOKKOS_VARIANT(OPENMP, T) &&            \
+   !USE_KOKKOS_VARIANT(CUDA, T))
+
 void
 PSTermTable::preregister_tasks() {
   //
   // compute_cfs_task
   //
   {
-#if defined(ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK) || \
-  defined(ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK) || \
-  !defined(HYPERION_USE_KOKKOS)
+#if USE_KOKKOS_VARIANT(SERIAL, CFS_TASK) ||     \
+  USE_KOKKOS_VARIANT(OPENMP, CFS_TASK) ||       \
+  USE_PLAIN_SERIAL_VARIANT(CFS_TASK)
     LayoutConstraintRegistrar
       cpu_constraints(FieldSpace::NO_SPACE, "PSTermTable::compute_cfs");
     add_aos_right_ordering_constraint(cpu_constraints);
@@ -184,7 +198,7 @@ PSTermTable::preregister_tasks() {
     auto cpu_layout_id = Runtime::preregister_layout(cpu_constraints);
 #endif
 
-#if defined(ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK)
+#if USE_KOKKOS_VARIANT(CUDA, CFS_TASK)
     LayoutConstraintRegistrar
       gpu_constraints(FieldSpace::NO_SPACE, "PSTermTable::compute_cfs");
     add_soa_left_ordering_constraint(gpu_constraints);
@@ -195,7 +209,7 @@ PSTermTable::preregister_tasks() {
 
     compute_cfs_task_id = Runtime::generate_static_task_id();
 
-#ifdef ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK
+#if USE_KOKKOS_VARIANT(SERIAL, CFS_TASK)
     // register a serial version on the CPU
     {
       TaskVariantRegistrar
@@ -214,7 +228,7 @@ PSTermTable::preregister_tasks() {
     }
 #endif
 
-#ifdef ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK
+#if USE_KOKKOS_VARIANT(OPENMP, CFS_TASK)
     // register an OpenMP version
     {
       TaskVariantRegistrar
@@ -233,7 +247,7 @@ PSTermTable::preregister_tasks() {
     }
 #endif
 
-#ifdef ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
+#if USE_KOKKOS_VARIANT(CUDA, CFS_TASK)
     // register a version on the GPU
     {
       TaskVariantRegistrar
@@ -252,7 +266,7 @@ PSTermTable::preregister_tasks() {
     }
 #endif
 
-#ifndef HYPERION_USE_KOKKOS
+#if USE_PLAIN_SERIAL_VARIANT(CFS_TASK)
     // register a non-Kokkos, serial version
     {
       TaskVariantRegistrar
@@ -268,7 +282,7 @@ PSTermTable::preregister_tasks() {
         registrar,
         compute_cfs_task_name);
     }
-#endif // HYPERION_USE_KOKKOS
+#endif
   }
 }
 
