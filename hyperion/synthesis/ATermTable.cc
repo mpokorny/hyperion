@@ -26,6 +26,14 @@ using namespace Legion;
 
 namespace cc = casacore;
 
+#if !HAVE_CXX17
+const constexpr unsigned ATermTable::d_blc;
+const constexpr unsigned ATermTable::d_pa;
+const constexpr unsigned ATermTable::d_frq;
+const constexpr unsigned ATermTable::d_sto_out;
+const constexpr unsigned ATermTable::d_sto_in;
+#endif
+
 TaskID ATermTable::compute_cfs_task_id;
 
 #define ENABLE_KOKKOS_SERIAL_CFS_TASK

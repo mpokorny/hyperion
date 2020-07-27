@@ -59,6 +59,12 @@ public:
     const std::vector<typename cf_table_axis<CF_STOKES_IN>::type>&
       stokes_in_values);
 
+  static const constexpr unsigned d_blc = 0;
+  static const constexpr unsigned d_pa = d_blc + 1;
+  static const constexpr unsigned d_frq = d_pa + 1;
+  static const constexpr unsigned d_sto_out = d_frq + 1;
+  static const constexpr unsigned d_sto_in = d_sto_out + 1;
+
   /**
    * compute the ATerm convolution functions
    */
@@ -165,15 +171,21 @@ public:
 
     // we use hierarchical parallelism here where the thread teams range over
     // the outer dimensions of aterm_rect
-    Legion::Rect<5> truncated_aterm_rect;
-    for (size_t i = 0; i < 5; ++i) {
+    Legion::Rect<index_rank> truncated_aterm_rect;
+    for (size_t i = 0; i < index_rank; ++i) {
       truncated_aterm_rect.lo[i] = aterm_rect.lo[i];
       truncated_aterm_rect.hi[i] = aterm_rect.hi[i];
     }
     // thread range of X
-    auto x_size = aterm_rect.hi[5] - aterm_rect.lo[5] + 1;
+    auto x_size = aterm_rect.hi[d_x] - aterm_rect.lo[d_x] + 1;
     // vector range of Y
-    auto y_size = aterm_rect.hi[6] - aterm_rect.lo[6] + 1;
+    auto y_size = aterm_rect.hi[d_y] - aterm_rect.lo[d_y] + 1;
+
+    unsigned dd_blc = d_blc;
+    unsigned dd_pa = d_pa;
+    unsigned dd_frq = d_frq;
+    unsigned dd_sto_out = d_sto_out;
+    unsigned dd_sto_in = d_sto_in;
 
     typedef typename Kokkos::TeamPolicy<execution_space>::member_type
       member_type;
@@ -188,11 +200,11 @@ public:
           multidimensional_index(
             static_cast<Legion::coord_t>(team_member.league_rank()),
             truncated_aterm_rect);
-        auto& blc = pt[0];
-        auto& pa = pt[1];
-        auto& frq = pt[2];
-        auto& sto_out = pt[3];
-        auto& sto_in = pt[4];
+        auto& blc = pt[dd_blc];
+        auto& pa = pt[dd_pa];
+        auto& frq = pt[dd_frq];
+        auto& sto_out = pt[dd_sto_out];
+        auto& sto_in = pt[dd_sto_in];
         auto ats =
           Kokkos::subview(
             aterm_values,
@@ -230,16 +242,14 @@ public:
         Kokkos::parallel_for(
           Kokkos::TeamThreadRange(team_member, x_size),
           [=](const auto x0) {
-            const auto x = x0 + aterm_rect.lo[5];
             // TODO: measure performance impact of using subviews
-            auto ats_x = Kokkos::subview(ats, x, Kokkos::ALL);
-            auto left_x = Kokkos::subview(left, x, Kokkos::ALL);
-            auto right_x = Kokkos::subview(right, x, Kokkos::ALL);
+            auto ats_x = Kokkos::subview(ats, x0, Kokkos::ALL);
+            auto left_x = Kokkos::subview(left, x0, Kokkos::ALL);
+            auto right_x = Kokkos::subview(right, x0, Kokkos::ALL);
             Kokkos::parallel_for(
               Kokkos::TeamVectorRange(team_member, y_size),
               [=](const auto y0) {
-                const auto y = y0 + aterm_rect.lo[6];
-                ats_x(y) = left_x(y) * Kokkos::conj(right_x(y));
+                ats_x(y0) = left_x(y0) * Kokkos::conj(right_x(y0));
               });
           });
       });
