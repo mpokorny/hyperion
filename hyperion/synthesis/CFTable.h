@@ -109,7 +109,8 @@ public:
            TableField(ValueType<cf_weight_t>::DataType, CF_WEIGHT_FID)}});
     }
 
-    auto tbl = hyperion::Table::create(ctx, rt, index_cs, std::move(fields));
+    auto tbl =
+      hyperion::Table::create(ctx, rt, std::move(index_cs), std::move(fields));
 
     // initialize columns -- but not the CF values and weights
     {
