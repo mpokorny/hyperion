@@ -223,6 +223,10 @@ hyperion::synthesis::CFTableBase::init_index_column_task(
   assert(pit == regions.end());
 
   auto cols = pt.columns();
+  if (args.ps_scales.size() > 0)
+    init_column<typename cf_table_axis<CF_PS_SCALE>::type>(
+      args.ps_scales,
+      *cols.at(cf_table_axis<CF_PS_SCALE>::name));
   if (args.baseline_classes.size() > 0)
     init_column<typename cf_table_axis<CF_BASELINE_CLASS>::type>(
       args.baseline_classes,
