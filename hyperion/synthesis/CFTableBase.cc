@@ -201,8 +201,8 @@ hyperion::synthesis::CFTableBase::init_index_column_task(
   Context ctx,
   Runtime* rt) {
 
-  const InitIndexColumnTaskArgs& args =
-    *reinterpret_cast<const InitIndexColumnTaskArgs*>(task->args);
+  InitIndexColumnTaskArgs args;
+  args.deserialize(task->args);
 
   auto ptcr =
     PhysicalTable::create(
