@@ -82,7 +82,7 @@ class Hyperion(CMakePackage):
     # FIXME: don't require nvcc_wrapper when compiling with Clang
     depends_on('kokkos+cuda+cuda_lambda+cuda_relocatable_device_code~cuda_host_init_check std=14 +wrapper',
                when='+kokkos+cuda')
-    depends_on('kokkos std=17', when='+kokkos~cuda')
+    depends_on('kokkos std=14', when='+kokkos')
     for arch in ('30','32','35','50','52','53','60','61','62','70','72','75'):
         depends_on(f'kokkos+cuda cuda_arch={arch}', when=f'+kokkos+cuda cuda_arch={arch}')
 
@@ -147,5 +147,6 @@ class Hyperion(CMakePackage):
 
         args.append(f'-DBUILD_ARCH:STRING={spec.architecture.target}')
         args.append(f'-Dhyperion_CXX_STANDARD={cxx_std}')
-        args.append(f'-DKOKKOS_CXX_COMPILER={spec["kokkos"].kokkos_cxx}')
+        if '+kokkos' in spec:
+            args.append(f'-DKOKKOS_CXX_COMPILER={spec["kokkos"].kokkos_cxx}')
         return args
