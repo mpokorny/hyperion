@@ -467,12 +467,6 @@ ATermIlluminationFunction::compute_jones(
   double fftw_timelimit) const {
 
   // first create an augmented DirectionCoordinateTable helper table
-  Rect<cf_rank> value_rect(
-    rt->get_index_space_domain(
-      columns().at(CF_VALUE_COLUMN_NAME).region.get_index_space()));
-  std::array<coord_t, 2> cf_size{
-    value_rect.hi[0] - value_rect.lo[0] + 1,
-    value_rect.hi[1] - value_rect.lo[1] + 1};
   auto dc = compute_epts(ctx, rt, coords, partition);
 
   // execute compute_aifs_task
