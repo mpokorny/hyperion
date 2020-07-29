@@ -422,12 +422,21 @@ public:
     typename COORD_T = Legion::coord_t,
     template<typename, int, typename> typename A = Legion::AffineAccessor,
     bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
-  Kokkos::View<
-    typename std::conditional<
-      MODE == READ_ONLY,
-      typename view_element<const FT, N>::type,
-      typename view_element<FT, N>::type>::type,
-    execution_space>
+  typename std::conditional<
+    N == 1,
+    Kokkos::View<
+      typename std::conditional<
+        MODE == READ_ONLY,
+        typename view_element<const FT, N>::type,
+        typename view_element<FT, N>::type>::type,
+      typename execution_space::memory_space>,
+    Kokkos::View<
+      typename std::conditional<
+        MODE == READ_ONLY,
+        typename view_element<const FT, N>::type,
+        typename view_element<FT, N>::type>::type,
+      Kokkos::LayoutStride,
+      typename execution_space::memory_space>>::type
   view() const {
     return accessor<MODE, FT, N, COORD_T, A, CHECK_BOUNDS>().accessor;
   }
@@ -680,12 +689,21 @@ public:
     Legion::PrivilegeMode MODE,
     int N,
     bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
-  Kokkos::View<
-    typename std::conditional<
-      MODE == READ_ONLY,
-      typename view_element<const value_t, N>::type,
-      typename view_element<value_t, N>::type>::type,
-    execution_space>
+  typename std::conditional<
+    N == 1,
+    Kokkos::View<
+      typename std::conditional<
+        MODE == READ_ONLY,
+        typename view_element<const value_t, N>::type,
+        typename view_element<value_t, N>::type>::type,
+      typename execution_space::memory_space>,
+    Kokkos::View<
+      typename std::conditional<
+        MODE == READ_ONLY,
+        typename view_element<const value_t, N>::type,
+        typename view_element<value_t, N>::type>::type,
+      Kokkos::LayoutStride,
+      typename execution_space::memory_space>>::type
   view() const {
     return accessor<MODE, N, CHECK_BOUNDS>().accessor;
   }
@@ -787,12 +805,21 @@ public:
     typename execution_space,
     Legion::PrivilegeMode MODE,
     bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
-  Kokkos::View<
-    typename std::conditional<
-      MODE == READ_ONLY,
-      typename view_element<const value_t, COLUMN_RANK>::type,
-      typename view_element<value_t, COLUMN_RANK>::type>::type,
-    execution_space>
+  typename std::conditional<
+    COLUMN_RANK == 1,
+    Kokkos::View<
+      typename std::conditional<
+        MODE == READ_ONLY,
+        typename view_element<const value_t, COLUMN_RANK>::type,
+        typename view_element<value_t, COLUMN_RANK>::type>::type,
+      typename execution_space::memory_space>,
+    Kokkos::View<
+      typename std::conditional<
+        MODE == READ_ONLY,
+        typename view_element<const value_t, COLUMN_RANK>::type,
+        typename view_element<value_t, COLUMN_RANK>::type>::type,
+      Kokkos::LayoutStride,
+      typename execution_space::memory_space>>::type
   view() const {
     return accessor<MODE, CHECK_BOUNDS>().accessor;
   }
@@ -891,12 +918,21 @@ public:
     Legion::PrivilegeMode MODE,
     int N,
     bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
-  Kokkos::View<
-    typename std::conditional<
-      MODE == READ_ONLY,
-      typename view_element<const value_t, N>::type,
-      typename view_element<value_t, N>::type>::type,
-    execution_space>
+  typename std::conditional<
+    N == 1,
+    Kokkos::View<
+      typename std::conditional<
+        MODE == READ_ONLY,
+        typename view_element<const value_t, N>::type,
+        typename view_element<value_t, N>::type>::type,
+      typename execution_space::memory_space>,
+    Kokkos::View<
+      typename std::conditional<
+        MODE == READ_ONLY,
+        typename view_element<const value_t, N>::type,
+        typename view_element<value_t, N>::type>::type,
+      Kokkos::LayoutStride,
+      typename execution_space::memory_space>>::type
   view() const {
     return accessor<MODE, N, CHECK_BOUNDS>().accessor;
   }
@@ -1139,12 +1175,21 @@ public:
     typename execution_space,
     Legion::PrivilegeMode MODE,
     bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
-  Kokkos::View<
-    typename std::conditional<
-      MODE == READ_ONLY,
-      typename view_element<const value_t, COLUMN_RANK>::type,
-      typename view_element<value_t, COLUMN_RANK>::type>::type,
-    execution_space>
+  typename std::conditional<
+    COLUMN_RANK == 1,
+    Kokkos::View<
+      typename std::conditional<
+        MODE == READ_ONLY,
+        typename view_element<const value_t, COLUMN_RANK>::type,
+        typename view_element<value_t, COLUMN_RANK>::type>::type,
+      typename execution_space::memory_space>,
+    Kokkos::View<
+      typename std::conditional<
+        MODE == READ_ONLY,
+        typename view_element<const value_t, COLUMN_RANK>::type,
+        typename view_element<value_t, COLUMN_RANK>::type>::type,
+      Kokkos::LayoutStride,
+      typename execution_space::memory_space>>::type
   view() const {
     return accessor<MODE, CHECK_BOUNDS>().accessor;
   }
