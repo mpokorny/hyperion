@@ -159,27 +159,30 @@ PSTermTable::compute_cfs(
   auto& tparts = std::get<1>(reqs);
   auto& tdesc = std::get<2>(reqs);
 #endif // HAVE_CXX17
-  TaskLauncher task(
-    compute_cfs_task_id,
-    TaskArgument(&tdesc, sizeof(tdesc)),
-    Predicate::TRUE_PRED,
-    table_mapper);
-  for (auto& r : treqs)
-    task.add_region_requirement(r);
-  rt->execute_task(ctx, task);
+  if (!partition.is_valid()) {
+    TaskLauncher task(
+      compute_cfs_task_id,
+      TaskArgument(&tdesc, sizeof(tdesc)),
+      Predicate::TRUE_PRED,
+      table_mapper);
+    for (auto& r : treqs)
+      task.add_region_requirement(r);
+    rt->execute_task(ctx, task);
+  } else {
+    IndexTaskLauncher task(
+      compute_cfs_task_id,
+      rt->get_index_partition_color_space(ctx, partition.column_ip),
+      TaskArgument(&tdesc, sizeof(tdesc)),
+      ArgumentMap(),
+      Predicate::TRUE_PRED,
+      table_mapper);
+    for (auto& r : treqs)
+      task.add_region_requirement(r);
+    rt->execute_index_space(ctx, task);
+  }
   for (auto& p : tparts)
     p.destroy(ctx, rt);
 }
-
-#define USE_KOKKOS_VARIANT(V, T)                \
-  (defined(USE_KOKKOS_##V##_COMPUTE_##T) &&     \
-   defined(HYPERION_USE_KOKKOS) &&              \
-   defined(KOKKOS_ENABLE_##V))
-
-#define USE_PLAIN_SERIAL_VARIANT(T)             \
-  (!USE_KOKKOS_VARIANT(SERIAL, T) &&            \
-   !USE_KOKKOS_VARIANT(OPENMP, T) &&            \
-   !USE_KOKKOS_VARIANT(CUDA, T))
 
 void
 PSTermTable::preregister_tasks() {

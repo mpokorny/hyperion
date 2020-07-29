@@ -173,14 +173,27 @@ WTermTable::compute_cfs(
     args.desc = tdesc;
     args.cell_size[0] = cell_size[0];
     args.cell_size[1] = cell_size[1];
-    TaskLauncher task(
-      compute_cfs_task_id,
-      TaskArgument(&args, sizeof(args)),
-      Predicate::TRUE_PRED,
-      table_mapper);
-    for (auto& r : treqs)
-      task.add_region_requirement(r);
-    rt->execute_task(ctx, task);
+    if (!partition.is_valid()) {
+      TaskLauncher task(
+        compute_cfs_task_id,
+        TaskArgument(&args, sizeof(args)),
+        Predicate::TRUE_PRED,
+        table_mapper);
+      for (auto& r : treqs)
+        task.add_region_requirement(r);
+      rt->execute_task(ctx, task);
+    } else {
+      IndexTaskLauncher task(
+        compute_cfs_task_id,
+        rt->get_index_partition_color_space(ctx, partition.column_ip),
+        TaskArgument(&args, sizeof(args)),
+        ArgumentMap(),
+        Predicate::TRUE_PRED,
+        table_mapper);
+      for (auto& r : treqs)
+        task.add_region_requirement(r);
+      rt->execute_index_space(ctx, task);
+    }
     for (auto& p : tparts)
       p.destroy(ctx, rt);
 }
