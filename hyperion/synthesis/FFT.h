@@ -125,7 +125,9 @@ public:
     union {
       fftw_plan fftw;
       fftwf_plan fftwf;
+#ifdef HYPERION_USE_CUDA
       cufftHandle cufft;
+#endif
     } handle;
   };
 
