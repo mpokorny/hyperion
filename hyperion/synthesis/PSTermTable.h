@@ -70,32 +70,37 @@ public:
    */
   static Legion::TaskID compute_cfs_task_id;
 
+  struct ComputeCFsTaskArgs {
+    Table::Desc desc;
+    array<cf_fp_t, 2> pixel_offset;
+  };
+
   template <size_t N>
-  static KOKKOS_INLINE_FUNCTION double
-  sph(const array<double, N>& ary, double nu_lo, double nu_hi) {
+  static KOKKOS_INLINE_FUNCTION cf_fp_t
+  sph(const array<cf_fp_t, N>& ary, cf_fp_t nu_lo, cf_fp_t nu_hi) {
     static_assert(N > 0);
-    const double dn2 = nu_lo * nu_lo - nu_hi * nu_hi;
-    double result = ary[N - 1];
+    const cf_fp_t dn2 = nu_lo * nu_lo - nu_hi * nu_hi;
+    cf_fp_t result = ary[N - 1];
     for (unsigned k = N - 1; k > 0; --k)
       result = dn2 * result + ary[k - 1];
     return result;
   }
 
-  static KOKKOS_INLINE_FUNCTION double
-  spheroidal(double nu) {
-    double result;
+  static KOKKOS_INLINE_FUNCTION cf_fp_t
+  spheroidal(cf_fp_t nu) {
+    cf_fp_t result;
     if (nu <= 0) {
       result = 1.0;
     } else if (nu < 0.75) {
-      const array<double, 5>
+      const array<cf_fp_t, 5>
         p{8.203343e-2, -3.644705e-1, 6.278660e-1, -5.335581e-1, 2.312756e-1};
-      const array<double, 3>
+      const array<cf_fp_t, 3>
         q{1.0000000e0, 8.212018e-1, 2.078043e-1};
       result = sph(p, nu, 0.75) / sph(q, nu, 0.75);
     } else if (nu < 1.0) {
-      const array<double, 5>
+      const array<cf_fp_t, 5>
         p{4.028559e-3, -3.697768e-2, 1.021332e-1, -1.201436e-1, 6.412774e-2};
-      const array<double, 3>
+      const array<cf_fp_t, 3>
         q{1.0000000e0, 9.599102e-1, 2.918724e-1};
       result = sph(p, nu, 1.0) / sph(q, nu, 1.0);
     } else {
@@ -113,12 +118,13 @@ public:
     Legion::Context ctx,
     Legion::Runtime *rt) {
 
-    const Table::Desc& desc = *static_cast<Table::Desc*>(task->args);
+    const ComputeCFsTaskArgs& args =
+      *static_cast<ComputeCFsTaskArgs*>(task->args);
 
     auto ptcr =
       PhysicalTable::create(
         rt,
-        desc,
+        args.desc,
         task->regions.begin(),
         task->regions.end(),
         regions.begin(),
@@ -144,8 +150,8 @@ public:
     auto values = value_col.view<execution_space, WRITE_ONLY>();
     auto weights =
       tbl.weight<Legion::AffineAccessor>().view<execution_space, WRITE_ONLY>();
-    typedef decltype(value_col)::value_t::value_type fp_t;
 
+    auto& pixel_offset = args.pixel_offset;
     Kokkos::MDRangePolicy<Kokkos::Rank<3>, execution_space> range(
       rt->get_executing_processor(ctx).kokkos_work_space(),
       rect_lo(value_rect),
@@ -153,18 +159,20 @@ public:
     Kokkos::parallel_for(
       "ComputePSTerm",
       range,
-      KOKKOS_LAMBDA (Legion::coord_t ps, Legion::coord_t x, Legion::coord_t y) {
-        const fp_t rs =
-          std::sqrt((static_cast<fp_t>(x) * x) + (static_cast<fp_t>(y) * y))
-          * ps_scales(ps);
-        if (rs <= (fp_t)1.0) {
-          const fp_t v =
-            static_cast<fp_t>(spheroidal(rs)) * ((fp_t)1.0 - rs * rs);
-          values(ps, x, y) = v;
-          weights(ps, x, y) = v * v;
+      KOKKOS_LAMBDA(
+        Legion::coord_t i_ps,
+        Legion::coord_t i_x,
+        Legion::coord_t i_y) {
+        const cf_fp_t x = static_cast<cf_fp_t>(i_x) + pixel_offset[0];
+        const cf_fp_t y = static_cast<cf_fp_t>(i_y) + pixel_offset[1];
+        const cf_fp_t rs = std::sqrt(x * x + y * y) * ps_scales(i_ps);
+        if (rs <= (cf_fp_t)1.0) {
+          const cf_fp_t v = spheroidal(rs) * ((cf_fp_t)1.0 - rs * rs);
+          values(i_ps, i_x, i_y) = v;
+          weights(i_ps, i_x, i_y) = v * v;
         } else {
-          values(ps, x, y) = (fp_t)0.0;
-          weights(ps, x, y) = std::numeric_limits<fp_t>::quiet_NaN();
+          values(i_ps, i_x, i_y) = (cf_fp_t)0.0;
+          weights(i_ps, i_x, i_y) = std::numeric_limits<cf_fp_t>::quiet_NaN();
         }
       });
   }

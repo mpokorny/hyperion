@@ -71,9 +71,10 @@ public:
 
   static const constexpr double twopi = 2 * 3.141592653589793;
 
-  struct ComputeCFSTaskArgs {
+  struct ComputeCFsTaskArgs {
     Table::Desc desc;
     array<double, 2> cell_size;
+    array<cf_fp_t, 2> pixel_offset;
   };
 
 #ifdef HYPERION_USE_KOKKOS
@@ -85,9 +86,10 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt) {
 
-  const ComputeCFSTaskArgs& args =
-    *static_cast<const ComputeCFSTaskArgs*>(task->args);
+  const ComputeCFsTaskArgs& args =
+    *static_cast<const ComputeCFsTaskArgs*>(task->args);
   const auto& cell_size = args.cell_size;
+  const auto& pixel_offset = args.pixel_offset;
 
   auto ptcr =
     PhysicalTable::create(
@@ -116,7 +118,6 @@ public:
   auto value_col = tbl.value<Legion::AffineAccessor>();
   auto value_rect = value_col.rect();
   auto values = value_col.view<execution_space, WRITE_ONLY>();
-  typedef decltype(value_col)::value_t::value_type fp_t;
   auto weights =
     tbl.weight<Legion::AffineAccessor>().view<execution_space, WRITE_ONLY>();
 
@@ -127,18 +128,23 @@ public:
   Kokkos::parallel_for(
     "ComputeWTerm",
     range,
-    KOKKOS_LAMBDA (Legion::coord_t w, Legion::coord_t x, Legion::coord_t y) {
-      const fp_t l = cell_size[0] * x;
-      const fp_t m = cell_size[1] * y;
-      const fp_t r2 = l * l + m * m;
-      if (r2 <= (fp_t)1.0) {
-        const fp_t phase =
-          (fp_t)twopi * w_values(w) * (std::sqrt((fp_t)1.0 - r2) - (fp_t)1.0);
-        values(w, x, y) = std::polar((fp_t)1.0, phase);
-        weights(w, x, y) = (fp_t)1.0;
+    KOKKOS_LAMBDA (
+      Legion::coord_t i_w,
+      Legion::coord_t i_x,
+      Legion::coord_t i_y) {
+
+      const cf_fp_t l = cell_size[0] * (i_x + pixel_offset[0]);
+      const cf_fp_t m = cell_size[1] * (i_y + pixel_offset[1]);
+      const cf_fp_t r2 = l * l + m * m;
+      if (r2 <= (cf_fp_t)1.0) {
+        const cf_fp_t phase =
+          (cf_fp_t)twopi * w_values(i_w)
+          * (std::sqrt((cf_fp_t)1.0 - r2) - (cf_fp_t)1.0);
+        values(i_w, i_x, i_y) = std::polar((cf_fp_t)1.0, phase);
+        weights(i_w, i_x, i_y) = (cf_fp_t)1.0;
       } else {
-        values(w, x, y) = (fp_t)0.0;
-        weights(w, x, y) = std::numeric_limits<fp_t>::quiet_NaN();
+        values(i_w, i_x, i_y) = (cf_fp_t)0.0;
+        weights(i_w, i_x, i_y) = std::numeric_limits<cf_fp_t>::quiet_NaN();
       }
     });
   }

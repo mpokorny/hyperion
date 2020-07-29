@@ -23,41 +23,17 @@ using namespace Legion;
 
 #define USE_KOKKOS_SERIAL_COMPUTE_CFS_TASK // undef to disable
 #define USE_KOKKOS_OPENMP_COMPUTE_CFS_TASK //undef to disable
-#define USE_KOKKOS_CUDA_COMPUTE_CFS_TASK //undef to disable
+#undef USE_KOKKOS_CUDA_COMPUTE_CFS_TASK //undef to disable
 
-#if 0
-#if defined(USE_KOKKOS_SERIAL_COMPUTE_CFS_TASK) &&   \
-  defined(HYPERION_USE_KOKKOS) &&               \
-  defined(KOKKOS_ENABLE_SERIAL)
-# define ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK
-#else
-# undef ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK
-#endif
+#define USE_KOKKOS_VARIANT(V, T)                \
+  (defined(USE_KOKKOS_##V##_COMPUTE_##T) &&     \
+   defined(HYPERION_USE_KOKKOS) &&              \
+   defined(KOKKOS_ENABLE_##V))
 
-#if defined(USE_KOKKOS_OPENMP_COMPUTE_CFS_TASK) &&  \
-  defined(HYPERION_USE_KOKKOS) &&               \
-  defined(KOKKOS_ENABLE_OPENMP)
-# define ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK
-#else
-# undef ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK
-#endif
-
-#if defined(USE_KOKKOS_CUDA_COMPUTE_CFS_TASK) &&  \
-  defined(HYPERION_USE_KOKKOS) &&               \
-  defined(KOKKOS_ENABLE_CUDA)
-# define ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
-#else
-# undef ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
-#endif
-
-#if !defined(ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK) && \
-  !defined(ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK) && \
-  !defined(ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK)
-# define ENABLE_SERIAL_COMPUTE_CFS_TASK
-#else
-# undef ENABLE_SERIAL_COMPUTE_CFS_TASK
-#endif
-#endif // 0
+#define USE_PLAIN_SERIAL_VARIANT(T)             \
+  (!USE_KOKKOS_VARIANT(SERIAL, T) &&            \
+   !USE_KOKKOS_VARIANT(OPENMP, T) &&            \
+   !USE_KOKKOS_VARIANT(CUDA, T))
 
 #if !HAVE_CXX17
 const constexpr unsigned PSTermTable::d_ps;
@@ -72,7 +48,7 @@ PSTermTable::PSTermTable(
   const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales)
   : CFTable(ctx, rt, centered_cf_rect(cf_size), Axis<CF_PS_SCALE>(ps_scales)) {}
 
-#ifndef HYPERION_USE_KOKKOS
+#if USE_PLAIN_SERIAL_VARIANT(CFS_TASK)
 void
 PSTermTable::compute_cfs_task(
   const Task* task,
@@ -80,12 +56,13 @@ PSTermTable::compute_cfs_task(
   Context ctx,
   Runtime* rt) {
 
-  const Table::Desc& desc = *static_cast<Table::Desc*>(task->args);
+  const ComputeCFsTaskArgs& args =
+    *static_cast<ComputeCFsTaskArgs*>(task->args);
 
   auto ptcr =
     PhysicalTable::create(
       rt,
-      desc,
+      args.desc,
       task->regions.begin(),
       task->regions.end(),
       regions.begin(),
@@ -108,21 +85,18 @@ PSTermTable::compute_cfs_task(
   auto values = value_col.accessor<WRITE_ONLY>();
   auto weight_col = tbl.value<AffineAccessor>();
   auto weights = weight_col.accessor<WRITE_ONLY>();
-  typedef decltype(value_col)::value_t::value_type fp_t;
 
   for (PointInRectIterator<3> pir(value_col.rect()); pir(); pir++) {
-    const fp_t x = pir[d_x];
-    const fp_t y = pir[d_y];
-    const fp_t rs =
-      std::sqrt((static_cast<fp_t>(x) * x) + (static_cast<fp_t>(y) * y))
-      * ps_scales[pir[d_ps]];
-    if (rs <= (fp_t)1.0) {
-      const fp_t v = static_cast<fp_t>(spheroidal(rs)) * ((fp_t)1.0 - rs * rs);
+    const cf_fp_t x = static_cast<cf_fp_t>(pir[d_x]) + args.pixel_offset[0];
+    const cf_fp_t y = static_cast<cf_fp_t>(pir[d_y]) + args.pixel_offset[1];
+    const cf_fp_t rs = std::sqrt(x * x + y * y) * ps_scales[pir[d_ps]];
+    if (rs <= (cf_fp_t)1.0) {
+      const cf_fp_t v = spheroidal(rs) * ((cf_fp_t)1.0 - rs * rs);
       values[*pir] = v;
       weights[*pir] = v * v;
     } else {
-      values[*pir] = (fp_t)0.0;
-      weights[*pir] = std::numeric_limits<fp_t>::quiet_NaN();
+      values[*pir] = (cf_fp_t)0.0;
+      weights[*pir] = std::numeric_limits<cf_fp_t>::quiet_NaN();
     }
   }
 }
@@ -159,10 +133,22 @@ PSTermTable::compute_cfs(
   auto& tparts = std::get<1>(reqs);
   auto& tdesc = std::get<2>(reqs);
 #endif // HAVE_CXX17
+  ComputeCFsTaskArgs args;
+  args.desc = tdesc;
+  {
+    Rect<cf_rank> value_rect(
+      rt->get_index_space_domain(
+        columns().at(CF_VALUE_COLUMN_NAME).cs.column_is));
+    std::array<Legion::coord_t, 2> cf_size{
+      value_rect.hi[d_x] - value_rect.lo[d_x] + 1,
+      value_rect.hi[d_y] - value_rect.lo[d_y] + 1};
+    args.pixel_offset[0] = (1 - (cf_size[0] % 2)) / (cf_fp_t)2.0;
+    args.pixel_offset[1] = (1 - (cf_size[1] % 2)) / (cf_fp_t)2.0;
+  }
   if (!partition.is_valid()) {
     TaskLauncher task(
       compute_cfs_task_id,
-      TaskArgument(&tdesc, sizeof(tdesc)),
+      TaskArgument(&args, sizeof(args)),
       Predicate::TRUE_PRED,
       table_mapper);
     for (auto& r : treqs)
@@ -172,7 +158,7 @@ PSTermTable::compute_cfs(
     IndexTaskLauncher task(
       compute_cfs_task_id,
       rt->get_index_partition_color_space(ctx, partition.column_ip),
-      TaskArgument(&tdesc, sizeof(tdesc)),
+      TaskArgument(&args, sizeof(args)),
       ArgumentMap(),
       Predicate::TRUE_PRED,
       table_mapper);

@@ -78,8 +78,8 @@ WTermTable::compute_cfs_task(
   Context ctx,
   Runtime* rt) {
 
-  const ComputeCFSTaskArgs& args =
-    *static_cast<const ComputeCFSTaskArgs*>(task->args);
+  const ComputeCFsTaskArgs& args =
+    *static_cast<const ComputeCFsTaskArgs*>(task->args);
 
   auto ptcr =
     PhysicalTable::create(
@@ -114,22 +114,23 @@ WTermTable::compute_cfs_task(
   const coord_t& x_hi = rect.hi[1];
   const coord_t& y_lo = rect.lo[2];
   const coord_t& y_hi = rect.hi[2];
-  typedef typename cf_table_axis<CF_W>::type fp_t;
-  for (coord_t w = w_lo; w <= w_hi; ++w) {
-    const fp_t twoPiW = (fp_t)twopi * w_values[w];
-    for (coord_t x = x_lo; x <= x_hi; ++x) {
-      const fp_t l = args.cell_size[0] * x;
-      const fp_t l2 = l * l;
-      for (coord_t y = y_lo; y <= y_hi; ++y) {
-        const fp_t m = args.cell_size[1] * y;
-        const fp_t r2 = l2 + m * m;
-        if (r2 <= (fp_t)1.0) {
-          const fp_t phase = towPiW * (std::sqrt((fp_t)1.0 - r2) - (fp_t)1.0);
-          values[{w, x, y}] = std::polar((fp_t)1.0, phase);
-          weights[{w, x, y}] = (fp_t)1.0;
+
+  for (coord_t i_w = w_lo; i_w <= w_hi; ++i_w) {
+    const cf_fp_t twoPiW = (cf_fp_t)twopi * w_values[i_w];
+    for (coord_t i_x = x_lo; i_x <= x_hi; ++i_x) {
+      const cf_fp_t l = args.cell_size[0] * (i_x + args.pixel_offset[0]);
+      const cf_fp_t l2 = l * l;
+      for (coord_t i_y = y_lo; i_y <= y_hi; ++i_y) {
+        const cf_fp_t m = args.cell_size[1] * (y + args.pixel_offset[1]);
+        const cf_fp_t r2 = l2 + m * m;
+        if (r2 <= (cf_fp_t)1.0) {
+          const cf_fp_t phase =
+            towPiW * (std::sqrt((cf_fp_t)1.0 - r2) - (cf_fp_t)1.0);
+          values[{i_w, i_x, i_y}] = std::polar((cf_fp_t)1.0, phase);
+          weights[{i_w, i_x, i_y}] = (cf_fp_t)1.0;
         } else {
-          values[{w, x, y}] = (fp_t)0.0;
-          weights[{w, x, y}] = std::numeric_limits<fp_t>::quiet_NaN();
+          values[{i_w, i_x, i_y}] = (cf_fp_t)0.0;
+          weights[{i_w, i_x, i_y}] = std::numeric_limits<cf_fp_t>::quiet_NaN();
         }
       }
     }
@@ -169,10 +170,20 @@ WTermTable::compute_cfs(
     auto& tparts = std::get<1>(reqs);
     auto& tdesc = std::get<2>(reqs);
 #endif // HAVE_CXX17
-    ComputeCFSTaskArgs args;
+    ComputeCFsTaskArgs args;
     args.desc = tdesc;
     args.cell_size[0] = cell_size[0];
     args.cell_size[1] = cell_size[1];
+    {
+      Rect<cf_rank> value_rect(
+        rt->get_index_space_domain(
+          columns().at(CF_VALUE_COLUMN_NAME).cs.column_is));
+      std::array<Legion::coord_t, 2> cf_size{
+        value_rect.hi[d_x] - value_rect.lo[d_x] + 1,
+        value_rect.hi[d_y] - value_rect.lo[d_y] + 1};
+      args.pixel_offset[0] = (1 - (cf_size[0] % 2)) / (cf_fp_t)2.0;
+      args.pixel_offset[1] = (1 - (cf_size[1] % 2)) / (cf_fp_t)2.0;
+    }
     if (!partition.is_valid()) {
       TaskLauncher task(
         compute_cfs_task_id,
