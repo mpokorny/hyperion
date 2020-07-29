@@ -259,8 +259,10 @@ if(hyperion_USE_CUDA)
   target_link_libraries(hyperion PUBLIC cufft)
 endif()
 if(hyperion_USE_KOKKOS)
-  target_compile_options(hyperion PUBLIC
-    --expt-relaxed-constexpr)
+  if(hyperion_USE_CUDA)
+    target_compile_options(hyperion PUBLIC
+      --expt-relaxed-constexpr)
+  endif()
   target_link_libraries(hyperion PUBLIC Kokkos::kokkoscore)
   if(hyperion_USE_KOKKOS_KERNELS)
     target_link_libraries(hyperion PUBLIC Kokkos::kokkoskernels)
