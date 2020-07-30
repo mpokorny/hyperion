@@ -43,7 +43,7 @@ public:
   PSTermTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::array<Legion::coord_t, 2>& cf_size,
+    const std::array<size_t, 2>& cf_size,
     const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales);
 
   /**

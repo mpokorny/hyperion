@@ -41,19 +41,18 @@ public:
   CFTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const Legion::Rect<2>& cf_bounds,
+    const std::array<size_t, 2>& cf_size,
     const Axis<AXES>&...axes)
     : CFTableBase() {
 
     // table index ColumnSpace
     ColumnSpace index_cs;
-    constexpr size_t N = sizeof...(AXES);
     {
       Legion::coord_t c_lo[]{axes.bounds().lo[0]...};
-      Legion::Point<N> lo(c_lo);
+      Legion::Point<index_rank> lo(c_lo);
       Legion::coord_t c_hi[]{axes.bounds().hi[0]...};
-      Legion::Point<N> hi(c_hi);
-      Legion::Rect<N> bounds(lo, hi);
+      Legion::Point<index_rank> hi(c_hi);
+      Legion::Rect<index_rank> bounds(lo, hi);
       Legion::IndexSpace is = rt->create_index_space(ctx, bounds);
       index_cs =
         ColumnSpace::create<cf_table_axes_t>(ctx, rt, {AXES...}, is, false);
@@ -61,7 +60,7 @@ public:
 
     // index columns
     Table::fields_t fields;
-    fields.reserve(N + 1);
+    fields.reserve(index_rank + 1);
     {
       std::vector<ColumnSpace>
         index_axes_cs{
@@ -77,7 +76,7 @@ public:
          TableField(
            ValueType<typename cf_table_axis<AXES>::type>::DataType,
            INDEX_VALUE_FID)}...};
-      for (size_t i = 0; i < N; ++i)
+      for (size_t i = 0; i < index_rank; ++i)
         fields.emplace_back(
           index_axes_cs[i],
           std::vector<std::pair<std::string, TableField>>{index_axes_fields[i]});
@@ -85,13 +84,14 @@ public:
 
     // CF columns
     {
+      assert(cf_size[0] > 0);
+      assert(cf_size[1] > 0);
       Legion::coord_t
-        c_lo[]{axes.bounds().lo[0]..., cf_bounds.lo[0], cf_bounds.lo[1]};
-      Legion::Point<N + 2> lo(c_lo);
-      Legion::coord_t
-        c_hi[]{axes.bounds().hi[0]..., cf_bounds.hi[0], cf_bounds.hi[1]};
-      Legion::Point<N + 2> hi(c_hi);
-      Legion::Rect<N + 2> bounds(lo, hi);
+        c_hi[]{axes.bounds().hi[0]...,
+          static_cast<Legion::coord_t>(cf_size[0] - 1),
+          static_cast<Legion::coord_t>(cf_size[1] - 1)};
+      Legion::Point<cf_rank> hi(c_hi);
+      Legion::Rect<cf_rank> bounds(Legion::Point<cf_rank>::ZEROES(), hi);
       Legion::IndexSpace is = rt->create_index_space(ctx, bounds);
       ColumnSpace cs =
         ColumnSpace::create<cf_table_axes_t>(

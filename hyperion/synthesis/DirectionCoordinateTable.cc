@@ -37,13 +37,13 @@ const constexpr char* DirectionCoordinateTable::WORLD_Y_NAME;
 DirectionCoordinateTable::DirectionCoordinateTable(
   Context ctx,
   Runtime* rt,
-  const std::array<Legion::coord_t, 2>& cf_size,
+  const std::array<size_t, 2>& cf_size,
   const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
     parallactic_angles)
   : CFTable(
     ctx,
     rt,
-    centered_cf_rect(cf_size),
+    cf_size,
     Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles)) {
 
   auto cs = columns().at(CF_VALUE_COLUMN_NAME).cs;

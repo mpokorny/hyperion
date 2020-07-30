@@ -51,7 +51,7 @@ DirectionCoordinateTable
 ATermIlluminationFunction::create_epts_table(
   Context ctx,
   Runtime* rt,
-  const std::array<coord_t, 2>& cf_size,
+  const std::array<size_t, 2>& cf_size,
   const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
     parallactic_angles) {
 
@@ -94,7 +94,7 @@ ATermIlluminationFunction::compute_epts(
   Rect<cf_rank> value_rect(
     rt->get_index_space_domain(
       columns().at(CF_VALUE_COLUMN_NAME).region.get_index_space()));
-  std::array<Legion::coord_t, 2> cf_size{
+  std::array<size_t, 2> cf_size{
     value_rect.hi[0] - value_rect.lo[0] + 1,
     value_rect.hi[1] - value_rect.lo[1] + 1};
   std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>
@@ -364,7 +364,7 @@ ATermIlluminationFunction::compute_fft(
 ATermIlluminationFunction::ATermIlluminationFunction(
   Context ctx,
   Runtime* rt,
-  const std::array<Legion::coord_t, 2>& cf_size,
+  const std::array<size_t, 2>& cf_size,
   unsigned zernike_order,
   const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
     baseline_classes,
@@ -377,7 +377,7 @@ ATermIlluminationFunction::ATermIlluminationFunction(
   : CFTable(
     ctx,
     rt,
-    centered_cf_rect(cf_size),
+    cf_size,
     Axis<CF_BASELINE_CLASS>(baseline_classes),
     Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles),
     Axis<CF_FREQUENCY>(frequencies),

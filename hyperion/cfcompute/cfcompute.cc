@@ -33,8 +33,7 @@ cfcompute_task(
   Context ctx,
   Runtime* rt) {
 
-  std::array<Legion::coord_t, 2> cf_size{6, 6};
-  auto cf_rect = CFTableBase::centered_cf_rect(cf_size);
+  std::array<size_t, 2> cf_size{6, 6};
 
   PSTermTable ps(ctx, rt, cf_size, {0.16, 0.08});
   ps.compute_cfs(ctx, rt);
@@ -58,8 +57,8 @@ cfcompute_task(
     auto values = pps.value<AffineAccessor>().accessor<LEGION_READ_ONLY>();
     for (coord_t ps = 0; ps < 2; ++ps) {
       std::cout << "ps_scale " << ps_scales[ps] << std::endl;
-      for (coord_t x = cf_rect.lo[0]; x <= cf_rect.hi[0]; ++x) {
-        for (coord_t y = cf_rect.lo[1]; y <= cf_rect.hi[1]; ++y)
+      for (coord_t x = 0; x < cf_size[0]; ++x) {
+        for (coord_t y = 0; y < cf_size[1]; ++y)
           std::cout << values[{ps, x, y}] << " ";
         std::cout << std::endl;
       }
@@ -82,8 +81,8 @@ cfcompute_task(
     auto values = pw.value<AffineAccessor>().accessor<LEGION_READ_ONLY>();
     for (coord_t w = 0; w < 3; ++w) {
       std::cout << "w " << ws[w] << std::endl;
-      for (coord_t x = cf_rect.lo[0]; x <= cf_rect.hi[0]; ++x) {
-        for (coord_t y = cf_rect.lo[1]; y <= cf_rect.hi[1]; ++y)
+      for (coord_t x = 0; x < cf_size[0]; ++x) {
+        for (coord_t y = 0; y < cf_size[1]; ++y)
           std::cout << values[{w, x, y}] << " ";
         std::cout << std::endl;
       }

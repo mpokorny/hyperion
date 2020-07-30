@@ -66,9 +66,9 @@ Legion::TaskID WTermTable::compute_cfs_task_id;
 WTermTable::WTermTable(
   Context ctx,
   Runtime* rt,
-  const std::array<Legion::coord_t, 2>& cf_size,
+  const std::array<size_t, 2>& cf_size,
   const std::vector<typename cf_table_axis<CF_W>::type>& w_values)
-  : CFTable(ctx, rt, centered_cf_rect(cf_size), Axis<CF_W>(w_values)) {}
+  : CFTable(ctx, rt, cf_size, Axis<CF_W>(w_values)) {}
 
 #ifndef HYPERION_USE_KOKKOS
 void

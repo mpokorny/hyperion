@@ -43,7 +43,7 @@ TaskID ATermTable::compute_cfs_task_id;
 ATermTable::ATermTable(
   Context ctx,
   Runtime* rt,
-  const std::array<Legion::coord_t, 2>& cf_size,
+  const std::array<size_t, 2>& cf_size,
   const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
     baseline_classes,
   const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
@@ -57,7 +57,7 @@ ATermTable::ATermTable(
   : CFTable(
     ctx,
     rt,
-    centered_cf_rect(cf_size),
+    cf_size,
     Axis<CF_BASELINE_CLASS>(baseline_classes),
     Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles),
     Axis<CF_FREQUENCY>(frequencies),
@@ -182,7 +182,7 @@ ATermTable::compute_cfs(
     stokes_out_values;
   std::vector<typename cf_table_axis<CF_STOKES_IN>::type>
     stokes_in_values;
-  std::array<Legion::coord_t, 2> cf_size;
+  std::array<size_t, 2> cf_size;
   using_resource(
     [&]() {
       auto colreqs = Column::default_requirements;

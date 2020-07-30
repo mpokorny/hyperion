@@ -209,13 +209,6 @@ public:
 
   static void preregister_all();
 
-  static inline Legion::Rect<2>
-  centered_cf_rect(const std::array<Legion::coord_t, 2>& cf_size) {
-    return Legion::Rect<2>(
-      {-(std::abs(cf_size[0]) / 2), -(std::abs(cf_size[1]) / 2)},
-      {(std::abs(cf_size[0]) + 1) / 2 - 1, (std::abs(cf_size[1]) + 1) / 2 - 1});
-  }
-
 #ifdef HYPERION_USE_KOKKOS
   template <int N>
   static inline Kokkos::Array<long, N>
