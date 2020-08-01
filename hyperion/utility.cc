@@ -240,6 +240,40 @@ void
 hyperion::linear_coordinate_serdez::destroy(cc::LinearCoordinate&) {
 }
 
+size_t
+hyperion::direction_coordinate_serdez::serialized_size(
+  const cc::DirectionCoordinate& val) {
+
+  cc::Record rec;
+  val.save(rec, "DC");
+  return record_serdez::serialized_size(rec);
+}
+
+size_t
+hyperion::direction_coordinate_serdez::serialize(
+  const cc::DirectionCoordinate& val,
+  void *buffer) {
+
+  cc::Record rec;
+  val.save(rec, "DC");
+  return record_serdez::serialize(rec, buffer);
+}
+
+size_t
+hyperion::direction_coordinate_serdez::deserialize(
+  cc::DirectionCoordinate& val,
+  const void *buffer) {
+
+  cc::Record rec;
+  auto result = record_serdez::deserialize(rec, buffer);
+  val = *cc::DirectionCoordinate::restore(rec, "DC");
+  return result;
+}
+
+void
+hyperion::direction_coordinate_serdez::destroy(cc::DirectionCoordinate&) {
+}
+
 #endif
 
 #if !HAVE_CXX17
@@ -340,6 +374,8 @@ hyperion::OpsManager::register_ops(
       serdez_id(CC_COORDINATE_SYSTEM_SID));
   Runtime::register_custom_serdez_op<linear_coordinate_serdez>(
     serdez_id(CC_LINEAR_COORDINATE_SID));
+  Runtime::register_custom_serdez_op<direction_coordinate_serdez>(
+    serdez_id(CC_DIRECTION_COORDINATE_SID));
 #endif
 
   Runtime::register_reduction_op<bool_or_redop>(
