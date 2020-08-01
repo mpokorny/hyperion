@@ -58,37 +58,49 @@ PSTermTable::compute_cfs_task(
 
   const ComputeCFsTaskArgs& args =
     *static_cast<ComputeCFsTaskArgs*>(task->args);
+  std::vector<Table::Desc> tdescs{args.ps, args.dc};
 
-  auto ptcr =
-    PhysicalTable::create(
+  auto ptcrs =
+    PhysicalTable::create_many(
       rt,
-      args.desc,
+      tdescs,
       task->regions.begin(),
       task->regions.end(),
       regions.begin(),
       regions.end())
     .value();
 #if HAVE_CXX17
-  auto& [pt, rit, pit] = ptcr;
+  auto& [pts, rit, pit] = ptcrs;
 #else // !HAVE_CXX17
-  auto& pt = std::get<0>(ptcr);
-  auto& rit = std::get<1>(ptcr);
-  auto& pit = std::get<2>(ptcr);
+  auto& pts = std::get<0>(ptcrs);
+  auto& rit = std::get<1>(ptcrs);
+  auto& pit = std::get<2>(ptcrs);
 #endif // HAVE_CXX17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
-  auto tbl = CFPhysicalTable<CF_PS_SCALE>(pt);
+  auto ps_tbl = CFPhysicalTable<CF_PS_SCALE>(pts[0]);
+  auto dc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
 
-  auto ps_scales = tbl.ps_scale<AffineAccessor>().accessor<READ_ONLY>();
-  auto value_col = tbl.value<AffineAccessor>();
+  auto ps_scales = ps_tbl.ps_scale<AffineAccessor>().accessor<READ_ONLY>();
+  auto value_col = ps_tbl.value<AffineAccessor>();
   auto values = value_col.accessor<WRITE_ONLY>();
-  auto weight_col = tbl.value<AffineAccessor>();
+  auto weight_col = ps_tbl.value<AffineAccessor>();
   auto weights = weight_col.accessor<WRITE_ONLY>();
 
+  auto wcs_x_col =
+    DirectionCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+      *dc_tbl.column(DirectionCoordinateTable::WORLD_X_NAME).value());
+  auto i_pa = wcs_x_col.rect().lo[DirectionCoordinateTable::d_pa];
+  auto wcs_x = wcs_x_col.accessor<LEGION_READ_ONLY>();
+  auto wcs_y =
+    DirectionCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+      *dc_tbl.column(DirectionCoordinateTable::WORLD_Y_NAME).value())
+    .accessor<LEGION_READ_ONLY>();
+
   for (PointInRectIterator<3> pir(value_col.rect()); pir(); pir++) {
-    const cf_fp_t x = static_cast<cf_fp_t>(pir[d_x]) + args.pixel_offset[0];
-    const cf_fp_t y = static_cast<cf_fp_t>(pir[d_y]) + args.pixel_offset[1];
+    const cf_fp_t x = wcs_x(i_pa, pir[d_x], pir[d_y]);
+    const cf_fp_t y = wcs_y(i_pa, pir[d_x], pir[d_y]);
     const cf_fp_t rs = std::sqrt(x * x + y * y) * ps_scales[pir[d_ps]];
     if (rs <= (cf_fp_t)1.0) {
       const cf_fp_t v = spheroidal(rs) * ((cf_fp_t)1.0 - rs * rs);
@@ -106,44 +118,58 @@ void
 PSTermTable::compute_cfs(
   Context ctx,
   Runtime* rt,
+  const DirectionCoordinateTable& dc,
   const ColumnSpacePartition& partition) const {
 
-  Column::Requirements cf_colreqs = Column::default_requirements;
-  cf_colreqs.values = Column::Req{
-    WRITE_ONLY /* privilege */,
-    EXCLUSIVE /* coherence */,
-    true /* mapped */
-  };
+  auto ro_colreqs = Column::default_requirements;
+  ro_colreqs.values.mapped = true;
 
-  auto default_colreqs = Column::default_requirements;
-  default_colreqs.values.mapped = true;
-
-  auto reqs =
-    requirements(
-      ctx,
-      rt,
-      partition,
-      {{CF_VALUE_COLUMN_NAME, cf_colreqs},
-       {CF_WEIGHT_COLUMN_NAME, cf_colreqs}},
-      default_colreqs);
-#if HAVE_CXX17
-  auto& [treqs, tparts, tdesc] = reqs;
-#else // !HAVE_CXX17
-  auto& treqs = std::get<0>(reqs);
-  auto& tparts = std::get<1>(reqs);
-  auto& tdesc = std::get<2>(reqs);
-#endif // HAVE_CXX17
+  std::vector<RegionRequirement> all_reqs;
+  std::vector<ColumnSpacePartition> all_parts;
   ComputeCFsTaskArgs args;
-  args.desc = tdesc;
   {
-    Rect<cf_rank> value_rect(
-      rt->get_index_space_domain(
-        columns().at(CF_VALUE_COLUMN_NAME).cs.column_is));
-    std::array<Legion::coord_t, 2> cf_size{
-      value_rect.hi[d_x] - value_rect.lo[d_x] + 1,
-      value_rect.hi[d_y] - value_rect.lo[d_y] + 1};
-    args.pixel_offset[0] = (1 - (cf_size[0] % 2)) / (cf_fp_t)2.0;
-    args.pixel_offset[1] = (1 - (cf_size[1] % 2)) / (cf_fp_t)2.0;
+    Column::Requirements wo_colreqs = Column::default_requirements;
+    wo_colreqs.values.privilege = LEGION_WRITE_ONLY;
+    wo_colreqs.values.mapped = true;
+
+    auto reqs =
+      requirements(
+        ctx,
+        rt,
+        partition,
+        {{CF_VALUE_COLUMN_NAME, wo_colreqs},
+         {CF_WEIGHT_COLUMN_NAME, wo_colreqs}},
+        ro_colreqs);
+#if HAVE_CXX17
+    auto& [treqs, tparts, tdesc] = reqs;
+#else // !HAVE_CXX17
+    auto& treqs = std::get<0>(reqs);
+    auto& tparts = std::get<1>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif // HAVE_CXX17
+    std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
+    std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
+    args.ps = tdesc;
+  }
+  {
+    auto reqs =
+      dc.requirements(
+        ctx,
+        rt,
+        partition,
+        {{DirectionCoordinateTable::WORLD_X_NAME, ro_colreqs},
+         {DirectionCoordinateTable::WORLD_Y_NAME, ro_colreqs}},
+        CXX_OPTIONAL_NAMESPACE::nullopt);
+#if HAVE_CXX17
+    auto& [treqs, tparts, tdesc] = reqs;
+#else // !HAVE_CXX17
+    auto& treqs = std::get<0>(reqs);
+    auto& tparts = std::get<1>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif // HAVE_CXX17
+    std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
+    std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
+    args.dc = tdesc;
   }
   if (!partition.is_valid()) {
     TaskLauncher task(
@@ -151,7 +177,7 @@ PSTermTable::compute_cfs(
       TaskArgument(&args, sizeof(args)),
       Predicate::TRUE_PRED,
       table_mapper);
-    for (auto& r : treqs)
+    for (auto& r : all_reqs)
       task.add_region_requirement(r);
     rt->execute_task(ctx, task);
   } else {
@@ -162,11 +188,11 @@ PSTermTable::compute_cfs(
       ArgumentMap(),
       Predicate::TRUE_PRED,
       table_mapper);
-    for (auto& r : treqs)
+    for (auto& r : all_reqs)
       task.add_region_requirement(r);
     rt->execute_index_space(ctx, task);
   }
-  for (auto& p : tparts)
+  for (auto& p : all_parts)
     p.destroy(ctx, rt);
 }
 

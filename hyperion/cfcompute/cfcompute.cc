@@ -22,6 +22,8 @@ using namespace hyperion::synthesis;
 using namespace hyperion;
 using namespace Legion;
 
+namespace cc = casacore;
+
 enum {
   CFCOMPUTE_TASK_ID,
 };
@@ -33,10 +35,13 @@ cfcompute_task(
   Context ctx,
   Runtime* rt) {
 
-  std::array<size_t, 2> cf_size{6, 6};
+  std::array<size_t, 2> cf_size{4, 4};
+
+  DirectionCoordinateTable dc(ctx, rt, cf_size, {0.0});
+  dc.compute_world_coordinates(ctx, rt, {2.0, 2.0});
 
   PSTermTable ps(ctx, rt, cf_size, {0.16, 0.08});
-  ps.compute_cfs(ctx, rt);
+  ps.compute_cfs(ctx, rt, dc);
 
   auto colreqs = Column::default_requirements;
   colreqs.values.mapped = true;
@@ -55,39 +60,41 @@ cfcompute_task(
     auto ps_scales =
       pps.ps_scale<AffineAccessor>().accessor<LEGION_READ_ONLY>();
     auto values = pps.value<AffineAccessor>().accessor<LEGION_READ_ONLY>();
-    for (coord_t ps = 0; ps < 2; ++ps) {
+    for (size_t ps = 0; ps < 2; ++ps) {
       std::cout << "ps_scale " << ps_scales[ps] << std::endl;
-      for (coord_t x = 0; x < cf_size[0]; ++x) {
-        for (coord_t y = 0; y < cf_size[1]; ++y)
+      for (size_t x = 0; x < cf_size[0]; ++x) {
+        for (size_t y = 0; y < cf_size[1]; ++y)
           std::cout << values[{ps, x, y}] << " ";
         std::cout << std::endl;
       }
     }
   }
-  WTermTable w(ctx, rt, cf_size, {2.2, 22.2, 222.2});
-  w.compute_cfs(ctx, rt, FIXME_CELL_SIZE);
 
-  auto pw =
-    CFPhysicalTable<CF_W>(
-      w.map_inline(
-        ctx,
-        rt,
-        {{cf_table_axis<CF_W>::name, colreqs},
-         {CFTableBase::CF_VALUE_COLUMN_NAME, colreqs},
-         {CFTableBase::CF_WEIGHT_COLUMN_NAME, colreqs}},
-        CXX_OPTIONAL_NAMESPACE::nullopt));
-  {
-    auto ws = pw.w<AffineAccessor>().accessor<LEGION_READ_ONLY>();
-    auto values = pw.value<AffineAccessor>().accessor<LEGION_READ_ONLY>();
-    for (coord_t w = 0; w < 3; ++w) {
-      std::cout << "w " << ws[w] << std::endl;
-      for (coord_t x = 0; x < cf_size[0]; ++x) {
-        for (coord_t y = 0; y < cf_size[1]; ++y)
-          std::cout << values[{w, x, y}] << " ";
-        std::cout << std::endl;
-      }
-    }
-  }
+  // WTermTable w(ctx, rt, cf_size, {2.2, 22.2, 222.2});
+  // w.compute_cfs(ctx, rt, FIXME_CELL_SIZE);
+
+  // auto pw =
+  //   CFPhysicalTable<CF_W>(
+  //     w.map_inline(
+  //       ctx,
+  //       rt,
+  //       {{cf_table_axis<CF_W>::name, colreqs},
+  //        {CFTableBase::CF_VALUE_COLUMN_NAME, colreqs},
+  //        {CFTableBase::CF_WEIGHT_COLUMN_NAME, colreqs}},
+  //       CXX_OPTIONAL_NAMESPACE::nullopt));
+  // {
+  //   auto ws = pw.w<AffineAccessor>().accessor<LEGION_READ_ONLY>();
+  //   auto values = pw.value<AffineAccessor>().accessor<LEGION_READ_ONLY>();
+  //   for (coord_t w = 0; w < 3; ++w) {
+  //     std::cout << "w " << ws[w] << std::endl;
+  //     for (coord_t x = 0; x < cf_size[0]; ++x) {
+  //       for (coord_t y = 0; y < cf_size[1]; ++y)
+  //         std::cout << values[{w, x, y}] << " ";
+  //       std::cout << std::endl;
+  //     }
+  //   }
+  // }
+
   // auto pa = index_axis<CF_PS_SCALE>(pps, pw);
   // for (auto& x : pa.values)
   //   std::cout << x << " ";
@@ -98,8 +105,8 @@ cfcompute_task(
   // std::cout << std::endl;
   pps.unmap_regions(ctx, rt);
   ps.destroy(ctx, rt);
-  pw.unmap_regions(ctx, rt);
-  w.destroy(ctx, rt);
+  // pw.unmap_regions(ctx, rt);
+  // w.destroy(ctx, rt);
 }
 
 int
@@ -115,9 +122,6 @@ main(int argc, char* argv[]) {
     Runtime::set_top_level_task_id(CFCOMPUTE_TASK_ID);
   }
   synthesis::CFTableBase::preregister_all();
-  synthesis::PSTermTable::preregister_tasks();
-  synthesis::WTermTable::preregister_tasks();
-  synthesis::ATermTable::preregister_tasks();
   return Runtime::start(argc, argv);
 }
 

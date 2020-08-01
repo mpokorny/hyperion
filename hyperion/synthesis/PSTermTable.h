@@ -17,6 +17,7 @@
 #define HYPERION_SYNTHESIS_PS_TERM_TABLE_H_
 
 #include <hyperion/synthesis/CFTable.h>
+#include <hyperion/synthesis/DirectionCoordinateTable.h>
 
 #include <array>
 #include <cmath>
@@ -57,6 +58,7 @@ public:
   compute_cfs(
     Legion::Context ctx,
     Legion::Runtime* rt,
+    const DirectionCoordinateTable& dc,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
   /**
@@ -71,8 +73,8 @@ public:
   static Legion::TaskID compute_cfs_task_id;
 
   struct ComputeCFsTaskArgs {
-    Table::Desc desc;
-    array<cf_fp_t, 2> pixel_offset;
+    Table::Desc ps; // this table
+    Table::Desc dc; // DirectionCoordinateTable dc
   };
 
   template <size_t N>
@@ -120,38 +122,61 @@ public:
 
     const ComputeCFsTaskArgs& args =
       *static_cast<ComputeCFsTaskArgs*>(task->args);
+    std::vector<Table::Desc> tdescs{args.ps, args.dc};
 
-    auto ptcr =
-      PhysicalTable::create(
+    auto ptcrs =
+      PhysicalTable::create_many(
         rt,
-        args.desc,
+        tdescs,
         task->regions.begin(),
         task->regions.end(),
         regions.begin(),
         regions.end())
       .value();
 # if HAVE_CXX17
-    auto& [pt, rit, pit] = ptcr;
+    auto& [pts, rit, pit] = ptcrs;
 # else // !HAVE_CXX17
-    auto& pt = std::get<0>(ptcr);
-    auto& rit = std::get<1>(ptcr);
-    auto& pit = std::get<2>(ptcr);
+    auto& pts = std::get<0>(ptcrs);
+    auto& rit = std::get<1>(ptcrs);
+    auto& pit = std::get<2>(ptcrs);
 # endif // HAVE_CXX17
     assert(rit == task->regions.end());
     assert(pit == regions.end());
 
-    auto tbl = CFPhysicalTable<CF_PS_SCALE>(pt);
+    auto ps_tbl = CFPhysicalTable<CF_PS_SCALE>(pts[0]);
+    auto dc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
 
     auto ps_scales =
-      tbl.ps_scale<Legion::AffineAccessor>().view<execution_space, READ_ONLY>();
-
-    auto value_col = tbl.value<Legion::AffineAccessor>();
+      ps_tbl
+      .ps_scale<Legion::AffineAccessor>()
+      .view<execution_space, LEGION_READ_ONLY>();
+    auto value_col = ps_tbl.value<Legion::AffineAccessor>();
     auto value_rect = value_col.rect();
-    auto values = value_col.view<execution_space, WRITE_ONLY>();
+    auto values = value_col.view<execution_space, LEGION_WRITE_ONLY>();
     auto weights =
-      tbl.weight<Legion::AffineAccessor>().view<execution_space, WRITE_ONLY>();
+      ps_tbl
+      .weight<Legion::AffineAccessor>()
+      .view<execution_space, LEGION_WRITE_ONLY>();
 
-    auto& pixel_offset = args.pixel_offset;
+    auto wcs_x_col =
+      DirectionCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+        *dc_tbl.column(DirectionCoordinateTable::WORLD_X_NAME).value());
+    auto i_pa = wcs_x_col.rect().lo[DirectionCoordinateTable::d_pa];
+    auto wcs_x =
+      Kokkos::subview(
+        wcs_x_col.view<execution_space, LEGION_READ_ONLY>(),
+        i_pa,
+        Kokkos::ALL,
+        Kokkos::ALL);
+    auto wcs_y =
+      Kokkos::subview(
+        DirectionCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+          *dc_tbl.column(DirectionCoordinateTable::WORLD_Y_NAME).value())
+        .view<execution_space, LEGION_READ_ONLY>(),
+        i_pa,
+        Kokkos::ALL,
+        Kokkos::ALL);
+
     Kokkos::MDRangePolicy<Kokkos::Rank<3>, execution_space> range(
       rt->get_executing_processor(ctx).kokkos_work_space(),
       rect_lo(value_rect),
@@ -163,8 +188,8 @@ public:
         Legion::coord_t i_ps,
         Legion::coord_t i_x,
         Legion::coord_t i_y) {
-        const cf_fp_t x = static_cast<cf_fp_t>(i_x) + pixel_offset[0];
-        const cf_fp_t y = static_cast<cf_fp_t>(i_y) + pixel_offset[1];
+        const cf_fp_t x = wcs_x(i_x, i_y);
+        const cf_fp_t y = wcs_y(i_x, i_y);
         const cf_fp_t rs = std::sqrt(x * x + y * y) * ps_scales(i_ps);
         if (rs <= (cf_fp_t)1.0) {
           const cf_fp_t v = spheroidal(rs) * ((cf_fp_t)1.0 - rs * rs);
