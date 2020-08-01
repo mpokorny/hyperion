@@ -207,8 +207,8 @@ hyperion::coordinate_system_serdez::destroy(cc::CoordinateSystem&) {
 }
 
 size_t
-hyperion::direction_coordinate_serdez::serialized_size(
-  const cc::DirectionCoordinate& val) {
+hyperion::linear_coordinate_serdez::serialized_size(
+  const cc::LinearCoordinate& val) {
 
   cc::Record rec;
   val.save(rec, "DC");
@@ -216,8 +216,8 @@ hyperion::direction_coordinate_serdez::serialized_size(
 }
 
 size_t
-hyperion::direction_coordinate_serdez::serialize(
-  const cc::DirectionCoordinate& val,
+hyperion::linear_coordinate_serdez::serialize(
+  const cc::LinearCoordinate& val,
   void *buffer) {
 
   cc::Record rec;
@@ -226,18 +226,18 @@ hyperion::direction_coordinate_serdez::serialize(
 }
 
 size_t
-hyperion::direction_coordinate_serdez::deserialize(
-  cc::DirectionCoordinate& val,
+hyperion::linear_coordinate_serdez::deserialize(
+  cc::LinearCoordinate& val,
   const void *buffer) {
 
   cc::Record rec;
   auto result = record_serdez::deserialize(rec, buffer);
-  val = *cc::DirectionCoordinate::restore(rec, "DC");
+  val = *cc::LinearCoordinate::restore(rec, "DC");
   return result;
 }
 
 void
-hyperion::direction_coordinate_serdez::destroy(cc::DirectionCoordinate&) {
+hyperion::linear_coordinate_serdez::destroy(cc::LinearCoordinate&) {
 }
 
 #endif
@@ -338,8 +338,8 @@ hyperion::OpsManager::register_ops(
 #ifdef HYPERION_USE_CASACORE
   Runtime::register_custom_serdez_op<coordinate_system_serdez>(
       serdez_id(CC_COORDINATE_SYSTEM_SID));
-  Runtime::register_custom_serdez_op<direction_coordinate_serdez>(
-    serdez_id(CC_DIRECTION_COORDINATE_SID));
+  Runtime::register_custom_serdez_op<linear_coordinate_serdez>(
+    serdez_id(CC_LINEAR_COORDINATE_SID));
 #endif
 
   Runtime::register_reduction_op<bool_or_redop>(

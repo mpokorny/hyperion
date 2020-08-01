@@ -19,7 +19,7 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/synthesis/CFTable.h>
 
-#include <casacore/coordinates/Coordinates/DirectionCoordinate.h>
+#include <casacore/coordinates/Coordinates/LinearCoordinate.h>
 
 #include <array>
 #include <vector>
@@ -48,7 +48,7 @@ public:
   static const constexpr Legion::FieldID WORLD_Y_FID = 89;
   static const constexpr char* WORLD_X_NAME = "WORLD_X";
   static const constexpr char* WORLD_Y_NAME = "WORLD_Y";
-  typedef double worldc_t; // type used by casacore::DirectionCoordinate
+  typedef double worldc_t; // type used by casacore::LinearCoordinate
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=HYPERION_CHECK_BOUNDS>
   using worldc_accessor_t =
     Legion::FieldAccessor<
@@ -73,14 +73,8 @@ public:
   compute_world_coordinates(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const casacore::DirectionCoordinate& direction,
+    const std::array<double, 2>& image_size,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
-
-  static void
-  compute_world_coordinates(
-    const CFPhysicalTable<CF_PARALLACTIC_ANGLE>& dc,
-    const casacore::DirectionCoordinate& dc0,
-    const std::array<double, 2>& pixel_offset);
 
   static const constexpr char* compute_world_coordinates_task_name =
     "DirectionCoordinateTable::compute_world_coordinates";
@@ -89,8 +83,7 @@ public:
 
   struct ComputeWorldCoordinatesTaskArgs {
     Table::Desc desc;
-    std::array<double, 2> pixel_offset;
-    std::array<char, direction_coordinate_serdez::MAX_SERIALIZED_SIZE> dc;
+    std::array<char, linear_coordinate_serdez::MAX_SERIALIZED_SIZE> lc;
   };
 
   static void
@@ -102,6 +95,26 @@ public:
 
   static void
   preregister_tasks();
+
+  /**
+   * CF domain origin in continuous extension of grid index space, always at the
+   * center of the grid
+   */
+  static inline std::array<double, 2>
+    domain_origin(const std::array<size_t, 2>& cf_size) {
+    return {
+      static_cast<double>(cf_size[0]) / 2,
+      static_cast<double>(cf_size[1]) / 2};
+  }
+
+  std::array<double, 2>
+    domain_origin() const {
+    return domain_origin(m_cf_size);
+  }
+
+protected:
+
+  std::array<size_t, 2> m_cf_size;
 };
 
 } // end namespace synthesis

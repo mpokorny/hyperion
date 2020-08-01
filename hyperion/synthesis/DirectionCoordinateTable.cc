@@ -44,7 +44,8 @@ DirectionCoordinateTable::DirectionCoordinateTable(
     ctx,
     rt,
     cf_size,
-    Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles)) {
+    Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles))
+  , m_cf_size(cf_size) {
 
   auto cs = columns().at(CF_VALUE_COLUMN_NAME).cs;
   auto dt = ValueType<worldc_t>::DataType;
@@ -59,18 +60,23 @@ void
 DirectionCoordinateTable::compute_world_coordinates(
   Context ctx,
   Runtime* rt,
-  const cc::DirectionCoordinate& direction,
+  const std::array<double, 2>& image_size,
   const ColumnSpacePartition& partition) const {
 
   auto wd_colreqs = Column::default_requirements;
-  wd_colreqs.values.privilege = WRITE_DISCARD;
+  wd_colreqs.values.privilege = LEGION_WRITE_DISCARD;
   wd_colreqs.values.mapped = true;
+  auto ro_colreqs = Column::default_requirements;
+  ro_colreqs.values.privilege = LEGION_READ_ONLY;
+  ro_colreqs.values.mapped = true;
   auto reqs =
     requirements(
       ctx,
       rt,
       partition,
-      {{WORLD_X_NAME, wd_colreqs}, {WORLD_Y_NAME, wd_colreqs}},
+      {{WORLD_X_NAME, wd_colreqs},
+       {WORLD_Y_NAME, wd_colreqs},
+       {cf_table_axis<CF_PARALLACTIC_ANGLE>::name, ro_colreqs}},
       CXX_OPTIONAL_NAMESPACE::nullopt);
 #if HAVE_CXX17
   auto& [treqs, tparts, tdesc] = reqs;
@@ -80,32 +86,26 @@ DirectionCoordinateTable::compute_world_coordinates(
   auto& tdesc = std::get<2>(reqs);
 #endif
 
-  // Set the reference pixel of the coordinate system at the center of the
-  // grid. The grid defined by the constructor is always centered at the origin,
-  // and we must account for the fact that casacore::Coordinates pixel
-  // coordinates are always zero-based and non-negative, so casacore::pixel_i =
-  // hyperion::pixel_i + floor(hyperion::size_i / 2), where pixel coordinates
-  // are floating point values, and size_t is a positive integer.
-  cc::DirectionCoordinate dc(direction);
-  Rect<cf_rank> value_rect(
-    rt->get_index_space_domain(
-      columns().at(CF_VALUE_COLUMN_NAME).cs.column_is));
-  std::array<Legion::coord_t, 2> cf_size{
-    value_rect.hi[0] - value_rect.lo[0] + 1,
-    value_rect.hi[1] - value_rect.lo[1] + 1};
-  cc::Vector<double> ref_pixel;
-  // hyperion origin[.] is at (cf_size[.] % 2) / 2.0
-  ref_pixel[0] = (cf_size[0] % 2) / 2.0 + cf_size[0] / 2;
-  ref_pixel[1] = (cf_size[1] % 2) / 2.0 + cf_size[1] / 2;
-  dc.setReferencePixel(ref_pixel);
-
   ComputeWorldCoordinatesTaskArgs args;
   args.desc = tdesc;
-  args.pixel_offset[0] = cf_size[0] / 2 + 0.5; // center of grid cell
-  args.pixel_offset[1] = cf_size[1] / 2 + 0.5; // center of grid cell
-  assert(direction_coordinate_serdez::serialized_size(direction)
-         <= direction_coordinate_serdez::MAX_SERIALIZED_SIZE);
-  direction_coordinate_serdez::serialize(direction, args.dc.data());
+  cc::LinearCoordinate lc(2);
+    // Set the reference pixel of the coordinate system before serializing it
+  auto origin = domain_origin();
+  auto origin_p = origin.data();
+  lc.setReferencePixel(cc::Vector(cc::Block<double>(2, origin_p, false)));
+  lc.setIncrement(
+    std::vector<double>{
+      image_size[0] / m_cf_size[0],
+      image_size[1] / m_cf_size[1]});
+  {
+    auto r = lc.referencePixel();
+    std::cout << "ref " << r(0) << " " << r(1) << std::endl;
+    auto i = lc.increment();
+    std::cout << "inc " << i(0) << " " << i(1) << std::endl;
+  }
+  assert(linear_coordinate_serdez::serialized_size(lc)
+         <= linear_coordinate_serdez::MAX_SERIALIZED_SIZE);
+  linear_coordinate_serdez::serialize(lc, args.lc.data());
   TaskArgument ta(&args, sizeof(args));
 
   if (tparts.size() == 0) {
@@ -141,60 +141,6 @@ DirectionCoordinateTable::compute_world_coordinates_task_name;
 Legion::TaskID DirectionCoordinateTable::compute_world_coordinates_task_id;
 
 void
-DirectionCoordinateTable::compute_world_coordinates(
-  const CFPhysicalTable<CF_PARALLACTIC_ANGLE>& dc_tbl,
-  const cc::DirectionCoordinate& dc0,
-  const std::array<double, 2>& pixel_offset) {
-
-  // world coordinates columns
-  auto wx_col =
-    WorldCColumn<AffineAccessor>(*dc_tbl.column(WORLD_X_NAME).value());
-  auto wx_rect = wx_col.rect();
-  auto wxs = wx_col.accessor<WRITE_DISCARD>();
-  [[maybe_unused]] auto wys =
-    WorldCColumn<AffineAccessor>(*dc_tbl.column(WORLD_Y_NAME).value())
-    .accessor<WRITE_DISCARD>();
-
-  // parallactic angles
-  auto pas = dc_tbl.parallactic_angle<AffineAccessor>().accessor<READ_ONLY>();
-
-  // cc::Matrix for pixel coordinates
-  size_t nx = wx_rect.hi[d_x] - wx_rect.lo[d_x] + 1;
-  size_t ny = wx_rect.hi[d_y] - wx_rect.lo[d_y] + 1;
-  cc::Matrix<double> pixel(nx * ny, 2);
-  for (size_t i = 0; i < nx * ny; ++i) {
-    pixel(i, 0) = i / ny + wx_rect.lo[d_x] + pixel_offset[0];
-    pixel(i, 1) = i % ny + wx_rect.lo[d_y] + pixel_offset[1];
-  }
-  cc::Vector<bool> failures(nx * ny);
-  // I'd like to write the world coordinates directly into the physical region
-  // using cc::DirectionCoordinate::toWorldMany(), but that isn't possible
-  // because I can't assign a region pointer with a given layout to a cc::Matrix
-  // (in particular, the lack of offsets or strides in the cc::Matrix
-  // constructor is a problem), so we use an auxiliary buffer
-  cc::Matrix<double> world(nx * ny, 2);
-
-  Point<worldc_rank> pt;
-  pt[d_x] = wx_rect.lo[d_x];
-  pt[d_y] = wx_rect.lo[d_y];
-  for (coord_t pa = wx_rect.lo[d_pa]; pa <= wx_rect.hi[d_pa]; ++pa) {
-    // rotate dc0
-    auto dc = std::unique_ptr<cc::DirectionCoordinate>(
-      dynamic_cast<cc::DirectionCoordinate*>(dc0.rotate(pas[pa])));
-    // do the conversions
-    [[maybe_unused]] auto rc = dc->toWorldMany(world, pixel, failures);
-    assert(rc);
-    pt[d_pa] = pa;
-    // assume an AOS layout of wxs/wys
-    assert(wxs.ptr(pt) + 1 == wys.ptr(pt));
-    bool delstorage;
-    const worldc_t* wcs = world.getStorage(delstorage);
-    std::memcpy(wxs.ptr(pt), wcs, nx * ny * sizeof(worldc_t));
-    world.freeStorage(wcs, delstorage);
-  }
-}
-
-void
 DirectionCoordinateTable::compute_world_coordinates_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
@@ -204,8 +150,14 @@ DirectionCoordinateTable::compute_world_coordinates_task(
   const ComputeWorldCoordinatesTaskArgs& args =
     *static_cast<const ComputeWorldCoordinatesTaskArgs*>(task->args);
 
-  cc::DirectionCoordinate dc0;
-  direction_coordinate_serdez::deserialize(dc0, args.dc.data());
+  cc::LinearCoordinate lc0;
+  linear_coordinate_serdez::deserialize(lc0, args.lc.data());
+  {
+    auto r = lc0.referencePixel();
+    std::cout << ".ref " << r(0) << " " << r(1) << std::endl;
+    auto i = lc0.increment();
+    std::cout << ".inc " << i(0) << " " << i(1) << std::endl;
+  }
 
   auto ptcr =
     PhysicalTable::create(
@@ -226,10 +178,62 @@ DirectionCoordinateTable::compute_world_coordinates_task(
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
-  compute_world_coordinates(
-    CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt),
-    dc0,
-    args.pixel_offset);
+  auto dc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt);
+  // world coordinates columns
+  auto wx_col =
+    WorldCColumn<AffineAccessor>(*dc_tbl.column(WORLD_X_NAME).value());
+  auto wx_rect = wx_col.rect();
+  auto wxs = wx_col.accessor<WRITE_DISCARD>();
+  [[maybe_unused]] auto wys =
+    WorldCColumn<AffineAccessor>(*dc_tbl.column(WORLD_Y_NAME).value())
+    .accessor<WRITE_DISCARD>();
+
+  // parallactic angles
+  auto pas = dc_tbl.parallactic_angle<AffineAccessor>().accessor<READ_ONLY>();
+
+  // I'd prefer to write the world coordinates directly into the physical region
+  // using cc::LinearCoordinate::toWorldMany(), but that isn't possible
+  // because I can't assign a region pointer with a given layout to a cc::Matrix
+  // (in particular, the lack of offsets or strides in the cc::Matrix
+  // constructor is a problem), so we use an auxiliary buffer
+  const size_t nx = wx_rect.hi[d_x] - wx_rect.lo[d_x] + 1;
+  const size_t ny = wx_rect.hi[d_y] - wx_rect.lo[d_y] + 1;
+  cc::Matrix<double> pixel(2, nx * ny);
+  for (size_t i = 0; i < nx * ny; ++i) {
+    pixel(0, i) = i / ny + wx_rect.lo[d_x] + 0.5;
+    pixel(1, i) = i % ny + wx_rect.lo[d_y] + 0.5;
+    std::cout << i << ":(" << pixel(0, i)
+              << "," << pixel(1, i) << ")"
+              << std::endl;
+  }
+
+  cc::Matrix<double> world(2, nx * ny);
+  bool delstorage;
+  const worldc_t* wcs = world.getStorage(delstorage);
+  cc::Vector<bool> failures(nx * ny);
+
+  Point<worldc_rank> wpt;
+  wpt[d_x] = wx_rect.lo[d_x];
+  wpt[d_y] = wx_rect.lo[d_y];
+  for (coord_t pa = wx_rect.lo[d_pa]; pa <= wx_rect.hi[d_pa]; ++pa) {
+    // rotate lc0
+    auto lc = std::unique_ptr<cc::LinearCoordinate>(
+      dynamic_cast<cc::LinearCoordinate*>(lc0.rotate(-pas[pa])));
+    // do the conversions
+    [[maybe_unused]] auto ok = lc->toWorldMany(world, pixel, failures);
+    assert(ok);
+    lc->makeWorldRelativeMany(world);
+    for (size_t i = 0; i < nx * ny; ++i) {
+      std::cout << i << ":(" << world(0, i)
+                << "," << world(1, i) << ")"
+                << std::endl;
+    }
+    wpt[d_pa] = pa;
+    // assume an AOS layout of wxs/wys
+    assert(wxs.ptr(wpt) + 1 == wys.ptr(wpt));
+    std::memcpy(wxs.ptr(wpt), wcs, 2 * nx * ny * sizeof(worldc_t));
+  }
+  pixel.freeStorage(wcs, delstorage);
 }
 
 void
@@ -237,6 +241,8 @@ DirectionCoordinateTable::preregister_tasks() {
   //
   // compute_world_coordinates_task
   {
+    compute_world_coordinates_task_id = Runtime::generate_static_task_id();
+
     TaskVariantRegistrar registrar(
       compute_world_coordinates_task_id,
       compute_world_coordinates_task_name);
@@ -249,7 +255,7 @@ DirectionCoordinateTable::preregister_tasks() {
       constraints(
         FieldSpace::NO_SPACE,
         "DirectionCoordinateTable::compute_world_coordinates_constraints");
-    add_aos_right_ordering_constraint(constraints);
+    add_aos_left_ordering_constraint(constraints);
     constraints.add_constraint(SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
