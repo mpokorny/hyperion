@@ -37,11 +37,11 @@ cfcompute_task(
 
   std::array<size_t, 2> cf_size{4, 4};
 
-  DirectionCoordinateTable dc(ctx, rt, cf_size, {0.0});
-  dc.compute_world_coordinates(ctx, rt, {2.0, 2.0});
+  LinearCoordinateTable lc(ctx, rt, cf_size, {0.0});
+  lc.compute_world_coordinates(ctx, rt, {2.0, 2.0});
 
   PSTermTable ps(ctx, rt, cf_size, {0.16, 0.08});
-  ps.compute_cfs(ctx, rt, dc);
+  ps.compute_cfs(ctx, rt, lc);
 
   auto colreqs = Column::default_requirements;
   colreqs.values.mapped = true;

@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HYPERION_SYNTHESIS_DIRECTION_COORDINATE_TABLE_H_
-#define HYPERION_SYNTHESIS_DIRECTION_COORDINATE_TABLE_H_
+#ifndef HYPERION_SYNTHESIS_LINEAR_COORDINATE_TABLE_H_
+#define HYPERION_SYNTHESIS_LINEAR_COORDINATE_TABLE_H_
 
 #include <hyperion/hyperion.h>
 #include <hyperion/synthesis/CFTable.h>
@@ -27,11 +27,11 @@
 namespace hyperion {
 namespace synthesis {
 
-class HYPERION_EXPORT DirectionCoordinateTable
+class HYPERION_EXPORT LinearCoordinateTable
   : public CFTable<CF_PARALLACTIC_ANGLE> {
 public:
 
-  DirectionCoordinateTable(
+  LinearCoordinateTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::array<size_t, 2>& cf_size,
@@ -77,7 +77,7 @@ public:
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
   static const constexpr char* compute_world_coordinates_task_name =
-    "DirectionCoordinateTable::compute_world_coordinates";
+    "LinearCoordinateTable::compute_world_coordinates";
 
   static Legion::TaskID compute_world_coordinates_task_id;
 
@@ -120,7 +120,7 @@ protected:
 } // end namespace synthesis
 } // end namespace hyperion
 
-#endif // HYPERION_SYNTHESIS_DIRECTION_COORDINATE_TABLE_H_
+#endif // HYPERION_SYNTHESIS_LINEAR_COORDINATE_TABLE_H_
 
 // Local Variables:
 // mode: c++

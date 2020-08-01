@@ -58,7 +58,7 @@ PSTermTable::compute_cfs_task(
 
   const ComputeCFsTaskArgs& args =
     *static_cast<ComputeCFsTaskArgs*>(task->args);
-  std::vector<Table::Desc> tdescs{args.ps, args.dc};
+  std::vector<Table::Desc> tdescs{args.ps, args.lc};
 
   auto ptcrs =
     PhysicalTable::create_many(
@@ -80,7 +80,7 @@ PSTermTable::compute_cfs_task(
   assert(pit == regions.end());
 
   auto ps_tbl = CFPhysicalTable<CF_PS_SCALE>(pts[0]);
-  auto dc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
+  auto lc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
 
   auto ps_scales = ps_tbl.ps_scale<AffineAccessor>().accessor<READ_ONLY>();
   auto value_col = ps_tbl.value<AffineAccessor>();
@@ -89,13 +89,13 @@ PSTermTable::compute_cfs_task(
   auto weights = weight_col.accessor<WRITE_ONLY>();
 
   auto wcs_x_col =
-    DirectionCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-      *dc_tbl.column(DirectionCoordinateTable::WORLD_X_NAME).value());
-  auto i_pa = wcs_x_col.rect().lo[DirectionCoordinateTable::d_pa];
+    LinearCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+      *lc_tbl.column(LinearCoordinateTable::WORLD_X_NAME).value());
+  auto i_pa = wcs_x_col.rect().lo[LinearCoordinateTable::d_pa];
   auto wcs_x = wcs_x_col.accessor<LEGION_READ_ONLY>();
   auto wcs_y =
-    DirectionCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-      *dc_tbl.column(DirectionCoordinateTable::WORLD_Y_NAME).value())
+    LinearCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+      *lc_tbl.column(LinearCoordinateTable::WORLD_Y_NAME).value())
     .accessor<LEGION_READ_ONLY>();
 
   for (PointInRectIterator<3> pir(value_col.rect()); pir(); pir++) {
@@ -118,7 +118,7 @@ void
 PSTermTable::compute_cfs(
   Context ctx,
   Runtime* rt,
-  const DirectionCoordinateTable& dc,
+  const LinearCoordinateTable& lc,
   const ColumnSpacePartition& partition) const {
 
   auto ro_colreqs = Column::default_requirements;
@@ -153,12 +153,12 @@ PSTermTable::compute_cfs(
   }
   {
     auto reqs =
-      dc.requirements(
+      lc.requirements(
         ctx,
         rt,
         partition,
-        {{DirectionCoordinateTable::WORLD_X_NAME, ro_colreqs},
-         {DirectionCoordinateTable::WORLD_Y_NAME, ro_colreqs}},
+        {{LinearCoordinateTable::WORLD_X_NAME, ro_colreqs},
+         {LinearCoordinateTable::WORLD_Y_NAME, ro_colreqs}},
         CXX_OPTIONAL_NAMESPACE::nullopt);
 #if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
@@ -169,7 +169,7 @@ PSTermTable::compute_cfs(
 #endif // HAVE_CXX17
     std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
     std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
-    args.dc = tdesc;
+    args.lc = tdesc;
   }
   if (!partition.is_valid()) {
     TaskLauncher task(

@@ -16,7 +16,7 @@
 #include <hyperion/synthesis/CFTable.h>
 #include <hyperion/synthesis/CFPhysicalTable.h>
 #include <hyperion/synthesis/FFT.h>
-#include <hyperion/synthesis/DirectionCoordinateTable.h>
+#include <hyperion/synthesis/LinearCoordinateTable.h>
 #include <hyperion/synthesis/PSTermTable.h>
 #include <hyperion/synthesis/WTermTable.h>
 #include <hyperion/synthesis/ATermZernikeModel.h>
@@ -294,7 +294,7 @@ CFTableBase::preregister_all() {
 
   // TODO: move these into a synthesis initialization function
   FFT::preregister_tasks();
-  DirectionCoordinateTable::preregister_tasks();
+  LinearCoordinateTable::preregister_tasks();
   PSTermTable::preregister_tasks();
   WTermTable::preregister_tasks();
   ATermZernikeModel::preregister_tasks();

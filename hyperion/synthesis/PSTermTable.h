@@ -17,7 +17,7 @@
 #define HYPERION_SYNTHESIS_PS_TERM_TABLE_H_
 
 #include <hyperion/synthesis/CFTable.h>
-#include <hyperion/synthesis/DirectionCoordinateTable.h>
+#include <hyperion/synthesis/LinearCoordinateTable.h>
 
 #include <array>
 #include <cmath>
@@ -58,7 +58,7 @@ public:
   compute_cfs(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const DirectionCoordinateTable& dc,
+    const LinearCoordinateTable& lc,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
   /**
@@ -74,7 +74,7 @@ public:
 
   struct ComputeCFsTaskArgs {
     Table::Desc ps; // this table
-    Table::Desc dc; // DirectionCoordinateTable dc
+    Table::Desc lc; // LinearCoordinateTable
   };
 
   template <size_t N>
@@ -122,7 +122,7 @@ public:
 
     const ComputeCFsTaskArgs& args =
       *static_cast<ComputeCFsTaskArgs*>(task->args);
-    std::vector<Table::Desc> tdescs{args.ps, args.dc};
+    std::vector<Table::Desc> tdescs{args.ps, args.lc};
 
     auto ptcrs =
       PhysicalTable::create_many(
@@ -144,7 +144,7 @@ public:
     assert(pit == regions.end());
 
     auto ps_tbl = CFPhysicalTable<CF_PS_SCALE>(pts[0]);
-    auto dc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
+    auto lc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
 
     auto ps_scales =
       ps_tbl
@@ -159,9 +159,9 @@ public:
       .view<execution_space, LEGION_WRITE_ONLY>();
 
     auto wcs_x_col =
-      DirectionCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-        *dc_tbl.column(DirectionCoordinateTable::WORLD_X_NAME).value());
-    auto i_pa = wcs_x_col.rect().lo[DirectionCoordinateTable::d_pa];
+      LinearCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+        *lc_tbl.column(LinearCoordinateTable::WORLD_X_NAME).value());
+    auto i_pa = wcs_x_col.rect().lo[LinearCoordinateTable::d_pa];
     auto wcs_x =
       Kokkos::subview(
         wcs_x_col.view<execution_space, LEGION_READ_ONLY>(),
@@ -170,8 +170,8 @@ public:
         Kokkos::ALL);
     auto wcs_y =
       Kokkos::subview(
-        DirectionCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-          *dc_tbl.column(DirectionCoordinateTable::WORLD_Y_NAME).value())
+        LinearCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+          *lc_tbl.column(LinearCoordinateTable::WORLD_Y_NAME).value())
         .view<execution_space, LEGION_READ_ONLY>(),
         i_pa,
         Kokkos::ALL,

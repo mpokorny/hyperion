@@ -211,7 +211,7 @@ hyperion::linear_coordinate_serdez::serialized_size(
   const cc::LinearCoordinate& val) {
 
   cc::Record rec;
-  val.save(rec, "DC");
+  val.save(rec, "LC");
   return record_serdez::serialized_size(rec);
 }
 
@@ -221,7 +221,7 @@ hyperion::linear_coordinate_serdez::serialize(
   void *buffer) {
 
   cc::Record rec;
-  val.save(rec, "DC");
+  val.save(rec, "LC");
   return record_serdez::serialize(rec, buffer);
 }
 
@@ -232,7 +232,7 @@ hyperion::linear_coordinate_serdez::deserialize(
 
   cc::Record rec;
   auto result = record_serdez::deserialize(rec, buffer);
-  val = *cc::LinearCoordinate::restore(rec, "DC");
+  val = *cc::LinearCoordinate::restore(rec, "LC");
   return result;
 }
 

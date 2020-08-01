@@ -30,7 +30,7 @@
 #include <hyperion/synthesis/ATermIlluminationFunction.h>
 #include <hyperion/synthesis/FFT.h>
 
-#include <casacore/coordinates/Coordinates/DirectionCoordinate.h>
+#include <casacore/coordinates/Coordinates/LinearCoordinate.h>
 
 #include <fftw3.h>
 #ifdef HYPERION_USE_CUDA

@@ -23,7 +23,7 @@
   CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_STOKES
 
 #include <hyperion/synthesis/ATermZernikeModel.h>
-#include <hyperion/synthesis/DirectionCoordinateTable.h>
+#include <hyperion/synthesis/LinearCoordinateTable.h>
 
 #include <fftw3.h>
 
@@ -96,7 +96,7 @@ public:
   /** grid Y-axis dimension index */
   static const constexpr unsigned d_y = d_x + 1;
 
-  // We use a DirectionCoordinateTable that is augmented with a column designed
+  // We use a LinearCoordinateTable that is augmented with a column designed
   // for a branch-free evaluation of polynomial functions that are zero outside
   // the unit disk
   /**
@@ -106,12 +106,12 @@ public:
    * disk, the values are p_i^0, p_i^1; outside, the values are 0, 0.
    */
   static const constexpr unsigned d_power =
-    DirectionCoordinateTable::worldc_rank;
+    LinearCoordinateTable::worldc_rank;
   static const constexpr unsigned ept_rank = d_power + 1;
   static const constexpr Legion::FieldID EPT_X_FID =
-    2 * DirectionCoordinateTable::WORLD_X_FID;
+    2 * LinearCoordinateTable::WORLD_X_FID;
   static const constexpr Legion::FieldID EPT_Y_FID =
-    2 * DirectionCoordinateTable::WORLD_Y_FID;
+    2 * LinearCoordinateTable::WORLD_Y_FID;
   static const constexpr char* EPT_X_NAME = "EPT_X";
   static const constexpr char* EPT_Y_NAME = "EPT_Y";
   typedef CFTableBase::cf_fp_t ept_t;
@@ -137,7 +137,7 @@ public:
 
 protected:
 
-  static DirectionCoordinateTable
+  static LinearCoordinateTable
   create_epts_table(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -145,7 +145,7 @@ protected:
     const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
       parallactic_angles);
 
-  DirectionCoordinateTable
+  LinearCoordinateTable
   compute_epts(
     Legion::Context ctx,
     Legion::Runtime* rt,
@@ -188,25 +188,25 @@ public:
     assert(rit == task->regions.end());
     assert(pit == regions.end());
 
-    auto dc = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt);
+    auto lc = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt);
 
     // world coordinates columns
     auto wx_col =
-      DirectionCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-        *dc.column(DirectionCoordinateTable::WORLD_X_NAME).value());
+      LinearCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+        *lc.column(LinearCoordinateTable::WORLD_X_NAME).value());
     auto wx_rect = wx_col.rect();
     auto wxs = wx_col.view<execution_space, READ_ONLY>();
     auto wys =
-      DirectionCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-        *dc.column(DirectionCoordinateTable::WORLD_Y_NAME).value())
+      LinearCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+        *lc.column(LinearCoordinateTable::WORLD_Y_NAME).value())
       .view<execution_space, READ_ONLY>();
 
     // polynomial function evaluation points columns
     auto xpts =
-      EPtColumn<Legion::AffineAccessor>(*dc.column(EPT_X_NAME).value())
+      EPtColumn<Legion::AffineAccessor>(*lc.column(EPT_X_NAME).value())
       .view<execution_space, WRITE_DISCARD>();
     auto ypts =
-      EPtColumn<Legion::AffineAccessor>(*dc.column(EPT_Y_NAME).value())
+      EPtColumn<Legion::AffineAccessor>(*lc.column(EPT_Y_NAME).value())
       .view<execution_space, WRITE_DISCARD>();
 
     auto kokkos_work_space =
@@ -214,7 +214,7 @@ public:
 
     Kokkos::parallel_for(
       Kokkos::MDRangePolicy<
-        Kokkos::Rank<DirectionCoordinateTable::worldc_rank>,
+        Kokkos::Rank<LinearCoordinateTable::worldc_rank>,
         execution_space>(
           kokkos_work_space,
           rect_lo(wx_rect),
@@ -270,7 +270,7 @@ protected:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ATermZernikeModel& zmodel,
-    const DirectionCoordinateTable& dc,
+    const LinearCoordinateTable& lc,
     const ColumnSpacePartition& partition) const;
 
 
@@ -291,7 +291,7 @@ public:
 
   struct ComputeAIFsTaskArgs {
     Table::Desc zmodel;
-    Table::Desc dc;
+    Table::Desc lc;
     Table::Desc aif;
   };
 
@@ -306,7 +306,7 @@ public:
 
     const ComputeAIFsTaskArgs& args =
       *static_cast<ComputeAIFsTaskArgs*>(task->args);
-    std::vector<Table::Desc> descs{args.zmodel, args.dc, args.aif};
+    std::vector<Table::Desc> descs{args.zmodel, args.lc, args.aif};
 
     auto ptcrs =
       PhysicalTable::create_many(
@@ -328,7 +328,7 @@ public:
     assert(pit == regions.end());
 
     auto zmodel = CFPhysicalTable<HYPERION_A_TERM_ZERNIKE_MODEL_AXES>(pts[0]);
-    auto dc = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
+    auto lc = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
     auto aif =
       CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pts[2]);
 
@@ -340,10 +340,10 @@ public:
 
     // polynomial function evaluation points columns
     auto xpt_col =
-      EPtColumn<Legion::AffineAccessor>(*dc.column(EPT_X_NAME).value());
+      EPtColumn<Legion::AffineAccessor>(*lc.column(EPT_X_NAME).value());
     auto xpts = xpt_col.view<execution_space, READ_ONLY>();
     auto ypt_col =
-      EPtColumn<Legion::AffineAccessor>(*dc.column(EPT_Y_NAME).value());
+      EPtColumn<Legion::AffineAccessor>(*lc.column(EPT_Y_NAME).value());
     auto ypts = ypt_col.view<execution_space, READ_ONLY>();
 
     // polynomial function values column

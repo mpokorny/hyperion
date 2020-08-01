@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <hyperion/synthesis/DirectionCoordinateTable.h>
+#include <hyperion/synthesis/LinearCoordinateTable.h>
 
 #include <casacore/casa/Arrays.h>
 
@@ -26,15 +26,15 @@ using namespace Legion;
 namespace cc = casacore;
 
 #if !HAVE_CXX17
-const constexpr unsigned DirectionCoordinateTable::d_pa;
-const constexpr unsigned DirectionCoordinateTable::worldc_rank;
-const constexpr Legion::FieldID DirectionCoordinateTable::WORLD_X_FID;
-const constexpr Legion::FieldID DirectionCoordinateTable::WORLD_Y_FID;
-const constexpr char* DirectionCoordinateTable::WORLD_X_NAME;
-const constexpr char* DirectionCoordinateTable::WORLD_Y_NAME;
+const constexpr unsigned LinearCoordinateTable::d_pa;
+const constexpr unsigned LinearCoordinateTable::worldc_rank;
+const constexpr Legion::FieldID LinearCoordinateTable::WORLD_X_FID;
+const constexpr Legion::FieldID LinearCoordinateTable::WORLD_Y_FID;
+const constexpr char* LinearCoordinateTable::WORLD_X_NAME;
+const constexpr char* LinearCoordinateTable::WORLD_Y_NAME;
 #endif
 
-DirectionCoordinateTable::DirectionCoordinateTable(
+LinearCoordinateTable::LinearCoordinateTable(
   Context ctx,
   Runtime* rt,
   const std::array<size_t, 2>& cf_size,
@@ -57,7 +57,7 @@ DirectionCoordinateTable::DirectionCoordinateTable(
 }
 
 void
-DirectionCoordinateTable::compute_world_coordinates(
+LinearCoordinateTable::compute_world_coordinates(
   Context ctx,
   Runtime* rt,
   const std::array<double, 2>& image_size,
@@ -135,13 +135,13 @@ DirectionCoordinateTable::compute_world_coordinates(
 
 #if !HAVE_CXX17
 const constexpr char*
-DirectionCoordinateTable::compute_world_coordinates_task_name;
+LinearCoordinateTable::compute_world_coordinates_task_name;
 #endif
 
-Legion::TaskID DirectionCoordinateTable::compute_world_coordinates_task_id;
+Legion::TaskID LinearCoordinateTable::compute_world_coordinates_task_id;
 
 void
-DirectionCoordinateTable::compute_world_coordinates_task(
+LinearCoordinateTable::compute_world_coordinates_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
@@ -237,7 +237,7 @@ DirectionCoordinateTable::compute_world_coordinates_task(
 }
 
 void
-DirectionCoordinateTable::preregister_tasks() {
+LinearCoordinateTable::preregister_tasks() {
   //
   // compute_world_coordinates_task
   {
@@ -254,7 +254,7 @@ DirectionCoordinateTable::preregister_tasks() {
     LayoutConstraintRegistrar
       constraints(
         FieldSpace::NO_SPACE,
-        "DirectionCoordinateTable::compute_world_coordinates_constraints");
+        "LinearCoordinateTable::compute_world_coordinates_constraints");
     add_aos_left_ordering_constraint(constraints);
     constraints.add_constraint(SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
     registrar.add_layout_constraint_set(
