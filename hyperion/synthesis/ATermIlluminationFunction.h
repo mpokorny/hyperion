@@ -149,7 +149,6 @@ protected:
   compute_epts(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const casacore::DirectionCoordinate& coords,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
 public:
@@ -260,7 +259,6 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const ATermZernikeModel& zmodel,
-    const casacore::DirectionCoordinate& coords,
     const ColumnSpacePartition& partition = ColumnSpacePartition(),
     unsigned fftw_flags = FFTW_MEASURE,
     double fftw_timelimit = 5.0) const;

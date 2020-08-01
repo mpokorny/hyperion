@@ -88,15 +88,14 @@ DirectionCoordinateTable
 ATermIlluminationFunction::compute_epts(
   Context ctx,
   Runtime* rt,
-  const cc::DirectionCoordinate& coords,
   const ColumnSpacePartition& partition) const {
 
   Rect<cf_rank> value_rect(
     rt->get_index_space_domain(
       columns().at(CF_VALUE_COLUMN_NAME).region.get_index_space()));
   std::array<size_t, 2> cf_size{
-    value_rect.hi[0] - value_rect.lo[0] + 1,
-    value_rect.hi[1] - value_rect.lo[1] + 1};
+    static_cast<size_t>(value_rect.hi[0] - value_rect.lo[0]) + 1,
+    static_cast<size_t>(value_rect.hi[1] - value_rect.lo[1]) + 1};
   std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>
     parallactic_angles;
   {
@@ -123,7 +122,7 @@ ATermIlluminationFunction::compute_epts(
   // serial implementation, while compute_epts_task has a Kokkos implementation
   // that can execute in OpenMP or Cuda, we don't fuse these two tasks even
   // though the tasks might be on the small side.  TODO: revisit this design
-  result.compute_world_coordinates(ctx, rt, coords, partition);
+  result.compute_world_coordinates(ctx, rt, {2.0, 2.0}, partition);
 
   // compute grid coordinates via augmented DirectionCoordinateTable
   {
@@ -461,13 +460,12 @@ ATermIlluminationFunction::compute_jones(
   Context ctx,
   Runtime* rt,
   const ATermZernikeModel& zmodel,
-  const cc::DirectionCoordinate& coords,
   const ColumnSpacePartition& partition,
   unsigned fftw_flags,
   double fftw_timelimit) const {
 
   // first create an augmented DirectionCoordinateTable helper table
-  auto dc = compute_epts(ctx, rt, coords, partition);
+  auto dc = compute_epts(ctx, rt, partition);
 
   // execute compute_aifs_task
   compute_aifs(ctx, rt, zmodel, dc, partition);
@@ -488,72 +486,6 @@ ATermIlluminationFunction::compute_jones(
   (!USE_KOKKOS_VARIANT(SERIAL, T) && \
    !USE_KOKKOS_VARIANT(OPENMP, T) && \
    !USE_KOKKOS_VARIANT(CUDA, T))
-
-#if 0
-#if defined(USE_KOKKOS_SERIAL_COMPUTE_EPTS_TASK) &&   \
-  defined(HYPERION_USE_KOKKOS) &&               \
-  defined(KOKKOS_ENABLE_SERIAL)
-# define ENABLE_KOKKOS_SERIAL_COMPUTE_EPTS_TASK
-#else
-# undef ENABLE_KOKKOS_SERIAL_COMPUTE_EPTS_TASK
-#endif
-
-#if defined(USE_KOKKOS_OPENMP_COMPUTE_EPTS_TASK) &&   \
-  defined(HYPERION_USE_KOKKOS) &&               \
-  defined(KOKKOS_ENABLE_OPENMP)
-# define ENABLE_KOKKOS_OPENMP_COMPUTE_EPTS_TASK
-#else
-# undef ENABLE_KOKKOS_OPENMP_COMPUTE_EPTS_TASK
-#endif
-
-#if defined(USE_KOKKOS_CUDA_COMPUTE_EPTS_TASK) &&     \
-  defined(HYPERION_USE_KOKKOS) &&               \
-  defined(KOKKOS_ENABLE_CUDA)
-# define ENABLE_KOKKOS_CUDA_COMPUTE_EPTS_TASK
-#else
-# undef ENABLE_KOKKOS_CUDA_COMPUTE_EPTS_TASK
-#endif
-
-#if !defined(ENABLE_KOKKOS_SERIAL_COMPUTE_EPTS_TASK) &&  \
-  !defined(ENABLE_KOKKOS_OPENMP_COMPUTE_EPTS_TASK) &&        \
-  !defined(ENABLE_KOKKOS_CUDA_COMPUTE_EPTS_TASK)
-# define ENABLE_SERIAL_COMPUTE_EPTS_TASK
-#else
-# undef ENABLE_SERIAL_COMPUTE_EPTS_TASK
-#endif
-
-#if defined(USE_KOKKOS_SERIAL_COMPUTE_AIFS_TASK) &&   \
-  defined(HYPERION_USE_KOKKOS) &&               \
-  defined(KOKKOS_ENABLE_SERIAL)
-# define ENABLE_KOKKOS_SERIAL_COMPUTE_AIFS_TASK
-#else
-# undef ENABLE_KOKKOS_SERIAL_COMPUTE_AIFS_TASK
-#endif
-
-#if defined(USE_KOKKOS_OPENMP_COMPUTE_AIFS_TASK) &&   \
-  defined(HYPERION_USE_KOKKOS) &&               \
-  defined(KOKKOS_ENABLE_OPENMP)
-# define ENABLE_KOKKOS_OPENMP_COMPUTE_AIFS_TASK
-#else
-# undef ENABLE_KOKKOS_OPENMP_COMPUTE_AIFS_TASK
-#endif
-
-#if defined(USE_KOKKOS_CUDA_COMPUTE_AIFS_TASK) &&     \
-  defined(HYPERION_USE_KOKKOS) &&               \
-  defined(KOKKOS_ENABLE_CUDA)
-# define ENABLE_KOKKOS_CUDA_COMPUTE_AIFS_TASK
-#else
-# undef ENABLE_KOKKOS_CUDA_COMPUTE_AIFS_TASK
-#endif
-
-#if !defined(ENABLE_KOKKOS_SERIAL_COMPUTE_AIFS_TASK) &&  \
-  !defined(ENABLE_KOKKOS_OPENMP_COMPUTE_AIFS_TASK) &&        \
-  !defined(ENABLE_KOKKOS_CUDA_COMPUTE_AIFS_TASK)
-# define ENABLE_SERIAL_COMPUTE_AIFS_TASK
-#else
-# undef ENABLE_SERIAL_COMPUTE_AIFS_TASK
-#endif
-#endif // 0
 
 void
 ATermIlluminationFunction::preregister_tasks() {

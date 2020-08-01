@@ -168,7 +168,6 @@ ATermTable::compute_cfs(
   Context ctx,
   Runtime* rt,
   const std::vector<ZCoeff>& zernike_coefficients,
-  const cc::DirectionCoordinate& coords,
   const ColumnSpacePartition& partition) const {
 
   // Get vectors of values for all index columns, and bounding box of CFs
@@ -297,7 +296,7 @@ ATermTable::compute_cfs(
       aif.columns().at(CF_VALUE_COLUMN_NAME)
       .narrow_partition(ctx, rt, partition, {CF_X, CF_Y})
       .value_or(partition);
-    aif.compute_jones(ctx, rt, zmodel, coords, p);
+    aif.compute_jones(ctx, rt, zmodel, p);
     if (p != partition)
       p.destroy(ctx, rt);
   }

@@ -73,7 +73,6 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt,
     const std::vector<ZCoeff>& zernike_coefficients,
-    const casacore::DirectionCoordinate& coords,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
   static const constexpr char* compute_cfs_task_name =
