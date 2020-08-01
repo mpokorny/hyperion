@@ -15,6 +15,13 @@
  */
 #include <hyperion/synthesis/CFTable.h>
 #include <hyperion/synthesis/CFPhysicalTable.h>
+#include <hyperion/synthesis/FFT.h>
+#include <hyperion/synthesis/DirectionCoordinateTable.h>
+#include <hyperion/synthesis/PSTermTable.h>
+#include <hyperion/synthesis/WTermTable.h>
+#include <hyperion/synthesis/ATermZernikeModel.h>
+#include <hyperion/synthesis/ATermIlluminationFunction.h>
+#include <hyperion/synthesis/ATermTable.h>
 
 #include <cstring>
 
@@ -284,6 +291,15 @@ CFTableBase::preregister_all() {
       registrar,
       init_index_column_task_name);
   }
+
+  // TODO: move these into a synthesis initialization function
+  FFT::preregister_tasks();
+  DirectionCoordinateTable::preregister_tasks();
+  PSTermTable::preregister_tasks();
+  WTermTable::preregister_tasks();
+  ATermZernikeModel::preregister_tasks();
+  ATermIlluminationFunction::preregister_tasks();
+  ATermTable::preregister_tasks();
 }
 
 // Local Variables:
