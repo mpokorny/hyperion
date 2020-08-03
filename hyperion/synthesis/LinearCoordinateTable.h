@@ -19,8 +19,6 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/synthesis/CFTable.h>
 
-#include <casacore/coordinates/Coordinates/LinearCoordinate.h>
-
 #include <array>
 #include <vector>
 
@@ -34,7 +32,7 @@ public:
   LinearCoordinateTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::array<size_t, 2>& cf_size,
+    const size_t& grid_size,
     const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
       parallactic_angles);
 
@@ -73,7 +71,8 @@ public:
   compute_world_coordinates(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::array<double, 2>& image_size,
+    const casacore::Coordinate& cf_coordinates,
+    const double& cf_radius,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
   static const constexpr char* compute_world_coordinates_task_name =
@@ -83,7 +82,11 @@ public:
 
   struct ComputeWorldCoordinatesTaskArgs {
     Table::Desc desc;
-    std::array<char, linear_coordinate_serdez::MAX_SERIALIZED_SIZE> lc;
+    bool is_linear_coordinate;
+    union {
+      std::array<char, linear_coordinate_serdez::MAX_SERIALIZED_SIZE> lc;
+      std::array<char, direction_coordinate_serdez::MAX_SERIALIZED_SIZE> dc;
+    };
   };
 
   static void
@@ -100,21 +103,16 @@ public:
    * CF domain origin in continuous extension of grid index space, always at the
    * center of the grid
    */
-  static inline std::array<double, 2>
-    domain_origin(const std::array<size_t, 2>& cf_size) {
-    return {
-      static_cast<double>(cf_size[0]) / 2,
-      static_cast<double>(cf_size[1]) / 2};
-  }
-
   std::array<double, 2>
     domain_origin() const {
-    return domain_origin(m_cf_size);
+    return {
+      static_cast<double>(m_grid_size) / 2,
+      static_cast<double>(m_grid_size) / 2};
   }
 
 protected:
 
-  std::array<size_t, 2> m_cf_size;
+  size_t m_grid_size;
 };
 
 } // end namespace synthesis

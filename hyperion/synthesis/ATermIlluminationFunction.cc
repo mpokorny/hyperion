@@ -51,7 +51,7 @@ LinearCoordinateTable
 ATermIlluminationFunction::create_epts_table(
   Context ctx,
   Runtime* rt,
-  const std::array<size_t, 2>& cf_size,
+  const size_t& cf_size,
   const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
     parallactic_angles) {
 
@@ -116,13 +116,18 @@ ATermIlluminationFunction::compute_epts(
       parallactic_angles.push_back(pas[*pir]);
     pt.unmap_regions(ctx, rt);
   }
-  auto result = create_epts_table(ctx, rt, cf_size, parallactic_angles);
+  auto result = create_epts_table(ctx, rt, cf_size[0], parallactic_angles);
 
   // Because LinearCoordinateTable::compute_world_coordinates() has only a
   // serial implementation, while compute_epts_task has a Kokkos implementation
   // that can execute in OpenMP or Cuda, we don't fuse these two tasks even
   // though the tasks might be on the small side.  TODO: revisit this design
-  result.compute_world_coordinates(ctx, rt, {2.0, 2.0}, partition);
+  result.compute_world_coordinates(
+    ctx,
+    rt,
+    cc::LinearCoordinate(2),
+    1.0,
+    partition);
 
   // compute grid coordinates via augmented LinearCoordinateTable
   {

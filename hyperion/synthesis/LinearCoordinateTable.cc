@@ -37,15 +37,15 @@ const constexpr char* LinearCoordinateTable::WORLD_Y_NAME;
 LinearCoordinateTable::LinearCoordinateTable(
   Context ctx,
   Runtime* rt,
-  const std::array<size_t, 2>& cf_size,
+  const size_t& grid_size,
   const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
     parallactic_angles)
   : CFTable(
     ctx,
     rt,
-    cf_size,
+    {grid_size, grid_size},
     Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles))
-  , m_cf_size(cf_size) {
+  , m_grid_size(grid_size) {
 
   auto cs = columns().at(CF_VALUE_COLUMN_NAME).cs;
   auto dt = ValueType<worldc_t>::DataType;
@@ -60,7 +60,8 @@ void
 LinearCoordinateTable::compute_world_coordinates(
   Context ctx,
   Runtime* rt,
-  const std::array<double, 2>& image_size,
+  const casacore::Coordinate& cf_coordinates,
+  const double& cf_radius,
   const ColumnSpacePartition& partition) const {
 
   auto wd_colreqs = Column::default_requirements;
@@ -88,24 +89,42 @@ LinearCoordinateTable::compute_world_coordinates(
 
   ComputeWorldCoordinatesTaskArgs args;
   args.desc = tdesc;
-  cc::LinearCoordinate lc(2);
-    // Set the reference pixel of the coordinate system before serializing it
+  auto coord = std::unique_ptr<cc::Coordinate>(cf_coordinates.clone());
+  // Set the reference pixel of the coordinate system before serializing it
   auto origin = domain_origin();
   auto origin_p = origin.data();
-  lc.setReferencePixel(cc::Vector(cc::Block<double>(2, origin_p, false)));
-  lc.setIncrement(
-    std::vector<double>{
-      image_size[0] / m_cf_size[0],
-      image_size[1] / m_cf_size[1]});
+  coord->setReferencePixel(cc::Vector(cc::Block<double>(2, origin_p, false)));
+  auto increment = (2 * cf_radius) / m_grid_size;
+  coord->setIncrement(std::vector<double>{increment, increment});
   {
-    auto r = lc.referencePixel();
+    auto r = coord->referencePixel();
     std::cout << "ref " << r(0) << " " << r(1) << std::endl;
-    auto i = lc.increment();
+    auto i = coord->increment();
     std::cout << "inc " << i(0) << " " << i(1) << std::endl;
   }
-  assert(linear_coordinate_serdez::serialized_size(lc)
-         <= linear_coordinate_serdez::MAX_SERIALIZED_SIZE);
-  linear_coordinate_serdez::serialize(lc, args.lc.data());
+  switch (coord->type()) {
+  case cc::Coordinate::LINEAR: {
+    const cc::LinearCoordinate* lc =
+      dynamic_cast<cc::LinearCoordinate*>(coord.get());
+    assert(linear_coordinate_serdez::serialized_size(*lc)
+           <= linear_coordinate_serdez::MAX_SERIALIZED_SIZE);
+    linear_coordinate_serdez::serialize(*lc, args.lc.data());
+    args.is_linear_coordinate = true;
+    break;
+  }
+  case cc::Coordinate::DIRECTION: {
+    const cc::DirectionCoordinate* dc =
+      dynamic_cast<cc::DirectionCoordinate*>(coord.get());
+    assert(direction_coordinate_serdez::serialized_size(*dc)
+           <= direction_coordinate_serdez::MAX_SERIALIZED_SIZE);
+    direction_coordinate_serdez::serialize(*dc, args.dc.data());
+    args.is_linear_coordinate = false;
+    break;
+  }
+  default:
+    assert(false); // user error; TODO: throw exception?
+    break;
+  }
   TaskArgument ta(&args, sizeof(args));
 
   if (tparts.size() == 0) {
@@ -151,11 +170,19 @@ LinearCoordinateTable::compute_world_coordinates_task(
     *static_cast<const ComputeWorldCoordinatesTaskArgs*>(task->args);
 
   cc::LinearCoordinate lc0;
-  linear_coordinate_serdez::deserialize(lc0, args.lc.data());
+  cc::DirectionCoordinate dc0;
+  cc::Coordinate* coord0;
+  if (args.is_linear_coordinate) {
+    linear_coordinate_serdez::deserialize(lc0, args.lc.data());
+    coord0 = &lc0;
+  } else {
+    direction_coordinate_serdez::deserialize(dc0, args.dc.data());
+    coord0 = &dc0;
+  }
   {
-    auto r = lc0.referencePixel();
+    auto r = coord0->referencePixel();
     std::cout << ".ref " << r(0) << " " << r(1) << std::endl;
-    auto i = lc0.increment();
+    auto i = coord0->increment();
     std::cout << ".inc " << i(0) << " " << i(1) << std::endl;
   }
 
@@ -216,13 +243,13 @@ LinearCoordinateTable::compute_world_coordinates_task(
   wpt[d_x] = wx_rect.lo[d_x];
   wpt[d_y] = wx_rect.lo[d_y];
   for (coord_t pa = wx_rect.lo[d_pa]; pa <= wx_rect.hi[d_pa]; ++pa) {
-    // rotate lc0
-    auto lc = std::unique_ptr<cc::LinearCoordinate>(
-      dynamic_cast<cc::LinearCoordinate*>(lc0.rotate(-pas[pa])));
+    // rotate coord0
+    auto coord = std::unique_ptr<cc::LinearCoordinate>(
+      dynamic_cast<cc::LinearCoordinate*>(coord0->rotate(-pas[pa])));
     // do the conversions
-    [[maybe_unused]] auto ok = lc->toWorldMany(world, pixel, failures);
+    [[maybe_unused]] auto ok = coord->toWorldMany(world, pixel, failures);
     assert(ok);
-    lc->makeWorldRelativeMany(world);
+    coord->makeWorldRelativeMany(world);
     for (size_t i = 0; i < nx * ny; ++i) {
       std::cout << i << ":(" << world(0, i)
                 << "," << world(1, i) << ")"

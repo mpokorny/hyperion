@@ -35,12 +35,12 @@ cfcompute_task(
   Context ctx,
   Runtime* rt) {
 
-  std::array<size_t, 2> cf_size{4, 4};
+  std::array<size_t, 2> grid_size{4, 4};
 
-  LinearCoordinateTable lc(ctx, rt, cf_size, {0.0});
-  lc.compute_world_coordinates(ctx, rt, {2.0, 2.0});
+  LinearCoordinateTable lc(ctx, rt, grid_size[0], {0.0});
+  lc.compute_world_coordinates(ctx, rt, cc::LinearCoordinate(2), 1.0);
 
-  PSTermTable ps(ctx, rt, cf_size, {0.16, 0.08});
+  PSTermTable ps(ctx, rt, grid_size, {0.16, 0.08});
   ps.compute_cfs(ctx, rt, lc);
 
   auto colreqs = Column::default_requirements;
@@ -62,8 +62,8 @@ cfcompute_task(
     auto values = pps.value<AffineAccessor>().accessor<LEGION_READ_ONLY>();
     for (size_t ps = 0; ps < 2; ++ps) {
       std::cout << "ps_scale " << ps_scales[ps] << std::endl;
-      for (size_t x = 0; x < cf_size[0]; ++x) {
-        for (size_t y = 0; y < cf_size[1]; ++y)
+      for (size_t x = 0; x < grid_size[0]; ++x) {
+        for (size_t y = 0; y < grid_size[1]; ++y)
           std::cout << values[{ps, x, y}] << " ";
         std::cout << std::endl;
       }

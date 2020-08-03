@@ -141,7 +141,7 @@ protected:
   create_epts_table(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::array<size_t, 2>& cf_size,
+    const size_t& cf_size,
     const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
       parallactic_angles);
 
