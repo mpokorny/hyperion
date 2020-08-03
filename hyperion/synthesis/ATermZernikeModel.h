@@ -262,7 +262,7 @@ public:
         auto zcs0 = Kokkos::subview(zcs, blc, frq, sto, Kokkos::ALL);
         auto pcs0 =
           Kokkos::subview(pcs, blc, frq, sto, Kokkos::ALL, Kokkos::ALL);
-        switch (zcs.extent(3) - 1) {
+        switch (pcs.extent(3) - 1) {
 #define ZEXP(N)                                       \
           case N:                                       \
             zernike_basis<zc_t, N>::expand(pcs0, zcs0); \
