@@ -130,7 +130,7 @@ public:
   using EPtColumn =
     PhysicalColumnTD<
       ValueType<ept_t>::DataType,
-      index_rank,
+      GridCoordinateTable::index_rank,
       ept_rank,
       A,
       COORD_T>;
