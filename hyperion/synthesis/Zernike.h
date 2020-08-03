@@ -1194,6 +1194,42 @@ zernike_index(int m, unsigned n) {
   return (n * (n + 2) + m) / 2;
 }
 
+constexpr std::pair<int, unsigned>
+zernike_inverse_index(int i) {
+  return
+    ((static_cast<unsigned>(i)
+      > zernike_index(9, 9))
+     ? std::pair(2 * i - 10 * 12, 10)
+     : ((static_cast<unsigned>(i)
+         > zernike_index(8, 8)
+         ? std::pair(2 * i - 9 * 11, 9)
+         : ((static_cast<unsigned>(i)
+             > zernike_index(7, 7)
+             ? std::pair(2 * i - 8 * 10, 8)
+             : ((static_cast<unsigned>(i)
+                 > zernike_index(6, 6)
+                 ? std::pair(2 * i - 7 * 9, 7)
+                 : ((static_cast<unsigned>(i)
+                     > zernike_index(5, 5)
+                     ? std::pair(2 * i - 6 * 8, 6)
+                     : ((static_cast<unsigned>(i)
+                         > zernike_index(4, 4)
+                         ? std::pair(2 * i - 5 * 7, 5)
+                         : ((static_cast<unsigned>(i)
+                             > zernike_index(3, 3)
+                             ? std::pair(2 * i - 4 * 6, 4)
+                             : ((static_cast<unsigned>(i)
+                                 > zernike_index(2, 2)
+                                 ? std::pair(2 * i - 3 * 5, 3)
+                                 : ((static_cast<unsigned>(i)
+                                     > zernike_index(1, 1)
+                                     ? std::pair(2 * i - 2 * 4, 2)
+                                     : ((static_cast<unsigned>(i)
+                                         > zernike_index(0, 0))
+                                        ? std::pair(2 * i - 1 * 3, 1)
+                                        : std::pair(0, 0)))))))))))))))))));
+}
+
 } // end namespace synthesis
 } // end namespace hyperion
 
