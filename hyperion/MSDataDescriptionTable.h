@@ -69,7 +69,7 @@ public:
     COORD_T>
   spectral_window_id() const {
     return
-      decltype(spectral_window_id())(
+      decltype(spectral_window_id<A, COORD_T>())(
         *m_columns
         .at(HYPERION_COLUMN_NAME(DATA_DESCRIPTION, SPECTRAL_WINDOW_ID)));
   }
@@ -99,7 +99,7 @@ public:
     COORD_T>
   polarization_id() const {
     return
-      decltype(polarization_id())(
+      decltype(polarization_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(DATA_DESCRIPTION, POLARIZATION_ID)));
   }
 
@@ -119,7 +119,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, lag_id_rank, A, COORD_T>
   lag_id() const {
     return
-      decltype(lag_id())(
+      decltype(lag_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(DATA_DESCRIPTION, LAG_ID)));
   }
 
@@ -141,7 +141,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, flag_row_rank, A, COORD_T>
   flag_row() const {
     return
-      decltype(flag_row())(
+      decltype(flag_row<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(DATA_DESCRIPTION, FLAG_ROW)));
   }
 };

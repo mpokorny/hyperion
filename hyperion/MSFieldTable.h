@@ -66,7 +66,8 @@ public:
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<HYPERION_TYPE_STRING, row_rank, name_rank, A, COORD_T>
   name() const {
-    return decltype(name())(*m_columns.at(HYPERION_COLUMN_NAME(FIELD, NAME)));
+    return decltype(name<A, COORD_T>())(
+      *m_columns.at(HYPERION_COLUMN_NAME(FIELD, NAME)));
   }
 
   //
@@ -85,7 +86,8 @@ public:
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<HYPERION_TYPE_SHORT, row_rank, code_rank, A, COORD_T>
   code() const {
-    return decltype(code())(*m_columns.at(HYPERION_COLUMN_NAME(FIELD, CODE)));
+    return decltype(code<A, COORD_T>())(
+      *m_columns.at(HYPERION_COLUMN_NAME(FIELD, CODE)));
   }
 
   //
@@ -104,7 +106,8 @@ public:
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, time_rank, A, COORD_T>
   time() const {
-    return decltype(time())(*m_columns.at(HYPERION_COLUMN_NAME(FIELD, TIME)));
+    return decltype(time<A, COORD_T>())(
+      *m_columns.at(HYPERION_COLUMN_NAME(FIELD, TIME)));
   }
 
   // TODO: timeQuant()?
@@ -129,7 +132,8 @@ public:
     COORD_T>
   time_meas() const {
     return
-      decltype(time_meas())(*m_columns.at(HYPERION_COLUMN_NAME(FIELD, TIME)));
+      decltype(time_meas<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FIELD, TIME)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -150,7 +154,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, num_poly_rank, A, COORD_T>
   num_poly() const {
     return
-      decltype(num_poly())(
+      decltype(num_poly<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FIELD, NUM_POLY)));
   }
 
@@ -171,7 +175,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, delay_dir_rank, A, COORD_T>
   delay_dir() const {
     return
-      decltype(delay_dir())(
+      decltype(delay_dir<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FIELD, DELAY_DIR)));
   }
 
@@ -195,7 +199,7 @@ public:
     COORD_T>
   delay_dir_meas() const {
     return
-      decltype(delay_dir_meas())(
+      decltype(delay_dir_meas<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FIELD, DELAY_DIR)));
   }
 
@@ -295,7 +299,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, phase_dir_rank, A, COORD_T>
   phase_dir() const {
     return
-      decltype(phase_dir())(
+      decltype(phase_dir<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FIELD, PHASE_DIR)));
   }
 
@@ -319,7 +323,7 @@ public:
     COORD_T>
   phase_dir_meas() const {
     return
-      decltype(phase_dir_meas())(
+      decltype(phase_dir_meas<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FIELD, PHASE_DIR)));
   }
 #endif // HYPERION_USE_CASACORE
@@ -346,7 +350,7 @@ public:
     COORD_T>
   reference_dir() const {
     return
-      decltype(reference_dir())(
+      decltype(reference_dir<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FIELD, REFERENCE_DIR)));
   }
 
@@ -370,7 +374,7 @@ public:
     COORD_T>
   reference_dir_meas() const {
     return
-      decltype(reference_dir_meas())(
+      decltype(reference_dir_meas<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FIELD, REFERENCE_DIR)));
   }
 #endif // HYPERION_USE_CASACORE
@@ -392,7 +396,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, source_id_rank, A, COORD_T>
   source_id() const {
     return
-      decltype(source_id())(
+      decltype(source_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FIELD, SOURCE_ID)));
   }
 
@@ -413,7 +417,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, ephemeris_id_rank, A, COORD_T>
   ephemeris_id() const {
     return
-      decltype(ephemeris_id())(
+      decltype(ephemeris_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FIELD, EPHEMERIS_ID)));
   }
 
@@ -434,7 +438,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, flag_row_rank, A, COORD_T>
   flag_row() const {
     return
-      decltype(flag_row())(
+      decltype(flag_row<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FIELD, FLAG_ROW)));
   }
 

@@ -80,7 +80,7 @@ public:
     COORD_T>
   antenna_id() const {
     return
-      decltype(antenna_id())(
+      decltype(antenna_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FEED, ANTENNA_ID)));
   }
 
@@ -110,7 +110,8 @@ public:
     COORD_T>
   feed_id() const {
     return
-      decltype(feed_id())(*m_columns.at(HYPERION_COLUMN_NAME(FEED, FEED_ID)));
+      decltype(feed_id<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FEED, FEED_ID)));
   }
 
   //
@@ -140,7 +141,7 @@ public:
     COORD_T>
   spectral_window_id() const {
     return
-      decltype(spectral_window_id())(
+      decltype(spectral_window_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FEED, SPECTRAL_WINDOW_ID)));
   }
 
@@ -169,7 +170,8 @@ public:
     A,
     COORD_T>
   time() const {
-    return decltype(time())(*m_columns.at(HYPERION_COLUMN_NAME(FEED, TIME)));
+    return decltype(time<A, COORD_T>())(
+      *m_columns.at(HYPERION_COLUMN_NAME(FEED, TIME)));
   }
 
 #ifdef HYPERION_USE_CASACORE
@@ -192,7 +194,8 @@ public:
     COORD_T>
   time_meas() const {
     return
-      decltype(time_meas())(*m_columns.at(HYPERION_COLUMN_NAME(FEED, TIME)));
+      decltype(time_meas<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FEED, TIME)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -222,7 +225,8 @@ public:
     COORD_T>
   interval() const {
     return
-      decltype(interval())(*m_columns.at(HYPERION_COLUMN_NAME(FEED, INTERVAL)));
+      decltype(interval<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(FEED, INTERVAL)));
   }
 
   //
@@ -242,7 +246,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, num_receptors_rank, A, COORD_T>
   num_receptors() const {
     return
-      decltype(num_receptors())(
+      decltype(num_receptors<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FEED, NUM_RECEPTORS)));
   }
 
@@ -263,7 +267,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, beam_id_rank, A, COORD_T>
   beam_id() const {
     return
-      decltype(beam_id())(
+      decltype(beam_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FEED, BEAM_ID)));
   }
 
@@ -283,7 +287,7 @@ public:
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, beam_offset_rank, A, COORD_T>
   beam_offset() const {
-    return decltype(beam_offset())(
+    return decltype(beam_offset<A, COORD_T>())(
       *m_columns.at(HYPERION_COLUMN_NAME(FEED, BEAM_OFFSET)));
   }
 
@@ -307,7 +311,7 @@ public:
     COORD_T>
   beam_offset_meas() const {
     return
-      decltype(beam_offset_meas())(
+      decltype(beam_offset_meas<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FEED, BEAM_OFFSET)));
   }
 #endif // HYPERION_USE_CASACORE
@@ -334,7 +338,7 @@ public:
     COORD_T>
   focus_length() const {
     return
-      decltype(focus_length())(
+      decltype(focus_length<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FEED, FOCUS_LENGTH)));
   }
 
@@ -355,7 +359,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, phased_feed_id_rank, A, COORD_T>
   phased_feed_id() const {
     return
-      decltype(phased_feed_id())(
+      decltype(phased_feed_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FEED, PHASED_FEED_ID)));
   }
 
@@ -381,7 +385,7 @@ public:
     COORD_T>
   polarization_type() const {
     return
-      decltype(polarization_type())(
+      decltype(polarization_type<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FEED, POLARIZATION_TYPE)));
   }
 
@@ -407,7 +411,7 @@ public:
     COORD_T>
   pol_response() const {
     return
-      decltype(pol_response())(
+      decltype(pol_response<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FEED, POL_RESPONSE)));
   }
 
@@ -427,7 +431,7 @@ public:
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, position_rank, A, COORD_T>
   position() const {
-    return decltype(position())(
+    return decltype(position<A, COORD_T>())(
       *m_columns.at(HYPERION_COLUMN_NAME(FEED, POSITION)));
   }
 
@@ -451,7 +455,7 @@ public:
     COORD_T>
   position_meas() const {
     return
-      decltype(position_meas())(
+      decltype(position_meas<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FEED, POSITION)));
   }
 #endif // HYPERION_USE_CASACORE
@@ -478,7 +482,7 @@ public:
     COORD_T>
   receptor_angle() const {
     return
-      decltype(receptor_angle())(
+      decltype(receptor_angle<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(FEED, RECEPTOR_ANGLE)));
   }
 

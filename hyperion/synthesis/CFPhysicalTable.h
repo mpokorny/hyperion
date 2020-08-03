@@ -68,7 +68,7 @@ public:
     COORD_T>
   ps_scale() const {
     return
-      decltype(ps_scale())(
+      decltype(ps_scale<A, COORD_T>())(
         *m_columns.at(cf_table_axis<CF_PS_SCALE>::name));
   }
 
@@ -103,7 +103,7 @@ public:
     COORD_T>
   baseline_class() const {
     return
-      decltype(baseline_class())(
+      decltype(baseline_class<A, COORD_T>())(
         *m_columns.at(cf_table_axis<CF_BASELINE_CLASS>::name));
   }
 
@@ -138,7 +138,8 @@ public:
     COORD_T>
   frequency() const {
     return
-      decltype(frequency())(*m_columns.at(cf_table_axis<CF_FREQUENCY>::name));
+      decltype(frequency<A, COORD_T>())(
+        *m_columns.at(cf_table_axis<CF_FREQUENCY>::name));
   }
 
   template <int N>
@@ -171,7 +172,7 @@ public:
     A,
     COORD_T>
   w() const {
-    return decltype(w())(*m_columns.at(cf_table_axis<CF_W>::name));
+    return decltype(w<A, COORD_T>())(*m_columns.at(cf_table_axis<CF_W>::name));
   }
 
   template <int N>
@@ -205,7 +206,7 @@ public:
     COORD_T>
   parallactic_angle() const {
     return
-      decltype(parallactic_angle())(
+      decltype(parallactic_angle<A, COORD_T>())(
         *m_columns.at(cf_table_axis<CF_PARALLACTIC_ANGLE>::name));
   }
 
@@ -240,7 +241,8 @@ public:
     COORD_T>
   stokes_out() const {
     return
-      decltype(stokes_out())(*m_columns.at(cf_table_axis<CF_STOKES_OUT>::name));
+      decltype(stokes_out<A, COORD_T>())(
+        *m_columns.at(cf_table_axis<CF_STOKES_OUT>::name));
   }
 
   template <int N>
@@ -274,7 +276,8 @@ public:
     COORD_T>
   stokes_in() const {
     return
-      decltype(stokes_in())(*m_columns.at(cf_table_axis<CF_STOKES_IN>::name));
+      decltype(stokes_in<A, COORD_T>())(
+        *m_columns.at(cf_table_axis<CF_STOKES_IN>::name));
   }
 
   template <int N>
@@ -307,7 +310,8 @@ public:
     A,
     COORD_T>
   stokes() const {
-    return decltype(stokes())(*m_columns.at(cf_table_axis<CF_STOKES>::name));
+    return decltype(stokes<A, COORD_T>())(
+      *m_columns.at(cf_table_axis<CF_STOKES>::name));
   }
 
   template <int N>
@@ -336,7 +340,8 @@ public:
     A,
     COORD_T>
   value() const {
-    return decltype(value())(*m_columns.at(CFTableBase::CF_VALUE_COLUMN_NAME));
+    return decltype(value<A, COORD_T>())(
+      *m_columns.at(CFTableBase::CF_VALUE_COLUMN_NAME));
   }
 
   const Legion::Point<row_rank>&
@@ -364,7 +369,8 @@ public:
     A,
     COORD_T>
   weight() const {
-    return decltype(weight())(*m_columns.at(CFTableBase::CF_WEIGHT_COLUMN_NAME));
+    return decltype(weight<A, COORD_T>())(
+      *m_columns.at(CFTableBase::CF_WEIGHT_COLUMN_NAME));
   }
 
   const Legion::Point<row_rank>&

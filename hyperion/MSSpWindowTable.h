@@ -68,7 +68,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, num_chan_rank, A, COORD_T>
   num_chan() const {
     return
-      decltype(num_chan())(
+      decltype(num_chan<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, NUM_CHAN)));
   }
 
@@ -89,7 +89,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_STRING, row_rank, name_rank, A, COORD_T>
   name() const {
     return
-      decltype(name())(
+      decltype(name<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, NAME)));
   }
 
@@ -116,7 +116,7 @@ public:
     COORD_T>
   ref_frequency() const {
     return
-      decltype(ref_frequency())(
+      decltype(ref_frequency<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, REF_FREQUENCY)));
   }
 
@@ -141,7 +141,7 @@ public:
     COORD_T>
   ref_frequency_meas() const {
     return
-      decltype(ref_frequency_meas())(
+      decltype(ref_frequency_meas<A, COORD_T>())(
         *m_columns
         .at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, REF_FREQUENCY)));
   }
@@ -165,7 +165,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, chan_freq_rank, A, COORD_T>
   chan_freq() const {
     return
-      decltype(chan_freq())(
+      decltype(chan_freq<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, CHAN_FREQ)));
   }
 
@@ -189,7 +189,7 @@ public:
     COORD_T>
   chan_freq_meas() const {
     return
-      decltype(chan_freq_meas())(
+      decltype(chan_freq_meas<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, CHAN_FREQ)));
   }
 #endif
@@ -212,7 +212,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, chan_width_rank, A, COORD_T>
   chan_width() const {
     return
-      decltype(chan_width())(
+      decltype(chan_width<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, CHAN_WIDTH)));
   }
 
@@ -239,7 +239,7 @@ public:
     COORD_T>
   effective_bw() const {
     return
-      decltype(effective_bw())(
+      decltype(effective_bw<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, EFFECTIVE_BW)));
   }
 
@@ -261,7 +261,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, resolution_rank, A, COORD_T>
   resolution() const {
     return
-      decltype(resolution())(
+      decltype(resolution<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, RESOLUTION)));
   }
 
@@ -290,7 +290,7 @@ public:
     COORD_T>
   total_bandwidth() const {
     return
-      decltype(total_bandwidth())(
+      decltype(total_bandwidth<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, TOTAL_BANDWIDTH)));
   }
 
@@ -312,7 +312,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, net_sideband_rank, A, COORD_T>
   net_sideband() const {
     return
-      decltype(net_sideband())(
+      decltype(net_sideband<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, NET_SIDEBAND)));
   }
 
@@ -333,7 +333,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, bbc_no_rank, A, COORD_T>
   bbc_no() const {
     return
-      decltype(bbc_no())(
+      decltype(bbc_no<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, BBC_NO)));
   }
 
@@ -354,7 +354,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, bbc_sideband_rank, A, COORD_T>
   bbc_sideband() const {
     return
-      decltype(bbc_sideband())(
+      decltype(bbc_sideband<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, BBC_SIDEBAND)));
   }
 
@@ -376,7 +376,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, if_conv_chain_rank, A, COORD_T>
   if_conv_chain() const {
     return
-      decltype(if_conv_chain())(
+      decltype(if_conv_chain<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, IF_CONV_CHAIN)));
   }
 
@@ -398,7 +398,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, receiver_id_rank, A, COORD_T>
   receiver_id() const {
     return
-      decltype(receiver_id())(
+      decltype(receiver_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, RECEIVER_ID)));
   }
 
@@ -420,7 +420,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, freq_group_rank, A, COORD_T>
   freq_group() const {
     return
-      decltype(freq_group())(
+      decltype(freq_group<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, FREQ_GROUP)));
   }
 
@@ -449,7 +449,7 @@ public:
     COORD_T>
   freq_group_name() const {
     return
-      decltype(freq_group_name())(
+      decltype(freq_group_name<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, FREQ_GROUP_NAME)));
   }
 
@@ -471,7 +471,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, doppler_id_rank, A, COORD_T>
   doppler_id() const {
     return
-      decltype(doppler_id())(
+      decltype(doppler_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, DOPPLER_ID)));
   }
 
@@ -493,7 +493,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, assoc_spw_id_rank, A, COORD_T>
   assoc_spw_id() const {
     return
-      decltype(assoc_spw_id())(
+      decltype(assoc_spw_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, ASSOC_SPW_ID)));
   }
 
@@ -520,7 +520,7 @@ public:
     COORD_T>
   assoc_nature() const {
     return
-      decltype(assoc_nature())(
+      decltype(assoc_nature<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, ASSOC_NATURE)));
   }
 
@@ -541,7 +541,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, flag_row_rank, A, COORD_T>
   flag_row() const {
     return
-      decltype(flag_row())(
+      decltype(flag_row<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(SPECTRAL_WINDOW, FLAG_ROW)));
   }
 };

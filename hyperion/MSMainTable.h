@@ -76,7 +76,8 @@ public:
     A,
     COORD_T>
   time() const {
-    return decltype(time())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, TIME)));
+    return decltype(time<A, COORD_T>())(
+      *m_columns.at(HYPERION_COLUMN_NAME(MAIN, TIME)));
   }
 
 #ifdef HYPERION_USE_CASACORE
@@ -99,7 +100,7 @@ public:
     COORD_T>
   time_meas() const {
     return
-      decltype(time_meas())(
+      decltype(time_meas<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, TIME)));
   }
 #endif // HYPERION_USE_CASACORE
@@ -131,7 +132,7 @@ public:
     COORD_T>
   time_extra_prec() const {
     return
-      decltype(time_extra_prec())(
+      decltype(time_extra_prec<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, TIME_EXTRA_PREC)));
   }
 
@@ -161,7 +162,8 @@ public:
     COORD_T>
   antenna1() const {
     return
-      decltype(antenna1())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, ANTENNA1)));
+      decltype(antenna1<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(MAIN, ANTENNA1)));
   }
 
   //
@@ -190,7 +192,8 @@ public:
     COORD_T>
   antenna2() const {
     return
-      decltype(antenna2())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, ANTENNA2)));
+      decltype(antenna2<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(MAIN, ANTENNA2)));
   }
 
   //
@@ -219,7 +222,8 @@ public:
     COORD_T>
   antenna3() const {
     return
-      decltype(antenna3())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, ANTENNA3)));
+      decltype(antenna3<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(MAIN, ANTENNA3)));
   }
 
   //
@@ -248,7 +252,8 @@ public:
     COORD_T>
   feed1() const {
     return
-      decltype(feed1())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, FEED1)));
+      decltype(feed1<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(MAIN, FEED1)));
   }
 
   //
@@ -277,7 +282,8 @@ public:
     COORD_T>
   feed2() const {
     return
-      decltype(feed2())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, FEED2)));
+      decltype(feed2<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(MAIN, FEED2)));
   }
 
   //
@@ -306,7 +312,8 @@ public:
     COORD_T>
   feed3() const {
     return
-      decltype(feed3())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, FEED3)));
+      decltype(feed3<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(MAIN, FEED3)));
   }
 
   //
@@ -335,7 +342,7 @@ public:
     COORD_T>
   data_desc_id() const {
     return
-      decltype(data_desc_id())(
+      decltype(data_desc_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, DATA_DESC_ID)));
   }
 
@@ -365,7 +372,7 @@ public:
     COORD_T>
   processor_id() const {
     return
-      decltype(processor_id())(
+      decltype(processor_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, PROCESSOR_ID)));
   }
 
@@ -395,7 +402,7 @@ public:
     COORD_T>
   phase_id() const {
     return
-      decltype(phase_id())(
+      decltype(phase_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, PHASE_ID)));
   }
 
@@ -425,7 +432,7 @@ public:
     COORD_T>
   field_id() const {
     return
-      decltype(field_id())(
+      decltype(field_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, FIELD_ID)));
   }
 
@@ -446,7 +453,8 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, interval_rank, A, COORD_T>
   interval() const {
     return
-      decltype(interval())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, INTERVAL)));
+      decltype(interval<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(MAIN, INTERVAL)));
   }
 
   //
@@ -466,7 +474,8 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_DOUBLE, row_rank, exposure_rank, A, COORD_T>
   exposure() const {
     return
-      decltype(exposure())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, EXPOSURE)));
+      decltype(exposure<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(MAIN, EXPOSURE)));
   }
 
   //
@@ -491,7 +500,7 @@ public:
     COORD_T>
   time_centroid() const {
     return
-      decltype(time_centroid())(
+      decltype(time_centroid<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, TIME_CENTROID)));
   }
 
@@ -515,7 +524,7 @@ public:
     COORD_T>
   time_centroid_meas() const {
     return
-      decltype(time_centroid_meas())(
+      decltype(time_centroid_meas<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, TIME_CENTROID)));
   }
 #endif // HYPERION_USE_CASACORE
@@ -537,7 +546,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, pulsar_bin_rank, A, COORD_T>
   pulsar_bin() const {
     return
-      decltype(pulsar_bin())(
+      decltype(pulsar_bin<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, PULSAR_BIN)));
   }
 
@@ -558,7 +567,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, pulsar_gate_id_rank, A, COORD_T>
   pulsar_gate_id() const {
     return
-      decltype(pulsar_gate_id())(
+      decltype(pulsar_gate_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, PULSAR_GATE_ID)));
   }
 
@@ -579,7 +588,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, scan_number_rank, A, COORD_T>
   scan_number() const {
     return
-      decltype(scan_number())(
+      decltype(scan_number<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, SCAN_NUMBER)));
   }
 
@@ -600,7 +609,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, array_id_rank, A, COORD_T>
   array_id() const {
     return
-      decltype(array_id())(
+      decltype(array_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, ARRAY_ID)));
   }
 
@@ -621,7 +630,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, observation_id_rank, A, COORD_T>
   observation_id() const {
     return
-      decltype(observation_id())(
+      decltype(observation_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, OBSERVATION_ID)));
   }
 
@@ -642,7 +651,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_INT, row_rank, state_id_rank, A, COORD_T>
   state_id() const {
     return
-      decltype(state_id())(
+      decltype(state_id<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, STATE_ID)));
   }
 
@@ -663,7 +672,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, baseline_ref_rank, A, COORD_T>
   baseline_ref() const {
     return
-      decltype(baseline_ref())(
+      decltype(baseline_ref<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, BASELINE_REF)));
   }
 
@@ -683,7 +692,8 @@ public:
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, uvw_rank, A, COORD_T>
   uvw() const {
-    return decltype(uvw())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, UVW)));
+    return decltype(uvw<A, COORD_T>())(
+      *m_columns.at(HYPERION_COLUMN_NAME(MAIN, UVW)));
   }
 
 #ifdef HYPERION_USE_CASACORE
@@ -704,7 +714,8 @@ public:
     A,
     COORD_T>
   uvw_meas() const {
-    return decltype(uvw_meas())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, UVW)));
+    return decltype(uvw_meas<A, COORD_T>())(
+      *m_columns.at(HYPERION_COLUMN_NAME(MAIN, UVW)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -724,7 +735,8 @@ public:
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, uvw2_rank, A, COORD_T>
   uvw2() const {
-    return decltype(uvw2())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, UVW2)));
+    return decltype(uvw2<A, COORD_T>())(
+      *m_columns.at(HYPERION_COLUMN_NAME(MAIN, UVW2)));
   }
 
 #ifdef HYPERION_USE_CASACORE
@@ -747,7 +759,8 @@ public:
     COORD_T>
   uvw2_meas() const {
     return
-      decltype(uvw2_meas())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, UVW2)));
+      decltype(uvw2_meas<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(MAIN, UVW2)));
   }
 #endif // HYPERION_USE_CASACORE
 
@@ -767,7 +780,8 @@ public:
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<HYPERION_TYPE_COMPLEX, row_rank, data_rank, A, COORD_T>
   data() const {
-    return decltype(data())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, DATA)));
+    return decltype(data<A, COORD_T>())(
+      *m_columns.at(HYPERION_COLUMN_NAME(MAIN, DATA)));
   }
 
   //
@@ -787,7 +801,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_FLOAT, row_rank, float_data_rank, A, COORD_T>
   float_data() const {
     return
-      decltype(float_data())(
+      decltype(float_data<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, FLOAT_DATA)));
   }
 
@@ -813,7 +827,7 @@ public:
     COORD_T>
   video_point() const {
     return
-      decltype(video_point())(
+      decltype(video_point<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, VIDEO_POINT)));
   }
 
@@ -834,7 +848,8 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_COMPLEX, row_rank, lag_data_rank, A, COORD_T>
   lag_data() const {
     return
-      decltype(lag_data())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, LAG_DATA)));
+      decltype(lag_data<A, COORD_T>())(
+        *m_columns.at(HYPERION_COLUMN_NAME(MAIN, LAG_DATA)));
   }
 
   //
@@ -853,7 +868,8 @@ public:
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<HYPERION_TYPE_FLOAT, row_rank, sigma_rank, A, COORD_T>
   sigma() const {
-    return decltype(sigma())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, SIGMA)));
+    return decltype(sigma<A, COORD_T>())(
+      *m_columns.at(HYPERION_COLUMN_NAME(MAIN, SIGMA)));
   }
 
   //
@@ -878,7 +894,7 @@ public:
     COORD_T>
   sigma_spectrum() const {
     return
-      decltype(sigma_spectrum())(
+      decltype(sigma_spectrum<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, SIGMA_SPECTRUM)));
   }
 
@@ -898,7 +914,8 @@ public:
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<HYPERION_TYPE_FLOAT, row_rank, weight_rank, A, COORD_T>
   weight() const {
-    return decltype(weight())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, WEIGHT)));
+    return decltype(weight<A, COORD_T>())(
+      *m_columns.at(HYPERION_COLUMN_NAME(MAIN, WEIGHT)));
   }
 
   //
@@ -923,7 +940,7 @@ public:
     COORD_T>
   weight_spectrum() const {
     return
-      decltype(weight_spectrum())(
+      decltype(weight_spectrum<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, WEIGHT_SPECTRUM)));
   }
 
@@ -943,7 +960,8 @@ public:
     typename COORD_T = Legion::coord_t>
   PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, flag_rank, A, COORD_T>
   flag() const {
-    return decltype(flag())(*m_columns.at(HYPERION_COLUMN_NAME(MAIN, FLAG)));
+    return decltype(flag<A, COORD_T>())(
+      *m_columns.at(HYPERION_COLUMN_NAME(MAIN, FLAG)));
   }
 
   //
@@ -963,7 +981,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, flag_category_rank, A, COORD_T>
   flag_category() const {
     return
-      decltype(flag_category())(
+      decltype(flag_category<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, FLAG_CATEGORY)));
   }
 
@@ -984,7 +1002,7 @@ public:
   PhysicalColumnTD<HYPERION_TYPE_BOOL, row_rank, flag_row_rank, A, COORD_T>
   flag_row() const {
     return
-      decltype(flag_row())(
+      decltype(flag_row<A, COORD_T>())(
         *m_columns.at(HYPERION_COLUMN_NAME(MAIN, FLAG_ROW)));
   }
 
