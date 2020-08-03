@@ -100,7 +100,6 @@ PhysicalTable::create(
       ++reqs;
       ++prs;
     }
-
     std::tuple<LogicalRegion, FieldID> vkey = {cdesc.region, cdesc.fid};
     if (value_regions.count(vkey) == 0) {
       if (reqs == reqs_end || prs == prs_end)
@@ -124,7 +123,7 @@ PhysicalTable::create(
         return result;
       ++reqs;
       kwpair.values = *prs++;
-      kw_prs = kwpair;        
+      kw_prs = kwpair;
     }
 
 #ifdef HYPERION_USE_CASACORE
@@ -158,13 +157,16 @@ PhysicalTable::create(
     auto& parent = std::get<1>(region_parent_values);
     auto& values = std::get<2>(region_parent_values);
 #endif // HAVE_CXX17
+    unsigned col_rank =
+      ColumnSpace::size(ColumnSpace::axes(md_regions.at(parent)));
+    assert(col_rank == 1 || col_rank >= idx_rank);
     columns.emplace(
       cdesc.name,
       std::make_shared<PhysicalColumn>(
         rt,
         cdesc.dt,
         cdesc.fid,
-        idx_rank,
+        std::min(idx_rank, col_rank),
         md_regions.at(parent),
         region,
         parent,
@@ -174,7 +176,7 @@ PhysicalTable::create(
         , mr_drs
         , CXX_OPTIONAL_NAMESPACE::nullopt
 #endif
-        ));    
+        ));
   }
 #ifdef HYPERION_USE_CASACORE
 
@@ -708,13 +710,17 @@ PhysicalTable::add_columns(
       refcols[nm] = col.rc.value();
 #endif
     assert(m_columns.count(nm) == 0);
+    unsigned col_rank =
+      ColumnSpace::size(
+        ColumnSpace::axes(cs_md_prs[cs_idxs[col.cs.metadata_lr]]));
+    assert(col_rank == 1 || col_rank >= idx_rank);
     m_columns.emplace(
       nm,
       std::make_shared<PhysicalColumn>(
         rt,
         col.dt,
         col.fid,
-        idx_rank,
+        std::min(idx_rank, col_rank),
         cs_md_prs[cs_idxs[col.cs.metadata_lr]],
         col.region,
         col.parent,
