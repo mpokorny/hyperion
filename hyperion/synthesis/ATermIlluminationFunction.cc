@@ -153,7 +153,7 @@ ATermIlluminationFunction::compute_epts(
     auto& tparts = std::get<1>(reqs);
     auto& tdesc = std::get<2>(reqs);
 #endif // HAVE_CXX17
-    if (!partition.is_valid()) {
+    if (!part.is_valid()) {
       TaskLauncher task(
         compute_epts_task_id,
         TaskArgument(&tdesc, sizeof(tdesc)),
@@ -165,7 +165,7 @@ ATermIlluminationFunction::compute_epts(
     } else {
       IndexTaskLauncher task(
         compute_epts_task_id,
-        rt->get_index_partition_color_space(ctx, partition.column_ip),
+        rt->get_index_partition_color_space(ctx, part.column_ip),
         TaskArgument(&tdesc, sizeof(tdesc)),
         ArgumentMap(),
         Predicate::TRUE_PRED,

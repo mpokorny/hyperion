@@ -309,8 +309,6 @@ ATermTable::compute_cfs(
     columns().at(CF_VALUE_COLUMN_NAME)
     .narrow_partition(ctx, rt, partition)
     .value_or(partition);
-  auto aterm_part_color_space =
-    rt->get_index_partition_color_space_name(ctx, aterm_part.column_ip);
 
   // check for CF_STOKES_OUT or CF_STOKES_IN axis in partition (these are the
   // Mueller matrix axes)
@@ -443,7 +441,7 @@ ATermTable::compute_cfs(
   } else {
     IndexTaskLauncher task(
       compute_cfs_task_id,
-      aterm_part_color_space,
+      rt->get_index_partition_color_space_name(ctx, aterm_part.column_ip),
       TaskArgument(&args, sizeof(args)),
       ArgumentMap(),
       Predicate::TRUE_PRED,
@@ -457,7 +455,7 @@ ATermTable::compute_cfs(
     p.destroy(ctx, rt);
   if (aif_read_ip != IndexPartition::NO_PART)
     rt->destroy_index_partition(ctx, aif_read_ip);
-  if (aterm_part != partition)
+  if (aterm_part.is_valid() && aterm_part != partition)
     aterm_part.destroy(ctx, rt);
   aif.destroy(ctx, rt);
 }
