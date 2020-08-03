@@ -16,7 +16,7 @@
 #include <hyperion/synthesis/CFTable.h>
 #include <hyperion/synthesis/CFPhysicalTable.h>
 #include <hyperion/synthesis/FFT.h>
-#include <hyperion/synthesis/LinearCoordinateTable.h>
+#include <hyperion/synthesis/GridCoordinateTable.h>
 #include <hyperion/synthesis/PSTermTable.h>
 #include <hyperion/synthesis/WTermTable.h>
 #include <hyperion/synthesis/ATermZernikeModel.h>

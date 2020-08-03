@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include <hyperion/synthesis/ATermIlluminationFunction.h>
-#include <hyperion/synthesis/LinearCoordinateTable.h>
 #include <hyperion/synthesis/FFT.h>
 
 using namespace hyperion;

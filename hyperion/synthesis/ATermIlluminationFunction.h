@@ -23,7 +23,7 @@
   CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_STOKES
 
 #include <hyperion/synthesis/ATermZernikeModel.h>
-#include <hyperion/synthesis/LinearCoordinateTable.h>
+#include <hyperion/synthesis/GridCoordinateTable.h>
 
 #include <fftw3.h>
 

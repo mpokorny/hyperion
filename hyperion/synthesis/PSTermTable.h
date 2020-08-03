@@ -17,7 +17,7 @@
 #define HYPERION_SYNTHESIS_PS_TERM_TABLE_H_
 
 #include <hyperion/synthesis/CFTable.h>
-#include <hyperion/synthesis/LinearCoordinateTable.h>
+#include <hyperion/synthesis/GridCoordinateTable.h>
 
 #include <array>
 #include <cmath>

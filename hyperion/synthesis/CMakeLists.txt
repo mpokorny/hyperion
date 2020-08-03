@@ -18,7 +18,7 @@ target_sources(hyperion PRIVATE
   ATermZernikeModel.cc
   ATermIlluminationFunction.h
   ATermIlluminationFunction.cc
-  LinearCoordinateTable.h
-  LinearCoordinateTable.cc
+  GridCoordinateTable.h
+  GridCoordinateTable.cc
   FFT.h
   FFT.cc)
