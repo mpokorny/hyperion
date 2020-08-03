@@ -17,6 +17,7 @@
 #define HYPERION_SYNTHESIS_W_TERM_TABLE_H_
 
 #include <hyperion/synthesis/CFTable.h>
+#include <hyperion/synthesis/GridCoordinateTable.h>
 
 #include <array>
 #include <cmath>
@@ -27,6 +28,8 @@ namespace synthesis {
 class HYPERION_EXPORT WTermTable
   : public CFTable<CF_W> {
 public:
+
+  static const constexpr unsigned d_w = 0;
 
   /**
    * WTermTable constructor
@@ -55,7 +58,7 @@ public:
   compute_cfs(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::array<double, 2>& cell_size,
+    const GridCoordinateTable& gc,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
   /**
@@ -72,9 +75,8 @@ public:
   static const constexpr double twopi = 2 * 3.141592653589793;
 
   struct ComputeCFsTaskArgs {
-    Table::Desc desc;
-    array<double, 2> cell_size;
-    array<cf_fp_t, 2> pixel_offset;
+    Table::Desc w;
+    Table::Desc gc;
   };
 
 #ifdef HYPERION_USE_KOKKOS
@@ -88,38 +90,59 @@ public:
 
   const ComputeCFsTaskArgs& args =
     *static_cast<const ComputeCFsTaskArgs*>(task->args);
-  const auto& cell_size = args.cell_size;
-  const auto& pixel_offset = args.pixel_offset;
+  std::vector<Table::Desc> tdesc{args.w, args.gc};
 
-  auto ptcr =
-    PhysicalTable::create(
+  auto ptcrs =
+    PhysicalTable::create_many(
       rt,
-      args.desc,
+      tdesc,
       task->regions.begin(),
       task->regions.end(),
       regions.begin(),
       regions.end())
     .value();
 #if HAVE_CXX17
-  auto& [pt, rit, pit] = ptcr;
+  auto& [pts, rit, pit] = ptcrs;
 #else // !HAVE_CXX17
-  auto& pt = std::get<0>(ptcr);
-  auto& rit = std::get<1>(ptcr);
-  auto& pit = std::get<2>(ptcr);
+  auto& pts = std::get<0>(ptcrs);
+  auto& rit = std::get<1>(ptcrs);
+  auto& pit = std::get<2>(ptcrs);
 #endif // HAVE_CXX17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
-  auto tbl = CFPhysicalTable<CF_W>(pt);
+  auto w_tbl = CFPhysicalTable<CF_W>(pts[0]);
+  auto gc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
 
   auto w_values =
-    tbl.w<Legion::AffineAccessor>().view<execution_space, READ_ONLY>();
+    w_tbl.w<Legion::AffineAccessor>().view<execution_space, LEGION_READ_ONLY>();
 
-  auto value_col = tbl.value<Legion::AffineAccessor>();
+  auto value_col = w_tbl.value<Legion::AffineAccessor>();
   auto value_rect = value_col.rect();
-  auto values = value_col.view<execution_space, WRITE_ONLY>();
+  auto values = value_col.view<execution_space, LEGION_WRITE_ONLY>();
   auto weights =
-    tbl.weight<Legion::AffineAccessor>().view<execution_space, WRITE_ONLY>();
+    w_tbl
+    .weight<Legion::AffineAccessor>()
+    .view<execution_space, LEGION_WRITE_ONLY>();
+
+  auto cs_x_col =
+    GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+      *gc_tbl.column(GridCoordinateTable::COORD_X_NAME).value());
+  auto i_pa = cs_x_col.rect().lo[GridCoordinateTable::d_pa];
+  auto cs_x =
+    Kokkos::subview(
+      cs_x_col.view<execution_space, LEGION_READ_ONLY>(),
+      i_pa,
+      Kokkos::ALL,
+      Kokkos::ALL);
+  auto cs_y =
+    Kokkos::subview(
+      GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+        *gc_tbl.column(GridCoordinateTable::COORD_Y_NAME).value())
+      .view<execution_space, LEGION_READ_ONLY>(),
+      i_pa,
+      Kokkos::ALL,
+      Kokkos::ALL);
 
   Kokkos::MDRangePolicy<Kokkos::Rank<3>, execution_space> range(
     rt->get_executing_processor(ctx).kokkos_work_space(),
@@ -133,8 +156,8 @@ public:
       Legion::coord_t i_x,
       Legion::coord_t i_y) {
 
-      const cf_fp_t l = cell_size[0] * (i_x + pixel_offset[0]);
-      const cf_fp_t m = cell_size[1] * (i_y + pixel_offset[1]);
+      const cf_fp_t l = cs_x(i_x, i_y);
+      const cf_fp_t m = cs_y(i_x, i_y);
       const cf_fp_t r2 = l * l + m * m;
       if (r2 <= (cf_fp_t)1.0) {
         const cf_fp_t phase =

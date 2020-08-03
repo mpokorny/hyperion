@@ -26,41 +26,6 @@ using namespace Legion;
 #define USE_KOKKOS_OPENMP_COMPUTE_CFS_TASK //undef to disable
 #define USE_KOKKOS_CUDA_COMPUTE_CFS_TASK //undef to disable
 
-#if 0
-#if defined(USE_KOKKOS_SERIAL_COMPUTE_CFS_TASK) && \
-  defined(HYPERION_USE_KOKKOS) &&                   \
-  defined(KOKKOS_ENABLE_SERIAL)
-# define ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK
-#else
-# undef ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK
-#endif
-
-
-#if defined(USE_KOKKOS_OPENMP_COMPUTE_CFS_TASK) &&  \
-  defined(HYPERION_USE_KOKKOS) &&                   \
-  defined(KOKKOS_ENABLE_OPENMP)
-# define ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK
-#else
-# undef ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK
-#endif
-
-#if defined(USE_KOKKOS_CUDA_COMPUTE_CFS_TASK) &&  \
-  defined(HYPERION_USE_KOKKOS) &&                 \
-  defined(KOKKOS_ENABLE_CUDA)
-# define ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
-#else
-# undef ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK
-#endif
-
-#if !defined(ENABLE_KOKKOS_SERIAL_COMPUTE_CFS_TASK) &&  \
-  !defined(ENABLE_KOKKOS_OPENMP_COMPUTE_CFS_TASK) &&    \
-  !defined(ENABLE_KOKKOS_CUDA_COMPUTE_CFS_TASK)
-# define ENABLE_SERIAL_COMPUTE_CFS_TASK
-#else
-# undef ENABLE_SERIAL_COMPUTE_CFS_TASK
-#endif
-#endif // 0
-
 Legion::TaskID WTermTable::compute_cfs_task_id;
 
 WTermTable::WTermTable(
@@ -80,49 +45,56 @@ WTermTable::compute_cfs_task(
 
   const ComputeCFsTaskArgs& args =
     *static_cast<const ComputeCFsTaskArgs*>(task->args);
+  std::vector<Table::Desc> tdesc{args.w, args.gc};
 
-  auto ptcr =
-    PhysicalTable::create(
+  auto ptcrs =
+    PhysicalTable::create_many(
       rt,
-      args.desc,
+      tdesc,
       task->regions.begin(),
       task->regions.end(),
       regions.begin(),
       regions.end())
     .value();
 #if HAVE_CXX17
-  auto& [pt, rit, pit] = ptcr;
+  auto& [pts, rit, pit] = ptcrs;
 #else // !HAVE_CXX17
-  auto& pt = std::get<0>(ptcr);
-  auto& rit = std::get<1>(ptcr);
-  auto& pit = std::get<2>(ptcr);
+  auto& pts = std::get<0>(ptcrs);
+  auto& rit = std::get<1>(ptcrs);
+  auto& pit = std::get<2>(ptcrs);
 #endif // HAVE_CXX17
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
-  auto tbl = CFPhysicalTable<CF_W>(pt);
+  auto w_tbl = CFPhysicalTable<CF_W>(pts[0]);
+  auto gc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
 
-  auto w_values = tbl.w<Legion::AffineAccessor>().accessor<READ_ONLY>();
-  auto values_col = tbl.value<Legion::AffineAccessor>();
-  auto values = values_col.accessor<WRITE_ONLY>();
-  auto weights = weights_col.accessor<WRITE_ONLY>();
+  auto w_values =
+    w_tbl.w<Legion::AffineAccessor>().accessor<LEGION_READ_ONLY>();
 
-  auto rect = values_col.rect();
-  const coord_t& w_lo = rect.lo[0];
-  const coord_t& w_hi = rect.hi[0];
-  const coord_t& x_lo = rect.lo[1];
-  const coord_t& x_hi = rect.hi[1];
-  const coord_t& y_lo = rect.lo[2];
-  const coord_t& y_hi = rect.hi[2];
+  auto value_col = w_tbl.value<Legion::AffineAccessor>();
+  auto value_rect = value_col.rect();
+  auto values = values_col.accessor<LEGION_WRITE_ONLY>();
+  auto weights = weights_col.accessor<LEGION_WRITE_ONLY>();
 
-  for (coord_t i_w = w_lo; i_w <= w_hi; ++i_w) {
+  auto cs_x_col =
+    GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+      *gc_tbl.column(GridCoordinateTable::COORD_X_NAME).value());
+  auto cs_x = cs_x_col.accessor<LEGION_READ_ONLY>();
+  auto cs_y =
+    GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+      *gc_tbl.column(GridCoordinateTable::COORD_Y_NAME).value())
+    .accessor<LEGION_READ_ONLY>();
+  auto i_pa = cs_x_col.rect().lo[GridCoordinateTable::d_pa];
+
+  auto& r = value_rect;
+  for (coord_t i_w = r.lo[d_w]; i_w <= r.hi[d_w]; ++i_w) {
     const cf_fp_t twoPiW = (cf_fp_t)twopi * w_values[i_w];
-    for (coord_t i_x = x_lo; i_x <= x_hi; ++i_x) {
-      const cf_fp_t l = args.cell_size[0] * (i_x + args.pixel_offset[0]);
-      const cf_fp_t l2 = l * l;
-      for (coord_t i_y = y_lo; i_y <= y_hi; ++i_y) {
-        const cf_fp_t m = args.cell_size[1] * (y + args.pixel_offset[1]);
-        const cf_fp_t r2 = l2 + m * m;
+    for (coord_t i_x = r.lo[d_x]; i_x <= r.hi[d_x]; ++i_x) {
+      for (coord_t i_y = r.lo[d_y]; i_y <= r.hi[d_y]; ++i_y) {
+        const cf_fp_t l = cs_x[{i_pa, i_x, i_y}];
+        const cf_fp_t m = cs_y[{i_pa, i_x, i_y}];
+        const cf_fp_t r2 = l * l + m * m;
         if (r2 <= (cf_fp_t)1.0) {
           const cf_fp_t phase =
             towPiW * (std::sqrt((cf_fp_t)1.0 - r2) - (cf_fp_t)1.0);
@@ -142,27 +114,28 @@ void
 WTermTable::compute_cfs(
   Context ctx,
   Runtime* rt,
-  const std::array<double, 2>& cell_size,
+  const GridCoordinateTable& gc,
   const ColumnSpacePartition& partition) const {
 
-    auto cf_colreqs = Column::default_requirements;
-    cf_colreqs.values = Column::Req{
-      WRITE_ONLY /* privilege */,
-      EXCLUSIVE /* coherence */,
-      true /* mapped */
-    };
+  auto ro_colreqs = Column::default_requirements;
+  ro_colreqs.values.mapped = true;
 
-    auto default_colreqs = Column::default_requirements;
-    default_colreqs.values.mapped = true;
+  ComputeCFsTaskArgs args;
+  std::vector<RegionRequirement> all_reqs;
+  std::vector<ColumnSpacePartition> all_parts;
+  {
+    auto wo_colreqs = Column::default_requirements;
+    wo_colreqs.values.privilege = LEGION_WRITE_ONLY;
+    wo_colreqs.values.mapped = true;
 
     auto reqs =
       requirements(
         ctx,
         rt,
         partition,
-        {{CF_VALUE_COLUMN_NAME, cf_colreqs},
-         {CF_WEIGHT_COLUMN_NAME, CXX_OPTIONAL_NAMESPACE::nullopt}},
-        default_colreqs);
+        {{CF_VALUE_COLUMN_NAME, wo_colreqs},
+         {CF_WEIGHT_COLUMN_NAME, wo_colreqs}},
+        ro_colreqs);
 #if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
 #else // !HAVE_CXX17
@@ -170,43 +143,53 @@ WTermTable::compute_cfs(
     auto& tparts = std::get<1>(reqs);
     auto& tdesc = std::get<2>(reqs);
 #endif // HAVE_CXX17
-    ComputeCFsTaskArgs args;
-    args.desc = tdesc;
-    args.cell_size[0] = cell_size[0];
-    args.cell_size[1] = cell_size[1];
-    {
-      Rect<cf_rank> value_rect(
-        rt->get_index_space_domain(
-          columns().at(CF_VALUE_COLUMN_NAME).cs.column_is));
-      std::array<Legion::coord_t, 2> grid_size{
-        value_rect.hi[d_x] - value_rect.lo[d_x] + 1,
-        value_rect.hi[d_y] - value_rect.lo[d_y] + 1};
-      args.pixel_offset[0] = (1 - (grid_size[0] % 2)) / (cf_fp_t)2.0;
-      args.pixel_offset[1] = (1 - (grid_size[1] % 2)) / (cf_fp_t)2.0;
-    }
-    if (!partition.is_valid()) {
-      TaskLauncher task(
-        compute_cfs_task_id,
-        TaskArgument(&args, sizeof(args)),
-        Predicate::TRUE_PRED,
-        table_mapper);
-      for (auto& r : treqs)
-        task.add_region_requirement(r);
-      rt->execute_task(ctx, task);
-    } else {
-      IndexTaskLauncher task(
-        compute_cfs_task_id,
-        rt->get_index_partition_color_space(ctx, partition.column_ip),
-        TaskArgument(&args, sizeof(args)),
-        ArgumentMap(),
-        Predicate::TRUE_PRED,
-        table_mapper);
-      for (auto& r : treqs)
-        task.add_region_requirement(r);
-      rt->execute_index_space(ctx, task);
-    }
-    for (auto& p : tparts)
-      p.destroy(ctx, rt);
+    std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
+    std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
+    args.w = tdesc;
+  }
+  {
+    auto reqs =
+      gc.requirements(
+        ctx,
+        rt,
+        partition,
+        {{GridCoordinateTable::COORD_X_NAME, ro_colreqs},
+         {GridCoordinateTable::COORD_Y_NAME, ro_colreqs}},
+        CXX_OPTIONAL_NAMESPACE::nullopt);
+#if HAVE_CXX17
+    auto& [treqs, tparts, tdesc] = reqs;
+#else // !HAVE_CXX17
+    auto& treqs = std::get<0>(reqs);
+    auto& tparts = std::get<1>(reqs);
+    auto& tdesc = std::get<2>(reqs);
+#endif // HAVE_CXX17
+    std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
+    std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
+    args.gc = tdesc;
+  }
+  if (!partition.is_valid()) {
+    TaskLauncher task(
+      compute_cfs_task_id,
+      TaskArgument(&args, sizeof(args)),
+      Predicate::TRUE_PRED,
+      table_mapper);
+    for (auto& r : all_reqs)
+      task.add_region_requirement(r);
+    rt->execute_task(ctx, task);
+  } else {
+    IndexTaskLauncher task(
+      compute_cfs_task_id,
+      rt->get_index_partition_color_space(ctx, partition.column_ip),
+      TaskArgument(&args, sizeof(args)),
+      ArgumentMap(),
+      Predicate::TRUE_PRED,
+      table_mapper);
+    for (auto& r : all_reqs)
+      task.add_region_requirement(r);
+    rt->execute_index_space(ctx, task);
+  }
+  for (auto& p : all_parts)
+    p.destroy(ctx, rt);
 }
 
 #define USE_KOKKOS_VARIANT(V, T)                \
