@@ -58,7 +58,7 @@ PSTermTable::compute_cfs_task(
 
   const ComputeCFsTaskArgs& args =
     *static_cast<ComputeCFsTaskArgs*>(task->args);
-  std::vector<Table::Desc> tdescs{args.ps, args.lc};
+  std::vector<Table::Desc> tdescs{args.ps, args.gc};
 
   auto ptcrs =
     PhysicalTable::create_many(
@@ -80,7 +80,7 @@ PSTermTable::compute_cfs_task(
   assert(pit == regions.end());
 
   auto ps_tbl = CFPhysicalTable<CF_PS_SCALE>(pts[0]);
-  auto lc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
+  auto gc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
 
   auto ps_scales = ps_tbl.ps_scale<AffineAccessor>().accessor<READ_ONLY>();
   auto value_col = ps_tbl.value<AffineAccessor>();
@@ -89,13 +89,13 @@ PSTermTable::compute_cfs_task(
   auto weights = weight_col.accessor<WRITE_ONLY>();
 
   auto wcs_x_col =
-    LinearCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-      *lc_tbl.column(LinearCoordinateTable::WORLD_X_NAME).value());
-  auto i_pa = wcs_x_col.rect().lo[LinearCoordinateTable::d_pa];
+    GridCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+      *gc_tbl.column(GridCoordinateTable::WORLD_X_NAME).value());
+  auto i_pa = wcs_x_col.rect().lo[GridCoordinateTable::d_pa];
   auto wcs_x = wcs_x_col.accessor<LEGION_READ_ONLY>();
   auto wcs_y =
-    LinearCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-      *lc_tbl.column(LinearCoordinateTable::WORLD_Y_NAME).value())
+    GridCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+      *gc_tbl.column(GridCoordinateTable::WORLD_Y_NAME).value())
     .accessor<LEGION_READ_ONLY>();
 
   for (PointInRectIterator<3> pir(value_col.rect()); pir(); pir++) {
@@ -118,7 +118,7 @@ void
 PSTermTable::compute_cfs(
   Context ctx,
   Runtime* rt,
-  const LinearCoordinateTable& lc,
+  const GridCoordinateTable& gc,
   const ColumnSpacePartition& partition) const {
 
   auto ro_colreqs = Column::default_requirements;
@@ -153,12 +153,12 @@ PSTermTable::compute_cfs(
   }
   {
     auto reqs =
-      lc.requirements(
+      gc.requirements(
         ctx,
         rt,
         partition,
-        {{LinearCoordinateTable::WORLD_X_NAME, ro_colreqs},
-         {LinearCoordinateTable::WORLD_Y_NAME, ro_colreqs}},
+        {{GridCoordinateTable::WORLD_X_NAME, ro_colreqs},
+         {GridCoordinateTable::WORLD_Y_NAME, ro_colreqs}},
         CXX_OPTIONAL_NAMESPACE::nullopt);
 #if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
@@ -169,7 +169,7 @@ PSTermTable::compute_cfs(
 #endif // HAVE_CXX17
     std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
     std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
-    args.lc = tdesc;
+    args.gc = tdesc;
   }
   if (!partition.is_valid()) {
     TaskLauncher task(

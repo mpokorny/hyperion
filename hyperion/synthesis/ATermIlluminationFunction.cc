@@ -47,7 +47,7 @@ const constexpr char* ATermIlluminationFunction::EPT_Y_NAME;
 #define USE_KOKKOS_OPENMP_COMPUTE_AIFS_TASK // undef to disable
 #define USE_KOKKOS_CUDA_COMPUTE_AIFS_TASK // undef to disable
 
-LinearCoordinateTable
+GridCoordinateTable
 ATermIlluminationFunction::create_epts_table(
   Context ctx,
   Runtime* rt,
@@ -55,13 +55,13 @@ ATermIlluminationFunction::create_epts_table(
   const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
     parallactic_angles) {
 
-  LinearCoordinateTable result(ctx, rt, grid_size, parallactic_angles);
-  Rect<LinearCoordinateTable::worldc_rank> w_rect(
+  GridCoordinateTable result(ctx, rt, grid_size, parallactic_angles);
+  Rect<GridCoordinateTable::worldc_rank> w_rect(
     rt->get_index_space_domain(
       result.columns()
-      .at(LinearCoordinateTable::WORLD_X_NAME).cs.column_is));
+      .at(GridCoordinateTable::WORLD_X_NAME).cs.column_is));
   Rect<ept_rank> ept_rect;
-  for (size_t i = 0; i < LinearCoordinateTable::worldc_rank; ++i) {
+  for (size_t i = 0; i < GridCoordinateTable::worldc_rank; ++i) {
     ept_rect.lo[i] = w_rect.lo[i];
     ept_rect.hi[i] = w_rect.hi[i];
   }
@@ -84,7 +84,7 @@ ATermIlluminationFunction::create_epts_table(
   return result;
 }
 
-LinearCoordinateTable
+GridCoordinateTable
 ATermIlluminationFunction::compute_epts(
   Context ctx,
   Runtime* rt,
@@ -119,18 +119,13 @@ ATermIlluminationFunction::compute_epts(
   }
   auto result = create_epts_table(ctx, rt, grid_size, parallactic_angles);
 
-  // Because LinearCoordinateTable::compute_world_coordinates() has only a
+  // Because GridCoordinateTable::compute_coordinates() has only a
   // serial implementation, while compute_epts_task has a Kokkos implementation
   // that can execute in OpenMP or Cuda, we don't fuse these two tasks even
   // though the tasks might be on the small side.  TODO: revisit this design
-  result.compute_world_coordinates(
-    ctx,
-    rt,
-    cc::LinearCoordinate(2),
-    1.0,
-    partition);
+  result.compute_coordinates(ctx, rt, cc::LinearCoordinate(2), 1.0, partition);
 
-  // compute grid coordinates via augmented LinearCoordinateTable
+  // compute grid coordinates via augmented GridCoordinateTable
   {
     auto ro_colreqs = Column::default_requirements;
     ro_colreqs.values.privilege = READ_ONLY;
@@ -139,7 +134,7 @@ ATermIlluminationFunction::compute_epts(
     wd_colreqs.values.privilege = WRITE_DISCARD;
     wd_colreqs.values.mapped = true;
     auto part =
-      result.columns().at(LinearCoordinateTable::WORLD_X_NAME)
+      result.columns().at(GridCoordinateTable::WORLD_X_NAME)
       .narrow_partition(ctx, rt, partition)
       .value_or(ColumnSpacePartition());
     auto reqs =
@@ -147,8 +142,8 @@ ATermIlluminationFunction::compute_epts(
         ctx,
         rt,
         part,
-        {{LinearCoordinateTable::WORLD_X_NAME, ro_colreqs},
-         {LinearCoordinateTable::WORLD_Y_NAME, ro_colreqs},
+        {{GridCoordinateTable::WORLD_X_NAME, ro_colreqs},
+         {GridCoordinateTable::WORLD_Y_NAME, ro_colreqs},
          {EPT_X_NAME, wd_colreqs},
          {EPT_Y_NAME, wd_colreqs}},
         CXX_OPTIONAL_NAMESPACE::nullopt);
@@ -193,7 +188,7 @@ ATermIlluminationFunction::compute_aifs(
   Context ctx,
   Runtime* rt,
   const ATermZernikeModel& zmodel,
-  const LinearCoordinateTable& lc,
+  const GridCoordinateTable& gc,
   const ColumnSpacePartition& partition) const {
 
   // execute compute_aifs_task
@@ -226,14 +221,14 @@ ATermIlluminationFunction::compute_aifs(
     std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
     args.zmodel = tdesc;
   }
-  // lc table, READ_ONLY privileges on epts columns
+  // gc table, READ_ONLY privileges on epts columns
   {
     auto ro_colreqs = Column::default_requirements;
     ro_colreqs.values.privilege = READ_ONLY;
     ro_colreqs.values.mapped = true;
 
     auto reqs =
-      lc.requirements(
+      gc.requirements(
         ctx,
         rt,
         partition,
@@ -249,7 +244,7 @@ ATermIlluminationFunction::compute_aifs(
 #endif // HAVE_CXX17
     std::copy(treqs.begin(), treqs.end(), std::back_inserter(all_reqs));
     std::copy(tparts.begin(), tparts.end(), std::back_inserter(all_parts));
-    args.lc = tdesc;
+    args.gc = tdesc;
   }
   // this table, WRITE_DISCARD privileges on values and weights
   {
@@ -418,29 +413,29 @@ ATermIlluminationFunction::compute_epts_task(
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
-  auto lc = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt);
-  LinearCoordinateTable::compute_world_coordinates(lc);
+  auto gc = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt);
+  GridCoordinateTable::compute_coordinates(gc);
 
   // world coordinates columns
   auto wx_col =
-    LinearCoordinateTable::WorldCColumn<AffineAccessor>(
-      *lc.column(LinearCoordinateTable::WORLD_X_NAME).value());
+    GridCoordinateTable::WorldCColumn<AffineAccessor>(
+      *gc.column(GridCoordinateTable::WORLD_X_NAME).value());
   auto wx_rect = wx_col.rect();
   auto wxs = wx_col.accessor<READ_ONLY>();
   auto wys =
-    LinearCoordinateTable::WorldCColumn<AffineAccessor>(
-      *lc.column(LinearCoordinateTable::WORLD_Y_NAME).value())
+    GridCoordinateTable::WorldCColumn<AffineAccessor>(
+      *gc.column(GridCoordinateTable::WORLD_Y_NAME).value())
     .accessor<READ_ONLY>();
 
   // polynomial function evaluation points columns
   auto xpts =
-    EPtColumn<AffineAccessor>(*lc.column(EPT_X_NAME).value())
+    EPtColumn<AffineAccessor>(*gc.column(EPT_X_NAME).value())
     .accessor<WRITE_DISCARD>();
   auto ypts =
-    EPtColumn<AffineAccessor>(*lc.column(EPT_Y_NAME).value())
+    EPtColumn<AffineAccessor>(*gc.column(EPT_Y_NAME).value())
     .accessor<WRITE_DISCARD>();
 
-  for (PointInRectIterator<LinearCoordinateTable::worldc_rank> pir(
+  for (PointInRectIterator<GridCoordinateTable::worldc_rank> pir(
          wx_rect, false);
        pir();
        pir++) {
@@ -470,17 +465,17 @@ ATermIlluminationFunction::compute_jones(
   unsigned fftw_flags,
   double fftw_timelimit) const {
 
-  // first create an augmented LinearCoordinateTable helper table
-  auto lc = compute_epts(ctx, rt, partition);
+  // first create an augmented GridCoordinateTable helper table
+  auto gc = compute_epts(ctx, rt, partition);
 
   // execute compute_aifs_task
-  compute_aifs(ctx, rt, zmodel, lc, partition);
+  compute_aifs(ctx, rt, zmodel, gc, partition);
 
   // FFT on the values region
   compute_fft(ctx, rt, partition, fftw_flags, fftw_timelimit);
 
-  // destroy lc table
-  lc.destroy(ctx, rt);
+  // destroy gc table
+  gc.destroy(ctx, rt);
 }
 
 #define USE_KOKKOS_VARIANT(V, T)                \
@@ -499,7 +494,7 @@ ATermIlluminationFunction::preregister_tasks() {
   // compute_epts_task
   //
   {
-    // in the augmented LinearCoordinateTable the two EPT columns share an
+    // in the augmented GridCoordinateTable the two EPT columns share an
     // index space; use an AOS layout for CPUs as default for that reason
 #if USE_KOKKOS_VARIANT(SERIAL, EPTS_TASK) || \
   USE_KOKKOS_VARIANT(OPENMP, EPTS_TASK) || \

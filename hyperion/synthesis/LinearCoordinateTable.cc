@@ -26,15 +26,15 @@ using namespace Legion;
 namespace cc = casacore;
 
 #if !HAVE_CXX17
-const constexpr unsigned LinearCoordinateTable::d_pa;
-const constexpr unsigned LinearCoordinateTable::worldc_rank;
-const constexpr Legion::FieldID LinearCoordinateTable::WORLD_X_FID;
-const constexpr Legion::FieldID LinearCoordinateTable::WORLD_Y_FID;
-const constexpr char* LinearCoordinateTable::WORLD_X_NAME;
-const constexpr char* LinearCoordinateTable::WORLD_Y_NAME;
+const constexpr unsigned GridCoordinateTable::d_pa;
+const constexpr unsigned GridCoordinateTable::worldc_rank;
+const constexpr Legion::FieldID GridCoordinateTable::WORLD_X_FID;
+const constexpr Legion::FieldID GridCoordinateTable::WORLD_Y_FID;
+const constexpr char* GridCoordinateTable::WORLD_X_NAME;
+const constexpr char* GridCoordinateTable::WORLD_Y_NAME;
 #endif
 
-LinearCoordinateTable::LinearCoordinateTable(
+GridCoordinateTable::GridCoordinateTable(
   Context ctx,
   Runtime* rt,
   const size_t& grid_size,
@@ -57,7 +57,7 @@ LinearCoordinateTable::LinearCoordinateTable(
 }
 
 void
-LinearCoordinateTable::compute_world_coordinates(
+GridCoordinateTable::compute_coordinates(
   Context ctx,
   Runtime* rt,
   const casacore::Coordinate& cf_coordinates,
@@ -87,7 +87,7 @@ LinearCoordinateTable::compute_world_coordinates(
   auto& tdesc = std::get<2>(reqs);
 #endif
 
-  ComputeWorldCoordinatesTaskArgs args;
+  ComputeCoordinatesTaskArgs args;
   args.desc = tdesc;
   auto coord = std::unique_ptr<cc::Coordinate>(cf_coordinates.clone());
   // Set the reference pixel of the coordinate system before serializing it
@@ -129,7 +129,7 @@ LinearCoordinateTable::compute_world_coordinates(
 
   if (tparts.size() == 0) {
     TaskLauncher task(
-      compute_world_coordinates_task_id,
+      compute_coordinates_task_id,
       ta,
       Predicate::TRUE_PRED,
       table_mapper);
@@ -138,7 +138,7 @@ LinearCoordinateTable::compute_world_coordinates(
     rt->execute_task(ctx, task);
   } else {
     IndexTaskLauncher task(
-      compute_world_coordinates_task_id,
+      compute_coordinates_task_id,
       rt->get_index_partition_color_space(ctx, partition.column_ip),
       ta,
       ArgumentMap(),
@@ -154,20 +154,20 @@ LinearCoordinateTable::compute_world_coordinates(
 
 #if !HAVE_CXX17
 const constexpr char*
-LinearCoordinateTable::compute_world_coordinates_task_name;
+GridCoordinateTable::compute_coordinates_task_name;
 #endif
 
-Legion::TaskID LinearCoordinateTable::compute_world_coordinates_task_id;
+Legion::TaskID GridCoordinateTable::compute_coordinates_task_id;
 
 void
-LinearCoordinateTable::compute_world_coordinates_task(
+GridCoordinateTable::compute_coordinates_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
   Runtime* rt) {
 
-  const ComputeWorldCoordinatesTaskArgs& args =
-    *static_cast<const ComputeWorldCoordinatesTaskArgs*>(task->args);
+  const ComputeCoordinatesTaskArgs& args =
+    *static_cast<const ComputeCoordinatesTaskArgs*>(task->args);
 
   cc::LinearCoordinate lc0;
   cc::DirectionCoordinate dc0;
@@ -264,15 +264,15 @@ LinearCoordinateTable::compute_world_coordinates_task(
 }
 
 void
-LinearCoordinateTable::preregister_tasks() {
+GridCoordinateTable::preregister_tasks() {
   //
-  // compute_world_coordinates_task
+  // compute_coordinates_task
   {
-    compute_world_coordinates_task_id = Runtime::generate_static_task_id();
+    compute_coordinates_task_id = Runtime::generate_static_task_id();
 
     TaskVariantRegistrar registrar(
-      compute_world_coordinates_task_id,
-      compute_world_coordinates_task_name);
+      compute_coordinates_task_id,
+      compute_coordinates_task_name);
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
     registrar.set_leaf();
     registrar.set_idempotent();
@@ -281,16 +281,16 @@ LinearCoordinateTable::preregister_tasks() {
     LayoutConstraintRegistrar
       constraints(
         FieldSpace::NO_SPACE,
-        "LinearCoordinateTable::compute_world_coordinates_constraints");
+        "GridCoordinateTable::compute_coordinates_constraints");
     add_aos_left_ordering_constraint(constraints);
     constraints.add_constraint(SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
       Runtime::preregister_layout(constraints));
 
-    Runtime::preregister_task_variant<compute_world_coordinates_task>(
+    Runtime::preregister_task_variant<compute_coordinates_task>(
       registrar,
-      compute_world_coordinates_task_name);
+      compute_coordinates_task_name);
   }
 }
 

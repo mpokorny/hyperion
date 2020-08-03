@@ -37,8 +37,8 @@ cfcompute_task(
 
   const size_t grid_size = 4;
 
-  LinearCoordinateTable lc(ctx, rt, grid_size, {0.0});
-  lc.compute_world_coordinates(ctx, rt, cc::LinearCoordinate(2), 1.0);
+  GridCoordinateTable lc(ctx, rt, grid_size, {0.0});
+  lc.compute_coordinates(ctx, rt, cc::LinearCoordinate(2), 1.0);
 
   PSTermTable ps(ctx, rt, grid_size, {0.16, 0.08});
   ps.compute_cfs(ctx, rt, lc);

@@ -58,7 +58,7 @@ public:
   compute_cfs(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const LinearCoordinateTable& lc,
+    const GridCoordinateTable& gc,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
   /**
@@ -74,7 +74,7 @@ public:
 
   struct ComputeCFsTaskArgs {
     Table::Desc ps; // this table
-    Table::Desc lc; // LinearCoordinateTable
+    Table::Desc gc; // GridCoordinateTable
   };
 
   template <size_t N>
@@ -122,7 +122,7 @@ public:
 
     const ComputeCFsTaskArgs& args =
       *static_cast<ComputeCFsTaskArgs*>(task->args);
-    std::vector<Table::Desc> tdescs{args.ps, args.lc};
+    std::vector<Table::Desc> tdescs{args.ps, args.gc};
 
     auto ptcrs =
       PhysicalTable::create_many(
@@ -144,7 +144,7 @@ public:
     assert(pit == regions.end());
 
     auto ps_tbl = CFPhysicalTable<CF_PS_SCALE>(pts[0]);
-    auto lc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
+    auto gc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
 
     auto ps_scales =
       ps_tbl
@@ -159,9 +159,9 @@ public:
       .view<execution_space, LEGION_WRITE_ONLY>();
 
     auto wcs_x_col =
-      LinearCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-        *lc_tbl.column(LinearCoordinateTable::WORLD_X_NAME).value());
-    auto i_pa = wcs_x_col.rect().lo[LinearCoordinateTable::d_pa];
+      GridCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+        *gc_tbl.column(GridCoordinateTable::WORLD_X_NAME).value());
+    auto i_pa = wcs_x_col.rect().lo[GridCoordinateTable::d_pa];
     auto wcs_x =
       Kokkos::subview(
         wcs_x_col.view<execution_space, LEGION_READ_ONLY>(),
@@ -170,8 +170,8 @@ public:
         Kokkos::ALL);
     auto wcs_y =
       Kokkos::subview(
-        LinearCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-          *lc_tbl.column(LinearCoordinateTable::WORLD_Y_NAME).value())
+        GridCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
+          *gc_tbl.column(GridCoordinateTable::WORLD_Y_NAME).value())
         .view<execution_space, LEGION_READ_ONLY>(),
         i_pa,
         Kokkos::ALL,
