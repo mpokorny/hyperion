@@ -47,7 +47,7 @@ public:
   ATermTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::array<size_t, 2>& cf_size,
+    const size_t& grid_size,
     const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
       baseline_classes,
     const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&

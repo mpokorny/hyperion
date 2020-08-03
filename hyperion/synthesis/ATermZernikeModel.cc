@@ -85,7 +85,7 @@ ATermZernikeModel::ATermZernikeModel(
   : CFTable(
     ctx,
     rt,
-    {1, 1},
+    1,
     Axis<CF_BASELINE_CLASS>(baseline_classes),
     Axis<CF_FREQUENCY>(frequencies),
     Axis<CF_STOKES>(stokes_values)) {

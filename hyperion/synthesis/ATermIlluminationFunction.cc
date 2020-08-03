@@ -51,11 +51,11 @@ LinearCoordinateTable
 ATermIlluminationFunction::create_epts_table(
   Context ctx,
   Runtime* rt,
-  const size_t& cf_size,
+  const size_t& grid_size,
   const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
     parallactic_angles) {
 
-  LinearCoordinateTable result(ctx, rt, cf_size, parallactic_angles);
+  LinearCoordinateTable result(ctx, rt, grid_size, parallactic_angles);
   Rect<LinearCoordinateTable::worldc_rank> w_rect(
     rt->get_index_space_domain(
       result.columns()
@@ -93,9 +93,10 @@ ATermIlluminationFunction::compute_epts(
   Rect<cf_rank> value_rect(
     rt->get_index_space_domain(
       columns().at(CF_VALUE_COLUMN_NAME).region.get_index_space()));
-  std::array<size_t, 2> cf_size{
-    static_cast<size_t>(value_rect.hi[0] - value_rect.lo[0]) + 1,
-    static_cast<size_t>(value_rect.hi[1] - value_rect.lo[1]) + 1};
+  size_t grid_size =
+    static_cast<size_t>(value_rect.hi[0] - value_rect.lo[0]) + 1;
+  assert(
+    grid_size == static_cast<size_t>(value_rect.hi[1] - value_rect.lo[1]) + 1);
   std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>
     parallactic_angles;
   {
@@ -116,7 +117,7 @@ ATermIlluminationFunction::compute_epts(
       parallactic_angles.push_back(pas[*pir]);
     pt.unmap_regions(ctx, rt);
   }
-  auto result = create_epts_table(ctx, rt, cf_size[0], parallactic_angles);
+  auto result = create_epts_table(ctx, rt, grid_size, parallactic_angles);
 
   // Because LinearCoordinateTable::compute_world_coordinates() has only a
   // serial implementation, while compute_epts_task has a Kokkos implementation
@@ -368,7 +369,7 @@ ATermIlluminationFunction::compute_fft(
 ATermIlluminationFunction::ATermIlluminationFunction(
   Context ctx,
   Runtime* rt,
-  const std::array<size_t, 2>& cf_size,
+  const size_t& grid_size,
   unsigned zernike_order,
   const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
     baseline_classes,
@@ -381,7 +382,7 @@ ATermIlluminationFunction::ATermIlluminationFunction(
   : CFTable(
     ctx,
     rt,
-    cf_size,
+    grid_size,
     Axis<CF_BASELINE_CLASS>(baseline_classes),
     Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles),
     Axis<CF_FREQUENCY>(frequencies),

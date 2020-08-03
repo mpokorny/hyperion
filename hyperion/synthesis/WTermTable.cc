@@ -66,9 +66,9 @@ Legion::TaskID WTermTable::compute_cfs_task_id;
 WTermTable::WTermTable(
   Context ctx,
   Runtime* rt,
-  const std::array<size_t, 2>& cf_size,
+  const size_t& grid_size,
   const std::vector<typename cf_table_axis<CF_W>::type>& w_values)
-  : CFTable(ctx, rt, cf_size, Axis<CF_W>(w_values)) {}
+  : CFTable(ctx, rt, grid_size, Axis<CF_W>(w_values)) {}
 
 #ifndef HYPERION_USE_KOKKOS
 void
@@ -178,11 +178,11 @@ WTermTable::compute_cfs(
       Rect<cf_rank> value_rect(
         rt->get_index_space_domain(
           columns().at(CF_VALUE_COLUMN_NAME).cs.column_is));
-      std::array<Legion::coord_t, 2> cf_size{
+      std::array<Legion::coord_t, 2> grid_size{
         value_rect.hi[d_x] - value_rect.lo[d_x] + 1,
         value_rect.hi[d_y] - value_rect.lo[d_y] + 1};
-      args.pixel_offset[0] = (1 - (cf_size[0] % 2)) / (cf_fp_t)2.0;
-      args.pixel_offset[1] = (1 - (cf_size[1] % 2)) / (cf_fp_t)2.0;
+      args.pixel_offset[0] = (1 - (grid_size[0] % 2)) / (cf_fp_t)2.0;
+      args.pixel_offset[1] = (1 - (grid_size[1] % 2)) / (cf_fp_t)2.0;
     }
     if (!partition.is_valid()) {
       TaskLauncher task(

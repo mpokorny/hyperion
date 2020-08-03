@@ -41,7 +41,7 @@ public:
   CFTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::array<size_t, 2>& cf_size,
+    const size_t& grid_size,
     const Axis<AXES>&...axes)
     : CFTableBase() {
 
@@ -84,12 +84,11 @@ public:
 
     // CF columns
     {
-      assert(cf_size[0] > 0);
-      assert(cf_size[1] > 0);
+      assert(grid_size > 0);
       Legion::coord_t
         c_hi[]{axes.bounds().hi[0]...,
-          static_cast<Legion::coord_t>(cf_size[0] - 1),
-          static_cast<Legion::coord_t>(cf_size[1] - 1)};
+          static_cast<Legion::coord_t>(grid_size - 1),
+          static_cast<Legion::coord_t>(grid_size - 1)};
       Legion::Point<cf_rank> hi(c_hi);
       Legion::Rect<cf_rank> bounds(Legion::Point<cf_rank>::ZEROES(), hi);
       Legion::IndexSpace is = rt->create_index_space(ctx, bounds);

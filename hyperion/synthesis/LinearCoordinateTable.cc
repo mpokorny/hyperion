@@ -43,7 +43,7 @@ LinearCoordinateTable::LinearCoordinateTable(
   : CFTable(
     ctx,
     rt,
-    {grid_size, grid_size},
+    grid_size,
     Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles))
   , m_grid_size(grid_size) {
 

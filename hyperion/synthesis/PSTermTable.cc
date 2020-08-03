@@ -44,9 +44,9 @@ TaskID PSTermTable::compute_cfs_task_id;
 PSTermTable::PSTermTable(
   Context ctx,
   Runtime* rt,
-  const std::array<size_t, 2>& cf_size,
+  const size_t& grid_size,
   const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales)
-  : CFTable(ctx, rt, cf_size, Axis<CF_PS_SCALE>(ps_scales)) {}
+  : CFTable(ctx, rt, grid_size, Axis<CF_PS_SCALE>(ps_scales)) {}
 
 #if USE_PLAIN_SERIAL_VARIANT(CFS_TASK)
 void

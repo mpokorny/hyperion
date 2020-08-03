@@ -43,7 +43,7 @@ TaskID ATermTable::compute_cfs_task_id;
 ATermTable::ATermTable(
   Context ctx,
   Runtime* rt,
-  const std::array<size_t, 2>& cf_size,
+  const size_t& grid_size,
   const std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type>&
     baseline_classes,
   const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
@@ -57,7 +57,7 @@ ATermTable::ATermTable(
   : CFTable(
     ctx,
     rt,
-    cf_size,
+    grid_size,
     Axis<CF_BASELINE_CLASS>(baseline_classes),
     Axis<CF_PARALLACTIC_ANGLE>(parallactic_angles),
     Axis<CF_FREQUENCY>(frequencies),
@@ -181,7 +181,7 @@ ATermTable::compute_cfs(
     stokes_out_values;
   std::vector<typename cf_table_axis<CF_STOKES_IN>::type>
     stokes_in_values;
-  std::array<size_t, 2> cf_size;
+  size_t grid_size;
   using_resource(
     [&]() {
       auto colreqs = Column::default_requirements;
@@ -233,8 +233,11 @@ ATermTable::compute_cfs(
       {
         auto value_col = tbl.value<AffineAccessor>();
         auto rect = value_col.rect();
-        cf_size[0] = rect.hi[index_rank] - rect.lo[index_rank] + 1;
-        cf_size[1] = rect.hi[index_rank + 1] - rect.lo[index_rank + 1] + 1;
+        grid_size = rect.hi[index_rank] - rect.lo[index_rank] + 1;
+        assert(
+          grid_size ==
+          static_cast<size_t>(
+            rect.hi[index_rank + 1] - rect.lo[index_rank + 1] + 1));
       }
     },
     [&](CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>& tbl) {
@@ -280,7 +283,7 @@ ATermTable::compute_cfs(
   ATermIlluminationFunction aif(
     ctx,
     rt,
-    cf_size,
+    grid_size,
     zernike_order,
     baseline_classes,
     parallactic_angles,

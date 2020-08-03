@@ -36,7 +36,7 @@ public:
    *
    * @param ctx Legion Context
    * @param rt Legion Runtime pointer
-   * @param cf_size dimensions of CF in image domain (not extended)
+   * @param grid_size size of CF grid in either dimension
    * @param ps_scales PS scale axis values
    *
    * Commonly, \a ps_scales will have only a single element.
@@ -44,7 +44,7 @@ public:
   PSTermTable(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const std::array<size_t, 2>& cf_size,
+    const size_t& grid_size,
     const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales);
 
   /**
