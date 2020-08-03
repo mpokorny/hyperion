@@ -52,7 +52,12 @@ public:
    *
    * @param ctx Legion Context
    * @param rt Legion Runtime pointer
+   * @param gc grid coordinate system
    * @param partition table partition (optional)
+   *
+   * The grid coordinate system should normally be based on a
+   * casacore::LinearCoordinate of rank 2, with radius equal to the grid_size /
+   * 2 (floating point division)
    */
   void
   compute_cfs(

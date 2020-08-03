@@ -51,8 +51,11 @@ public:
    *
    * @param ctx Legion Context
    * @param rt Legion Runtime pointer
-   * @param cell_size sampled cell size in x/y
+   * @param gc grid coordinate system
    * @param partition table partition (optional)
+   *
+   * The coordinate system is used in the CF evaluation directly, on the
+   * assumption that its coordinate values are (l, m) values
    */
   void
   compute_cfs(
