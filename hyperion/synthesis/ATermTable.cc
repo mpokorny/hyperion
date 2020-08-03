@@ -167,6 +167,7 @@ void
 ATermTable::compute_cfs(
   Context ctx,
   Runtime* rt,
+  GridCoordinateTable& gc,
   const std::vector<ZCoeff>& zernike_coefficients,
   const ColumnSpacePartition& partition) const {
 
@@ -184,19 +185,21 @@ ATermTable::compute_cfs(
   size_t grid_size;
   using_resource(
     [&]() {
-      auto colreqs = Column::default_requirements;
-      colreqs.values.mapped = true;
+      auto ro_colreqs = Column::default_requirements;
+      ro_colreqs.values.mapped = true;
+      auto wd_colreqs = Column::default_requirements;
+      wd_colreqs.values.privilege = LEGION_WRITE_DISCARD;
       return
         CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>(
           map_inline(
             ctx,
             rt,
-            {{cf_table_axis<CF_BASELINE_CLASS>::name, colreqs},
-             {cf_table_axis<CF_PARALLACTIC_ANGLE>::name, colreqs},
-             {cf_table_axis<CF_FREQUENCY>::name, colreqs},
-             {cf_table_axis<CF_STOKES_OUT>::name, colreqs},
-             {cf_table_axis<CF_STOKES_IN>::name, colreqs},
-             {CF_VALUE_COLUMN_NAME, Column::default_requirements}},
+            {{cf_table_axis<CF_BASELINE_CLASS>::name, ro_colreqs},
+             {cf_table_axis<CF_PARALLACTIC_ANGLE>::name, ro_colreqs},
+             {cf_table_axis<CF_FREQUENCY>::name, ro_colreqs},
+             {cf_table_axis<CF_STOKES_OUT>::name, ro_colreqs},
+             {cf_table_axis<CF_STOKES_IN>::name, ro_colreqs},
+             {CF_VALUE_COLUMN_NAME, wd_colreqs}},
             CXX_OPTIONAL_NAMESPACE::nullopt));
     },
     [&](CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>& tbl) {
@@ -299,7 +302,7 @@ ATermTable::compute_cfs(
       aif.columns().at(CF_VALUE_COLUMN_NAME)
       .narrow_partition(ctx, rt, partition, {CF_X, CF_Y})
       .value_or(partition);
-    aif.compute_jones(ctx, rt, zmodel, p);
+    aif.compute_jones(ctx, rt, gc, zmodel, p);
     if (p != partition)
       p.destroy(ctx, rt);
   }

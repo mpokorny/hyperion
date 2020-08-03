@@ -137,18 +137,17 @@ public:
 
 protected:
 
-  static GridCoordinateTable
-  create_epts_table(
+  static void
+  add_epts_columns(
     Legion::Context ctx,
     Legion::Runtime* rt,
-    const size_t& grid_size,
-    const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
-      parallactic_angles);
+    GridCoordinateTable& gc);
 
-  GridCoordinateTable
+  void
   compute_epts(
     Legion::Context ctx,
     Legion::Runtime* rt,
+    GridCoordinateTable& gc,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 
 public:
@@ -195,19 +194,19 @@ public:
       GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
         *gc.column(GridCoordinateTable::COORD_X_NAME).value());
     auto cx_rect = cx_col.rect();
-    auto cxs = cx_col.view<execution_space, READ_ONLY>();
+    auto cxs = cx_col.view<execution_space, LEGION_READ_ONLY>();
     auto cys =
       GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
         *gc.column(GridCoordinateTable::COORD_Y_NAME).value())
-      .view<execution_space, READ_ONLY>();
+      .view<execution_space, LEGION_READ_ONLY>();
 
     // polynomial function evaluation points columns
     auto xpts =
       EPtColumn<Legion::AffineAccessor>(*gc.column(EPT_X_NAME).value())
-      .view<execution_space, WRITE_DISCARD>();
+      .view<execution_space, LEGION_WRITE_DISCARD>();
     auto ypts =
       EPtColumn<Legion::AffineAccessor>(*gc.column(EPT_Y_NAME).value())
-      .view<execution_space, WRITE_DISCARD>();
+      .view<execution_space, LEGION_WRITE_DISCARD>();
 
     auto kokkos_work_space =
       rt->get_executing_processor(ctx).kokkos_work_space();
@@ -247,6 +246,7 @@ public:
    *
    * @param ctx Legion Context
    * @param rt Legion Runtime
+   * @param gc grid coordinate system
    * @param zmodel Zernike expansion of aperture voltage pattern
    * @param coords image coordinate system
    * @param partition table partition
@@ -258,6 +258,7 @@ public:
   compute_jones(
     Legion::Context ctx,
     Legion::Runtime* rt,
+    GridCoordinateTable& gc,
     const ATermZernikeModel& zmodel,
     const ColumnSpacePartition& partition = ColumnSpacePartition(),
     unsigned fftw_flags = FFTW_MEASURE,

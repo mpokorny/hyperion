@@ -28,6 +28,7 @@
 
 #include <hyperion/synthesis/ATermZernikeModel.h>
 #include <hyperion/synthesis/ATermIlluminationFunction.h>
+#include <hyperion/synthesis/GridCoordinateTable.h>
 #include <hyperion/synthesis/FFT.h>
 
 #include <fftw3.h>
@@ -65,11 +66,23 @@ public:
 
   /**
    * compute the ATerm convolution functions
+   *
+   * @param ctx Legion Context
+   * @param rt Legion Runtime
+   * @param gc grid coordinate system
+   * @param zernike_coefficients unordered vector of Zernike
+   *                             expansion coefficients
+   *
+   * The grid coordinate system should normally be based on a
+   * casacore::LinearCoordinate of rank 2, with radius equal to 1.0. Note that
+   * the gc value is not a const referenence, as this method creates additional
+   * columns in gc.
    */
   void
   compute_cfs(
     Legion::Context ctx,
     Legion::Runtime* rt,
+    GridCoordinateTable& gc,
     const std::vector<ZCoeff>& zernike_coefficients,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 

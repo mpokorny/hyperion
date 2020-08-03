@@ -46,19 +46,15 @@ const constexpr char* ATermIlluminationFunction::EPT_Y_NAME;
 #define USE_KOKKOS_OPENMP_COMPUTE_AIFS_TASK // undef to disable
 #define USE_KOKKOS_CUDA_COMPUTE_AIFS_TASK // undef to disable
 
-GridCoordinateTable
-ATermIlluminationFunction::create_epts_table(
+void
+ATermIlluminationFunction::add_epts_columns(
   Context ctx,
   Runtime* rt,
-  const size_t& grid_size,
-  const std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>&
-    parallactic_angles) {
+  GridCoordinateTable& gc) {
 
-  GridCoordinateTable result(ctx, rt, grid_size, parallactic_angles);
   Rect<GridCoordinateTable::coord_rank> w_rect(
     rt->get_index_space_domain(
-      result.columns()
-      .at(GridCoordinateTable::COORD_X_NAME).cs.column_is));
+      gc.columns().at(GridCoordinateTable::COORD_X_NAME).cs.column_is));
   Rect<ept_rank> ept_rect;
   for (size_t i = 0; i < GridCoordinateTable::coord_rank; ++i) {
     ept_rect.lo[i] = w_rect.lo[i];
@@ -78,66 +74,33 @@ ATermIlluminationFunction::create_epts_table(
     {{ept_cs,
       {{EPT_X_NAME, TableField(ValueType<ept_t>::DataType, EPT_X_FID)},
        {EPT_Y_NAME, TableField(ValueType<ept_t>::DataType, EPT_Y_FID)}}}};
-  result.add_columns(ctx, rt, std::move(tflds));
+  gc.add_columns(ctx, rt, std::move(tflds));
   rt->destroy_index_space(ctx, is);
-  return result;
 }
 
-GridCoordinateTable
+void
 ATermIlluminationFunction::compute_epts(
   Context ctx,
   Runtime* rt,
+  GridCoordinateTable& gc,
   const ColumnSpacePartition& partition) const {
 
-  Rect<cf_rank> value_rect(
-    rt->get_index_space_domain(
-      columns().at(CF_VALUE_COLUMN_NAME).region.get_index_space()));
-  size_t grid_size =
-    static_cast<size_t>(value_rect.hi[0] - value_rect.lo[0]) + 1;
-  assert(
-    grid_size == static_cast<size_t>(value_rect.hi[1] - value_rect.lo[1]) + 1);
-  std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>
-    parallactic_angles;
-  {
-    auto reqs = Column::default_requirements;
-    reqs.values.privilege = READ_ONLY;
-    reqs.values.mapped = true;
-    auto pt =
-      map_inline(
-        ctx,
-        rt,
-        {{cf_table_axis<CF_PARALLACTIC_ANGLE>::name, reqs}},
-        CXX_OPTIONAL_NAMESPACE::nullopt);
-    auto tbl =
-      CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pt);
-    auto pa_col = tbl.parallactic_angle<AffineAccessor>();
-    auto pas = pa_col.accessor<READ_ONLY>();
-    for (PointInRectIterator<1> pir(pa_col.rect()); pir(); pir++)
-      parallactic_angles.push_back(pas[*pir]);
-    pt.unmap_regions(ctx, rt);
-  }
-  auto result = create_epts_table(ctx, rt, grid_size, parallactic_angles);
-
-  // Because GridCoordinateTable::compute_coordinates() has only a
-  // serial implementation, while compute_epts_task has a Kokkos implementation
-  // that can execute in OpenMP or Cuda, we don't fuse these two tasks even
-  // though the tasks might be on the small side.  TODO: revisit this design
-  result.compute_coordinates(ctx, rt, cc::LinearCoordinate(2), 1.0, partition);
+  add_epts_columns(ctx, rt, gc);
 
   // compute grid coordinates via augmented GridCoordinateTable
   {
     auto ro_colreqs = Column::default_requirements;
-    ro_colreqs.values.privilege = READ_ONLY;
+    ro_colreqs.values.privilege = LEGION_READ_ONLY;
     ro_colreqs.values.mapped = true;
     auto wd_colreqs = Column::default_requirements;
-    wd_colreqs.values.privilege = WRITE_DISCARD;
+    wd_colreqs.values.privilege = LEGION_WRITE_DISCARD;
     wd_colreqs.values.mapped = true;
     auto part =
-      result.columns().at(GridCoordinateTable::COORD_X_NAME)
+      gc.columns().at(GridCoordinateTable::COORD_X_NAME)
       .narrow_partition(ctx, rt, partition)
       .value_or(ColumnSpacePartition());
     auto reqs =
-      result.requirements(
+      gc.requirements(
         ctx,
         rt,
         part,
@@ -179,7 +142,6 @@ ATermIlluminationFunction::compute_epts(
     if (part.is_valid() && part != partition)
       part.destroy(ctx, rt);
   }
-  return result;
 }
 
 void
@@ -335,11 +297,20 @@ ATermIlluminationFunction::compute_fft(
   args.flags = fftw_flags;
   for (auto& fid : {CFTableBase::CF_VALUE_FID, CFTableBase::CF_WEIGHT_FID}) {
     // FFT::in_place needs a simple RegionRequirement: find the requirement for
-    // the column
+    // the column, copy it, and ensure the copy includes just the desired field
     RegionRequirement req;
-    for (auto& r : treqs)
-      if (r.privilege_fields.count(fid) > 0)
+    for (auto& r : treqs) {
+      if (r.privilege_fields.count(fid) > 0) {
         req = r;
+        req.privilege_fields.clear();
+        req.privilege_fields.insert(fid);
+        req.instance_fields.clear();
+        if (std::find(r.instance_fields.begin(), r.instance_fields.end(), fid)
+            != r.instance_fields.end())
+          req.instance_fields.push_back(fid);
+        break;
+      }
+    }
     assert(req.privilege_fields.size() == 1);
     args.fid = fid;
     if (!partition.is_valid()) {
@@ -459,22 +430,20 @@ void
 ATermIlluminationFunction::compute_jones(
   Context ctx,
   Runtime* rt,
+  GridCoordinateTable& gc,
   const ATermZernikeModel& zmodel,
   const ColumnSpacePartition& partition,
   unsigned fftw_flags,
   double fftw_timelimit) const {
 
-  // first create an augmented GridCoordinateTable helper table
-  auto gc = compute_epts(ctx, rt, partition);
+  // add "ept" columns to gc table
+  compute_epts(ctx, rt, gc, partition);
 
   // execute compute_aifs_task
   compute_aifs(ctx, rt, zmodel, gc, partition);
 
   // FFT on the values region
   compute_fft(ctx, rt, partition, fftw_flags, fftw_timelimit);
-
-  // destroy gc table
-  gc.destroy(ctx, rt);
 }
 
 #define USE_KOKKOS_VARIANT(V, T)                \
