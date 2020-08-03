@@ -36,9 +36,10 @@ cfcompute_task(
   Runtime* rt) {
 
   const size_t grid_size = 4;
+  const double cf_radius = static_cast<double>(grid_size) / 2;
 
   GridCoordinateTable lc(ctx, rt, grid_size, {0.0});
-  lc.compute_coordinates(ctx, rt, cc::LinearCoordinate(2), 1.0);
+  lc.compute_coordinates(ctx, rt, cc::LinearCoordinate(2), cf_radius);
 
   PSTermTable ps(ctx, rt, grid_size, {0.16, 0.08});
   ps.compute_cfs(ctx, rt, lc);
