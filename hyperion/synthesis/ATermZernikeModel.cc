@@ -187,7 +187,7 @@ ATermZernikeModel::init_zc_region(
             [&baseline_class](auto& zc) {
               return zc.baseline_class == baseline_class;
             });
-        for (size_t sto = 0; sto <= stokes_values.size(); ++sto) {
+        for (size_t sto = 0; sto < stokes_values.size(); ++sto) {
           auto& stokes_value = stokes_values[sto];
           auto zcs_blc_sto_end =
             std::partition(
@@ -196,7 +196,7 @@ ATermZernikeModel::init_zc_region(
               [&stokes_value](auto& zc) {
                 return zc.stokes == stokes_value;
               });
-          for (size_t frq = 0; frq <= frequencies.size(); ++frq) {
+          for (size_t frq = 0; frq < frequencies.size(); ++frq) {
             auto frequency = frequencies[frq];
             // first, we determine the nearest frequency in zernike_coefficients
             auto nearest_frequency =
