@@ -158,20 +158,20 @@ public:
       .weight<Legion::AffineAccessor>()
       .view<execution_space, LEGION_WRITE_ONLY>();
 
-    auto wcs_x_col =
-      GridCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-        *gc_tbl.column(GridCoordinateTable::WORLD_X_NAME).value());
-    auto i_pa = wcs_x_col.rect().lo[GridCoordinateTable::d_pa];
-    auto wcs_x =
+    auto cs_x_col =
+      GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+        *gc_tbl.column(GridCoordinateTable::COORD_X_NAME).value());
+    auto i_pa = cs_x_col.rect().lo[GridCoordinateTable::d_pa];
+    auto cs_x =
       Kokkos::subview(
-        wcs_x_col.view<execution_space, LEGION_READ_ONLY>(),
+        cs_x_col.view<execution_space, LEGION_READ_ONLY>(),
         i_pa,
         Kokkos::ALL,
         Kokkos::ALL);
-    auto wcs_y =
+    auto cs_y =
       Kokkos::subview(
-        GridCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-          *gc_tbl.column(GridCoordinateTable::WORLD_Y_NAME).value())
+        GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+          *gc_tbl.column(GridCoordinateTable::COORD_Y_NAME).value())
         .view<execution_space, LEGION_READ_ONLY>(),
         i_pa,
         Kokkos::ALL,
@@ -188,8 +188,8 @@ public:
         Legion::coord_t i_ps,
         Legion::coord_t i_x,
         Legion::coord_t i_y) {
-        const cf_fp_t x = wcs_x(i_x, i_y);
-        const cf_fp_t y = wcs_y(i_x, i_y);
+        const cf_fp_t x = cs_x(i_x, i_y);
+        const cf_fp_t y = cs_y(i_x, i_y);
         const cf_fp_t rs = std::sqrt(x * x + y * y) * ps_scales(i_ps);
         if (rs <= (cf_fp_t)1.0) {
           const cf_fp_t v = spheroidal(rs) * ((cf_fp_t)1.0 - rs * rs);

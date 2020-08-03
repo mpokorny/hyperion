@@ -27,11 +27,11 @@ namespace cc = casacore;
 
 #if !HAVE_CXX17
 const constexpr unsigned GridCoordinateTable::d_pa;
-const constexpr unsigned GridCoordinateTable::worldc_rank;
-const constexpr Legion::FieldID GridCoordinateTable::WORLD_X_FID;
-const constexpr Legion::FieldID GridCoordinateTable::WORLD_Y_FID;
-const constexpr char* GridCoordinateTable::WORLD_X_NAME;
-const constexpr char* GridCoordinateTable::WORLD_Y_NAME;
+const constexpr unsigned GridCoordinateTable::coord_rank;
+const constexpr Legion::FieldID GridCoordinateTable::COORD_X_FID;
+const constexpr Legion::FieldID GridCoordinateTable::COORD_Y_FID;
+const constexpr char* GridCoordinateTable::COORD_X_NAME;
+const constexpr char* GridCoordinateTable::COORD_Y_NAME;
 #endif
 
 GridCoordinateTable::GridCoordinateTable(
@@ -48,11 +48,11 @@ GridCoordinateTable::GridCoordinateTable(
   , m_grid_size(grid_size) {
 
   auto cs = columns().at(CF_VALUE_COLUMN_NAME).cs;
-  auto dt = ValueType<worldc_t>::DataType;
+  auto dt = ValueType<GridCoordinateTable::coord_t>::DataType;
   Table::fields_t tflds =
     {{cs,
-      {{WORLD_X_NAME, TableField(dt, WORLD_X_FID)},
-       {WORLD_Y_NAME, TableField(dt, WORLD_Y_FID)}}}};
+      {{COORD_X_NAME, TableField(dt, COORD_X_FID)},
+       {COORD_Y_NAME, TableField(dt, COORD_Y_FID)}}}};
   add_columns(ctx, rt, std::move(tflds));
 }
 
@@ -75,8 +75,8 @@ GridCoordinateTable::compute_coordinates(
       ctx,
       rt,
       partition,
-      {{WORLD_X_NAME, wd_colreqs},
-       {WORLD_Y_NAME, wd_colreqs},
+      {{COORD_X_NAME, wd_colreqs},
+       {COORD_Y_NAME, wd_colreqs},
        {cf_table_axis<CF_PARALLACTIC_ANGLE>::name, ro_colreqs}},
       CXX_OPTIONAL_NAMESPACE::nullopt);
 #if HAVE_CXX17
@@ -194,41 +194,41 @@ GridCoordinateTable::compute_coordinates_task(
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
-  auto dc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt);
-  // world coordinates columns
-  auto wx_col =
-    WorldCColumn<AffineAccessor>(*dc_tbl.column(WORLD_X_NAME).value());
-  auto wx_rect = wx_col.rect();
-  auto wxs = wx_col.accessor<WRITE_DISCARD>();
-  [[maybe_unused]] auto wys =
-    WorldCColumn<AffineAccessor>(*dc_tbl.column(WORLD_Y_NAME).value())
+  auto gc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt);
+  // coordinates columns
+  auto cx_col =
+    CoordColumn<AffineAccessor>(*gc_tbl.column(COORD_X_NAME).value());
+  auto cx_rect = cx_col.rect();
+  auto cxs = cx_col.accessor<WRITE_DISCARD>();
+  [[maybe_unused]] auto cys =
+    CoordColumn<AffineAccessor>(*gc_tbl.column(COORD_Y_NAME).value())
     .accessor<WRITE_DISCARD>();
 
   // parallactic angles
-  auto pas = dc_tbl.parallactic_angle<AffineAccessor>().accessor<READ_ONLY>();
+  auto pas = gc_tbl.parallactic_angle<AffineAccessor>().accessor<READ_ONLY>();
 
-  // I'd prefer to write the world coordinates directly into the physical region
+  // I'd prefer to write the coordinates directly into the physical region
   // using cc::LinearCoordinate::toWorldMany(), but that isn't possible
   // because I can't assign a region pointer with a given layout to a cc::Matrix
   // (in particular, the lack of offsets or strides in the cc::Matrix
   // constructor is a problem), so we use an auxiliary buffer
-  const size_t nx = wx_rect.hi[d_x] - wx_rect.lo[d_x] + 1;
-  const size_t ny = wx_rect.hi[d_y] - wx_rect.lo[d_y] + 1;
+  const size_t nx = cx_rect.hi[d_x] - cx_rect.lo[d_x] + 1;
+  const size_t ny = cx_rect.hi[d_y] - cx_rect.lo[d_y] + 1;
   cc::Matrix<double> pixel(2, nx * ny);
   for (size_t i = 0; i < nx * ny; ++i) {
-    pixel(0, i) = i / ny + wx_rect.lo[d_x] + 0.5;
-    pixel(1, i) = i % ny + wx_rect.lo[d_y] + 0.5;
+    pixel(0, i) = i / ny + cx_rect.lo[d_x] + 0.5;
+    pixel(1, i) = i % ny + cx_rect.lo[d_y] + 0.5;
   }
 
   cc::Matrix<double> world(2, nx * ny);
   bool delstorage;
-  const worldc_t* wcs = world.getStorage(delstorage);
+  const GridCoordinateTable::coord_t* wcs = world.getStorage(delstorage);
   cc::Vector<bool> failures(nx * ny);
 
-  Point<worldc_rank> wpt;
-  wpt[d_x] = wx_rect.lo[d_x];
-  wpt[d_y] = wx_rect.lo[d_y];
-  for (coord_t pa = wx_rect.lo[d_pa]; pa <= wx_rect.hi[d_pa]; ++pa) {
+  Point<coord_rank> cpt;
+  cpt[d_x] = cx_rect.lo[d_x];
+  cpt[d_y] = cx_rect.lo[d_y];
+  for (Legion::coord_t pa = cx_rect.lo[d_pa]; pa <= cx_rect.hi[d_pa]; ++pa) {
     // rotate coord0
     auto coord = std::unique_ptr<cc::LinearCoordinate>(
       dynamic_cast<cc::LinearCoordinate*>(coord0->rotate(-pas[pa])));
@@ -236,10 +236,13 @@ GridCoordinateTable::compute_coordinates_task(
     [[maybe_unused]] auto ok = coord->toWorldMany(world, pixel, failures);
     assert(ok);
     coord->makeWorldRelativeMany(world);
-    wpt[d_pa] = pa;
-    // assume an AOS layout of wxs/wys
-    assert(wxs.ptr(wpt) + 1 == wys.ptr(wpt));
-    std::memcpy(wxs.ptr(wpt), wcs, 2 * nx * ny * sizeof(worldc_t));
+    cpt[d_pa] = pa;
+    // assume an AOS layout of cxs/cys
+    assert(cxs.ptr(cpt) + 1 == cys.ptr(cpt));
+    std::memcpy(
+      cxs.ptr(cpt),
+      wcs,
+      2 * nx * ny * sizeof(GridCoordinateTable::coord_t));
   }
   pixel.freeStorage(wcs, delstorage);
 }

@@ -106,12 +106,12 @@ public:
    * disk, the values are p_i^0, p_i^1; outside, the values are 0, 0.
    */
   static const constexpr unsigned d_power =
-    GridCoordinateTable::worldc_rank;
+    GridCoordinateTable::coord_rank;
   static const constexpr unsigned ept_rank = d_power + 1;
   static const constexpr Legion::FieldID EPT_X_FID =
-    2 * GridCoordinateTable::WORLD_X_FID;
+    2 * GridCoordinateTable::COORD_X_FID;
   static const constexpr Legion::FieldID EPT_Y_FID =
-    2 * GridCoordinateTable::WORLD_Y_FID;
+    2 * GridCoordinateTable::COORD_Y_FID;
   static const constexpr char* EPT_X_NAME = "EPT_X";
   static const constexpr char* EPT_Y_NAME = "EPT_Y";
   typedef CFTableBase::cf_fp_t ept_t;
@@ -190,15 +190,15 @@ public:
 
     auto gc = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt);
 
-    // world coordinates columns
-    auto wx_col =
-      GridCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-        *gc.column(GridCoordinateTable::WORLD_X_NAME).value());
-    auto wx_rect = wx_col.rect();
-    auto wxs = wx_col.view<execution_space, READ_ONLY>();
-    auto wys =
-      GridCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-        *gc.column(GridCoordinateTable::WORLD_Y_NAME).value())
+    // coordinates columns
+    auto cx_col =
+      GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+        *gc.column(GridCoordinateTable::COORD_X_NAME).value());
+    auto cx_rect = cx_col.rect();
+    auto cxs = cx_col.view<execution_space, READ_ONLY>();
+    auto cys =
+      GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+        *gc.column(GridCoordinateTable::COORD_Y_NAME).value())
       .view<execution_space, READ_ONLY>();
 
     // polynomial function evaluation points columns
@@ -214,20 +214,20 @@ public:
 
     Kokkos::parallel_for(
       Kokkos::MDRangePolicy<
-        Kokkos::Rank<GridCoordinateTable::worldc_rank>,
+        Kokkos::Rank<GridCoordinateTable::coord_rank>,
         execution_space>(
           kokkos_work_space,
-          rect_lo(wx_rect),
-          rect_hi(wx_rect)),
+          rect_lo(cx_rect),
+          rect_hi(cx_rect)),
       KOKKOS_LAMBDA(Legion::coord_t pa, Legion::coord_t x, Legion::coord_t y) {
         // Outside of the unit disk, the function should evaluate to zero, which
         // is achieved by setting the X and Y vectors to zero.
-        auto& wx = wxs(pa, x, y);
-        auto& wy = wys(pa, x, y);
-        ept_t ept0 = ((wx * wx + wy * wy <= 1.0) ? 1.0 : 0.0);
+        auto& cx = cxs(pa, x, y);
+        auto& cy = cys(pa, x, y);
+        ept_t ept0 = ((cx * cx + cy * cy <= 1.0) ? 1.0 : 0.0);
         xpts(pa, x, y, 0) = ypts(pa, x, y, 0) = ept0;
-        xpts(pa, x, y, 1) = wx * ept0;
-        ypts(pa, x, y, 1) = wy * ept0;
+        xpts(pa, x, y, 1) = cx * ept0;
+        ypts(pa, x, y, 1) = cy * ept0;
       });
   }
 #else

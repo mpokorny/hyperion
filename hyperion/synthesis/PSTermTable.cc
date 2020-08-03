@@ -88,19 +88,19 @@ PSTermTable::compute_cfs_task(
   auto weight_col = ps_tbl.value<AffineAccessor>();
   auto weights = weight_col.accessor<WRITE_ONLY>();
 
-  auto wcs_x_col =
-    GridCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-      *gc_tbl.column(GridCoordinateTable::WORLD_X_NAME).value());
-  auto i_pa = wcs_x_col.rect().lo[GridCoordinateTable::d_pa];
-  auto wcs_x = wcs_x_col.accessor<LEGION_READ_ONLY>();
-  auto wcs_y =
-    GridCoordinateTable::WorldCColumn<Legion::AffineAccessor>(
-      *gc_tbl.column(GridCoordinateTable::WORLD_Y_NAME).value())
+  auto cs_x_col =
+    GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+      *gc_tbl.column(GridCoordinateTable::COORD_X_NAME).value());
+  auto i_pa = cs_x_col.rect().lo[GridCoordinateTable::d_pa];
+  auto cs_x = cs_x_col.accessor<LEGION_READ_ONLY>();
+  auto cs_y =
+    GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+      *gc_tbl.column(GridCoordinateTable::COORD_Y_NAME).value())
     .accessor<LEGION_READ_ONLY>();
 
   for (PointInRectIterator<3> pir(value_col.rect()); pir(); pir++) {
-    const cf_fp_t x = wcs_x(i_pa, pir[d_x], pir[d_y]);
-    const cf_fp_t y = wcs_y(i_pa, pir[d_x], pir[d_y]);
+    const cf_fp_t x = cs_x(i_pa, pir[d_x], pir[d_y]);
+    const cf_fp_t y = cs_y(i_pa, pir[d_x], pir[d_y]);
     const cf_fp_t rs = std::sqrt(x * x + y * y) * ps_scales[pir[d_ps]];
     if (rs <= (cf_fp_t)1.0) {
       const cf_fp_t v = spheroidal(rs) * ((cf_fp_t)1.0 - rs * rs);
@@ -157,8 +157,8 @@ PSTermTable::compute_cfs(
         ctx,
         rt,
         partition,
-        {{GridCoordinateTable::WORLD_X_NAME, ro_colreqs},
-         {GridCoordinateTable::WORLD_Y_NAME, ro_colreqs}},
+        {{GridCoordinateTable::COORD_X_NAME, ro_colreqs},
+         {GridCoordinateTable::COORD_Y_NAME, ro_colreqs}},
         CXX_OPTIONAL_NAMESPACE::nullopt);
 #if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;

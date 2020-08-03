@@ -39,31 +39,31 @@ public:
   static const constexpr unsigned d_pa = 0;
 
   /**
-   * columns of world coordinates
+   * columns of 2-d coordinates
    */
-  static const constexpr unsigned worldc_rank = d_y + 1;
-  static const constexpr Legion::FieldID WORLD_X_FID = 88;
-  static const constexpr Legion::FieldID WORLD_Y_FID = 89;
-  static const constexpr char* WORLD_X_NAME = "WORLD_X";
-  static const constexpr char* WORLD_Y_NAME = "WORLD_Y";
-  typedef double worldc_t; // type used by casacore::GridCoordinate
+  static const constexpr unsigned coord_rank = d_y + 1;
+  static const constexpr Legion::FieldID COORD_X_FID = 88;
+  static const constexpr Legion::FieldID COORD_Y_FID = 89;
+  static const constexpr char* COORD_X_NAME = "COORD_X";
+  static const constexpr char* COORD_Y_NAME = "COORD_Y";
+  typedef double coord_t; // type used by casacore::GridCoordinate
   template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=HYPERION_CHECK_BOUNDS>
-  using worldc_accessor_t =
+  using coord_accessor_t =
     Legion::FieldAccessor<
       MODE,
-      worldc_t,
-      worldc_rank,
+      coord_t,
+      coord_rank,
       Legion::coord_t,
-      Legion::AffineAccessor<worldc_t, worldc_rank, Legion::coord_t>,
+      Legion::AffineAccessor<coord_t, coord_rank, Legion::coord_t>,
       CHECK_BOUNDS>;
   template <
     template <typename, int, typename> typename A = Legion::GenericAccessor,
     typename COORD_T = Legion::coord_t>
-  using WorldCColumn =
+  using CoordColumn =
     PhysicalColumnTD<
-      ValueType<worldc_t>::DataType,
+      ValueType<coord_t>::DataType,
       index_rank,
-      worldc_rank,
+      coord_rank,
       A,
       COORD_T>;
 

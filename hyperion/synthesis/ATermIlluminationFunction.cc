@@ -55,12 +55,12 @@ ATermIlluminationFunction::create_epts_table(
     parallactic_angles) {
 
   GridCoordinateTable result(ctx, rt, grid_size, parallactic_angles);
-  Rect<GridCoordinateTable::worldc_rank> w_rect(
+  Rect<GridCoordinateTable::coord_rank> w_rect(
     rt->get_index_space_domain(
       result.columns()
-      .at(GridCoordinateTable::WORLD_X_NAME).cs.column_is));
+      .at(GridCoordinateTable::COORD_X_NAME).cs.column_is));
   Rect<ept_rank> ept_rect;
-  for (size_t i = 0; i < GridCoordinateTable::worldc_rank; ++i) {
+  for (size_t i = 0; i < GridCoordinateTable::coord_rank; ++i) {
     ept_rect.lo[i] = w_rect.lo[i];
     ept_rect.hi[i] = w_rect.hi[i];
   }
@@ -133,7 +133,7 @@ ATermIlluminationFunction::compute_epts(
     wd_colreqs.values.privilege = WRITE_DISCARD;
     wd_colreqs.values.mapped = true;
     auto part =
-      result.columns().at(GridCoordinateTable::WORLD_X_NAME)
+      result.columns().at(GridCoordinateTable::COORD_X_NAME)
       .narrow_partition(ctx, rt, partition)
       .value_or(ColumnSpacePartition());
     auto reqs =
@@ -141,8 +141,8 @@ ATermIlluminationFunction::compute_epts(
         ctx,
         rt,
         part,
-        {{GridCoordinateTable::WORLD_X_NAME, ro_colreqs},
-         {GridCoordinateTable::WORLD_Y_NAME, ro_colreqs},
+        {{GridCoordinateTable::COORD_X_NAME, ro_colreqs},
+         {GridCoordinateTable::COORD_Y_NAME, ro_colreqs},
          {EPT_X_NAME, wd_colreqs},
          {EPT_Y_NAME, wd_colreqs}},
         CXX_OPTIONAL_NAMESPACE::nullopt);
@@ -418,12 +418,12 @@ ATermIlluminationFunction::compute_epts_task(
   // world coordinates columns
   auto wx_col =
     GridCoordinateTable::WorldCColumn<AffineAccessor>(
-      *gc.column(GridCoordinateTable::WORLD_X_NAME).value());
+      *gc.column(GridCoordinateTable::COORD_X_NAME).value());
   auto wx_rect = wx_col.rect();
   auto wxs = wx_col.accessor<READ_ONLY>();
   auto wys =
     GridCoordinateTable::WorldCColumn<AffineAccessor>(
-      *gc.column(GridCoordinateTable::WORLD_Y_NAME).value())
+      *gc.column(GridCoordinateTable::COORD_Y_NAME).value())
     .accessor<READ_ONLY>();
 
   // polynomial function evaluation points columns
@@ -434,7 +434,7 @@ ATermIlluminationFunction::compute_epts_task(
     EPtColumn<AffineAccessor>(*gc.column(EPT_Y_NAME).value())
     .accessor<WRITE_DISCARD>();
 
-  for (PointInRectIterator<GridCoordinateTable::worldc_rank> pir(
+  for (PointInRectIterator<GridCoordinateTable::coord_rank> pir(
          wx_rect, false);
        pir();
        pir++) {
