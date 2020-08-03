@@ -96,12 +96,7 @@ GridCoordinateTable::compute_coordinates(
   coord->setReferencePixel(cc::Vector(cc::Block<double>(2, origin_p, false)));
   auto increment = (2 * cf_radius) / m_grid_size;
   coord->setIncrement(std::vector<double>{increment, increment});
-  {
-    auto r = coord->referencePixel();
-    std::cout << "ref " << r(0) << " " << r(1) << std::endl;
-    auto i = coord->increment();
-    std::cout << "inc " << i(0) << " " << i(1) << std::endl;
-  }
+
   switch (coord->type()) {
   case cc::Coordinate::LINEAR: {
     const cc::LinearCoordinate* lc =
@@ -179,12 +174,6 @@ GridCoordinateTable::compute_coordinates_task(
     direction_coordinate_serdez::deserialize(dc0, args.dc.data());
     coord0 = &dc0;
   }
-  {
-    auto r = coord0->referencePixel();
-    std::cout << ".ref " << r(0) << " " << r(1) << std::endl;
-    auto i = coord0->increment();
-    std::cout << ".inc " << i(0) << " " << i(1) << std::endl;
-  }
 
   auto ptcr =
     PhysicalTable::create(
@@ -229,9 +218,6 @@ GridCoordinateTable::compute_coordinates_task(
   for (size_t i = 0; i < nx * ny; ++i) {
     pixel(0, i) = i / ny + wx_rect.lo[d_x] + 0.5;
     pixel(1, i) = i % ny + wx_rect.lo[d_y] + 0.5;
-    std::cout << i << ":(" << pixel(0, i)
-              << "," << pixel(1, i) << ")"
-              << std::endl;
   }
 
   cc::Matrix<double> world(2, nx * ny);
@@ -250,11 +236,6 @@ GridCoordinateTable::compute_coordinates_task(
     [[maybe_unused]] auto ok = coord->toWorldMany(world, pixel, failures);
     assert(ok);
     coord->makeWorldRelativeMany(world);
-    for (size_t i = 0; i < nx * ny; ++i) {
-      std::cout << i << ":(" << world(0, i)
-                << "," << world(1, i) << ")"
-                << std::endl;
-    }
     wpt[d_pa] = pa;
     // assume an AOS layout of wxs/wys
     assert(wxs.ptr(wpt) + 1 == wys.ptr(wpt));
