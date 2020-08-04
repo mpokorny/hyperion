@@ -266,7 +266,7 @@ GridCoordinateTable::preregister_tasks() {
       constraints(
         FieldSpace::NO_SPACE,
         "GridCoordinateTable::compute_coordinates_constraints");
-    add_aos_left_ordering_constraint(constraints);
+    add_aos_right_ordering_constraint(constraints);
     constraints.add_constraint(SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
     registrar.add_layout_constraint_set(
       TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
