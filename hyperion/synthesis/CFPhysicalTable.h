@@ -395,7 +395,7 @@ struct IndexAxisHelper<CF_PS_SCALE> {
   index_axis(const CFPhysicalTable<T...>& pt) {
     std::vector<typename cf_table_axis<CF_PS_SCALE>::type> values;
     if (pt.has_ps_scale() && CFPhysicalTable<T...>::ps_scale_rank == 1) {
-      auto col = pt.ps_scale();
+      auto col = pt.template ps_scale<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
         values.push_back(acc[*pir]);
@@ -414,7 +414,7 @@ struct IndexAxisHelper<CF_BASELINE_CLASS> {
     std::vector<typename cf_table_axis<CF_BASELINE_CLASS>::type> values;
     if (pt.has_baseline_class()
         && CFPhysicalTable<T...>::baseline_class_rank == 1) {
-      auto col = pt.baseline_class();
+      auto col = pt.template baseline_class<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
         values.push_back(acc[*pir]);
@@ -432,7 +432,7 @@ struct IndexAxisHelper<CF_FREQUENCY> {
   index_axis(const CFPhysicalTable<T...>& pt) {
     std::vector<typename cf_table_axis<CF_FREQUENCY>::type> values;
     if (pt.has_frequency() && CFPhysicalTable<T...>::frequency_rank == 1) {
-      auto col = pt.frequency();
+      auto col = pt.template frequency<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
         values.push_back(acc[*pir]);
@@ -450,7 +450,7 @@ struct IndexAxisHelper<CF_W> {
   index_axis(const CFPhysicalTable<T...>& pt) {
     std::vector<typename cf_table_axis<CF_W>::type> values;
     if (pt.has_w() && CFPhysicalTable<T...>::w_rank == 1) {
-      auto col = pt.w();
+      auto col = pt.template w<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
         values.push_back(acc[*pir]);
@@ -469,7 +469,7 @@ struct IndexAxisHelper<CF_PARALLACTIC_ANGLE> {
     std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type> values;
     if (pt.has_parallactic_angle()
         && CFPhysicalTable<T...>::parallactic_angle_rank == 1) {
-      auto col = pt.parallactic_angle();
+      auto col = pt.template parallactic_angle<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
         values.push_back(acc[*pir]);
@@ -487,7 +487,7 @@ struct IndexAxisHelper<CF_STOKES_OUT> {
   index_axis(const CFPhysicalTable<T...>& pt) {
     std::vector<typename cf_table_axis<CF_STOKES_OUT>::type> values;
     if (pt.has_stokes_out() && CFPhysicalTable<T...>::stokes_out_rank == 1) {
-      auto col = pt.stokes_out();
+      auto col = pt.template stokes_out<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
         values.push_back(acc[*pir]);
@@ -505,7 +505,7 @@ struct IndexAxisHelper<CF_STOKES_IN> {
   index_axis(const CFPhysicalTable<T...>& pt) {
     std::vector<typename cf_table_axis<CF_STOKES_IN>::type> values;
     if (pt.has_stokes_in() && CFPhysicalTable<T...>::stokes_in_rank == 1) {
-      auto col = pt.stokes_in();
+      auto col = pt.template stokes_in<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
         values.push_back(acc[*pir]);
@@ -523,7 +523,7 @@ struct IndexAxisHelper<CF_STOKES> {
   index_axis(const CFPhysicalTable<T...>& pt) {
     std::vector<typename cf_table_axis<CF_STOKES>::type> values;
     if (pt.has_stokes() && CFPhysicalTable<T...>::stokes_rank == 1) {
-      auto col = pt.stokes();
+      auto col = pt.template stokes<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
         values.push_back(acc[*pir]);
