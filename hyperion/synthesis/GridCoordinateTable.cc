@@ -230,8 +230,9 @@ GridCoordinateTable::compute_coordinates_task(
   cpt[d_y] = cx_rect.lo[d_y];
   for (Legion::coord_t pa = cx_rect.lo[d_pa]; pa <= cx_rect.hi[d_pa]; ++pa) {
     // rotate coord0
-    auto coord = std::unique_ptr<cc::LinearCoordinate>(
-      dynamic_cast<cc::LinearCoordinate*>(coord0->rotate(-pas[pa])));
+    auto coord =
+      std::unique_ptr<cc::Coordinate>(
+        coord0->rotate(cc::Quantity(-pas[pa], "rad")));
     // do the conversions
     [[maybe_unused]] auto ok = coord->toWorldMany(world, pixel, failures);
     assert(ok);
