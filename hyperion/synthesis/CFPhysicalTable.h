@@ -533,16 +533,85 @@ struct IndexAxisHelper<CF_STOKES> {
   }
 };
 
-template <cf_table_axes_t A, cf_table_axes_t...T1, cf_table_axes_t...T2>
+/**
+ * hlist represents a compile-time, heterogeneous list
+ *
+ * This type is useful for iterating over the arguments of a variadic template
+ * function, with arguments that are themselves variadic template types.
+ *
+ * @todo move this class to hyperion namespace, and use it elsewhere
+ */
+template <typename...Ts>
+struct hlist {};
+
+struct hnil
+  : public hlist<> {
+  hnil() {}
+};
+
+template <typename T, typename...Ts>
+struct hcons;
+template <typename...Ts>
+struct hlist_tail;
+template <typename T, typename...Ts>
+struct hlist_tail<T, Ts...> {
+  typedef hcons<Ts...> type;
+};
+template <typename T>
+struct hlist_tail<T> {
+  typedef hnil type;
+};
+
+template <typename T, typename...Ts>
+struct hcons
+  : public hlist<T, Ts...> {
+  hcons(const T& t, const Ts&...ts)
+    : hd(t)
+    , tl(ts...) {}
+
+  const T& hd;
+  typename hlist_tail<T, Ts...>::type tl;
+};
+
+template <
+  cf_table_axes_t A,
+  cf_table_axes_t...A0,
+  typename...PTs,
+  std::enable_if_t<cf_indexing::includes<A, A0...>, int> = 0>
 CFTableBase::Axis<A>
-index_axis(const CFPhysicalTable<T1...>& t1, const CFPhysicalTable<T2...>& t2) {
-  auto result = IndexAxisHelper<A>::template index_axis<T1...>(t1);
-  if (result.values.size() == 0)
-    result = IndexAxisHelper<A>::template index_axis<T2...>(t2);
-  return result;
+index_axis_(const CFPhysicalTable<A0...>& pt0, const hlist<PTs...>&) {
+
+  return IndexAxisHelper<A>::template index_axis<A0...>(pt0);
 }
 
+template <
+  cf_table_axes_t A,
+  cf_table_axes_t...A0,
+  typename...PTs,
+  std::enable_if_t<!cf_indexing::includes<A, A0...>, int> = 0>
+CFTableBase::Axis<A>
+index_axis_(const CFPhysicalTable<A0...>& pt0, const hcons<PTs...>& hc) {
+
+  return index_axis_<A>(hc.hd, hc.tl);
+}
+
+template <
+  cf_table_axes_t A,
+  typename PT0,
+  typename...PTs,
+  std::enable_if_t<(sizeof...(PTs) > 0), int> = 0>
+CFTableBase::Axis<A>
+index_axis(const PT0& pt0, const PTs&... rest) {
+  return index_axis_<A>(pt0, hcons<PTs...>(rest...));
+}
+
+template <cf_table_axes_t A, typename PT0>
+CFTableBase::Axis<A>
+index_axis(const PT0& pt0) {
+  return index_axis_<A>(pt0, hnil());
+}
 } // end namespace synthesis
+
 } // end namespace hyperion
 
 #endif // HYPERION_SYNTHESIS_CF_PHYSICAL_TABLE_H_
