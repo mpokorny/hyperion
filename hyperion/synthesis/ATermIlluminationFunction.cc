@@ -297,7 +297,7 @@ ATermIlluminationFunction::compute_fft(
   args.rotate_out = true;
   args.seconds = fftw_timelimit;
   args.flags = fftw_flags;
-  for (auto& fid : {CFTableBase::CF_VALUE_FID, CFTableBase::CF_WEIGHT_FID}) {
+  for (auto& fid : {CFTableBase::CF_VALUE_FID/*, CFTableBase::CF_WEIGHT_FID*/}) {
     // FFT::in_place needs a simple RegionRequirement: find the requirement for
     // the column, copy it, and ensure the copy includes just the desired field
     RegionRequirement req;
