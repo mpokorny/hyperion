@@ -293,6 +293,8 @@ ATermIlluminationFunction::compute_fft(
      : FFT::Precision::DOUBLE);
   args.desc.transform = FFT::Type::C2C;
   args.desc.sign = -1;
+  args.rotate_in = false;
+  args.rotate_out = true;
   args.seconds = fftw_timelimit;
   args.flags = fftw_flags;
   for (auto& fid : {CFTableBase::CF_VALUE_FID, CFTableBase::CF_WEIGHT_FID}) {
@@ -331,6 +333,7 @@ ATermIlluminationFunction::compute_fft(
   for (auto& p : tparts)
     p.destroy(ctx, rt);
 }
+
 ATermIlluminationFunction::ATermIlluminationFunction(
   Context ctx,
   Runtime* rt,
