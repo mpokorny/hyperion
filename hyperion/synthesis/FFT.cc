@@ -22,6 +22,19 @@ using namespace hyperion;
 using namespace hyperion::synthesis;
 using namespace Legion;
 
+namespace stdex = std::experimental;
+
+template <typename T>
+using d1span =
+  stdex::mdspan<T, stdex::dynamic_extent>;
+template <typename T>
+using d2span =
+  stdex::mdspan<T, stdex::dynamic_extent, stdex::dynamic_extent>;
+template <typename T>
+using d3span =
+  stdex::mdspan<
+    T, stdex::dynamic_extent, stdex::dynamic_extent, stdex::dynamic_extent>;
+
 Mutex hyperion::synthesis::fftw_mutex;
 Mutex hyperion::synthesis::fftwf_mutex;
 
@@ -31,12 +44,14 @@ const constexpr char* FFT::in_place_task_name;
 const constexpr char* FFT::create_plan_task_name;
 const constexpr char* FFT::execute_fft_task_name;
 const constexpr char* FFT::destroy_plan_task_name;
+const constexpr char* FFT::rotate_arrays_task_name;
 #endif
 
 TaskID FFT::in_place_task_id;
 TaskID FFT::create_plan_task_id;
 TaskID FFT::execute_fft_task_id;
 TaskID FFT::destroy_plan_task_id;
+TaskID FFT::rotate_arrays_task_id;
 
 struct Params {
   std::vector<int> n;
@@ -165,6 +180,15 @@ in_place(
   plan_creator.enable_inlining = enable_inlined_planner_subtasks;
   auto plan = rt->execute_task(ctx, plan_creator);
 
+  // if args.rotate_in is true, then rotate the array half-sections
+  if (args.rotate_in) {
+    TaskLauncher rotator(
+      FFT::rotate_arrays_task_id,
+      TaskArgument(&args.desc, sizeof(args.desc)));
+    rotator.add_region_requirement(req);
+    rt->execute_task(ctx, rotator);
+  }
+
   // execute the FFT plan, dependency on plan future for sequencing
   TaskLauncher executor(
     FFT::execute_fft_task_id,
@@ -175,12 +199,21 @@ in_place(
   executor.add_future(plan);
   auto rc = rt->execute_task(ctx, executor);
 
-  // destroy the FFT plan, dependency on rc (and plan) future for sequencing
+  // destroy the FFT plan, use dependency on rc (and plan) future for sequencing
   if (!enable_inlined_planner_subtasks) {
     TaskLauncher plan_destroyer(FFT::destroy_plan_task_id, TaskArgument());
     plan_destroyer.add_future(plan);
     plan_destroyer.add_future(rc);
     rt->execute_task(ctx, plan_destroyer);
+  }
+
+  // if args.rotate_out is true, then rotate the array half-sections
+  if (args.rotate_out) {
+    TaskLauncher rotator(
+      FFT::rotate_arrays_task_id,
+      TaskArgument(&args.desc, sizeof(args.desc)));
+    rotator.add_region_requirement(req);
+    rt->execute_task(ctx, rotator);
   }
 }
 
@@ -469,6 +502,156 @@ FFT::cufft_destroy_plan(
 }
 #endif
 
+template <typename T>
+void
+rotate_1d_array(d1span<T> array, d1span<T> scratch) {
+  const long fullsz = array.extent(0);
+  const long shift = fullsz / 2 + 1;
+
+  assert(scratch.extent(0) >= fullsz);
+  for (long i = 0; i < fullsz; ++i)
+    scratch(i) = array((i + shift) % fullsz);
+  for (long i = 0; i < fullsz; ++i)
+    array(i) = scratch(i);
+}
+
+template <typename T>
+void
+rotate_2d_array(d2span<T> array, d2span<T> scratch) {
+  std::array<long, 2> fullsz{array.extent(0), array.extent(1)};
+  std::array<long, 2> shift{fullsz[0] / 2 + 1, fullsz[1] / 2 + 1};
+
+  assert(scratch.extent(0) >= fullsz[0]);
+  assert(scratch.extent(1) >= fullsz[1]);
+  for (long i = 0; i < fullsz[0]; ++i) {
+    auto i1 = (i + shift[0]) % fullsz[0];
+    for (long j = 0; j < fullsz[1]; ++j)
+      scratch(i, j) = array(i1, (j + shift[1]) % fullsz[1]);
+  }
+  for (long i = 0; i < fullsz[0]; ++i)
+    for (long j = 0; j < fullsz[1]; ++j)
+      array(i, j) = scratch(i, j);
+}
+
+template <typename T>
+void
+rotate_3d_array(d3span<T> array, d3span<T> scratch) {
+  std::array<long, 3>
+    fullsz{array.extent(0), array.extent(1), array.extent(2)};
+  std::array<long, 3>
+    shift{fullsz[0] / 2 + 1, fullsz[1] / 2 + 1, fullsz[2] / 2 + 1};
+
+  assert(scratch.extent(0) >= fullsz[0]);
+  assert(scratch.extent(1) >= fullsz[1]);
+  assert(scratch.extent(1) >= fullsz[2]);
+  for (long i = 0; i < fullsz[0]; ++i) {
+    auto i1 = (i + shift[0]) % fullsz[0];
+    for (long j = 0; j < fullsz[1]; ++j) {
+      auto j1 = (j + shift[1]) % fullsz[1];
+      for (long k = 0; k < fullsz[2]; ++k)
+        scratch(i, j, k) = array(i1, j1, (k + shift[2]) % fullsz[2]);
+    }
+  }
+  for (long i = 0; i < fullsz[0]; ++i)
+    for (long j = 0; j < fullsz[1]; ++j)
+      for (long k = 0; j < fullsz[2]; ++k)
+        array(i, j, k) = scratch(i, j, k);
+}
+
+template <typename T, int N>
+static void
+rotate_arrays(
+  Context ctx,
+  Runtime* rt,
+  const FFT::Desc& desc,
+  const RegionRequirement& req,
+  const PhysicalRegion& region) {
+
+  // N.B: we're assuming that the array axes of the region are not partitioned
+  const FieldAccessor<
+    LEGION_READ_WRITE,
+    T,
+    N,
+    coord_t,
+    AffineAccessor<T, N, coord_t>,
+    HYPERION_CHECK_BOUNDS> acc(region, *req.privilege_fields.begin());
+
+  assert(0 < desc.rank && desc.rank <= 3);
+  Point<N> array_pt;
+  for (size_t i = 0; i < N; ++i)
+    array_pt[i] = -1;
+  Rect<N> rect(rt->get_index_space_domain(req.region.get_index_space()));
+  std::vector<long> array_dim;
+  size_t array_size = 1;
+  for (size_t i = desc.rank; i > 0; --i) {
+    array_dim.push_back(rect.hi[N - i] - rect.lo[N - i] + 1);
+    array_size *= static_cast<size_t>(array_dim.back());
+  }
+  // TODO: c++20: use make_unique_for_overwrite
+  auto scratch = std::make_unique<T[]>(array_size);
+  for (PointInRectIterator<N> pir(rect, false); pir(); pir++) {
+    // each of the iterator values in the outer N - desc.rank dimensions names
+    // a single array to rotate
+    if (!prefixes_match<N>(array_pt, *pir, N - desc.rank)) {
+      // save the indices for the current array
+      for (size_t i = 0; i < N; ++i)
+        array_pt[i] = pir[i];
+      switch (desc.rank) {
+      case 1:
+        rotate_1d_array(
+          d1span<T>(acc.ptr(*pir), array_dim[0]),
+          d1span<T>(scratch.get(), array_dim[0]));
+        break;
+      case 2:
+        rotate_2d_array(
+          d2span<T>(acc.ptr(*pir), array_dim[0], array_dim[1]),
+          d2span<T>(scratch.get(), array_dim[0], array_dim[1]));
+        break;
+      case 3:
+        rotate_3d_array(
+          d3span<T>(acc.ptr(*pir), array_dim[0], array_dim[1], array_dim[2]),
+          d3span<T>(scratch.get(), array_dim[0], array_dim[1], array_dim[2]));
+        break;
+      default:
+        assert(false);
+        break;
+      }
+    }
+  }
+}
+
+void
+FFT::rotate_arrays_task(
+  const Task* task,
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime* rt) {
+
+  const Desc& desc = *static_cast<const Desc*>(task->args);
+
+  assert(desc.transform == FFT::Type::C2C);
+  switch (task->regions[0].region.get_dim()) {
+#define ROTATE_ARRAYS(N)                                \
+  case N:                                               \
+    switch (desc.precision) {                           \
+    case FFT::Precision::SINGLE:                        \
+      ::rotate_arrays<complex<float>, N>(               \
+        ctx, rt, desc, task->regions[0], regions[0]);   \
+      break;                                            \
+    case FFT::Precision::DOUBLE:                        \
+      ::rotate_arrays<complex<double>, N>(              \
+        ctx, rt, desc, task->regions[0], regions[0]);   \
+      break;                                            \
+    }                                                   \
+    break;
+  HYPERION_FOREACH_N(ROTATE_ARRAYS);
+#undef ROTATE_ARRAYS
+  default:
+    assert(false);
+    break;
+  }
+}
+
 void
 FFT::preregister_tasks() {
 
@@ -618,6 +801,24 @@ FFT::preregister_tasks() {
         destroy_plan_task_name);
     }
 #endif
+  }
+  //
+  // rotate_arrays_task
+  //
+  {
+    rotate_arrays_task_id = Runtime::generate_static_task_id();
+
+    // have only a CPU variant at this time
+    {
+      TaskVariantRegistrar
+        registrar(rotate_arrays_task_id, rotate_arrays_task_name);
+      registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+      registrar.set_leaf();
+      registrar.add_layout_constraint_set(0, fftw_layout_id);
+      Runtime::preregister_task_variant<rotate_arrays_task>(
+        registrar,
+        rotate_arrays_task_name);
+    }
   }
 }
 

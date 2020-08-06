@@ -137,6 +137,10 @@ public:
   struct Args {
     Desc desc; /**< FFT descriptor */
     Legion::FieldID fid; /**< field in region */
+    /** true iff array half^n-sections should be rotated before FFT */
+    bool rotate_in;
+    /** true iff array half^n-sections should be rotated after FFT */
+    bool rotate_out;
     unsigned flags; /**< FFTW planner flags */
     double seconds; /**< FFTW planner time limit */
   };
@@ -235,6 +239,20 @@ public:
     Legion::Context ctx,
     Legion::Runtime* rt);
 #endif
+
+  /**
+   * task for rotatiing array values
+   */
+  static const constexpr char* rotate_arrays_task_name =
+    "FFT::rotate_arrays_task";
+  static Legion::TaskID rotate_arrays_task_id;
+
+  static void
+  rotate_arrays_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime* rt);
 
   static void
   preregister_tasks();
