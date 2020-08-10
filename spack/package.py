@@ -38,7 +38,7 @@ class Hyperion(CMakePackage):
     depends_on('cmake@3.13:', type='build')
 
     # Top-level hyperion variants
-    variant('max_dim', default='7', description='Maximum index space rank',
+    variant('max_dim', default='8', description='Maximum index space rank',
             values=('4','5','6','7','8','9'), multi=False)
     variant('casacore', default=True, description='Enable casacore support')
     variant('hdf5', default=True, description='Enable HDF5 support')

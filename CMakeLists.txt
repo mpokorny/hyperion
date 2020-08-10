@@ -38,7 +38,7 @@ option(USE_KOKKOS "Use Kokkos" OFF)
 option(BUILD_CASACORE "Build casacore" OFF)
 mark_as_advanced(BUILD_CASACORE)
 
-set(MAX_DIM 7 CACHE STRING "Maximum index space dimension")
+set(MAX_DIM 8 CACHE STRING "Maximum index space dimension")
 set_property(CACHE MAX_DIM PROPERTY STRINGS 1 2 3 4 5 6 7 8 9)
 
 set(BUILD_ARCH "native" CACHE STRING "Target CPU microarchitecture")
