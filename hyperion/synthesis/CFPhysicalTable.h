@@ -579,7 +579,7 @@ template <
   typename...PTs,
   std::enable_if_t<cf_indexing::includes<A, A0...>, int> = 0>
 CFTableBase::Axis<A>
-index_axis_(const CFPhysicalTable<A0...>& pt0, const hlist<PTs...>&) {
+index_axis_h(const CFPhysicalTable<A0...>& pt0, const hlist<PTs...>&) {
 
   return IndexAxisHelper<A>::template index_axis<A0...>(pt0);
 }
@@ -590,9 +590,9 @@ template <
   typename...PTs,
   std::enable_if_t<!cf_indexing::includes<A, A0...>, int> = 0>
 CFTableBase::Axis<A>
-index_axis_(const CFPhysicalTable<A0...>& pt0, const hcons<PTs...>& hc) {
+index_axis_h(const CFPhysicalTable<A0...>& pt0, const hcons<PTs...>& hc) {
 
-  return index_axis_<A>(hc.hd, hc.tl);
+  return index_axis_h<A>(hc.hd, hc.tl);
 }
 
 template <
@@ -602,13 +602,13 @@ template <
   std::enable_if_t<(sizeof...(PTs) > 0), int> = 0>
 CFTableBase::Axis<A>
 index_axis(const PT0& pt0, const PTs&... rest) {
-  return index_axis_<A>(pt0, hcons<PTs...>(rest...));
+  return index_axis_h<A>(pt0, hcons<PTs...>(rest...));
 }
 
 template <cf_table_axes_t A, typename PT0>
 CFTableBase::Axis<A>
 index_axis(const PT0& pt0) {
-  return index_axis_<A>(pt0, hnil());
+  return index_axis_h<A>(pt0, hnil());
 }
 } // end namespace synthesis
 
