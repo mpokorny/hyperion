@@ -43,6 +43,11 @@ public:
 
   static const constexpr unsigned row_rank = sizeof...(AXES);
 
+  size_t
+  grid_size() const {
+    return value().rect().hi[value_rank - 1] + 1;
+  }
+
   //
   // PS_SCALE
   //
@@ -573,6 +578,11 @@ struct hcons
   typename hlist_tail<T, Ts...>::type tl;
 };
 
+/**
+ * get the first index axis of a given type from a list of tables
+ *
+ * see index_axis() for a version without any \ref hlist arguments
+ */
 template <
   cf_table_axes_t A,
   cf_table_axes_t...A0,
@@ -595,6 +605,11 @@ index_axis_h(const CFPhysicalTable<A0...>& pt0, const hcons<PTs...>& hc) {
   return index_axis_h<A>(hc.hd, hc.tl);
 }
 
+/**
+ * get the first index axis of a given type from a list of tables
+ *
+ * see index_axis_h() for a version with an \ref hlist argument
+ */
 template <
   cf_table_axes_t A,
   typename PT0,
@@ -610,6 +625,7 @@ CFTableBase::Axis<A>
 index_axis(const PT0& pt0) {
   return index_axis_h<A>(pt0, hnil());
 }
+
 } // end namespace synthesis
 
 } // end namespace hyperion
