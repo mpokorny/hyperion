@@ -99,6 +99,21 @@ public:
     const std::vector<Legion::PhysicalRegion>::const_iterator& prs_begin,
     const std::vector<Legion::PhysicalRegion>::const_iterator& prs_end);
 
+  static std::vector<PhysicalTable>
+  create_all_unsafe(
+    Legion::Runtime *rt,
+    const std::vector<Table::Desc>& desc,
+    const std::vector<Legion::RegionRequirement>& reqs,
+    const std::vector<Legion::PhysicalRegion>& prs) {
+
+    auto ptcrs =
+      create_many(rt, desc, reqs.begin(), reqs.end(), prs.begin(), prs.end())
+      .value();
+    assert(std::get<1>(ptcrs) == reqs.end());
+    assert(std::get<2>(ptcrs) == prs.end());
+    return std::get<0>(ptcrs);
+  }
+
   Table
   table(Legion::Context ctx, Legion::Runtime* rt) const;
 
