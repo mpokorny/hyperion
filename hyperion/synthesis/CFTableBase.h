@@ -127,6 +127,9 @@ struct cf_table_axis<CF_ORDER1> {
   static const constexpr char* name = "ORDER1";
 };
 
+HYPERION_EXPORT const char*
+cf_table_axis_name(cf_table_axes_t ax);
+
 class HYPERION_EXPORT CFTableBase
   : public hyperion::Table {
 public:

@@ -68,6 +68,37 @@ constexpr const char* CFTableBase::CF_WEIGHT_COLUMN_NAME;
 
 #endif // !HAVE_CXX17
 
+const char*
+hyperion::synthesis::cf_table_axis_name(cf_table_axes_t ax) {
+  switch (ax) {
+  case CF_PS_SCALE:
+    return cf_table_axis<CF_PS_SCALE>::name;
+  case CF_BASELINE_CLASS:
+    return cf_table_axis<CF_BASELINE_CLASS>::name;
+  case CF_FREQUENCY:
+    return cf_table_axis<CF_FREQUENCY>::name;
+  case CF_W:
+    return cf_table_axis<CF_W>::name;
+  case CF_PARALLACTIC_ANGLE:
+    return cf_table_axis<CF_PARALLACTIC_ANGLE>::name;
+  case CF_STOKES_OUT:
+    return cf_table_axis<CF_STOKES_OUT>::name;
+  case CF_STOKES_IN:
+    return cf_table_axis<CF_STOKES_IN>::name;
+  case CF_STOKES:
+    return cf_table_axis<CF_STOKES>::name;
+  case CF_X:
+    return cf_table_axis<CF_X>::name;
+  case CF_Y:
+    return cf_table_axis<CF_Y>::name;
+  case CF_ORDER0:
+    return cf_table_axis<CF_ORDER0>::name;
+  case CF_ORDER1:
+    return cf_table_axis<CF_ORDER1>::name;
+  }
+  return nullptr;
+}
+
 template <typename T>
 size_t
 vector_serialized_size(const std::vector<T>& v) {
