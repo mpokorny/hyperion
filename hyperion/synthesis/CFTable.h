@@ -35,6 +35,11 @@ public:
   static const constexpr unsigned d_y = d_x + 1;
   static const constexpr unsigned cf_rank = d_y + 1;
 
+  CFTable() {}
+
+  CFTable(const CFTable& t)
+    : CFTableBase(t) {}
+
   CFTable(hyperion::Table&& t)
     : CFTableBase(std::move(t)) {}
 
