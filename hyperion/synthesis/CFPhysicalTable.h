@@ -43,6 +43,21 @@ public:
 
   static const constexpr unsigned row_rank = sizeof...(AXES);
 
+  template <cf_table_axes_t A>
+  static constexpr bool
+  has_index_axis() {
+    return cf_indexing::includes<A, AXES...>;
+  }
+
+  template <cf_table_axes_t A>
+  static constexpr int
+  index_axis_index() {
+    return std::conditional<
+      cf_indexing::includes<A, AXES...>,
+      typename cf_indexing::index_of<A, AXES...>::type,
+      std::integral_constant<int, -1>>::type::value;
+  }
+
   size_t
   grid_size() const {
     return value().rect().hi[value_rank - 1] + 1;
