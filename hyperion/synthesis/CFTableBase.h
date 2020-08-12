@@ -337,6 +337,80 @@ struct CFTableBase::InitIndexColumnTaskArgs::initializer<T0, T1, Axes...> {
   }
 };
 
+#ifdef HYPERION_USE_KOKKOS
+#if LEGION_MAX_DIM >= 1
+template <typename V, typename XS, typename YS>
+KOKKOS_INLINE_FUNCTION static auto
+cf_subview(const V& v, const array<coord_t, 1>& pt, XS&& xs, YS&& ys) {
+
+  return Kokkos::subview(
+    v,
+    pt[0],
+    std::forward<XS>(xs), std::forward<YS>(ys));
+}
+#endif
+
+#if LEGION_MAX_DIM >= 2
+template <typename V, typename XS, typename YS>
+KOKKOS_INLINE_FUNCTION static auto
+cf_subview(const V& v, const array<coord_t, 2>& pt, XS&& xs, YS&& ys) {
+
+  return Kokkos::subview(
+    v,
+    pt[0], pt[1],
+    std::forward<XS>(xs), std::forward<YS>(ys));
+}
+#endif
+
+#if LEGION_MAX_DIM >= 3
+template <typename V, typename XS, typename YS>
+KOKKOS_INLINE_FUNCTION static auto
+cf_subview(const V& v, const array<coord_t, 3>& pt, XS&& xs, YS&& ys) {
+
+  return Kokkos::subview(
+    v,
+    pt[0], pt[1], pt[2],
+    std::forward<XS>(xs), std::forward<YS>(ys));
+}
+#endif
+
+#if LEGION_MAX_DIM >= 4
+template <typename V, typename XS, typename YS>
+KOKKOS_INLINE_FUNCTION static auto
+cf_subview(const V& v, const array<coord_t, 4>& pt, XS&& xs, YS&& ys) {
+
+  return Kokkos::subview(
+    v,
+    pt[0], pt[1], pt[2], pt[3],
+    std::forward<XS>(xs), std::forward<YS>(ys));
+}
+#endif
+
+#if LEGION_MAX_DIM >= 5
+template <typename V, typename XS, typename YS>
+KOKKOS_INLINE_FUNCTION static auto
+cf_subview(const V& v, const array<coord_t, 5>& pt, XS&& xs, YS&& ys) {
+
+  return Kokkos::subview(
+    v,
+    pt[0], pt[1], pt[2], pt[3], pt[4],
+    std::forward<XS>(xs), std::forward<YS>(ys));
+}
+#endif
+
+#if LEGION_MAX_DIM >= 6
+template <typename V, typename XS, typename YS>
+KOKKOS_INLINE_FUNCTION static auto
+cf_subview(const V& v, const array<coord_t, 6>& pt, XS&& xs, YS&& ys) {
+
+  return Kokkos::subview(
+    v,
+    pt[0], pt[1], pt[2], pt[3], pt[4], pt[5],
+    std::forward<XS>(xs), std::forward<YS>(ys));
+}
+#endif
+#endif // HYPERION_USE_KOKKOS
+
 } // end namespace synthesis
 } // end namespace hyperion
 
