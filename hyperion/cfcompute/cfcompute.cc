@@ -17,6 +17,7 @@
 #include <hyperion/synthesis/WTermTable.h>
 #include <hyperion/synthesis/ATermTable.h>
 #include <hyperion/synthesis/CFPhysicalTable.h>
+#include <hyperion/PhysicalTableGuard.h>
 
 using namespace hyperion::synthesis;
 using namespace hyperion;
@@ -307,14 +308,16 @@ std::vector<ZCoeff> zc{
 
 template <cf_table_axes_t...Axes, typename PT0, typename...PTs>
 CFTable<Axes...>
-product_table(
+product_table_pt(
   Context ctx,
   Runtime* rt,
   const PT0& pt0,
   const PTs&...pts) {
 
   auto grid_sizes =
-    std::array<size_t, sizeof...(PTs) + 1>{pt0.grid_size(), pts.grid_size()...};
+    std::array<size_t, sizeof...(PTs) + 1>{
+    pt0->grid_size(),
+    pts->grid_size()...};
   size_t grid_size = 0;
   for (auto& s : grid_sizes)
     grid_size = std::max(grid_size, s);
@@ -324,7 +327,25 @@ product_table(
       ctx,
       rt,
       grid_size,
-      index_axis_h<Axes>(pt0, hcons<PTs...>(pts...))...);
+      index_axis_h<Axes>(*pt0, hcons<typename PTs::table_t...>(*pts...))...);
+}
+
+template <cf_table_axes_t...Axes, typename...Ts>
+CFTable<Axes...>
+product_table(Context ctx, Runtime* rt, const Ts&...ts) {
+
+  auto colreqs = Column::default_requirements;
+  colreqs.values.mapped = true;
+  colreqs.values.privilege = LEGION_READ_ONLY;
+
+  return
+    product_table_pt<Axes...>(
+      ctx,
+      rt,
+      PhysicalTableGuard(
+        ctx,
+        rt,
+        typename Ts::physical_table_t(ts.map_inline(ctx, rt, {}, colreqs)))...);
 }
 
 template <unsigned INDEX_RANK>
@@ -863,26 +884,27 @@ cfcompute_task(
   show_cf_values(ctx, rt, "ATerm", a_tbl);
   a_coords.destroy(ctx, rt);
 
-  CFTable<CF_TABLE_AXES> cf_tbl;
-  {
-    auto colreqs = Column::default_requirements;
-    colreqs.values.mapped = true;
-    colreqs.values.privilege = LEGION_READ_ONLY;
+  CFTable<CF_TABLE_AXES> cf_tbl =
+    product_table<CF_TABLE_AXES>(ctx, rt, ps_tbl, w_tbl, a_tbl);
+  // {
+  //   auto colreqs = Column::default_requirements;
+  //   colreqs.values.mapped = true;
+  //   colreqs.values.privilege = LEGION_READ_ONLY;
 
-    auto ps_pt =
-      CFPhysicalTable<CF_PS_SCALE>(ps_tbl.map_inline(ctx, rt, {}, colreqs));
-    auto w_pt =
-      CFPhysicalTable<CF_W>(w_tbl.map_inline(ctx, rt, {}, colreqs));
-    auto a_pt =
-      CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>(
-        a_tbl.map_inline(ctx, rt, {}, colreqs));
+  //   auto ps_pt =
+  //     CFPhysicalTable<CF_PS_SCALE>(ps_tbl.map_inline(ctx, rt, {}, colreqs));
+  //   auto w_pt =
+  //     CFPhysicalTable<CF_W>(w_tbl.map_inline(ctx, rt, {}, colreqs));
+  //   auto a_pt =
+  //     CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>(
+  //       a_tbl.map_inline(ctx, rt, {}, colreqs));
 
-    cf_tbl = product_table<CF_TABLE_AXES>(ctx, rt, ps_pt, w_pt, a_pt);
+  //   cf_tbl = product_table<CF_TABLE_AXES>(ctx, rt, ps_pt, w_pt, a_pt);
 
-    ps_pt.unmap_regions(ctx, rt);
-    w_pt.unmap_regions(ctx, rt);
-    a_pt.unmap_regions(ctx, rt);
-  }
+  //   ps_pt.unmap_regions(ctx, rt);
+  //   w_pt.unmap_regions(ctx, rt);
+  //   a_pt.unmap_regions(ctx, rt);
+  // }
   {
     auto colreqs = Column::default_requirements;
     colreqs.values.mapped = true;
