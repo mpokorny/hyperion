@@ -17,6 +17,7 @@
 #include <hyperion/synthesis/WTermTable.h>
 #include <hyperion/synthesis/ATermTable.h>
 #include <hyperion/synthesis/CFPhysicalTable.h>
+#include <hyperion/synthesis/ProductCFTable.h>
 
 using namespace hyperion::synthesis;
 using namespace hyperion;
@@ -841,7 +842,7 @@ cfcompute_task(
   show_cf_values(ctx, rt, "ATerm", a_tbl);
   a_coords.destroy(ctx, rt);
 
-  auto cf_tbl = CFTable<CF_TABLE_AXES>::product(ctx, rt, ps_tbl, w_tbl, a_tbl);
+  auto cf_tbl = ProductCFTable<CF_TABLE_AXES>(ctx, rt, ps_tbl, w_tbl, a_tbl);
   {
     auto colreqs = Column::default_requirements;
     colreqs.values.mapped = true;
