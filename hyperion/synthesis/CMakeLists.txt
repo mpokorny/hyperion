@@ -21,4 +21,5 @@ target_sources(hyperion PRIVATE
   GridCoordinateTable.h
   GridCoordinateTable.cc
   FFT.h
-  FFT.cc)
+  FFT.cc
+  ProductCFTable.h)
