@@ -502,6 +502,62 @@ struct IncludeCFTermArgs {
   bool do_multiply;
 };
 
+template <cf_table_axes_t A, typename Left, typename Right>
+static HYPERION_INLINE_FUNCTION void
+set_index(
+  array<coord_t, Right::row_rank>& to,
+  const array<coord_t, Left::row_rank>& from) {
+
+  if (Right::template has_index_axis<A>())
+    to[Right::template index_axis_index<A>()] =
+      Left::template has_index_axis<A>()
+      ? from[Left::template index_axis_index<A>()]
+      : 0;
+}
+
+template <typename execution_space, typename Left, typename Right>
+static void
+include_impl(
+  Context ctx,
+  Runtime* rt,
+  bool do_multiply,
+  const Left& left,
+  const Right& right) {
+
+  auto prj =
+    KOKKOS_LAMBDA(const array<coord_t, Left::row_rank>& pt) {
+      array<coord_t, Right::row_rank> result;
+      set_index<CF_PS_SCALE, Left, Right>(result, pt);
+      set_index<CF_BASELINE_CLASS, Left, Right>(result, pt);
+      set_index<CF_FREQUENCY, Left, Right>(result, pt);
+      set_index<CF_W, Left, Right>(result, pt);
+      set_index<CF_PARALLACTIC_ANGLE, Left, Right>(result, pt);
+      set_index<CF_STOKES_OUT, Left, Right>(result, pt);
+      set_index<CF_STOKES_IN, Left, Right>(result, pt);
+      set_index<CF_STOKES, Left, Right>(result, pt);
+      return result;
+    };
+
+  cf_include<execution_space>(
+    ctx,
+    rt,
+    do_multiply,
+    left.template value<AffineAccessor>(),
+    left.grid_size(),
+    right.template value<AffineAccessor>(),
+    right.grid_size(),
+    prj);
+  cf_include<execution_space>(
+    ctx,
+    rt,
+    do_multiply,
+    left.template weight<AffineAccessor>(),
+    left.grid_size(),
+    right.template weight<AffineAccessor>(),
+    right.grid_size(),
+    prj);
+}
+
 template <typename execution_space>
 struct IncludePSTermTask{
 
@@ -518,34 +574,9 @@ struct IncludePSTermTask{
     auto pts =
       PhysicalTable::create_all_unsafe(rt, tdesc, task->regions, regions);
 
-    auto left = CFPhysicalTable<CF_TABLE_AXES>(pts[0]);
-    auto right = CFPhysicalTable<CF_PS_SCALE>(pts[1]);
-    cf_include<execution_space>(
-      ctx,
-      rt,
-      args.do_multiply,
-      left.value<AffineAccessor>(),
-      left.grid_size(),
-      right.value<AffineAccessor>(),
-      right.grid_size(),
-      [](const array<coord_t, d_x>& pt) {
-        array<coord_t, 1> result;
-        result[PSTermTable::d_ps] = 0;
-        return result;
-      });
-    cf_include<execution_space>(
-      ctx,
-      rt,
-      args.do_multiply,
-      left.weight<AffineAccessor>(),
-      left.grid_size(),
-      right.weight<AffineAccessor>(),
-      right.grid_size(),
-      [](const array<coord_t, d_x>& pt) {
-        array<coord_t, 1> result;
-        result[PSTermTable::d_ps] = 0;
-        return result;
-      });
+    CFPhysicalTable<CF_TABLE_AXES> left(pts[0]);
+    CFPhysicalTable<CF_PS_SCALE> right(pts[1]);
+    include_impl<execution_space>(ctx, rt, args.do_multiply, left, right);
   }
 };
 
@@ -565,34 +596,9 @@ struct IncludeWTermTask{
     auto pts =
       PhysicalTable::create_all_unsafe(rt, tdesc, task->regions, regions);
 
-    auto left = CFPhysicalTable<CF_TABLE_AXES>(pts[0]);
-    auto right = CFPhysicalTable<CF_W>(pts[1]);
-    cf_include<execution_space>(
-      ctx,
-      rt,
-      args.do_multiply,
-      left.value<AffineAccessor>(),
-      left.grid_size(),
-      right.value<AffineAccessor>(),
-      right.grid_size(),
-      [](const array<coord_t, d_x>& pt) {
-        array<coord_t, 1> result;
-        result[WTermTable::d_w] = pt[d_w];
-        return result;
-      });
-    cf_include<execution_space>(
-      ctx,
-      rt,
-      args.do_multiply,
-      left.weight<AffineAccessor>(),
-      left.grid_size(),
-      right.weight<AffineAccessor>(),
-      right.grid_size(),
-      [](const array<coord_t, d_x>& pt) {
-        array<coord_t, 1> result;
-        result[WTermTable::d_w] = pt[d_w];
-        return result;
-      });
+    CFPhysicalTable<CF_TABLE_AXES> left(pts[0]);
+    CFPhysicalTable<CF_W> right(pts[1]);
+    include_impl<execution_space>(ctx, rt, args.do_multiply, left, right);
   }
 };
 
@@ -612,42 +618,9 @@ struct IncludeATermTask {
     auto pts =
       PhysicalTable::create_all_unsafe(rt, tdesc, task->regions, regions);
 
-    auto left = CFPhysicalTable<CF_TABLE_AXES>(pts[0]);
-    auto right = CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>(pts[1]);
-    cf_include<execution_space>(
-      ctx,
-      rt,
-      args.do_multiply,
-      left.value<AffineAccessor>(),
-      left.grid_size(),
-      right.value<AffineAccessor>(),
-      right.grid_size(),
-      [](const array<coord_t, d_x>& pt) {
-        array<coord_t, ATermTable::index_rank> result;
-        result[ATermTable::d_blc] = pt[d_blc];
-        result[ATermTable::d_frq] = pt[d_frq];
-        result[ATermTable::d_pa] = pt[d_pa];
-        result[ATermTable::d_sto_out] = pt[d_sto_out];
-        result[ATermTable::d_sto_in] = pt[d_sto_in];
-        return result;
-      });
-    cf_include<execution_space>(
-      ctx,
-      rt,
-      args.do_multiply,
-      left.weight<AffineAccessor>(),
-      left.grid_size(),
-      right.weight<AffineAccessor>(),
-      right.grid_size(),
-      [](const array<coord_t, d_x>& pt) {
-        array<coord_t, ATermTable::index_rank> result;
-        result[ATermTable::d_blc] = pt[d_blc];
-        result[ATermTable::d_frq] = pt[d_frq];
-        result[ATermTable::d_pa] = pt[d_pa];
-        result[ATermTable::d_sto_out] = pt[d_sto_out];
-        result[ATermTable::d_sto_in] = pt[d_sto_in];
-        return result;
-      });
+    CFPhysicalTable<CF_TABLE_AXES> left(pts[0]);
+    CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES> right(pts[1]);
+    include_impl<execution_space>(ctx, rt, args.do_multiply, left, right);
   }
 };
 
