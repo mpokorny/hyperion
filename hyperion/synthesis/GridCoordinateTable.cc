@@ -138,6 +138,7 @@ GridCoordinateTable::compute_coordinates(
       ta,
       ArgumentMap(),
       Predicate::TRUE_PRED,
+      false,
       table_mapper);
     for (auto& r : treqs)
       task.add_region_requirement(r);

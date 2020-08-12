@@ -448,6 +448,7 @@ ATermTable::compute_cfs(
       TaskArgument(&args, sizeof(args)),
       ArgumentMap(),
       Predicate::TRUE_PRED,
+      false,
       table_mapper);
     for (auto& r : all_reqs)
       task.add_region_requirement(r);

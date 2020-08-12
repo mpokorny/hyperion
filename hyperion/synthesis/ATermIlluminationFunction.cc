@@ -132,6 +132,7 @@ ATermIlluminationFunction::compute_epts(
         TaskArgument(&tdesc, sizeof(tdesc)),
         ArgumentMap(),
         Predicate::TRUE_PRED,
+        false,
         table_mapper);
       for (auto& r : treqs)
         task.add_region_requirement(r);
@@ -249,6 +250,7 @@ ATermIlluminationFunction::compute_aifs(
       ta,
       ArgumentMap(),
       Predicate::TRUE_PRED,
+      false,
       table_mapper);
     for (auto& r : all_reqs)
       task.add_region_requirement(r);

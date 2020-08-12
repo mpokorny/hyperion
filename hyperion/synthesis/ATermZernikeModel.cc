@@ -284,6 +284,7 @@ ATermZernikeModel::compute_pcs(
       TaskArgument(&tdesc, sizeof(tdesc)),
       ArgumentMap(),
       Predicate::TRUE_PRED,
+      false,
       table_mapper);
     for (auto& r : treqs)
       task.add_region_requirement(r);
