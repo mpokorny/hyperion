@@ -55,6 +55,16 @@ const Column::Requirements Column::default_requirements{
   LogicalPartition::NO_PART
 };
 
+const Column::Requirements Column::default_requirements_mapped{
+  Column::Req{READ_ONLY, EXCLUSIVE, true},
+  Column::Req{READ_ONLY, EXCLUSIVE, true},
+  Column::Req{READ_ONLY, EXCLUSIVE, true},
+  Column::Req{READ_ONLY, EXCLUSIVE, true},
+  TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
+  0,
+  LogicalPartition::NO_PART
+};
+
 template <hyperion::TypeTag DT>
 static LogicalRegion
 index_column(

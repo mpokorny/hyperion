@@ -117,7 +117,7 @@ struct HYPERION_EXPORT Column {
   };
 
   /**
-   * Default Requirements
+   * Default Requirements (unmapped values)
    *
    * values = Req{READ_ONLY, EXCLUSIVE, false},
    * keywords = Req{READ_ONLY, EXCLUSIVE, true},
@@ -128,6 +128,19 @@ struct HYPERION_EXPORT Column {
    * partition = ColumnSpacePartition()
    */
   static const Requirements default_requirements;
+
+  /**
+   * Default Requirements (mapped values)
+   *
+   * values = Req{READ_ONLY, EXCLUSIVE, true},
+   * keywords = Req{READ_ONLY, EXCLUSIVE, true},
+   * measref = Req{READ_ONLY, EXCLUSIVE, true},
+   * column_space = Req{READ_ONLY, EXCLUSIVE, true},
+   * tag = TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
+   * projection = 0,
+   * partition = ColumnSpacePartition()
+   */
+  static const Requirements default_requirements_mapped;
 
   /**
    * Column descriptor
