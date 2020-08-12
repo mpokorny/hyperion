@@ -37,6 +37,46 @@ public:
 
   typedef CFPhysicalTable<AXES...> physical_table_t;
 
+  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=HYPERION_CHECK_BOUNDS>
+  using value_accessor_t =
+    Legion::FieldAccessor<
+      MODE,
+      cf_value_t,
+      cf_rank,
+      Legion::coord_t,
+      Legion::AffineAccessor<cf_value_t, cf_rank, Legion::coord_t>,
+      CHECK_BOUNDS>;
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  using ValueColumn =
+    PhysicalColumnTD<
+      ValueType<cf_value_t>::DataType,
+      index_rank,
+      cf_rank,
+      A,
+      COORD_T>;
+
+  template <Legion::PrivilegeMode MODE, bool CHECK_BOUNDS=HYPERION_CHECK_BOUNDS>
+  using weight_accessor_t =
+    Legion::FieldAccessor<
+      MODE,
+      cf_weight_t,
+      cf_rank,
+      Legion::coord_t,
+      Legion::AffineAccessor<cf_weight_t, cf_rank, Legion::coord_t>,
+      CHECK_BOUNDS>;
+  template <
+    template <typename, int, typename> typename A = Legion::GenericAccessor,
+    typename COORD_T = Legion::coord_t>
+  using WeightColumn =
+    PhysicalColumnTD<
+      ValueType<cf_weight_t>::DataType,
+      index_rank,
+      cf_rank,
+      A,
+      COORD_T>;
+
   CFTable() {}
 
   CFTable(const CFTable& t)
