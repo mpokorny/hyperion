@@ -35,6 +35,8 @@ public:
   static const constexpr unsigned d_y = d_x + 1;
   static const constexpr unsigned cf_rank = d_y + 1;
 
+  typedef CFPhysicalTable<AXES...> physical_table_t;
+
   CFTable() {}
 
   CFTable(const CFTable& t)
