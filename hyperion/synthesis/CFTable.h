@@ -18,6 +18,7 @@
 
 #include <hyperion/synthesis/CFTableBase.h>
 #include <hyperion/synthesis/CFPhysicalTable.h>
+#include <hyperion/PhysicalTableGuard.h>
 
 #include <memory>
 
@@ -156,6 +157,53 @@ public:
     }
 
     *this = std::move(tbl);
+  }
+
+protected:
+
+  template <typename PT0, typename...PTs>
+  static CFTable
+  product_pt(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const PT0& pt0,
+    const PTs&...pts) {
+
+    auto grid_sizes =
+      std::array<size_t, sizeof...(PTs) + 1>{
+      pt0->grid_size(),
+      pts->grid_size()...};
+    size_t grid_size = 0;
+    for (auto& s : grid_sizes)
+      grid_size = std::max(grid_size, s);
+
+    return
+      CFTable(
+        ctx,
+        rt,
+        grid_size,
+        index_axis_h<AXES>(*pt0, hcons<typename PTs::table_t...>(*pts...))...);
+  }
+
+public:
+
+  template <typename...Ts>
+  static CFTable
+  product(Legion::Context ctx, Legion::Runtime* rt, const Ts&...ts) {
+
+    auto colreqs = Column::default_requirements;
+    colreqs.values.mapped = true;
+    colreqs.values.privilege = LEGION_READ_ONLY;
+
+    return
+      product_pt(
+        ctx,
+        rt,
+        PhysicalTableGuard(
+          ctx,
+          rt,
+          typename Ts::physical_table_t(
+            ts.map_inline(ctx, rt, {}, colreqs)))...);
   }
 };
 
