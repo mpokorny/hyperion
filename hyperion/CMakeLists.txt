@@ -190,6 +190,7 @@ target_sources(hyperion PRIVATE
   PhysicalColumn.cc
   PhysicalTable.h
   PhysicalTable.cc
+  PhysicalTableGuard.h
   Table.h
   Table.cc
   # Table_c.cc
