@@ -36,7 +36,7 @@ public:
       product(
         ctx,
         rt,
-        PhysicalTableGuard(
+        PhysicalTableGuard<typename Ts::physical_table_t>(
           ctx,
           rt,
           typename Ts::physical_table_t(
@@ -217,7 +217,7 @@ public:
           typename std::remove_reference_t<std::remove_const_t<decltype(tbl)>>
           table_t;
         return
-          PhysicalTableGuard(
+          PhysicalTableGuard<typename table_t::physical_table_t>(
             ctx,
             rt,
             typename table_t::physical_table_t(
