@@ -93,7 +93,8 @@ GridCoordinateTable::compute_coordinates(
   // Set the reference pixel of the coordinate system before serializing it
   auto origin = domain_origin();
   auto origin_p = origin.data();
-  coord->setReferencePixel(cc::Vector(cc::Block<double>(2, origin_p, false)));
+  coord->setReferencePixel(
+    cc::Vector<double>(cc::Block<double>(2, origin_p, false)));
   auto increment = (2 * cf_radius) / m_grid_size;
   coord->setIncrement(std::vector<double>{increment, increment});
 
