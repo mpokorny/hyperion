@@ -162,11 +162,15 @@ template <typename T>
 using complex = std::complex<T>;
 template <typename T, size_t N>
 using array = std::array<T, N>;
+template <typename S, typename T>
+using pair = std::pair<S, T>;
 #else
 template <typename T>
 using complex = Kokkos::complex<T>;
 template <typename T, size_t N>
 using array = Kokkos::Array<T, N>;
+template <typename S, typename T>
+using pair = Kokkos::pair<S, T>;
 #endif
 
 #ifdef HYPERION_USE_CASACORE
