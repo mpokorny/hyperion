@@ -514,37 +514,10 @@ cfcompute_task(
       w_tbl,
       ps_tbl);
   show_cf_values(ctx, rt, "Pre-FFT CF", cf_tbl);
-
-  {
-    auto columns = cf_tbl.columns();
-    FFT::Args args;
-    args.desc.rank = 2;
-    args.desc.precision =
-      ((typeid(CFTableBase::cf_fp_t) == typeid(float))
-       ? FFT::Precision::SINGLE
-       : FFT::Precision::DOUBLE);
-    args.desc.transform = FFT::Type::C2C;
-    args.desc.sign = 1;
-    args.rotate_in = true;
-    args.rotate_out = true;
-    args.seconds = 5.0;
-    args.flags = FFTW_MEASURE;
-    for (auto& nm:
-           {CFTableBase::CF_VALUE_COLUMN_NAME,
-            CFTableBase::CF_WEIGHT_COLUMN_NAME}) {
-      TaskLauncher
-        fft(FFT::in_place_task_id, TaskArgument(&args, sizeof(args)));
-      auto col = columns.at(nm);
-      RegionRequirement
-        req(col.region, LEGION_READ_WRITE, EXCLUSIVE, col.region);
-      req.add_field(col.fid);
-      fft.add_region_requirement(req);
-      args.fid = col.fid;
-      rt->execute_task(ctx, fft);
-    }
-  }
+  cf_tbl.apply_fft(ctx, rt, 1, true, true, FFTW_MEASURE, 5.0);
   show_cf_values(ctx, rt, "Post-FFT CF", cf_tbl);
 
+  std::cout << "+++++ DONE +++++" << std::endl;
   ps_tbl.destroy(ctx, rt);
   w_tbl.destroy(ctx, rt);
   a_tbl.destroy(ctx, rt);

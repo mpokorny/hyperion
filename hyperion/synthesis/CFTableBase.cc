@@ -25,7 +25,6 @@
 
 #include <cstring>
 
-#include <fftw3.h>
 #ifdef HYPERION_USE_OPENMP
 # include <omp.h>
 #endif
@@ -293,6 +292,63 @@ hyperion::synthesis::CFTableBase::init_index_column_task(
     init_column<typename cf_table_axis<CF_STOKES>::type>(
       args.stokes_values,
       *cols.at(cf_table_axis<CF_STOKES>::name));
+}
+
+void
+CFTableBase::apply_fft(
+  Context ctx,
+  Runtime* rt,
+  int sign,
+  bool rotate_in,
+  bool rotate_out,
+  unsigned flags,
+  double seconds,
+  const ColumnSpacePartition& partition) const {
+
+  FFT::Args args;
+  args.desc.rank = 2;
+  args.desc.precision =
+    ((typeid(cf_fp_t) == typeid(float))
+     ? FFT::Precision::SINGLE
+     : FFT::Precision::DOUBLE);
+  args.desc.transform = FFT::Type::C2C;
+  args.desc.sign = sign;
+  args.rotate_in = rotate_in;
+  args.rotate_out = rotate_out;
+  args.seconds = seconds;
+  args.flags = flags;
+
+  auto cols = columns();
+  auto part =
+    cols.at(CF_VALUE_COLUMN_NAME)
+    .narrow_partition(ctx, rt, partition, {CF_X, CF_Y})
+    .value_or(ColumnSpacePartition());
+  for (auto& nm: {CF_VALUE_COLUMN_NAME, CF_WEIGHT_COLUMN_NAME}) {
+    auto col = cols.at(nm);
+    args.fid = col.fid;
+    if (!part.is_valid()) {
+      TaskLauncher
+        fft(FFT::in_place_task_id, TaskArgument(&args, sizeof(args)));
+      RegionRequirement
+        req(col.region, LEGION_READ_WRITE, EXCLUSIVE, col.region);
+      req.add_field(col.fid);
+      fft.add_region_requirement(req);
+      rt->execute_task(ctx, fft);
+    } else {
+      auto lp = rt->get_logical_partition(ctx, col.region, part.column_ip);
+      IndexTaskLauncher fft(
+        FFT::in_place_task_id,
+        rt->get_index_partition_color_space(ctx, part.column_ip),
+        TaskArgument(&args, sizeof(args)),
+        ArgumentMap());
+      RegionRequirement req(lp, 0, LEGION_READ_WRITE, EXCLUSIVE, col.region);
+      req.add_field(col.fid);
+      fft.add_region_requirement(req);
+      rt->execute_index_space(ctx, fft);
+    }
+  }
+  if (part != partition)
+    part.destroy(ctx, rt);
 }
 
 void

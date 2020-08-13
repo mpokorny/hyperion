@@ -270,6 +270,17 @@ public:
     return result;
   }
 #endif // !HYPERION_USE_KOKKOS
+
+  void
+  apply_fft(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    int sign,
+    bool rotate_in,
+    bool rotate_out,
+    unsigned flags,
+    double seconds,
+    const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
 };
 
 template <>
