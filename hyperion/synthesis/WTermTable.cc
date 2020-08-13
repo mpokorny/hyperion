@@ -274,7 +274,7 @@ WTermTable::preregister_tasks() {
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
-      registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
+      registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
       registrar.set_leaf();
       registrar.set_idempotent();
 
