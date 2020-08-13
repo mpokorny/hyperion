@@ -351,7 +351,7 @@ struct CFTableBase::InitIndexColumnTaskArgs::initializer<T0, T1, Axes...> {
 #ifdef HYPERION_USE_KOKKOS
 #if LEGION_MAX_DIM >= 1
 template <typename V, typename XS, typename YS>
-KOKKOS_INLINE_FUNCTION static auto
+KOKKOS_INLINE_FUNCTION auto
 cf_subview(const V& v, const array<coord_t, 1>& pt, XS&& xs, YS&& ys) {
 
   return Kokkos::subview(
@@ -363,7 +363,7 @@ cf_subview(const V& v, const array<coord_t, 1>& pt, XS&& xs, YS&& ys) {
 
 #if LEGION_MAX_DIM >= 2
 template <typename V, typename XS, typename YS>
-KOKKOS_INLINE_FUNCTION static auto
+KOKKOS_INLINE_FUNCTION auto
 cf_subview(const V& v, const array<coord_t, 2>& pt, XS&& xs, YS&& ys) {
 
   return Kokkos::subview(
@@ -375,7 +375,7 @@ cf_subview(const V& v, const array<coord_t, 2>& pt, XS&& xs, YS&& ys) {
 
 #if LEGION_MAX_DIM >= 3
 template <typename V, typename XS, typename YS>
-KOKKOS_INLINE_FUNCTION static auto
+KOKKOS_INLINE_FUNCTION auto
 cf_subview(const V& v, const array<coord_t, 3>& pt, XS&& xs, YS&& ys) {
 
   return Kokkos::subview(
@@ -387,7 +387,7 @@ cf_subview(const V& v, const array<coord_t, 3>& pt, XS&& xs, YS&& ys) {
 
 #if LEGION_MAX_DIM >= 4
 template <typename V, typename XS, typename YS>
-KOKKOS_INLINE_FUNCTION static auto
+KOKKOS_INLINE_FUNCTION auto
 cf_subview(const V& v, const array<coord_t, 4>& pt, XS&& xs, YS&& ys) {
 
   return Kokkos::subview(
@@ -399,7 +399,7 @@ cf_subview(const V& v, const array<coord_t, 4>& pt, XS&& xs, YS&& ys) {
 
 #if LEGION_MAX_DIM >= 5
 template <typename V, typename XS, typename YS>
-KOKKOS_INLINE_FUNCTION static auto
+KOKKOS_INLINE_FUNCTION auto
 cf_subview(const V& v, const array<coord_t, 5>& pt, XS&& xs, YS&& ys) {
 
   return Kokkos::subview(
@@ -411,7 +411,7 @@ cf_subview(const V& v, const array<coord_t, 5>& pt, XS&& xs, YS&& ys) {
 
 #if LEGION_MAX_DIM >= 6
 template <typename V, typename XS, typename YS>
-KOKKOS_INLINE_FUNCTION static auto
+KOKKOS_INLINE_FUNCTION auto
 cf_subview(const V& v, const array<coord_t, 6>& pt, XS&& xs, YS&& ys) {
 
   return Kokkos::subview(
