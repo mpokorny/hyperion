@@ -68,14 +68,15 @@ public:
 
 protected:
 
-  void
+  static void
   multiply_by(
     Legion::Context ctx,
     Legion::Runtime* rt,
     Legion::TaskID task_id,
+    const Table& left,
     const Table& right,
     const ColumnSpacePartition& partition,
-    bool do_multiply) const {
+    bool do_multiply) {
 
     MultiplyCFTermArgs args;
     args.do_multiply = do_multiply;
@@ -86,7 +87,7 @@ protected:
       colreqs.values.privilege =
         do_multiply ? LEGION_READ_WRITE : LEGION_WRITE_ONLY;
       auto reqs =
-        this->requirements(
+        left.requirements(
           ctx,
           rt,
           partition,
@@ -155,6 +156,7 @@ public:
       ctx,
       rt,
       multiply_ps_task_id,
+      *this,
       ps_term,
       partition,
       do_multiply);
@@ -172,6 +174,7 @@ public:
       ctx,
       rt,
       multiply_w_task_id,
+      *this,
       w_term,
       partition,
       do_multiply);
@@ -189,6 +192,7 @@ public:
       ctx,
       rt,
       multiply_a_task_id,
+      *this,
       a_term,
       partition,
       do_multiply);
@@ -285,7 +289,7 @@ public:
       Kokkos::make_pair(
         (left_grid_size - right_grid_size) / 2,
         (left_grid_size - right_grid_size) / 2 + right_grid_size);
-
+    auto right_slice = Kokkos::make_pair((size_t)0, right_grid_size);
     Legion::Rect<ProductCFTable::index_rank> left_cf_pts;
     auto left_rect = left.rect();
     for (size_t i = 0; i < ProductCFTable::index_rank; ++i) {
@@ -314,7 +318,7 @@ public:
           auto left_cf_subview =
             cf_subview(left_cf, left_cf_pt, left_slice, left_slice);
           auto right_cf_subview =
-            cf_subview(right_cf, right_cf_pt, Kokkos::ALL, Kokkos::ALL);
+            cf_subview(right_cf, right_cf_pt, right_slice, right_slice);
           Kokkos::parallel_for(
             Kokkos::TeamThreadRange(team_member, right_cf_subview.extent(0)),
             [=](const int& i) {
@@ -342,7 +346,7 @@ public:
           auto left_cf_subview =
             cf_subview(left_cf, left_cf_pt, left_slice, left_slice);
           auto right_cf_subview =
-            cf_subview(right_cf, right_cf_pt, Kokkos::ALL, Kokkos::ALL);
+            cf_subview(right_cf, right_cf_pt, right_slice, right_slice);
           Kokkos::parallel_for(
             Kokkos::TeamThreadRange(team_member, right_cf_subview.extent(0)),
             [=](const int& i) {
