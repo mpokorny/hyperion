@@ -68,15 +68,14 @@ public:
 
 protected:
 
-  static void
+  void
   multiply_by(
     Legion::Context ctx,
     Legion::Runtime* rt,
     Legion::TaskID task_id,
-    const Table& left,
     const Table& right,
     const ColumnSpacePartition& partition,
-    bool do_multiply) {
+    bool do_multiply) const {
 
     MultiplyCFTermArgs args;
     args.do_multiply = do_multiply;
@@ -87,7 +86,7 @@ protected:
       colreqs.values.privilege =
         do_multiply ? LEGION_READ_WRITE : LEGION_WRITE_ONLY;
       auto reqs =
-        left.requirements(
+        this->requirements(
           ctx,
           rt,
           partition,
@@ -156,7 +155,6 @@ public:
       ctx,
       rt,
       multiply_ps_task_id,
-      *this,
       ps_term,
       partition,
       do_multiply);
@@ -174,7 +172,6 @@ public:
       ctx,
       rt,
       multiply_w_task_id,
-      *this,
       w_term,
       partition,
       do_multiply);
@@ -192,7 +189,6 @@ public:
       ctx,
       rt,
       multiply_a_task_id,
-      *this,
       a_term,
       partition,
       do_multiply);
