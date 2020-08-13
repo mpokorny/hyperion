@@ -46,6 +46,8 @@ public:
               {},
               Column::default_requirements_mapped)))...)) {}
 
+  ProductCFTable() {}
+
   static Legion::TaskID multiply_ps_task_id;
   static const constexpr char* multiply_ps_task_name =
     "ProductCFTable::multiply_ps_task";
@@ -194,6 +196,53 @@ public:
       a_term,
       partition,
       do_multiply);
+  }
+
+  /**
+   * create a ProductCFTable and fill it with the products of an ordered list of
+   * CFTables
+   *
+   * N.B: the first element of the CFTable arguments must have the largest value
+   * of grid_size() of all CFTable arguments
+   */
+  template <typename T0, typename...Ts>
+  static ProductCFTable
+  create_and_fill(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const ColumnSpacePartition& partition,
+    const T0& t0,
+    const Ts&...ts) {
+
+    ProductCFTable<Axes...> result(ctx, rt, t0, ts...);
+    auto grid_size =
+      [&](auto& tbl) {
+        typedef
+          typename std::remove_reference_t<std::remove_const_t<decltype(tbl)>>
+          table_t;
+        return
+          PhysicalTableGuard(
+            ctx,
+            rt,
+            typename table_t::physical_table_t(
+              tbl.map_inline(
+                ctx,
+                rt,
+                {{CFTableBase::CF_VALUE_COLUMN_NAME,
+                  Column::default_requirements}},
+                CXX_OPTIONAL_NAMESPACE::nullopt)))->grid_size();
+      };
+    std::array<size_t, sizeof...(Ts) + 1>
+      grid_sizes{grid_size(t0), grid_size(ts)...};
+    bool first_is_largest = true;
+    for (size_t i = 1; first_is_largest && i < grid_sizes.size(); ++i)
+      first_is_largest = grid_sizes[i] <= grid_sizes[0];
+    assert(first_is_largest);
+
+    result.multiply_by(ctx, rt, t0, partition, false);
+    [[maybe_unused]] std::array<int, sizeof...(Ts)>
+      rc{(result.multiply_by(ctx, rt, ts, partition, true), 1)...};
+    return result;
   }
 
   template <cf_table_axes_t A, typename Left, typename Right>
@@ -511,6 +560,21 @@ protected:
         rt,
         grid_size,
         index_axis_h<Axes>(*pt0, hcons<typename PTs::table_t...>(*pts...))...);
+  }
+
+  template <typename PT0>
+    static CFTable<Axes...>
+    product(
+      Legion::Context ctx,
+      Legion::Runtime* rt,
+      const PT0& pt0) {
+
+    return
+      CFTable<Axes...>(
+        ctx,
+        rt,
+        pt0->grid_size(),
+        index_axis_h<Axes>(*pt0, hnil())...);
   }
 };
 

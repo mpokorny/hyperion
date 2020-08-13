@@ -505,10 +505,14 @@ cfcompute_task(
   show_cf_values(ctx, rt, "ATerm", a_tbl);
   a_coords.destroy(ctx, rt);
 
-  auto cf_tbl = ProductCFTable<CF_TABLE_AXES>(ctx, rt, ps_tbl, w_tbl, a_tbl);
-  cf_tbl.multiply_by(ctx, rt, a_tbl, ColumnSpacePartition(), false);
-  cf_tbl.multiply_by(ctx, rt, w_tbl);
-  cf_tbl.multiply_by(ctx, rt, ps_tbl);
+  auto cf_tbl =
+    ProductCFTable<CF_TABLE_AXES>::create_and_fill(
+      ctx,
+      rt,
+      ColumnSpacePartition(),
+      a_tbl,
+      w_tbl,
+      ps_tbl);
   show_cf_values(ctx, rt, "Pre-FFT CF", cf_tbl);
 
   {
