@@ -751,6 +751,7 @@ Table::requirements(
   }
 
   Desc desc_result;
+  desc_result.index_rank = static_cast<unsigned>(index_col_region.get_dim());
   desc_result.num_columns = column_reqs.size();
   assert(desc_result.num_columns <= desc_result.columns.size());
 

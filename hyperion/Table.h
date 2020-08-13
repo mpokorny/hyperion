@@ -122,13 +122,15 @@ public:
   };
 
   struct Desc {
+    unsigned index_rank;
     unsigned num_columns;
     std::array<Column::Desc, HYPERION_MAX_NUM_TABLE_COLUMNS> columns;
   };
 
   Desc
-  desc() const {
+  desc(Legion::Context ctx, Legion::Runtime* rt) const {
     Desc result;
+    result.index_rank = index_column_space(ctx, rt).axes(ctx,rt).size();
     result.num_columns = m_columns.size();
     assert(result.num_columns <= result.columns.size());
     std::transform(

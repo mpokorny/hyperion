@@ -90,7 +90,6 @@ PhysicalTable::create(
     std::tuple<LogicalRegion, LogicalRegion, PhysicalRegion>>
     value_regions;
 
-  unsigned idx_rank = ColumnSpace::size(ColumnSpace::axes(index_col_md));
   for (size_t i = 0; i < desc.num_columns; ++i) {
     auto& cdesc = desc.columns[i];
     if (md_regions.count(cdesc.region) == 0) {
@@ -157,16 +156,15 @@ PhysicalTable::create(
     auto& parent = std::get<1>(region_parent_values);
     auto& values = std::get<2>(region_parent_values);
 #endif // HAVE_CXX17
-    unsigned col_rank =
-      ColumnSpace::size(ColumnSpace::axes(md_regions.at(parent)));
-    assert(col_rank == 1 || col_rank >= idx_rank);
+    unsigned col_rank = static_cast<unsigned>(cdesc.region.get_dim());
+    assert(col_rank == 1 || col_rank >= desc.index_rank);
     columns.emplace(
       cdesc.name,
       std::make_shared<PhysicalColumn>(
         rt,
         cdesc.dt,
         cdesc.fid,
-        std::min(idx_rank, col_rank),
+        std::min(desc.index_rank, col_rank),
         md_regions.at(parent),
         region,
         parent,
@@ -512,6 +510,7 @@ PhysicalTable::requirements(
     }
   }
   Table::Desc desc_result;
+  desc_result.index_rank = index_rank();
   desc_result.num_columns = column_reqs.size();
   assert(desc_result.num_columns <= desc_result.columns.size());
 
