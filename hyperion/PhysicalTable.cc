@@ -495,7 +495,7 @@ PhysicalTable::requirements(
         {Table::m_index_col_fid},
         {}, // always remains unmapped!
         WRITE_ONLY,
-        EXCLUSIVE,
+        SIMULTANEOUS,
         lr);
       reqs_result.push_back(req);
     } else {
@@ -504,7 +504,7 @@ PhysicalTable::requirements(
         {Table::m_index_col_fid},
         {}, // always remains unmapped!
         WRITE_ONLY,
-        EXCLUSIVE,
+        SIMULTANEOUS,
         lr);
       reqs_result.push_back(req);
     }

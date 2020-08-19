@@ -736,7 +736,7 @@ Table::requirements(
       {Table::m_index_col_fid},
       {}, // always remains unmapped!
       WRITE_ONLY,
-      EXCLUSIVE,
+      SIMULTANEOUS,
       index_col_region);
     reqs_result.push_back(req);
   } else {
@@ -745,7 +745,7 @@ Table::requirements(
       {Table::m_index_col_fid},
       {}, // always remains unmapped!
       WRITE_ONLY,
-      EXCLUSIVE,
+      SIMULTANEOUS,
       index_col_region);
     reqs_result.push_back(req);
   }
