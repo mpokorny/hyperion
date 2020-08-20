@@ -158,7 +158,7 @@ struct InitTaskArgs {
 
 TaskID ColumnSpace::init_task_id;
 
-const char* ColumnSpace::init_task_name = "x::ColumnSpace::init_task";
+const char* ColumnSpace::init_task_name = "ColumnSpace::init_task";
 
 void
 ColumnSpace::init_task(
@@ -256,7 +256,7 @@ struct ReindexedTaskArgs {
 
 TaskID ColumnSpace::reindexed_task_id;
 
-const char* ColumnSpace::reindexed_task_name = "x::ColumnSpace::reindexed_task";
+const char* ColumnSpace::reindexed_task_name = "ColumnSpace::reindexed_task";
 
 ColumnSpace::reindexed_result_t
 ColumnSpace::reindexed_task(
@@ -564,7 +564,7 @@ ColumnSpace::reindexed(
 TaskID ColumnSpace::compute_row_mapping_task_id;
 
 const char* ColumnSpace::compute_row_mapping_task_name =
-  "x::ColumnSpace::compute_row_mapping_task";
+  "ColumnSpace::compute_row_mapping_task";
 
 struct ComputeRowMappingTaskArgs {
   unsigned row_dim;
