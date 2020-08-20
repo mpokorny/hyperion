@@ -360,6 +360,7 @@ Table::create(
     fa.allocate_field(
       sizeof(DataType<Table::m_index_col_dt>::ValueType),
       Table::m_index_col_fid);
+    rt->attach_name(fs, Table::m_index_col_fid, "Table::index_column_flag");
     index_col_region =
       rt->create_logical_region(ctx, index_col_cs.column_is, fs);
   }
@@ -1293,6 +1294,7 @@ Table::add_columns(
           assert(false);
         break;
       }
+      rt->attach_name(fs, tf.fid, nm.val);
       fids.insert(tf.fid);
       // add Column to result
       result[nm] =
