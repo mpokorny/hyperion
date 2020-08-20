@@ -41,8 +41,11 @@ ColumnSpace::clone(Context ctx, Runtime* rt) const {
       FieldSpace fs = rt->create_field_space(ctx);
       FieldAllocator fa = rt->create_field_allocator(ctx, fs);
       fa.allocate_field(sizeof(AXIS_VECTOR_TYPE), AXIS_VECTOR_FID);
+      rt->attach_name(fs, AXIS_VECTOR_FID, "ColumnSpace::axis_vector");
       fa.allocate_field(sizeof(AXIS_SET_UID_TYPE), AXIS_SET_UID_FID);
+      rt->attach_name(fs, AXIS_SET_UID_FID, "ColumnSpace::axes_uid");
       fa.allocate_field(sizeof(INDEX_FLAG_TYPE), INDEX_FLAG_FID);
+      rt->attach_name(fs, INDEX_FLAG_FID, "ColumnSpace::index_flag");
       mlr = rt->create_logical_region(ctx, is, fs);
     }
     CopyLauncher copy;
@@ -214,8 +217,11 @@ ColumnSpace::create(
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(AXIS_VECTOR_TYPE), AXIS_VECTOR_FID);
+    rt->attach_name(fs, AXIS_VECTOR_FID, "ColumnSpace::axis_vector");
     fa.allocate_field(sizeof(AXIS_SET_UID_TYPE), AXIS_SET_UID_FID);
+    rt->attach_name(fs, AXIS_SET_UID_FID, "ColumnSpace::axes_uid");
     fa.allocate_field(sizeof(INDEX_FLAG_TYPE), INDEX_FLAG_FID);
+    rt->attach_name(fs, INDEX_FLAG_FID, "ColumnSpace::index_flag");
     metadata_lr = rt->create_logical_region(ctx, is, fs);
   }
   {
@@ -355,7 +361,10 @@ compute_reindexed(
     fa.allocate_field(
       sizeof(Rect<NEWDIM>),
       ColumnSpace::REINDEXED_ROW_RECTS_FID);
-
+    rt->attach_name(
+      row_map_fs,
+      ColumnSpace::REINDEXED_ROW_RECTS_FID,
+      "ColumnSpace::reindexed_row_rects");
     LayoutConstraintRegistrar lc(row_map_fs);
     add_right_layout_constraint(lc, rows_is.get_dim())
       .add_constraint(MemoryConstraint(Memory::Kind::GLOBAL_MEM));

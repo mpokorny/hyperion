@@ -183,8 +183,10 @@ Keywords::create(
   if (kws.size() > 0) {
     auto is = rt->create_index_space(ctx, Rect<1>(0, 0));
     auto tt_fs = rt->create_field_space(ctx);
+    rt->attach_name(tt_fs, "Keywords::type_tags");
     auto tt_fa = rt->create_field_allocator(ctx, tt_fs);
     auto val_fs = rt->create_field_space(ctx);
+    rt->attach_name(val_fs, "Keywords::values");
     auto val_fa = rt->create_field_allocator(ctx, val_fs);
     for (size_t i = 0; i < kws.size(); ++i) {
 #if HAVE_CXX17
@@ -198,15 +200,7 @@ Keywords::create(
       add_field(dt, val_fa, i);
     }
     tts = rt->create_logical_region(ctx, is, tt_fs);
-    {
-      std::string tts_name = add_name_prefix(name_prefix, "kws/type_tags");
-      rt->attach_name(tts, tts_name.c_str());
-    }
     vals = rt->create_logical_region(ctx, is, val_fs);
-    {
-      std::string vals_name = add_name_prefix(name_prefix, "kws/values");
-      rt->attach_name(vals, vals_name.c_str());
-    }
     RegionRequirement req(tts, WRITE_ONLY, EXCLUSIVE, tts);
     for (size_t i = 0; i < kws.size(); ++i)
       req.add_field(i);

@@ -854,8 +854,11 @@ MeasRef::create_regions(
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(MEASURE_CLASS_TYPE), MEASURE_CLASS_FID);
+    rt->attach_name(fs, MEASURE_CLASS_FID, "MeasRef::measure_class");
     fa.allocate_field(sizeof(REF_TYPE_TYPE), REF_TYPE_FID);
+    rt->attach_name(fs, REF_TYPE_FID, "MeasRef::ref_type");
     fa.allocate_field(sizeof(NUM_VALUES_TYPE), NUM_VALUES_FID);
+    rt->attach_name(fs, NUM_VALUES_FID, "MeasRef::num_values");
     metadata_lr = rt->create_logical_region(ctx, is, fs);
   }
 
@@ -865,6 +868,7 @@ MeasRef::create_regions(
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(VALUE_TYPE), 0);
+    rt->attach_name(fs, 0, "MeasRef::value_type");
     values_lr = rt->create_logical_region(ctx, is, fs);
   }
 
@@ -876,6 +880,7 @@ MeasRef::create_regions(
     FieldSpace fs = rt->create_field_space(ctx);
     FieldAllocator fa = rt->create_field_allocator(ctx, fs);
     fa.allocate_field(sizeof(M_CODE_TYPE), M_CODE_FID);
+    rt->attach_name(fs, M_CODE_FID, "MeasRef::m_code");
     index_lr = rt->create_logical_region(ctx, is, fs);
   }
   return {metadata_lr, values_lr, index_lr};

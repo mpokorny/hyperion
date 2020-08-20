@@ -110,10 +110,18 @@ index_column(
     {
       auto fa = rt->create_field_allocator(ctx, result_fs);
       add_field(DT, fa, Column::COLUMN_INDEX_VALUE_FID);
+      rt->attach_name(
+        result_fs,
+        Column::COLUMN_INDEX_VALUE_FID,
+        "Column::index_value");
       fa.allocate_field(
         sizeof(Column::COLUMN_INDEX_ROWS_TYPE),
         Column::COLUMN_INDEX_ROWS_FID,
         OpsManager::serdez_id(OpsManager::V_DOMAIN_POINT_SID));
+      rt->attach_name(
+        result_fs,
+        Column::COLUMN_INDEX_ROWS_FID,
+        "Column::index_rows");
     }
     IndexSpaceT<1> result_is =
       rt->create_index_space(ctx, Rect<1>(0, acc.size() - 1));
