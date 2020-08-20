@@ -14,14 +14,15 @@ set(Legion_CUDA_ARCH ${CUDA_ARCH} CACHE STRING "Legion build CUDA architectures"
 
 # hyperion-defined Legion-specific build parameters
 set(Legion_CMAKE_BUILD_TYPE "Release" CACHE STRING "Legion CMake build type")
+set(Legion_SPY OFF CACHE BOOL "Enable detailed logging for Legion Spy")
 option(Legion_BOUNDS_CHECKS OFF)
 option(Legion_PRIVILEGE_CHECKS OFF)
 
 if(Legion_BOUNDS_CHECKS)
-  add_compile_options("BOUNDS_CHECKS")
+  add_compile_definitions(BOUNDS_CHECKS)
 endif()
 if(Legion_PRIVILEGE_CHECKS)
-  add_compile_options( "PRIVILEGE_CHECKS")
+  add_compile_definitions(PRIVILEGE_CHECKS)
 endif()
 
 set(BUILD_MARCH ${BUILD_ARCH})
