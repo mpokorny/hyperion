@@ -169,14 +169,14 @@ in_place(
   Runtime* rt,
   bool enable_inlined_planner_subtasks) {
 
-  auto req = task->regions[0];
-  req.tag = Mapping::DefaultMapper::MappingTags::SAME_ADDRESS_SPACE;
+  auto same_req = task->regions[0];
+  same_req.tag = Mapping::DefaultMapper::MappingTags::SAME_ADDRESS_SPACE;
 
   // create the FFT plan
   const FFT::Args& args = *static_cast<const FFT::Args*>(task->args);
   TaskLauncher
     plan_creator(FFT::create_plan_task_id, TaskArgument(&args, sizeof(args)));
-  plan_creator.add_region_requirement(req);
+  plan_creator.add_region_requirement(same_req);
   plan_creator.enable_inlining = enable_inlined_planner_subtasks;
   auto plan = rt->execute_task(ctx, plan_creator);
 
@@ -185,7 +185,7 @@ in_place(
     TaskLauncher rotator(
       FFT::rotate_arrays_task_id,
       TaskArgument(&args.desc, sizeof(args.desc)));
-    rotator.add_region_requirement(req);
+    rotator.add_region_requirement(task->regions[0]);
     rt->execute_task(ctx, rotator);
   }
 
@@ -195,11 +195,12 @@ in_place(
     TaskArgument(
       &enable_inlined_planner_subtasks,
       sizeof(enable_inlined_planner_subtasks)));
-  executor.add_region_requirement(req);
+  executor.add_region_requirement(same_req);
   executor.add_future(plan);
   auto rc = rt->execute_task(ctx, executor);
 
-  // destroy the FFT plan, use dependency on rc (and plan) future for sequencing
+  // destroy the FFT plan, use dependency on rc future for sequencing, and
+  // supply the plan in a future for convenience
   if (!enable_inlined_planner_subtasks) {
     TaskLauncher plan_destroyer(FFT::destroy_plan_task_id, TaskArgument());
     plan_destroyer.add_future(plan);
@@ -212,7 +213,7 @@ in_place(
     TaskLauncher rotator(
       FFT::rotate_arrays_task_id,
       TaskArgument(&args.desc, sizeof(args.desc)));
-    rotator.add_region_requirement(req);
+    rotator.add_region_requirement(task->regions[0]);
     rt->execute_task(ctx, rotator);
   }
 }
@@ -235,7 +236,7 @@ FFT::cufft_in_place(
   Context ctx,
   Runtime* rt) {
 
-  in_place(task, regions, ctx, rt, true);
+  in_place(task, regions, ctx, rt, false);
 }
 #endif
 
@@ -259,6 +260,7 @@ FFT::fftw_create_plan(
         regions[0],
         args.fid,
         args.desc.rank);
+    result.buffer = params.buffer;
     fftwf_mutex.lock(ctx, rt);
     if (args.seconds >= 0)
       fftwf_set_timelimit(args.seconds);
@@ -301,6 +303,7 @@ FFT::fftw_create_plan(
         regions[0],
         args.fid,
         args.desc.rank);
+    result.buffer = params.buffer;
     fftw_mutex.lock(ctx, rt);
     if (args.seconds >= 0)
       fftw_set_timelimit(args.seconds);
@@ -360,6 +363,7 @@ FFT::cufft_create_plan(
         regions[0],
         args.fid,
         args.desc.rank);
+    result.buffer = params.buffer;
     auto rc =
       cufftPlanMany(
         &result.handle.cufft, params.n.size(), params.n.data(),
@@ -377,6 +381,7 @@ FFT::cufft_create_plan(
         regions[0],
         args.fid,
         args.desc.rank);
+    result.buffer = params.buffer;
     auto rc =
       cufftPlanMany(
         &result.handle.cufft, params.n.size(), params.n.data(),
@@ -749,7 +754,7 @@ FFT::preregister_tasks() {
         registrar(execute_fft_task_id, execute_fft_task_name);
       registrar.add_constraint(ProcessorConstraint(Processor::OMP_PROC));
       registrar.set_leaf();
-      registrar.set_idempotent();
+      //registrar.set_idempotent();
       registrar.add_layout_constraint_set(0, fftw_layout_id);
       Runtime::preregister_task_variant<int, fftw_execute>(
         registrar,
@@ -762,7 +767,7 @@ FFT::preregister_tasks() {
         registrar(execute_fft_task_id, execute_fft_task_name);
       registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
       registrar.set_leaf();
-      registrar.set_idempotent();
+      //registrar.set_idempotent();
       registrar.add_layout_constraint_set(0, cufft_layout_id);
       Runtime::preregister_task_variant<int, cufft_execute>(
         registrar,
