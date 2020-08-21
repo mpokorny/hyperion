@@ -217,24 +217,8 @@ public:
     const Table::Desc& tdesc = *static_cast<Table::Desc*>(task->args);
 
     // ATermZernikeModel physical instance
-    auto ptcr =
-      PhysicalTable::create(
-        rt,
-        tdesc,
-        task->regions.begin(),
-        task->regions.end(),
-        regions.begin(),
-        regions.end())
-      .value();
-#if HAVE_CXX17
-    auto& [tbl, rit, pit] = ptcr;
-#else // !HAVE_CXX17
-    auto& tbl = std::get<0>(ptcr);
-    auto& rit = std::get<1>(ptcr);
-    auto& pit = std::get<2>(ptcr);
-#endif // HAVE_CXX17
-    assert(rit == task->regions.end());
-    assert(pit == regions.end());
+    auto tbl =
+      PhysicalTable::create_all_unsafe(rt, {tdesc}, task->regions, regions)[0];
 
     // Zernike coefficients
     auto zc_col =
@@ -251,16 +235,16 @@ public:
       "compute_pcs",
       Kokkos::MDRangePolicy<Kokkos::Rank<3>, execution_space>(
         rt->get_executing_processor(ctx).kokkos_work_space(),
-        {zc_rect.lo[d_blc], zc_rect.lo[d_frq], zc_rect.lo[d_sto]},
-        {zc_rect.hi[d_blc] + 1, zc_rect.hi[d_frq] + 1, zc_rect.hi[d_sto] + 1}),
-      [=]( // no KOKKOS_LAMBDA here, to avoid __device__ modifier
-        const Legion::coord_t& blc,
-        const Legion::coord_t& frq,
-        const Legion::coord_t& sto) {
+        {0, 0, 0},
+        {zc_rect.hi[d_blc] - zc_rect.lo[d_blc] + 1,
+         zc_rect.hi[d_frq] - zc_rect.lo[d_frq] + 1,
+         zc_rect.hi[d_sto] - zc_rect.lo[d_sto] + 1}),
+      // no KOKKOS_LAMBDA here, to avoid __device__ modifier
+      [=](const long& blc_l, const long& frq_l, const long& sto_l) {
 
-        auto zcs0 = Kokkos::subview(zcs, blc, frq, sto, Kokkos::ALL);
+        auto zcs0 = Kokkos::subview(zcs, blc_l, frq_l, sto_l, Kokkos::ALL);
         auto pcs0 =
-          Kokkos::subview(pcs, blc, frq, sto, Kokkos::ALL, Kokkos::ALL);
+          Kokkos::subview(pcs, blc_l, frq_l, sto_l, Kokkos::ALL, Kokkos::ALL);
         switch (pcs.extent(3) - 1) {
 #define ZEXP(N)                                       \
           case N:                                       \

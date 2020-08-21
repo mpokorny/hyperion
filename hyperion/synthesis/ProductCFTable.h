@@ -28,25 +28,33 @@ namespace synthesis {
 template <cf_table_axes_t...Axes>
 class HYPERION_EXPORT ProductCFTable
   : public CFTable<Axes...> {
+protected:
+  ProductCFTable(CFTable<Axes...>&& tbl)
+    : CFTable<Axes...>(std::move(tbl)) {}
+
 public:
 
+  ProductCFTable() {}
+
   template <typename...Ts>
-  ProductCFTable(Legion::Context ctx, Legion::Runtime* rt, const Ts&...ts)
-    : CFTable<Axes...>(
-      product(
-        ctx,
-        rt,
-        PhysicalTableGuard<typename Ts::physical_table_t>(
-          ctx,
-          rt,
-          typename Ts::physical_table_t(
-            ts.map_inline(
+  static ProductCFTable
+  create(Legion::Context ctx, Legion::Runtime* rt, const Ts&...ts) {
+    return
+      ProductCFTable<Axes...>(
+        CFTable<Axes...>(
+          product(
+            ctx,
+            rt,
+            PhysicalTableGuard<typename Ts::physical_table_t>(
               ctx,
               rt,
-              {},
-              Column::default_requirements_mapped)))...)) {}
-
-  ProductCFTable() {}
+              typename Ts::physical_table_t(
+                ts.map_inline(
+                  ctx,
+                  rt,
+                  {},
+                  Column::default_requirements_mapped)))...)));
+  }
 
   static Legion::TaskID multiply_ps_task_id;
   static const constexpr char* multiply_ps_task_name =
@@ -80,8 +88,8 @@ protected:
 
     MultiplyCFTermArgs args;
     args.do_multiply = do_multiply;
-    std::vector<Legion::RegionRequirement> treqs;
-    std::vector<ColumnSpacePartition> tparts;
+    std::vector<Legion::RegionRequirement> all_reqs;
+    std::vector<ColumnSpacePartition> all_parts;
     {
       auto colreqs = Column::default_requirements_mapped;
       colreqs.values.privilege =
@@ -96,9 +104,9 @@ protected:
           CXX_OPTIONAL_NAMESPACE::nullopt);
       args.left = std::get<2>(reqs);
       for (auto& r : std::get<0>(reqs))
-        treqs.push_back(r);
+        all_reqs.push_back(r);
       for (auto& p : std::get<1>(reqs))
-        tparts.push_back(p);
+        all_parts.push_back(p);
     }
     {
       auto colreqs = Column::default_requirements_mapped;
@@ -112,9 +120,9 @@ protected:
           CXX_OPTIONAL_NAMESPACE::nullopt);
       args.right = std::get<2>(reqs);
       for (auto& r : std::get<0>(reqs))
-        treqs.push_back(r);
+        all_reqs.push_back(r);
       for (auto& p : std::get<1>(reqs))
-        tparts.push_back(p);
+        all_parts.push_back(p);
     }
     if (!partition.is_valid()) {
       Legion::TaskLauncher task(
@@ -122,7 +130,7 @@ protected:
         Legion::TaskArgument(&args, sizeof(args)),
         Legion::Predicate::TRUE_PRED,
         table_mapper);
-      for (auto& r : treqs)
+      for (auto& r : all_reqs)
         task.add_region_requirement(r);
       rt->execute_task(ctx, task);
     } else {
@@ -134,11 +142,11 @@ protected:
         Legion::Predicate::TRUE_PRED,
         false,
         table_mapper);
-      for (auto& r : treqs)
+      for (auto& r : all_reqs)
         task.add_region_requirement(r);
       rt->execute_index_space(ctx, task);
     }
-    for (auto& p : tparts)
+    for (auto& p : all_parts)
       p.destroy(ctx, rt);
   }
 
@@ -214,17 +222,18 @@ public:
     const T0& t0,
     const Ts&...ts) {
 
-    ProductCFTable<Axes...> result(ctx, rt, t0, ts...);
+    auto result = create(ctx, rt, t0, ts...);
     auto grid_size =
       [&](auto& tbl) {
         typedef
           typename std::remove_reference_t<std::remove_const_t<decltype(tbl)>>
           table_t;
+        typedef typename table_t::physical_table_t physical_table_t;
         return
-          PhysicalTableGuard<typename table_t::physical_table_t>(
+          PhysicalTableGuard<physical_table_t>(
             ctx,
             rt,
-            typename table_t::physical_table_t(
+            physical_table_t(
               tbl.map_inline(
                 ctx,
                 rt,
@@ -360,28 +369,26 @@ public:
         });
   }
 
-  template <typename execution_space, typename Right>
+  template <typename execution_space, typename Left, typename Right>
   static void
   multiply_impl(
     Legion::Context ctx,
     Legion::Runtime* rt,
     bool do_multiply,
-    const typename CFTable<Axes...>::physical_table_t& left,
+    const Left& left,
     const Right& right) {
 
-    using physical_table_t = typename CFTable<Axes...>::physical_table_t;
-
     auto prj =
-      KOKKOS_LAMBDA(const array<coord_t, physical_table_t::row_rank>& pt) {
+      KOKKOS_LAMBDA(const array<coord_t, Left::row_rank>& pt) {
       array<coord_t, Right::row_rank> result;
-      set_index<CF_PS_SCALE, physical_table_t, Right>(result, pt);
-      set_index<CF_BASELINE_CLASS, physical_table_t, Right>(result, pt);
-      set_index<CF_FREQUENCY, physical_table_t, Right>(result, pt);
-      set_index<CF_W, physical_table_t, Right>(result, pt);
-      set_index<CF_PARALLACTIC_ANGLE, physical_table_t, Right>(result, pt);
-      set_index<CF_STOKES_OUT, physical_table_t, Right>(result, pt);
-      set_index<CF_STOKES_IN, physical_table_t, Right>(result, pt);
-      set_index<CF_STOKES, physical_table_t, Right>(result, pt);
+      set_index<CF_PS_SCALE, Left, Right>(result, pt);
+      set_index<CF_BASELINE_CLASS, Left, Right>(result, pt);
+      set_index<CF_FREQUENCY, Left, Right>(result, pt);
+      set_index<CF_W, Left, Right>(result, pt);
+      set_index<CF_PARALLACTIC_ANGLE, Left, Right>(result, pt);
+      set_index<CF_STOKES_OUT, Left, Right>(result, pt);
+      set_index<CF_STOKES_IN, Left, Right>(result, pt);
+      set_index<CF_STOKES, Left, Right>(result, pt);
       return result;
     };
 
@@ -557,7 +564,9 @@ protected:
         ctx,
         rt,
         grid_size,
-        index_axis_h<Axes>(*pt0, hcons<typename PTs::table_t...>(*pts...))...);
+        index_axis_h<Axes>(
+          *pt0,
+          hcons<typename PTs::table_t...>(*pts...))...);
   }
 
   template <typename PT0>

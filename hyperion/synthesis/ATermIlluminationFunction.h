@@ -167,26 +167,13 @@ public:
 
     const Table::Desc& tdesc = *static_cast<const Table::Desc*>(task->args);
 
-    auto ptcr =
-      PhysicalTable::create(
-        rt,
-        tdesc,
-        task->regions.begin(),
-        task->regions.end(),
-        regions.begin(),
-        regions.end())
-      .value();
-#if HAVE_CXX17
-    auto& [pt, rit, pit] = ptcr;
-#else // !HAVE_CXX17
-    auto& pt = std::get<0>(ptcr);
-    auto& rit = std::get<1>(ptcr);
-    auto& pit = std::get<2>(ptcr);
-#endif // HAVE_CXX17
-    assert(rit == task->regions.end());
-    assert(pit == regions.end());
+    auto pt =
+      PhysicalTable::create_all_unsafe(rt, {tdesc}, task->regions, regions)[0];
 
-    auto gc = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt);
+    auto kokkos_work_space =
+      rt->get_executing_processor(ctx).kokkos_work_space();
+
+    CFPhysicalTable<CF_PARALLACTIC_ANGLE> gc(pt);
 
     // coordinates columns
     auto cx_col =
@@ -207,25 +194,22 @@ public:
       EPtColumn<Legion::AffineAccessor>(*gc.column(EPT_Y_NAME).value())
       .view<execution_space, LEGION_WRITE_DISCARD>();
 
-    auto kokkos_work_space =
-      rt->get_executing_processor(ctx).kokkos_work_space();
-
     Kokkos::parallel_for(
       Kokkos::MDRangePolicy<
         Kokkos::Rank<GridCoordinateTable::coord_rank>,
         execution_space>(
           kokkos_work_space,
-          rect_lo(cx_rect),
-          rect_hi(cx_rect)),
-      KOKKOS_LAMBDA(Legion::coord_t pa, Legion::coord_t x, Legion::coord_t y) {
+          rect_zero(cx_rect),
+          rect_size(cx_rect)),
+      KOKKOS_LAMBDA(long pa_l, long x_l, long y_l) {
         // Outside of the unit disk, the function should evaluate to zero, which
         // is achieved by setting the X and Y vectors to zero.
-        auto& cx = cxs(pa, x, y);
-        auto& cy = cys(pa, x, y);
+        auto& cx = cxs(pa_l, x_l, y_l);
+        auto& cy = cys(pa_l, x_l, y_l);
         ept_t ept0 = ((cx * cx + cy * cy <= 1.0) ? 1.0 : 0.0);
-        xpts(pa, x, y, 0) = ypts(pa, x, y, 0) = ept0;
-        xpts(pa, x, y, 1) = cx * ept0;
-        ypts(pa, x, y, 1) = cy * ept0;
+        xpts(pa_l, x_l, y_l, 0) = ypts(pa_l, x_l, y_l, 0) = ept0;
+        xpts(pa_l, x_l, y_l, 1) = cx * ept0;
+        ypts(pa_l, x_l, y_l, 1) = cy * ept0;
       });
   }
 
@@ -299,48 +283,35 @@ public:
       *static_cast<ComputeAIFsTaskArgs*>(task->args);
     std::vector<Table::Desc> descs{args.zmodel, args.gc, args.aif};
 
-    auto ptcrs =
-      PhysicalTable::create_many(
-        rt,
-        descs,
-        task->regions.begin(),
-        task->regions.end(),
-        regions.begin(),
-        regions.end())
-      .value();
-#if HAVE_CXX17
-    auto& [pts, rit, pit] = ptcrs;
-#else // !HAVE_CXX17
-    auto& pts = std::get<0>(ptcrs);
-    auto& rit = std::get<1>(ptcrs);
-    auto& pit = std::get<2>(ptcrs);
-#endif // HAVE_CXX17
-    assert(rit == task->regions.end());
-    assert(pit == regions.end());
+    auto pts =
+      PhysicalTable::create_all_unsafe(rt, descs, task->regions, regions);
 
-    auto zmodel = CFPhysicalTable<HYPERION_A_TERM_ZERNIKE_MODEL_AXES>(pts[0]);
-    auto gc = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
-    auto aif =
-      CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pts[2]);
+    auto kokkos_work_space =
+      rt->get_executing_processor(ctx).kokkos_work_space();
+
+    CFPhysicalTable<HYPERION_A_TERM_ZERNIKE_MODEL_AXES> zmodel(pts[0]);
+    CFPhysicalTable<CF_PARALLACTIC_ANGLE> gc(pts[1]);
+    CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES> aif(pts[2]);
 
     // polynomial function coefficients column
     auto pc_col =
       ATermZernikeModel::PCColumn<Legion::AffineAccessor>(
         *zmodel.column(ATermZernikeModel::PC_NAME).value());
-    auto pcs = pc_col.view<execution_space, READ_ONLY>();
+    auto pcs = pc_col.view<execution_space, LEGION_READ_ONLY>();
 
     // polynomial function evaluation points columns
     auto xpt_col =
       EPtColumn<Legion::AffineAccessor>(*gc.column(EPT_X_NAME).value());
-    auto xpts = xpt_col.view<execution_space, READ_ONLY>();
+    auto xpts = xpt_col.view<execution_space, LEGION_READ_ONLY>();
     auto ypt_col =
       EPtColumn<Legion::AffineAccessor>(*gc.column(EPT_Y_NAME).value());
-    auto ypts = ypt_col.view<execution_space, READ_ONLY>();
+    auto ypts = ypt_col.view<execution_space, LEGION_READ_ONLY>();
 
     // polynomial function values column
-    auto value_col = aif.value<Legion::AffineAccessor>();
+    auto value_col = aif.template value<Legion::AffineAccessor>();
     auto value_rect = value_col.rect();
-    auto values = value_col.view<execution_space, WRITE_DISCARD>();
+    auto values =
+      value_col.template view<execution_space, LEGION_WRITE_DISCARD>();
 
     // CUDA compilation fails without the following redundant definitions. Note
     // that similar usage in compute_epts_task works. TODO: remove these
@@ -350,8 +321,6 @@ public:
     unsigned dd_sto = d_sto;
     unsigned dd_x = d_x;
     unsigned dd_y = d_y;
-    auto kokkos_work_space =
-      rt->get_executing_processor(ctx).kokkos_work_space();
     typedef typename Kokkos::TeamPolicy<execution_space>::member_type
       member_type;
     typedef Kokkos::View<
@@ -369,18 +338,19 @@ public:
           (zernike_max_order::value + 1) * sizeof(ATermZernikeModel::pc_t))),
       KOKKOS_LAMBDA(const member_type& team_member) {
         auto pt =
-          multidimensional_index(
+          multidimensional_index_l(
             static_cast<Legion::coord_t>(team_member.league_rank()),
             value_rect);
-        auto& blc = pt[dd_blc];
-        auto& pa = pt[dd_pa];
-        auto& frq = pt[dd_frq];
-        auto& sto = pt[dd_sto];
-        auto& x = pt[dd_x];
-        auto& y = pt[dd_y];
-        auto xpt = Kokkos::subview(xpts, pa, x, y, Kokkos::ALL);
-        auto ypt = Kokkos::subview(ypts, pa, x, y, Kokkos::ALL);
-        auto pc = Kokkos::subview(pcs, blc, frq, sto, Kokkos::ALL, Kokkos::ALL);
+        auto& blc_l = pt[dd_blc];
+        auto& pa_l = pt[dd_pa];
+        auto& frq_l = pt[dd_frq];
+        auto& sto_l = pt[dd_sto];
+        auto& x_l = pt[dd_x];
+        auto& y_l = pt[dd_y];
+        auto xpt = Kokkos::subview(xpts, pa_l, x_l, y_l, Kokkos::ALL);
+        auto ypt = Kokkos::subview(ypts, pa_l, x_l, y_l, Kokkos::ALL);
+        auto pc =
+          Kokkos::subview(pcs, blc_l, frq_l, sto_l, Kokkos::ALL, Kokkos::ALL);
         auto tmp = shared_pc_1d(team_member.team_scratch(0), pc.extent(0));
         Kokkos::parallel_for(
           Kokkos::TeamThreadRange(team_member, pc.extent(0)),
@@ -391,7 +361,7 @@ public:
             tmp(i) = (tmp(i) + pc(i, 0)) * ypt(0);
           });
         team_member.team_barrier();
-        auto& v = values(blc, pa, frq, sto, x, y);
+        auto& v = values(blc_l, pa_l, frq_l, sto_l, x_l, y_l);
         v = (ATermZernikeModel::pc_t)0.0;
         for (int i = pc.extent(0) - 1; i > 0; --i)
           v = (v + tmp(i)) * xpt(1);

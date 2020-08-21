@@ -108,41 +108,27 @@ public:
       *static_cast<const ComputeCFsTaskArgs*>(task->args);
 
     std::vector<Table::Desc> descs{args.aif, args.aterm};
-    auto ptcrs =
-      PhysicalTable::create_many(
-        rt,
-        descs,
-        task->regions.begin(),
-        task->regions.end(),
-        regions.begin(),
-        regions.end())
-      .value();
-#if HAVE_CXX17
-    auto& [pts, rit, pit] = ptcrs;
-#else // !HAVE_CXX17
-    auto& pts = std::get<0>(ptcrs);
-    auto& rit = std::get<1>(ptcrs);
-    auto& pit = std::get<2>(ptcrs);
-#endif // HAVE_CXX17
-    assert(rit == task->regions.end());
-    assert(pit == regions.end());
+    auto pts =
+      PhysicalTable::create_all_unsafe(rt, descs, task->regions, regions);
 
     auto kokkos_work_space =
       rt->get_executing_processor(ctx).kokkos_work_space();
 
-    // Stokes CF functions
-    auto jones =
-      CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES>(pts[0]);
-    // we expect to have all of the Stokes index column accessible
-    auto jones_stokes_col = jones.stokes<Legion::AffineAccessor>();
-    auto jones_stokes = jones_stokes_col.view<execution_space, READ_ONLY>();
+    CFPhysicalTable<HYPERION_A_TERM_ILLUMINATION_FUNCTION_AXES> jones(pts[0]);
+    CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES> aterm(pts[1]);
+
+    // Stokes CF functions.  We expect to have all of the Stokes index column
+    // accessible
+    auto jones_stokes_col = jones.template stokes<Legion::AffineAccessor>();
+    auto jones_stokes =
+      jones_stokes_col.template view<execution_space, LEGION_READ_ONLY>();
     auto jones_stokes_rect = jones_stokes_col.rect();
     // a map from stokes_t value to Stokes index in jones
     Kokkos::View<
-      Legion::coord_t[num_stokes_t::value],
+      Legion::coord_t*,
       execution_space,
       Kokkos::MemoryTraits<Kokkos::RandomAccess>>
-      stokes_indexes("stokes_indexes");
+      stokes_indexes("stokes_indexes", num_stokes_t::value);
     Kokkos::parallel_for(
       Kokkos::RangePolicy<execution_space>(
         kokkos_work_space,
@@ -154,28 +140,33 @@ public:
     Kokkos::parallel_for(
       Kokkos::RangePolicy<execution_space>(
         kokkos_work_space,
-        jones_stokes_rect.lo,
-        jones_stokes_rect.hi + 1),
+        0,
+        jones_stokes_rect.hi[0] - jones_stokes_rect.lo[0] + 1),
       KOKKOS_LAMBDA(const int i) {
         stokes_indexes(static_cast<int>(jones_stokes(i)) - 1) = i;
       });
-    auto jones_value_col = jones.value<Legion::AffineAccessor>();
-    auto jones_values = jones_value_col.view<execution_space, READ_ONLY>();
-    auto jones_weight_col = jones.weight<Legion::AffineAccessor>();
-    auto jones_weights = jones_weight_col.view<execution_space, READ_ONLY>();
+    auto jones_value_col = jones.template value<Legion::AffineAccessor>();
+    auto jones_values =
+      jones_value_col.template view<execution_space, LEGION_READ_ONLY>();
+    auto jones_weight_col = jones.template weight<Legion::AffineAccessor>();
+    auto jones_weights =
+      jones_weight_col.template view<execution_space, LEGION_READ_ONLY>();
 
     // Final CF functions
-    auto aterm = CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>(pts[1]);
-    auto aterm_stokes_out_col = aterm.stokes_out<Legion::AffineAccessor>();
+    auto aterm_stokes_out_col =
+      aterm.template stokes_out<Legion::AffineAccessor>();
     auto aterm_stokes_out_values =
-      aterm_stokes_out_col.view<execution_space, READ_ONLY>();
-    auto aterm_stokes_in_col = aterm.stokes_in<Legion::AffineAccessor>();
+      aterm_stokes_out_col.template view<execution_space, LEGION_READ_ONLY>();
+    auto aterm_stokes_in_col =
+      aterm.template stokes_in<Legion::AffineAccessor>();
     auto aterm_stokes_in_values =
-      aterm_stokes_out_col.view<execution_space, READ_ONLY>();
-    auto aterm_value_col = aterm.value<Legion::AffineAccessor>();
-    auto aterm_values = aterm_value_col.view<execution_space, WRITE_ONLY>();
-    auto aterm_weight_col = aterm.weight<Legion::AffineAccessor>();
-    auto aterm_weights = aterm_weight_col.view<execution_space, WRITE_ONLY>();
+      aterm_stokes_out_col.template view<execution_space, LEGION_READ_ONLY>();
+    auto aterm_value_col = aterm.template value<Legion::AffineAccessor>();
+    auto aterm_values =
+      aterm_value_col.template view<execution_space, LEGION_WRITE_ONLY>();
+    auto aterm_weight_col = aterm.template weight<Legion::AffineAccessor>();
+    auto aterm_weights =
+      aterm_weight_col.template view<execution_space, LEGION_WRITE_ONLY>();
     auto aterm_rect = aterm_value_col.rect();
 
     // we use hierarchical parallelism here where the thread teams range over
@@ -202,50 +193,50 @@ public:
       Kokkos::TeamPolicy<execution_space>(
         kokkos_work_space,
         linearized_index_range(truncated_aterm_rect),
-        Kokkos::AUTO(),
+        Kokkos::AUTO,
         y_size),
       KOKKOS_LAMBDA(const member_type& team_member) {
         auto pt =
-          multidimensional_index(
+          multidimensional_index_l(
             static_cast<Legion::coord_t>(team_member.league_rank()),
             truncated_aterm_rect);
-        auto& blc = pt[dd_blc];
-        auto& pa = pt[dd_pa];
-        auto& frq = pt[dd_frq];
-        auto& sto_out = pt[dd_sto_out];
-        auto& sto_in = pt[dd_sto_in];
+        auto& blc_l = pt[dd_blc];
+        auto& pa_l = pt[dd_pa];
+        auto& frq_l = pt[dd_frq];
+        auto& sto_out_l = pt[dd_sto_out];
+        auto& sto_in_l = pt[dd_sto_in];
         auto ats =
           Kokkos::subview(
             aterm_values,
-            blc,
-            pa,
-            frq,
-            sto_out,
-            sto_in,
+            blc_l,
+            pa_l,
+            frq_l,
+            sto_out_l,
+            sto_in_l,
             Kokkos::ALL,
             Kokkos::ALL);
-        Legion::coord_t sto_left =
+        Legion::coord_t sto_left_l =
           stokes_indexes(
-            static_cast<int>(aterm_stokes_out_values(sto_out)) - 1);
+            static_cast<int>(aterm_stokes_out_values(sto_out_l)) - 1);
         auto left =
           Kokkos::subview(
             jones_values,
-            blc,
-            pa,
-            frq,
-            sto_left,
+            blc_l,
+            pa_l,
+            frq_l,
+            sto_left_l,
             Kokkos::ALL,
             Kokkos::ALL);
-        Legion::coord_t sto_right =
+        Legion::coord_t sto_right_l =
           stokes_indexes(
-            static_cast<int>(aterm_stokes_in_values(sto_in)) - 1);
+            static_cast<int>(aterm_stokes_in_values(sto_in_l)) - 1);
         auto right =
           Kokkos::subview(
             jones_values,
-            blc,
-            pa,
-            frq,
-            sto_right,
+            blc_l,
+            pa_l,
+            frq_l,
+            sto_right_l,
             Kokkos::ALL,
             Kokkos::ALL);
         Kokkos::parallel_for(
@@ -256,7 +247,7 @@ public:
             auto left_x = Kokkos::subview(left, x0, Kokkos::ALL);
             auto right_x = Kokkos::subview(right, x0, Kokkos::ALL);
             Kokkos::parallel_for(
-              Kokkos::TeamVectorRange(team_member, y_size),
+              Kokkos::ThreadVectorRange(team_member, y_size),
               [=](const auto y0) {
                 ats_x(y0) = left_x(y0) * Kokkos::conj(right_x(y0));
               });

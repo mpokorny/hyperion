@@ -67,9 +67,7 @@ GridCoordinateTable::compute_coordinates(
   auto wd_colreqs = Column::default_requirements;
   wd_colreqs.values.privilege = LEGION_WRITE_DISCARD;
   wd_colreqs.values.mapped = true;
-  auto ro_colreqs = Column::default_requirements;
-  ro_colreqs.values.privilege = LEGION_READ_ONLY;
-  ro_colreqs.values.mapped = true;
+  auto ro_colreqs = Column::default_requirements_mapped;
   auto reqs =
     requirements(
       ctx,
@@ -166,16 +164,18 @@ GridCoordinateTable::compute_coordinates_task(
   const ComputeCoordinatesTaskArgs& args =
     *static_cast<const ComputeCoordinatesTaskArgs*>(task->args);
 
-  cc::LinearCoordinate lc0;
-  cc::DirectionCoordinate dc0;
-  cc::Coordinate* coord0;
-  if (args.is_linear_coordinate) {
-    linear_coordinate_serdez::deserialize(lc0, args.lc.data());
-    coord0 = &lc0;
-  } else {
-    direction_coordinate_serdez::deserialize(dc0, args.dc.data());
-    coord0 = &dc0;
-  }
+  auto buff =
+    std::make_unique<char[]>(
+      std::max(
+        sizeof(cc::LinearCoordinate),
+        sizeof(cc::DirectionCoordinate)));
+  if (args.is_linear_coordinate)
+    linear_coordinate_serdez::deserialize(
+      *reinterpret_cast<cc::LinearCoordinate*>(buff.get()), args.lc.data());
+  else
+    direction_coordinate_serdez::deserialize(
+      *reinterpret_cast<cc::DirectionCoordinate*>(buff.get()), args.dc.data());
+  cc::Coordinate* coord0 = reinterpret_cast<cc::Coordinate*>(buff.get());
 
   auto ptcr =
     PhysicalTable::create(
@@ -196,7 +196,7 @@ GridCoordinateTable::compute_coordinates_task(
   assert(rit == task->regions.end());
   assert(pit == regions.end());
 
-  auto gc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt);
+  CFPhysicalTable<CF_PARALLACTIC_ANGLE> gc_tbl(pt);
   // coordinates columns
   auto cx_col =
     CoordColumn<AffineAccessor>(*gc_tbl.column(COORD_X_NAME).value());

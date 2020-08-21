@@ -19,6 +19,7 @@
 #include <hyperion/hyperion.h>
 #include <hyperion/utility.h>
 #include <hyperion/Table.h>
+#include <hyperion/PhysicalColumn.h>
 
 #include <array>
 #include <vector>
@@ -222,11 +223,29 @@ public:
   }
 
   template <int N>
-  static inline Kokkos::Array<long, N>
+  static KOKKOS_INLINE_FUNCTION Kokkos::Array<long, N>
   rect_hi(const Legion::Rect<N, Legion::coord_t>& r) {
     Kokkos::Array<long, N> result;
     for (size_t i = 0; i < N; ++i)
       result[i] = r.hi[i] + 1;
+    return result;
+  }
+
+  template <int N>
+  static KOKKOS_INLINE_FUNCTION Kokkos::Array<long, N>
+  rect_zero(const Legion::Rect<N, Legion::coord_t>&) {
+    Kokkos::Array<long, N> result;
+    for (size_t i = 0; i < N; ++i)
+      result[i] = 0;
+    return result;
+  }
+
+  template <int N>
+  static KOKKOS_INLINE_FUNCTION Kokkos::Array<long, N>
+  rect_size(const Legion::Rect<N, Legion::coord_t>& r) {
+    Kokkos::Array<long, N> result;
+    for (size_t i = 0; i < N; ++i)
+      result[i] = r.hi[i] - r.lo[i] + 1;
     return result;
   }
 
@@ -264,6 +283,23 @@ public:
     for (size_t i = 1; i < N; ++i) {
       stride /= bounds.hi[i] - bounds.lo[i] + 1;
       result[i] = pt / stride + bounds.lo[i];
+      pt = pt % stride;
+    }
+    return result;
+  }
+
+  template <int N, typename T>
+  static KOKKOS_INLINE_FUNCTION array<long, N>
+  multidimensional_index_l(T pt, const Legion::Rect<N, T>& bounds) {
+    array<long, N> sz = rect_size(bounds);
+    array<long, N> result;
+    T stride = 1;
+    for (size_t i = 1; i < N; ++i)
+      stride *= sz[i];
+    result[0] = pt / stride;
+    for (size_t i = 1; i < N; ++i) {
+      stride /= sz[i];
+      result[i] = pt / stride;
       pt = pt % stride;
     }
     return result;

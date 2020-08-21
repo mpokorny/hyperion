@@ -49,17 +49,17 @@ WTermTable::compute_cfs(
   std::vector<RegionRequirement> all_reqs;
   std::vector<ColumnSpacePartition> all_parts;
   {
-    auto wo_colreqs = Column::default_requirements;
-    wo_colreqs.values.privilege = LEGION_WRITE_ONLY;
-    wo_colreqs.values.mapped = true;
+    auto wd_colreqs = Column::default_requirements;
+    wd_colreqs.values.privilege = LEGION_WRITE_DISCARD;
+    wd_colreqs.values.mapped = true;
 
     auto reqs =
       requirements(
         ctx,
         rt,
         partition,
-        {{CF_VALUE_COLUMN_NAME, wo_colreqs},
-         {CF_WEIGHT_COLUMN_NAME, wo_colreqs}},
+        {{CF_VALUE_COLUMN_NAME, wd_colreqs},
+         {CF_WEIGHT_COLUMN_NAME, wd_colreqs}},
         ro_colreqs);
 #if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
@@ -135,15 +135,35 @@ WTermTable::preregister_tasks() {
     add_aos_right_ordering_constraint(cpu_constraints);
     cpu_constraints.add_constraint(
       SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
+    cpu_constraints.add_constraint(
+      AlignmentConstraint(
+        GridCoordinateTable::COORD_X_FID,
+        LEGION_EQ_EK,
+        sizeof(GridCoordinateTable::coord_t)));
+    cpu_constraints.add_constraint(
+      AlignmentConstraint(
+        GridCoordinateTable::COORD_Y_FID,
+        LEGION_EQ_EK,
+        sizeof(GridCoordinateTable::coord_t)));
     auto cpu_layout_id = Runtime::preregister_layout(cpu_constraints);
 #endif
 
 #if USE_KOKKOS_VARIANT(CUDA, CFS_TASK)
     LayoutConstraintRegistrar
       gpu_constraints(FieldSpace::NO_SPACE, "WTermTable::compute_cfs");
-    add_soa_left_ordering_constraint(gpu_constraints);
+    add_aos_left_ordering_constraint(gpu_constraints);
     gpu_constraints.add_constraint(
       SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
+    gpu_constraints.add_constraint(
+      AlignmentConstraint(
+        GridCoordinateTable::COORD_X_FID,
+        LEGION_EQ_EK,
+        sizeof(GridCoordinateTable::coord_t)));
+    gpu_constraints.add_constraint(
+      AlignmentConstraint(
+        GridCoordinateTable::COORD_Y_FID,
+        LEGION_EQ_EK,
+        sizeof(GridCoordinateTable::coord_t)));
     auto gpu_layout_id = Runtime::preregister_layout(gpu_constraints);
 #endif
 

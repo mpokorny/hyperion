@@ -147,20 +147,23 @@ public:
     assert(rit == task->regions.end());
     assert(pit == regions.end());
 
-    auto ps_tbl = CFPhysicalTable<CF_PS_SCALE>(pts[0]);
-    auto gc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
+    auto kokkos_work_space =
+      rt->get_executing_processor(ctx).kokkos_work_space();
+
+    CFPhysicalTable<CF_PS_SCALE> ps_tbl(pts[0]);
+    CFPhysicalTable<CF_PARALLACTIC_ANGLE> gc_tbl(pts[1]);
 
     auto ps_scales =
       ps_tbl
-      .ps_scale<Legion::AffineAccessor>()
-      .view<execution_space, LEGION_READ_ONLY>();
-    auto value_col = ps_tbl.value<Legion::AffineAccessor>();
+      .template ps_scale<Legion::AffineAccessor>()
+      .template view<execution_space, LEGION_READ_ONLY>();
+    auto value_col = ps_tbl.template value<Legion::AffineAccessor>();
     auto value_rect = value_col.rect();
-    auto values = value_col.view<execution_space, LEGION_WRITE_ONLY>();
+    auto values = value_col.template view<execution_space, LEGION_WRITE_ONLY>();
     auto weights =
       ps_tbl
-      .weight<Legion::AffineAccessor>()
-      .view<execution_space, LEGION_WRITE_ONLY>();
+      .template weight<Legion::AffineAccessor>()
+      .template view<execution_space, LEGION_WRITE_ONLY>();
 
     auto cs_x_col =
       GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
@@ -182,7 +185,7 @@ public:
         Kokkos::ALL);
 
     Kokkos::MDRangePolicy<Kokkos::Rank<3>, execution_space> range(
-      rt->get_executing_processor(ctx).kokkos_work_space(),
+      kokkos_work_space,
       rect_lo(value_rect),
       rect_hi(value_rect));
     Kokkos::parallel_for(

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <hyperion/synthesis/ATermTable.h>
+#include <hyperion/PhysicalTableGuard.h>
 
 #include <cmath>
 #include <cstring>
@@ -183,14 +184,17 @@ ATermTable::compute_cfs(
   std::vector<typename cf_table_axis<CF_STOKES_IN>::type>
     stokes_in_values;
   size_t grid_size;
-  using_resource(
-    [&]() {
-      auto ro_colreqs = Column::default_requirements;
-      ro_colreqs.values.mapped = true;
-      auto wd_colreqs = Column::default_requirements;
-      wd_colreqs.values.privilege = LEGION_WRITE_DISCARD;
-      return
-        CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>(
+  {
+    auto ro_colreqs = Column::default_requirements;
+    ro_colreqs.values.mapped = true;
+    auto wd_colreqs = Column::default_requirements;
+    wd_colreqs.values.privilege = LEGION_WRITE_DISCARD;
+
+    auto tbl =
+      PhysicalTableGuard<physical_table_t>(
+        ctx,
+        rt,
+        physical_table_t(
           map_inline(
             ctx,
             rt,
@@ -200,52 +204,48 @@ ATermTable::compute_cfs(
              {cf_table_axis<CF_STOKES_OUT>::name, ro_colreqs},
              {cf_table_axis<CF_STOKES_IN>::name, ro_colreqs},
              {CF_VALUE_COLUMN_NAME, wd_colreqs}},
-            CXX_OPTIONAL_NAMESPACE::nullopt));
-    },
-    [&](CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>& tbl) {
-      {
-        auto blc_col = tbl.baseline_class<AffineAccessor>();
-        auto blcs = blc_col.accessor<READ_ONLY>();
-        for (PointInRectIterator<1> pir(blc_col.rect()); pir(); pir++)
-          baseline_classes.push_back(blcs[*pir]);
-      }
-      {
-        auto pa_col = tbl.parallactic_angle<AffineAccessor>();
-        auto pas = pa_col.accessor<READ_ONLY>();
-        for (PointInRectIterator<1> pir(pa_col.rect()); pir(); pir++)
-          parallactic_angles.push_back(pas[*pir]);
-      }
-      {
-        auto frq_col = tbl.frequency<AffineAccessor>();
-        auto frqs = frq_col.accessor<READ_ONLY>();
-        for (PointInRectIterator<1> pir(frq_col.rect()); pir(); pir++)
-          frequencies.push_back(frqs[*pir]);
-      }
-      {
-        auto sto_col = tbl.stokes_out<AffineAccessor>();
-        auto stos = sto_col.accessor<READ_ONLY>();
-        for (PointInRectIterator<1> pir(sto_col.rect()); pir(); pir++)
-          stokes_out_values.push_back(stos[*pir]);
-      }
-      {
-        auto sto_col = tbl.stokes_in<AffineAccessor>();
-        auto stos = sto_col.accessor<READ_ONLY>();
-        for (PointInRectIterator<1> pir(sto_col.rect()); pir(); pir++)
-          stokes_in_values.push_back(stos[*pir]);
-      }
-      {
-        auto value_col = tbl.value<AffineAccessor>();
-        auto rect = value_col.rect();
-        grid_size = rect.hi[index_rank] - rect.lo[index_rank] + 1;
-        assert(
-          grid_size ==
-          static_cast<size_t>(
-            rect.hi[index_rank + 1] - rect.lo[index_rank + 1] + 1));
-      }
-    },
-    [&](CFPhysicalTable<HYPERION_A_TERM_TABLE_AXES>& tbl) {
-      tbl.unmap_regions(ctx, rt);
-    });
+            CXX_OPTIONAL_NAMESPACE::nullopt)));
+    {
+      auto blc_col = tbl->baseline_class<AffineAccessor>();
+      auto blcs = blc_col.accessor<READ_ONLY>();
+      for (PointInRectIterator<1> pir(blc_col.rect()); pir(); pir++)
+        baseline_classes.push_back(blcs[*pir]);
+    }
+    {
+      auto pa_col = tbl->parallactic_angle<AffineAccessor>();
+      auto pas = pa_col.accessor<READ_ONLY>();
+      for (PointInRectIterator<1> pir(pa_col.rect()); pir(); pir++)
+        parallactic_angles.push_back(pas[*pir]);
+    }
+    {
+      auto frq_col = tbl->frequency<AffineAccessor>();
+      auto frqs = frq_col.accessor<READ_ONLY>();
+      for (PointInRectIterator<1> pir(frq_col.rect()); pir(); pir++)
+        frequencies.push_back(frqs[*pir]);
+    }
+    {
+      auto sto_col = tbl->stokes_out<AffineAccessor>();
+      auto stos = sto_col.accessor<READ_ONLY>();
+      for (PointInRectIterator<1> pir(sto_col.rect()); pir(); pir++)
+        stokes_out_values.push_back(stos[*pir]);
+    }
+    {
+      auto sto_col = tbl->stokes_in<AffineAccessor>();
+      auto stos = sto_col.accessor<READ_ONLY>();
+      for (PointInRectIterator<1> pir(sto_col.rect()); pir(); pir++)
+        stokes_in_values.push_back(stos[*pir]);
+    }
+    {
+      auto value_col = tbl->value<AffineAccessor>();
+      auto rect = value_col.rect();
+      grid_size = rect.hi[index_rank] - rect.lo[index_rank] + 1;
+      assert(
+        grid_size ==
+        static_cast<size_t>(
+          rect.hi[index_rank + 1] - rect.lo[index_rank + 1] + 1));
+    }
+  }
+
   // created vector of all referenced Stokes values
   std::vector<stokes_t> stokes_values;
   {
@@ -373,16 +373,13 @@ ATermTable::compute_cfs(
   ComputeCFsTaskArgs args;
   {
     // ATermIlluminationFunction value and weight columns
-    auto sto_part_colreqs = Column::default_requirements;
-    sto_part_colreqs.values.mapped = true;
+    auto sto_part_colreqs = Column::default_requirements_mapped;
     sto_part_colreqs.partition = aif_read_lp; // OK to be NO_PART
 
     // we'll need to map Stokes values to region indexes in compute_cfs_task,
     // which may be derived from the Stokes index column (we don't bother to
     // make a special partition for this purpose -- aterm_part will leave the
     // CF_STOKES axis unpartitioned)
-    auto colreqs = Column::default_requirements;
-    colreqs.values.mapped = true;
     auto reqs =
       aif.requirements(
         ctx,
@@ -390,7 +387,7 @@ ATermTable::compute_cfs(
         aterm_part,
         {{CF_VALUE_COLUMN_NAME, sto_part_colreqs},
          {CF_WEIGHT_COLUMN_NAME, sto_part_colreqs},
-         {cf_table_axis<CF_STOKES>::name, colreqs}},
+         {cf_table_axis<CF_STOKES>::name, Column::default_requirements_mapped}},
         CXX_OPTIONAL_NAMESPACE::nullopt);
 #if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;
@@ -405,11 +402,8 @@ ATermTable::compute_cfs(
   }
   {
     // ATermTable, Mueller element CF value and weight columns
-    auto colreqs = Column::default_requirements;
-    colreqs.values.mapped = true;
+    auto colreqs = Column::default_requirements_mapped;
     colreqs.values.privilege = WRITE_DISCARD;
-    auto ro_colreqs = Column::default_requirements;
-    ro_colreqs.values.mapped = true;
     auto reqs =
       requirements(
         ctx,
@@ -417,8 +411,10 @@ ATermTable::compute_cfs(
         aterm_part,
         {{CF_VALUE_COLUMN_NAME, colreqs},
          {CF_WEIGHT_COLUMN_NAME, colreqs},
-         {cf_table_axis<CF_STOKES_OUT>::name, ro_colreqs},
-         {cf_table_axis<CF_STOKES_IN>::name, ro_colreqs}},
+         {cf_table_axis<CF_STOKES_OUT>::name,
+          Column::default_requirements_mapped},
+         {cf_table_axis<CF_STOKES_IN>::name,
+          Column::default_requirements_mapped}},
         CXX_OPTIONAL_NAMESPACE::nullopt);
 #if HAVE_CXX17
     auto& [treqs, tparts, tdesc] = reqs;

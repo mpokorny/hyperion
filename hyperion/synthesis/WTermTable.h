@@ -94,38 +94,27 @@ public:
     *static_cast<const ComputeCFsTaskArgs*>(task->args);
   std::vector<Table::Desc> tdesc{args.w, args.gc};
 
-  auto ptcrs =
-    PhysicalTable::create_many(
-      rt,
-      tdesc,
-      task->regions.begin(),
-      task->regions.end(),
-      regions.begin(),
-      regions.end())
-    .value();
-#if HAVE_CXX17
-  auto& [pts, rit, pit] = ptcrs;
-#else // !HAVE_CXX17
-  auto& pts = std::get<0>(ptcrs);
-  auto& rit = std::get<1>(ptcrs);
-  auto& pit = std::get<2>(ptcrs);
-#endif // HAVE_CXX17
-  assert(rit == task->regions.end());
-  assert(pit == regions.end());
+  auto pts =
+    PhysicalTable::create_all_unsafe(rt, tdesc, task->regions, regions);
 
-  auto w_tbl = CFPhysicalTable<CF_W>(pts[0]);
-  auto gc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
+  auto kokkos_work_space =
+    rt->get_executing_processor(ctx).kokkos_work_space();
+
+  CFPhysicalTable<CF_W> w_tbl(pts[0]);
+  CFPhysicalTable<CF_PARALLACTIC_ANGLE> gc_tbl(pts[1]);
 
   auto w_values =
-    w_tbl.w<Legion::AffineAccessor>().view<execution_space, LEGION_READ_ONLY>();
+    w_tbl
+    .template w<Legion::AffineAccessor>()
+    .template view<execution_space, LEGION_READ_ONLY>();
 
-  auto value_col = w_tbl.value<Legion::AffineAccessor>();
+  auto value_col = w_tbl.template value<Legion::AffineAccessor>();
   auto value_rect = value_col.rect();
-  auto values = value_col.view<execution_space, LEGION_WRITE_ONLY>();
+  auto values = value_col.template view<execution_space, LEGION_WRITE_DISCARD>();
   auto weights =
     w_tbl
-    .weight<Legion::AffineAccessor>()
-    .view<execution_space, LEGION_WRITE_ONLY>();
+    .template weight<Legion::AffineAccessor>()
+    .template view<execution_space, LEGION_WRITE_DISCARD>();
 
   auto cs_x_col =
     GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
@@ -137,39 +126,38 @@ public:
       i_pa,
       Kokkos::ALL,
       Kokkos::ALL);
+
+  auto cs_y_col =
+    GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+      *gc_tbl.column(GridCoordinateTable::COORD_Y_NAME).value());
   auto cs_y =
     Kokkos::subview(
-      GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
-        *gc_tbl.column(GridCoordinateTable::COORD_Y_NAME).value())
-      .view<execution_space, LEGION_READ_ONLY>(),
+      cs_y_col.view<execution_space, LEGION_READ_ONLY>(),
       i_pa,
       Kokkos::ALL,
       Kokkos::ALL);
 
   Kokkos::MDRangePolicy<Kokkos::Rank<3>, execution_space> range(
-    rt->get_executing_processor(ctx).kokkos_work_space(),
-    rect_lo(value_rect),
-    rect_hi(value_rect));
+    kokkos_work_space,
+    rect_zero(value_rect),
+    rect_size(value_rect));
   Kokkos::parallel_for(
     "ComputeWTerm",
     range,
-    KOKKOS_LAMBDA (
-      Legion::coord_t i_w,
-      Legion::coord_t i_x,
-      Legion::coord_t i_y) {
+    KOKKOS_LAMBDA (long w_l, long x_l, long y_l) {
 
-      const cf_fp_t l = cs_x(i_x, i_y);
-      const cf_fp_t m = cs_y(i_x, i_y);
+      const cf_fp_t l = cs_x(x_l, y_l);
+      const cf_fp_t m = cs_y(x_l, y_l);
       const cf_fp_t r2 = l * l + m * m;
       if (r2 <= (cf_fp_t)1.0) {
         const cf_fp_t phase =
-          (cf_fp_t)twopi * w_values(i_w)
+          (cf_fp_t)twopi * w_values(w_l)
           * (std::sqrt((cf_fp_t)1.0 - r2) - (cf_fp_t)1.0);
-        values(i_w, i_x, i_y) = std::polar((cf_fp_t)1.0, phase);
-        weights(i_w, i_x, i_y) = (cf_fp_t)1.0;
+        values(w_l, x_l, y_l) = std::polar((cf_fp_t)1.0, phase);
+        weights(w_l, x_l, y_l) = (cf_fp_t)1.0;
       } else {
-        values(i_w, i_x, i_y) = (cf_fp_t)0.0;
-        weights(i_w, i_x, i_y) = std::numeric_limits<cf_fp_t>::quiet_NaN();
+        values(w_l, x_l, y_l) = (cf_fp_t)0.0;
+        weights(w_l, x_l, y_l) = std::numeric_limits<cf_fp_t>::quiet_NaN();
       }
     });
   }
