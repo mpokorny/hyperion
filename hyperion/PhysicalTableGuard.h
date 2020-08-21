@@ -32,7 +32,7 @@ public:
     PT&& pt)
     : m_ctx(ctx)
     , m_rt(rt)
-    , m_pt(std::move(pt)) {}
+    , m_pt(std::forward<PT>(pt)) {}
 
   virtual ~PhysicalTableGuard() {
     m_pt.unmap_regions(m_ctx, m_rt);
