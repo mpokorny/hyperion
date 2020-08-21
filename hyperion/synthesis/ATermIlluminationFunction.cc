@@ -359,78 +359,6 @@ ATermIlluminationFunction::ATermIlluminationFunction(
     Axis<CF_STOKES>(stokes_values)) {
 }
 
-#ifndef HYPERION_USE_KOKKOS
-void
-ATermIlluminationFunction::compute_epts_task(
-  const Task* task,
-  const std::vector<PhysicalRegion>& regions,
-  Context ctx,
-  Runtime* rt) {
-
-  const Table::Desc& tdesc = *static_cast<const Table::Desc*>(task->args);
-
-  auto ptcr =
-    PhysicalTable::create(
-      rt,
-      tdesc,
-      task->regions.begin(),
-      task->regions.end(),
-      regions.begin(),
-      regions.end())
-    .value();
-#if HAVE_CXX17
-  auto& [pt, rit, pit] = ptcr;
-#else // !HAVE_CXX17
-  auto& pt = std::get<0>(ptcr);
-  auto& rit = std::get<1>(ptcr);
-  auto& pit = std::get<2>(ptcr);
-#endif // HAVE_CXX17
-  assert(rit == task->regions.end());
-  assert(pit == regions.end());
-
-  auto gc = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pt);
-  GridCoordinateTable::compute_coordinates(gc);
-
-  // world coordinates columns
-  auto wx_col =
-    GridCoordinateTable::WorldCColumn<AffineAccessor>(
-      *gc.column(GridCoordinateTable::COORD_X_NAME).value());
-  auto wx_rect = wx_col.rect();
-  auto wxs = wx_col.accessor<READ_ONLY>();
-  auto wys =
-    GridCoordinateTable::WorldCColumn<AffineAccessor>(
-      *gc.column(GridCoordinateTable::COORD_Y_NAME).value())
-    .accessor<READ_ONLY>();
-
-  // polynomial function evaluation points columns
-  auto xpts =
-    EPtColumn<AffineAccessor>(*gc.column(EPT_X_NAME).value())
-    .accessor<WRITE_DISCARD>();
-  auto ypts =
-    EPtColumn<AffineAccessor>(*gc.column(EPT_Y_NAME).value())
-    .accessor<WRITE_DISCARD>();
-
-  for (PointInRectIterator<GridCoordinateTable::coord_rank> pir(
-         wx_rect, false);
-       pir();
-       pir++) {
-    // Outside of the unit disk, the function should evaluate to zero,
-    // which is achieved by setting the X and Y vectors to zero.
-    auto& wx = wxs[*pir];
-    auto& wy = wys[*pir];
-    ept_t ept0 = ((wx * wx + wy * wy <= 1.0) ? 1.0 : 0.0);
-    Point<ept_rank> p;
-    for (size_t i = 0; i < ept_rank; ++i)
-      p[i] = pir[i];
-    p[d_power] = 0;
-    xpts[p] = ypts[p] = ept0;
-    p[d_power] = 1;
-    xpts[p] = wx * ept0;
-    ypts[p] = wy * ept0;
-  }
-}
-#endif
-
 void
 ATermIlluminationFunction::compute_jones(
   Context ctx,
@@ -453,13 +381,7 @@ ATermIlluminationFunction::compute_jones(
 
 #define USE_KOKKOS_VARIANT(V, T)                \
   (defined(USE_KOKKOS_##V##_COMPUTE_##T) &&     \
-   defined(HYPERION_USE_KOKKOS) &&              \
    defined(KOKKOS_ENABLE_##V))
-
-#define USE_PLAIN_SERIAL_VARIANT(T) \
-  (!USE_KOKKOS_VARIANT(SERIAL, T) && \
-   !USE_KOKKOS_VARIANT(OPENMP, T) && \
-   !USE_KOKKOS_VARIANT(CUDA, T))
 
 void
 ATermIlluminationFunction::preregister_tasks() {
@@ -470,8 +392,7 @@ ATermIlluminationFunction::preregister_tasks() {
     // in the augmented GridCoordinateTable the two EPT columns share an
     // index space; use an AOS layout for CPUs as default for that reason
 #if USE_KOKKOS_VARIANT(SERIAL, EPTS_TASK) || \
-  USE_KOKKOS_VARIANT(OPENMP, EPTS_TASK) || \
-  USE_PLAIN_SERIAL_VARIANT(EPTS_TASK)
+  USE_KOKKOS_VARIANT(OPENMP, EPTS_TASK)
     LayoutConstraintRegistrar cpu_constraints(
       FieldSpace::NO_SPACE,
       "ATermIlluminationFunction::compute_epts");
@@ -546,24 +467,6 @@ ATermIlluminationFunction::preregister_tasks() {
         compute_epts_task_name);
     }
 #endif
-
-#if USE_PLAIN_SERIAL_VARIANT(EPTS_TASK)
-    {
-      TaskVariantRegistrar
-        registrar(compute_epts_task_id, compute_epts_task_name);
-      registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-      registrar.set_leaf();
-      registrar.set_idempotent();
-
-      registrar.add_layout_constraint_set(
-        TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        cpu_layout_id);
-
-      Runtime::preregister_task_variant<compute_epts_task>(
-        registrar,
-        compute_epts_task_name);
-    }
-#endif
   }
 
   //
@@ -574,8 +477,7 @@ ATermIlluminationFunction::preregister_tasks() {
     // ATermIlluminationFunction, using EPT_X and EPT_Y; use an AOS layout for
     // CPUs as default for that reason
 #if USE_KOKKOS_VARIANT(SERIAL, AIFS_TASK) ||    \
-  USE_KOKKOS_VARIANT(OPENMP, AIFS_TASK) ||      \
-  USE_PLAIN_SERIAL_VARIANT(AIFS_TASK)
+  USE_KOKKOS_VARIANT(OPENMP, AIFS_TASK)
     LayoutConstraintRegistrar cpu_constraints(
       FieldSpace::NO_SPACE,
       "ATermIlluminationFunction::compute_aifs");
@@ -646,24 +548,6 @@ ATermIlluminationFunction::preregister_tasks() {
         gpu_layout_id);
 
       Runtime::preregister_task_variant<compute_aifs_task<Kokkos::Cuda>>(
-        registrar,
-        compute_aifs_task_name);
-    }
-#endif
-
-#if USE_PLAIN_SERIAL_VARIANT(AIFS_TASK)
-    {
-      TaskVariantRegistrar
-        registrar(compute_aifs_task_id, compute_aifs_task_name);
-      registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-      registrar.set_leaf();
-      registrar.set_idempotent();
-
-      registrar.add_layout_constraint_set(
-        TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        cpu_layout_id);
-
-      Runtime::preregister_task_variant<compute_aifs_task>(
         registrar,
         compute_aifs_task_name);
     }

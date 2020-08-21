@@ -35,81 +35,6 @@ WTermTable::WTermTable(
   const std::vector<typename cf_table_axis<CF_W>::type>& w_values)
   : CFTable(ctx, rt, grid_size, Axis<CF_W>(w_values)) {}
 
-#ifndef HYPERION_USE_KOKKOS
-void
-WTermTable::compute_cfs_task(
-  const Task* task,
-  const std::vector<PhysicalRegion>& regions,
-  Context ctx,
-  Runtime* rt) {
-
-  const ComputeCFsTaskArgs& args =
-    *static_cast<const ComputeCFsTaskArgs*>(task->args);
-  std::vector<Table::Desc> tdesc{args.w, args.gc};
-
-  auto ptcrs =
-    PhysicalTable::create_many(
-      rt,
-      tdesc,
-      task->regions.begin(),
-      task->regions.end(),
-      regions.begin(),
-      regions.end())
-    .value();
-#if HAVE_CXX17
-  auto& [pts, rit, pit] = ptcrs;
-#else // !HAVE_CXX17
-  auto& pts = std::get<0>(ptcrs);
-  auto& rit = std::get<1>(ptcrs);
-  auto& pit = std::get<2>(ptcrs);
-#endif // HAVE_CXX17
-  assert(rit == task->regions.end());
-  assert(pit == regions.end());
-
-  auto w_tbl = CFPhysicalTable<CF_W>(pts[0]);
-  auto gc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
-
-  auto w_values =
-    w_tbl.w<Legion::AffineAccessor>().accessor<LEGION_READ_ONLY>();
-
-  auto value_col = w_tbl.value<Legion::AffineAccessor>();
-  auto value_rect = value_col.rect();
-  auto values = values_col.accessor<LEGION_WRITE_ONLY>();
-  auto weights = weights_col.accessor<LEGION_WRITE_ONLY>();
-
-  auto cs_x_col =
-    GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
-      *gc_tbl.column(GridCoordinateTable::COORD_X_NAME).value());
-  auto cs_x = cs_x_col.accessor<LEGION_READ_ONLY>();
-  auto cs_y =
-    GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
-      *gc_tbl.column(GridCoordinateTable::COORD_Y_NAME).value())
-    .accessor<LEGION_READ_ONLY>();
-  auto i_pa = cs_x_col.rect().lo[GridCoordinateTable::d_pa];
-
-  auto& r = value_rect;
-  for (coord_t i_w = r.lo[d_w]; i_w <= r.hi[d_w]; ++i_w) {
-    const cf_fp_t twoPiW = (cf_fp_t)twopi * w_values[i_w];
-    for (coord_t i_x = r.lo[d_x]; i_x <= r.hi[d_x]; ++i_x) {
-      for (coord_t i_y = r.lo[d_y]; i_y <= r.hi[d_y]; ++i_y) {
-        const cf_fp_t l = cs_x[{i_pa, i_x, i_y}];
-        const cf_fp_t m = cs_y[{i_pa, i_x, i_y}];
-        const cf_fp_t r2 = l * l + m * m;
-        if (r2 <= (cf_fp_t)1.0) {
-          const cf_fp_t phase =
-            towPiW * (std::sqrt((cf_fp_t)1.0 - r2) - (cf_fp_t)1.0);
-          values[{i_w, i_x, i_y}] = std::polar((cf_fp_t)1.0, phase);
-          weights[{i_w, i_x, i_y}] = (cf_fp_t)1.0;
-        } else {
-          values[{i_w, i_x, i_y}] = (cf_fp_t)0.0;
-          weights[{i_w, i_x, i_y}] = std::numeric_limits<cf_fp_t>::quiet_NaN();
-        }
-      }
-    }
-  }
-}
-#endif
-
 void
 WTermTable::compute_cfs(
   Context ctx,
@@ -195,13 +120,7 @@ WTermTable::compute_cfs(
 
 #define USE_KOKKOS_VARIANT(V, T)                \
   (defined(USE_KOKKOS_##V##_COMPUTE_##T) &&     \
-   defined(HYPERION_USE_KOKKOS) &&              \
    defined(KOKKOS_ENABLE_##V))
-
-#define USE_PLAIN_SERIAL_VARIANT(T)             \
-  (!USE_KOKKOS_VARIANT(SERIAL, T) &&            \
-   !USE_KOKKOS_VARIANT(OPENMP, T) &&            \
-   !USE_KOKKOS_VARIANT(CUDA, T))
 
 void
 WTermTable::preregister_tasks() {
@@ -210,8 +129,7 @@ WTermTable::preregister_tasks() {
   //
   {
 #if USE_KOKKOS_VARIANT(SERIAL, CFS_TASK) || \
-  USE_KOKKOS_VARIANT(OPENMP, CFS_TASK) || \
-  USE_PLAIN_SERIAL_VARIANT(CFS_TASK)
+  USE_KOKKOS_VARIANT(OPENMP, CFS_TASK)
     LayoutConstraintRegistrar
       cpu_constraints(FieldSpace::NO_SPACE, "WTermTable::compute_cfs");
     add_aos_right_ordering_constraint(cpu_constraints);
@@ -283,24 +201,6 @@ WTermTable::preregister_tasks() {
         gpu_layout_id);
 
       Runtime::preregister_task_variant<compute_cfs_task<Kokkos::Cuda>>(
-        registrar,
-        compute_cfs_task_name);
-    }
-#endif
-
-#if USE_PLAIN_SERIAL_VARIANT(CFS_TASK)
-    {
-      TaskVariantRegistrar
-        registrar(compute_cfs_task_id, compute_cfs_task_name);
-      registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-      registrar.set_leaf();
-      registrar.set_idempotent();
-
-      registrar.add_layout_constraint_set(
-        TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        cpu_layout_id);
-
-      Runtime::preregister_task_variant<compute_cfs_task>(
         registrar,
         compute_cfs_task_name);
     }

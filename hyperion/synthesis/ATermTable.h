@@ -96,7 +96,6 @@ public:
     Table::Desc aterm;
   };
 
-#ifdef HYPERION_USE_KOKKOS
   template <typename execution_space>
   static void
   compute_cfs_task(
@@ -264,7 +263,6 @@ public:
           });
       });
   }
-#endif // HYPERION_USE_KOKKOS
 
   static void
   preregister_tasks();

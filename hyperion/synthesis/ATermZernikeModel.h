@@ -204,7 +204,6 @@ public:
 
   static Legion::TaskID compute_pcs_task_id;
 
-#ifdef HYPERION_USE_KOKKOS
   // N.B: this implementation does not work in Kokkos::Cuda, primarily because
   // of the static array definitions in Zernike.h
   template <typename execution_space>
@@ -285,14 +284,6 @@ public:
         }
       });
   }
-#else // !HYPERION_USE_KOKKOS
-  static void
-  compute_pcs_task(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime* rt);
-#endif // HYPERION_USE_KOKKOS
 
   static void
   preregister_tasks();

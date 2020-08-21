@@ -266,7 +266,6 @@ public:
       INDEX_RANK + 2,
       Legion::AffineAccessor>;
 
-#ifdef HYPERION_USE_KOKKOS
   template <
     typename execution_space,
     typename T,
@@ -487,7 +486,6 @@ public:
     }
 #endif
   }
-#endif // HYPERION_USE_KOKKOS
 
 protected:
 

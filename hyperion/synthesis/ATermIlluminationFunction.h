@@ -157,7 +157,6 @@ public:
 
   static Legion::TaskID compute_epts_task_id;
 
-#ifdef HYPERION_USE_KOKKOS
   template <typename execution_space>
   static void
   compute_epts_task(
@@ -229,14 +228,6 @@ public:
         ypts(pa, x, y, 1) = cy * ept0;
       });
   }
-#else
-  void
-  compute_epts_task(
-    const Legion::Task* task,
-    const std::vector<PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime* rt);
-#endif
 
   /**
    * Compute the values of the aperture illumination function column
@@ -296,7 +287,6 @@ public:
     Table::Desc aif;
   };
 
-#ifdef HYPERION_USE_KOKKOS
   template <typename execution_space>
   static void
   compute_aifs_task(
@@ -408,14 +398,6 @@ public:
         v = (v + tmp(0)) * xpt(0);
       });
   }
-#else // !HYPERION_USE_KOKKOS
-  static void
-  compute_aifs_task(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime* rt);
-#endif // HYPERION_USE_KOKKOS
 
   static void
   preregister_tasks();

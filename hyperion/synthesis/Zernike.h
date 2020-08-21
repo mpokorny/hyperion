@@ -23,9 +23,6 @@
 #include <vector>
 
 #include <experimental/mdspan>
-#ifdef HYPERION_USE_KOKKOS
-# include <Kokkos_Core.hpp>
-#endif
 
 namespace hyperion {
 namespace synthesis {
@@ -954,7 +951,7 @@ struct zernike_series {
     zernike_series_<T, max_n::value, zernike_series<T, Zs...>>::
       expand(ary, coefficients);
   }
-#ifdef HYPERION_USE_KOKKOS
+
   template <typename ...Args>
   static void
   expand(
@@ -966,7 +963,6 @@ struct zernike_series {
     zernike_series_<T, max_n::value, zernike_series<T, Zs...>>::
       expand(ary, coefficients);
   }
-#endif // HYPERION_USE_KOKKOS
 };
 
 template <typename T, unsigned N>
@@ -977,13 +973,12 @@ struct zernike_series_<T, N, zernike_series<T>> {
   expand(
     std::experimental::mdspan<T, N+1, N+1>&,
     const std::experimental::mdspan<T, D>&) {}
-#ifdef HYPERION_USE_KOKKOS
+
   template <typename ...Args>
   static void
   expand(
     const Kokkos::View<T**, Args...>&,
     const Kokkos::View<const T*, Args...>&) {}
-#endif // HYPERION_USE_KOKKOS
 };
 
 template <typename T, unsigned N0, typename Z, typename...Zs>
@@ -1004,7 +999,7 @@ struct zernike_series_<T, N0, zernike_series<T, Z, Zs...>> {
       ary(t.px, t.py) += c * t.c;
     zernike_series_<T, N0, zernike_series<T, Zs...>>::expand(ary, coeffs);
   }
-#ifdef HYPERION_USE_KOKKOS
+
   template <typename ...Args>
   static void
   expand(
@@ -1018,7 +1013,6 @@ struct zernike_series_<T, N0, zernike_series<T, Z, Zs...>> {
       ary(t.px, t.py) += c * t.c;
     zernike_series_<T, N0, zernike_series<T, Zs...>>::expand(ary, coeffs);
   }
-#endif // HYPERION_USE_KOKKOS
 };
 
 template <typename T, typename ZP, typename...Zs>
@@ -1034,19 +1028,21 @@ struct zernike_basis_base {
   constexpr static unsigned num_terms = (N+1)*(N+2)/2;
   constexpr static unsigned degree = N;
   typedef T var_t;
+
   static void
   expand(
     std::experimental::mdspan<T, N+1, N+1>& ary,
     const std::experimental::mdspan<T, num_terms>& coefficients) {
     Z::series::expand(ary, coefficients);
   }
+
   static void
   expand(
     std::experimental::mdspan<T, N+1, N+1>&& ary,
     std::experimental::mdspan<T, num_terms>&& coefficients) {
     Z::series::expand(ary, coefficients);
   }
-#ifdef HYPERION_USE_KOKKOS
+
   template <typename ...Args>
   static void
   expand(
@@ -1057,7 +1053,7 @@ struct zernike_basis_base {
     assert(coefficients.extent(0) == num_terms);
     Z::series::expand(ary, coefficients);
   }
-#endif // HYPERION_USE_KOKKOS
+
   constexpr static unsigned
   index(int m, unsigned n) {
     return (n * (n + 2) + m) / 2;

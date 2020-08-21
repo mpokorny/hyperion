@@ -212,9 +212,8 @@ public:
 
   static void preregister_all();
 
-#ifdef HYPERION_USE_KOKKOS
   template <int N>
-  static inline Kokkos::Array<long, N>
+  static KOKKOS_INLINE_FUNCTION Kokkos::Array<long, N>
   rect_lo(const Legion::Rect<N, Legion::coord_t>& r) {
     Kokkos::Array<long, N> result;
     for (size_t i = 0; i < N; ++i)
@@ -269,7 +268,6 @@ public:
     }
     return result;
   }
-#endif // !HYPERION_USE_KOKKOS
 
   void
   apply_fft(
@@ -375,7 +373,6 @@ struct CFTableBase::InitIndexColumnTaskArgs::initializer<T0, T1, Axes...> {
   }
 };
 
-#ifdef HYPERION_USE_KOKKOS
 #if LEGION_MAX_DIM >= 1
 template <typename V, typename XS, typename YS>
 KOKKOS_INLINE_FUNCTION auto
@@ -447,7 +444,6 @@ cf_subview(const V& v, const array<coord_t, 6>& pt, XS&& xs, YS&& ys) {
     std::forward<XS>(xs), std::forward<YS>(ys));
 }
 #endif
-#endif // HYPERION_USE_KOKKOS
 
 } // end namespace synthesis
 } // end namespace hyperion

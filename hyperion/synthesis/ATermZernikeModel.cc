@@ -39,7 +39,6 @@ const constexpr char* ATermZernikeModel::PC_NAME;
 
 #define USE_KOKKOS_SERIAL_COMPUTE_PCS_TASK // undef to disable
 #if defined(USE_KOKKOS_SERIAL_COMPUTE_PCS_TASK) &&  \
-  defined(HYPERION_USE_KOKKOS) &&                   \
   defined(KOKKOS_ENABLE_SERIAL)
 # define ENABLE_KOKKOS_SERIAL_COMPUTE_PCS_TASK
 #else
@@ -48,7 +47,6 @@ const constexpr char* ATermZernikeModel::PC_NAME;
 
 #define USE_KOKKOS_OPENMP_COMPUTE_PCS_TASK // undef to disable
 #if defined(USE_KOKKOS_OPENMP_COMPUTE_PCS_TASK) &&  \
-  defined(HYPERION_USE_KOKKOS) &&                   \
   defined(KOKKOS_ENABLE_OPENMP)
 # define ENABLE_KOKKOS_OPENMP_COMPUTE_PCS_TASK
 #else
@@ -57,7 +55,6 @@ const constexpr char* ATermZernikeModel::PC_NAME;
 
 #undef USE_KOKKOS_CUDA_COMPUTE_PCS_TASK // define to enable
 #if defined(USE_KOKKOS_CUDA_COMPUTE_PCS_TASK) &&  \
-  defined(HYPERION_USE_KOKKOS) &&                 \
   defined(KOKKOS_ENABLE_CUDA)
 # define ENABLE_KOKKOS_CUDA_COMPUTE_PCS_TASK
 #else
@@ -294,77 +291,6 @@ ATermZernikeModel::compute_pcs(
     p.destroy(ctx, rt);
 }
 
-#ifndef HYPERION_USE_KOKKOS
-void
-ATermZernikeModel::compute_pcs_task(
-  const Task* task,
-  const std::vector<PhysicalRegion>& regions,
-  Context ctx,
-  Runtime* rt) {
-
-  const Table::Desc& tdesc = *static_cast<Table::Desc*>(task->args);
-
-  // ATermZernikeModel physical instance
-  auto ptcr =
-    PhysicalTable::create(
-      rt,
-      tdesc,
-      task->regions.begin(),
-      task->regions.end(),
-      regions.begin(),
-      regions.end())
-    .value();
-#if HAVE_CXX17
-  auto& [tbl, rit, pit] = ptcr;
-#else // !HAVE_CXX17
-  auto& tbl = std::get<0>(ptcr);
-  auto& rit = std::get<1>(ptcr);
-  auto& pit = std::get<2>(ptcr);
-#endif // HAVE_CXX17
-  assert(rit == task->regions.end());
-  assert(pit == regions.end());
-
-  // Zernike coefficients
-  auto zc_col =
-    ZCColumn<AffineAccessor>(*tbl.column(ZC_NAME).value());
-  auto zc_rect = zc_col.rect();
-  auto zcs = zc_col.span<READ_ONLY>();
-
-  // polynomial function coefficients
-  auto pc_col = PCColumn<AffineAccessor>(*tbl.column(PC_NAME).value());
-  auto pcs = pc_col.span<WRITE_ONLY>();
-
-  for (coord_t blc = zc_rect.lo[d_blc]; blc <= zc_rect.hi[d_blc]; ++blc)
-    for (coord_t frq = zc_rect.lo[d_frq]; frq <= zc_rect.hi[d_frq]; ++frq)
-      for (coord_t sto = zc_rect.lo[d_sto]; sto <= zc_rect.hi[d_sto]; ++sto) {
-
-        auto zcs0 = stdex::subspan(zcs, blc, frq, sto, stdex::all);
-        auto pcs0 = stdex::subspan(pcs, blc, frq, sto, stdex::all, stdex::all);
-        switch (zcs.extent(3) - 1) {
-#define ZEXP(N)                                         \
-          case N:                                       \
-            zernike_basis<zc_t, N>::expand(pcs0, zcs0); \
-            break
-          ZEXP(0);
-          ZEXP(1);
-          ZEXP(2);
-          ZEXP(3);
-          ZEXP(4);
-          ZEXP(5);
-          ZEXP(6);
-          ZEXP(7);
-          ZEXP(8);
-          ZEXP(9);
-          ZEXP(10);
-#undef ZEXP
-        default:
-          assert(false);
-          break;
-        }
-      }
-}
-#endif // !HYPERION_USE_KOKKOS
-
 void
 ATermZernikeModel::preregister_tasks() {
   //
@@ -372,9 +298,8 @@ ATermZernikeModel::preregister_tasks() {
   //
   {
 #if defined(ENABLE_KOKKOS_SERIAL_COMPUTE_PCS_TASK) || \
-  defined(ENABLE_KOKKOS_OPENMP_COMPUTE_PCS_TASK) ||   \
-  !defined(HYPERION_USE_KOKKOS)
-    LayoutConstraintRegistrar
+  defined(ENABLE_KOKKOS_OPENMP_COMPUTE_PCS_TASK)
+  LayoutConstraintRegistrar
       cpu_constraints(
         FieldSpace::NO_SPACE,
         "ATermZernikeModel::compute_pcs");

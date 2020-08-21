@@ -27,13 +27,7 @@ using namespace Legion;
 
 #define USE_KOKKOS_VARIANT(V, T)                \
   (defined(USE_KOKKOS_##V##_COMPUTE_##T) &&     \
-   defined(HYPERION_USE_KOKKOS) &&              \
    defined(KOKKOS_ENABLE_##V))
-
-#define USE_PLAIN_SERIAL_VARIANT(T)             \
-  (!USE_KOKKOS_VARIANT(SERIAL, T) &&            \
-   !USE_KOKKOS_VARIANT(OPENMP, T) &&            \
-   !USE_KOKKOS_VARIANT(CUDA, T))
 
 #if !HAVE_CXX17
 const constexpr unsigned PSTermTable::d_ps;
@@ -47,72 +41,6 @@ PSTermTable::PSTermTable(
   const size_t& grid_size,
   const std::vector<typename cf_table_axis<CF_PS_SCALE>::type>& ps_scales)
   : CFTable(ctx, rt, grid_size, Axis<CF_PS_SCALE>(ps_scales)) {}
-
-#if USE_PLAIN_SERIAL_VARIANT(CFS_TASK)
-void
-PSTermTable::compute_cfs_task(
-  const Task* task,
-  const std::vector<PhysicalRegion>& regions,
-  Context ctx,
-  Runtime* rt) {
-
-  const ComputeCFsTaskArgs& args =
-    *static_cast<ComputeCFsTaskArgs*>(task->args);
-  std::vector<Table::Desc> tdescs{args.ps, args.gc};
-
-  auto ptcrs =
-    PhysicalTable::create_many(
-      rt,
-      tdescs,
-      task->regions.begin(),
-      task->regions.end(),
-      regions.begin(),
-      regions.end())
-    .value();
-#if HAVE_CXX17
-  auto& [pts, rit, pit] = ptcrs;
-#else // !HAVE_CXX17
-  auto& pts = std::get<0>(ptcrs);
-  auto& rit = std::get<1>(ptcrs);
-  auto& pit = std::get<2>(ptcrs);
-#endif // HAVE_CXX17
-  assert(rit == task->regions.end());
-  assert(pit == regions.end());
-
-  auto ps_tbl = CFPhysicalTable<CF_PS_SCALE>(pts[0]);
-  auto gc_tbl = CFPhysicalTable<CF_PARALLACTIC_ANGLE>(pts[1]);
-
-  auto ps_scales = ps_tbl.ps_scale<AffineAccessor>().accessor<READ_ONLY>();
-  auto value_col = ps_tbl.value<AffineAccessor>();
-  auto values = value_col.accessor<WRITE_ONLY>();
-  auto weight_col = ps_tbl.value<AffineAccessor>();
-  auto weights = weight_col.accessor<WRITE_ONLY>();
-
-  auto cs_x_col =
-    GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
-      *gc_tbl.column(GridCoordinateTable::COORD_X_NAME).value());
-  auto i_pa = cs_x_col.rect().lo[GridCoordinateTable::d_pa];
-  auto cs_x = cs_x_col.accessor<LEGION_READ_ONLY>();
-  auto cs_y =
-    GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
-      *gc_tbl.column(GridCoordinateTable::COORD_Y_NAME).value())
-    .accessor<LEGION_READ_ONLY>();
-
-  for (PointInRectIterator<3> pir(value_col.rect()); pir(); pir++) {
-    const cf_fp_t x = cs_x(i_pa, pir[d_x], pir[d_y]);
-    const cf_fp_t y = cs_y(i_pa, pir[d_x], pir[d_y]);
-    const cf_fp_t rs = std::sqrt(x * x + y * y) * ps_scales[pir[d_ps]];
-    if (rs <= (cf_fp_t)1.0) {
-      const cf_fp_t v = spheroidal(rs) * ((cf_fp_t)1.0 - rs * rs);
-      values[*pir] = v;
-      weights[*pir] = v * v;
-    } else {
-      values[*pir] = (cf_fp_t)0.0;
-      weights[*pir] = std::numeric_limits<cf_fp_t>::quiet_NaN();
-    }
-  }
-}
-#endif
 
 void
 PSTermTable::compute_cfs(
@@ -204,8 +132,7 @@ PSTermTable::preregister_tasks() {
   //
   {
 #if USE_KOKKOS_VARIANT(SERIAL, CFS_TASK) ||     \
-  USE_KOKKOS_VARIANT(OPENMP, CFS_TASK) ||       \
-  USE_PLAIN_SERIAL_VARIANT(CFS_TASK)
+  USE_KOKKOS_VARIANT(OPENMP, CFS_TASK)
     LayoutConstraintRegistrar
       cpu_constraints(FieldSpace::NO_SPACE, "PSTermTable::compute_cfs");
     add_aos_right_ordering_constraint(cpu_constraints);
@@ -277,24 +204,6 @@ PSTermTable::preregister_tasks() {
         gpu_layout_id);
 
       Runtime::preregister_task_variant<compute_cfs_task<Kokkos::Cuda>>(
-        registrar,
-        compute_cfs_task_name);
-    }
-#endif
-
-#if USE_PLAIN_SERIAL_VARIANT(CFS_TASK)
-    // register a non-Kokkos, serial version
-    {
-      TaskVariantRegistrar
-        registrar(compute_cfs_task_id, compute_cfs_task_name);
-      registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-      registrar.set_leaf();
-      registrar.set_idempotent();
-      registrar.add_layout_constraint_set(
-        TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        cpu_layout_id);
-
-      Runtime::preregister_task_variant<compute_cfs_task>(
         registrar,
         compute_cfs_task_name);
     }

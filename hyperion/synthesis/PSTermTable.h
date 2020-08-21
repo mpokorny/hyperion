@@ -116,7 +116,6 @@ public:
     return result;
   }
 
-#ifdef HYPERION_USE_KOKKOS
   template <typename execution_space>
   static void
   compute_cfs_task(
@@ -206,14 +205,6 @@ public:
         }
       });
   }
-#else // !HYPERION_USE_KOKKOS
-  static void
-  compute_cfs_task(
-    const Legion::Task* task,
-    const std::vector<Legion::PhysicalRegion>& regions,
-    Legion::Context ctx,
-    Legion::Runtime* rt);
-#endif // HYPERION_USE_KOKKOS
 
   static void
   preregister_tasks();

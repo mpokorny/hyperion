@@ -36,9 +36,9 @@ const constexpr unsigned ATermTable::d_sto_in;
 
 TaskID ATermTable::compute_cfs_task_id;
 
-#define ENABLE_KOKKOS_SERIAL_CFS_TASK
-#define ENABLE_KOKKOS_OPENMP_CFS_TASK
-#define ENABLE_KOKKOS_CUDA_CFS_TASK
+#define USE_KOKKOS_SERIAL_CFS_TASK
+#define USE_KOKKOS_OPENMP_CFS_TASK
+#define USE_KOKKOS_CUDA_CFS_TASK
 
 ATermTable::ATermTable(
   Context ctx,
@@ -464,16 +464,6 @@ ATermTable::compute_cfs(
   aif.destroy(ctx, rt);
 }
 
-#ifndef HYPERION_USE_KOKKOS
-void
-ATermTable::compute_cfs_task(
-  const Task* task,
-  const std::vector<PhysicalRegion>& regions,
-  Context ctx,
-  Runtime* rt) {
-}
-#endif
-
 void
 ATermTable::preregister_tasks() {
   //
@@ -482,8 +472,7 @@ ATermTable::preregister_tasks() {
   {
     compute_cfs_task_id = Runtime::generate_static_task_id();
 
-#ifdef HYPERION_USE_KOKKOS
-# if defined(KOKKOS_ENABLE_SERIAL) && defined(ENABLE_KOKKOS_SERIAL_CFS_TASK)
+#if defined(KOKKOS_ENABLE_SERIAL) && defined(USE_KOKKOS_SERIAL_CFS_TASK)
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
@@ -507,8 +496,8 @@ ATermTable::preregister_tasks() {
         registrar,
         compute_cfs_task_name);
     }
-# endif
-# if defined(KOKKOS_ENABLE_OPENMP) && defined(ENABLE_KOKKOS_OPENMP_CFS_TASK)
+#endif
+#if defined(KOKKOS_ENABLE_OPENMP) && defined(USE_KOKKOS_OPENMP_CFS_TASK)
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
@@ -532,8 +521,8 @@ ATermTable::preregister_tasks() {
         registrar,
         compute_cfs_task_name);
     }
-# endif
-# if defined(KOKKOS_ENABLE_CUDA) && defined(ENABLE_KOKKOS_CUDA_CFS_TASK)
+#endif
+#if defined(KOKKOS_ENABLE_CUDA) && defined(USE_KOKKOS_CUDA_CFS_TASK)
     {
       TaskVariantRegistrar
         registrar(compute_cfs_task_id, compute_cfs_task_name);
@@ -557,32 +546,7 @@ ATermTable::preregister_tasks() {
         registrar,
         compute_cfs_task_name);
     }
-# endif
-#else // !HYPERION_USE_KOKKOS
-    {
-      TaskVariantRegistrar
-        registrar(compute_cfs_task_id, compute_cfs_task_name);
-      registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-      registrar.set_leaf();
-      registrar.set_idempotent();
-
-      // standard column layout
-      LayoutConstraintRegistrar
-        constraints(
-          FieldSpace::NO_SPACE,
-          "ATermTable::compute_cfs_constraints");
-      add_aos_right_ordering_constraint(constraints);
-      constraints.add_constraint(
-        SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
-      registrar.add_layout_constraint_set(
-        TableMapper::to_mapping_tag(TableMapper::default_column_layout_tag),
-        Runtime::preregister_layout(constraints));
-
-      Runtime::preregister_task_variant<compute_cfs_task>(
-        registrar,
-        compute_cfs_task_name);
-    }
-#endif // HYPERION_USE_KOKKOS
+#endif
   }
 }
 
