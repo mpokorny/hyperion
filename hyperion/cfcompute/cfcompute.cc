@@ -370,7 +370,7 @@ show_grid_task(
   }
 }
 
-static void
+[[maybe_unused]] static void
 show_grid(
   Context ctx,
   Runtime* rt,
