@@ -34,6 +34,7 @@
 
 #ifdef HYPERION_USE_KOKKOS
 # include <Kokkos_Core.hpp>
+# include <Kokkos_OffsetView.hpp>
 #endif
 #include <experimental/mdspan>
 
@@ -440,6 +441,25 @@ public:
   view() const {
     return accessor<MODE, FT, N, COORD_T, A, CHECK_BOUNDS>().accessor;
   }
+
+  template <
+    typename execution_space,
+    Legion::PrivilegeMode MODE,
+    typename FT,
+    int N,
+    typename COORD_T = Legion::coord_t,
+    template<typename, int, typename> typename A = Legion::AffineAccessor,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
+  Kokkos::Experimental::OffsetView<
+    typename std::conditional<
+      MODE == READ_ONLY,
+      typename view_element<const FT, N>::type,
+      typename view_element<FT, N>::type>::type,
+    Kokkos::LayoutStride,
+    typename execution_space::memory_space>
+  offset_view() const {
+    return accessor<MODE, FT, N, COORD_T, A, CHECK_BOUNDS>().accessor;
+  }
 #endif // HYPERION_USE_KOKKOS
 
   template <
@@ -707,6 +727,22 @@ public:
   view() const {
     return accessor<MODE, N, CHECK_BOUNDS>().accessor;
   }
+
+  template <
+    typename execution_space,
+    Legion::PrivilegeMode MODE,
+    int N,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
+  Kokkos::Experimental::OffsetView<
+    typename std::conditional<
+      MODE == READ_ONLY,
+      typename view_element<const value_t, N>::type,
+      typename view_element<value_t, N>::type>::type,
+    Kokkos::LayoutStride,
+    typename execution_space::memory_space>
+  offset_view() const {
+    return accessor<MODE, N, CHECK_BOUNDS>().accessor;
+  }
 #endif // HYPERION_USE_KOKKOS
 
   template <
@@ -823,6 +859,21 @@ public:
   view() const {
     return accessor<MODE, CHECK_BOUNDS>().accessor;
   }
+
+  template <
+    typename execution_space,
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
+  Kokkos::Experimental::OffsetView<
+    typename std::conditional<
+      MODE == READ_ONLY,
+      typename view_element<const value_t, COLUMN_RANK>::type,
+      typename view_element<value_t, COLUMN_RANK>::type>::type,
+    Kokkos::LayoutStride,
+    typename execution_space::memory_space>
+  offset_view() const {
+    return accessor<MODE, CHECK_BOUNDS>().accessor;
+  }
 #endif // HYPERION_USE_KOKKOS
 
   template <
@@ -934,6 +985,22 @@ public:
       Kokkos::LayoutStride,
       typename execution_space::memory_space>>::type
   view() const {
+    return accessor<MODE, N, CHECK_BOUNDS>().accessor;
+  }
+
+  template <
+    typename execution_space,
+    Legion::PrivilegeMode MODE,
+    int N,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
+  Kokkos::Experimental::OffsetView<
+    typename std::conditional<
+      MODE == READ_ONLY,
+      typename view_element<const value_t, N>::type,
+      typename view_element<value_t, N>::type>::type,
+    Kokkos::LayoutStride,
+    typename execution_space::memory_space>
+  offset_view() const {
     return accessor<MODE, N, CHECK_BOUNDS>().accessor;
   }
 #endif // HYPERION_USE_KOKKOS
@@ -1193,6 +1260,22 @@ public:
   view() const {
     return accessor<MODE, CHECK_BOUNDS>().accessor;
   }
+
+  template <
+    typename execution_space,
+    Legion::PrivilegeMode MODE,
+    bool CHECK_BOUNDS = HYPERION_CHECK_BOUNDS>
+  Kokkos::Experimental::OffsetView<
+    typename std::conditional<
+      MODE == READ_ONLY,
+      typename view_element<const value_t, COLUMN_RANK>::type,
+      typename view_element<value_t, COLUMN_RANK>::type>::type,
+    Kokkos::LayoutStride,
+    typename execution_space::memory_space>
+  offset_view() const {
+    return accessor<MODE, CHECK_BOUNDS>().accessor;
+  }
+
 #endif // HYPERION_USE_KOKKOS
 
   template <
