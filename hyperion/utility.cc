@@ -162,6 +162,7 @@ hyperion::record_serdez::serialize(const cc::Record& val, void *buffer) {
 
 size_t
 hyperion::record_serdez::deserialize(cc::Record& val, const void *buffer) {
+  ::new(&val) cc::Record;
   cc::MemoryIO memio(const_cast<void*>(buffer), MAX_SERIALIZED_SIZE);
   cc::AipsIO io(&memio);
   auto start = io.getpos();
@@ -196,9 +197,11 @@ hyperion::coordinate_system_serdez::deserialize(
   cc::CoordinateSystem& val,
   const void *buffer) {
 
-  cc::Record rec;
-  auto result = record_serdez::deserialize(rec, buffer);
-  val = *cc::CoordinateSystem::restore(rec, "CS");
+  auto buff = std::make_unique<char[]>(sizeof(cc::Record));
+  cc::Record* rec = reinterpret_cast<cc::Record*>(buff.get());
+  auto result = record_serdez::deserialize(*rec, buffer);
+  ::new(&val) cc::CoordinateSystem;
+  val = *cc::CoordinateSystem::restore(*rec, "CS");
   return result;
 }
 
@@ -230,9 +233,11 @@ hyperion::linear_coordinate_serdez::deserialize(
   cc::LinearCoordinate& val,
   const void *buffer) {
 
-  cc::Record rec;
-  auto result = record_serdez::deserialize(rec, buffer);
-  val = *cc::LinearCoordinate::restore(rec, "LC");
+  auto buff = std::make_unique<char[]>(sizeof(cc::Record));
+  cc::Record* rec = reinterpret_cast<cc::Record*>(buff.get());
+  auto result = record_serdez::deserialize(*rec, buffer);
+  ::new(&val) cc::LinearCoordinate;
+  val = *cc::LinearCoordinate::restore(*rec, "LC");
   return result;
 }
 
@@ -264,9 +269,11 @@ hyperion::direction_coordinate_serdez::deserialize(
   cc::DirectionCoordinate& val,
   const void *buffer) {
 
-  cc::Record rec;
-  auto result = record_serdez::deserialize(rec, buffer);
-  val = *cc::DirectionCoordinate::restore(rec, "DC");
+  auto buff = std::make_unique<char[]>(sizeof(cc::Record));
+  cc::Record* rec = reinterpret_cast<cc::Record*>(buff.get());
+  auto result = record_serdez::deserialize(*rec, buffer);
+  ::new(&val) cc::DirectionCoordinate;
+  val = *cc::DirectionCoordinate::restore(*rec, "DC");
   return result;
 }
 
