@@ -162,7 +162,7 @@ public:
 
   static Legion::TaskID init_index_column_task_id;
   static const constexpr char* init_index_column_task_name =
-    "CFTable::init_index_column_task";
+    "CFTableBase::init_index_column_task";
 
   struct HYPERION_EXPORT InitIndexColumnTaskArgs {
     hyperion::Table::Desc desc;
@@ -281,6 +281,33 @@ public:
     unsigned flags,
     double seconds,
     const ColumnSpacePartition& partition = ColumnSpacePartition()) const;
+
+  void
+  show_cf_values(
+    Legion::Context ctx,
+    Legion::Runtime* rt,
+    const std::string& title) const;
+
+  struct ShowValuesTaskArgs {
+    Table::Desc tdesc;
+    hyperion::string title;
+  };
+
+  static Legion::TaskID show_values_task_id;
+
+  static const constexpr char* show_values_task_name =
+    "CFTableBase::show_values";
+
+  static void
+  show_values_task(
+    const Legion::Task* task,
+    const std::vector<Legion::PhysicalRegion>& regions,
+    Legion::Context ctx,
+    Legion::Runtime* rt);
+
+  // TODO: this should probably live elsewhere
+  static void
+  show_index_value(const PhysicalColumn& col, Legion::coord_t i);
 };
 
 template <>

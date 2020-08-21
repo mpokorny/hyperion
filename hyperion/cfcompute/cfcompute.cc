@@ -29,7 +29,7 @@ using namespace std::complex_literals;
 
 enum {
   CFCOMPUTE_TASK_ID,
-  SHOW_VALUES_TASK_ID,
+  SHOW_GRID_TASK_ID,
 };
 
 #define ZC(F, S, N, C) ZCoeff{\
@@ -314,47 +314,23 @@ using cf_col_t =
 #define CF_TABLE_AXES \
   CF_BASELINE_CLASS, CF_PARALLACTIC_ANGLE, CF_FREQUENCY, CF_W, CF_STOKES_OUT, CF_STOKES_IN
 
-template <cf_table_axes_t T>
-static void
-show_index_valueT(const PhysicalColumn& col, coord_t i) {
-  auto acc =
-    col.accessor<
-      LEGION_READ_ONLY,
-      typename cf_table_axis<T>::type,
-      1,
-      coord_t,
-      AffineAccessor>();
-  std::cout << acc[i];
-}
-
-static void
-show_index_value(const PhysicalColumn& col, coord_t i) {
-  switch (static_cast<cf_table_axes_t>(col.axes()[0])) {
-  case CF_PS_SCALE:
-    return show_index_valueT<CF_PS_SCALE>(col, i);
-  case CF_BASELINE_CLASS:
-    return show_index_valueT<CF_BASELINE_CLASS>(col, i);
-  case CF_FREQUENCY:
-    return show_index_valueT<CF_FREQUENCY>(col, i);
-  case CF_W:
-    return show_index_valueT<CF_W>(col, i);
-  case CF_PARALLACTIC_ANGLE:
-    return show_index_valueT<CF_PARALLACTIC_ANGLE>(col, i);
-  case CF_STOKES_OUT:
-    return show_index_valueT<CF_STOKES_OUT>(col, i);
-  case CF_STOKES_IN:
-    return show_index_valueT<CF_STOKES_IN>(col, i);
-  case CF_STOKES:
-    return show_index_valueT<CF_STOKES>(col, i);
-  default:
-    assert(false);
-    break;
-  }
-}
-
-template <unsigned N>
 void
-show_values(const PhysicalTable& pt) {
+show_grid_task(
+  const Task* task,
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime* rt) {
+
+  const CFTableBase::ShowValuesTaskArgs& args =
+    *static_cast<const CFTableBase::ShowValuesTaskArgs*>(task->args);
+  std::cout << "!!!!" << args.title << "!!!!" << std::endl;
+
+  auto pt =
+    PhysicalTable::create_all_unsafe(
+      rt,
+      {args.tdesc},
+      task->regions,
+      regions)[0];
   auto columns = pt.columns();
   std::vector<cf_table_axes_t> index_axes;
   for (auto& ia : pt.index_axes())
@@ -362,103 +338,60 @@ show_values(const PhysicalTable& pt) {
   std::vector<std::shared_ptr<PhysicalColumn>> index_columns;
   for (auto& ia : index_axes)
     index_columns.push_back(columns.at(cf_table_axis_name(ia)));
-  auto value_col =
-    PhysicalColumnTD<
-      ValueType<CFTableBase::cf_value_t>::DataType,
-      N,
-      N + 2,
-      AffineAccessor>(*columns.at(CFTableBase::CF_VALUE_COLUMN_NAME));
-  auto value_rect = value_col.rect();
-  auto grid_size = value_rect.hi[N] - value_rect.lo[N] + 1;
-  auto values = value_col.template accessor<LEGION_READ_ONLY>();
-  Point<N + 2> index;
-  for (size_t i = 0; i < N; ++i)
+  auto cs_x_col =
+    GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+      *pt.column(GridCoordinateTable::COORD_X_NAME).value());
+  auto cs_y_col =
+    GridCoordinateTable::CoordColumn<Legion::AffineAccessor>(
+      *pt.column(GridCoordinateTable::COORD_Y_NAME).value());
+  auto cs_x_rect = cs_x_col.rect();
+  auto grid_size = cs_x_rect.hi[2] - cs_x_rect.lo[2] + 1;
+  auto cs_x = cs_x_col.template accessor<LEGION_READ_ONLY>();
+  auto cs_y = cs_y_col.template accessor<LEGION_READ_ONLY>();
+  Point<3> index;
+  for (size_t i = 0; i < 1; ++i)
     index[i] = -1;
-  PointInRectIterator<N + 2> pir(value_rect, false);
+  PointInRectIterator<3> pir(cs_x_rect, false);
   while (pir()) {
-    for (size_t i = 0; i < N; ++i)
+    for (size_t i = 0; i < 1; ++i)
       index[i] = pir[i];
     std::cout << "*** " << cf_table_axis_name(index_axes[0])
               << ": ";
-    show_index_value(*index_columns[0], pir[0]);
-    for (size_t i = 1; i < N; ++i) {
-      std::cout << "; " << cf_table_axis_name(index_axes[i])
-                << ": ";
-      show_index_value(*index_columns[i], pir[i]);
-    }
+    CFTableBase::show_index_value(*index_columns[0], pir[0]);
     std::cout << std::endl;
     for (coord_t i = 0; i < grid_size; ++i) {
-      for (coord_t j = 0; j < grid_size; ++j)
-        std::cout << values[*pir++] << " ";
+      for (coord_t j = 0; j < grid_size; ++j) {
+        auto x = cs_x[*pir];
+        auto y = cs_y[*pir++];
+        std::cout << "(" << x << "," << y << ") ";
+      }
       std::cout << std::endl;
     }
   }
 }
 
-struct ShowValuesTaskArgs {
-  Table::Desc tdesc;
-  hyperion::string title;
-};
-
-static
-void
-show_values_task(
-  const Task* task,
-  const std::vector<PhysicalRegion>& regions,
-  Context ctx,
-  Runtime* rt) {
-
-  const ShowValuesTaskArgs& args =
-    *static_cast<const ShowValuesTaskArgs*>(task->args);
-
-  std::cout << args.title << std::endl;
-  auto pt =
-    PhysicalTable::create_all_unsafe(
-      rt,
-      {args.tdesc},
-      task->regions,
-      regions)[0];
-  switch (pt.index_rank()) {
-  case 1:
-    show_values<1>(pt);
-    break;
-  case 2:
-    show_values<2>(pt);
-    break;
-  case 3:
-    show_values<3>(pt);
-    break;
-  case 4:
-    show_values<4>(pt);
-    break;
-  case 5:
-    show_values<5>(pt);
-    break;
-  case 6:
-    show_values<6>(pt);
-    break;
-  default:
-    assert(false);
-    break;
-  }
-}
-
 static void
-show_cf_values(
+show_grid(
   Context ctx,
   Runtime* rt,
   const std::string& title,
-  const CFTableBase& table) {
+  const GridCoordinateTable& table) {
 
-  auto colreqs = Column::default_requirements;
-  colreqs.values.mapped = true;
-  colreqs.values.privilege = LEGION_READ_ONLY;
+  auto colreqs = Column::default_requirements_mapped;
 
-  auto reqs = table.requirements(ctx, rt, ColumnSpacePartition(), {}, colreqs);
-  ShowValuesTaskArgs args;
+  auto reqs =
+    table.requirements(
+      ctx,
+      rt,
+      ColumnSpacePartition(),
+      {{GridCoordinateTable::COORD_X_NAME, colreqs},
+       {GridCoordinateTable::COORD_Y_NAME, colreqs},
+       {cf_table_axis<CF_PARALLACTIC_ANGLE>::name, colreqs}},
+      CXX_OPTIONAL_NAMESPACE::nullopt);
+  CFTableBase::ShowValuesTaskArgs args;
   args.tdesc = std::get<2>(reqs);
   args.title = title;
-  TaskLauncher task(SHOW_VALUES_TASK_ID, TaskArgument(&args, sizeof(args)));
+  TaskLauncher task(SHOW_GRID_TASK_ID, TaskArgument(&args, sizeof(args)));
   for (auto& r : std::get<0>(reqs))
     task.add_region_requirement(r);
   rt->execute_task(ctx, task);
@@ -478,14 +411,14 @@ cfcompute_task(
   ps_coords.compute_coordinates(ctx, rt, cc::LinearCoordinate(2), cf_radius);
   PSTermTable ps_tbl(ctx, rt, grid_size, {0.08, 0.16});
   ps_tbl.compute_cfs(ctx, rt, ps_coords);
-  show_cf_values(ctx, rt, "PSTerm", ps_tbl);
+  ps_tbl.show_cf_values(ctx, rt, "PSTerm");
   ps_coords.destroy(ctx, rt);
 
   GridCoordinateTable w_coords(ctx, rt, grid_size, {0.0});
   w_coords.compute_coordinates(ctx, rt, cc::LinearCoordinate(2), 2.0);
   WTermTable w_tbl(ctx, rt, grid_size, {2.2, 22.2, 222.2});
   w_tbl.compute_cfs(ctx, rt, w_coords);
-  show_cf_values(ctx, rt, "WTerm", w_tbl);
+  w_tbl.show_cf_values(ctx, rt, "WTerm");
   w_coords.destroy(ctx, rt);
 
   std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type>
@@ -502,7 +435,7 @@ cfcompute_task(
     {cc::Stokes::RR},
     {cc::Stokes::RR});
   a_tbl.compute_cfs(ctx, rt, a_coords, zc);
-  show_cf_values(ctx, rt, "ATerm", a_tbl);
+  a_tbl.show_cf_values(ctx, rt, "ATerm");
   a_coords.destroy(ctx, rt);
 
   auto cf_tbl =
@@ -513,9 +446,9 @@ cfcompute_task(
       a_tbl,
       w_tbl,
       ps_tbl);
-  show_cf_values(ctx, rt, "Pre-FFT CF", cf_tbl);
+  cf_tbl.show_cf_values(ctx, rt, "Pre-FFT CF");
   cf_tbl.apply_fft(ctx, rt, 1, true, true, FFTW_MEASURE, 5.0);
-  show_cf_values(ctx, rt, "Post-FFT CF", cf_tbl);
+  cf_tbl.show_cf_values(ctx, rt, "Post-FFT CF");
 
   std::cout << "+++++ DONE +++++" << std::endl;
   ps_tbl.destroy(ctx, rt);
@@ -537,11 +470,11 @@ main(int argc, char* argv[]) {
     Runtime::set_top_level_task_id(CFCOMPUTE_TASK_ID);
   }
   {
-    TaskVariantRegistrar registrar(SHOW_VALUES_TASK_ID, "show_values_task");
+    TaskVariantRegistrar registrar(SHOW_GRID_TASK_ID, "show_grid_task");
     registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    Runtime::preregister_task_variant<show_values_task>(
+    Runtime::preregister_task_variant<show_grid_task>(
       registrar,
-      "show_values_task");
+      "show_grid_task");
   }
   synthesis::CFTableBase::preregister_all();
   synthesis::ProductCFTable<CF_TABLE_AXES>::preregister_tasks();

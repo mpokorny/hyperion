@@ -30,6 +30,7 @@
 #endif
 
 using namespace hyperion::synthesis;
+using namespace hyperion;
 using namespace Legion;
 
 #if !HAVE_CXX17
@@ -65,7 +66,13 @@ constexpr const char* CFTableBase::CF_VALUE_COLUMN_NAME;
 constexpr const Legion::FieldID CFTableBase::CF_WEIGHT_FID;
 constexpr const char* CFTableBase::CF_WEIGHT_COLUMN_NAME;
 
+const constexpr char* CFTableBase::show_values_task_name;
+const constexpr char* CFTableBase::init_index_column_task_name;
+
 #endif // !HAVE_CXX17
+
+Legion::TaskID CFTableBase::init_index_column_task_id;
+Legion::TaskID CFTableBase::show_values_task_id;
 
 const char*
 hyperion::synthesis::cf_table_axis_name(cf_table_axes_t ax) {
@@ -130,10 +137,10 @@ vector_deserialize(const void* buff, std::vector<T>& v) {
 }
 
 size_t
-hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::serialized_size()
+CFTableBase::InitIndexColumnTaskArgs::serialized_size()
   const {
 
-  return sizeof(hyperion::Table::Desc)
+  return sizeof(Table::Desc)
     + vector_serialized_size(ps_scales)
     + vector_serialized_size(baseline_classes)
     + vector_serialized_size(frequencies)
@@ -145,12 +152,12 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::serialized_size()
 }
 
 size_t
-hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::serialize(
+CFTableBase::InitIndexColumnTaskArgs::serialize(
   void* buff) const {
 
   char* b = reinterpret_cast<char*>(buff);
-  *reinterpret_cast<hyperion::Table::Desc*>(b) = desc;
-  b += sizeof(hyperion::Table::Desc);
+  *reinterpret_cast<Table::Desc*>(b) = desc;
+  b += sizeof(Table::Desc);
   b += vector_serialize(ps_scales, b);
   b += vector_serialize(baseline_classes, b);
   b += vector_serialize(frequencies, b);
@@ -163,12 +170,12 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::serialize(
 }
 
 size_t
-hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::deserialize(
+CFTableBase::InitIndexColumnTaskArgs::deserialize(
   const void* buff) {
 
   const char* b = reinterpret_cast<const char*>(buff);
-  desc = *reinterpret_cast<const hyperion::Table::Desc*>(b);
-  b += sizeof(hyperion::Table::Desc);
+  desc = *reinterpret_cast<const Table::Desc*>(b);
+  b += sizeof(Table::Desc);
   b += vector_deserialize(b, ps_scales);
   b += vector_deserialize(b, baseline_classes);
   b += vector_deserialize(b, frequencies);
@@ -181,7 +188,7 @@ hyperion::synthesis::CFTableBase::InitIndexColumnTaskArgs::deserialize(
 }
 
 const std::vector<std::string>
-hyperion::Axes<hyperion::synthesis::cf_table_axes_t>::names{
+Axes<cf_table_axes_t>::names{
   cf_table_axis<CF_PS_SCALE>::name,
     cf_table_axis<CF_BASELINE_CLASS>::name,
     cf_table_axis<CF_FREQUENCY>::name,
@@ -199,32 +206,26 @@ static hid_t
 h5_axes_dt()  {
   hid_t result = H5Tenum_create(H5T_NATIVE_UCHAR);
   for (unsigned char a = 0;
-       a <= static_cast<unsigned char>(
-         hyperion::Axes<cf_table_axes_t>::num_axes - 1);
+       a <= static_cast<unsigned char>(Axes<cf_table_axes_t>::num_axes - 1);
        ++a) {
     [[maybe_unused]] herr_t err =
-      H5Tenum_insert(
-        result,
-        hyperion::Axes<cf_table_axes_t>::names[a].c_str(),
-        &a);
+      H5Tenum_insert(result, Axes<cf_table_axes_t>::names[a].c_str(), &a);
     assert(err >= 0);
   }
   return result;
 }
 
 const hid_t
-hyperion::Axes<hyperion::synthesis::cf_table_axes_t>::h5_datatype =
+Axes<cf_table_axes_t>::h5_datatype =
   h5_axes_dt();
 #endif
-
-Legion::TaskID hyperion::synthesis::CFTableBase::init_index_column_task_id;
 
 template <typename T>
 static void
 init_column(
   const std::vector<T>& vals,
-  const hyperion::PhysicalColumnTD<
-    hyperion::ValueType<T>::DataType, 1, 1, Legion::AffineAccessor>& col) {
+  const PhysicalColumnTD<
+    ValueType<T>::DataType, 1, 1, Legion::AffineAccessor>& col) {
 
   auto acc = col.template accessor<WRITE_ONLY>();
   for (PointInRectIterator<1> pir(col.rect()); pir(); pir++)
@@ -232,7 +233,7 @@ init_column(
 }
 
 void
-hyperion::synthesis::CFTableBase::init_index_column_task(
+CFTableBase::init_index_column_task(
   const Task* task,
   const std::vector<PhysicalRegion>& regions,
   Context ctx,
@@ -352,6 +353,151 @@ CFTableBase::apply_fft(
 }
 
 void
+CFTableBase::show_cf_values(
+  Context ctx,
+  Runtime* rt,
+  const std::string& title) const {
+
+  auto reqs =
+    requirements(
+      ctx,
+      rt,
+      ColumnSpacePartition(),
+      {},
+      Column::default_requirements_mapped);
+  ShowValuesTaskArgs args;
+  args.tdesc = std::get<2>(reqs);
+  args.title = title;
+  TaskLauncher task(show_values_task_id, TaskArgument(&args, sizeof(args)));
+  for (auto& r : std::get<0>(reqs))
+    task.add_region_requirement(r);
+  rt->execute_task(ctx, task);
+}
+
+template <cf_table_axes_t T>
+static void
+show_index_valueT(const PhysicalColumn& col, Legion::coord_t i) {
+  auto acc =
+    col.accessor<
+      LEGION_READ_ONLY,
+      typename cf_table_axis<T>::type,
+      1,
+      coord_t,
+      AffineAccessor>();
+  std::cout << acc[i];
+}
+
+void
+CFTableBase::show_index_value(const PhysicalColumn& col, Legion::coord_t i) {
+  switch (static_cast<cf_table_axes_t>(col.axes()[0])) {
+  case CF_PS_SCALE:
+    return show_index_valueT<CF_PS_SCALE>(col, i);
+  case CF_BASELINE_CLASS:
+    return show_index_valueT<CF_BASELINE_CLASS>(col, i);
+  case CF_FREQUENCY:
+    return show_index_valueT<CF_FREQUENCY>(col, i);
+  case CF_W:
+    return show_index_valueT<CF_W>(col, i);
+  case CF_PARALLACTIC_ANGLE:
+    return show_index_valueT<CF_PARALLACTIC_ANGLE>(col, i);
+  case CF_STOKES_OUT:
+    return show_index_valueT<CF_STOKES_OUT>(col, i);
+  case CF_STOKES_IN:
+    return show_index_valueT<CF_STOKES_IN>(col, i);
+  case CF_STOKES:
+    return show_index_valueT<CF_STOKES>(col, i);
+  default:
+    assert(false);
+    break;
+  }
+}
+
+template <unsigned N>
+static void
+show_values(const PhysicalTable& pt) {
+  auto columns = pt.columns();
+  std::vector<cf_table_axes_t> index_axes;
+  for (auto& ia : pt.index_axes())
+    index_axes.push_back(static_cast<cf_table_axes_t>(ia));
+  std::vector<std::shared_ptr<PhysicalColumn>> index_columns;
+  for (auto& ia : index_axes)
+    index_columns.push_back(columns.at(cf_table_axis_name(ia)));
+  auto value_col =
+    PhysicalColumnTD<
+      ValueType<CFTableBase::cf_value_t>::DataType,
+      N,
+      N + 2,
+      AffineAccessor>(*columns.at(CFTableBase::CF_VALUE_COLUMN_NAME));
+  auto value_rect = value_col.rect();
+  auto grid_size = value_rect.hi[N] - value_rect.lo[N] + 1;
+  auto values = value_col.template accessor<LEGION_READ_ONLY>();
+  Point<N + 2> index;
+  for (size_t i = 0; i < N; ++i)
+    index[i] = -1;
+  PointInRectIterator<N + 2> pir(value_rect, false);
+  while (pir()) {
+    for (size_t i = 0; i < N; ++i)
+      index[i] = pir[i];
+    std::cout << "*** " << cf_table_axis_name(index_axes[0])
+              << ": ";
+    CFTableBase::show_index_value(*index_columns[0], pir[0]);
+    for (size_t i = 1; i < N; ++i) {
+      std::cout << "; " << cf_table_axis_name(index_axes[i])
+                << ": ";
+      CFTableBase::show_index_value(*index_columns[i], pir[i]);
+    }
+    std::cout << std::endl;
+    for (coord_t i = 0; i < grid_size; ++i) {
+      for (coord_t j = 0; j < grid_size; ++j)
+        std::cout << values[*pir++] << " ";
+      std::cout << std::endl;
+    }
+  }
+}
+
+void
+CFTableBase::show_values_task(
+  const Task* task,
+  const std::vector<PhysicalRegion>& regions,
+  Context ctx,
+  Runtime* rt) {
+
+  const ShowValuesTaskArgs& args =
+    *static_cast<const ShowValuesTaskArgs*>(task->args);
+
+  std::cout << "++++ " << args.title << " ++++" << std::endl;
+  auto pt =
+    PhysicalTable::create_all_unsafe(
+      rt,
+      {args.tdesc},
+      task->regions,
+      regions)[0];
+  switch (pt.index_rank()) {
+  case 1:
+    show_values<1>(pt);
+    break;
+  case 2:
+    show_values<2>(pt);
+    break;
+  case 3:
+    show_values<3>(pt);
+    break;
+  case 4:
+    show_values<4>(pt);
+    break;
+  case 5:
+    show_values<5>(pt);
+    break;
+  case 6:
+    show_values<6>(pt);
+    break;
+  default:
+    assert(false);
+    break;
+  }
+}
+
+void
 CFTableBase::preregister_all() {
 
 #ifdef HYPERION_USE_OPENMP
@@ -377,6 +523,16 @@ CFTableBase::preregister_all() {
     Runtime::preregister_task_variant<CFTableBase::init_index_column_task>(
       registrar,
       init_index_column_task_name);
+  }
+  {
+    // show_values_task
+    show_values_task_id = Runtime::generate_static_task_id();
+    TaskVariantRegistrar registrar(show_values_task_id, show_values_task_name);
+    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<CFTableBase::show_values_task>(
+      registrar,
+      show_values_task_name);
   }
 
   // TODO: move these into a synthesis initialization function
