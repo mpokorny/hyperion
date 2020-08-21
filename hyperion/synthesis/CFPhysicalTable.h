@@ -29,16 +29,20 @@ public:
 
   CFPhysicalTable(const hyperion::PhysicalTable& pt)
     : hyperion::PhysicalTable(pt) {
-    assert(axes_uid()
-           && axes_uid().value() == hyperion::Axes<cf_table_axes_t>::uid);
-    assert(index_axes() == std::vector<int>{static_cast<int>(AXES)...});
+    assert(verify_axes());
   }
 
   CFPhysicalTable(hyperion::PhysicalTable&& pt)
     : hyperion::PhysicalTable(std::move(pt)) {
-    assert(axes_uid()
-           && axes_uid().value() == hyperion::Axes<cf_table_axes_t>::uid);
-    assert(index_axes() == std::vector<int>{static_cast<int>(AXES)...});
+    assert(verify_axes());
+  }
+
+  bool
+  verify_axes() const {
+    return
+      axes_uid()
+      && (axes_uid().value() == hyperion::Axes<cf_table_axes_t>::uid)
+      && (index_axes() == std::vector<int>{static_cast<int>(AXES)...});
   }
 
   static const constexpr unsigned row_rank = sizeof...(AXES);
@@ -414,7 +418,8 @@ struct IndexAxisHelper<CF_PS_SCALE> {
   static CFTableBase::Axis<CF_PS_SCALE>
   index_axis(const CFPhysicalTable<T...>& pt) {
     std::vector<typename cf_table_axis<CF_PS_SCALE>::type> values;
-    if (pt.has_ps_scale() && CFPhysicalTable<T...>::ps_scale_rank == 1) {
+    if (pt.has_ps_scale()
+        && CFPhysicalTable<T...>::ps_scale_rank == 1) {
       auto col = pt.template ps_scale<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
@@ -451,7 +456,8 @@ struct IndexAxisHelper<CF_FREQUENCY> {
   static CFTableBase::Axis<CF_FREQUENCY>
   index_axis(const CFPhysicalTable<T...>& pt) {
     std::vector<typename cf_table_axis<CF_FREQUENCY>::type> values;
-    if (pt.has_frequency() && CFPhysicalTable<T...>::frequency_rank == 1) {
+    if (pt.has_frequency()
+        && CFPhysicalTable<T...>::frequency_rank == 1) {
       auto col = pt.template frequency<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
@@ -487,8 +493,8 @@ struct IndexAxisHelper<CF_PARALLACTIC_ANGLE> {
   static CFTableBase::Axis<CF_PARALLACTIC_ANGLE>
   index_axis(const CFPhysicalTable<T...>& pt) {
     std::vector<typename cf_table_axis<CF_PARALLACTIC_ANGLE>::type> values;
-    if (pt.has_parallactic_angle()
-        && CFPhysicalTable<T...>::parallactic_angle_rank == 1) {
+    if (pt.has_parallactic_angle() &&
+        CFPhysicalTable<T...>::parallactic_angle_rank == 1) {
       auto col = pt.template parallactic_angle<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
@@ -506,7 +512,8 @@ struct IndexAxisHelper<CF_STOKES_OUT> {
   static CFTableBase::Axis<CF_STOKES_OUT>
   index_axis(const CFPhysicalTable<T...>& pt) {
     std::vector<typename cf_table_axis<CF_STOKES_OUT>::type> values;
-    if (pt.has_stokes_out() && CFPhysicalTable<T...>::stokes_out_rank == 1) {
+    if (pt.has_stokes_out()
+        && CFPhysicalTable<T...>::stokes_out_rank == 1) {
       auto col = pt.template stokes_out<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
@@ -524,7 +531,8 @@ struct IndexAxisHelper<CF_STOKES_IN> {
   static CFTableBase::Axis<CF_STOKES_IN>
   index_axis(const CFPhysicalTable<T...>& pt) {
     std::vector<typename cf_table_axis<CF_STOKES_IN>::type> values;
-    if (pt.has_stokes_in() && CFPhysicalTable<T...>::stokes_in_rank == 1) {
+    if (pt.has_stokes_in()
+        && CFPhysicalTable<T...>::stokes_in_rank == 1) {
       auto col = pt.template stokes_in<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
@@ -542,7 +550,8 @@ struct IndexAxisHelper<CF_STOKES> {
   static CFTableBase::Axis<CF_STOKES>
   index_axis(const CFPhysicalTable<T...>& pt) {
     std::vector<typename cf_table_axis<CF_STOKES>::type> values;
-    if (pt.has_stokes() && CFPhysicalTable<T...>::stokes_rank == 1) {
+    if (pt.has_stokes()
+        && CFPhysicalTable<T...>::stokes_rank == 1) {
       auto col = pt.template stokes<Legion::AffineAccessor>();
       auto acc = col.template accessor<LEGION_READ_ONLY>();
       for (Legion::PointInRectIterator<1> pir(col.rect()); pir(); pir++) {
@@ -604,7 +613,9 @@ template <
   typename...PTs,
   std::enable_if_t<cf_indexing::includes<A, A0...>, int> = 0>
 CFTableBase::Axis<A>
-index_axis_h(const CFPhysicalTable<A0...>& pt0, const hlist<PTs...>&) {
+index_axis_h(
+  const CFPhysicalTable<A0...>& pt0,
+  const hlist<PTs...>&) {
 
   return IndexAxisHelper<A>::template index_axis<A0...>(pt0);
 }
@@ -615,7 +626,9 @@ template <
   typename...PTs,
   std::enable_if_t<!cf_indexing::includes<A, A0...>, int> = 0>
 CFTableBase::Axis<A>
-index_axis_h(const CFPhysicalTable<A0...>& pt0, const hcons<PTs...>& hc) {
+index_axis_h(
+  const CFPhysicalTable<A0...>& pt0,
+  const hcons<PTs...>& hc) {
 
   return index_axis_h<A>(hc.hd, hc.tl);
 }

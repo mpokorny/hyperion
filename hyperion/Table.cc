@@ -190,7 +190,11 @@ Table::attach_columns(
   auto& table_parts = std::get<1>(reqs);
 #endif // HAVE_CXX17
   PhysicalRegion index_col_md = rt->map_region(ctx, table_reqs[0]);
-  unsigned idx_rank = ColumnSpace::size(ColumnSpace::axes(index_col_md));
+  std::string axes_uid = ColumnSpace::axes_uid(index_col_md);
+  std::vector<int> index_axes =
+    ColumnSpace::from_axis_vector(ColumnSpace::axes(index_col_md));
+  unsigned idx_rank = static_cast<unsigned>(index_axes.size());
+
   std::tuple<LogicalRegion, PhysicalRegion> index_col =
     {table_reqs[1].region, rt->map_region(ctx, table_reqs[1])};
 
@@ -269,7 +273,13 @@ Table::attach_columns(
   }
 #endif
 
-  PhysicalTable result(index_col_md, index_col, table_reqs[1].parent, pcols);
+  PhysicalTable result(
+    axes_uid,
+    index_axes,
+    index_col_md,
+    index_col,
+    table_reqs[1].parent,
+    pcols);
   result.attach_columns(ctx, rt, file_path, column_paths, column_modes);
   for (auto& p : table_parts)
     p.destroy(ctx, rt);
@@ -752,7 +762,15 @@ Table::requirements(
   }
 
   Desc desc_result;
-  desc_result.index_rank = static_cast<unsigned>(index_col_region.get_dim());
+  if (ctx && rt) {
+    auto pr =
+      rt.value()->map_region(
+        ctx.value(),
+        index_col_cs.requirements(LEGION_READ_ONLY, EXCLUSIVE));
+    desc_result.axes_uid = ColumnSpace::axes_uid(pr);
+    desc_result.index_axes = ColumnSpace::axes(pr);
+    rt.value()->unmap_region(ctx.value(), pr);
+  }
   desc_result.num_columns = column_reqs.size();
   assert(desc_result.num_columns <= desc_result.columns.size());
 

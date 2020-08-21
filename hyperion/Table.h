@@ -122,32 +122,11 @@ public:
   };
 
   struct Desc {
-    unsigned index_rank;
+    ColumnSpace::AXIS_SET_UID_TYPE axes_uid;
+    ColumnSpace::AXIS_VECTOR_TYPE index_axes;
     unsigned num_columns;
     std::array<Column::Desc, HYPERION_MAX_NUM_TABLE_COLUMNS> columns;
   };
-
-  Desc
-  desc(Legion::Context ctx, Legion::Runtime* rt) const {
-    Desc result;
-    result.index_rank = index_column_space(ctx, rt).axes(ctx,rt).size();
-    result.num_columns = m_columns.size();
-    assert(result.num_columns <= result.columns.size());
-    std::transform(
-      m_columns.begin(),
-      m_columns.end(),
-      &result.columns[0],
-      [](const auto& nm_col) {
-#if HAVE_CXX17
-        auto& [nm, col] = nm_col;
-#else // !HAVE_CXX17
-        auto& nm = std::get<0>(nm_col);
-        auto& col = std::get<1>(nm_col);
-#endif // HAVE_CXX17
-        return col.desc(nm);
-      });
-    return result;
-  }
 
   template <size_t N>
   using DescM = std::array<Desc, N>;

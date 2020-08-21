@@ -32,6 +32,8 @@ class HYPERION_EXPORT PhysicalTable {
 public:
 
   PhysicalTable(
+    const std::string& axes_uid,
+    const std::vector<int>& index_axes,
     const Legion::PhysicalRegion& index_col_md,
     const std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion>&
       index_col,
@@ -252,6 +254,10 @@ public:
 
 protected:
 
+  std::string m_axes_uid;
+
+  std::vector<int> m_index_axes;
+
   Legion::PhysicalRegion m_index_col_md;
 
   std::tuple<Legion::LogicalRegion, Legion::PhysicalRegion> m_index_col;
@@ -261,10 +267,6 @@ protected:
   std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>> m_columns;
 
   std::unordered_map<std::string, Legion::PhysicalRegion> m_attached;
-
-  std::string m_axes_uid;
-
-  std::vector<int> m_index_axes;
 
   std::unordered_map<std::string, Column>
   get_columns() const;

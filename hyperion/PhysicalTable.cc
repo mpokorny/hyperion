@@ -20,12 +20,16 @@ using namespace hyperion;
 using namespace Legion;
 
 PhysicalTable::PhysicalTable(
+  const std::string& axes_uid,
+  const std::vector<int>& index_axes,
   const PhysicalRegion& index_col_md,
   const std::tuple<LogicalRegion, PhysicalRegion>& index_col,
   const LogicalRegion& index_col_parent,
   const std::unordered_map<std::string, std::shared_ptr<PhysicalColumn>>&
     columns)
-  : m_index_col_md(index_col_md)
+  : m_axes_uid(axes_uid)
+  , m_index_axes(index_axes)
+  , m_index_col_md(index_col_md)
   , m_index_col(index_col)
   , m_index_col_parent(index_col_parent)
   , m_columns(columns) {
@@ -33,6 +37,8 @@ PhysicalTable::PhysicalTable(
 
 PhysicalTable::PhysicalTable(const PhysicalTable& other)
   : PhysicalTable(
+    other.m_axes_uid,
+    other.m_index_axes,
     other.m_index_col_md,
     other.m_index_col,
     other.m_index_col_parent,
@@ -42,6 +48,8 @@ PhysicalTable::PhysicalTable(const PhysicalTable& other)
 
 PhysicalTable::PhysicalTable(PhysicalTable&& other)
   : PhysicalTable(
+    std::move(other).m_axes_uid,
+    std::move(other).m_index_axes,
     std::move(other).m_index_col_md,
     std::move(other).m_index_col,
     std::move(other).m_index_col_parent,
@@ -89,6 +97,8 @@ PhysicalTable::create(
     std::tuple<LogicalRegion, FieldID>,
     std::tuple<LogicalRegion, LogicalRegion, PhysicalRegion>>
     value_regions;
+
+  unsigned index_rank = ColumnSpace::size(desc.index_axes);
 
   for (size_t i = 0; i < desc.num_columns; ++i) {
     auto& cdesc = desc.columns[i];
@@ -157,14 +167,14 @@ PhysicalTable::create(
     auto& values = std::get<2>(region_parent_values);
 #endif // HAVE_CXX17
     unsigned col_rank = static_cast<unsigned>(cdesc.region.get_dim());
-    assert(col_rank == 1 || col_rank >= desc.index_rank);
+    assert(col_rank == 1 || col_rank >= index_rank);
     columns.emplace(
       cdesc.name,
       std::make_shared<PhysicalColumn>(
         rt,
         cdesc.dt,
         cdesc.fid,
-        std::min(desc.index_rank, col_rank),
+        std::min(index_rank, col_rank),
         md_regions.at(parent),
         region,
         parent,
@@ -199,7 +209,13 @@ PhysicalTable::create(
 #endif
   return
     std::make_tuple(
-      PhysicalTable(index_col_md, index_col, index_col_parent, columns),
+      PhysicalTable(
+        desc.axes_uid,
+        ColumnSpace::from_axis_vector(desc.index_axes),
+        index_col_md,
+        index_col,
+        index_col_parent,
+        columns),
       reqs,
       prs);
 }
@@ -248,15 +264,14 @@ PhysicalTable::table(Context ctx, Runtime* rt) const {
 CXX_OPTIONAL_NAMESPACE::optional<std::string>
 PhysicalTable::axes_uid() const {
   CXX_OPTIONAL_NAMESPACE::optional<std::string> result;
-  std::string au = ColumnSpace::axes_uid(m_index_col_md);
-  if (au.size() > 0)
-    result = au;
+  if (m_axes_uid.size() > 0)
+    result = m_axes_uid;
   return result;
 }
 
 std::vector<int>
 PhysicalTable::index_axes() const {
-  return ColumnSpace::from_axis_vector(ColumnSpace::axes(m_index_col_md));
+  return m_index_axes;
 }
 
 unsigned
@@ -510,7 +525,8 @@ PhysicalTable::requirements(
     }
   }
   Table::Desc desc_result;
-  desc_result.index_rank = index_rank();
+  desc_result.axes_uid = m_axes_uid;
+  desc_result.index_axes = ColumnSpace::to_axis_vector(m_index_axes);
   desc_result.num_columns = column_reqs.size();
   assert(desc_result.num_columns <= desc_result.columns.size());
 
