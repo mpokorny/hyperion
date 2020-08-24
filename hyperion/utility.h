@@ -171,16 +171,6 @@ template <typename T, size_t N>
 using array = Kokkos::Array<T, N>;
 template <typename S, typename T>
 using pair = Kokkos::pair<S, T>;
-#endif
-
-#ifdef HYPERION_USE_CASACORE
-typedef casacore::Stokes::StokesTypes stokes_t;
-typedef std::integral_constant<unsigned, casacore::Stokes::NumberOfTypes>
-  num_stokes_t;
-#else
-typedef int stokes_t;
-typedef std::integral_constant<unsigned, 32> num_stokes_t;
-#endif
 
 template <typename F>
 HYPERION_INLINE_FUNCTION bool
@@ -191,6 +181,26 @@ operator<(const complex<F>& a, const complex<F>& b) {
     return false;
   return a.imag() < b.imag();
 }
+
+template <typename S, typename T>
+HYPERION_INLINE_FUNCTION bool
+operator<(const pair<S, T>& a, const pair<S, T>& b) {
+  if (a.first < b.first)
+    return true;
+  if (a.first > b.first)
+    return false;
+  return a.second < b.second;
+}
+#endif
+
+#ifdef HYPERION_USE_CASACORE
+typedef casacore::Stokes::StokesTypes stokes_t;
+typedef std::integral_constant<unsigned, casacore::Stokes::NumberOfTypes>
+  num_stokes_t;
+#else
+typedef int stokes_t;
+typedef std::integral_constant<unsigned, 32> num_stokes_t;
+#endif
 
 #if HAVE_CXX17
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
@@ -892,7 +902,7 @@ public:
                 lhs.begin(),
                 lhs.end(),
                 t,
-                [](auto& a, auto& b) { return std::get<0>(a) < b; });
+                [](const auto& a, auto& b) { return std::get<0>(a) < b; });
             if (lb != lhs.end() && std::get<0>(*lb) == t) {
               auto& lrns = std::get<1>(*lb);
               auto l = lrns.begin();
@@ -1652,12 +1662,20 @@ H5DatatypeManager::datatype() {
   __func__(HYPERION_TYPE_DCOMPLEX)          \
   __func__(HYPERION_TYPE_STRING)
 
+#ifdef HYPERION_USE_CASACORE
 #define HYPERION_FOREACH_DATATYPE(__func__)\
   HYPERION_FOREACH_CC_DATATYPE(__func__) \
   __func__(HYPERION_TYPE_RECT2) \
   __func__(HYPERION_TYPE_RECT3) \
   __func__(HYPERION_TYPE_STOKES) \
   __func__(HYPERION_TYPE_STOKES_PAIR)
+#else
+#define HYPERION_FOREACH_DATATYPE(__func__)     \
+  HYPERION_FOREACH_CC_DATATYPE(__func__)        \
+  __func__(HYPERION_TYPE_RECT2)                 \
+  __func__(HYPERION_TYPE_RECT3)                 \
+  __func__(HYPERION_TYPE_STOKES_PAIR)
+#endif
 
 #define HYPERION_FOREACH_CC_RECORD_DATATYPE(__func__)  \
   __func__(HYPERION_TYPE_BOOL)                     \
@@ -2919,6 +2937,20 @@ operator<(const Legion::Rect<N, C>& a, const Legion::Rect<N, C>& b) {
   return a.hi < b.hi;
 }
 } // end namespace hyperion
+
+#if !defined(HYPERION_USE_KOKKOS) && !defined(HYPERION_USE_CASACORE)
+namespace std {
+template <typename F>
+HYPERION_EXPORT bool
+operator<(const std::complex<F>& a, const std::complex<F>& b) {
+  if (a.real() < b.real())
+    return true;
+  if (a.real() > b.real())
+    return false;
+  return a.imag() < b.imag();
+}
+}
+#endif // HYPERION_USE_KOKKOS && HYPERION_USE_CASACORE
 
 #endif // HYPERION_UTILITY_H_
 
