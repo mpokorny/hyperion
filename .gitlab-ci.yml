@@ -3,7 +3,7 @@ stages: [generate, build]
 generate-pipeline:
   stage: generate
   tags:
-    - hyperion-k8
+    - xxMxpAVY3BczgV88ZXxJ
   script:
     - spack env activate .
     - spack ci generate
