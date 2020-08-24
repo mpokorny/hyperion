@@ -10,7 +10,7 @@ env:
 compiler:
   - gcc
 before_install:
-  - sudo apt-get install -y git-lfs gfortran libhdf5-dev libhdf5-103 flex bison liblapack-dev casacore-dev casacore-data doxygen libfftw3-single3 libfftw3-dev libyaml-cpp-dev
+  - sudo apt-get install -y git-lfs gfortran libhdf5-dev libhdf5-103 flex bison liblapack-dev libcfitsio8 libcfitsio-dev wcslib-dev libwcs7 casacore-dev casacore-data doxygen libfftw3-single3 libfftw3-dev libyaml-cpp-dev
 install:
   - DEPS_DIR="${TRAVIS_BUILD_DIR}/deps"
   - mkdir -p ${DEPS_DIR} && cd ${DEPS_DIR}
