@@ -663,7 +663,6 @@ Table::requirements(
 #if HAVE_CXX17
             auto& [pcsp, pid, plp, pnew] = std::get<1>(*p);
 #else
-            auto& pcsp = std::get<0>(std::get<1>(*p));
             auto& pid = std::get<1>(std::get<1>(*p));
             auto& plp = std::get<2>(std::get<1>(*p));
 #endif
