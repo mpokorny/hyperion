@@ -193,6 +193,24 @@ operator<(const pair<S, T>& a, const pair<S, T>& b) {
 }
 #endif
 
+template <int N, typename C>
+bool
+operator<(const Legion::Point<N, C>& a, const Legion::Point<N, C>& b) {
+  bool result = true;
+  for (size_t i = 0; result && i < N; ++i)
+    result = a[i] < b[i];
+  return result;
+}
+template <int N, typename C>
+bool
+operator<(const Legion::Rect<N, C>& a, const Legion::Rect<N, C>& b) {
+  if (a.lo < b.lo)
+    return true;
+  if (b.lo < a.lo)
+    return false;
+  return a.hi < b.hi;
+}
+
 #ifdef HYPERION_USE_CASACORE
 typedef casacore::Stokes::StokesTypes stokes_t;
 typedef std::integral_constant<unsigned, casacore::Stokes::NumberOfTypes>
@@ -902,7 +920,7 @@ public:
                 lhs.begin(),
                 lhs.end(),
                 t,
-                [](const auto& a, auto& b) { return std::get<0>(a) < b; });
+                [](const auto& a, const auto& b) { return std::get<0>(a) < b; });
             if (lb != lhs.end() && std::get<0>(*lb) == t) {
               auto& lrns = std::get<1>(*lb);
               auto l = lrns.begin();
@@ -2917,26 +2935,6 @@ HYPERION_FOREACH_N(DEFINE_POINT_ADD_REDOP);
 
 HYPERION_EXPORT std::ostream&
 operator<<(std::ostream& stream, const hyperion::string& str);
-
-namespace hyperion {
-template <int N, typename C>
-bool
-operator<(const Legion::Point<N, C>& a, const Legion::Point<N, C>& b) {
-  bool result = true;
-  for (size_t i = 0; result && i < N; ++i)
-    result = a[i] < b[i];
-  return result;
-}
-template <int N, typename C>
-bool
-operator<(const Legion::Rect<N, C>& a, const Legion::Rect<N, C>& b) {
-  if (a.lo < b.lo)
-    return true;
-  if (b.lo < a.lo)
-    return false;
-  return a.hi < b.hi;
-}
-} // end namespace hyperion
 
 #if !defined(HYPERION_USE_KOKKOS) && !defined(HYPERION_USE_CASACORE)
 namespace std {
