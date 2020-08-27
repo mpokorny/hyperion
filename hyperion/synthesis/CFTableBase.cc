@@ -502,7 +502,7 @@ CFTableBase::preregister_all() {
 
 #ifdef HYPERION_USE_OPENMP
   {
-    auto rc = fftwf_init_threads();
+    [[maybe_unused]] auto rc = fftwf_init_threads();
     assert(rc != 0);
     std::cout << "omp_get_max_threads() -> " << omp_get_max_threads()
               << std::endl;

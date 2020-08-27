@@ -655,7 +655,7 @@ Table::requirements(
           // Need a column partition; either it's provided or it's derived from
           // table_partition. First look for existing record of this partition
           LogicalPartition lp = LogicalPartition::NO_PART;
-          ProjectionID pjid;
+          CXX_OPTIONAL_NAMESPACE::optional<ProjectionID> pjid;
           for (auto p = partitions.lower_bound(col.cs);
                (lp == LogicalPartition::NO_PART
                 && p != partitions.upper_bound(col.cs));
@@ -703,14 +703,15 @@ Table::requirements(
               pjid = reqs.projection;
             }
             // record this partition
-            partitions.insert({col.cs, {csp, pjid, lp, new_csp}});
+            partitions.insert({col.cs, {csp, pjid.value(), lp, new_csp}});
           }
+          assert(pjid);
           // record the requirement for this column
           val_reqs[rg_rq] =
             {false,
              RegionRequirement(
                lp,
-               pjid,
+               pjid.value(),
                reqs.values.privilege,
                reqs.values.coherence,
                col.region,

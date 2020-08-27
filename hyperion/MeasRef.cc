@@ -251,7 +251,8 @@ initialize(
               }
               numvals.write(p, mvals.size());
               std::string name = measure->tellMe();
-              MeasRef::MEASURE_CLASS_TYPE mtype;
+              MeasRef::MEASURE_CLASS_TYPE mtype =
+                static_cast<MeasRef::MEASURE_CLASS_TYPE>(0);
               if (name == "") assert(false);
 #define SET_MCLASS(M)                             \
               else if (name == MClassT<M>::name)  \
@@ -281,7 +282,8 @@ initialize(
           }
           numvals.write(p, mvals.size());
           std::string name = m.measure->tellMe();
-          MeasRef::MEASURE_CLASS_TYPE mtype;
+          MeasRef::MEASURE_CLASS_TYPE mtype =
+            static_cast<MeasRef::MEASURE_CLASS_TYPE>(0);
           if (name == "") assert(false);
 #define SET_MCLASS(M)                           \
           else if (name == MClassT<M>::name)    \
