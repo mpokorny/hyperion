@@ -508,7 +508,7 @@ FFT::cufft_destroy_plan(
 #endif
 
 template <typename T>
-void
+static void
 rotate_1d_array(d1span<T> array, d1span<T> scratch) {
   const long fullsz = array.extent(0);
   const long shift = fullsz / 2 + 1;
@@ -521,7 +521,7 @@ rotate_1d_array(d1span<T> array, d1span<T> scratch) {
 }
 
 template <typename T>
-void
+static void
 rotate_2d_array(d2span<T> array, d2span<T> scratch) {
   std::array<long, 2> fullsz{array.extent(0), array.extent(1)};
   std::array<long, 2> shift{fullsz[0] / 2 + 1, fullsz[1] / 2 + 1};
@@ -539,7 +539,7 @@ rotate_2d_array(d2span<T> array, d2span<T> scratch) {
 }
 
 template <typename T>
-void
+static void
 rotate_3d_array(d3span<T> array, d3span<T> scratch) {
   std::array<long, 3>
     fullsz{array.extent(0), array.extent(1), array.extent(2)};
