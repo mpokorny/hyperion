@@ -12,7 +12,7 @@ add_custom_target(
   TestRunner ALL
   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/TestRunner.py)
 
-add_library(hyperion_testing STATIC)
+add_library(hyperion_testing)
 target_sources(hyperion_testing PRIVATE
   TestLog.h
   TestLog.cc

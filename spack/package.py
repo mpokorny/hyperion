@@ -51,6 +51,7 @@ class Hyperion(CMakePackage):
     variant('kokkos-kernels', default=False, description='Use Kokkos kernels (requires Kokkos)')
     variant('openmp', default=False, description='Enable OpenMP support')
     variant('debug', default=False, description='Enable debug flags')
+    variant('shared', default=True, description='Build shared libraries')
 
     # Variants for Legion sub-project
     variant('lg_debug', default=False, description='Enable Legion debug flags')
@@ -102,6 +103,7 @@ class Hyperion(CMakePackage):
         args = []
         spec = self.spec
 
+        args.append(self.define_from_variant('BUILD_SHARED_LIBS', 'shared'))
         args.append(self.define_from_variant('USE_CASACORE', 'casacore'))
         args.append(self.define_from_variant('USE_HDF5', 'hdf5'))
         args.append(self.define_from_variant('MAX_DIM', 'max_dim'))

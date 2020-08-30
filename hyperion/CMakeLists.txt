@@ -150,7 +150,7 @@ function(set_host_target_properties target)
     CXX_STANDARD_REQUIRED ON)
 endfunction()
 
-add_library(hyperion STATIC)
+add_library(hyperion)
 target_sources(hyperion PRIVATE
   hyperion_c.h
   # Grids_c.cc
