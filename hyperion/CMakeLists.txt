@@ -263,6 +263,7 @@ if(hyperion_USE_KOKKOS)
   if(hyperion_USE_CUDA)
     target_compile_options(hyperion PUBLIC
       --expt-relaxed-constexpr)
+    target_link_options(hyperion PUBLIC "SHELL:-cudart none")
   endif()
   target_link_libraries(hyperion PUBLIC Kokkos::kokkoscore)
   if(hyperion_USE_KOKKOS_KERNELS)
