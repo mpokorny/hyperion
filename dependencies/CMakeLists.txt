@@ -12,11 +12,10 @@ add_subdirectory(mdspan)
 #   GIT_TAG 953d7968e8fc5908af954f883e2e38d02c279cf2) # master 2020.06.12
 # add_subdirectory(kokkos)
 
-# Legion requires kokkos_view branch in Legion gitlab repo
 FetchContent_Declare(
   legion
-  GIT_REPOSITORY https://gitlab.com/StanfordLegion/legion
-  GIT_TAG 471db5291ec8e7a63c6d78bdb9bb7378178a8c1d)
+  GIT_REPOSITORY https://github.com/StanfordLegion/legion
+  GIT_TAG 36fcd96af1d7c905a25394ca3a5e56f300926fee) # master 2020.09.01
 add_subdirectory(legion)
 
 if(USE_CASACORE AND BUILD_CASACORE)
