@@ -51,7 +51,7 @@ class Hyperion(CMakePackage):
     variant('kokkos-kernels', default=False, description='Use Kokkos kernels (requires Kokkos)')
     variant('openmp', default=False, description='Enable OpenMP support')
     variant('debug', default=False, description='Enable debug flags')
-    variant('shared', default=True, description='Build shared libraries')
+    variant('shared', default=False, description='Build shared libraries')
 
     # Variants for Legion sub-project
     variant('lg_debug', default=False, description='Enable Legion debug flags')
@@ -79,7 +79,7 @@ class Hyperion(CMakePackage):
     depends_on('mpi', when='+lg_mpi')
     depends_on('gasnet+par~aligned-segments segment=fast', when='+lg_gasnet')
 
-    depends_on('kokkos+serial', when='+kokkos')
+    depends_on('kokkos~shared+serial', when='+kokkos')
     depends_on('kokkos+openmp', when='+kokkos+openmp')
     # FIXME: don't require nvcc_wrapper when compiling with Clang
     depends_on('kokkos+cuda+cuda_lambda+cuda_relocatable_device_code~cuda_host_init_check std=14 +wrapper',
