@@ -68,62 +68,62 @@ struct cf_table_axis {
   //typedef ... type;
 };
 template <>
-struct cf_table_axis<CF_PS_SCALE> {
+struct HYPERION_EXPORT cf_table_axis<CF_PS_SCALE> {
   typedef float type;
   static const constexpr char* name = "PS_SCALE";
 };
 template <>
-struct cf_table_axis<CF_BASELINE_CLASS> {
+struct HYPERION_EXPORT cf_table_axis<CF_BASELINE_CLASS> {
   typedef unsigned type;
   static const constexpr char* name = "BASELINE_CLASS";
 };
 template <>
-struct cf_table_axis<CF_FREQUENCY> {
+struct HYPERION_EXPORT cf_table_axis<CF_FREQUENCY> {
   typedef float type;
   static const constexpr char* name = "FREQUENCY";
 };
 template <>
-struct cf_table_axis<CF_W> {
+struct HYPERION_EXPORT cf_table_axis<CF_W> {
   typedef float type;
   static const constexpr char* name = "W";
 };
 template <>
-struct cf_table_axis<CF_PARALLACTIC_ANGLE> {
+struct HYPERION_EXPORT cf_table_axis<CF_PARALLACTIC_ANGLE> {
   typedef float type;
   static const constexpr char* name = "PARALLACTIC_ANGLE";
 };
 template <>
-struct cf_table_axis<CF_STOKES_OUT> {
+struct HYPERION_EXPORT cf_table_axis<CF_STOKES_OUT> {
   typedef stokes_t type;
   static const constexpr char* name = "STOKES_OUT";
 };
 template <>
-struct cf_table_axis<CF_STOKES_IN> {
+struct HYPERION_EXPORT cf_table_axis<CF_STOKES_IN> {
   typedef stokes_t type;
   static const constexpr char* name = "STOKES_IN";
 };
 template <>
-struct cf_table_axis<CF_STOKES> {
+struct HYPERION_EXPORT cf_table_axis<CF_STOKES> {
   typedef stokes_t type;
   static const constexpr char* name = "STOKES";
 };
 template <>
-struct cf_table_axis<CF_X> {
+struct HYPERION_EXPORT cf_table_axis<CF_X> {
   typedef void type; // not a value index axis
   static const constexpr char* name = "X";
 };
 template <>
-struct cf_table_axis<CF_Y> {
+struct HYPERION_EXPORT cf_table_axis<CF_Y> {
   typedef void type; // not a value index axis
   static const constexpr char* name = "Y";
 };
 template <>
-struct cf_table_axis<CF_ORDER0> {
+struct HYPERION_EXPORT cf_table_axis<CF_ORDER0> {
   typedef void type; // not a value index axis
   static const constexpr char* name = "ORDER0";
 };
 template <>
-struct cf_table_axis<CF_ORDER1> {
+struct HYPERION_EXPORT cf_table_axis<CF_ORDER1> {
   typedef void type; // not a value index axis
   static const constexpr char* name = "ORDER1";
 };
