@@ -30,15 +30,12 @@ set(SYSCONFDIR ${SYSCONFDIR}/hyperion)
 
 # save some build parameters that will be changed for Legion build
 set(CMAKE_BUILD_TYPE_COPY ${CMAKE_BUILD_TYPE})
-set(BUILD_SHARED_LIBS_COPY ${BUILD_SHARED_LIBS})
 
 # set Legion build parameters
 set(CMAKE_BUILD_TYPE ${Legion_CMAKE_BUILD_TYPE})
-set(BUILD_SHARED_LIBS OFF)
 
 set(CMAKE_PROJECT_INCLUDE_BEFORE "${CMAKE_CURRENT_LIST_DIR}/cmp0077new.cmake")
 FetchContent_MakeAvailable(legion)
 
 # restore original build parameters
 set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE_COPY})
-set(BUILD_SHARED_LIBS, ${BUILD_SHARED_LIBS_COPY})
