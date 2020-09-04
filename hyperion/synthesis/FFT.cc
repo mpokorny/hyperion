@@ -22,19 +22,6 @@ using namespace hyperion;
 using namespace hyperion::synthesis;
 using namespace Legion;
 
-namespace stdex = std::experimental;
-
-template <typename T>
-using d1span =
-  stdex::mdspan<T, stdex::dynamic_extent>;
-template <typename T>
-using d2span =
-  stdex::mdspan<T, stdex::dynamic_extent, stdex::dynamic_extent>;
-template <typename T>
-using d3span =
-  stdex::mdspan<
-    T, stdex::dynamic_extent, stdex::dynamic_extent, stdex::dynamic_extent>;
-
 Mutex hyperion::synthesis::fftw_mutex;
 Mutex hyperion::synthesis::fftwf_mutex;
 
@@ -67,10 +54,12 @@ struct Params {
  */
 template <unsigned N>
 static bool
-prefixes_match(const Point<N>& p0, const Point<N>& p1, unsigned n) {
-  for (size_t i = 0; i < std::min(n, N); ++i)
-    if (p0[i] != p1[i])
-      return false;
+prefixes_match(const Point<N>& p0, const Point<N>& p1, int n) {
+  if (n >= 0) {
+    for (size_t i = 0; i < std::min(static_cast<unsigned>(n), N); ++i)
+      if (p0[i] != p1[i])
+        return false;
+  }
   return true;
 }
 
@@ -78,7 +67,7 @@ prefixes_match(const Point<N>& p0, const Point<N>& p1, unsigned n) {
  * get parameters for FFTW or cuFFT for an array of type T, rank array_rank in
  * a field fid of a region with rank N
  */
-template <typename F, unsigned N>
+template <typename F, int N>
 static Params
 get_paramsN(
   Runtime* rt,
@@ -508,59 +497,53 @@ FFT::cufft_destroy_plan(
 #endif
 
 template <typename T>
-static void
-rotate_1d_array(d1span<T> array, d1span<T> scratch) {
-  const long fullsz = array.extent(0);
-  const long shift = fullsz / 2 + 1;
+void
+rotate_1d_array(T* array, long n0, T* scratch) {
 
-  assert(scratch.extent(0) >= fullsz);
-  for (long i = 0; i < fullsz; ++i)
-    scratch(i) = array((i + shift) % fullsz);
-  for (long i = 0; i < fullsz; ++i)
-    array(i) = scratch(i);
+  const long shift = n0 / 2 + 1;
+
+  for (long i = 0; i < n0; ++i)
+    scratch[i] = array[(i + shift) % n0];
+  for (long i = 0; i < n0; ++i)
+    array[i] = scratch[i];
 }
 
 template <typename T>
-static void
-rotate_2d_array(d2span<T> array, d2span<T> scratch) {
-  std::array<long, 2> fullsz{array.extent(0), array.extent(1)};
-  std::array<long, 2> shift{fullsz[0] / 2 + 1, fullsz[1] / 2 + 1};
+void
+rotate_2d_array(T* array, long n0, long n1, T* scratch) {
 
-  assert(scratch.extent(0) >= fullsz[0]);
-  assert(scratch.extent(1) >= fullsz[1]);
-  for (long i = 0; i < fullsz[0]; ++i) {
-    auto i1 = (i + shift[0]) % fullsz[0];
-    for (long j = 0; j < fullsz[1]; ++j)
-      scratch(i, j) = array(i1, (j + shift[1]) % fullsz[1]);
+  std::array<long, 2> shift{n0 / 2 + 1, n1 / 2 + 1};
+
+  for (long i = 0; i < n0; ++i) {
+    auto i1 = (i + shift[0]) % n0;
+    for (long j = 0; j < n1; ++j)
+      scratch[i * n1 + j] = array[i1 * n1 + (j + shift[1]) % n1];
   }
-  for (long i = 0; i < fullsz[0]; ++i)
-    for (long j = 0; j < fullsz[1]; ++j)
-      array(i, j) = scratch(i, j);
+  for (long i = 0; i < n0; ++i)
+    for (long j = 0; j < n1; ++j)
+      array[i * n1 + j] = scratch[i * n1 + j];
 }
 
 template <typename T>
-static void
-rotate_3d_array(d3span<T> array, d3span<T> scratch) {
-  std::array<long, 3>
-    fullsz{array.extent(0), array.extent(1), array.extent(2)};
-  std::array<long, 3>
-    shift{fullsz[0] / 2 + 1, fullsz[1] / 2 + 1, fullsz[2] / 2 + 1};
+void
+rotate_3d_array(T* array, long n0, long n1, long n2, T* scratch) {
 
-  assert(scratch.extent(0) >= fullsz[0]);
-  assert(scratch.extent(1) >= fullsz[1]);
-  assert(scratch.extent(1) >= fullsz[2]);
-  for (long i = 0; i < fullsz[0]; ++i) {
-    auto i1 = (i + shift[0]) % fullsz[0];
-    for (long j = 0; j < fullsz[1]; ++j) {
-      auto j1 = (j + shift[1]) % fullsz[1];
-      for (long k = 0; k < fullsz[2]; ++k)
-        scratch(i, j, k) = array(i1, j1, (k + shift[2]) % fullsz[2]);
+  std::array<long, 3>
+    shift{n0 / 2 + 1, n1 / 2 + 1, n2 / 2 + 1};
+
+  for (long i = 0; i < n0; ++i) {
+    auto i1 = (i + shift[0]) % n0;
+    for (long j = 0; j < n1; ++j) {
+      auto j1 = (j + shift[1]) % n1;
+      for (long k = 0; k < n2; ++k)
+        scratch[(i * n1 + j) * n2 + k] =
+          array[(i1 * n1 + j1) * n2 + (k + shift[2]) % n2];
     }
   }
-  for (long i = 0; i < fullsz[0]; ++i)
-    for (long j = 0; j < fullsz[1]; ++j)
-      for (long k = 0; j < fullsz[2]; ++k)
-        array(i, j, k) = scratch(i, j, k);
+  for (long i = 0; i < n0; ++i)
+    for (long j = 0; j < n1; ++j)
+      for (long k = 0; j < n2; ++k)
+        array[(i * n1 + j) * n2 + k] = scratch[(i * n1 + j) * n2 + k];
 }
 
 template <typename T, int N>
@@ -586,12 +569,13 @@ rotate_arrays(
   for (size_t i = 0; i < N; ++i)
     array_pt[i] = -1;
   Rect<N> rect(rt->get_index_space_domain(req.region.get_index_space()));
-  std::vector<long> array_dim;
+  std::vector<ptrdiff_t> array_dim;
   size_t array_size = 1;
   for (size_t i = desc.rank; i > 0; --i) {
     array_dim.push_back(rect.hi[N - i] - rect.lo[N - i] + 1);
     array_size *= static_cast<size_t>(array_dim.back());
   }
+
   // TODO: c++20: use make_unique_for_overwrite
   auto scratch = std::make_unique<T[]>(array_size);
   for (PointInRectIterator<N> pir(rect, false); pir(); pir++) {
@@ -602,21 +586,27 @@ rotate_arrays(
       for (size_t i = 0; i < N; ++i)
         array_pt[i] = pir[i];
       switch (desc.rank) {
-      case 1:
-        rotate_1d_array(
-          d1span<T>(acc.ptr(*pir), array_dim[0]),
-          d1span<T>(scratch.get(), array_dim[0]));
+      case 1: {
+        rotate_1d_array(acc.ptr(*pir), array_dim[0], scratch.get());
         break;
-      case 2:
+      }
+      case 2: {
         rotate_2d_array(
-          d2span<T>(acc.ptr(*pir), array_dim[0], array_dim[1]),
-          d2span<T>(scratch.get(), array_dim[0], array_dim[1]));
+          acc.ptr(*pir),
+          array_dim[0],
+          array_dim[1],
+          scratch.get());
         break;
-      case 3:
+      }
+      case 3: {
         rotate_3d_array(
-          d3span<T>(acc.ptr(*pir), array_dim[0], array_dim[1], array_dim[2]),
-          d3span<T>(scratch.get(), array_dim[0], array_dim[1], array_dim[2]));
+          acc.ptr(*pir),
+          array_dim[0],
+          array_dim[1],
+          array_dim[2],
+          scratch.get());
         break;
+      }
       default:
         assert(false);
         break;
