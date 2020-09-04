@@ -51,7 +51,7 @@ class Hyperion(CMakePackage):
     variant('kokkos-kernels', default=False, description='Use Kokkos kernels (requires Kokkos)')
     variant('openmp', default=False, description='Enable OpenMP support')
     variant('debug', default=False, description='Enable debug flags')
-    variant('shared', default=False, description='Build shared libraries')
+    variant('shared', default=True, description='Build shared libraries')
 
     # Variants for Legion sub-project
     variant('lg_debug', default=False, description='Enable Legion debug flags')
