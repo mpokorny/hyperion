@@ -62,7 +62,7 @@ class Hyperion(CMakePackage):
     variant('lg_spy', default=False, description='Enable Legion Spy full checking capability')
     variant('lg_mpi', default=False, description='Legion MPI backend')
     variant('lg_gasnet', default=False, description='Legion GASNet backend')
-    variant('lg_hijack_cudart', default=True, description='Enable Legion CUDA runtime hijack')
+    #variant('lg_hijack_cudart', default=True, description='Enable Legion CUDA runtime hijack')
     variant('lg_build', default=(), description='Extra Legion build targets',
             values=('all', 'apps', 'bindings', 'examples', 'tutorial', 'tests'), multi=True)
 
@@ -139,7 +139,7 @@ class Hyperion(CMakePackage):
                     archs = archs + ',' + a
             if len(archs) > 0:
                 args.append('-DCUDA_ARCH=' + archs[1:])
-            args.append(self.define_from_variant('Legion_HIJACK_CUDART', 'lg_hijack_cudart'))
+            #args.append(self.define_from_variant('Legion_HIJACK_CUDART', 'lg_hijack_cudart'))
             cxx_std = "14"
         else:
             cxx_std = "17"
