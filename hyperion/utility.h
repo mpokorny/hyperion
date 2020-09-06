@@ -743,24 +743,16 @@ public:
   static const size_t MAX_SERIALIZED_SIZE = HYPERION_IB_MAX_SIZE;
 
   static size_t
-  serialized_size(const IndexTreeL& val) {
-    return val.serialized_size();
-  }
+  serialized_size(const FIELD_TYPE& val);
 
   static size_t
-  serialize(const IndexTreeL& val, void *buffer) {
-    return val.serialize(reinterpret_cast<char*>(buffer));
-  }
+  serialize(const FIELD_TYPE& val, void *buffer);
 
   static size_t
-  deserialize(IndexTreeL& val, const void *buffer) {
-    val = IndexTreeL::deserialize(static_cast<const char*>(buffer));
-    return *reinterpret_cast<const size_t *>(buffer);
-  }
+  deserialize(FIELD_TYPE& val, const void *buffer);
 
   static void
-  destroy(IndexTreeL&) {
-  }
+  destroy(FIELD_TYPE&);
 };
 
 #ifdef HYPERION_USE_CASACORE
@@ -845,8 +837,7 @@ public:
   static void
   destroy(FIELD_TYPE& val);
 };
-
-#endif
+#endif // HYPERION_USE_CASACORE
 
 class bool_or_redop {
 public:

@@ -141,6 +141,27 @@ hyperion::column_is_axis(
     : CXX_OPTIONAL_NAMESPACE::optional<int>();
 }
 
+size_t
+hyperion::index_tree_serdez::serialized_size(const IndexTreeL& val) {
+  return val.serialized_size();
+}
+
+size_t
+hyperion::index_tree_serdez::serialize(const IndexTreeL& val, void *buffer) {
+  return val.serialize(reinterpret_cast<char*>(buffer));
+}
+
+size_t
+hyperion::index_tree_serdez::deserialize(IndexTreeL& val, const void *buffer) {
+  ::new(&val) IndexTreeL;
+  val = IndexTreeL::deserialize(reinterpret_cast<const char*>(buffer));
+  return *reinterpret_cast<const size_t *>(buffer);
+}
+
+void
+hyperion::index_tree_serdez::destroy(IndexTreeL&) {
+}
+
 #ifdef HYPERION_USE_CASACORE
 size_t
 hyperion::record_serdez::serialized_size(const cc::Record& val) {
