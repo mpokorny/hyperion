@@ -88,7 +88,7 @@ public:
           pattern.children().end(),
           std::back_inserter(ch),
           [&offset](auto& c) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
             auto& [i, n, t] = c;
 #else
             auto& i = std::get<0>(c);
@@ -103,7 +103,7 @@ public:
     auto rch = pattern.children().begin();
     auto rch_end = pattern.children().end();
     while (pattern_rem > 0 && rch != rch_end) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [i, n, t] = *rch;
 #else
       auto& i = std::get<0>(*rch);
@@ -146,7 +146,7 @@ public:
       result = false;
     else {
       auto jch = other.children();
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [ie, ne, te] = m_children.back();
       auto& [j0, jn0, jt0]= jch.front();
 #else
@@ -181,7 +181,7 @@ public:
       return false;
     COORD_T prev_end = i;
     for (auto& ch : m_children) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [lo, n, t] = ch;
 #else
       auto& lo = std::get<0>(ch);
@@ -296,7 +296,7 @@ public:
         m_children.begin(),
         m_children.end(),
         [&result](const auto& ch){
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
           auto& [lo, n, t] = ch;
           auto& [rlo, rhi] = result[0];
 #else
@@ -335,7 +335,7 @@ public:
       m_children.end(),
       std::back_inserter(sprouted),
       [&sprout](auto& ch) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [i, n, t] = ch;
 #else
         auto& i = std::get<0>(ch);
@@ -360,7 +360,7 @@ public:
       m_children.end(),
       std::back_inserter(trimmed),
       [&to_height](auto& ch) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [i, n, t] = ch;
 #else
         auto& i = std::get<0>(ch);
@@ -465,7 +465,7 @@ public:
     char* start = buff;
     buff += sizeof(size_t);
     for (auto& ch : m_children) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [i, n, t] = ch;
 #else
       auto& i = std::get<0>(ch);
@@ -485,19 +485,19 @@ public:
   static IndexTree
   deserialize(const char *buff) {
     size_t sz = *reinterpret_cast<const size_t *>(buff);
-    const void *end = buff + sz;
+    const char *end = buff + sz;
     buff += sizeof(size_t);
-    std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> children;
+    std::vector<std::tuple<COORD_T, COORD_T, IndexTree>> ch;
     while (buff != end) {
       COORD_T i = *reinterpret_cast<const COORD_T *>(buff);
       buff += sizeof(COORD_T);
       COORD_T n = *reinterpret_cast<const COORD_T *>(buff);
       buff += sizeof(COORD_T);
       const char *next = buff + *reinterpret_cast<const size_t *>(buff);
-      children.emplace_back(i, n, deserialize(buff));
+      ch.emplace_back(i, n, deserialize(buff));
       buff = next;
     }
-    return IndexTree(children);
+    return IndexTree(ch);
   }
 
   std::string
@@ -536,7 +536,7 @@ public:
           m_children.begin(),
           m_children.end(),
           [&sep, &oss, &with_linebreaks, &indent](const auto& ch) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
             auto& [i, n, t] = ch;
 #else
             auto& i = std::get<0>(ch);
@@ -592,7 +592,7 @@ protected:
             if (compacted.empty()) {
               compacted.push_back(ch);
             } else {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
               auto& [i, n, t] = ch;
 #else
               auto& i = std::get<0>(ch);
@@ -653,7 +653,7 @@ protected:
     auto te = tenv.begin();
     auto te_end = tenv.end();
     while (r != r_end && te != te_end) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
       auto& [rlo, rhi] = *r;
       auto& [telo, tehi] = *te;
 #else
@@ -684,7 +684,7 @@ protected:
       m_children.begin(),
       m_children.end(),
       [&here, &fn, &sprouted](auto& ch) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [i, n, t] = ch;
 #else
         auto& i = std::get<0>(ch);
@@ -813,7 +813,7 @@ private:
       tree.children().begin(),
       tree.children().end(),
       [&coords](auto& ch) {
-#if __cplusplus >= 201703L
+#if HAVE_CXX17
         auto& [i, n, t] = ch;
 #else
         auto& i = std::get<0>(ch);
