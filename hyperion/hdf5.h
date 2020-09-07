@@ -433,20 +433,13 @@ struct HYPERION_EXPORT binary_index_tree_serdez {
   static const constexpr char* id = "hyperion::hdf5::binary_index_tree_serdez";
 
   static size_t
-  serialized_size(const IndexTreeL& tree) {
-    return tree.serialized_size();
-  }
+  serialized_size(const IndexTreeL& tree);
 
   static size_t
-  serialize(const IndexTreeL& tree, void *buffer) {
-    return tree.serialize(static_cast<char*>(buffer));
-  }
+  serialize(const IndexTreeL& tree, void *buffer);
 
   static size_t
-  deserialize(IndexTreeL& tree, const void* buffer) {
-    tree = IndexTreeL::deserialize(static_cast<const char*>(buffer));
-    return tree.serialized_size();
-  }
+  deserialize(IndexTreeL& tree, const void* buffer);
 };
 
 struct HYPERION_EXPORT string_index_tree_serdez {
@@ -454,23 +447,13 @@ struct HYPERION_EXPORT string_index_tree_serdez {
   static const constexpr char* id = "hyperion::hdf5::string_index_tree_serdez";
 
   static size_t
-  serialized_size(const IndexTreeL& tree) {
-    return tree.show().size() + 1;
-  }
+  serialized_size(const IndexTreeL& tree);
 
   static size_t
-  serialize(const IndexTreeL& tree, void *buffer) {
-    auto tr = tree.show();
-    std::memcpy(static_cast<char*>(buffer), tr.c_str(), tr.size() + 1);
-    return tr.size() + 1;
-  }
+  serialize(const IndexTreeL& tree, void *buffer);
 
   static size_t
-  deserialize(IndexTreeL&, const void*) {
-    // TODO
-    assert(false);
-    return 0;
-  }
+  deserialize(IndexTreeL&, const void*);
 };
 
 } // end namespace hdf5

@@ -68,6 +68,48 @@ starts_with(const char* str, const char* pref) {
 //   return result && esuff == suff;
 // }
 
+
+size_t
+hyperion::hdf5::binary_index_tree_serdez::serialized_size(
+  const IndexTreeL& tree) {
+  return tree.serialized_size();
+}
+
+size_t
+hyperion::hdf5::binary_index_tree_serdez::serialize(
+  const IndexTreeL& tree, void *buffer) {
+  return tree.serialize(static_cast<char*>(buffer));
+}
+
+size_t
+hyperion::hdf5::binary_index_tree_serdez::deserialize(
+  IndexTreeL& tree, const void* buffer) {
+  tree = IndexTreeL::deserialize(static_cast<const char*>(buffer));
+  return tree.serialized_size();
+}
+
+size_t
+hyperion::hdf5::string_index_tree_serdez::serialized_size(
+  const IndexTreeL& tree) {
+  return tree.show().size() + 1;
+}
+
+size_t
+hyperion::hdf5::string_index_tree_serdez::serialize(
+  const IndexTreeL& tree, void *buffer) {
+  auto tr = tree.show();
+  std::memcpy(static_cast<char*>(buffer), tr.c_str(), tr.size() + 1);
+  return tr.size() + 1;
+}
+
+size_t
+hyperion::hdf5::string_index_tree_serdez::deserialize(
+  IndexTreeL&, const void*) {
+  // TODO
+  assert(false);
+  return 0;
+}
+
 CXX_OPTIONAL_NAMESPACE::optional<std::string>
 hyperion::hdf5::read_index_tree_attr_metadata(
   hid_t grp_id,
@@ -1283,7 +1325,7 @@ hyperion::hdf5::write_table(
   }
 
   // FIXME: awaiting Table keywords support...
-  // write_keywords(ctx, rt, table_grp_id, table.keywords);  
+  // write_keywords(ctx, rt, table_grp_id, table.keywords);
 
   std::unordered_map<std::string, Column> selected_columns;
   for (auto& col : columns) {
