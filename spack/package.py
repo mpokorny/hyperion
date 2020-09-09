@@ -74,7 +74,7 @@ class Hyperion(CMakePackage):
     depends_on('pkgconf', when='+casacore', type=('build')) # FindCasacore requires it
     depends_on('hdf5+threadsafe+szip~mpi', when='+hdf5')
     depends_on('yaml-cpp', when='+yaml')
-    depends_on('llvm@6.0.1', when='+llvm')
+    # depends_on('llvm@6.0.1', when='+llvm')
     depends_on('cuda', when='+cuda', type=('build', 'link', 'run'))
     depends_on('mpi', when='+lg_mpi')
     depends_on('gasnet+par~aligned-segments segment=fast', when='+lg_gasnet')
