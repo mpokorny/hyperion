@@ -79,8 +79,7 @@ class Hyperion(CMakePackage):
     depends_on('mpi', when='+lg_mpi')
     depends_on('gasnet+par~aligned-segments segment=fast', when='+lg_gasnet')
 
-    depends_on('kokkos~shared+serial', when='+kokkos')
-    depends_on('kokkos+pic', when='+kokkos+shared')
+    depends_on('kokkos+shared+serial', when='+kokkos')
     depends_on('kokkos+openmp', when='+kokkos+openmp')
     # FIXME: don't require nvcc_wrapper when compiling with Clang
     depends_on('kokkos+cuda+cuda_lambda~cuda_host_init_check std=14 +wrapper',
