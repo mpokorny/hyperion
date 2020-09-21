@@ -68,7 +68,7 @@ class Hyperion(CMakePackage):
 
     # Remaining dependencies
     depends_on('zlib')
-    depends_on('fftw~mpi precision=float')
+    depends_on('fftw~mpi precision=float,double')
     depends_on('fftw+openmp', when='+openmp')
     depends_on('casacore', when='+casacore')
     depends_on('pkgconf', when='+casacore', type=('build')) # FindCasacore requires it
