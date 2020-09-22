@@ -17,7 +17,12 @@
 #define HYPERION_HYPERION_C_H_
 
 #pragma GCC diagnostic push
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif //__GNUC__ && !__clang__
+#ifdef __clang__
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif // __clang__
 #include <legion/legion_c.h>
 #pragma GCC diagnostic pop
 #include "hyperion_export.h"

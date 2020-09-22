@@ -20,7 +20,14 @@
 
 #ifdef __cplusplus
 #include <memory>
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif // __clang__
 #include <legion/legion_c_util.h>
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif // __clang__
 
 namespace hyperion {
 namespace CObjectWrapper {
