@@ -667,8 +667,8 @@ public:
     )
     : PhysicalColumn(
       rt,
-      fid,
       DT,
+      fid,
       index_rank,
       metadata,
       region,
@@ -793,8 +793,8 @@ public:
     )
     : PhysicalColumn(
       rt,
-      fid,
       DT,
+      fid,
       INDEX_RANK,
       metadata,
       region,
@@ -928,8 +928,8 @@ public:
       std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol)
     : PhysicalColumn(
       rt,
-      fid,
       DT,
+      fid,
       index_rank,
       metadata,
       region,
@@ -1067,8 +1067,8 @@ public:
       std::tuple<std::string, std::shared_ptr<PhysicalColumn>>>& refcol)
     : PhysicalColumn(
       rt,
-      fid,
       DT,
+      fid,
       INDEX_RANK,
       metadata,
       region,
