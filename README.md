@@ -85,13 +85,19 @@ A preliminary Spack package file for *hyperion* exists in this repository.
 
 ## Using the software
 
-There is currently one complete application, *ms2h5*, and another, *gridder*, undergoing continuing development.
+There are currently two complete applications, *ms2h5* and *cfcompute*. Another application, *gridder*, is undergoing continuing development.
 
 ### ms2h5
 
 This application converts a *MeasurementSet* in standard format (CTDS, or "casacore table data system") into a custom *HDF5* format. Note that the format of the *HDF5* files created by this application is almost certainly not the same as that expected by *casacore* `Table` libraries, and trying to access the *HDF5* files through those libraries will fail.
 
 Usage: `ms2h5 [OPTION...] MS [TABLE...] OUTPUT`, where `MS` is the path to the *MeasurementSet*, and `OUTPUT` is the name of the *HDF5* file to be created. If `OUTPUT` already exists, the application will not write over or delete that file, and will exit immediately. `[TABLE...]` is a list of tables in the *MeasurementSet* to write into the *HDF5* file; if this list is not present on the command line, all tables will be written. `[OPTION...]` is a list options, primarily *Legion* and *GASNet* options. Please be aware that the argument parsing done by `ms2h5` is currently not robust; for the time being, specifying flags before options with values may ameliorate any problems.
+
+### cfcompute
+
+This application computes convolution functions for use in gridding of visibilities for imaging; it is intended for performance testing and analysis of parallelization and mapping strategies, relying strongly on *Legion* and *Kokkos* in its design and implementation. As a tool for performance testing, the computed convolution functions are _not_ retained when the program completes. On the other hand, performance measures are collected during program execution, and metrics are reported when the program completes. Currently the program supports fixed parallelization and mapping strategies, but this is expected to change as the program is developed. Note, however, that some variation in the program execution is supported indirectly through the choice of options employed by *Legion* and *Kokkos*, and *hyperion* compile-time options; and directly through a few easily modified compile-time definitions.
+
+Usage: `cfcompute [Legion args]`
 
 ### gridder
 
