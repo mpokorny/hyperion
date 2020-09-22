@@ -34,8 +34,10 @@
 #include <memory>
 #include <vector>
 
+#ifdef __NVCC__
 // to suppress silly nvcc warnings in some template expansions below
 #pragma diag_suppress = unsigned_compare_with_zero
+#endif // __NVCC__
 
 using namespace hyperion;
 using namespace Legion;
