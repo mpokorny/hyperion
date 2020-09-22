@@ -16,7 +16,7 @@ Several dependencies are optional, and while the software will build without the
   * zlib
   * git
   * git-lfs [for test data, currently no way to avoid this]
-  * gcc compiler (Clang may work, but is untested)
+  * gcc >= v9.3, or Clang >= 10.0 (other versions of either compiler may work, but have not been fully tested)
 * Optional
   * [HDF5®](https://www.hdfgroup.org/solutions/hdf5/), version 1.10.5 or later [with `USE_HDF5=ON`]
   * [LLVM](https://llvm.org/), any version acceptable to *Legion* [with `Legion_USE_LLVM=ON`]
