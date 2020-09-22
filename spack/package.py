@@ -32,10 +32,11 @@ class Hyperion(CMakePackage):
 
     maintainers = ['mpokorny']
 
-    version('master', branch='master', submodules=True)
+    generator = 'Ninja'
 
     # CMake build dependency
     depends_on('cmake@3.13:', type='build')
+    depends_on('ninja', type='build')
 
     # Top-level hyperion variants
     variant('max_dim', default='8', description='Maximum index space rank',
