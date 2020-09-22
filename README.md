@@ -57,8 +57,7 @@ Create a build directory, and invoke `cmake`.
 $ cd /my/hyperion/build/directory
 $ cmake [CMAKE OPTIONS] /my/hyperion/source/directory
 ```
-
-Note that when configured with `USE_KOKKOS=ON` and `USE_CUDA=ON`, shared library builds are not currently supported.
+Note that both Unix Makefile and Ninja project file generators are known to work. If using Ninja, in the following instructions for build and test, substitute "ninja" for "make".
 
 Build the software
 ``` shell
