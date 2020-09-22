@@ -240,9 +240,10 @@ initialize(
         // the measure value itself
         p[level] = p1[level] = MeasRef::ArrayComponent::VALUE;
 #if HAVE_CXX17
+        auto m_p = &m;
         std::visit(
           overloaded {
-            [level, &p, &p1, &vals, &numvals, &mclasses, &ref_base, &m]
+            [level, &p, &p1, &vals, &numvals, &mclasses, &ref_base, m_p]
             (const casacore::Measure* measure) {
               auto mvals = measure->getData()->getVector();
               for (unsigned j = 0; j < mvals.size(); ++j) {
@@ -262,7 +263,7 @@ initialize(
               else assert(false);
               ref_base = measure->getRefPtr();
               mclasses.write(p, mtype);
-              m = std::make_tuple(static_cast<MClass>(mtype), ref_base);
+              *m_p = std::make_tuple(static_cast<MClass>(mtype), ref_base);
             },
             [&p, &numvals, &mclasses, &ref_base]
             (std::tuple<MClass, casacore::MRBase*>& kr) {

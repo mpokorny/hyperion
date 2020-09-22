@@ -104,7 +104,7 @@ verify_scalar_column(
         recorder.expect_true(                                           \
           std::string("verify values, column ") + targs->column,        \
           testing::TestEval<std::function<bool()>>(                     \
-            [&pid, &col, &ary, targs]() {                               \
+            [&pid, &col, &ary]() {                                      \
               bool result = true;                                       \
               for (; result && pid(); pid++) {                          \
                 DataType<DT>::ValueType a;                              \
@@ -379,18 +379,20 @@ verify_column_task(
         auto& mrbs = std::get<0>(mr);
         auto& rmap = std::get<1>(mr);
 #endif
+        auto mrbs_p = &mrbs;
+        auto rmap_p = &rmap;
         recorder.assert_true(
           std::string("column ") + args->column + " has a measure",
-          TE(mrbs.size() == 1));
+          TE(mrbs_p->size() == 1));
         recorder.assert_true(
           std::string("column ") + args->column + " measure is simple",
-          TE(rmap.size() == 1));
+          TE(rmap_p->size() == 1));
       }
       recorder.expect_true(
         std::string("column ") + args->column
         + " has expected measure",
         testing::TestEval<std::function<bool()>>(
-          [&kws, &fmeas, &prs, rt, args]() {
+          [&kws, &fmeas, &prs, rt]() {
             bool result = false;
             casacore::MeasureHolder mh;
             casacore::String err;
@@ -432,9 +434,11 @@ read_full_ms(
   auto& table_ics = std::get<1>(nm_ics_flds);
   auto& table_fields = std::get<2>(nm_ics_flds);
 #endif
+  auto table_name_p = &table_name;
+
   recorder.expect_true(
     "main table name is 'MAIN'",
-    TE(table_name == "MAIN"));
+    TE(*table_name_p == "MAIN"));
   {
     auto ixax = table_ics.axes(ctx, rt);
     recorder.assert_true(
@@ -472,7 +476,7 @@ read_full_ms(
     "DATA",
     // "WEIGHT_SPECTRUM"
   };
-  
+
   auto cols = table.columns();
 
   recorder.assert_true(
