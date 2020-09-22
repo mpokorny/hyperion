@@ -27,7 +27,8 @@
 
 namespace hyperion {
 
-struct HYPERION_EXPORT TableField {
+class HYPERION_EXPORT TableField {
+public:
 
   TableField() {}
 

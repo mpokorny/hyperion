@@ -38,8 +38,8 @@ namespace hyperion {
  *  Maintains metadata about the column, including keywords, measures and
  *  Legion::LogicalRegion name.
  */
-struct HYPERION_EXPORT Column {
-
+class HYPERION_EXPORT Column {
+public:
   /**
    * Create an empty Column
    */

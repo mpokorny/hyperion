@@ -34,7 +34,8 @@ namespace hyperion {
  * index space. Additionally, a flag is maintained to indicate whether the
  * ColumnSpace belongs to an index column of its parent Table.
  */
-struct HYPERION_EXPORT ColumnSpace {
+class HYPERION_EXPORT ColumnSpace {
+public:
 
   /**
    * Maximum supported dimension
