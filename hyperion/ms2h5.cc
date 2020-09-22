@@ -393,7 +393,7 @@ public:
       return false;
     }
 
-    auto ms_status = CXX_FILESYSTEM_NAMESPACE::status(ms);
+    auto ms_status [[maybe_unused]] = CXX_FILESYSTEM_NAMESPACE::status(ms);
     if (!CXX_FILESYSTEM_NAMESPACE::is_directory(ms)) {
       std::ostringstream oss;
       oss << "MS directory " << ms
