@@ -57,6 +57,9 @@ if (USE_HDF5)
     NAME Hdf5UnitTest
     COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/../testing/TestRunner.py
             ./utHdf5 ${LEGION_ARGS})
+  set_tests_properties(
+    Hdf5UnitTest PROPERTIES
+    TIMEOUT 30)
 endif()
 
 if (USE_CASACORE)
