@@ -14,8 +14,8 @@ option(hyperion_USE_YAML "Use YAML in hyperion" ON)
 
 set(hyperion_MAX_STRING_SIZE 64 CACHE STRING "Maximum string size")
 set(hyperion_MAX_NUM_TABLE_COLUMNS 100 CACHE STRING "Maximum number of table columns (> 50)")
-set(hyperion_CXX_STANDARD 14 CACHE STRING "Compile with required C++ standard")
-set_property(CACHE hyperion_CXX_STANDARD PROPERTY STRINGS 14 17)
+set(hyperion_CXX_STANDARD 17 CACHE STRING "Compile with required C++ standard")
+set_property(CACHE hyperion_CXX_STANDARD PROPERTY STRINGS 17)
 
 if(hyperion_USE_OPENMP)
   set(HYPERION_FFTW_COMPONENTS
