@@ -129,7 +129,7 @@ else()
     westmere WSM
     ivybridge SNB
     broadwell BDW
-    skylake SKX
+    skylake BDW # Kokkos doesn't know plain skylake, only skylake-x...see Kokkos Spack package file
     icelake SKX
     skylake-avx512 SKX
     skylake_avx512 SKX)
