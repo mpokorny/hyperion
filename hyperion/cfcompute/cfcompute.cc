@@ -306,7 +306,7 @@ std::vector<ZCoeff> zc{
 template <unsigned INDEX_RANK>
 using cf_col_t =
   PhysicalColumnTD<
-  ValueType<complex<float>>::DataType,
+  ValueType<hyperion::complex<float>>::DataType,
   INDEX_RANK,
   INDEX_RANK + 2,
   AffineAccessor>;
