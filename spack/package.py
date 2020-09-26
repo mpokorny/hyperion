@@ -46,6 +46,7 @@ class Hyperion(CMakePackage):
     for md in max_dims_list:
         depends_on(f'legion max_dims={md}', when=f'max_dims={md}')
     depends_on('legion+redop_complex')
+    depends_on('legion+hdf5', when='+hdf5')
     depends_on('legion+kokkos+shared_libs', when='+kokkos')
     depends_on('legion~kokkos', when='~kokkos')
     depends_on('legion~cuda', when='~cuda')
