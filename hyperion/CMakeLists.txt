@@ -1,4 +1,5 @@
 find_package(Filesystem COMPONENTS Experimental)
+find_package(Legion)
 
 enable_language(CXX)
 
@@ -260,7 +261,7 @@ endif()
 if(HAVE_CXX17)
   target_compile_definitions(hyperion PUBLIC HAVE_CXX17)
 endif()
-target_link_libraries(hyperion PUBLIC LegionRuntime)
+target_link_libraries(hyperion PUBLIC legion realm)
 
 include(GenerateExportHeader)
 generate_export_header(hyperion)
