@@ -60,9 +60,7 @@ class Hyperion(CMakePackage):
     # Kokkos dependency
     depends_on('kokkos+shared+serial std=17', when='+kokkos')
     depends_on('kokkos+openmp', when='+kokkos+openmp')
-    # FIXME: don't require nvcc_wrapper when compiling with Clang
-    depends_on('kokkos+cuda+cuda_lambda~cuda_host_init_check +wrapper',
-               when='+kokkos+cuda')
+    depends_on('kokkos+cuda+cuda_lambda', when='+kokkos+cuda')
     for arch in cuda_arch_list:
         depends_on(
             f'kokkos+cuda cuda_arch={arch}',
