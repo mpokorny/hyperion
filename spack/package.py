@@ -34,13 +34,15 @@ class Hyperion(CMakePackage):
     cuda_arch_list = \
         ('30','32','35','50','52','53','60','61','62','70','72','75')
     variant('cuda_arch',
-            default=('70'),
+            default=('none'),
             values=cuda_arch_list,
             description='Target CUDA compute capabilities',
             multi=True)
     variant('kokkos', default=False, description='Enable Kokkos support')
     variant('openmp', default=False, description='Enable OpenMP support')
     variant('shared', default=True, description='Build shared libraries')
+
+    conflicts('+cuda', when='cuda_arch=none')
 
     # Legion dependency
     for md in max_dims_list:
