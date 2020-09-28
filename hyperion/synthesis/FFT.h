@@ -38,13 +38,11 @@ namespace synthesis {
 struct HYPERION_EXPORT Mutex {
 
   Mutex()
-    : m_lock(ATOMIC_FLAG_INIT)
-    , m_count(default_count) {
+    : m_count(default_count) {
   }
 
   Mutex(size_t count)
-    : m_lock(ATOMIC_FLAG_INIT)
-    , m_count(count) {
+    : m_count(count) {
   }
 
   void
@@ -61,7 +59,7 @@ struct HYPERION_EXPORT Mutex {
   static const constexpr size_t default_count = 1000;
 
 private:
-  std::atomic_flag m_lock; // a spin-lock
+  std::atomic_flag m_lock = ATOMIC_FLAG_INIT; // a spin-lock
   size_t m_count;
 
   bool
