@@ -51,6 +51,8 @@ class Hyperion(CMakePackage):
     depends_on('legion+hdf5', when='+hdf5')
     depends_on('legion+kokkos+shared_libs', when='+kokkos')
     depends_on('legion~kokkos', when='~kokkos')
+    depends_on('legion+openmp', when='+openmp')
+    depends_on('legion~openmp', when='~openmp')
     depends_on('legion~cuda', when='~cuda')
     for arch in cuda_arch_list:
         depends_on(
