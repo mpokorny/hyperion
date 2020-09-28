@@ -261,7 +261,7 @@ endif()
 if(HAVE_CXX17)
   target_compile_definitions(hyperion PUBLIC HAVE_CXX17)
 endif()
-target_link_libraries(hyperion PUBLIC legion realm)
+target_link_libraries(hyperion PUBLIC Legion::Legion)
 
 include(GenerateExportHeader)
 generate_export_header(hyperion)
