@@ -171,26 +171,6 @@ template <typename T, size_t N>
 using array = Kokkos::Array<T, N>;
 template <typename S, typename T>
 using pair = Kokkos::pair<S, T>;
-
-template <typename F>
-HYPERION_INLINE_FUNCTION bool
-operator<(const complex<F>& a, const complex<F>& b) {
-  if (a.real() < b.real())
-    return true;
-  if (a.real() > b.real())
-    return false;
-  return a.imag() < b.imag();
-}
-
-template <typename S, typename T>
-HYPERION_INLINE_FUNCTION bool
-operator<(const pair<S, T>& a, const pair<S, T>& b) {
-  if (a.first < b.first)
-    return true;
-  if (a.first > b.first)
-    return false;
-  return a.second < b.second;
-}
 #endif
 
 template <int N, typename C>
@@ -2931,7 +2911,7 @@ operator<<(std::ostream& stream, const hyperion::string& str);
 namespace std {
 template <typename F>
 HYPERION_EXPORT bool
-operator<(const std::complex<F>& a, const std::complex<F>& b) {
+operator<(const complex<F>& a, const complex<F>& b) {
   if (a.real() < b.real())
     return true;
   if (a.real() > b.real())
@@ -2940,6 +2920,34 @@ operator<(const std::complex<F>& a, const std::complex<F>& b) {
 }
 }
 #endif // HYPERION_USE_KOKKOS && HYPERION_USE_CASACORE
+
+#ifndef HYPERION_USE_KOKKOS
+namespace std {
+template <typename S, typename T>
+HYPERION_EXPORT bool
+operator<(const pair<S, T>& a, const pair<S, T>& b) {
+  if (a.first < b.first)
+    return true;
+  if (a.first > b.first)
+    return false;
+  return a.second < b.second;
+}
+}
+#endif // !HYPERION_USE_KOKKOS
+
+#ifdef HYPERION_USE_KOKKOS
+namespace Kokkos {
+template <typename F>
+HYPERION_INLINE_FUNCTION bool
+operator<(const complex<F>& a, const complex<F>& b) {
+  if (a.real() < b.real())
+    return true;
+  if (a.real() > b.real())
+    return false;
+  return a.imag() < b.imag();
+}
+}
+#endif // HYPERION_USE_KOKKOS
 
 #endif // HYPERION_UTILITY_H_
 
