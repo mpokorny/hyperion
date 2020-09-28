@@ -2,6 +2,7 @@ branches:
   except:
     - gridder
     - x
+    - no_legion_subproject
 dist: focal
 language: cpp
 env:
