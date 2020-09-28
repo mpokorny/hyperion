@@ -16,7 +16,8 @@ Several dependencies are optional, and while the software will build without the
   * zlib
   * git
   * git-lfs [for test data, currently no way to avoid this]
-  * gcc >= v9.3, or Clang >= 10.0 (other versions of either compiler may work, but have not been fully tested)
+  * gcc >= v9.3, or Clang >= v10.0 (other versions of either compiler may work, but have not been fully tested)
+  * Legion (fairly recent version required: commit 05fb0b9 is known to work, as is the case for some earlier commits, but version 20.06.0 is known to not work)
 * Optional
   * [HDF5®](https://www.hdfgroup.org/solutions/hdf5/), version 1.10.5 or later [with `USE_HDF5=ON`]
   * [LLVM](https://llvm.org/), any version acceptable to *Legion* [with `Legion_USE_LLVM=ON`]
@@ -26,7 +27,6 @@ Several dependencies are optional, and while the software will build without the
   * [pkgconf](https:://pkgconf.org) or [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config) [with `USE_CASACORE=ON`]
   * [CUDA](https://developer.nvidia.com/cuda-downloads), version 10.2.89 or later [with `USE_CUDA=ON`]
   * [Kokkos](https://github.com/kokkos/kokkos), version 3.2.00 or later [with `USE_KOKKOS=ON`]
-  * [Kokkos Kernels](https://github.com/kokkos/kokkos-kernels) [with `hyperion_USE_KOKKOS_KERNELS=ON`, or `USE_KOKKOS=ON`]
   * [nvcc_wrapper](https://github.com/kokkos/nvcc_wrapper) [with `USE_CUDA=ON`, `USE_KOKKOS=ON` and gcc compiler]
   * OpenMP, provided by gcc [with `USE_OPENMP=ON`]
 * Currently unimplemented, but when internal *casacore* build is again available (planned)
@@ -42,8 +42,24 @@ Several dependencies are optional, and while the software will build without the
 
 The dependence on *casacore* is optional, but *hyperion* can be built using *casacore* whether or not *casacore* is already installed on your system. To build *hyperion* without any dependency on *casacore*, simply use `-DUSE_CASACORE=OFF` in the arguments to `cmake`. When `cmake` arguments include `-DUSE_CASACORE=ON` and *casacore* is found by *CMake*, *hyperion* will be built against your *casacore* installation. To provide a hint to locating *casacore*, you may use the `CASACORE_ROOT_DIR` *CMake* variable. If `-DUSE_CASACORE=ON` and no *casacore* installation is found on your system (which can also be forced by setting `-DCASACORE_ROOT_DIR=""`), *casacore* will be downloaded and built as a *CMake* external project for *hyperion*. One variable to consider using when building *casacore* through *hyperion* is `casacore_DATA_DIR`, which provides the path to an instance of the *casacore* data directory. If, however, *casacore* will be built through *hyperion* and `casacore_DATA_DIR` is left undefined, the build script will download, and install within the build directory, a recent copy of the geodetic and ephemerides data automatically. For Ubuntu systems, the required *casacore* components and the *casacore* data are available in the `casacore-dev` and `casacore-data` packages, respectively.
 
-#### In-project Legion
-*Legion* itself is always built in-project using CMake's `FetchContent` module. A few of its configuration variables have been lifted to the top level `CMakeLists.txt` file, whereas others are set from the *hyperion* configuration to ensure consistency. Other *Legion* configuration variables should be available directly when invoking `cmake`.
+#### Legion configuration
+The version of *Legion* against which *hyperion* is built must be compatible with the *hyperion* build configuration. Currently, some incompatibilities may cause the build to fail, while other incompatibilities may not become apparent until runtime. It is intended to detect all incompatibilities at build time, but this is not currently the case.
+
+hyperion | Legion
+-------- | -------
+MAX_DIMS=D | MAX_DIMS>=D
+USE_HDF5=ON | USE_HDF5=ON
+USE_OPENMP=ON | USE_OPENMP=ON
+USE_CUDA=ON CUDA_ARCH=LIST | USE_CUDA=ON CUDA_ARCH=LIST
+USE_KOKKOS=ON | USE_KOKKOS=ON
+
+#### Kokkos configuration
+Similarly, if *Kokkos* is used, the configuration of *Kokkos* must be compatible with the *hyperion* build configuration. Most important is that the *Kokkos* installation used to build *Legion* is the same as that used to build *hyperion*. In all cases *Kokkos* should be built with shared libraries and the serial backend enabled, and when using CUDA, *Legion*, too, must be built with shared libraries. Be aware that the names of CUDA architectures used by *hyperion* and *Legion* are different from the names used by *Kokkos*.
+
+hyperion | Kokkos
+-------- | ------
+USE_OPENMP=ON | Kokkos_ENABLE_OPENMP=ON
+USE_CUDA=ON CUDA_ARCH=LIST | Kokkos_ENABLE_CUDA=ON Kokkos_ARCH_XXX=ON Kokkos_ENABLE_CUDA_LAMBDA=ON
 
 ### Build instructions
 First, clone the repository.
@@ -81,7 +97,7 @@ make install
 
 ## Build and install via Spack
 
-A preliminary Spack package file for *hyperion* exists in this repository.
+A preliminary Spack package file for *hyperion* exists in this repository. Recent versions of the Spack package files for *Legion* and *Kokkos* must be used. Building with Spack is encouraged, as doing so simplifies the management of configuration dependencies between *hyperion*, *Legion* and *Kokkos*.
 
 ## Using the software
 
