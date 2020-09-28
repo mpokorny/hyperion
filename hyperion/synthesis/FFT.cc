@@ -542,7 +542,7 @@ rotate_3d_array(T* array, long n0, long n1, long n2, T* scratch) {
   }
   for (long i = 0; i < n0; ++i)
     for (long j = 0; j < n1; ++j)
-      for (long k = 0; j < n2; ++k)
+      for (long k = 0; k < n2; ++k)
         array[(i * n1 + j) * n2 + k] = scratch[(i * n1 + j) * n2 + k];
 }
 
