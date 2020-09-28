@@ -345,6 +345,7 @@ initialize(
             break;
           default:
             assert(false);
+            cm = nullptr;
             break;
           }
           p[level] = p1[level] = c;
