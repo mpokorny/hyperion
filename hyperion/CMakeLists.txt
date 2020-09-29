@@ -1,8 +1,6 @@
 find_package(Filesystem COMPONENTS Final Experimental)
 find_package(Legion)
 
-enable_language(CXX)
-
 include(CheckCXXCompilerFlag)
 
 if(NOT hyperion_USE_KOKKOS)
@@ -47,7 +45,7 @@ else()
   endif()
 endif()
 
-if (CMAKE_CXX_STANDARD STREQUAL 17)
+if(CMAKE_CXX_STANDARD STREQUAL 17)
   set(HAVE_CXX17 True)
 else()
   set(HAVE_CXX14 True)
