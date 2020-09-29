@@ -9,7 +9,6 @@ if(hyperion_USE_KOKKOS)
 endif()
 
 add_executable(utTestLog utTestLog.cc)
-set_host_target_properties(utTestLog)
 target_link_libraries(utTestLog hyperion_testing)
 add_test(
   NAME cpTestLogExpected
@@ -29,7 +28,6 @@ set_tests_properties(
   FIXTURES_REQUIRED TestLogExpected)
 
 add_executable(utTestRecorder utTestRecorder.cc)
-set_host_target_properties(utTestRecorder)
 target_link_libraries(utTestRecorder hyperion_testing)
 add_test(
   NAME cpTestRecorderExpected

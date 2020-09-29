@@ -21,7 +21,6 @@ target_sources(hyperion_testing PRIVATE
   TestSuiteDriver.h
   TestSuiteDriver.cc)
 
-set_host_target_properties(hyperion_testing)
 add_dependencies(hyperion_testing TestRunner)
 target_link_libraries(hyperion_testing PUBLIC hyperion)
 set_target_properties(hyperion_testing PROPERTIES

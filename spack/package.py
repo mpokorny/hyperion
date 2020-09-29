@@ -24,6 +24,9 @@ class Hyperion(CMakePackage):
     depends_on('ninja', type='build')
 
     # Top-level hyperion variants
+    std_list = ('14', '17')
+    variant('std', default='17', description='C++ language standard',
+            values=std_list, multi=False)
     max_dims_list = ('4','5','6','7','8','9')
     variant('max_dims', default='8', description='Maximum index space rank',
             values=max_dims_list, multi=False)
@@ -60,7 +63,8 @@ class Hyperion(CMakePackage):
             when=f'+cuda cuda_arch={arch}')
 
     # Kokkos dependency
-    depends_on('kokkos+shared+serial std=17', when='+kokkos')
+    for std in std_list:
+        depends_on(f'kokkos+shared+serial std={std}', when=f'+kokkos std={std}')
     depends_on('kokkos+openmp', when='+kokkos+openmp')
     depends_on('kokkos+cuda+cuda_lambda', when='+kokkos+cuda')
     for arch in cuda_arch_list:
@@ -73,7 +77,8 @@ class Hyperion(CMakePackage):
     depends_on('fftw~mpi precision=float,double')
     depends_on('fftw+openmp', when='+openmp')
     depends_on('casacore', when='+casacore')
-    depends_on('pkgconf', when='+casacore', type=('build')) # FindCasacore requires it
+    # FindCasacore requires pkgconf
+    depends_on('pkgconf', when='+casacore', type=('build'))
     depends_on('hdf5+threadsafe+szip~mpi', when='+hdf5')
     depends_on('yaml-cpp', when='+yaml')
     depends_on('cuda', when='+cuda', type=('build', 'link', 'run'))
@@ -86,24 +91,20 @@ class Hyperion(CMakePackage):
         spec = self.spec
 
         args.append(self.define_from_variant('BUILD_SHARED_LIBS', 'shared'))
-        args.append(self.define_from_variant('USE_CASACORE', 'casacore'))
-        args.append(self.define_from_variant('USE_HDF5', 'hdf5'))
-        args.append(self.define_from_variant('USE_OPENMP', 'openmp'))
-        args.append(self.define_from_variant('USE_CUDA', 'cuda'))
-        args.append(self.define_from_variant('USE_KOKKOS', 'kokkos'))
+        args.append(self.define_from_variant('CMAKE_CXX_STANDARD', 'std'))
+
+        args.append(self.define_from_variant('hyperion_USE_CASACORE', 'casacore'))
+        args.append(self.define_from_variant('hyperion_USE_HDF5', 'hdf5'))
+        args.append(self.define_from_variant('hyperion_USE_OPENMP', 'openmp'))
+        args.append(self.define_from_variant('hyperion_USE_CUDA', 'cuda'))
+        args.append(self.define_from_variant('hyperion_USE_KOKKOS', 'kokkos'))
         args.append(self.define_from_variant('hyperion_USE_YAML', 'yaml'))
 
         if '+cuda' in spec:
-            # TODO: this is probably not desired, but removal needs testing
-            cxx_std = "14"
-        else:
-            cxx_std = "17"
+            args.append(
+                f'-Dhyperion_CUDA_ARCH={",".join(spec.variants["cuda_arch"].value)}')
 
-        if '+cuda' in spec:
-            args.append(f'-DCUDA_ARCH={",".join(spec.variants["cuda_arch"].value)}')
-
-        args.append(f'-DBUILD_ARCH:STRING={spec.architecture.target}')
-        args.append(f'-Dhyperion_CXX_STANDARD={cxx_std}')
+        args.append(f'-Dhyperion_BUILD_ARCH:STRING={spec.architecture.target}')
         if '+kokkos' in spec:
             args.append(f'-DCMAKE_CXX_COMPILER={self.spec["kokkos"].kokkos_cxx}')
         return args
