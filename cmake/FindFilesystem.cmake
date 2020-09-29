@@ -128,9 +128,6 @@ cmake_push_check_state()
 
 set(CMAKE_REQUIRED_QUIET ${Filesystem_FIND_QUIETLY})
 
-# All of our tests required C++17 or later
-set(CMAKE_CXX_STANDARD 17)
-
 # Normalize and check the component list we were given
 set(want_components ${Filesystem_FIND_COMPONENTS})
 if(Filesystem_FIND_COMPONENTS STREQUAL "")
@@ -145,7 +142,11 @@ foreach(component IN LISTS extra_components)
 endforeach()
 
 # Detect which of Experimental and Final we should look for
-set(find_experimental TRUE)
+if(${CMAKE_CXX_STANDARD} LESS 17)
+  set(find_experimental TRUE)
+else()
+  set(find_experimental FALSE)
+endif()
 set(find_final TRUE)
 if(NOT "Final" IN_LIST want_components)
     set(find_final FALSE)
@@ -157,11 +158,6 @@ endif()
 if(find_final)
     check_include_file_cxx("filesystem" _CXX_FILESYSTEM_HAVE_HEADER)
     mark_as_advanced(_CXX_FILESYSTEM_HAVE_HEADER)
-    if(_CXX_FILESYSTEM_HAVE_HEADER)
-        # We found the non-experimental header. Don't bother looking for the
-        # experimental one.
-        set(find_experimental FALSE)
-    endif()
 else()
     set(_CXX_FILESYSTEM_HAVE_HEADER FALSE)
 endif()
@@ -173,16 +169,16 @@ else()
     set(_CXX_FILESYSTEM_HAVE_EXPERIMENTAL_HEADER FALSE)
 endif()
 
-if(_CXX_FILESYSTEM_HAVE_HEADER)
-    set(_have_fs TRUE)
-    set(_fs_header filesystem)
-    set(_fs_namespace std::filesystem)
-    set(_is_experimental FALSE)
-elseif(_CXX_FILESYSTEM_HAVE_EXPERIMENTAL_HEADER)
+if(_CXX_FILESYSTEM_HAVE_EXPERIMENTAL_HEADER)
     set(_have_fs TRUE)
     set(_fs_header experimental/filesystem)
     set(_fs_namespace std::experimental::filesystem)
     set(_is_experimental TRUE)
+elseif(_CXX_FILESYSTEM_HAVE_HEADER)
+    set(_have_fs TRUE)
+    set(_fs_header filesystem)
+    set(_fs_namespace std::filesystem)
+    set(_is_experimental FALSE)
 else()
     set(_have_fs FALSE)
 endif()
@@ -214,12 +210,12 @@ if(CXX_FILESYSTEM_HAVE_FS)
     _cmcm_check_cxx_source("${code}" CXX_FILESYSTEM_STDCPPFS_NEEDED)
     set(can_link ${CXX_FILESYSTEM_STDCPPFS_NEEDED})
     if(NOT CXX_FILESYSTEM_STDCPPFS_NEEDED)
-        # Try to compile a simple filesystem program with the libc++ flag
+      # Try to compile a simple filesystem program with the libc++ flag
         set(CMAKE_REQUIRED_LIBRARIES ${prev_libraries} -lc++fs)
         _cmcm_check_cxx_source("${code}" CXX_FILESYSTEM_CPPFS_NEEDED)
         set(can_link ${CXX_FILESYSTEM_CPPFS_NEEDED})
         if(NOT CXX_FILESYSTEM_CPPFS_NEEDED)
-            # Try to compile a simple filesystem program without any linker flags
+          # Try to compile a simple filesystem program without any linker flags
             _cmcm_check_cxx_source("${code}" CXX_FILESYSTEM_NO_LINK_NEEDED)
             set(can_link ${CXX_FILESYSTEM_NO_LINK_NEEDED})
         endif()
@@ -227,7 +223,6 @@ if(CXX_FILESYSTEM_HAVE_FS)
 
     if(can_link)
         add_library(std::filesystem INTERFACE IMPORTED)
-        set_property(TARGET std::filesystem APPEND PROPERTY INTERFACE_COMPILE_FEATURES cxx_std_17)
         set(_found TRUE)
 
         if(CXX_FILESYSTEM_NO_LINK_NEEDED)

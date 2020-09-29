@@ -1,4 +1,4 @@
-find_package(Filesystem COMPONENTS Experimental)
+find_package(Filesystem COMPONENTS Final Experimental)
 find_package(Legion)
 
 enable_language(CXX)
