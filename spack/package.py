@@ -99,6 +99,9 @@ class Hyperion(CMakePackage):
         else:
             cxx_std = "17"
 
+        if '+cuda' in spec:
+            args.append(f'-DCUDA_ARCH={",".join(spec.variants["cuda_arch"].value)}')
+
         args.append(f'-DBUILD_ARCH:STRING={spec.architecture.target}')
         args.append(f'-Dhyperion_CXX_STANDARD={cxx_std}')
         if '+kokkos' in spec:
